@@ -1,0 +1,76 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Checks if a service is enabled and running.'
+
+command_enabled = 'systemctl is-enabled {service}'
+command_active = 'systemctl is-active {service}'
+
+DEFAULT_CRIT = None
+DEFAULT_WARN = 24
+
+DEFAULT_RUNNING_CRIT = 4
+DEFAULT_RUNNING_WARN = 5
+
+#====================
+
+import argparse
+
+from lib.globals import *
+from lib.execute_command import execute_command
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-s', '--service', help='Name of the service',
+                      type=str, dest='SERVICE')
+    
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    service = parsed.SERVICE
+
+    command = command_active.format(service=service)
+    sp = execute_command(command)
+    result, command_err = sp.communicate()
+    if (command_err or sp.returncode != 0):
+        print('Service {} is {}'.format(service, result.strip()))
+        exit(STATE_CRIT)
+
+    command = command_enabled.format(service=service)
+    sp = execute_command(command)
+    result, command_err = sp.communicate()
+    if (len(result)) == 0:
+        print('Service {} doesn\'t exist'.format(service))
+        exit(STATE_UNKNOWN)
+
+    if (sp.returncode != 0):
+        print('Service {} is {}'.format(service, result.strip()))
+        exit(STATE_WARN)
+
+
+    print('Service {} is running and enabled'.format(service))
+    exit(STATE_OK)
+
+if __name__ == '__main__':
+    main()

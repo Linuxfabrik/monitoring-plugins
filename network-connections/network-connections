@@ -1,0 +1,84 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122101'
+
+DESCRIPTION = 'TODO'
+
+
+#====================
+
+import argparse
+import psutil
+import socket
+
+from lib2.globals import *
+from lib2.utils import execute_command
+from socket import AF_INET, SOCK_STREAM, SOCK_DGRAM
+
+
+AD = "-"
+AF_INET6 = getattr(socket, 'AF_INET6', object())
+proto_map = {
+    (AF_INET, SOCK_STREAM): 'tcp',
+    (AF_INET6, SOCK_STREAM): 'tcp6',
+    (AF_INET, SOCK_DGRAM): 'udp',
+    (AF_INET6, SOCK_DGRAM): 'udp6',
+}
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+
+    return parser.parse_args()
+
+
+def main():
+    proc_names = {}
+    # Changed in psutil version 5.3.0: added “attrs” and “ad_value” parameters.
+    if psutil.__version__ >= '5.3.0':
+        for p in psutil.process_iter(attrs=['pid', 'name']):
+            proc_names[p.info['pid']] = p.info['name']
+    else:
+        for p in psutil.process_iter():
+            try:
+                proc_names[p.pid] = p.name()
+            except psutil.Error:
+                pass
+
+    conn_count = {}
+    for c in psutil.net_connections(kind='inet'):
+        proto = proto_map[(c.family, c.type)]
+        status = c.status
+
+        if proto not in conn_count.keys():
+            conn_count[proto] = {}
+        if status not in conn_count[proto].keys():
+            conn_count[proto][status] = 1
+        else:
+            conn_count[proto][status] += 1
+
+    msg = ''
+    perfdata = ''
+    for proto in sorted (conn_count.keys()):
+        for status in sorted (conn_count[proto].keys()):
+            msg += '{} {}: {}, ' . format(proto, status, conn_count[proto][status])
+            # 'label'=value[UOM];[warn];[crit];[min];[max]
+            perfdata += '{}_{}={};;;0;; ' . format(proto, status, conn_count[proto][status])
+
+    print(msg[:-2] + '|' + perfdata[:-2])
+    exit(STATE_OK)
+
+
+if __name__ == '__main__':
+    main()

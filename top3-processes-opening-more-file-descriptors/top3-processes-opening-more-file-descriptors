@@ -1,0 +1,44 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019041801'
+
+DESCRIPTION = 'Displays the top 3 processes opening more file descriptors.'
+
+#====================
+
+import psutil
+from collections import Counter
+
+from lib.globals import *
+
+def main():
+    msg = ''
+    cnt = Counter()
+
+    # only works with psutil version >= 5.3.0
+    # for p in psutil.process_iter(attrs=['name', 'num_fds']):
+    #     if p.info['num_fds']:
+    #         cnt[p.info['name']] += p.info['num_fds']
+    try:
+        for p in [x.as_dict(attrs=['name', 'num_fds']) for x in psutil.process_iter()]:
+            if p['num_fds']:
+                cnt[p['name']] += p['num_fds']
+    except psutil.NoSuchProcess:
+        pass
+        
+    for i, p in enumerate(cnt.most_common(3)):
+        msg += '{}. {}: {} FD, '.format(i + 1, p[0], p[1])
+
+    print(msg[:-2]) # strip trailing ', '
+    exit(STATE_OK)
+
+main()

@@ -1,0 +1,67 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Checks how long the local system has been running since the last boot.'
+
+DEFAULT_CRIT = 31536000
+DEFAULT_WARN = 15768000
+
+#====================
+
+from lib.globals import *
+from lib.parse_input import evaluate_greater, compare_datetime_to_now
+from lib.output import unpack_perfdata
+from lib.execute_command import execute_command
+
+import argparse
+from datetime import timedelta
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the uptime (in seconds). Default: %(default)s',
+                      default=DEFAULT_CRIT, type=int, dest='CRIT')
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the uptime (in seconds). Default: %(default)s',
+                      default=DEFAULT_WARN, type=int, dest='WARN')
+    
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    CRIT = parsed.CRIT
+    WARN = parsed.WARN
+
+    with open('/proc/uptime') as uptime_file:
+        for line in uptime_file:
+            uptime_s, idle_s = line.split()
+
+    uptime_data = Data('uptime', uptime_s, WARN, CRIT)
+    uptime_data.set_state(evaluate_greater((uptime_data.value, uptime_data.warn, uptime_data.crit)))
+    perfdata = unpack_perfdata((uptime_data.label, uptime_data.value, 's', uptime_data.warn, uptime_data.crit, 0, None))
+    global_state = uptime_data.state
+
+    msg = 'up {} (={}s)'.format(timedelta(seconds=round(float(uptime_s))), uptime_s)
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(global_state)
+
+if __name__ == '__main__':
+    main()

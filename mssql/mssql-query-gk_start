@@ -1,0 +1,122 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Runs a mssql query and compares the returned date to today.'
+
+command = "/opt/mssql-tools/bin/sqlcmd -b -S '{hostname}\\{instance},{port}' -U '{username}' -P '{password}' -s ';' -W -Q '{query}'"
+
+DEFAULT_CRIT = 0
+DEFAULT_WARN = None
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_INSTANCE = 'MSSQLSERVER'
+DEFAULT_PORT = 1433
+DEFAULT_USERNAME = 'sa'
+DEFAULT_PASSWORD = ''
+DEFAULT_QUERY = 'EXEC sp_databases'
+DEFAULT_TRUNCATERESULT = 10
+
+
+UOM = None
+MIN = None
+MAX = None
+
+
+#====================
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.parse_input import compare_date_to_today
+from lib.output import unpack_perfdata
+
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the time difference (in days). Default: %(default)s',
+                      default=DEFAULT_CRIT, type=int, dest='CRIT')
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the time difference (in days). Default: %(default)s',
+                      default=DEFAULT_WARN, type=int, dest='WARN')
+
+    parser.add_argument('-H', '--hostname', help='Set the hostname of the mssql Server Default: %(default)s',
+                      default=DEFAULT_HOSTNAME, type=str, dest='HOSTNAME')
+
+    parser.add_argument('-I', '--instance', help='Set the instance for the mssql Server. Default: %(default)s',
+                      default=DEFAULT_INSTANCE, type=str, dest='INSTANCE')
+
+    parser.add_argument('-P', '--port', help='Set the port of the mssql Server. Default: %(default)s',
+                      default=DEFAULT_PORT, type=int, dest='PORT')
+
+    parser.add_argument('-u', '--username', help='Set the username for the mssql Server. Default: %(default)s',
+                      default=DEFAULT_USERNAME, type=str, dest='USERNAME')
+
+    parser.add_argument('-p', '--password', help='Set the password for the mssql Server. Default: %(default)s',
+                      default=DEFAULT_PASSWORD, type=str, dest='PASSWORD')
+
+    parser.add_argument('-q', '--query', help='Set the mssql Query that should be evaluated. Default: %(default)s',
+                      default=DEFAULT_QUERY, type=str, dest='QUERY')
+
+    parser.add_argument('-t', '--truncateresult', help='Set the max number of lines to be outputted. Default: %(default)s',
+                      default=DEFAULT_TRUNCATERESULT, type=int, dest='TRUNCATERESULT')
+    
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    CRIT = parsed.CRIT
+    WARN = parsed.WARN
+
+    query = parsed.QUERY.format(WARN=parsed.WARN, CRIT=parsed.CRIT)
+    formated_command = command.format(hostname=parsed.HOSTNAME, instance=parsed.INSTANCE, port=parsed.PORT, username=parsed.USERNAME, password=parsed.PASSWORD, query=query, WARN=parsed.WARN, CRIT=parsed.CRIT)
+
+    sp = execute_command(formated_command)
+    result, err = sp.communicate()
+    result_rc = sp.returncode
+    if (err or result_rc != 0):
+        print(str(result) + str(err))
+        exit(STATE_UNKNOWN)
+
+    # perfdata = ''
+    submsg = ''
+    global_state = STATE_OK
+    for line in result.splitlines()[2:-2]: # ignore first 2 and last 2 lines
+        line = line.split(';')
+        data = Data(line[0], line[1], WARN, CRIT)
+        data.set_state(compare_date_to_today((data.value, data.warn, data.crit)))
+        # perfdata += unpack_perfdata((data.label, data.value, UOM, data.warn, data.crit, MIN, MAX))
+        submsg += data.format_submsg('\n{}: {}'.format(data.label, data.value))
+
+        if data.state > global_state:
+            global_state = data.state
+
+
+    if global_state != STATE_OK:
+        msg = 'One or more dates triggered a threshold. \n{}'.format(submsg)
+    else:
+        msg = 'No dates triggered a threshold. \n{}'.format(submsg)
+        
+    print(msg.strip())
+    # print(msg.strip() + '|' + perfdata.strip())
+    exit(global_state)
+
+main()

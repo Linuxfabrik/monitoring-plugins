@@ -1,0 +1,77 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019120604'
+
+DESCRIPTION         = 'Checks the IPMI System Event Log (SEL) and returns WARN if there are entries.'
+
+command_installed   = '/usr/bin/command -v ipmitool'
+command_cmd         = 'ipmitool sel elist'
+# command_cmd         = 'cat examples/EXAMPLE01'
+
+
+#====================
+
+import argparse
+
+from lib2.globals import *
+from lib2.utils import execute_command
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # check if shell command is available
+    stdout, stderr, retc = execute_command(command_installed)
+    if (retc != 0):
+        print('`ipmitool` is missing. On CentOS, use `yum install ipmitool`.')
+        exit(STATE_UNKNOWN)
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(command_cmd)
+    if (retc != 0):
+        print('Bash command `{}` failed.'.format(command_cmd))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+
+    # everything is ok
+    if 'SEL has no entries' in stderr:
+        print('SEL has no entries.')
+        exit(STATE_OK)
+
+    # there are entries, so we have to throw a warning about that
+    print('IPMI System Event Log (SEL) has entries.')
+    msg = ''
+    for line in stdout.splitlines():
+        msg += '\n* ' + line.replace('|', ';')
+
+    if msg.strip():
+        print(msg)
+        exit(STATE_WARN)
+    else:
+        print('Something strange happend.')
+        exit(STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    main()

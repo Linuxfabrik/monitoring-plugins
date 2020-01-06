@@ -1,0 +1,125 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122801'
+
+DESCRIPTION = 'This check is just a development template. It gets a random number with a bash command between 0 and 100 and compares the result against given thresholds. As an extra feature it also uses a temp file to store the last five results.'
+
+bash_command = 'tr -dc 0-9 < /dev/urandom | head -c 4'
+
+DEFAULT_WARN = 33.33
+DEFAULT_CRIT = 66.67
+
+
+#====================
+import argparse
+import datetime
+import pickle
+
+from lib2.globals import *
+from lib2.output import unpack_perfdata, state_to_string, format_as_table
+from lib2.parse_input import evaluate_greater
+from lib2.utils import execute_command
+
+try:
+    import tempfile
+except ImportError, e:
+    print('Python module "tempfile" is not installed. Try `yum -y install python-tempfile` or `pip install tempfile`.')
+    exit(STATE_UNKNOWN)
+
+
+def define_args():
+
+    # https://docs.python.org/2/library/argparse.html
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+    parser.add_argument('-c', '--critical', 
+        help = 'Set the CRIT threshold. Default: >= %(default)s',
+        dest = 'CRIT',
+        type = float,
+        default = DEFAULT_CRIT,
+        )
+    parser.add_argument('-w', '--warning',
+        help = 'Set the WARN threshold. Default: >= %(default)s',
+        dest = 'WARN',
+        type = float,
+        default = DEFAULT_WARN,
+        )
+    parser.add_option('-x', '--check', 
+        help = 'The thing you want to check [system|storage|shares|webserver|php|database|activeUsers|uploadFilesize]',
+        dest = 'check', 
+        choices = ['system','storage','shares','webserver','php','database','activeUsers','uploadFilesize'], 
+        default = 'system',
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(bash_command, shell=True)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(bash_command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+    result = float('{}.{}'.format(int(stdout[:2]), int(stdout[2:])))
+
+
+    # for dealing with a temporary file, have a look at cpu_usage
+    # you need the pickle library
+
+
+    # for doing GET and POST requests, look at
+    # * nextcloud-security-scan
+    # * rocket.chat-stats
+    
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    
+
+    # calculating the final check state
+    state = evaluate_greater(result, parsed.WARN, parsed.CRIT)
+    if state == STATE_CRIT:
+        print('Result {} is >= 66.67.'.format(result))
+    elif state == STATE_WARN:
+        print('Result {} is between 33.33 and 66.67.'.format(result))
+    else:
+        print('Result {} is between 0 and 33.33.'.format(result))
+
+
+    # print additional output
+    table = format_as_table(new_data, ['index', 'value'], ['', 'value'], 'index')
+    if table:
+        print('\n{}'.format(table.strip()))
+
+
+    # print out perfdata
+    perfdata = unpack_perfdata('random_value', result, None, parsed.WARN, parsed.CRIT, 0, 100)
+    print('|' + perfdata)
+
+    exit(state)
+
+
+if __name__ == '__main__':
+    main()

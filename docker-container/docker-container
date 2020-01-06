@@ -1,0 +1,186 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019112001'
+
+DESCRIPTION = 'Checks the stats and number of docker containers.'
+
+command_stats = 'docker stats --no-stream'
+command_info = 'docker info'
+
+DEFAULT_STAT_WARN = 90.0
+DEFAULT_STAT_CRIT = 95.0
+
+DEFAULT_CONTAINERS_WARN = None
+DEFAULT_CONTAINERS_CRIT = None
+DEFAULT_RUNNING_CONTAINERS_WARN = None
+DEFAULT_RUNNING_CONTAINERS_CRIT = None
+
+#====================
+
+import argparse
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.output import unpack_perfdata
+from lib.parse_arguments import csv_arg
+from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, str2bytes
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the CPU and memory usage percentage. Default: %(default)s',
+                      default=DEFAULT_STAT_WARN, type=float, dest='STAT_WARN')
+
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the CPU and memory usage percentage. Default: %(default)s',
+                      default=DEFAULT_STAT_CRIT, type=float, dest='STAT_CRIT')
+
+    parser.add_argument('--w_containers', help='Set the warning threshold for the number of total containers. Default: %(default)s',
+                      default=DEFAULT_CONTAINERS_WARN, type=int, dest='CONTAINERS_WARN')
+
+    parser.add_argument('--c_containers', help='Set the critical threshold for the number of total containers. Default: %(default)s',
+                      default=DEFAULT_CONTAINERS_CRIT, type=int, dest='CONTAINERS_CRIT')
+
+    parser.add_argument('--w_running_containers', help='Set the warning threshold for the number of running containers. Default: %(default)s',
+                      default=DEFAULT_RUNNING_CONTAINERS_WARN, type=int, dest='RUNNING_CONTAINERS_WARN')
+
+    parser.add_argument('--c_running_containers', help='Set the critical threshold for the number of running containers. Default: %(default)s',
+                      default=DEFAULT_RUNNING_CONTAINERS_CRIT, type=int, dest='RUNNING_CONTAINERS_CRIT')
+
+    parser.add_argument('--docker_names', help='Set a list of container names which should be Up, in the format "containername1,containername2".',
+                      type=csv_arg, dest='DOCKER_NAMES')
+
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+
+    proc = execute_command(command_stats)
+    result_stats, err = proc.communicate()
+    result_stats_rc = proc.returncode
+    if (err or result_stats_rc != 0):
+        print('Bash command `{}` failed. {}'.format(command_stats, err.strip()))
+        exit(STATE_UNKNOWN)
+
+    result_stats = mltext2array(result_stats, skip_header=True, sort_key=1)
+    global_state = STATE_OK
+    state_checklist = []
+    msg = ''
+    msg_addendum = '\n'
+    perfdata = ''
+    table = '''
+Name                                    ║ CPU   ║ MEM                            ║ Net (rx/tx)  ║ Blocks (r/w) ║ PIDs
+════════════════════════════════════════╬═══════╬════════════════════════════════╬══════════════╬══════════════╬══════'''
+
+    cpu_sum = 0
+    running_container_names = []
+    for container in result_stats:
+        if container[0] != '--':
+            container_id, name, cpu_pcent, mem_usage, tmp, mem_limit, mem_pcent, net_in, tmp, net_out, block_in, tmp, block_out, pids = container
+            running_container_names.append(name)
+            cpu_sum += float(cpu_pcent.replace('%', ''))
+
+            cpu_data = Data('{}_cpu'.format(name), float(cpu_pcent.replace('%', '')), parsed.STAT_WARN, parsed.STAT_CRIT)
+            cpu_data.set_state(evaluate_greater((cpu_data.value, cpu_data.warn, cpu_data.crit)))
+            perfdata += unpack_perfdata((cpu_data.label, cpu_data.value, '%', cpu_data.warn, cpu_data.crit, 0, 100))
+            state_checklist.append(cpu_data.state)
+
+            mem_data = Data('{}_mem'.format(name), float(mem_pcent.replace('%', '')), parsed.STAT_WARN, parsed.STAT_CRIT)
+            mem_data.set_state(evaluate_greater((mem_data.value, mem_data.warn, mem_data.crit)))
+            perfdata += unpack_perfdata((mem_data.label, mem_data.value, '%', mem_data.warn, mem_data.crit, 0, 100))
+            state_checklist.append(mem_data.state)
+
+            stat_state_checklist = [cpu_data.state, mem_data.state]
+            state = ''
+            if STATE_CRIT in stat_state_checklist:
+                state = ' (CRIT)'
+            elif STATE_WARN in stat_state_checklist:
+                state = ' (WARN)'
+
+            mem_string = '{} of {} ({})'.format(mem_usage, mem_limit, mem_pcent)
+            net_string = '{}/{}'.format(net_out, net_in)
+            block_string = '{}/{}'.format(block_in, block_out)
+
+            table += '\n{:40}║{:7}║{:32}║{:14}║{:14}║{}'.format(name + state, cpu_pcent, mem_string, net_string, block_string, pids)
+
+    proc = execute_command(command_info)
+    result_info, result_info_err = proc.communicate()
+    result_info_rc = proc.returncode
+    if (result_info_rc != 0): # stderr is ok, will contain ERR and WARNING
+        print('Bash command `{}` failed. {}'.format(command_info, result_info_err.strip()))
+        exit(STATE_UNKNOWN)
+
+
+    for line in result_info.splitlines():
+        line = line.strip()
+        if line.startswith('Containers: '):
+            container_count = int(line.split(': ')[1])
+
+        if line.startswith('Running: '):
+            running_container_count = int(line.split(': ')[1])
+
+
+    container_count_data = Data('container_count', container_count, parsed.CONTAINERS_WARN, parsed.CONTAINERS_CRIT)
+    container_count_data.set_state(evaluate_smaller((container_count_data.value, container_count_data.warn, container_count_data.crit)))
+    perfdata += unpack_perfdata((container_count_data.label, container_count_data.value, None, container_count_data.warn, container_count_data.crit, 0, None))
+    state_checklist.append(container_count_data.state)
+    if container_count_data.state != STATE_OK:
+        msg += 'The number of present containers is less than expected (W: {}, C: {}).'.format(parsed.CONTAINERS_WARN, parsed.CONTAINERS_CRIT)
+
+
+    running_container_count_data = Data('running_container_count', running_container_count, parsed.RUNNING_CONTAINERS_WARN, parsed.RUNNING_CONTAINERS_CRIT)
+    running_container_count_data.set_state(evaluate_smaller((running_container_count_data.value, running_container_count_data.warn, running_container_count_data.crit)))
+    perfdata += unpack_perfdata((running_container_count_data.label, running_container_count_data.value, None, running_container_count_data.warn, running_container_count_data.crit, 0, None))
+    state_checklist.append(running_container_count_data.state)
+    if running_container_count_data.state != STATE_OK:
+        msg += 'The number of running containers is less than expected (W: {}, C: {}).'.format(parsed.RUNNING_CONTAINERS_WARN, parsed.RUNNING_CONTAINERS_CRIT)
+
+    DOCKER_NAMES = parsed.DOCKER_NAMES
+    if DOCKER_NAMES:
+        for name in DOCKER_NAMES:
+            if name in running_container_names:
+                DOCKER_NAMES.remove(name)
+
+        if len(DOCKER_NAMES) > 0:
+            if global_state != STATE_CRIT:
+                global_state = STATE_WARN
+            msg += '\nWARN: The following containers should be up but are not:'
+            for container_name in DOCKER_NAMES:
+                msg += '\n* ' + container_name
+            msg += '\n'
+
+    if STATE_CRIT in state_checklist:
+        global_state = STATE_CRIT
+    elif STATE_WARN in state_checklist:
+        if global_state != STATE_CRIT:
+            global_state = STATE_WARN
+
+    if container_count != 0 and running_container_count == 0:
+        if global_state != STATE_CRIT:
+            global_state = STATE_WARN
+        msg = 'No containers running. ({} running, {}% CPU)'.format(running_container_count, cpu_sum) + msg
+    else:
+        if global_state == STATE_OK:
+            msg = 'All containers are ok. ({} running, {}% CPU)'.format(running_container_count, cpu_sum) + msg
+        else:
+            msg = 'One or more errors. ({} running, {}% CPU)'.format(running_container_count, cpu_sum) + msg
+
+    print(msg + table + msg_addendum + '|' + perfdata.strip())
+    exit(global_state)
+
+main()

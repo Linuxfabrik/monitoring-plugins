@@ -1,0 +1,67 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122301'
+
+DESCRIPTION = 'Checks the current mode of SELinux against a desired mode, and returns a warning on a non-match.'
+
+bash_command = '/usr/sbin/getenforce'
+
+DEFAULT_SELINUX_MODE = 'Enforcing'
+
+
+#====================
+import argparse
+
+from lib2.globals import *
+from lib2.utils import execute_command
+
+
+def define_args():
+
+    # https://docs.python.org/2/library/argparse.html
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-m', '--expected-mode', help='The expected SELinux mode, one of "Enforcing", "Permissive" or "Disabled" (case-insensitiv). Default: %(default)s', default=DEFAULT_SELINUX_MODE, dest='SELINUX_MODE')
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    selinux_mode = parsed.SELINUX_MODE
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(bash_command, shell=True)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(bash_command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+    result = stdout.strip()
+
+
+    # calculating the final check state
+    if result.lower() == selinux_mode.lower():
+        print('SELinux mode is as expected ({}).' . format(result))
+        exit(STATE_OK)
+
+    print('SELinux mode is {}, but supposed to be {}.' . format(result, selinux_mode))
+    exit(STATE_WARN)
+
+
+if __name__ == '__main__':
+    main()

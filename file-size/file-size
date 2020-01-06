@@ -1,0 +1,92 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020010501'
+
+DESCRIPTION = 'Checks the size of a file, in bytes.'
+
+DEFAULT_WARN = 1024*1024*100      # byte
+DEFAULT_CRIT = 1024*1024*1024     # byte
+
+
+#====================
+import argparse
+import os
+
+from lib2.globals import *
+from lib2.output import bytes2human, unpack_perfdata
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-c', '--critical', 
+        help = 'Set the CRIT size threshold in bytes. Default: >= %(default)s (1G)',
+        dest = 'CRIT',
+        type = float,
+        default = DEFAULT_CRIT,
+        )
+    parser.add_argument('-f', '--filename',
+        help='File name to check.',
+        dest='FILE',
+        )
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        )
+    parser.add_argument('-w', '--warning',
+        help = 'Set the WARN size threshold in bytes. Default: >= %(default)s (100M)',
+        dest = 'WARN',
+        type = float,
+        default = DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    FILE = parsed.FILE
+    WARN = parsed.WARN
+    CRIT = parsed.CRIT
+
+    if not FILE:
+        print('Missing --filename parameter.')
+        exit(STATE_UNKNOWN)
+
+
+    # fetch the data
+    try:
+        st = os.stat(FILE)
+    except:
+        print('Error reading file or directory "{}".' . format(FILE))
+        exit(STATE_UNKNOWN)
+
+    size = st.st_size
+
+    msg = '{} is {}.' . format(FILE, bytes2human(size))
+    # label, value, uom, warn, crit, min, max):
+    perfdata = unpack_perfdata('file_size_{}' . format(FILE), size, 'B', WARN, CRIT, 0, None)
+    print(msg.strip() + '|' + perfdata.strip())
+
+    if size >= CRIT:
+        exit(STATE_CRIT)
+    if size >= WARN:
+        exit(STATE_WARN)
+    exit(STATE_OK)
+
+if __name__ == '__main__':
+    main()

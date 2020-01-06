@@ -1,0 +1,185 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'This plugin checks the clock offset with the ntp server.'
+
+systemctl_command = 'systemctl is-active --quiet {service}' # ntpd / chronyd
+program_exist_command = 'command -v {program}'              # ntpq / chronyc
+
+ntpq_command = 'ntpq -p'
+chronyc_command = 'chronyc tracking'
+
+DEFAULT_WARN = 500
+DEFAULT_CRIT = 1000
+
+
+UOM = 'ms'
+MIN = None
+MAX = None
+
+
+#====================
+import argparse
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.output import unpack_perfdata
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the ntp time offset, in ms. Default: %(default)sms',
+                      default=DEFAULT_WARN, type=int, dest='warn')
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the ntp time offset, in ms. Default: %(default)sms',
+                      default=DEFAULT_CRIT, type=int, dest='crit')
+    
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    warn = parsed.warn
+    crit = parsed.crit
+
+    command = systemctl_command.format(service='ntpd')
+    sp = execute_command(command)
+    result, command_err = sp.communicate()
+    ntpd_rc = sp.returncode
+    if (command_err):
+        print(command_err)
+        exit(STATE_UNKNOWN)
+
+    command = systemctl_command.format(service='chronyd')
+    sp = execute_command(command)
+    result, command_err = sp.communicate()
+    chronyd_rc = sp.returncode
+    if (command_err):
+        print(command_err)
+        exit(STATE_UNKNOWN)
+
+    ntpd_present = True if ntpd_rc == 0 else False
+    chronyd_present = True if chronyd_rc == 0 else False
+
+    if ntpd_present == False and chronyd_present == False:
+        print('neither ntpd nor chronyd found.')
+        exit(STATE_UNKNOWN)
+
+    if ntpd_present:
+        command = program_exist_command.format(program='ntpq')
+        sp = execute_command(command)
+        result, command_err = sp.communicate()
+        ntpq_rc = sp.returncode
+        if (command_err):
+            print(command_err)
+            exit(STATE_UNKNOWN)
+
+        if ntpq_rc != 0:
+            print('ntpd running, but ntpq not found.')
+            exit(STATE_UNKNOWN)
+
+
+        result, command_err = execute_command(ntpq_command).communicate()
+        if (command_err):
+            print(command_err)
+            exit(STATE_UNKNOWN)
+
+        ntp_server_found = False
+        for line in result.splitlines():
+            line = line.strip()
+            if line.startswith('*'):
+                ntp_server_found = True
+                line = line[1:].split()  # remove '*' and split
+                ntp_server = line[0]
+                offset = float(line[8])
+                stratum = int(line[2])
+
+        if not ntp_server_found:
+            print('No NTP server used.')
+            exit(STATE_UNKNOWN)
+
+        result += '\nAddress of the remote peer, the reference ID (0.0.0.0 if this is unknown), the stratum of the remote peer, the type of the peer (local, unicast, multicast or broadcast), when the last packet was received, the polling interval in seconds, the reachability register in octal, and the current estimated delay, offset and dispersion of the peer, all in milliseconds.' # will be outputted to icingaweb as help
+
+
+    if chronyd_present:
+        command = program_exist_command.format(program='chronyc')
+        sp = execute_command(command)
+        result, command_err = sp.communicate()
+        chronyc_rc = sp.returncode
+        if (command_err):
+            print(command_err)
+            exit(STATE_UNKNOWN)
+
+        if chronyc_rc != 0:
+            print('chronyd running, but chronyc not found.')
+            exit(STATE_UNKNOWN)
+
+
+        result, command_err = execute_command(chronyc_command).communicate()
+        if (command_err):
+            print(command_err)
+            exit(STATE_UNKNOWN)
+
+        for line in result.splitlines():
+            line = line.strip()
+            if line.startswith('Reference ID'):
+                ntp_server = line[line.find("(")+1:line.find(")")] # extract text in () using string splicing
+                continue
+
+            if line.startswith('Last offset'):
+                offset = float(line.split()[-2]) * 1000
+                continue
+
+            if line.startswith('Stratum'):
+                stratum = int(line.split()[-1])
+                continue
+
+    # logic
+    if ntp_server == '':
+        print('No NTP server used.')
+        exit(STATE_UNKNOWN)
+
+    if ntp_server == 'LOCAL':
+        print('No NTP server configured.')
+        exit(STATE_UNKNOWN)
+
+    offset_data = Data('offset', offset, warn, crit)
+    perfdata = unpack_perfdata((offset_data.label, offset_data.value, UOM, offset_data.warn, offset_data.crit, MIN, MAX))
+
+    if abs(offset) >= crit:
+        msg = 'NTP offset to low/high. Offset is {0}ms, abs(thresholds) are {1}/{2}ms.'.format(offset, warn, crit)
+        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
+        exit(STATE_CRIT)
+
+    if abs(offset) >= warn:
+        msg = 'NTP offset to low/high. Offset is {0}ms, abs(thresholds) are {1}/{2}ms.'.format(offset, warn, crit)
+        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
+        exit(STATE_WARN)
+
+    if stratum >= 9:
+        msg = 'Stratum {0} is >= 9. NTP offset {1}, abs(thresholds) are {2}/{3}ms.'.format(stratum, offset, warn, crit)
+        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
+        exit(STATE_WARN)
+
+    msg = 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
+    print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
+    exit(STATE_OK)
+
+main()

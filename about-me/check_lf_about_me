@@ -1,0 +1,262 @@
+#!/bin/bash
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+PLUGINNAME=$(basename "$0")
+PLUGINPATH=$(echo "$0" | sed -e 's,[\\/][^\\/][^\\/]*$,,')
+REVISION='2018102201'
+
+. "$PLUGINPATH"/utilslf.sh
+
+print_usage() {
+    echo 'Usage:'
+    echo "  $PLUGINNAME"
+}
+
+print_help() {
+    print_revision $PLUGINNAME $REVISION
+    echo ''
+    echo 'Reports details about the host the check is running on.'
+    echo 'Always returns OK.'
+    echo ''
+    print_usage
+    echo ''
+    echo 'Options:'
+    echo '  -h, --help'
+    echo '    Print detailed help screen'
+    echo '  -V, --version'
+    echo '    Print version information'
+}
+
+
+# ---
+# Grab the command line arguments
+
+while test -n "$1"; do
+    case $1 in
+        --help | -h)
+            print_help
+            exit $STATE_OK
+            ;;
+        --version | -V)
+            print_revision $PLUGINNAME $REVISION
+            exit $STATE_OK
+            ;;
+        *)
+            echo "Unknown argument: $1"
+            print_usage
+            exit $STATE_UNKNOWN
+            ;;
+    esac
+    shift
+done
+
+
+# ---
+# Do the checks and get the result
+# 'label'=value[UOM];[warn];[crit];[min];[max]
+
+MSG="OK:"
+
+# CPU, RAM, Disk
+CPU=$(nproc)
+MSG="$MSG $CPU CPUs"
+PERFDATA="cpu=$CPU;;;;"
+
+RAM=$(vmstat --stats --unit M | head -1 | cut -dM -f1 | xargs)
+RAM=$(($RAM / 1024 + 1))
+MSG="$MSG, "$RAM"GB RAM"
+PERFDATA="$PERFDATA ram="$RAM"GB;;;;"
+
+# 8 = sda, 252 = vda
+DISKS=$(lsblk --nodeps --output SIZE --noheadings --include 8,252 | wc -l)
+DISK_SIZES=$(lsblk --nodeps --output SIZE --noheadings --include 8,252 | xargs)
+if [ $DISKS -eq 1 ]; then
+    MSG="$MSG, $DISKS Disk ($DISK_SIZES)"
+else
+    MSG="$MSG, $DISKS Disks ($DISK_SIZES)"
+fi
+PERFDATA="$PERFDATA disks=$DISKS;;;;"
+
+
+# manually installed Apps, alphabetically sorted
+MSG="$MSG - Apps:"
+APPS=""
+
+if [ -d /opt/atlassian/bitbucket* ]; then
+    APPS="$APPS Atlassian Bitbucket,"
+fi
+if [ -d /opt/atlassian/confluence* ]; then
+    APPS="$APPS Atlassian Confluence,"
+fi
+if [ -d /opt/atlassian/jira* ]; then
+    APPS="$APPS Atlassian Jira,"
+fi
+if [ -d /var/www/html/contao* ]; then
+    if [ -f /var/www/html/contao*/vendor/symfony/symfony/src/Symfony/Component/HttpKernel/Kernel.php ]; then
+        VER_SYMFONY=$(cat /var/www/html/contao*/vendor/symfony/symfony/src/Symfony/Component/HttpKernel/Kernel.php | grep 'const VERSION = ' | cut -d\' -f2)
+        VER_CONTAO=$(grep --after-context=1 '"name": "contao/core-bundle"' /var/www/html/contao*/composer.lock | tail -1 | cut -d\" -f4)
+        APPS="$APPS Contao $VER_CONTAO/Symfony $VER_SYMFONY,"
+    else
+        VER=$(cat /var/www/html/contao*/system/config/localconfig.php | grep 'latestVersion' | cut -d\' -f6)
+        APPS="$APPS Contao $VER,"
+    fi
+fi
+if [ -d /opt/dcm4chee* ]; then
+    APPS="$APPS DCM4CHEE,"
+fi
+if [ -d /home/hnet/HnetSecureService* ]; then
+    APPS="$APPS H-Net SecureService (eFaktura),"
+fi
+if [ -d /var/www/html/htmly ]; then
+    APPS="$APPS HTMLy,"
+fi
+if [ -d /opt/jboss* ]; then
+    APPS="$APPS JBoss,"
+fi
+if [ -d /opt/keycloak ]; then
+    APPS="$APPS Keycloak,"
+fi
+if [ -d /var/www/html/matomo ]; then
+    APPS="$APPS Matomo,"
+fi
+if [ -d /var/www/html/nextcloud ]; then
+    APPS="$APPS Nextcloud,"
+fi
+if [ -d /var/www/html/piwik ]; then
+    APPS="$APPS PIWIK/Matomo,"
+fi
+if [ -d /opt/Rocket.Chat* ]; then
+    APPS="$APPS Rocket.Chat,"
+fi
+if [ -d /var/www/html/roundcubemail ]; then
+    APPS="$APPS Roundcube,"
+fi
+if [ -d /var/www/html/vtigercrm ]; then
+    APPS="$APPS Vtiger,"
+fi
+if [ -d /opt/wildfly* ]; then
+    APPS="$APPS WildFly,"
+fi
+if [ -d /var/www/html/yii* ]; then
+    APPS="$APPS Yii,"
+fi
+
+if [ "$APPS" == "" ]; then
+    APPS=" none"
+else
+    # truncate last ","
+    APPS=${APPS::-1}
+fi
+MSG="$MSG$APPS"
+
+
+# yum installed Software, alphabetically sorted
+MSG="$MSG - Software:"
+SW=""
+
+FOUND=$(command -v httpd >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    # Server version: Apache/2.4.33 (Fedora)
+    # Server built:   Mar 31 2018 00:30:40
+    VER=$(httpd -v | head -1 | awk '{print $3 }' | cut -d/ -f2)
+    SW="$SW Apache httpd $VER,"
+fi
+FOUND=$(command -v named >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW BIND,"
+fi
+FOUND=$(command -v borg >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    # borg 1.1.4
+    VER=$(borg --version | awk '{print $2 }')
+    SW="$SW Borg $VER,"
+fi
+FOUND=$(command -v dockerd >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW Docker,"
+fi
+if [ -d /usr/share/elasticsearch/bin ]; then
+    SW="$SW Elasticsearch,"
+fi
+FOUND=$(command -v fail2ban-server >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW Fail2ban-Server,"
+fi
+FOUND=$(command -v ipa >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW FreeIPA,"
+fi
+if [ -d /usr/share/graylog-server/bin ]; then
+    SW="$SW Graylog,"
+fi
+FOUND=$(command -v libreoffice >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW LibreOffice,"
+fi
+FOUND=$(command -v loolwsd >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW Collabora (loolwsd/LibreOffice Online),"
+fi
+FOUND=$(command -v mysqld >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    VER=$(mysqld --version | awk '{ print $3 }')
+    VER=${VER%-*}
+    # mysqld  Ver 10.2.17-MariaDB for Linux on x86_64 (MariaDB Server)
+    SW="$SW MariaDB $VER,"
+else
+    FOUND=$(command -v mysqld_safe >/dev/null 2>&1; echo $?)
+    if [ $FOUND -eq 0 ]; then
+        VER=$(mysqladmin --version | awk '{ print $5 }' | awk -F\, '{ print $1 }')
+        VER=${VER%-*}
+        # mysqladmin  Ver 9.0 Distrib 5.5.56-MariaDB, for Linux on x86_64
+        SW="$SW MySQL Safe $VER,"
+    fi
+fi
+FOUND=$(command -v mongo >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW MongoDB,"
+fi
+FOUND=$(command -v php >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    # PHP 7.2.4 (cli) (built: Mar 27 2018 17:23:35) ( NTS )
+    # Copyright (c) 1997-2018 The PHP Group
+    # Zend Engine v3.2.0, Copyright (c) 1998-2018 Zend Technologies
+    VER=$(php -v | head -1 | awk '{ print $2 }')
+    SW="$SW PHP $VER,"
+fi
+FOUND=$(command -v postgres >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    SW="$SW PostgreSQL,"
+fi
+FOUND=$(command -v redis-server >/dev/null 2>&1; echo $?)
+if [ $FOUND -eq 0 ]; then
+    VER=$(redis-server --version | awk '{ print $3 }')
+    VER=${VER:2}
+    # Redis server v=3.2.10 sha=00000000:0 malloc=jemalloc-3.6.0 bits=64 build=c8b45a0ec7dc67c6
+    SW="$SW Redis-Server $VER,"
+fi
+
+if [ "$SW" == "" ]; then
+    SW=" none"
+else
+    # truncate last ","
+    SW=${SW::-1}
+fi
+MSG="$MSG$SW"
+
+
+# OS
+MSG="$MSG - OS:"
+MSG="$MSG $(cat /etc/redhat-release)"
+MSG="$MSG $(uname -r)"
+
+
+echo "$MSG|$PERFDATA"
+exit $STATE_OK

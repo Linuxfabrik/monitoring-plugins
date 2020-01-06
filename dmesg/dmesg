@@ -1,0 +1,61 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+# todo
+# - warning when too many ignored lines
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Check dmesg for emerg / alert / crit / err. Use "dmesg --level=emerg,alert,crit,err --reltime" to debug the error messages using human readable timestamps. Fix them. After fixing / review, use "dmesg --clear" to clear the Kernel Ring Buffer Messages.'
+
+command = '/usr/bin/dmesg --level=emerg,alert,crit,err --reltime'
+
+# ignore false positives / bugs:
+ignore = []
+
+ignore.append(' unhandled wrmsr: ')
+ignore.append(' unhandled rdmsr: ')
+# https://bugzilla.redhat.com/show_bug.cgi?id=874627
+# https://access.redhat.com/solutions/59299
+
+ignore.append('ioctl error in smb2_get_dfs_refer rc=-5')
+# https://access.redhat.com/solutions/3496971
+
+
+#====================
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.parse_input import filter_input
+from lib.output import unpack_perfdata
+
+
+
+def main():
+    result, err = execute_command(command).communicate()
+    if (err):
+        print(err)
+        exit(STATE_UNKNOWN)
+
+    result = result.strip()
+
+    result = filter_input(result, ignore)
+
+    if len(result) > 0:
+        state = STATE_CRIT
+        msg = 'One or more errors in dmesg.\n{0}'.format(result)
+    else:
+        state = STATE_OK
+        msg = 'No errors in dmesg.'
+
+    print(msg.strip())
+    exit(state)
+
+main()

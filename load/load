@@ -1,0 +1,106 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Prints system load avg over the last 1, 5 and 15 minutes, divided by the number of cores.'
+
+command_load = '/usr/bin/cat /proc/loadavg' #todo use open() for this, no bash needed
+command_cores = '/usr/bin/grep --count processor /proc/cpuinfo'
+
+LOAD1_DEFAULT_CRIT = 1000
+LOAD1_DEFAULT_WARN = 1000
+
+LOAD5_DEFAULT_CRIT = 1000
+LOAD5_DEFAULT_WARN = 1000
+
+LOAD15_DEFAULT_CRIT = 5.0
+LOAD15_DEFAULT_WARN = 1.1
+
+UOM = None
+MIN = 0
+MAX = None
+
+
+#====================
+import argparse
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.parse_input import evaluate_greater
+from lib.output import unpack_perfdata
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the 15 min load. Default: %(default)s',
+                      default=LOAD15_DEFAULT_CRIT, type=float, dest='LOAD15_CRIT')
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the 15 min load. Default: %(default)s',
+                      default=LOAD15_DEFAULT_WARN, type=float, dest='LOAD15_WARN')
+    
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    LOAD1_CRIT = LOAD1_DEFAULT_CRIT
+    LOAD1_WARN = LOAD1_DEFAULT_WARN
+
+    LOAD5_CRIT = LOAD5_DEFAULT_CRIT
+    LOAD5_WARN = LOAD5_DEFAULT_WARN
+
+    LOAD15_CRIT = parsed.LOAD15_CRIT
+    LOAD15_WARN = parsed.LOAD15_WARN
+
+    load, command_err = execute_command(command_load).communicate()
+    if (command_err):
+        print(command_err)
+        exit(STATE_UNKNOWN)
+
+    load = load.strip().split(' ')
+
+    cores, command_err = execute_command(command_cores).communicate()
+    if (command_err):
+        print(command_err)
+        exit(STATE_UNKNOWN)
+
+    cores = int(cores.strip())
+
+    load1_value = float(load[0]) / cores
+    load5_value = float(load[1]) / cores
+    load15_value = float(load[2]) / cores
+
+    load1 = Data('load1', load1_value, LOAD1_WARN, LOAD1_CRIT)
+    load5 = Data('load5', load5_value, LOAD5_WARN, LOAD5_CRIT)
+    load15 = Data('load15', load15_value, LOAD15_WARN, LOAD15_CRIT)
+
+    state = evaluate_greater((load15.value, LOAD15_WARN, LOAD15_CRIT))
+    load15.set_state(state)
+
+    perfdata = ''
+    for data in load1, load5, load15:
+        perfdata += unpack_perfdata((data.label, data.value, UOM, data.warn, data.crit, MIN, MAX))
+        
+    msg = 'Load Average per CPU: {0}, {1}, {2} ({3} Cores)'.format(round(load1.value, 2), round(load5.value, 2), round(load15.value, 2), cores)
+
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(state)
+
+main()
+
+# OK: Load Average per CPU: 0.23, 0.21, 0.21 (4 Cores)|load1=0.225;1000;1000;0;; load5=0.21;1000;1000;0;; load15=0.2125;1.1;5.0;0;;
+# [Finished in 0.1s]

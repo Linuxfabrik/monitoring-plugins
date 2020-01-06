@@ -1,0 +1,215 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019123001'
+
+DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
+
+DEFAULT_URL       = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME  = 'rocket-stats'
+DEFAULT_INSECURE  = False
+DEFAULT_NOPROXY   = False
+
+
+#====================
+import argparse
+import base64
+import json
+import ssl
+import urllib
+import urllib2
+
+
+from lib2.globals import *
+from lib2.output import bytes2human, unpack_perfdata
+from lib2.utils import execute_command
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('--password',
+        help='Rocket.Chat API password.',
+        dest='PASSWORD',
+        )
+    parser.add_argument('--url',
+        help='Rocket.Chat API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+    parser.add_argument('--username',
+        help='Rocket.Chat API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        )
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        )
+
+    return parser.parse_args()
+
+
+def get_token_from_rocket_chat(rc_url, user, password):
+    # curl -X "POST" \
+    #      -d "user=admin&password=mypassword" \
+    #      http://localhost:3000/api/v1/statistics
+    data = {
+        'user': user,
+        'password': password,
+        }
+    data = urllib.urlencode(data)
+
+    try:
+        request = urllib2.Request(rc_url + '/login', data=data)
+        response = urllib2.urlopen(request, timeout=7)
+
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}' . format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    result = response.read()
+    if not result:
+        print('There was no result from {}.' . format(rc_url))
+        exit(STATE_UNKNOWN)
+
+    result = json.loads(result)
+    if not 'authToken' in result['data']:
+        print('Something went wrong, maybe user is unauthorized.')
+        exit(STATE_UNKNOWN)
+
+    return result['data']['authToken'], result['data']['userId']
+
+
+def get_stats_from_rocket_chat(rc_url, authToken, userId):
+    # https://rocket.chat/docs/developer-guides/rest-api/miscellaneous/statistics/
+    # curl -H "X-Auth-Token: 8h2mKAwxB3AQrFSjLVKMooJyjdCFaA7W45sWlHP8IzO" \
+    #      -H "X-User-Id: ew28FnZqipDpvKw3R" \
+    #      http://localhost:3000/api/v1/statistics
+
+    headers = {
+        'X-Auth-Token': authToken,
+        'X-User-Id': userId,
+        }
+
+    try:
+        request = urllib2.Request(rc_url + '/statistics', headers=headers)
+        response = urllib2.urlopen(request, timeout=7)
+
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}' . format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    result = response.read()
+    if not result:
+        print('There was no result from {}.' . format(rc_url))
+        exit(STATE_UNKNOWN)
+
+    return json.loads(result)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    URL = parsed.URL
+    USERNAME = parsed.USERNAME
+    PASSWORD = parsed.PASSWORD
+    INSECURE = parsed.INSECURE
+    NOPROXY = parsed.NOPROXY
+
+    if not USERNAME or not PASSWORD:
+        print('Missing username and/or password.')
+        exit(STATE_UNKNOWN)
+
+
+    # fetch the data
+    authToken, userId = get_token_from_rocket_chat(URL, USERNAME, PASSWORD)
+    result = get_stats_from_rocket_chat(URL, authToken, userId)
+
+
+    # extract some application specific data
+    rc_statistics_onlineUsers               = result['statistics']['onlineUsers']
+    rc_statistics_totalDirectMessages       = result['statistics']['totalDirectMessages']
+    rc_statistics_totalLivechat             = result['statistics']['totalLivechat']
+    rc_statistics_totalPrivateGroups        = result['statistics']['totalPrivateGroups']
+    rc_statistics_totalRooms                = result['statistics']['totalRooms']
+    rc_statistics_totalUsers                = result['statistics']['totalUsers']
+    rc_statistics_uploadsTotal              = result['statistics']['uploadsTotal']
+    rc_statistics_version                   = result['statistics']['version']
+
+    rc_statistics_totalLivechatMessages     = result['statistics']['totalLivechatMessages']
+    rc_statistics_totalLivechatVisitors     = result['statistics']['totalLivechatVisitors']
+    rc_statistics_totalMessages             = result['statistics']['totalMessages']
+    rc_statistics_totalPrivateGroupMessages = result['statistics']['totalPrivateGroupMessages']
+    rc_statistics_uploadsTotalSize          = result['statistics']['uploadsTotalSize']
+
+
+    # no checks here, just for your information
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+
+    # build a compact multiline message
+    msg += 'v{}, {} users ({} online), {} rooms, {} direct msgs, {} private groups, {} livechats, {} uploads\n' . format(
+        rc_statistics_version, 
+        rc_statistics_totalUsers,
+        rc_statistics_onlineUsers,
+        rc_statistics_totalRooms,
+        rc_statistics_totalDirectMessages,
+        rc_statistics_totalPrivateGroups,
+        rc_statistics_totalLivechat,
+        rc_statistics_uploadsTotal
+        )
+    msg += '{} msgs, {} private group msgs, {} livechat visitors, {} livechat msgs, {} uploads total size' . format(
+        rc_statistics_totalMessages,
+        rc_statistics_totalPrivateGroupMessages,
+        rc_statistics_totalLivechatVisitors,
+        rc_statistics_totalLivechatMessages,
+        bytes2human(rc_statistics_uploadsTotalSize),
+        )
+
+    perfdata += unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
+
+    perfdata += unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
+
+    print(msg.strip() + '|' + perfdata.strip())
+
+    exit(state)
+
+if __name__ == '__main__':
+    main()

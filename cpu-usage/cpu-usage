@@ -1,0 +1,128 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019121901'
+
+DESCRIPTION = 'Provides utilization percentages for each specific CPU time. Takes a number of times into account that the cpu usage has to be equal or above the given thresholds.'
+
+DEFAULT_WARN  = 50      # %
+DEFAULT_CRIT  = 70      # %
+DEFAULT_COUNT = 15
+
+
+#====================
+import argparse
+import pickle
+import psutil
+import tempfile
+
+from lib2.globals import *
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+                      default=DEFAULT_WARN, type=float, dest='WARN')
+    parser.add_argument('-c', '--critical', help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+                      default=DEFAULT_CRIT, type=float, dest='CRIT')
+
+    parser.add_argument('-i', '--count', help='Number of times the value has to be above the given thresholds. Default: %(default)s',
+                      default=DEFAULT_COUNT, type=int, dest='COUNT')
+    
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    stats = {}
+
+    # Grab CPU stats using psutil's cpu_times_percent
+    # Get all possible values for CPU stats: user, system, idle,
+    # nice (UNIX), iowait (Linux), irq (Linux, FreeBSD), steal (Linux 2.6.11+)
+
+    cpu_times_percent = psutil.cpu_times_percent(interval=0.25, percpu=False)
+    for stat in ['user', 'system', 'idle', 'nice', 'iowait',
+                 'irq', 'softirq', 'steal', 'guest', 'guest_nice']:
+        if hasattr(cpu_times_percent, stat):
+            stats[stat] = getattr(cpu_times_percent, stat)
+    stats['cpu-usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
+
+
+    # Additional CPU stats (number of events not as a %; psutil>=4.1.0)
+    # ctx_switches: number of context switches (voluntary + involuntary) per second
+    # interrupts: number of interrupts per second
+    # soft_interrupts: number of software interrupts per second. Always set to 0 on Windows and SunOS.
+    # syscalls: number of system calls since boot. Always set to 0 on Linux.
+
+    if psutil.__version__ >= '4.1.0':
+        cpu_stats = psutil.cpu_stats()
+        for stat in ['ctx_switches', 'interrupts', 'soft_interrupts', 'syscalls']:
+            if hasattr(cpu_stats, stat):
+                stats[stat] = getattr(cpu_stats, stat)
+
+
+    # dealing with a temporary file for "trends"
+
+    # try to read trend data from the temporary file
+    try:
+        trend = pickle.load(open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'rb'))
+    except Exception as e:
+        trend = []
+    
+    # save the new value to the end and cut the array to COUNT number of items, beginning from the end
+    trend.append(stats)
+    trend = trend[-parsed.COUNT:]
+
+    # save the temporary data
+    pickle.dump(trend, open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'wb+'))
+
+
+    # now, calculate the WARN or CRIT.
+    # if there are all values in one trend row below the threshold, overall status is ok.
+    state = STATE_OK
+    for data in trend:
+        if data['user'] < parsed.WARN and data['system'] < parsed.WARN and data['iowait'] < parsed.WARN and data['cpu-usage'] < parsed.WARN:
+            # we have one value found that is below the threshold, so we need no warning at all
+            state = STATE_OK
+            break
+        if data['user'] >= parsed.CRIT or data['system'] >= parsed.CRIT or data['iowait'] >= parsed.CRIT or data['cpu-usage'] >= parsed.CRIT:
+            state = STATE_CRIT
+        elif data['user'] >= parsed.WARN or data['system'] >= parsed.WARN or data['iowait'] >= parsed.WARN or data['cpu-usage'] >= parsed.WARN:
+            state = STATE_WARN
+
+    # build the message
+    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n' . format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    msg += 'nice: {}%, irq: {}%, steal: {}%\n' . format(stats['nice'], stats['irq'], stats['steal'])
+    if psutil.__version__ >= '4.1.0':
+        msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n' . format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+
+    # build perfdata
+    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;' . format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    perfdata += 'nice={}%;irq={}%;steal={}%;' . format(stats['nice'], stats['irq'], stats['steal'])
+    if psutil.__version__ >= '4.1.0':
+        perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};' . format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+
+    # over and out
+    print(msg.strip())
+    print('|' + perfdata)
+    exit(state)
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,105 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122101'
+
+DESCRIPTION = 'Checks the ownership and group of a list of files.'
+
+command = 'stat {path}'
+
+DEFAULT_FILES = '''apache:apache,/usr/share/httpd/.cache
+apache:apache,/usr/share/httpd/.config
+graylog:graylog,/etc/graylog/certs
+hnet:hnet,/var/hnet
+ldap:ldap,/var/run/openldap
+lool:lool,/etc/loolwsd/loolwsd.xml
+named:named,/var/named/*.zone
+root:named,/etc/named.conf
+unbound:unbound,/var/lib/unbound/root.key
+vdsm:kvm,/home/ovirt'''
+
+UOM = None
+MIN = 0
+MAX = None
+
+#====================
+import argparse
+import os
+
+from lib.globals import *
+from lib.execute_command import execute_command
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-f', '--files', help='Additional files to be checked, in the format "owner:group,path;", separated by ";".',
+                      default='', type=str, dest='FILES')
+
+    return parser.parse_args()
+
+
+def main():    
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    FILES = DEFAULT_FILES + '\n' + parsed.FILES.replace(';', '\n')
+
+    global_state = STATE_OK
+    msg = ''
+    checked_counter = 0
+
+    for line in FILES.splitlines():
+        line = line.split(',')
+        path = line[1]
+
+        if os.path.exists(path):
+            owner, group = line[0].split(':')
+
+            formatted_command = command.format(path=path)
+            sp = execute_command(formatted_command)
+            result, err = sp.communicate()
+            result_rc = sp.returncode
+            if (err or result_rc != 0):
+                print(str(result) + str(err))
+                exit(STATE_UNKNOWN)
+
+            for line in result.splitlines():
+                if line.startswith('Access: ('):
+                    line = line.split()
+                    actual_owner = line[5][:-1] # remove trailing ')'
+                    actual_group = line[9][:-1] # remove trailing ')'
+
+                    if owner != actual_owner or group != actual_group:
+                        global_state = STATE_WARN
+                        msg = '* {path} is [{actual_owner}:{actual_group}], fix using "chown {owner}:{group} {path}" (WARN)\n'.format(path=path, actual_owner=actual_owner, actual_group=actual_group, owner=owner, group=group) + msg # append to start of msg
+                    else:
+                        msg += '* {path} is [{actual_owner}:{actual_group}]\n'.format(path=path, actual_owner=actual_owner, actual_group=actual_group)
+
+                    checked_counter += 1
+
+    if checked_counter == 0:
+        print('No files checked.\n')
+        exit(global_state)
+
+    if global_state == STATE_OK:
+        print('All owners and groups are correct.\n' + 'Checked: \n' + msg.strip())
+        exit(global_state)
+    else:
+        print('One or more problems with owners or groups.\n' + 'Checked: \n' + msg.strip())
+        exit(global_state)
+
+main()

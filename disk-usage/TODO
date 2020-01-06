@@ -1,0 +1,57 @@
+
+reports filesystems that have a size and are not of type smbfs, tmpfs, cifs or nfs. 
+
+compute the trend based on the data of the last 24 hours using a logarithmic average that gives more recent data a higher weight. Also data beyond the 24 hours will to some small degree be reflected in the computation. The advantage of this algorithm is a more precise prediction and a simpler implementation, which does not need any access to any RRDs or similar storage. 
+
+
+
+exclude_fs            = [ 'tmpfs', 'nfs', 'smbfs', 'cifs', 'iso9660' ]
+exclude_mountpoints   = [ '/dev' ]
+
+
+https://psutil.readthedocs.io/en/latest/
+
+import psutil
+psutil.disk_partitions()
+
+=> "mountpoints" reporten
+
+foreach mountpoint
+  psutil.disk_usage(mountpoint)
+  => umrechnen in MByte, GByte etc.
+  => Delta zu den letzten 15min, 1h, 8h, 24h, 3d merken
+
+
+
+Help:
+
+	Return disk usage statistics about all partitions expressed in human readable bytes, plus the percentage usage.
+
+
+Output:
+
+	FILE SYS `/`: 77.6% (- 1.3G/d)
+
+	FILE SYS           Used  Total 
+	/                  221G   460G
+	/boot (sda2)       207M   976M
+	/boot/efi (sda1)   27.2M   200M
+
+
+
+Berechnen:
+
+    Trend-Intervall konfigurierbar machen. Default: 60 Minuten.
+
+    nur alle 60 Minuten prüfen: aktuell ermittelte Disk-Usage minus Disk-Usage vor 60 Minuten
+    ergibt TREND60 ("Zunahme in den letzten 60 Minuten")
+
+    Wenn TREND60 in den nächsten 60 Minuten zu einer vollen Platte führt:
+    * bei VMs: WARN
+    * bei HW: CRIT
+
+    Wenn
+    * Disk < 1 TB: Usage > WARN%, CRIT% (Default: 95, 97)
+    * Disk >= 1 TB: Free <= WARNGB, CRITGB (Default: 50, 10)
+
+    Später: Trend-Vorhersage mit TensorFlow anhand von Daten aus InfluxDB? In 2020 probieren.

@@ -1,0 +1,70 @@
+Siehe eBook MongoDB Administrator’s Guide.PDF - Kapitel "Monitoring MongoDB"
+
+
+----
+
+https://docs.mongodb.com/manual/reference/ulimit/
+
+Bash:
+
+return-limits(){
+
+     for process in $@; do
+          process_pids=`ps -C $process -o pid --no-headers | cut -d " " -f 2`
+
+          if [ -z $@ ]; then
+             echo "[no $process running]"
+          else
+             for pid in $process_pids; do
+                   echo "[$process #$pid -- limits]"
+                   cat /proc/$pid/limits
+             done
+          fi
+
+     done
+
+}
+
+
+Ausführen:
+
+return-limits mongod
+
+Gibt:
+
+Limit                     Soft Limit           Hard Limit           Units     
+Max cpu time              unlimited            unlimited            seconds   
+Max file size             unlimited            unlimited            bytes     
+Max data size             unlimited            unlimited            bytes     
+Max stack size            8388608              unlimited            bytes     
+Max core file size        0                    unlimited            bytes     
+Max resident set          unlimited            unlimited            bytes     
+Max processes             64000                64000                processes 
+Max open files            64000                64000                files     
+Max locked memory         unlimited            unlimited            bytes     
+Max address space         unlimited            unlimited            bytes     
+Max file locks            unlimited            unlimited            locks     
+Max pending signals       15056                15056                signals   
+Max msgqueue size         819200               819200               bytes     
+Max nice priority         0                    0                    
+Max realtime priority     0                    0                    
+Max realtime timeout      unlimited            unlimited            us   
+
+
+WARN, wenn:
+"Max cpu time" <> "unlimited,unlimited"
+"Max file size" <> "unlimited,unlimited"
+"Max locked memory" <> "unlimited,unlimited"
+"Max open files" ein Wert < "64000"
+"Max processes" ein Wert < "64000"
+
+Output: "MongoDB needs systemd "..." tuning. (https://docs.mongodb.com/manual/reference/ulimit/)"
+
+----
+
+https://docs.mongodb.com/manual/tutorial/transparent-huge-pages/
+
+cat /sys/kernel/mm/redhat_transparent_hugepage/enabled
+cat /sys/kernel/mm/redhat_transparent_hugepage/defrag
+
+WARN wenn Output <> "always madvise [never]" - "MongoDB needs "transparent_hugepage" tuning (https://docs.mongodb.com/manual/tutorial/transparent-huge-pages/)."

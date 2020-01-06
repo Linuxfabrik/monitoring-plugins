@@ -1,0 +1,234 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122901'
+
+DESCRIPTION = 'Checks the security of your private Nextcloud server.'
+
+
+#====================
+import argparse
+import datetime
+import json
+import ssl
+import urllib
+import urllib2
+
+
+from lib2.globals import *
+from lib2.output import bytes2human, unpack_perfdata
+from lib2.utils import execute_command
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-u', '--url',
+        help='Nextcloud API URL, for example "cloud.example.com".',
+        dest='URL',
+        )
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        )
+
+    return parser.parse_args()
+
+
+def get_uuid_from_scan_nextcloud_com(nc_url):
+    scan_url = 'https://scan.nextcloud.com/api/queue'
+    data = {
+        'url': nc_url,
+        }
+    data = urllib.urlencode(data)
+    headers = {
+        'Content-type': 'application/x-www-form-urlencoded',
+        'X-CSRF': 'true',
+        }
+
+    try:
+        request = urllib2.Request(scan_url, data, headers)
+        response = urllib2.urlopen(request, timeout=30)
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}' . format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    result = response.read()
+    if not result:
+        print('There was no result from {} for {}.' . format(scan_url, nc_url))
+        exit(STATE_UNKNOWN)
+
+    return json.loads(result)['uuid']
+
+
+def trigger_rescan_nextcloud_com(nc_url):
+    scan_url = 'https://scan.nextcloud.com/api/requeue'
+    data = {
+        'url': nc_url
+        }
+    data = urllib.urlencode(data)
+    headers = {
+        'Content-type': 'application/x-www-form-urlencoded',
+        'X-CSRF': 'true',
+        }
+
+    try:
+        request = urllib2.Request(scan_url, data, headers)
+        response = urllib2.urlopen(request, timeout=30)
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}' . format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    result = response.read()
+    if not result:
+        print('Result was OUTDATED. Re-scan triggered. Check again in ~5 minutes to get the newest scan result.')
+        exit(STATE_WARN)
+
+    return json.loads(result)
+
+
+def get_scan_result_from_scan_nextcloud_com(nc_uuid):
+    scan_url = 'https://scan.nextcloud.com/api/result/' + nc_uuid
+
+    try:
+        request = urllib2.Request(scan_url)
+        response = urllib2.urlopen(request, timeout=30)
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}' . format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    return json.loads(response.read())
+
+
+def get_rating_string(rating):
+    if rating == 5:
+        return 'A+'
+    if rating == 4:
+        return 'A'
+    if rating == 3:
+        return 'C'
+    if rating == 2:
+        return 'D'
+    if rating == 1:
+        return 'E'
+    return 'F'
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    if not parsed.URL:
+        print('Missing URL parameter.')
+        exit(STATE_UNKNOWN)
+    
+    URL = parsed.URL
+
+    uuid = get_uuid_from_scan_nextcloud_com(URL)
+    result = get_scan_result_from_scan_nextcloud_com(uuid)
+
+
+    # let's do some checks
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+
+    # we just warn if Nextcloud security scanner says so
+    if result['rating'] == 0 or result['rating'] == 1:
+        # sorry for being CRIT, but such a state is not acceptable
+        state = STATE_CRIT
+    elif result['rating'] == 2 or result['rating'] == 3:
+        state = STATE_WARN
+
+    # warn if last check is more than 30 days ago, and trigger a rescan
+    scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], "%Y-%m-%d")
+    today = datetime.datetime.today()
+    delta = scan_date - today
+    if abs(delta.days) > 30:
+        tmp = trigger_rescan_nextcloud_com(URL)
+
+
+    msg += '"{}" rating for {}, checked at {}, on ' . format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
+    
+    # Version
+    msg += '{} v{} ' . format(result['product'], result['version'])
+    if not result['latestVersionInBranch']:
+        msg += '(NOT on latest patch level). '
+    else:
+        msg = msg.strip() + '. '
+
+    # Hardenings
+    if not result['hardenings']['appPasswordsScannedForHaveIBeenPwned']:
+        msg += 'Password check against HaveIBeenPwned database missing. '
+    if not result['hardenings']['bruteforceProtection']:
+        msg += 'Bruteforce protection setting missing. '
+    if not result['hardenings']['CSPv3']:
+        msg += 'CSPv3 HTTP feature missing. '
+    if not result['hardenings']['passwordConfirmation']:
+        msg += 'Password confirmation setting missing. '
+    if not result['hardenings']['appPasswordsCanBeRestricted']:
+        msg += 'App passwords cannot be restricted. '
+    if not result['hardenings']['__HostPrefix']:
+        msg += '__HostPrefix missing. '
+    if not result['hardenings']['sameSiteCookies']:
+        msg += 'Same-Site-Cookie Enforcing missing. '
+
+    # Vulnerabilities
+    if result['vulnerabilities']:
+        msg += 'There are known vulnerablities: '
+        for vul in result['vulnerabilities']:
+            msg += vul['title'] + '; '
+        msg = msg.strip()
+
+    # Setup issues
+    if not result['setup']['headers']['X-Frame-Options']:
+        msg += 'Header X-Frame-Options missing. '
+    if not result['setup']['headers']['X-XSS-Protection']:
+        msg += 'Header X-XSS-Protection missing. '
+    if not result['setup']['headers']['X-Download-Options']:
+        msg += 'Header X-Download-Options missing. '
+    if not result['setup']['headers']['X-Content-Type-Options']:
+        msg += 'Header X-Content-Type-Options missing. '
+    if not result['setup']['headers']['X-Permitted-Cross-Domain-Policies']:
+        msg += 'Header X-Permitted-Cross-Domain-Policies missing. '
+    if not result['setup']['https']['enforced']:
+        msg += 'HTTPS not enforced. '
+    if not result['setup']['https']['used']:
+        msg += 'HTTPS not used. '
+
+    print(msg.strip())
+    exit(state)
+
+
+if __name__ == '__main__':
+    main()

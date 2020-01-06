@@ -1,0 +1,158 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Checks disk IO.'
+
+
+DEFAULT_READ_CRIT = 350000000
+DEFAULT_WRITE_CRIT = 350000000
+
+DEFAULT_READ_WARN = 200000000
+DEFAULT_WRITE_WARN = 200000000
+
+DEFAULT_IGNORE = ['sr0']
+
+
+UOM_RATE = None
+UOM_PACKETS = 'c'
+UOM = None
+MIN = 0
+MAX = None
+
+#====================
+import argparse
+import cPickle as pickle
+import datetime
+import tempfile
+import psutil
+
+from lib.globals import *
+from lib.output import unpack_perfdata, bytes2human
+from lib.parse_arguments import csv_arg
+from lib.parse_input import evaluate_greater
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
+                      default=[DEFAULT_READ_WARN, DEFAULT_WRITE_WARN], type=csv_arg, dest='WARN')
+    parser.add_argument('-c', '--critical', help='Set the critical threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
+                      default=[DEFAULT_READ_CRIT, DEFAULT_WRITE_CRIT], type=csv_arg, dest='CRIT')
+
+    parser.add_argument('-i', '--ignore', help='Ignore certain disk names, in the format "sr0,dm-1". Default: %(default)s',
+                      default=DEFAULT_IGNORE, type=csv_arg, dest='IGNORE')
+
+    return parser.parse_args()
+
+
+def main():    
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    READ_WARN = int(parsed.WARN[0]) if parsed.WARN[0] else None
+    WRITE_WARN = int(parsed.WARN[1]) if parsed.WARN[1] else None
+    READ_CRIT = int(parsed.CRIT[0]) if parsed.CRIT[0] else None
+    WRITE_CRIT = int(parsed.CRIT[1]) if parsed.CRIT[1] else None
+    IGNORE = parsed.IGNORE if parsed.IGNORE else []
+
+    # try to get the latest data
+    try:
+        (latest_timestamp, latest_data) = pickle.load(open('{}/disk-io-dump'.format(tempfile.gettempdir()), 'rb'))        
+    except:
+        latest_data = None
+
+    # get current data
+    current_data = psutil.disk_io_counters(perdisk=True)
+    current_timestamp = datetime.datetime.today()
+
+    pickle.dump((current_timestamp, current_data), open('{}/disk-io-dump'.format(tempfile.gettempdir()), 'wb+'))
+
+    global_state = STATE_OK
+
+    perfdata = ''
+
+    table = '''
+‌Disk        ║ Write Rate  ║ Read Rate
+════════════╬═════════════╬═══════════'''
+
+    highest_value = 0
+
+    if latest_data:
+        time_delta  = (current_timestamp - latest_timestamp).total_seconds();
+        for disk, values in sorted(current_data.items()):
+            if disk not in IGNORE:
+                try: # needed to prevent key lookup errors in the latest_data dict
+                    write_rate = (current_data[disk].write_bytes - latest_data[disk].write_bytes) / time_delta
+                    if write_rate < 0: # in case of a counter reset
+                        write_rate = 0
+
+                    write_rate_data = Data('{}_write_rate'.format(disk), write_rate, WRITE_WARN, WRITE_CRIT)
+                    write_rate_data.set_state(evaluate_greater((write_rate_data.value, write_rate_data.warn, write_rate_data.crit)))
+                    perfdata += unpack_perfdata((write_rate_data.label, write_rate_data.value, UOM_RATE, write_rate_data.warn, write_rate_data.crit, MIN, MAX))
+
+                    read_rate = (current_data[disk].read_bytes - latest_data[disk].read_bytes) / time_delta
+                    if read_rate < 0: # in case of a counter reset
+                        read_rate = 0
+                        
+                    read_rate_data = Data('{}_read_rate'.format(disk), read_rate, READ_WARN, READ_CRIT)
+                    read_rate_data.set_state(evaluate_greater((read_rate_data.value, read_rate_data.warn, read_rate_data.crit)))
+                    perfdata += unpack_perfdata((read_rate_data.label, read_rate_data.value, UOM_RATE, read_rate_data.warn, read_rate_data.crit, MIN, MAX))
+
+                    if write_rate >= highest_value:
+                        highest_value = write_rate
+                        highest_disk = disk
+                        highest_write_rate_data = write_rate_data
+                        highest_read_rate_data = read_rate_data
+
+                    if read_rate >= highest_value:
+                        highest_value = read_rate
+                        highest_disk = disk
+                        highest_write_rate_data = write_rate_data
+                        highest_read_rate_data = read_rate_data
+
+                    state_checklist = [write_rate_data.state, read_rate_data.state]
+
+                    state = ''
+                    if STATE_CRIT in state_checklist:
+                        state = ' (CRIT)'
+                        global_state = STATE_CRIT
+                    elif STATE_WARN in state_checklist:
+                        state = ' (WARN)'
+                        if global_state != STATE_CRIT:
+                            global_state = STATE_WARN
+
+                    
+                    table += '\n{:12}║{:13}║{:11}'.format(disk + state, bytes2human(write_rate) + '/s', bytes2human(read_rate) + '/s')
+
+                except KeyError:
+                    pass # needed to prevent empty if statement
+
+        if global_state == STATE_OK:
+            msg = 'Everything is ok. {}: {}/s, {}/s (Read, Write)'.format(highest_disk, bytes2human(highest_read_rate_data.value), bytes2human(highest_write_rate_data.value))
+        else:
+            msg = 'One or more errors. {}: {}/s, {}/s (Read, Write)'.format(highest_disk, bytes2human(highest_read_rate_data.value), bytes2human(highest_write_rate_data.value))
+
+    else:
+        msg = 'Waiting for the latest data...'
+
+    print(msg.strip() + '\n' + table + '|' + perfdata.strip())
+
+    exit(global_state)
+
+main()

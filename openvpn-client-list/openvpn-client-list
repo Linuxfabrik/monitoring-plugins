@@ -1,0 +1,80 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Prints a list of all clients connected to the OpenVPN Server'
+
+DEFAULT_FILE = '/var/log/openvpn-status.log'
+
+DEFAULT_WARN  = None
+DEFAULT_CRIT  = None
+
+UOM = None
+MIN = 0
+MAX = None
+
+
+#====================
+import argparse
+
+from lib.globals import *
+from lib.output import unpack_perfdata
+from lib.parse_input import evaluate_greater
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-w', '--warning', help='Set the warning threshold for the number of connected clients. Default: %(default)s',
+                      default=DEFAULT_WARN, type=float, dest='WARN')
+    parser.add_argument('-c', '--critical', help='Set the critical threshold for the number of connected clients. Default: %(default)s',
+                      default=DEFAULT_CRIT, type=float, dest='CRIT')
+
+    parser.add_argument('-f', '--file', help='Set the path of the log file. Default: %(default)s',
+                      default=DEFAULT_FILE, type=str, dest='FILE')
+
+    return parser.parse_args()
+
+
+def main():
+    try:
+        parsed = parse_args()
+    except:
+        exit(STATE_UNKNOWN)
+
+    try:
+        with open(parsed.FILE, 'rb') as file:
+            counter = 0
+            msg = ''
+            for line in file:
+                if line.startswith('CLIENT_LIST'):
+                    counter += 1
+                    line = line.split(',')
+                    msg += '* {}, ext: {}, int: {}, since: {}\n'.format(line[1], line[2].split(':')[0], line[3], line[7])
+    except IOError:
+        print('Failed to read file!')
+        exit(STATE_UNKNOWN)
+
+    data = Data('clients', counter, parsed.WARN, parsed.CRIT)
+    data.set_state(evaluate_greater((data.value, data.warn, data.crit)))
+    global_state = data.state
+    perfdata = unpack_perfdata((data.label, data.value, UOM, data.warn, data.crit, MIN, MAX))
+
+    msg = '{} Users connected to OpenVPN Server.\n{}'.format(data.value, msg)
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(global_state)
+
+
+main()

@@ -1,0 +1,62 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019111401'
+
+DESCRIPTION = 'Checks mongodb health.'
+
+command_mongo = 'mongo --host localhost --port 37017 --eval "db.serverStatus()"'
+
+
+
+#====================
+import argparse
+
+from lib.globals import *
+from lib.execute_command import execute_command
+from lib.parse_input import evaluate_greater
+from lib.output import unpack_perfdata
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+
+    parser.add_argument('-H', '--hostname', help='Set the hostname of the mongodb Server. Default: %(default)s',
+                      default=DEFAULT_HOSTNAME, type=str, dest='HOSTNAME')
+
+    parser.add_argument('-P', '--port', help='Set the port of the mongodb Server. Default: %(default)s',
+                      default=DEFAULT_PORT, type=int, dest='PORT')
+
+    return parser.parse_args()
+
+
+def get_status(host, port):
+	mongo_status, command_err = execute_command("mongo --host host --port port --eval 'db.serverStatus()'").communicate()
+    #if (command_err):
+    #    print(command_err)
+    #    exit(STATE_UNKNOWN)
+
+	return mongo_status
+
+def main():
+	parsed = parse_args()
+	try:
+		parsed = parse_args()
+	except:
+		exit(STATE_UNKNOWN)
+
+	result = get_status(parsed.HOSTNAME, parsed.PORT)
+	print result
+	exit()
+
+main()

@@ -1,0 +1,100 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2019122301'
+
+DESCRIPTION = 'Checks if the local or a given hostname is a valid fully qualified domain name in full compliance with RFC 1035.'
+
+#====================
+
+import argparse
+import re
+import socket
+
+from lib2.globals import *
+
+
+# https://github.com/ypcrts/fqdn/blob/develop/fqdn/__init__.py
+
+
+FQDN_REGEX = re.compile(
+        r"^((?!-)[-A-Z\d]{1,63}(?<!-)\.)+(?!-)[-A-Z\d]{1,63}(?<!-)\.?$", re.IGNORECASE
+)
+
+def is_valid_hostname(hostname):
+    """
+    True for a validated fully-qualified domain name (FQDN), in full
+    compliance with RFC 1035, and the "preferred form" specified in RFC
+    3686 s. 2, whether relative or absolute.
+    https://tools.ietf.org/html/rfc3696#section-2
+    https://tools.ietf.org/html/rfc1035
+    If and only if the FQDN ends with a dot (in place of the RFC1035
+    trailing null byte), it may have a total length of 254 bytes, still it
+    must be less than 253 bytes.
+    """
+    length = len(hostname)
+    if hostname.endswith("."):
+        length -= 1
+    if length > 253:
+        return False
+    return bool(FQDN_REGEX.match(hostname))
+
+def is_valid_absolute_hostname(hostname):
+    """
+    True for a fully-qualified domain name (FQDN) that is RFC
+    preferred-form compliant and ends with a `.`.
+    With relative FQDNS in DNS lookups, the current hosts domain name or
+    search domains may be appended.
+    """
+    return hostname.endswith(".") and is_valid_hostname(hostname)
+
+def is_valid_relative_hostname(hostname):
+    """
+    True for a validated fully-qualified domain name that compiles with the
+    RFC preferred-form and does not ends with a `.`.
+    """
+    return not hostname.endswith(".") and is_valid_hostname(hostname)
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-H', '--hostname', help='Hostname to check. Defaults to the local hostname.', dest='HOSTNAME')
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    if parsed.HOSTNAME:
+        hostname = parsed.HOSTNAME
+    else:
+        hostname = socket.gethostname()
+
+    # calculating the final check state
+    if not is_valid_hostname(hostname):
+        print('{} is an invalid fully qualified domain name (FQDN).' . format(hostname))
+        exit(STATE_WARN)
+
+    print('{} is a valid FQDN.' . format(hostname))
+    exit(STATE_OK)
+
+
+if __name__ == '__main__':
+    main()
+
