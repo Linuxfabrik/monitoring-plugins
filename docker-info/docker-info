@@ -28,7 +28,7 @@ devicemapper_storage_driver_warning = 'the devicemapper storage-driver is deprec
 import argparse
 
 from lib.globals import *
-from lib.execute_command import execute_command
+from lib.utils import execute_command
 from lib.output import unpack_perfdata
 from lib.parse_arguments import csv_arg
 from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, str2bytes
@@ -36,22 +36,44 @@ from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, st
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('--w_data_space_used_percentage', help='Set the warning threshold for the the data space used (percentage). Default: %(default)s',
-                      default=DEFAULT_DATA_SPACE_WARN, type=float, dest='DATA_SPACE_WARN')
+    parser.add_argument('--w_data_space_used_percentage',
+        help = 'Set the warning threshold for the the data space used (percentage). Default: %(default)s',
+        dest = 'DATA_SPACE_WARN',
+        type = float,
+        default = DEFAULT_DATA_SPACE_WARN,
+        )
 
-    parser.add_argument('--c_data_space_used_percentage', help='Set the critical threshold for the the data space used (percentage). Default: %(default)s',
-                      default=DEFAULT_DATA_SPACE_CRIT, type=float, dest='DATA_SPACE_CRIT')
+    parser.add_argument('--c_data_space_used_percentage',
+        help = 'Set the critical threshold for the the data space used (percentage). Default: %(default)s',
+        dest = 'DATA_SPACE_CRIT',
+        type = float,
+        default = DEFAULT_DATA_SPACE_CRIT,
+        )
 
-    parser.add_argument('--w_metadata_space_used_percentage', help='Set the warning threshold for the the metadata space used (percentage). Default: %(default)s',
-                      default=DEFAULT_METADATA_SPACE_WARN, type=float, dest='METADATA_SPACE_WARN')
+    parser.add_argument('--w_metadata_space_used_percentage',
+        help = 'Set the warning threshold for the the metadata space used (percentage). Default: %(default)s',
+        dest = 'METADATA_SPACE_WARN',
+        type = float,
+        default = DEFAULT_METADATA_SPACE_WARN,
+        )
 
-    parser.add_argument('--c_metadata_space_used_percentage', help='Set the critical threshold for the the metadata space used (percentage). Default: %(default)s',
-                      default=DEFAULT_METADATA_SPACE_CRIT, type=float, dest='METADATA_SPACE_CRIT')
+    parser.add_argument('--c_metadata_space_used_percentage',
+        help = 'Set the critical threshold for the the metadata space used (percentage). Default: %(default)s',
+        dest = 'METADATA_SPACE_CRIT',
+        type = float,
+        default = DEFAULT_METADATA_SPACE_CRIT,
+        )
 
-    parser.add_argument('--ignore-devicemapper-storage-driver', help='Ignore "the devicemapper storage-driver is deprecated" warning.',
-                      action='store_true', dest='IGNORE_DEVICEMAPPER_STORAGE_DRIVER')
+    parser.add_argument('--ignore-devicemapper-storage-driver',
+        help = 'Ignore "the devicemapper storage-driver is deprecated" warning.',
+        dest = 'IGNORE_DEVICEMAPPER_STORAGE_DRIVER',
+        action = 'store_true',
+        )
 
     return parser.parse_args()
 
@@ -62,11 +84,13 @@ def main():
     except:
         exit(STATE_UNKNOWN)
 
-    proc = execute_command(command_info)
-    result_info, result_info_err = proc.communicate()
-    result_info_rc = proc.returncode
-    if (result_info_rc != 0): # stderr is ok, will contain ERR and WARNING
-        print('Bash command `{}` failed. {}'.format(command_info, result_info_err.strip()))
+    # todo: check `command -v docker`
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(command_info, shell=True)
+    if (retc != 0): # stderr is ok, will contain ERR and WARNING
+        print('Bash command `{}` failed.'.format(command_info))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
     data_space_used = None
@@ -81,7 +105,7 @@ def main():
     msg_addendum = '\n'
     perfdata = ''
 
-    for line in result_info.splitlines():
+    for line in stdout.splitlines():
         line = line.strip()
         if line.startswith('Data Space Used: '):
             data_space_used = line.split(': ')[1]
@@ -95,7 +119,7 @@ def main():
         if line.startswith('Metadata Space Total: '):
             metadata_space_total = line.split(': ')[1]
 
-    for line in result_info_err.splitlines():
+    for line in stderr.splitlines():
         if 'WARNING' in line:
             info_warnings += '\n* ' + line.lstrip('WARNING: ')
 

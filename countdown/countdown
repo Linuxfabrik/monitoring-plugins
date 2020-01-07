@@ -11,25 +11,31 @@
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2019122801'
 
-DESCRIPTION = ''
+DESCRIPTION = 'todo'
 
-DEFAULT_WARN  = 50      # days
-DEFAULT_CRIT  = 30      # days
+DEFAULT_WARN = 50      # days
+DEFAULT_CRIT = 30      # days
 
 
 #====================
 import argparse
 import datetime
 
-from lib2.globals import *
+from lib.globals import *
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-i', '--input', help='"Display Name 1, yyyy-mm-dd, warn, crit; Display Name 2, yyyy-mm-dd, warn, crit; ..."', dest='INPUT')
+    parser.add_argument('-i', '--input',
+        help = '"Display Name 1, yyyy-mm-dd, warn, crit; Display Name 2, yyyy-mm-dd, warn, crit; ..."',
+        dest = 'INPUT'
+        )
     
     return parser.parse_args()
 
@@ -61,13 +67,13 @@ def main():
                 delta = expiration_date - today
 
                 if crit != 'None' and int(delta.days) <= int(crit):
-                    msg += '* CRIT {} expires in {} days (thresholds {}/{})\n' . format(item, delta.days, warn, crit)
+                    msg += '* CRIT {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
                     state = STATE_CRIT
                 elif int(delta.days) <= int(warn):
-                    msg += '* WARN {} expires in {} days (thresholds {}/{})\n' . format(item, delta.days, warn, crit)
+                    msg += '* WARN {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
                     state = STATE_WARN
                 else:
-                    msg += '* {} expires in {} days (thresholds {}/{})\n' . format(item, delta.days, warn, crit)
+                    msg += '* {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
                     state = STATE_OK
 
                 overall_state = get_greater_state(state, overall_state)

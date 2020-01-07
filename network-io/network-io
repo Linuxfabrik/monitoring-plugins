@@ -8,14 +8,13 @@
 
 # https://nagios-plugins.org/doc/guidelines.html
 
-# todo: if rate is negative, return 0
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2019111401'
 
 DESCRIPTION = 'Checks network IO.'
 
-command = 'ip --statistics link'
+bash_command = 'ip --statistics link'
 
 RX_RATE_DEFAULT_WARN = 8000000000 # 8 Gbps
 RX_RATE_DEFAULT_CRIT = 9000000000 # 9 Gbps
@@ -56,30 +55,49 @@ import datetime
 import tempfile
 
 from lib.globals import *
-from lib.execute_command import execute_command
-from lib.output import unpack_perfdata, unit_suffix_format
+from lib.utils import execute_command
+from lib.output import unpack_perfdata, bytes2human, state_to_string
 from lib.parse_arguments import csv_arg
 from lib.parse_input import evaluate_greater
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-w', '--warning', help='Set the warning threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-                      default=[RX_RATE_DEFAULT_WARN,TX_RATE_DEFAULT_WARN], type=csv_arg, dest='WARN')
-    parser.add_argument('-c', '--critical', help='Set the critical threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-                      default=[RX_RATE_DEFAULT_CRIT,TX_RATE_DEFAULT_CRIT], type=csv_arg, dest='CRIT')
-    parser.add_argument('-i', '--ignore', help='Ignore certain interface names, in the format "lo,eno1". Default: %(default)s',
-                      default=DEFAULT_IGNORE, type=csv_arg, dest='IGNORE')
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
+        dest = 'WARN',
+        type = csv_arg,
+        default = [RX_RATE_DEFAULT_WARN,TX_RATE_DEFAULT_WARN],
+        )
+
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
+        dest = 'CRIT',
+        type = csv_arg,
+        default = [RX_RATE_DEFAULT_CRIT,TX_RATE_DEFAULT_CRIT],
+        )
+
+    parser.add_argument('-i', '--ignore',
+        help = 'Ignore certain interface names, in the format "lo,eno1". Default: %(default)s',
+        dest = 'IGNORE',
+        type = csv_arg,
+        default = DEFAULT_IGNORE,
+        )
+
     return parser.parse_args()
 
 
 def main():    
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     RX_RATE_WARN = int(parsed.WARN[0]) if parsed.WARN[0] else None
@@ -94,12 +112,11 @@ def main():
     except:
         latest_data = None
 
-    # get current data
-    sp = execute_command(command)
-    result, err = sp.communicate()
-    result_rc = sp.returncode
-    if (err or result_rc != 0):
-        print(str(result) + str(err))
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(bash_command)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(bash_command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
     current_data = {}
@@ -107,7 +124,7 @@ def main():
     tx_labels = ['bytes', 'packets', 'errors', 'dropped', 'carrier', 'collsns']
 
     i = None
-    for index, line in enumerate(result.splitlines()):
+    for index, line in enumerate(stdout.splitlines()):
         if line[0].isdigit():
             ifname = line.split(': ')[1]
             if ifname not in IGNORE:
@@ -128,7 +145,7 @@ def main():
 
     pickle.dump(current_data, open('{}/network-io-dump'.format(tempfile.gettempdir()), 'wb+'))
 
-    global_state = STATE_OK
+    overall_state = STATE_OK
 
     perfdata = ''
 
@@ -137,99 +154,98 @@ def main():
 Iface                    MTU  ║ Rate       Err   Drp    Ovrun ║ Rate       Err   Drp    Coll
 ══════════════════════════════╬═══════════════════════════════╬══════════════════════════════'''
 
-    highest_value = 0
     highest_ifname = ''
-    highest_rx_rate_data = ''
-    highest_tx_rate_data = ''
+    highest_rx_rate = 0
+    highest_tx_rate = 0
 
     if latest_data:
         for ifname, values in sorted(current_data.items()):
             try: # needed to prevent key lookup errors in the latest_date dict when new interfaces appear
+                interface_state = STATE_OK
                 time_delta  = (current_data[ifname]['timestamp'] - latest_data[ifname]['timestamp']).total_seconds();
 
-                rx_packets_data = Data('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], None, None)
-                perfdata += unpack_perfdata((rx_packets_data.label, rx_packets_data.value, UOM_PACKETS, rx_packets_data.warn, rx_packets_data.crit, MIN, MAX))
+                # rx_packets_data = Data('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], None, None)
+                perfdata += unpack_perfdata('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], 'c', None, None, 0, None)
 
                 rx_rate = (current_data[ifname]['RX']['bytes'] - latest_data[ifname]['RX']['bytes']) / time_delta * 8; # conversion from bytes/s to bits/s
                 if rx_rate < 0:
                     rx_rate = 0 # handle negative numbers due to eg reboots
-                rx_rate_data = Data('{}_RX_Rate'.format(ifname), rx_rate, RX_RATE_WARN, RX_RATE_CRIT)
-                rx_rate_data.set_state(evaluate_greater((rx_rate_data.value, rx_rate_data.warn, rx_rate_data.crit)))
-                perfdata += unpack_perfdata((rx_rate_data.label, rx_rate_data.value, UOM_RATE, rx_rate_data.warn, rx_rate_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(rx_rate, RX_RATE_WARN, RX_RATE_CRIT))
+                perfdata += unpack_perfdata('{}_RX_Rate'.format(ifname), rx_rate, None, RX_RATE_WARN, RX_RATE_CRIT, 0, None)
 
-                rx_error_data = Data('{}_RX_Err'.format(ifname), values['RX']['errors'], RX_ERR_DEFAULT_WARN, RX_ERR_DEFAULT_CRIT)
-                rx_error_data.set_state(evaluate_greater((rx_error_data.value, rx_error_data.warn, rx_error_data.crit)))
-                perfdata += unpack_perfdata((rx_error_data.label, rx_error_data.value, UOM, rx_error_data.warn, rx_error_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(values['RX']['errors'], RX_ERR_DEFAULT_WARN, RX_ERR_DEFAULT_CRIT))
+                perfdata += unpack_perfdata('{}_RX_Err'.format(ifname), values['RX']['errors'], None, RX_ERR_DEFAULT_WARN, RX_ERR_DEFAULT_CRIT, 0, None)
 
-                rx_dropped_data = Data('{}_RX_Drp'.format(ifname), values['RX']['dropped'], RX_DRP_DEFAULT_WARN, RX_DRP_DEFAULT_CRIT)
-                perfdata += unpack_perfdata((rx_dropped_data.label, rx_dropped_data.value, UOM, rx_dropped_data.warn, rx_dropped_data.crit, MIN, MAX))
+                perfdata += unpack_perfdata('{}_RX_Drp'.format(ifname), values['RX']['dropped'], None, RX_DRP_DEFAULT_WARN, RX_DRP_DEFAULT_CRIT, 0, None)
 
-                rx_overrun_data = Data('{}_RX_Ovrun'.format(ifname), values['RX']['overrun'], RX_OVRUN_DEFAULT_WARN, RX_OVRUN_DEFAULT_CRIT)
-                rx_overrun_data.set_state(evaluate_greater((rx_overrun_data.value, rx_overrun_data.warn, rx_overrun_data.crit)))
-                perfdata += unpack_perfdata((rx_overrun_data.label, rx_overrun_data.value, UOM, rx_overrun_data.warn, rx_overrun_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(values['RX']['overrun'], RX_OVRUN_DEFAULT_WARN, RX_OVRUN_DEFAULT_CRIT))
+                perfdata += unpack_perfdata('{}_RX_Ovrun'.format(ifname), values['RX']['overrun'], None, RX_OVRUN_DEFAULT_WARN, RX_OVRUN_DEFAULT_CRIT, 0, None)
 
 
-                tx_packets_data = Data('{}_TX_Packets'.format(ifname), current_data[ifname]['TX']['bytes'], None, None)
-                perfdata += unpack_perfdata((tx_packets_data.label, tx_packets_data.value, UOM_PACKETS, tx_packets_data.warn, tx_packets_data.crit, MIN, MAX))
+                perfdata += unpack_perfdata('{}_TX_Packets'.format(ifname), current_data[ifname]['TX']['bytes'], 'c', None, None, 0, None)
 
                 tx_rate = (current_data[ifname]['TX']['bytes'] - latest_data[ifname]['TX']['bytes']) / time_delta * 8; # conversion from bytes/s to bits/s
                 if tx_rate < 0:
                     tx_rate = 0 # handle negative numbers due to eg reboots
-                tx_rate_data = Data('{}_TX_Rate'.format(ifname), tx_rate, TX_RATE_WARN, TX_RATE_CRIT)
-                tx_rate_data.set_state(evaluate_greater((tx_rate_data.value, tx_rate_data.warn, tx_rate_data.crit)))
-                perfdata += unpack_perfdata((tx_rate_data.label, tx_rate_data.value, UOM_RATE, tx_rate_data.warn, tx_rate_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(tx_rate, TX_RATE_WARN, TX_RATE_CRIT))
+                perfdata += unpack_perfdata('{}_TX_Rate'.format(ifname), tx_rate, None, TX_RATE_WARN, TX_RATE_CRIT, 0, None)
 
-                tx_error_data = Data('{}_TX_Err'.format(ifname), values['TX']['errors'], TX_ERR_DEFAULT_WARN, TX_ERR_DEFAULT_CRIT)
-                tx_error_data.set_state(evaluate_greater((tx_error_data.value, tx_error_data.warn, tx_error_data.crit)))
-                perfdata += unpack_perfdata((tx_error_data.label, tx_error_data.value, UOM, tx_error_data.warn, tx_error_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(values['TX']['errors'], TX_ERR_DEFAULT_WARN, TX_ERR_DEFAULT_CRIT))
+                perfdata += unpack_perfdata('{}_TX_Err'.format(ifname), values['TX']['errors'], None, TX_ERR_DEFAULT_WARN, TX_ERR_DEFAULT_CRIT, 0, None)
 
-                tx_dropped_data = Data('{}_TX_Drp'.format(ifname), values['TX']['dropped'], TX_DRP_DEFAULT_WARN, TX_DRP_DEFAULT_CRIT)
-                perfdata += unpack_perfdata((tx_dropped_data.label, tx_dropped_data.value, UOM, tx_dropped_data.warn, tx_dropped_data.crit, MIN, MAX))
+                perfdata += unpack_perfdata('{}_TX_Drp'.format(ifname), values['TX']['dropped'], None, TX_DRP_DEFAULT_WARN, TX_DRP_DEFAULT_CRIT, 0, None)
 
-                tx_collsns_data = Data('{}_TX_Coll'.format(ifname), values['TX']['collsns'], TX_COLL_DEFAULT_WARN, TX_COLL_DEFAULT_CRIT)
-                tx_collsns_data.set_state(evaluate_greater((tx_collsns_data.value, tx_collsns_data.warn, tx_collsns_data.crit)))
-                perfdata += unpack_perfdata((tx_collsns_data.label, tx_collsns_data.value, UOM, tx_collsns_data.warn, tx_collsns_data.crit, MIN, MAX))
+                interface_state = get_greater_state(interface_state, evaluate_greater(values['TX']['collsns'], TX_COLL_DEFAULT_WARN, TX_COLL_DEFAULT_CRIT))
+                perfdata += unpack_perfdata('{}_TX_Coll'.format(ifname), values['TX']['collsns'], None, TX_COLL_DEFAULT_WARN, TX_COLL_DEFAULT_CRIT, 0, None)
 
                 if ifname != 'lo':
-                    if rx_rate >= highest_value:
-                        highest_value = rx_rate
+                    if rx_rate >= highest_rx_rate\
+                    or rx_rate >= highest_tx_rate:
                         highest_ifname = ifname
-                        highest_rx_rate_data = rx_rate_data
-                        highest_tx_rate_data = tx_rate_data
+                        highest_rx_rate = rx_rate
+                        highest_tx_rate = tx_rate
 
-                    if tx_rate >= highest_value:
-                        highest_value = tx_rate
+                    if tx_rate >= highest_rx_rate\
+                    or tx_rate >= highest_tx_rate:
                         highest_ifname = ifname
-                        highest_rx_rate_data = rx_rate_data
-                        highest_tx_rate_data = tx_rate_data
+                        highest_rx_rate = rx_rate
+                        highest_tx_rate = tx_rate
 
-
-                state_checklist = [rx_rate_data.state, rx_error_data.state, rx_overrun_data.state, tx_rate_data.state, tx_error_data.state, tx_collsns_data.state]
-
-                state = ''
-                if STATE_CRIT in state_checklist:
-                    state = ' (CRIT)'
-                    global_state = STATE_CRIT
-                elif STATE_WARN in state_checklist:
-                    state = ' (WARN)'
-                    if global_state != STATE_CRIT:
-                        global_state = STATE_WARN
-
+                overall_state = get_greater_state(overall_state, interface_state)
                 
-                table += '\n{:25}{:5}║{:12}{:6}{:7}{:6}║{:12}{:6}{:7}{}'.format(ifname + state, values['mtu'], str(unit_suffix_format(rx_rate, 'bps')), str(values['RX']['errors']), str(values['RX']['dropped']), str(values['RX']['overrun']), str(unit_suffix_format(tx_rate, 'bps')), str(values['TX']['errors']), str(values['TX']['dropped']), str(values['TX']['collsns']))
-            except:
-                pass # needed to prevent empty if statement
+                table += '\n{:25}{:5}║{:12}{:6}{:7}{:6}║{:12}{:6}{:7}{}'.format(
+                    ifname + state_to_string(interface_state), values['mtu'],
+                    str(bytes2human(rx_rate)) + 'bps',
+                    str(values['RX']['errors']),
+                    str(values['RX']['dropped']),
+                    str(values['RX']['overrun']),
+                    str(bytes2human(tx_rate)) + 'bps',
+                    str(values['TX']['errors']),
+                    str(values['TX']['dropped']),
+                    str(values['TX']['collsns'])
+                    )
+            except KeyError as e:
+                pass # needed to prevent empty statement
 
-        if global_state == STATE_OK:
-            msg = 'Everything is ok. {}: {}/{} (RX/TX)'.format(highest_ifname, unit_suffix_format(highest_rx_rate_data.value, 'bps'), unit_suffix_format(highest_tx_rate_data.value, 'bps'))
+        if overall_state == STATE_OK:
+            msg = 'Everything is ok. {}: {}bps/{}bps (RX/TX)'.format(
+                highest_ifname,
+                bytes2human(highest_rx_rate),
+                bytes2human(highest_tx_rate)
+                )
         else:
-            msg = 'One or more errors. {}: {}/{} (RX/TX)'.format(highest_ifname, unit_suffix_format(highest_rx_rate_data.value, 'bps'), unit_suffix_format(highest_tx_rate_data.value, 'bps'))
+            msg = 'One or more errors. {}: {}bps/{}bps (RX/TX)'.format(
+                highest_ifname,
+                bytes2human(highest_rx_rate),
+                bytes2human(highest_tx_rate)
+                )
 
     else:
         msg = 'Waiting for the latest data...'
 
     print(msg.strip() + '\n' + table + '|' + perfdata.strip())
 
-    exit(global_state)
+    exit(overall_state)
 
-main()
+if __name__ == '__main__':
+    main()

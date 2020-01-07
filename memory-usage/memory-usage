@@ -22,18 +22,31 @@ DEFAULT_CRIT  = 95  # %
 import argparse
 import psutil
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-c', '--critical', help='Set the critical threshold for memory usage (in percent). Default: %(default)s',
-                      default=DEFAULT_CRIT, type=int, dest='CRIT')
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
-    parser.add_argument('-w', '--warning', help='Set the warning threshold for memory usage (in percent). Default: %(default)s',
-                      default=DEFAULT_WARN, type=int, dest='WARN')
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold for memory usage (in percent). Default: %(default)s',
+        dest = 'CRIT',
+        type = int,
+        default = DEFAULT_CRIT,
+        )
+    
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold for memory usage (in percent). Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
 
     return parser.parse_args()
 
@@ -51,14 +64,14 @@ def main():
     virt = psutil.virtual_memory()
     mem_usage_percent = float(getattr(virt, 'percent', 0))
 
-    msg = 'MEM: {}% - total: {}, used: {}, free: {}, available: {}\n' . format(
+    msg = 'MEM: {}% - total: {}, used: {}, free: {}, available: {}\n'.format(
         mem_usage_percent,
         bytes2human(virt.total),
         bytes2human(virt.used),
         bytes2human(virt.free),
         bytes2human(getattr(virt, 'available', 0)),
     )
-    msg += 'shared: {}, buffers: {}, cache: {}' . format(
+    msg += 'shared: {}, buffers: {}, cache: {}'.format(
         bytes2human(getattr(virt, 'shared', 0)),
         bytes2human(getattr(virt, 'buffers', 0)),
         bytes2human(getattr(virt, 'cached', 0)),

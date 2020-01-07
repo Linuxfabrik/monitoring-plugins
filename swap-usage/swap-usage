@@ -22,8 +22,8 @@ DEFAULT_CRIT  = 90  # %
 import argparse
 import psutil
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
 
 
 def define_args():
@@ -31,7 +31,7 @@ def define_args():
 
     parser.add_argument('-c', '--critical', help='Set the critical threshold for swap usage (in percent). Default: %(default)s',
                       default=DEFAULT_CRIT, type=int, dest='CRIT')
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}'.format(__version__, __author__))
     parser.add_argument('-w', '--warning', help='Set the warning threshold for swap usage (in percent). Default: %(default)s',
                       default=DEFAULT_WARN, type=int, dest='WARN')
 
@@ -51,13 +51,13 @@ def main():
     swap = psutil.swap_memory()
     swap_usage_percent = swap.percent
 
-    msg = 'Swap: {}% - total: {}, used: {}, free: {}\n' . format(
+    msg = 'Swap: {}% - total: {}, used: {}, free: {}\n'.format(
         swap_usage_percent,
         bytes2human(swap.total),
         bytes2human(swap.used),
         bytes2human(swap.free),
     )
-    msg += 'swapped in: {}, swapped out: {} (both cumulative)' . format(
+    msg += 'swapped in: {}, swapped out: {} (both cumulative)'.format(
         bytes2human(getattr(swap, 'sin', 0)),
         bytes2human(getattr(swap, 'sout', 0)),
     )

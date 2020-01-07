@@ -20,7 +20,7 @@ import argparse
 import re
 import socket
 
-from lib2.globals import *
+from lib.globals import *
 
 
 # https://github.com/ypcrts/fqdn/blob/develop/fqdn/__init__.py
@@ -29,6 +29,7 @@ from lib2.globals import *
 FQDN_REGEX = re.compile(
         r"^((?!-)[-A-Z\d]{1,63}(?<!-)\.)+(?!-)[-A-Z\d]{1,63}(?<!-)\.?$", re.IGNORECASE
 )
+
 
 def is_valid_hostname(hostname):
     """
@@ -48,6 +49,7 @@ def is_valid_hostname(hostname):
         return False
     return bool(FQDN_REGEX.match(hostname))
 
+
 def is_valid_absolute_hostname(hostname):
     """
     True for a fully-qualified domain name (FQDN) that is RFC
@@ -56,6 +58,7 @@ def is_valid_absolute_hostname(hostname):
     search domains may be appended.
     """
     return hostname.endswith(".") and is_valid_hostname(hostname)
+
 
 def is_valid_relative_hostname(hostname):
     """
@@ -68,8 +71,15 @@ def is_valid_relative_hostname(hostname):
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-H', '--hostname', help='Hostname to check. Defaults to the local hostname.', dest='HOSTNAME')
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('-H', '--hostname',
+        help = 'Hostname to check. Defaults to the local hostname.',
+        dest = 'HOSTNAME',
+        )
 
     return parser.parse_args()
 
@@ -88,13 +98,12 @@ def main():
 
     # calculating the final check state
     if not is_valid_hostname(hostname):
-        print('{} is an invalid fully qualified domain name (FQDN).' . format(hostname))
+        print('{} is an invalid fully qualified domain name (FQDN).'.format(hostname))
         exit(STATE_WARN)
 
-    print('{} is a valid FQDN.' . format(hostname))
+    print('{} is a valid FQDN.'.format(hostname))
     exit(STATE_OK)
 
 
 if __name__ == '__main__':
     main()
-

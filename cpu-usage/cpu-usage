@@ -24,21 +24,37 @@ import pickle
 import psutil
 import tempfile
 
-from lib2.globals import *
+from lib.globals import *
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-w', '--warning', help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
-                      default=DEFAULT_WARN, type=float, dest='WARN')
-    parser.add_argument('-c', '--critical', help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
-                      default=DEFAULT_CRIT, type=float, dest='CRIT')
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+        dest = 'WARN',
+        type = float,
+        default = DEFAULT_WARN,
+        )
 
-    parser.add_argument('-i', '--count', help='Number of times the value has to be above the given thresholds. Default: %(default)s',
-                      default=DEFAULT_COUNT, type=int, dest='COUNT')
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+        dest = 'CRIT',
+        type = float,
+        default = DEFAULT_CRIT,
+        )
+
+    parser.add_argument('-i', '--count',
+        help = 'Number of times the value has to be above the given thresholds. Default: %(default)s',
+        dest = 'COUNT',
+        type = int,
+        default = DEFAULT_COUNT,
+        )
     
     return parser.parse_args()
 
@@ -64,7 +80,7 @@ def main():
     stats['cpu-usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
 
 
-    # Additional CPU stats (number of events not as a %; psutil>=4.1.0)
+    # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) per second
     # interrupts: number of interrupts per second
     # soft_interrupts: number of software interrupts per second. Always set to 0 on Windows and SunOS.
@@ -107,16 +123,16 @@ def main():
             state = STATE_WARN
 
     # build the message
-    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n' . format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
-    msg += 'nice: {}%, irq: {}%, steal: {}%\n' . format(stats['nice'], stats['irq'], stats['steal'])
+    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
-        msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n' . format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
 
     # build perfdata
-    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;' . format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
-    perfdata += 'nice={}%;irq={}%;steal={}%;' . format(stats['nice'], stats['irq'], stats['steal'])
+    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    perfdata += 'nice={}%;irq={}%;steal={}%;'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
-        perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};' . format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
 
     # over and out
     print(msg.strip())

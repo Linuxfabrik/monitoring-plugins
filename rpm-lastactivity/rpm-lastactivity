@@ -24,8 +24,8 @@ bash_command = 'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sor
 import argparse
 import time
 
-from lib2.globals import *
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.utils import execute_command
 
 
 def define_args():
@@ -33,7 +33,7 @@ def define_args():
 
     parser.add_argument('-c', '--critical', help='Set the critical threshold (in days). Default: %(default)s',
                       default=DEFAULT_CRIT, type=int, dest='CRIT')
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}'.format(__version__, __author__))
     parser.add_argument('-w', '--warning', help='Set the warning threshold (in days). Default: %(default)s',
                       default=DEFAULT_WARN, type=int, dest='WARN')
 
@@ -64,12 +64,12 @@ def main():
     # calculating the final check state
     today = int(time.time())        # get the Unix timestamp
     if today - int(last_activity[0]) >= int(parsed.CRIT) * 24 * 60 * 60:
-        print('Last rpm/yum/dnf activity is more than {} days ago.' . format(parsed.CRIT))
+        print('Last rpm/yum/dnf activity is more than {} days ago.'.format(parsed.CRIT))
         exit(STATE_CRIT)
     if today - int(last_activity[0]) >= int(parsed.WARN) * 24 * 60 * 60:
-        print('Last rpm/yum/dnf activity is more than {} days ago.' . format(parsed.WARN))
+        print('Last rpm/yum/dnf activity is more than {} days ago.'.format(parsed.WARN))
         exit(STATE_WARN)
-    print('Last rpm/yum/dnf activity is below the given thresholds ({}d/{}d).' . format(parsed.WARN, parsed.CRIT))
+    print('Last rpm/yum/dnf activity is below the given thresholds ({}d/{}d).'.format(parsed.WARN, parsed.CRIT))
     exit(STATE_OK)
 
 

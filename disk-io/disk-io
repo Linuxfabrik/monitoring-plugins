@@ -46,15 +46,31 @@ from lib.parse_input import evaluate_greater
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-w', '--warning', help='Set the warning threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
-                      default=[DEFAULT_READ_WARN, DEFAULT_WRITE_WARN], type=csv_arg, dest='WARN')
-    parser.add_argument('-c', '--critical', help='Set the critical threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
-                      default=[DEFAULT_READ_CRIT, DEFAULT_WRITE_CRIT], type=csv_arg, dest='CRIT')
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
+        dest = 'WARN',
+        type = csv_arg,
+        default = [DEFAULT_READ_WARN, DEFAULT_WRITE_WARN],
+        )
 
-    parser.add_argument('-i', '--ignore', help='Ignore certain disk names, in the format "sr0,dm-1". Default: %(default)s',
-                      default=DEFAULT_IGNORE, type=csv_arg, dest='IGNORE')
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
+        dest = 'CRIT',
+        type = csv_arg,
+        default = [DEFAULT_READ_CRIT, DEFAULT_WRITE_CRIT],
+        )
+
+    parser.add_argument('-i', '--ignore',
+        help = 'Ignore certain disk names, in the format "sr0,dm-1". Default: %(default)s',
+        dest = 'IGNORE',
+        type = csv_arg,
+        default = DEFAULT_IGNORE,
+        )
 
     return parser.parse_args()
 
@@ -155,4 +171,5 @@ def main():
 
     exit(global_state)
 
-main()
+if __name__ == '__main__':
+    main()

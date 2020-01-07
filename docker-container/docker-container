@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019112001'
+__version__ = '2020010601'
 
 DESCRIPTION = 'Checks the stats and number of docker containers.'
 
@@ -29,7 +29,7 @@ DEFAULT_RUNNING_CONTAINERS_CRIT = None
 import argparse
 
 from lib.globals import *
-from lib.execute_command import execute_command
+from lib.utils import execute_command
 from lib.output import unpack_perfdata
 from lib.parse_arguments import csv_arg
 from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, str2bytes
@@ -37,28 +37,58 @@ from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, st
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-w', '--warning', help='Set the warning threshold for the CPU and memory usage percentage. Default: %(default)s',
-                      default=DEFAULT_STAT_WARN, type=float, dest='STAT_WARN')
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold for the CPU and memory usage percentage. Default: %(default)s',
+        dest = 'STAT_WARN',
+        type = float,
+        default = DEFAULT_STAT_WARN,
+        )
 
-    parser.add_argument('-c', '--critical', help='Set the critical threshold for the CPU and memory usage percentage. Default: %(default)s',
-                      default=DEFAULT_STAT_CRIT, type=float, dest='STAT_CRIT')
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold for the CPU and memory usage percentage. Default: %(default)s',
+        dest = 'STAT_CRIT',
+        type = float,
+        default = DEFAULT_STAT_CRIT,
+        )
 
-    parser.add_argument('--w_containers', help='Set the warning threshold for the number of total containers. Default: %(default)s',
-                      default=DEFAULT_CONTAINERS_WARN, type=int, dest='CONTAINERS_WARN')
+    parser.add_argument('--w_containers',
+        help = 'Set the warning threshold for the number of total containers. Default: %(default)s',
+        dest = 'CONTAINERS_WARN',
+        type = int,
+        default = DEFAULT_CONTAINERS_WARN,
+        )
 
-    parser.add_argument('--c_containers', help='Set the critical threshold for the number of total containers. Default: %(default)s',
-                      default=DEFAULT_CONTAINERS_CRIT, type=int, dest='CONTAINERS_CRIT')
+    parser.add_argument('--c_containers',
+        help = 'Set the critical threshold for the number of total containers. Default: %(default)s',
+        dest = 'CONTAINERS_CRIT',
+        type = int,
+        default = DEFAULT_CONTAINERS_CRIT,
+        )
 
-    parser.add_argument('--w_running_containers', help='Set the warning threshold for the number of running containers. Default: %(default)s',
-                      default=DEFAULT_RUNNING_CONTAINERS_WARN, type=int, dest='RUNNING_CONTAINERS_WARN')
+    parser.add_argument('--w_running_containers',
+        help = 'Set the warning threshold for the number of running containers. Default: %(default)s',
+        dest = 'RUNNING_CONTAINERS_WARN',
+        type = int,
+        default = DEFAULT_RUNNING_CONTAINERS_WARN,
+        )
 
-    parser.add_argument('--c_running_containers', help='Set the critical threshold for the number of running containers. Default: %(default)s',
-                      default=DEFAULT_RUNNING_CONTAINERS_CRIT, type=int, dest='RUNNING_CONTAINERS_CRIT')
+    parser.add_argument('--c_running_containers',
+        help = 'Set the critical threshold for the number of running containers. Default: %(default)s',
+        dest = 'RUNNING_CONTAINERS_CRIT',
+        type = int,
+        default = DEFAULT_RUNNING_CONTAINERS_CRIT,
+        )
 
-    parser.add_argument('--docker_names', help='Set a list of container names which should be Up, in the format "containername1,containername2".',
-                      type=csv_arg, dest='DOCKER_NAMES')
+    parser.add_argument('--docker_names',
+        help = 'Set a list of container names which should be Up, in the format "containername1,containername2".',
+        dest = 'DOCKER_NAMES',
+        type = csv_arg,
+        )
 
     return parser.parse_args()
 
@@ -69,15 +99,16 @@ def main():
     except:
         exit(STATE_UNKNOWN)
 
+    # todo: check `command -v docker`
 
-    proc = execute_command(command_stats)
-    result_stats, err = proc.communicate()
-    result_stats_rc = proc.returncode
-    if (err or result_stats_rc != 0):
-        print('Bash command `{}` failed. {}'.format(command_stats, err.strip()))
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(command_stats, shell=True)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(command_stats))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
-    result_stats = mltext2array(result_stats, skip_header=True, sort_key=1)
+    result_stats = mltext2array(stdout, skip_header=True, sort_key=1)
     global_state = STATE_OK
     state_checklist = []
     msg = ''
@@ -183,4 +214,5 @@ Name                                    ║ CPU   ║ MEM                       
     print(msg + table + msg_addendum + '|' + perfdata.strip())
     exit(global_state)
 
-main()
+if __name__ == '__main__':
+    main()

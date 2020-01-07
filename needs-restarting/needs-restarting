@@ -9,25 +9,28 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122401'
+__version__ = '2020010701'
 
 DESCRIPTION = 'Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. Should be called once a day or after a `yum update` only.'
 
-command_installed  = '/usr/bin/command -v needs-restarting'
-bash_command = '/usr/bin/needs-restarting'
+command_installed  = 'command -v needs-restarting'
+bash_command = 'needs-restarting'
 
 
 #====================
 import argparse
 
-from lib2.globals import *
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.utils import execute_command
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
 
     return parser.parse_args()
 
@@ -47,7 +50,7 @@ def main():
 
     # execute the shell command and return its result and exit code
 	# 1. full reboot necessary? check the return code (<> 0: needs reboot): needs-restarting --reboothint
-    stdout, stderr, retc = execute_command(bash_command + ' --reboothint', shell=True)
+    stdout, stderr, retc = execute_command(bash_command + ' --reboothint')
     if (stderr):
         print('Bash command `{}` failed.'.format(bash_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -60,7 +63,7 @@ def main():
 
     # execute the shell command and return its result and exit code
 	# 2. long list of all updated services (process list): needs-restarting
-    stdout, stderr, retc = execute_command(bash_command, shell=True)
+    stdout, stderr, retc = execute_command(bash_command)
     if (stderr):
         print('Bash command `{}` failed.'.format(bash_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -69,7 +72,7 @@ def main():
 
     # calculating the final check state
     if service_restart_needed:
-    	print('Found some running processes that have been updated.\n\n{}' . format(service_restart_needed))
+    	print('Found some running processes that have been updated.\n\n{}'.format(service_restart_needed))
     	exit(STATE_WARN)
 
     print('No system or service restart needed.')

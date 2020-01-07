@@ -13,7 +13,7 @@ __version__ = '2019120602'
 
 DESCRIPTION         = 'Checks IPMI sensor information in detail.'
 
-command_installed   = '/usr/bin/command -v ipmitool'
+command_installed   = 'command -v ipmitool'
 command_cmd         = 'ipmitool sensor list'
 #command_cmd         = 'cat examples/EXAMPLE02'
 
@@ -34,15 +34,18 @@ COL_UPPERNR = 9     # NR = non-recoverable
 
 import argparse
 
-from lib2.globals import *
-from lib2.utils import execute_command
-from lib2.output import unpack_perfdata
+from lib.globals import *
+from lib.utils import execute_command
+from lib.output import unpack_perfdata
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
 
     return parser.parse_args()
 
@@ -111,28 +114,28 @@ def main():
 
         # nr - Non Recoverable
         if cols[COL_STATE] == 'nr':
-            msg += '\n{} ({} {}) is NON-RECOVERABLE. Hardware might be DAMAGED.' . format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            msg += '\n{} ({} {}) is NON-RECOVERABLE. Hardware might be DAMAGED.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
             state = STATE_CRIT
 
         # cr - Critical
         if cols[COL_STATE] == 'cr':
-            msg += '\n{} ({} {}) is above/below a critical threshold.' . format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            msg += '\n{} ({} {}) is above/below a critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
             state = STATE_CRIT
 
         # nc - Non Critical
         if cols[COL_STATE] == 'nc':
-            msg += '\n{} ({} {}) is above/below a non-critical threshold.' . format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            msg += '\n{} ({} {}) is above/below a non-critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
             state = STATE_WARN
 
         overall_state = get_greater_state(state, overall_state)
 
 
     if overall_state == STATE_CRIT:
-        print('Checked {} sensor(s). There are critical errors.' . format(sensor_counter))
+        print('Checked {} sensor(s). There are critical errors.'.format(sensor_counter))
     elif overall_state == STATE_WARN:
-        print('Checked {} sensor(s). There are warnings.' . format(sensor_counter))
+        print('Checked {} sensor(s). There are warnings.'.format(sensor_counter))
     else:
-        print('Checked {} sensor(s). All are ok.' . format(sensor_counter))
+        print('Checked {} sensor(s). All are ok.'.format(sensor_counter))
 
     if msg:
         print(msg)

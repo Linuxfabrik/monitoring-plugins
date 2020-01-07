@@ -28,9 +28,9 @@ import urllib
 import urllib2
 
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
+from lib.utils import execute_command
 
 
 def define_args():
@@ -52,7 +52,7 @@ def define_args():
         )
     parser.add_argument('-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     return parser.parse_args()
@@ -73,10 +73,10 @@ def get_token_from_rocket_chat(rc_url, user, password):
         response = urllib2.urlopen(request, timeout=7)
 
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
     except:
         print('Unknown Error, maybe timeout.')
@@ -84,7 +84,7 @@ def get_token_from_rocket_chat(rc_url, user, password):
 
     result = response.read()
     if not result:
-        print('There was no result from {}.' . format(rc_url))
+        print('There was no result from {}.'.format(rc_url))
         exit(STATE_UNKNOWN)
 
     result = json.loads(result)
@@ -111,10 +111,10 @@ def get_stats_from_rocket_chat(rc_url, authToken, userId):
         response = urllib2.urlopen(request, timeout=7)
 
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
     except:
         print('Unknown Error, maybe timeout.')
@@ -122,7 +122,7 @@ def get_stats_from_rocket_chat(rc_url, authToken, userId):
 
     result = response.read()
     if not result:
-        print('There was no result from {}.' . format(rc_url))
+        print('There was no result from {}.'.format(rc_url))
         exit(STATE_UNKNOWN)
 
     return json.loads(result)
@@ -175,7 +175,7 @@ def main():
 
 
     # build a compact multiline message
-    msg += 'v{}, {} users ({} online), {} rooms, {} direct msgs, {} private groups, {} livechats, {} uploads\n' . format(
+    msg += 'v{}, {} users ({} online), {} rooms, {} direct msgs, {} private groups, {} livechats, {} uploads\n'.format(
         rc_statistics_version, 
         rc_statistics_totalUsers,
         rc_statistics_onlineUsers,
@@ -185,7 +185,7 @@ def main():
         rc_statistics_totalLivechat,
         rc_statistics_uploadsTotal
         )
-    msg += '{} msgs, {} private group msgs, {} livechat visitors, {} livechat msgs, {} uploads total size' . format(
+    msg += '{} msgs, {} private group msgs, {} livechat visitors, {} livechat msgs, {} uploads total size'.format(
         rc_statistics_totalMessages,
         rc_statistics_totalPrivateGroupMessages,
         rc_statistics_totalLivechatVisitors,

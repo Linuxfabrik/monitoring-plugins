@@ -24,10 +24,10 @@ bash_command = '/usr/bin/w'
 #====================
 import argparse
 
-from lib2.globals import *
-from lib2.utils import execute_command
-from lib2.output import unpack_perfdata
-from lib2.parse_arguments import csv_arg
+from lib.globals import *
+from lib.utils import execute_command
+from lib.output import unpack_perfdata
+from lib.parse_arguments import csv_arg
 
 
 def define_args():
@@ -35,7 +35,7 @@ def define_args():
 
     parser.add_argument('-c', '--critical', help='Set the critical threshold for logged in tty/pts users, in the format "3,10". Default: %(default)s',
                       default=[DEFAULT_CRIT_TTY,DEFAULT_CRIT_PTS], type=csv_arg, dest='CRIT')
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__))
     parser.add_argument('-w', '--warning', help='Set the warning threshold for logged in tty/pts users, in the format "1,5". Default: %(default)s',
                       default=[DEFAULT_WARN_TTY,DEFAULT_WARN_PTS], type=csv_arg, dest='WARN')
     
@@ -94,22 +94,22 @@ def main():
         msg = 'No one is logged in.'
     else:
         if CRIT_TTY and count_tty >= CRIT_TTY:
-            msg += 'TTY: {} (CRIT)' . format(count_tty)
+            msg += 'TTY: {} (CRIT)'.format(count_tty)
             state = get_new_state(state, STATE_CRIT)
         elif WARN_TTY and count_tty >= WARN_TTY:
-            msg += 'TTY: {} (WARN)' . format(count_tty)
+            msg += 'TTY: {} (WARN)'.format(count_tty)
             state = get_new_state(state, STATE_WARN)
         else:
-            msg += 'TTY: {}' . format(count_tty)
+            msg += 'TTY: {}'.format(count_tty)
 
         if CRIT_PTS and ount_pts >= CRIT_PTS:
-            msg += ', PTS: {} (CRIT)' . format(count_pts)
+            msg += ', PTS: {} (CRIT)'.format(count_pts)
             state = get_new_state(state, STATE_CRIT)
         elif WARN_PTS and count_pts >= WARN_PTS:
-            msg += ', PTS: {} (WARN)' . format(count_pts)
+            msg += ', PTS: {} (WARN)'.format(count_pts)
             state = get_new_state(state, STATE_WARN)
         else:
-            msg += ', PTS: {}' . format(count_pts)
+            msg += ', PTS: {}'.format(count_pts)
 
 
     msg += '\n\n' + '\n'.join(lines[1:])

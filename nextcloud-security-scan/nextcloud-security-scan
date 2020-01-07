@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122901'
+__version__ = '2020010701'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
@@ -23,21 +23,23 @@ import urllib
 import urllib2
 
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
+from lib.utils import execute_command
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+    
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
 
     parser.add_argument('-u', '--url',
-        help='Nextcloud API URL, for example "cloud.example.com".',
-        dest='URL',
-        )
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        help = 'Nextcloud API URL, for example "cloud.example.com".',
+        dest = 'URL',
+        required = True,
         )
 
     return parser.parse_args()
@@ -58,10 +60,10 @@ def get_uuid_from_scan_nextcloud_com(nc_url):
         request = urllib2.Request(scan_url, data, headers)
         response = urllib2.urlopen(request, timeout=30)
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
     except:
         print('Unknown Error, maybe timeout.')
@@ -69,7 +71,7 @@ def get_uuid_from_scan_nextcloud_com(nc_url):
 
     result = response.read()
     if not result:
-        print('There was no result from {} for {}.' . format(scan_url, nc_url))
+        print('There was no result from {} for {}.'.format(scan_url, nc_url))
         exit(STATE_UNKNOWN)
 
     return json.loads(result)['uuid']
@@ -90,10 +92,10 @@ def trigger_rescan_nextcloud_com(nc_url):
         request = urllib2.Request(scan_url, data, headers)
         response = urllib2.urlopen(request, timeout=30)
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
     except:
         print('Unknown Error, maybe timeout.')
@@ -114,10 +116,10 @@ def get_scan_result_from_scan_nextcloud_com(nc_uuid):
         request = urllib2.Request(scan_url)
         response = urllib2.urlopen(request, timeout=30)
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
     except:
         print('Unknown Error, maybe timeout.')
@@ -145,10 +147,6 @@ def main():
     try:
         parsed = define_args()
     except SystemExit as e:
-        exit(STATE_UNKNOWN)
-
-    if not parsed.URL:
-        print('Missing URL parameter.')
         exit(STATE_UNKNOWN)
     
     URL = parsed.URL
@@ -178,10 +176,10 @@ def main():
         tmp = trigger_rescan_nextcloud_com(URL)
 
 
-    msg += '"{}" rating for {}, checked at {}, on ' . format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
+    msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
     
     # Version
-    msg += '{} v{} ' . format(result['product'], result['version'])
+    msg += '{} v{} '.format(result['product'], result['version'])
     if not result['latestVersionInBranch']:
         msg += '(NOT on latest patch level). '
     else:

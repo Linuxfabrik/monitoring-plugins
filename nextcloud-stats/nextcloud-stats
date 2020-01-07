@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122801'
+__version__ = '2020010701'
 
 DESCRIPTION = 'This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -27,43 +27,44 @@ import ssl
 import urllib2
 
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
+from lib.utils import execute_command
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
-        dest='INSECURE',
-        type=bool,
-        default=DEFAULT_INSECURE,
+        help = 'This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest = 'INSECURE',
+        type = bool,
+        default = DEFAULT_INSECURE,
         )
     parser.add_argument('--noproxy',
-        help='Do not use a proxy. Default: %(default)s',
-        dest='NOPROXY',
-        type=bool,
-        default=DEFAULT_NOPROXY,
+        help = 'Do not use a proxy. Default: %(default)s',
+        dest = 'NOPROXY',
+        type = bool,
+        default = DEFAULT_NOPROXY,
         )
     parser.add_argument('--password',
-        help='Nextcloud API password.',
-        dest='PASSWORD',
+        help = 'Nextcloud API password.',
+        dest = 'PASSWORD',
+        required = True,
         )
     parser.add_argument('--url',
-        help='Nextcloud API URL. Default: %(default)s',
-        dest='URL',
-        default=DEFAULT_URL,
+        help = 'Nextcloud API URL. Default: %(default)s',
+        dest = 'URL',
+        default = DEFAULT_URL,
         )
     parser.add_argument('--username',
-        help='Nextcloud API username. Default: %(default)s',
-        dest='USERNAME',
-        default=DEFAULT_USERNAME,
+        help = 'Nextcloud API username. Default: %(default)s',
+        dest = 'USERNAME',
+        default = DEFAULT_USERNAME,
         )
     parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     return parser.parse_args()
@@ -81,10 +82,6 @@ def main():
     PASSWORD = parsed.PASSWORD
     INSECURE = parsed.INSECURE
     NOPROXY = parsed.NOPROXY
-
-    if not USERNAME or not PASSWORD:
-        print('Missing username and/or password.')
-        exit(STATE_UNKNOWN)
 
     credentials = base64.b64encode(USERNAME + ':' + PASSWORD)
 
@@ -114,10 +111,10 @@ def main():
         result = json.loads(response.read())
 
     except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}' . format(error.code, error.reason))
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
         exit(STATE_UNKNOWN)
     except urllib2.URLError as error:
-        print('URL Error: {0}' . format(error.reason))
+        print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
 
 
@@ -172,23 +169,23 @@ def main():
     state = STATE_OK
 
     if nc_system_apps_app_updates:
-        state = state or STATE_WARN
-        msg += 'There are {} app updates available.\n' . format(nc_system_apps_num_updates_available)
+        state = get_greater_state(state, STATE_WARN)
+        msg += 'There are {} app updates available.\n'.format(nc_system_apps_num_updates_available)
 
 
     # build the (long) multiline message
-    msg += 'v{}, {} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps\n\n' . format(
+    msg += 'v{}, {} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps\n\n'.format(
         nc_system_version, 
         nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h, 
         nc_storage_num_files, nc_system_apps_num_installed,
         )
-    msg += '* Shares: {} shares, {} group, {} link, {} link no password, {} mail, {} room, {} user\n' . format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
+    msg += '* Shares: {} shares, {} group, {} link, {} link no password, {} mail, {} room, {} user\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
         nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user)
-    msg += '* Federated Shares: {} received, {} sent\n' . format(nc_shares_num_fed_shares_received, nc_shares_num_fed_shares_sent)
-    msg += '* Storages: {} storages, {} home, {} other, {} local\n' . format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
-    msg += '* DB: {} v{}, size={}\n' . format(nc_server_database_type, nc_server_database_version, bytes2human(nc_server_database_size))
-    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n' . format(nc_server_php_version, bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, bytes2human(nc_server_php_memory_limit))
-    msg += '* Sys: {}, local memcache: {}, locking memcache: {}' . format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
+    msg += '* Federated Shares: {} received, {} sent\n'.format(nc_shares_num_fed_shares_received, nc_shares_num_fed_shares_sent)
+    msg += '* Storages: {} storages, {} home, {} other, {} local\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
+    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, bytes2human(nc_server_database_size))
+    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, bytes2human(nc_server_php_memory_limit))
+    msg += '* Sys: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
 
     perfdata += unpack_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)
 

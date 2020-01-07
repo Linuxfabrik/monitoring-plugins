@@ -21,8 +21,8 @@ DEFAULT_SELINUX_MODE = 'Enforcing'
 #====================
 import argparse
 
-from lib2.globals import *
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.utils import execute_command
 
 
 def define_args():
@@ -30,7 +30,7 @@ def define_args():
     # https://docs.python.org/2/library/argparse.html
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}' . format(__version__, __author__))
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}'.format(__version__, __author__))
     parser.add_argument('-m', '--expected-mode', help='The expected SELinux mode, one of "Enforcing", "Permissive" or "Disabled" (case-insensitiv). Default: %(default)s', default=DEFAULT_SELINUX_MODE, dest='SELINUX_MODE')
 
     return parser.parse_args()
@@ -56,10 +56,10 @@ def main():
 
     # calculating the final check state
     if result.lower() == selinux_mode.lower():
-        print('SELinux mode is as expected ({}).' . format(result))
+        print('SELinux mode is as expected ({}).'.format(result))
         exit(STATE_OK)
 
-    print('SELinux mode is {}, but supposed to be {}.' . format(result, selinux_mode))
+    print('SELinux mode is {}, but supposed to be {}.'.format(result, selinux_mode))
     exit(STATE_WARN)
 
 

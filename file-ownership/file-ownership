@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122101'
+__version__ = '2020010601'
 
 DESCRIPTION = 'Checks the ownership and group of a list of files.'
 
@@ -36,16 +36,23 @@ import argparse
 import os
 
 from lib.globals import *
-from lib.execute_command import execute_command
+from lib.utils import execute_command
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}' . format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-f', '--files', help='Additional files to be checked, in the format "owner:group,path;", separated by ";".',
-                      default='', type=str, dest='FILES')
+    parser.add_argument('-f', '--files',
+        help = 'Additional files to be checked, in the format "owner:group,path;", separated by ";".',
+        dest = 'FILES',
+        type = str,
+        default = '',
+        )
 
     return parser.parse_args()
 
@@ -70,14 +77,14 @@ def main():
             owner, group = line[0].split(':')
 
             formatted_command = command.format(path=path)
-            sp = execute_command(formatted_command)
-            result, err = sp.communicate()
-            result_rc = sp.returncode
-            if (err or result_rc != 0):
-                print(str(result) + str(err))
+            # execute the shell command and return its result and exit code
+            stdout, stderr, retc = execute_command(formatted_command, shell=True)
+            if (stderr or retc != 0):
+                print('Bash command `{}` failed.'.format(formatted_command))
+                print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
                 exit(STATE_UNKNOWN)
 
-            for line in result.splitlines():
+            for line in stdout.splitlines():
                 if line.startswith('Access: ('):
                     line = line.split()
                     actual_owner = line[5][:-1] # remove trailing ')'
@@ -102,4 +109,5 @@ def main():
         print('One or more problems with owners or groups.\n' + 'Checked: \n' + msg.strip())
         exit(global_state)
 
-main()
+if __name__ == '__main__':
+    main()

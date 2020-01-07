@@ -21,12 +21,17 @@ DEFAULT_CRIT = 1024*1024*1024     # byte
 import argparse
 import os
 
-from lib2.globals import *
-from lib2.output import bytes2human, unpack_perfdata
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
 
     parser.add_argument('-c', '--critical', 
         help = 'Set the CRIT size threshold in bytes. Default: >= %(default)s (1G)',
@@ -34,14 +39,13 @@ def define_args():
         type = float,
         default = DEFAULT_CRIT,
         )
+
     parser.add_argument('-f', '--filename',
         help='File name to check.',
         dest='FILE',
+        required = True,
         )
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}' . format(__version__, __author__)
-        )
+
     parser.add_argument('-w', '--warning',
         help = 'Set the WARN size threshold in bytes. Default: >= %(default)s (100M)',
         dest = 'WARN',
@@ -63,23 +67,18 @@ def main():
     WARN = parsed.WARN
     CRIT = parsed.CRIT
 
-    if not FILE:
-        print('Missing --filename parameter.')
-        exit(STATE_UNKNOWN)
-
-
     # fetch the data
     try:
         st = os.stat(FILE)
     except:
-        print('Error reading file or directory "{}".' . format(FILE))
+        print('Error reading file or directory "{}".'.format(FILE))
         exit(STATE_UNKNOWN)
 
     size = st.st_size
 
-    msg = '{} is {}.' . format(FILE, bytes2human(size))
+    msg = '{} is {}.'.format(FILE, bytes2human(size))
     # label, value, uom, warn, crit, min, max):
-    perfdata = unpack_perfdata('file_size_{}' . format(FILE), size, 'B', WARN, CRIT, 0, None)
+    perfdata = unpack_perfdata('file_size_{}'.format(FILE), size, 'B', WARN, CRIT, 0, None)
     print(msg.strip() + '|' + perfdata.strip())
 
     if size >= CRIT:

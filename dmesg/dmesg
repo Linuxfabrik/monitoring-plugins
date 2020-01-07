@@ -11,7 +11,7 @@
 # - warning when too many ignored lines
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020010601'
 
 DESCRIPTION = 'Check dmesg for emerg / alert / crit / err. Use "dmesg --level=emerg,alert,crit,err --reltime" to debug the error messages using human readable timestamps. Fix them. After fixing / review, use "dmesg --clear" to clear the Kernel Ring Buffer Messages.'
 
@@ -37,15 +37,15 @@ from lib.parse_input import filter_input
 from lib.output import unpack_perfdata
 
 
-
 def main():
-    result, err = execute_command(command).communicate()
-    if (err):
-        print(err)
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(command)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
-    result = result.strip()
-
+    result = stdout.strip()
     result = filter_input(result, ignore)
 
     if len(result) > 0:
@@ -58,4 +58,6 @@ def main():
     print(msg.strip())
     exit(state)
 
-main()
+
+if __name__ == '__main__':
+    main()

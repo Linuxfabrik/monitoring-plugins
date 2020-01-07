@@ -24,10 +24,10 @@ import argparse
 import datetime
 import pickle
 
-from lib2.globals import *
-from lib2.output import unpack_perfdata, state_to_string, format_as_table
-from lib2.parse_input import evaluate_greater
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.output import unpack_perfdata, state_to_string, format_as_table
+from lib.parse_input import evaluate_greater
+from lib.utils import execute_command
 
 try:
     import tempfile
@@ -45,23 +45,27 @@ def define_args():
         action = 'version',
         version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
+
     parser.add_argument('-c', '--critical', 
         help = 'Set the CRIT threshold. Default: >= %(default)s',
         dest = 'CRIT',
         type = float,
         default = DEFAULT_CRIT,
         )
+
     parser.add_argument('-w', '--warning',
         help = 'Set the WARN threshold. Default: >= %(default)s',
         dest = 'WARN',
         type = float,
         default = DEFAULT_WARN,
         )
+    
     parser.add_option('-x', '--check', 
         help = 'The thing you want to check [system|storage|shares|webserver|php|database|activeUsers|uploadFilesize]',
         dest = 'check', 
         choices = ['system','storage','shares','webserver','php','database','activeUsers','uploadFilesize'], 
         default = 'system',
+        required = False,
         )
 
     return parser.parse_args()
@@ -76,7 +80,7 @@ def main():
 
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = execute_command(bash_command, shell=True)
+    stdout, stderr, retc = execute_command(bash_command, shell=True) # only use shell=True when needed
     if (stderr or retc != 0):
         print('Bash command `{}` failed.'.format(bash_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))

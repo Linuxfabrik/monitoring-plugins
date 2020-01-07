@@ -15,8 +15,8 @@ DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
 # Not in psutil because it's too complex, too low level and not portable by using a consistent API.
 # So we have to call an external command.
-command_installed  = '/usr/bin/command -v sysctl'
-command_sysctl     = '/usr/sbin/sysctl fs.file-nr'
+command_installed  = 'command -v sysctl'
+command_sysctl     = 'sysctl fs.file-nr'
 
 DEFAULT_WARN  = 90      # %
 DEFAULT_CRIT  = 95      # %
@@ -25,28 +25,30 @@ DEFAULT_CRIT  = 95      # %
 #====================
 import argparse
 
-from lib2.globals import *
-from lib2.utils import execute_command
+from lib.globals import *
+from lib.utils import execute_command
 
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-c', '--critical',
-        help='Set the critical threshold for file descriptor usage (in percent). Default: %(default)s',
-        dest='CRIT',
-        type=int,
-        default=DEFAULT_CRIT,
-        )
     parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}' . format(__version__, __author__)
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
+
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold for file descriptor usage (in percent). Default: %(default)s',
+        dest = 'CRIT',
+        type = int,
+        default = DEFAULT_CRIT,
+        )
+    
     parser.add_argument('-w', '--warning',
-        help='Set the warning threshold for file descriptor usage (in percent). Default: %(default)s',
-        dest='WARN',
-        type=int,
-        default=DEFAULT_WARN,
+        help = 'Set the warning threshold for file descriptor usage (in percent). Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
         )
 
     return parser.parse_args()
@@ -85,9 +87,9 @@ def main():
     fd_percent = round(fd_current / fd_max * 100, 1)
 
 
-    msg = '{}% file descriptors used ({}/{}).' . format(fd_percent, int(fd_current), int(fd_max))
+    msg = '{}% file descriptors used ({}/{}).'.format(fd_percent, int(fd_current), int(fd_max))
     # 'label'=value[UOM];[warn];[crit];[min];[max]
-    perfdata = 'fd={}%;{};{};0;100;' . format(fd_percent, WARN, CRIT)
+    perfdata = 'fd={}%;{};{};0;100;'.format(fd_percent, WARN, CRIT)
     print(msg + '|' + perfdata)
 
 
