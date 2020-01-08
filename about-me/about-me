@@ -1,0 +1,170 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020010801'
+
+DESCRIPTION = 'Reports details about the host the check is running on. Always returns OK.'
+
+
+#====================
+import argparse
+import os
+import psutil       # https://pypi.org/project/psutil/
+import re
+
+from lib.utils import execute_command
+from lib.globals import *
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    return parser.parse_args()
+
+
+def execute_command_or_unknown(command):
+    stdout, stderr, retc = execute_command(command)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+    return stdout.strip(), stderr, retc
+
+
+def find_command(return_text, command, version_cmd=None, version_regex=None):
+    stdout, stderr, retc = execute_command(command)
+    if retc == 0:
+        if version_cmd:
+            ver, stderr, retc = execute_command(version_cmd)
+            # where to find the version number in output?
+            ver = re.search(version_regex, ver)
+            return return_text + ' {}'.format(ver.group(1))
+        else:
+            return return_text
+    else:
+        return ''
+
+
+def get_sys_dimensions():
+    # get some very basic system statistics
+    sys = {}
+    sys['cpu'] = psutil.cpu_count(logical=True)
+    sys['ram'] = psutil.virtual_memory().total
+
+    stdout, stderr, retc = execute_command_or_unknown('lsblk --nodeps --output SIZE --noheadings --include 8,252')
+    sys['disks'] = stdout.count('\n') + 1
+    sys['disk-sizes'] = stdout.replace('\n', ' ')
+    return sys
+
+
+def get_apps():
+    # try to find some non-yum-installed software - here called "apps";
+    # mainly found in /home, /opt or /var/www/html;
+    # and: this is just an incomplete and naive guess
+    apps = ''
+
+    apps += 'H-Net SecureService (eFaktura), ' if os.path.isdir('/home/hnet/HnetSecureService') else ''
+
+    apps += 'Atlassian Bitbucket, ' if os.path.isdir('/opt/atlassian/bitbucket') else ''
+    apps += 'Atlassian Confluence, ' if os.path.isdir('/opt/atlassian/confluence') else ''
+    apps += 'Atlassian Jira, ' if os.path.isdir('/opt/atlassian/jira') else ''
+    apps += 'Atomicorp, ' if os.path.isdir('/opt/atomicorp') else ''
+    apps += 'Bacchus, ' if os.path.isdir('/opt/bacchus') else ''
+    apps += 'BizBus, ' if os.path.isdir('/opt/bizbus') else ''
+    apps += 'Brother Printer SW, ' if os.path.isdir('/opt/brother') else ''
+    apps += 'Collabora Office 5.3, ' if os.path.isdir('/opt/collaboraoffice5.3') else ''
+    apps += 'Collabora Office 6.0, ' if os.path.isdir('/opt/collaboraoffice6.0') else ''
+    apps += 'Containerd, ' if os.path.isdir('/opt/containerd') else ''
+    apps += 'DCM4CHEE, ' if os.path.isdir('/opt/dcm4chee') else ''
+    apps += 'F5 VPN SW, ' if os.path.isdir('/opt/f5/vpn') else ''
+    apps += 'GitLab, ' if os.path.isdir('/opt/gitlab') else ''
+    apps += 'Google Chrome, ' if os.path.isdir('/opt/google/chrome') else ''
+    apps += 'JBoss, ' if os.path.isdir('/opt/jboss') else ''
+    apps += 'JumpCloud, ' if os.path.isdir('/opt/jc') else ''
+    apps += 'KeeWeb, ' if os.path.isdir('/opt/KeeWeb') else ''
+    apps += 'Keycloak, ' if os.path.isdir('/opt/keycloak') else ''
+    apps += 'LOOL, ' if os.path.isdir('/opt/lool') else ''
+    apps += 'MariaDB ColumnStore, ' if os.path.isdir('/opt/columnstore') else ''
+    apps += 'Medidata, ' if os.path.isdir('/opt/MPCommunicator') else ''
+    apps += 'Metabase, ' if os.path.isdir('/opt/metabase') else ''
+    apps += 'NodeBB, ' if os.path.isdir('/opt/nodebb') else ''
+    apps += 'PHP 7.1 (RH), ' if os.path.isdir('/opt/rh/rh-php71') else ''
+    apps += 'PHP 7.2 (RH), ' if os.path.isdir('/opt/rh/rh-php72') else ''
+    apps += 'PHP 7.3 (RH), ' if os.path.isdir('/opt/rh/rh-php73') else ''
+    apps += 'PHP 7.4 (RH), ' if os.path.isdir('/opt/rh/rh-php74') else ''
+    apps += 'PostgreSQL 9.0 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql90') else ''
+    apps += 'PostgreSQL 9.1 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql91') else ''
+    apps += 'PostgreSQL 9.2 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql92') else ''
+    apps += 'PostgreSQL 9.3 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql93') else ''
+    apps += 'PostgreSQL 9.4 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql94') else ''
+    apps += 'PostgreSQL 9.5 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql95') else ''
+    apps += 'PostgreSQL 9.6 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql96') else ''
+    apps += 'Rambox, ' if os.path.isdir('/opt/Rambox') else ''
+    apps += 'Rocket.Chat, ' if os.path.isdir('/opt/Rocket.Chat') else ''
+    apps += 'Sublime Text, ' if os.path.isdir('/opt/sublime_text') else ''
+    apps += 'Tarifpool, ' if os.path.isdir('/opt/tarifpool') else ''
+    apps += 'TeamViewer, ' if os.path.isdir('/opt/teamviewer') else ''
+    apps += 'WildFly, ' if os.path.isdir('/opt/wildfly') else ''
+    apps += 'Zimbra, ' if os.path.isdir('/opt/zimbra') else ''
+
+    apps += 'Contao, ' if os.path.isdir('/var/www/html/contao') else ''
+    apps += 'HTMLy, ' if os.path.isdir('/var/www/html/htmly') else ''
+    apps += 'Matomo, ' if os.path.isdir('/var/www/html/matomo') else ''
+    apps += 'MediaWiki, ' if os.path.isdir('/var/www/html/mediawiki') else ''
+    apps += 'Nextcloud, ' if os.path.isdir('/var/www/html/nextcloud') else ''
+    apps += 'Piwik, ' if os.path.isdir('/var/www/html/piwik') else ''
+    apps += 'Roundcube, ' if os.path.isdir('/var/www/html/roundcubemail') else ''
+    apps += 'Vtiger, ' if os.path.isdir('/var/www/html/vtigercrm') else ''
+    apps += 'Yii, ' if os.path.isdir('/var/www/html/yii') else ''
+    apps += 'Yii2, ' if os.path.isdir('/var/www/html/yii2') else ''
+    apps += 'Yii2, ' if os.path.isdir('/var/www/html/yii2-basic') else ''
+
+    return apps[:-2]
+
+
+def get_repo_sw():
+    # yum installed Software, alphabetically sorted by output
+    sw = ''
+
+    sw += find_command('Apache httpd', 'command -v httpd', version_cmd='httpd -v', version_regex='Apache/(.*) ')
+    sw += find_command('BIND', 'command -v named', version_cmd='named -v', version_regex='^BIND (.*)-')
+
+
+    return sw
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+
+    msg = ''
+    state = STATE_OK
+    overall_state = STATE_OK
+
+
+    # 12 CPUs, 252GB RAM, 6 Disks (489.1G 489.1G 10.9T 10.9T 10.9T 10.9T) - Apps: Atlassian Jira, Keycloak - Software: Apache httpd 2.4.6, BIND, FreeIPA - OS: CentOS Linux release 7.4.1708 (Core)  3.10.0-693.21.1.el7.x86_64
+
+    print(get_sys_dimensions())
+    print(get_apps())
+    print(get_repo_sw())
+
+
+if __name__ == '__main__':
+    main()
