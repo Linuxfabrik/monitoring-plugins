@@ -22,6 +22,8 @@ For each event:
 * CRIT: if event is <= days away; 'None' means that CRIT is never returned
 * WARN: if event is <= days away; 'None' is not possible
 
+There is no perfdata.
+
 
 # Credits, License
 
