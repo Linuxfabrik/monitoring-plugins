@@ -9,9 +9,9 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122801'
+__version__ = '2020010801'
 
-DESCRIPTION = 'todo'
+DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
 
 DEFAULT_WARN = 50      # days
 DEFAULT_CRIT = 30      # days
@@ -34,7 +34,8 @@ def define_args():
 
     parser.add_argument('-i', '--input',
         help = '"Display Name 1, yyyy-mm-dd, warn, crit; Display Name 2, yyyy-mm-dd, warn, crit; ..."',
-        dest = 'INPUT'
+        dest = 'INPUT',
+        required=True,
         )
     
     return parser.parse_args()
@@ -46,6 +47,8 @@ def main():
         parsed = define_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
+
+
 
     msg = ''
     state = STATE_OK

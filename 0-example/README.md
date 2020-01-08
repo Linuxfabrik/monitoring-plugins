@@ -56,7 +56,7 @@ Requirements: `yum install smartmontools python2-psutil`
 
 # Changelog
 
-* 2019213101: Initial release.
+* 2019123101: Initial release.
 
 
 # Credits, License
