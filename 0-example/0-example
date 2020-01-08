@@ -29,12 +29,6 @@ from lib.output import unpack_perfdata, state_to_string, format_as_table
 from lib.parse_input import evaluate_greater
 from lib.utils import execute_command
 
-try:
-    import tempfile
-except ImportError, e:
-    print('Python module "tempfile" is not installed. Try `yum -y install python-tempfile` or `pip install tempfile`.')
-    exit(STATE_UNKNOWN)
-
 
 def define_args():
 
@@ -71,6 +65,50 @@ def define_args():
     return parser.parse_args()
 
 
+# instead of using tempfiles, use a sqlite database
+# https://docs.python.org/2/library/sqlite3.html
+def sqlcode():
+    import sqlite3
+    conn = sqlite3.connect('0-example.db')
+    # You can also supply the special name :memory: to create a database in RAM, but
+    # its content is lost after conn.close() or the script finishes.
+
+    c = conn.cursor()
+
+    # Create table
+    c.execute('''CREATE TABLE stocks
+                 (date text, trans text, symbol text, qty real, price real)''')
+
+    # Insert a row of data
+    c.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
+
+    # Save (commit) the changes
+    conn.commit()
+
+    # Usually your SQL operations will need to use values from Python variables. You shouldn’t assemble your query using Python’s string operations because doing so is insecure; it makes your program vulnerable to an SQL injection attack
+    # Instead, use the DB-API’s parameter substitution. Put ? as a placeholder wherever you want to use a value, and then provide a tuple of values as the second argument to the cursor’s execute() method.
+    value = ('RHAT',)
+    c.execute('SELECT * FROM stocks WHERE symbol=?', value)
+    print c.fetchone()
+
+    # Larger example that inserts many records at a time
+    purchases = [('2006-03-28', 'BUY', 'IBM', 1000, 45.00),
+                 ('2006-04-05', 'BUY', 'MSFT', 1000, 72.00),
+                 ('2006-04-06', 'SELL', 'IBM', 500, 53.00),
+                ]
+    c.executemany('INSERT INTO stocks VALUES (?,?,?,?,?)', purchases)
+
+    # Save (commit) the changes
+    conn.commit()
+
+    for row in c.execute('SELECT * FROM stocks ORDER BY price'):
+        print row
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -90,12 +128,28 @@ def main():
 
     # for dealing with a temporary file, have a look at cpu_usage
     # you need the pickle library
+    # or - better - use sqlite instead (have a look at the function above)
 
 
     # for doing GET and POST requests, look at
     # * nextcloud-security-scan
     # * rocket.chat-stats
-    
+
+
+    # need to check for the version of a library, for example psutil?
+    if psutil.__version__ >= '5.3.0':
+        # do this
+    else:
+        # do that
+
+
+    # need to check if a library is installed?
+    try:
+        import tempfile
+    except ImportError, e:
+        print('Python module "tempfile" is not installed. Try `yum -y install python-tempfile` or `pip install tempfile`.')
+        exit(STATE_UNKNOWN)
+
 
     msg = ''
     perfdata = ''
