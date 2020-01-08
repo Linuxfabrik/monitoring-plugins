@@ -1,6 +1,6 @@
 # Python-based Checks for Icinga
 
-This git repo provides various Python-based check plugins for Nagios compatible monitoring systems like Nagios and Icinga.
+This git repo provides various Python-based check plugins for Nagios compatible monitoring systems like Nagios and Icinga. All checks are written and tested on Fedora >= 30 and CentOS 7.
 
 
 ## Hints
