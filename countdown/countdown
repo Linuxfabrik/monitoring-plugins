@@ -67,15 +67,23 @@ def main():
                 expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
                 today = datetime.datetime.today()
                 delta = expiration_date - today
+                delta = int(delta.days) + 1
 
-                if crit != 'None' and int(delta.days) <= int(crit):
-                    msg += '* CRIT {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
+                if delta > 0:
+                    line = '{} expires in {} days (thresholds {}/{})\n'.format(item, delta, warn, crit)
+                elif delta == 0:
+                    line = '{} expires today.\n'.format(item)
+                else:
+                    line = '{} already expired {} day(s) ago.\n'.format(item, abs(delta))
+
+                if crit != 'None' and delta < int(crit):
+                    msg += '* CRIT ' + line
                     state = STATE_CRIT
-                elif int(delta.days) <= int(warn):
-                    msg += '* WARN {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
+                elif delta < int(warn):
+                    msg += '* WARN ' + line
                     state = STATE_WARN
                 else:
-                    msg += '* {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
+                    msg += '* ' + line
                     state = STATE_OK
 
                 overall_state = get_greater_state(state, overall_state)
