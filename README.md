@@ -80,21 +80,21 @@ Libraries:
 
 There are a few reserved options that should not be used for other purposes:
 
-	-a, --authentication    authentication password
-	-C, --community         SNMP community
-	-c, --critical          critical threshold
+    -a, --authentication    authentication password
+    -C, --community         SNMP community
+    -c, --critical          critical threshold
     -f, --filename          filename or directory name
-	-h, --help              help
-	-H, --hostname          hostname
-	-l, --logname           login name
-	-p, --password          password
-	-p, --port              network port
-	-t, --timeout           timeout
-	-u, --url               URL
-	-u, --username          username
-	-V, --version           version
-	-v, --verbose           verbose
-	-w, --warning           warning threshold
+    -h, --help              help
+    -H, --hostname          hostname
+    -l, --logname           login name
+    -p, --password          password
+    -p, --port              network port
+    -t, --timeout           timeout
+    -u, --url               URL
+    -u, --username          username
+    -V, --version           version
+    -v, --verbose           verbose
+    -w, --warning           warning threshold
 
 * The check should be Self Configuring and/or using best practise defaults.
 * Complex parameter tupels are separated by comma, or by semicolon and comma.
