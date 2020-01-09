@@ -141,7 +141,12 @@ There are warnings.
 * Human readable datetimes ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
 
 
-# UOM (Unit of Measurement)
+## Perfdata
+
+    'label'=value[UOM];[warn];[crit];[min];[max]
+
+UOM = Unit of Measurement
+
 
 Perfdata value-suffix:
 

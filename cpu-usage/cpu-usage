@@ -24,6 +24,7 @@ import psutil
 import sqlite3
 
 from lib.globals import *
+from lib.output import unpack_perfdata
 
 
 def define_args():
@@ -106,7 +107,7 @@ def get_from_db(db, threshold):
         SELECT count(*)
         FROM check_values
         WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
-        ''', (threshold, threshold, threshold, threshold ))
+        ''', (threshold, threshold, threshold, threshold))
     result = c.fetchone()
 
     # We can close the connection if we are done with it.
@@ -151,34 +152,47 @@ def main():
 
 
     # save trend data to local sqlite database, limited to "count" rows max.
-    insert_into_db('cpu-usage.db', stats, parsed.COUNT)
+    insert_into_db('/tmp/cpu-usage.db', stats, parsed.COUNT)
+
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
 
     # now, calculate the WARN or CRIT.
     # overall status is not ok, if ...
     #   in a row in any column there is a value above the threshold
     #   and this is true for every row 
-    state = STATE_OK
-    if get_from_db('cpu-usage.db', parsed.CRIT) == parsed.COUNT:
+    if get_from_db('/tmp/cpu-usage.db', parsed.CRIT) == parsed.COUNT:
         state = STATE_CRIT
-    elif get_from_db('cpu-usage.db', parsed.WARN) == parsed.COUNT:
+    elif get_from_db('/tmp/cpu-usage.db', parsed.WARN) == parsed.COUNT:
         state = STATE_WARN
 
 
     # build the message
-    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
+    msg += 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
     msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
-        msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        msg += 'ctx_switches: {}, interrupts: {}, soft_interrupts: {}'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
 
     # build perfdata
-    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
-    perfdata += 'nice={}%;irq={}%;steal={}%;'.format(stats['nice'], stats['irq'], stats['steal'])
+    perfdata += unpack_perfdata('cpu-usage', stats['cpu_usage'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('user', stats['user'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('system', stats['system'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('iowait', stats['iowait'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+
+    perfdata += unpack_perfdata('nice', stats['nice'], '%', None, None, 0, 100)
+    perfdata += unpack_perfdata('irq', stats['irq'], '%', None, None, 0, 100)
+    perfdata += unpack_perfdata('steal', stats['steal'], '%', None, None, 0, 100)
+
     if psutil.__version__ >= '4.1.0':
-        perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        perfdata += unpack_perfdata('ctx_switches', stats['ctx_switches'], 'c', None, None, 0, None)
+        perfdata += unpack_perfdata('interrupts', stats['interrupts'], 'c', None, None, 0, None)
+        perfdata += unpack_perfdata('soft_interrupts', stats['soft_interrupts'], 'c', None, None, 0, None)
 
     # over and out
-    print(msg.strip())
-    print('|' + perfdata)
+    print(msg.strip() + '|' + perfdata.strip())
     exit(state)
 
 
