@@ -20,9 +20,8 @@ DEFAULT_COUNT = 15
 
 #====================
 import argparse
-import pickle
 import psutil
-import tempfile
+import sqlite3
 
 from lib.globals import *
 
@@ -59,6 +58,64 @@ def define_args():
     return parser.parse_args()
 
 
+# https://docs.python.org/2/library/sqlite3.html
+def insert_into_db(db, values, count):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    # create table if it does not exist
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS check_values (
+            user REAL NOT NULL, 
+            system REAL NOT NULL,
+            iowait REAL NOT NULL,
+            cpu_usage REAL NOT NULL
+            )
+        ''')
+
+    # insert a row of data (named values from a dictionary)
+    c.execute('INSERT INTO check_values VALUES (:user, :system, :iowait, :cpu_usage)', values)
+
+    # leave only the latest "count" records, using the sqlite built-in "rowid"
+    c.execute('''
+        DELETE FROM check_values
+        WHERE rowid IN (
+            SELECT rowid
+            FROM check_values
+            ORDER BY rowid DESC
+            LIMIT -1
+            OFFSET ?
+        )
+        ''', (count, ))
+
+    # Save (commit) the changes
+    conn.commit()
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+
+def get_from_db(db, threshold):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    c.execute('''
+        SELECT count(*)
+        FROM check_values
+        WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
+        ''', (threshold, threshold, threshold, threshold ))
+    result = c.fetchone()
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+    return result[0]
+
+
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -77,7 +134,7 @@ def main():
                  'irq', 'softirq', 'steal', 'guest', 'guest_nice']:
         if hasattr(cpu_times_percent, stat):
             stats[stat] = getattr(cpu_times_percent, stat)
-    stats['cpu-usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
+    stats['cpu_usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
 
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
@@ -93,43 +150,28 @@ def main():
                 stats[stat] = getattr(cpu_stats, stat)
 
 
-    # dealing with a temporary file for "trends"
-
-    # try to read trend data from the temporary file
-    try:
-        trend = pickle.load(open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'rb'))
-    except Exception as e:
-        trend = []
-    
-    # save the new value to the end and cut the array to COUNT number of items, beginning from the end
-    trend.append(stats)
-    trend = trend[-parsed.COUNT:]
-
-    # save the temporary data
-    pickle.dump(trend, open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'wb+'))
-
+    # save trend data to local sqlite database, limited to "count" rows max.
+    insert_into_db('cpu-usage.db', stats, parsed.COUNT)
 
     # now, calculate the WARN or CRIT.
-    # if there are all values in one trend row below the threshold, overall status is ok.
+    # overall status is not ok, if ...
+    #   in a row in any column there is a value above the threshold
+    #   and this is true for every row 
     state = STATE_OK
-    for data in trend:
-        if data['user'] < parsed.WARN and data['system'] < parsed.WARN and data['iowait'] < parsed.WARN and data['cpu-usage'] < parsed.WARN:
-            # we have one value found that is below the threshold, so we need no warning at all
-            state = STATE_OK
-            break
-        if data['user'] >= parsed.CRIT or data['system'] >= parsed.CRIT or data['iowait'] >= parsed.CRIT or data['cpu-usage'] >= parsed.CRIT:
-            state = STATE_CRIT
-        elif data['user'] >= parsed.WARN or data['system'] >= parsed.WARN or data['iowait'] >= parsed.WARN or data['cpu-usage'] >= parsed.WARN:
-            state = STATE_WARN
+    if get_from_db('cpu-usage.db', parsed.CRIT) == parsed.COUNT:
+        state = STATE_CRIT
+    elif get_from_db('cpu-usage.db', parsed.WARN) == parsed.COUNT:
+        state = STATE_WARN
+
 
     # build the message
-    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
     msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
         msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
 
     # build perfdata
-    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
     perfdata += 'nice={}%;irq={}%;steal={}%;'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
         perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
