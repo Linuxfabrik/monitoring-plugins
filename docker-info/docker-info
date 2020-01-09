@@ -13,7 +13,12 @@ __version__ = '2019111901'
 
 DESCRIPTION = 'Checks additional info about docker containers.'
 
+command_installed = 'command -v docker'
 command_info = 'docker info'
+
+# for testing
+# command_installed = 'true'
+# command_info = 'cat examples/EXAMPLE02'
 
 DEFAULT_DATA_SPACE_WARN = 90.0
 DEFAULT_DATA_SPACE_CRIT = 95.0
@@ -29,7 +34,7 @@ import argparse
 
 from lib.globals import *
 from lib.utils import execute_command
-from lib.output import unpack_perfdata
+from lib.output import unpack_perfdata, state_to_string
 from lib.parse_arguments import csv_arg
 from lib.parse_input import evaluate_greater, evaluate_smaller, mltext2array, str2bytes
 
@@ -84,7 +89,11 @@ def main():
     except:
         exit(STATE_UNKNOWN)
 
-    # todo: check `command -v docker`
+    # check if shell command is available
+    stdout, stderr, retc = execute_command(command_installed)
+    if (retc != 0):
+        print('"docker" is missing.')
+        exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = execute_command(command_info, shell=True)
@@ -99,8 +108,7 @@ def main():
     metadata_space_total = None
     info_warnings = ''
     info_errors = ''
-    global_state = STATE_OK
-    state_checklist = []
+    overall_state = STATE_OK
     msg = ''
     msg_addendum = '\n'
     perfdata = ''
@@ -128,44 +136,34 @@ def main():
 
     if data_space_used and data_space_total:
         data_space_percentage = float(str2bytes(data_space_used)) / float(str2bytes(data_space_total)) * 100
-        data_space_data = Data('data_space', data_space_percentage, parsed.DATA_SPACE_WARN, parsed.DATA_SPACE_CRIT)
-        data_space_data.set_state(evaluate_greater((data_space_data.value, data_space_data.warn, data_space_data.crit)))
-        perfdata += unpack_perfdata((data_space_data.label, data_space_data.value, '%', data_space_data.warn, data_space_data.crit, 0, 100))
-        msg_addendum += data_space_data.format_submsg('\n* Data Space Usage: {:.2f}%'.format(data_space_percentage))
-        state_checklist.append(data_space_data.state)
+        data_space_state = evaluate_greater(data_space_percentage, parsed.DATA_SPACE_WARN, parsed.DATA_SPACE_CRIT)
+        overall_state = get_greater_state(overall_state, data_space_state)
+        perfdata += unpack_perfdata('data_space', data_space_percentage, '%', parsed.DATA_SPACE_WARN, parsed.DATA_SPACE_CRIT, 0, 100)
+        msg_addendum += '\n* Data Space Usage: {:.2f}% {}'.format(data_space_percentage, state_to_string(data_space_state))
 
     if metadata_space_used and metadata_space_total:
         metadata_space_percentage = float(str2bytes(metadata_space_used)) / float(str2bytes(metadata_space_total)) * 100
-        metadata_space_data = Data('metadata_space', metadata_space_percentage, parsed.METADATA_SPACE_WARN, parsed.METADATA_SPACE_CRIT)
-        metadata_space_data.set_state(evaluate_greater((metadata_space_data.value, metadata_space_data.warn, metadata_space_data.crit)))
-        perfdata += unpack_perfdata((metadata_space_data.label, metadata_space_data.value, '%', metadata_space_data.warn, metadata_space_data.crit, 0, 100))
-        msg_addendum += metadata_space_data.format_submsg('\n* Metadata Space Usage: {:.2f}%'.format(metadata_space_percentage))
-        state_checklist.append(metadata_space_data.state)
-
-
-    if STATE_CRIT in state_checklist:
-        global_state = STATE_CRIT
-    elif STATE_WARN in state_checklist:
-        if global_state != STATE_CRIT:
-            global_state = STATE_WARN
-
+        metadata_space_state = evaluate_greater(metadata_space_percentage, parsed.METADATA_SPACE_WARN, parsed.METADATA_SPACE_CRIT)
+        overall_state = get_greater_state(overall_state, metadata_space_state)
+        perfdata += unpack_perfdata('metadata_space', metadata_space_percentage, '%', parsed.METADATA_SPACE_WARN, parsed.METADATA_SPACE_CRIT, 0, 100)
+        msg_addendum += '\n* Metadata Space Usage: {:.2f}% {}'.format(metadata_space_percentage, state_to_string(metadata_space_state))
 
     if info_warnings:
         if not (parsed.IGNORE_DEVICEMAPPER_STORAGE_DRIVER and devicemapper_storage_driver_warning in line):
-            if global_state != STATE_CRIT:
-                global_state = STATE_WARN
+            overall_state = get_greater_state(overall_state, STATE_WARN)
         msg_addendum += '\n\nWARNINGs from `docker info`:' + info_warnings
 
     if info_errors:
-        global_state = STATE_CRIT
+        overall_state = get_greater_state(overall_state, STATE_WARN)
         msg_addendum +=  '\n\nERRORs from `docker info`:' + info_errors
 
-    if global_state == STATE_OK:
+    if overall_state == STATE_OK:
         msg = 'Everything is ok.' + msg
     else:
         msg = 'One or more errors.' + msg
 
     print(msg + msg_addendum + '|' + perfdata.strip())
-    exit(global_state)
+    exit(overall_state)
 
-main()
+if __name__ == '__main__':
+    main()
