@@ -1,0 +1,82 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020010901'
+
+DESCRIPTION = 'Checks the number of files presently opened, in percent.'
+
+DEFAULT_WARN  = 90
+DEFAULT_CRIT  = 95
+
+#====================
+import argparse
+import os
+
+from lib.globals import *
+from lib.output import unpack_perfdata
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold file number usage percentage. Default: %(default)s',
+        dest = 'CRIT',
+        type = float,
+        default = DEFAULT_CRIT,
+        )
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold file number usage percentage. Default: %(default)s',
+        dest = 'WARN',
+        type = float,
+        default = DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    with open('/proc/sys/fs/file-nr') as file:
+        fs = [int(item) for item in file.readline().split('\t')]
+
+    files_used = round(fs[0] / fs[2] * 100, 1)
+
+    msg += '{}% files used.'.format(files_used)
+    perfdata += unpack_perfdata('file-nr', files_used, '%', parsed.WARN, parsed.CRIT, 0, 100)
+
+    if files_used >= parsed.CRIT:
+        state = STATE_CRIT
+    elif files_used >= parsed.WARN:
+        state = STATE_WARN
+
+
+    print(msg + '|' + perfdata.strip())
+    exit(state)
+
+
+if __name__ == '__main__':
+    main()
+
+
