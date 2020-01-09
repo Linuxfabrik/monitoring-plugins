@@ -9,13 +9,13 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019121901'
+__version__ = '2020010901'
 
-DESCRIPTION = 'Provides utilization percentages for each specific CPU time. Takes a number of times into account that the cpu usage has to be equal or above the given thresholds.'
+DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
 DEFAULT_WARN  = 50      # %
 DEFAULT_CRIT  = 70      # %
-DEFAULT_COUNT = 15
+DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
 
 
 #====================
@@ -75,7 +75,7 @@ def insert_into_db(db, values, count):
             )
         ''')
 
-    # insert a row of data (named values from a dictionary)
+    # insert a row of data (here named values from a dictionary)
     c.execute('INSERT INTO check_values VALUES (:user, :system, :iowait, :cpu_usage)', values)
 
     # leave only the latest "count" records, using the sqlite built-in "rowid"
@@ -139,9 +139,9 @@ def main():
 
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
-    # ctx_switches: number of context switches (voluntary + involuntary) per second
-    # interrupts: number of interrupts per second
-    # soft_interrupts: number of software interrupts per second. Always set to 0 on Windows and SunOS.
+    # ctx_switches: number of context switches (voluntary + involuntary) since boot
+    # interrupts: number of interrupts since boot
+    # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
 
     if psutil.__version__ >= '4.1.0':
@@ -171,7 +171,7 @@ def main():
 
 
     # build the message
-    msg += 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
+    msg += 'CPU: {}% - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
     msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
         msg += 'ctx_switches: {}, interrupts: {}, soft_interrupts: {}'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
