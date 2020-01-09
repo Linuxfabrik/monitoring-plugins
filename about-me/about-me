@@ -153,9 +153,9 @@ def get_apps():
 
 def get_dangerous_tools():
     sw = ''
-    sw += find_command('nmap', 'command -v nmap', version_cmd='nmap --version', version_regex='Nmap version (.*?) ')
-    sw += find_command('tcpdump', 'command -v tcpdump', version_cmd='tcpdump --version', version_regex='tcpdump version (.*)')
-    sw += find_command('Wireshark', 'command -v tshark', version_cmd='tshark -v', version_regex='TShark (.*?) ')
+    sw += find_command('nmap', 'command -v nmap', version_cmd='nmap --version', version_regex=r'Nmap version (.*?) ')
+    sw += find_command('tcpdump', 'command -v tcpdump', version_cmd='tcpdump --version', version_regex=r'tcpdump version (.*)')
+    sw += find_command('Wireshark', 'command -v tshark', version_cmd='tshark -v', version_regex=r'TShark (.*?) ')
 
     if sw:
         return sw[:-2]
@@ -168,40 +168,40 @@ def get_repo_sw():
     # but sometimes not callable (like Elastic or Graylog)
     sw = ''
 
-    sw += find_command('Apache httpd', 'command -v httpd', version_cmd='httpd -v', version_regex='Apache/(.*) ')
-    sw += find_command('BIND', 'command -v named', version_cmd='named -v', version_regex='^BIND (.*?)-')
-    sw += find_command('Borg', 'command -v borg', version_cmd='borg --version', version_regex=' (.*)')
-    sw += find_command('ClamAV', 'command -v clamd', version_cmd='clamd --version', version_regex=' (.*)/')
-    sw += find_command('Containerd', 'command -v containerd', version_cmd='containerd --version', version_regex=' (.*) ')
-    sw += find_command('Docker', 'command -v docker', version_cmd='docker --version', version_regex=' version (.*?),')
+    sw += find_command('Apache httpd', 'command -v httpd', version_cmd='httpd -v', version_regex=r'Apache/(.*) ')
+    sw += find_command('BIND', 'command -v named', version_cmd='named -v', version_regex=r'^BIND (.*?)-')
+    sw += find_command('Borg', 'command -v borg', version_cmd='borg --version', version_regex=r' (.*)')
+    sw += find_command('ClamAV', 'command -v clamd', version_cmd='clamd --version', version_regex=r' (.*)/')
+    sw += find_command('Containerd', 'command -v containerd', version_cmd='containerd --version', version_regex=r' (.*) ')
+    sw += find_command('Docker', 'command -v docker', version_cmd='docker --version', version_regex=r' version (.*?),')
     sw += 'Elasticsearch, ' if os.path.isfile('/usr/share/elasticsearch/bin/elasticsearch') else ''
     sw += find_command('Erlang', 'command -v erl', version_cmd='erl -noshell -eval \'io:fwrite("~s\n", [erlang:system_info(otp_release)]).\' -s erlang halt')
-    sw += find_command('Fail2ban-Server', 'command -v fail2ban-server', version_cmd='fail2ban-server --version', version_regex=' v(.*)')
-    sw += find_command('FreeIPA', 'command -v ipa', version_cmd='ipa --version', version_regex=' (.*?),')
-    sw += find_command('Git', 'command -v git', version_cmd='git --version', version_regex='git version (.*)')
-    sw += find_command('Grafana-Server', 'command -v grafana-server', version_cmd='grafana-server -v', version_regex='Version (.*?) ')
+    sw += find_command('Fail2ban-Server', 'command -v fail2ban-server', version_cmd='fail2ban-server --version', version_regex=r' v(.*)')
+    sw += find_command('FreeIPA', 'command -v ipa', version_cmd='ipa --version', version_regex=r' (.*?),')
+    sw += find_command('Git', 'command -v git', version_cmd='git --version', version_regex=r'git version (.*)')
+    sw += find_command('Grafana-Server', 'command -v grafana-server', version_cmd='grafana-server -v', version_regex=r'Version (.*?) ')
     sw += 'Graylog-Server, ' if os.path.isfile('/usr/share/graylog-server/bin/graylog-server') else ''
-    sw += find_command('Icinga2', 'command -v icinga2', version_cmd='icinga2 --version', version_regex='\(version: (.*)\)')
-    sw += find_command('InfluxDB', 'command -v influx', version_cmd='influx --version', version_regex=': (.*)')
-    sw += find_command('Java', 'command -v java', version_cmd='java -version', version_regex='(.*)').replace('version ', '').replace('"', '')
-    sw += find_command('LibreOffice', 'command -v libreoffice', version_cmd='libreoffice --version', version_regex=' (.*?) ')
+    sw += find_command('Icinga2', 'command -v icinga2', version_cmd='icinga2 --version', version_regex=r'\(version: (.*)\)')
+    sw += find_command('InfluxDB', 'command -v influx', version_cmd='influx --version', version_regex=r': (.*)')
+    sw += find_command('Java', 'command -v java', version_cmd='java -version', version_regex=r'(.*)').replace('version ', '').replace('"', '')
+    sw += find_command('LibreOffice', 'command -v libreoffice', version_cmd='libreoffice --version', version_regex=r' (.*?) ')
     sw += find_command('LibreOffice Online (LOOL)', 'command -v loolwsd')
-    tmp = find_command('MySQL', 'command -v mysqld', version_cmd='mysqld --version', version_regex='Ver (.*?) ')
+    tmp = find_command('MySQL', 'command -v mysqld', version_cmd='mysqld --version', version_regex=r'Ver (.*?) ')
     if tmp.find('MariaDB'):
         tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
     sw += tmp
-    sw += find_command('MongoDB', 'command -v mongod', version_cmd='mongod --version', version_regex='db version v(.*?)\n')
-    sw += find_command('Node', 'command -v node', version_cmd='node --version', version_regex='v(.*)')
-    sw += find_command('NodeJS', 'command -v nodejs', version_cmd='nodejs --version', version_regex='v(.*)')
-    sw += find_command('Perl', 'command -v perl', version_cmd='perl --version', version_regex=' \(v(.*?)\) ')
-    sw += find_command('PHP', 'command -v php', version_cmd='php --version', version_regex='PHP (.*?) \(.*')
-    sw += find_command('PostgreSQL', 'command -v psql', version_cmd='psql --version', version_regex='\(PostgreSQL\) (.*)')
-    sw += find_command('Python2', 'command -v python2', version_cmd='python --version', version_regex=' (.*)')
-    sw += find_command('Python3', 'command -v python3', version_cmd='python3 --version', version_regex=' (.*)')
+    sw += find_command('MongoDB', 'command -v mongod', version_cmd='mongod --version', version_regex=r'db version v(.*?)\n')
+    sw += find_command('Node', 'command -v node', version_cmd='node --version', version_regex=r'v(.*)')
+    sw += find_command('NodeJS', 'command -v nodejs', version_cmd='nodejs --version', version_regex=r'v(.*)')
+    sw += find_command('Perl', 'command -v perl', version_cmd='perl --version', version_regex=r' \(v(.*?)\) ')
+    sw += find_command('PHP', 'command -v php', version_cmd='php --version', version_regex=r'PHP (.*?) \(.*')
+    sw += find_command('PostgreSQL', 'command -v psql', version_cmd='psql --version', version_regex=r'\(PostgreSQL\) (.*)')
+    sw += find_command('Python2', 'command -v python2', version_cmd='python --version', version_regex=r' (.*)')
+    sw += find_command('Python3', 'command -v python3', version_cmd='python3 --version', version_regex=r' (.*)')
     sw += find_command('RabbitMQ-Server', 'command -v rabbitmq-server', version_cmd='rabbitmqctl --version')
-    sw += find_command('Redis-Server', 'command -v redis-server', version_cmd='redis-server --version', version_regex=' v=(.*?) ')
-    sw += find_command('Sublime Text', 'command -v subl', version_cmd='subl --version', version_regex='.* (.*)$')
-    sw += find_command('TeamViewer', 'command -v teamviewer', version_cmd='teamviewer --version', version_regex='   (.*) ')
+    sw += find_command('Redis-Server', 'command -v redis-server', version_cmd='redis-server --version', version_regex=r' v=(.*?) ')
+    sw += find_command('Sublime Text', 'command -v subl', version_cmd='subl --version', version_regex=r'.* (.*)$')
+    sw += find_command('TeamViewer', 'command -v teamviewer', version_cmd='teamviewer --version', version_regex=r'   (.*) ')
     
     if sw:
         return sw[:-2]
@@ -224,9 +224,8 @@ def main():
 
 
     msg = ''
+    perfdata = ''
     state = STATE_OK
-
-    # 12 CPUs, 252GB RAM, 6 Disks (489.1G 489.1G 10.9T 10.9T 10.9T 10.9T) - Apps: Atlassian Jira, Keycloak - Software: Apache httpd 2.4.6, BIND, FreeIPA - OS: CentOS Linux release 7.4.1708 (Core)  3.10.0-693.21.1.el7.x86_64
 
     sys_dimensions = get_sys_dimensions()
     apps = get_apps()
@@ -260,13 +259,13 @@ def main():
     msg += ' - OS: ' + get_os_info()
 
 
-    perfdata  = unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
     perfdata += unpack_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += unpack_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
 
     print(msg + '|' + perfdata.strip())
-    return(state)
+    exit(state)
 
 
 if __name__ == '__main__':
