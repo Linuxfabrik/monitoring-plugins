@@ -210,9 +210,12 @@ def main():
         else:
             msg = 'One or more errors. ({} running, {}% CPU)'.format(running_container_count, cpu_sum) + msg
 
-    table = '\n\n' + format_as_table(table_data, ['name', 'cpu_pcent', 'mem_string', 'net_string', 'block_string', 'pids'], ['Name', 'CPU', 'MEM', 'Net (RX/TX)', 'Blocks (r/w)', 'PIDs'], 'name')
+    table = format_as_table(table_data, ['name', 'cpu_pcent', 'mem_string', 'net_string', 'block_string', 'pids'], ['Name', 'CPU', 'MEM', 'Net (RX/TX)', 'Blocks (r/w)', 'PIDs'], 'name')
 
-    print(msg + table + '|' + perfdata.strip())
+    if table:
+        print(msg + '\n\n' + table + '|' + perfdata.strip())
+    else:
+        print(msg + '|' + perfdata.strip())
     exit(overall_state)
 
 if __name__ == '__main__':
