@@ -25,6 +25,8 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 
 * The check itself.
 * A nice 16x16 transparent PNG icon, for example based on font-awesome.
+* README.md
+* LICENSE file
 * optional: Grafana panel
 * optional: Icinga Director Basket Config
 * optional: Icingaweb2 Grafana Module .ini file
