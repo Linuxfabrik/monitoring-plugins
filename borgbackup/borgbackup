@@ -17,9 +17,6 @@ DESCRIPTION = 'Checks the date and return code of the last borgbackup, according
 DEFAULT_CRIT = None
 DEFAULT_WARN = 24
 
-DEFAULT_RUNNING_CRIT = 4
-DEFAULT_RUNNING_WARN = 5
-
 #====================
 
 from lib.globals import *
@@ -51,20 +48,6 @@ def define_args():
         dest = 'WARN',
         type = int,
         default = DEFAULT_WARN,
-        )
-
-    parser.add_argument('--running-critical',
-        help = 'Set the critical threshold for the duration of a running borg process (in hours). Default: %(default)s',
-        dest = 'RUNNING_CRIT',
-        type = int,
-        default = DEFAULT_RUNNING_CRIT,
-        )
-
-    parser.add_argument('--running-warning',
-        help = 'Set the warning threshold for the duration of a running borg process (in hours). Default: %(default)s',
-        dest = 'RUNNING_WARN',
-        type = int,
-        default = DEFAULT_RUNNING_WARN,
         )
     
     return parser.parse_args()
@@ -120,11 +103,11 @@ def main():
     overall_state = get_greater_state(overall_state, prune_rc_state)
     perfdata += unpack_perfdata('prune_rc', prune_rc, None, 2, None, 0, None)
 
-
-    last_starttime_state = evaluate_greater(starttime, parsed.WARN, parsed.CRIT)
+    starttime_datetime = datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')
+    last_starttime_state = evaluate_greater_datetime_to_now(starttime_datetime, parsed.WARN, parsed.CRIT)
     overall_state = get_greater_state(overall_state, last_starttime_state)
 
-    duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')).total_seconds()
+    duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - starttime_datetime).total_seconds()
     perfdata += unpack_perfdata('duration', duration, 's', None, None, 0, None)
 
     if overall_state == STATE_OK:
