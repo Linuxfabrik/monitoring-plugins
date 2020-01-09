@@ -17,6 +17,7 @@ DESCRIPTION = 'Reports a quick overview about the host dimensions and installed 
 #====================
 import argparse
 import os
+import platform
 import psutil       # https://pypi.org/project/psutil/
 import re
 
@@ -180,6 +181,12 @@ def get_repo_sw():
         return ''
 
 
+def get_os_info():
+    os_info = os.uname()
+    platform_info = platform.linux_distribution()
+    return '{} {} {}'.format(platform_info[0], platform_info[1], os_info[2])
+
+
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -215,6 +222,9 @@ def main():
 
     if apps:
         msg += ' - Apps: ' + apps 
+
+    
+    msg += ' - OS: ' + get_os_info()
 
 
     perfdata  = unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
