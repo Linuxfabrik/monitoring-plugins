@@ -10,17 +10,11 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020010901'
 
 DESCRIPTION = 'Checks network IO.'
 
-bash_command = 'ip --statistics link'
-
-RX_RATE_DEFAULT_WARN = 8000000000 # 8 Gbps
-RX_RATE_DEFAULT_CRIT = 9000000000 # 9 Gbps
-
-TX_RATE_DEFAULT_WARN = 8000000000 # 8 Gbps
-TX_RATE_DEFAULT_CRIT = 9000000000 # 9 Gbps
+DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
 
 RX_ERR_DEFAULT_WARN = 1
 RX_ERR_DEFAULT_CRIT = None
@@ -40,23 +34,16 @@ TX_DRP_DEFAULT_CRIT = None
 TX_COLL_DEFAULT_WARN = 1
 TX_COLL_DEFAULT_CRIT = None
 
-DEFAULT_IGNORE = []
-
-UOM_RATE = None
-UOM_PACKETS = 'c'
-UOM = None
-MIN = 0
-MAX = None
+DEFAULT_IGNORE = ['lo']
 
 #====================
 import argparse
-import cPickle as pickle
-import datetime
-import tempfile
+import sqlite3
+import psutil
 
 from lib.globals import *
 from lib.utils import execute_command
-from lib.output import unpack_perfdata, bytes2human, state_to_string
+from lib.output import unpack_perfdata, bytes2human, state_to_string, console_color
 from lib.parse_arguments import csv_arg
 from lib.parse_input import evaluate_greater
 
@@ -69,19 +56,20 @@ def define_args():
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-        dest = 'WARN',
-        type = csv_arg,
-        default = [RX_RATE_DEFAULT_WARN,TX_RATE_DEFAULT_WARN],
-        )
+    # parser.add_argument('-w', '--warning',
+    #     help = 'Set the warning threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
+    #     dest = 'WARN',
+    #     type = csv_arg,
+    #     default = [RX_RATE_DEFAULT_WARN,TX_RATE_DEFAULT_WARN],
+    #     )
 
-    parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-        dest = 'CRIT',
-        type = csv_arg,
-        default = [RX_RATE_DEFAULT_CRIT,TX_RATE_DEFAULT_CRIT],
-        )
+    # parser.add_argument('-c', '--critical',
+    #     help = 'Set the critical threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
+    #     dest = 'CRIT',
+    #     type = csv_arg,
+    #     default = [RX_RATE_DEFAULT_CRIT,TX_RATE_DEFAULT_CRIT],
+    #     )
+    # todo: allow setting of speed, warn and crit per interface (eg `eth1,10,50,70;ifname,warn_mbps,crit_mbps)
 
     parser.add_argument('-i', '--ignore',
         help = 'Ignore certain interface names, in the format "lo,eno1". Default: %(default)s',
@@ -90,7 +78,76 @@ def define_args():
         default = DEFAULT_IGNORE,
         )
 
+    parser.add_argument('--count',
+        help = 'Number of times the value has to be above the given thresholds. Default: %(default)s',
+        dest = 'COUNT',
+        type = int,
+        default = DEFAULT_COUNT,
+        )
+
     return parser.parse_args()
+
+
+    # https://docs.python.org/2/library/sqlite3.html
+    def insert_into_db(db, values, count):
+        conn = sqlite3.connect(db)
+
+        c = conn.cursor()
+
+        # create table if it does not exist
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS check_values (
+                bytes_sent REAL NOT NULL,
+                tx_rate REAL NOT NULL,
+                bytes_recv REAL NOT NULL,
+                rx_rate REAL NOT NULL,
+                errin REAL NOT NULL,
+                errout REAL NOT NULL,
+                dropin REAL NOT NULL,
+                dropout REAL NOT NULL
+                )
+            ''')
+
+        # insert a row of data (named values from a dictionary)
+        c.execute('INSERT INTO check_values VALUES (:bytes_sent, :tx_rate, :bytes_recv, :rx_rate, :errin, :errout, :dropin, :dropout)', values)
+
+        # leave only the latest "count" records, using the sqlite built-in "rowid"
+        c.execute('''
+            DELETE FROM check_values
+            WHERE rowid IN (
+                SELECT rowid
+                FROM check_values
+                ORDER BY rowid DESC
+                LIMIT -1
+                OFFSET ?
+            )
+            ''', (count, ))
+
+        # Save (commit) the changes
+        conn.commit()
+
+        # We can close the connection if we are done with it.
+        # Just be sure any changes have been committed or they will be lost.
+        conn.close()
+
+
+    def get_from_db(db, threshold):
+        conn = sqlite3.connect(db)
+
+        c = conn.cursor()
+
+        c.execute('''
+            SELECT count(*)
+            FROM check_values
+            WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
+            ''', (threshold, threshold, threshold, threshold))
+        result = c.fetchone()
+
+        # We can close the connection if we are done with it.
+        # Just be sure any changes have been committed or they will be lost.
+        conn.close()
+
+        return result[0]
 
 
 def main():    
@@ -100,59 +157,25 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    RX_RATE_WARN = int(parsed.WARN[0]) if parsed.WARN[0] else None
-    TX_RATE_WARN = int(parsed.WARN[1]) if parsed.WARN[1] else None
-    RX_RATE_CRIT = int(parsed.CRIT[0]) if parsed.CRIT[0] else None
-    TX_RATE_CRIT = int(parsed.CRIT[1]) if parsed.CRIT[1] else None
-    IGNORE = parsed.IGNORE if parsed.IGNORE else []
 
-    # try to get the latest data
-    try:
-        latest_data = pickle.load(open('{}/network-io-dump'.format(tempfile.gettempdir()), 'rb'))        
-    except:
-        latest_data = None
+    stats = {}
+    network_stats = psutil.net_io_counters(pernic=True)
+    for interface in network_stats:
+        stats[interface] = {}
+        for stat in ['bytes_sent', 'bytes_recv', 'errin', 'errout', 'dropin', 'dropout']:
+            if hasattr(network_stats[interface], stat):
+                stats[interface][stat] = getattr(network_stats[interface], stat)
 
-    # execute the shell command and return its result and exit code
-    stdout, stderr, retc = execute_command(bash_command)
-    if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(bash_command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+    # try to get latest data
 
-    current_data = {}
-    rx_labels = ['bytes', 'packets', 'errors', 'dropped', 'overrun', 'mcast']
-    tx_labels = ['bytes', 'packets', 'errors', 'dropped', 'carrier', 'collsns']
 
-    i = None
-    for index, line in enumerate(stdout.splitlines()):
-        if line[0].isdigit():
-            ifname = line.split(': ')[1]
-            if ifname not in IGNORE:
-                i = index
-                current_data[ifname] = {'timestamp': datetime.datetime.today(), 'mtu': line.split()[4]}
-
-        if i is not None and index == i + 3:
-            current_data[ifname]['RX'] = {}
-            items = line.split()
-            for item, label in zip(items, rx_labels):
-                current_data[ifname]['RX'][label] = int(item)
-
-        if i is not None and index == i + 5:
-            current_data[ifname]['TX'] = {}
-            items = line.split()
-            for item, label in zip(items, tx_labels):
-                current_data[ifname]['TX'][label] = int(item)
-
-    pickle.dump(current_data, open('{}/network-io-dump'.format(tempfile.gettempdir()), 'wb+'))
+    exit()
+    # save trend data to local sqlite database, limited to "count" rows max.
+    insert_into_db('/tmp/network-io.db', stats, parsed.COUNT)
 
     overall_state = STATE_OK
 
-    perfdata = ''
-
-    table = '''
-‌‌                              ║ RX                            ║ TX
-Iface                    MTU  ║ Rate       Err   Drp    Ovrun ║ Rate       Err   Drp    Coll
-══════════════════════════════╬═══════════════════════════════╬══════════════════════════════'''
+    perfdata = '' # use speed as max for grafana?
 
     highest_ifname = ''
     highest_rx_rate = 0
@@ -164,7 +187,6 @@ Iface                    MTU  ║ Rate       Err   Drp    Ovrun ║ Rate       E
                 interface_state = STATE_OK
                 time_delta  = (current_data[ifname]['timestamp'] - latest_data[ifname]['timestamp']).total_seconds();
 
-                # rx_packets_data = Data('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], None, None)
                 perfdata += unpack_perfdata('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], 'c', None, None, 0, None)
 
                 rx_rate = (current_data[ifname]['RX']['bytes'] - latest_data[ifname]['RX']['bytes']) / time_delta * 8; # conversion from bytes/s to bits/s
