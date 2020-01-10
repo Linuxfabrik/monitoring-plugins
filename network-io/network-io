@@ -300,6 +300,11 @@ def main():
                 highest_rx_rate = stats_rate['rx_rate']
                 highest_tx_rate = stats_rate['tx_rate']
 
+        except (sqlite3.OperationalError, IndexError) as e:
+            stats_rate['tx_rate'] = 0
+            stats_rate['rx_rate'] = 0
+
+        try:
             last_drp_err_stats = get_from_db(DB, '{}_drp_err_values'.format(ifname))
             # last_drp_err_stats[0] = (errin, dropin, dropout, errout, unix_timestamp)
             pos_errin = 0
@@ -307,7 +312,7 @@ def main():
             pos_dropout = 2
             pos_errout = 3
             pos_drp_err_unix_timestamp = 4
-            stats_drp_err['errin'] = 16
+
             if stats_drp_err['errin'] > last_drp_err_stats[0][pos_errin]\
             or stats_drp_err['dropin'] > last_drp_err_stats[0][pos_dropin]\
             or stats_drp_err['dropout'] > last_drp_err_stats[0][pos_dropout]\
@@ -324,21 +329,20 @@ def main():
                     # if no other case applies, set the unix_timestamp to the last or to 0 so that the insert does not fail
                     stats_drp_err['unix_timestamp'] = last_drp_err_stats[0][pos_drp_err_unix_timestamp] if last_drp_err_stats[0][pos_drp_err_unix_timestamp] else 0
 
-            table_data.append({
-                'ifname': '{} {}'.format(ifname, state_to_string(interface_state)),
-                'rx_rate': '{}bps'.format(bytes2human(stats_rate['rx_rate'])),
-                'errin': stats_drp_err['errin'],
-                'dropin': stats_drp_err['dropin'],
-                'tx_rate': '{}bps'.format(bytes2human(stats_rate['tx_rate'])),
-                'errout': stats_drp_err['errout'],
-                'dropout': stats_drp_err['dropout'],
-            })
+        except (sqlite3.OperationalError, IndexError) as e:
+            stats_drp_err['unix_timestamp'] = 0
 
-            overall_state = get_greater_state(overall_state, interface_state)
+        table_data.append({
+            'ifname': '{} {}'.format(ifname, state_to_string(interface_state)),
+            'rx_rate': '{}bps'.format(bytes2human(stats_rate['rx_rate'])),
+            'errin': stats_drp_err['errin'],
+            'dropin': stats_drp_err['dropin'],
+            'tx_rate': '{}bps'.format(bytes2human(stats_rate['tx_rate'])),
+            'errout': stats_drp_err['errout'],
+            'dropout': stats_drp_err['dropout'],
+        })
 
-        except sqlite3.OperationalError as e:
-            stats_rate['tx_rate'] = 0
-            stats_rate['rx_rate'] = 0
+        overall_state = get_greater_state(overall_state, interface_state)
 
         # save trend data to local sqlite database, limited to "count" rows max.
         insert_rate_values_into_db(DB, '{}_rate_values'.format(ifname), stats_rate, parsed.COUNT)
