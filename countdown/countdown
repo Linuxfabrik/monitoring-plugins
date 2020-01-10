@@ -36,6 +36,7 @@ def define_args():
         help = '"Display Name 1, yyyy-mm-dd, warn, crit; Display Name 2, yyyy-mm-dd, warn, crit; ..."',
         dest = 'INPUT',
         required=True,
+        action = 'append',
         )
     
     return parser.parse_args()
@@ -54,8 +55,8 @@ def main():
     overall_state = STATE_OK
 
     try:
-        # "Supermicro SYS1, 2022-01-10, 50, None; Contract XMPL.COM, 2021-12-24, 50, 30"
-        for line in parsed.INPUT.split(';'):
+        # ['Supermicro SYS1, 2022-01-10, 50, None', 'Contract XMPL.COM, 2021-12-24, 50, 30']
+        for line in parsed.INPUT:
             if line.strip():
                 line = line.split(',')
 
