@@ -94,6 +94,7 @@ There are a few reserved options that should not be used for other purposes:
     -i, --input
     -i, --interface
     -l, --logname           login name
+    -m, --mode 
     -p, --password          password
     -p, --port              network port
     -t, --timeout           timeout
