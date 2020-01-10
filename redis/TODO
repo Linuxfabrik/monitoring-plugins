@@ -1,6 +1,26 @@
+What to check
+-------------
+* Redis down
+  (Redis instance is down)
+* MissingBackup: time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24
+  (Redis has not been backuped for 24 hours)
+* OutOfMemory: redis_memory_used_bytes / redis_total_system_memory_bytes * 100 > 90
+  (Redis is running out of memory (> 90%))
+* ReplicationBroken: delta(redis_connected_slaves[1m]) < 0
+  (Redis instance lost a slave)
+* TooManyConnections: redis_connected_clients > 100
+  (Redis instance has too many connections)
+* NotEnoughConnections: redis_connected_clients < 5
+  (Redis instance should have more connections (> 5))
+* RejectedConnections: increase(redis_rejected_connections_total[1m]) > 0
+  (Some connections to Redis has been rejected)
+
+---
+
+
 Inspiration: https://gist.github.com/luanntvn/3800a9fa007a9c49c87b6da31df1d8de
 
-Manueller Weg (zu testen auf t74-app01:
+Manueller Weg (zu testen auf t74-app01):
 
 	redis-cli
 	AUTH ...
