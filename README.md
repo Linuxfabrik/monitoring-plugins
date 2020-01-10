@@ -35,6 +35,7 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 
 ## Rules of Thumb
 
+* The check should be "self configuring" and/or using best practise defaults, so that it runs without parameters.
 * Develop with CentOS 7/8 Minimal in mind.
 * Develop with Icinga2 in mind.
 * Avoid complicated or fancy (and therefore unreadable) Python statements.
@@ -84,7 +85,7 @@ There are a few reserved options that should not be used for other purposes:
     -C, --community         SNMP community
     -c, --critical          critical threshold
     -f, --filename          file or directory name
-    -f, --for
+        --count             count intervals, the same as "for" in prometheus ("for 5 minutes")
     -h, --help              help
     -H, --hostname          hostname
     -i, --input
@@ -99,9 +100,17 @@ There are a few reserved options that should not be used for other purposes:
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-* The check should be Self Configuring and/or using best practise defaults.
-* Complex parameter tupels are separated by comma, or by semicolon and comma.
-  "Name,Value,Warn,Crit;Name,Value,Warn,Crit"
+* For complex parameter tupels, use the `csv` type. 
+  `--input='Name, Value, Warn, Crit'` results in
+  `[ 'Name', 'Value', 'Warn', 'Crit' ]`
+
+* For repeating parameter tupels, use the `append` action. A `default` variable has to be a list then.
+  `--input=a --input=b` results in
+  `[ 'a', 'b' ]`
+
+* If you combine `csv` type and `append` action, you get a two-dimensional list:
+  `--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'` results in
+  `[['1', '2', '3'], ['a', 'b', 'c']]`
 
 
 ## Help

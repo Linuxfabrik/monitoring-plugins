@@ -17,6 +17,9 @@ bash_command = 'tr -dc 0-9 < /dev/urandom | head -c 4'
 
 DEFAULT_WARN = 33.33
 DEFAULT_CRIT = 66.67
+DEFAULT_STRING = 'hello'
+DEFAULT_CSV = 'a, b, c'
+DEFAULT_LIST = []
 
 
 #====================
@@ -26,6 +29,7 @@ import pickle
 
 from lib.globals import *
 from lib.output import unpack_perfdata, state_to_string, format_as_table
+from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater
 from lib.utils import execute_command
 
@@ -47,12 +51,39 @@ def define_args():
         default = DEFAULT_CRIT,
         )
 
-    # instead of post-processing args ("a, b, c"):
+    parser.add_argument('--csv',
+        help = 'Wants comma separated values. Default: "%(default)s"',
+        dest = 'CSV',
+        type = csv,
+        default = DEFAULT_CSV,
+        #action = 'append',         # then the default variable has to be a list
+        #required = True,
+        )
+
+    parser.add_argument('--repeat',
+        help = 'Repeating arguments, multiple times.',
+        dest = 'REPEAT',
+        default = DEFAULT_LIST,
+        action = 'append',         # then the default variable has to be a list
+        #required = True,
+        )
+
+    parser.add_argument('--repeating-csv',
+        help = 'Wants comma separated values, multiple times.',
+        dest = 'REPEAT',
+        type = csv,
+        default = DEFAULT_LIST,
+        action = 'append',         # then the default variable has to be a list
+        #required = True,
+        )
+
+    # instead of post-processing args ("a, b, c")
+    # better use type "csv"
     parser.add_argument('-m', '--mount',
         help = 'The mount point. Default: %(default)s',
         dest = 'MOUNT',
         type = lambda s: [str(item).strip() for item in s.split(',')],
-        default = DEFAULT_MOUNT,
+        default = DEFAULT_STRING,
         )
 
     parser.add_argument('-w', '--warning',
@@ -62,14 +93,6 @@ def define_args():
         default = DEFAULT_WARN,
         )
     
-    parser.add_option('-x', '--check', 
-        help = 'The thing you want to check [system|storage|shares|webserver|php|database|activeUsers|uploadFilesize]',
-        dest = 'check', 
-        choices = ['system', 'storage', 'shares', 'webserver', 'php', 'database', 'activeUsers', 'uploadFilesize'], 
-        default = 'system',
-        # mandatory arguments yes/no:
-        required = False,
-        )
 
     return parser.parse_args()
 
@@ -86,7 +109,7 @@ def sqlcode():
 
     # Create table
     c.execute('''CREATE TABLE stocks
-                 (date text, trans text, symbol text, qty real, price real)''')
+                 (date text, trans text, symbol text, qty integer, price real)''')
 
     # Insert a row of data
     c.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
@@ -125,6 +148,7 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
+    print(parsed)
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = execute_command(bash_command, shell=True) # only use shell=True when needed
@@ -154,8 +178,10 @@ def main():
     # need to check for the version of a library, for example psutil?
     if psutil.__version__ >= '5.3.0':
         # do this
+        print('>= 5.3.0')
     else:
         # do that
+        print('< 5.3.0')
 
 
     # need to check if a library is installed?
