@@ -58,11 +58,14 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 define_args     > get_options
 parsed          > options
 unpack_perfdata > format_perfdata
+filter_input    > filter_values (gehört auch nicht in parse_input, sondern ist eine array-funktion)
+
 set_thresholds
 get_status
 stats (instead of "statistics")
 msgs (abbreviation for "messages")
 get_greater_state > get_most_significant_state
+
 
 
 Parameters:
