@@ -1,0 +1,136 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020011001'
+
+DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "firewalld" is running, use "systemctl-unit --substate==running --unit=firewalld". Have a look at the README for more details.'
+
+command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
+
+DEFAULT_LOADSTATE  = 'loaded'
+DEFAULT_ACTIVESTATE  = 'active'
+DEFAULT_SERVERITY = 'warn'
+
+
+#====================
+import argparse
+import psutil
+import sqlite3
+
+from lib.globals import *
+from lib.output import unpack_perfdata
+from lib.utils import execute_command
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('--activestate',
+        help = 'Expected systemd ActiveState. Default: %(default)s',
+        dest = 'ACTIVESTATE',
+        default = DEFAULT_ACTIVESTATE,
+        choices = ['active', 'failed', 'inactive'],
+        )
+
+    parser.add_argument('--loadstate',
+        help = 'Expected systemd LoadState. Default: %(default)s',
+        dest = 'LOADSTATE',
+        default = DEFAULT_LOADSTATE,
+        choices = ['loaded', 'not-found'],
+        )
+
+    parser.add_argument('--severity',
+        help = 'Severity if something is found. One of "warn" or "crit". Default: %(default)s',
+        dest = 'SEVERITY',
+        default = DEFAULT_SERVERITY,
+        choices = ['warn', 'crit'],
+        )
+
+    parser.add_argument('--substate',
+        help = 'Expected systemd SubState.',
+        dest = 'SUBSTATE',
+        choices = ['abandoned', 'active', 'dead', 'exited', 'failed', 'listening', 'mounted', 'plugged', 'running', 'waiting'],
+        )
+
+    parser.add_argument('--unit',
+        help = 'Systemd unit name, for example "sshd", "sshd.service", "my-samba-mount.mount".',
+        dest = 'UNIT',
+        required = True,
+        )
+
+    parser.add_argument('--unitfilestate',
+        help = 'Expected systemd UnitFileState.',
+        dest = 'UNITFILESTATE',
+        choices = ['bad', 'disabled', 'enabled', 'enabled-runtime', 'generated', 'indirect', 'static', 'transient'],
+        )
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+
+    stdout, stderr, retc = execute_command(command + parsed.UNIT)
+    if (stderr or retc != 0):
+        print('Bash command `{}` failed.'.format(command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+    result = stdout.split('\n')
+
+    loadstate 	  = result[0].replace('LoadState=', '')
+    activestate   = result[1].replace('ActiveState=', '')
+    substate 	  = result[2].replace('SubState=', '')
+    unitfilestate = result[3].replace('UnitFileState=', '')
+
+
+    state = STATE_OK
+    msg = '{} is {}, {}, {} '.format(parsed.UNIT, loadstate, activestate, substate)
+    if parsed.UNITFILESTATE:
+    	msg = msg.strip() + ', unit file is "{}". '.format(unitfilestate)
+
+    # now do the checks
+    problem = False
+    problem_msg = ''
+    if parsed.LOADSTATE and parsed.LOADSTATE != loadstate:
+    	problem = True
+    	problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, parsed.LOADSTATE)
+    if parsed.ACTIVESTATE and parsed.ACTIVESTATE != activestate:
+    	problem = True
+    	problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, parsed.ACTIVESTATE)
+    if parsed.SUBSTATE and parsed.SUBSTATE != substate:
+    	problem = True
+    	problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, parsed.SUBSTATE)
+    if parsed.UNITFILESTATE and parsed.UNITFILESTATE != unitfilestate:
+    	problem = True
+    	problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, parsed.UNITFILESTATE)
+
+    if problem:
+    	msg = '{} - '.format(parsed.UNIT) + problem_msg[:-2]
+    	state = STATE_CRIT if parsed.SEVERITY == 'crit' else STATE_WARN
+
+
+    print(msg.strip())
+    exit(state)
+
+
+
+if __name__ == '__main__':
+    main()
