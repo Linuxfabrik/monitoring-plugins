@@ -11,7 +11,7 @@ Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT 
 
 ```bash
 ./countdown --input='Fileserver Hardware, 2025-02-02, 60, 30'
-./countdown --input='Contract A, 2023-12-31, 60, None; Contract B, 2024-12-31, 30, 14;'
+./countdown --input='Contract A, 2023-12-31, 60, None' --input 'Contract B, 2024-12-31, 30, 14'
 ./countdown --help
 ```
 
