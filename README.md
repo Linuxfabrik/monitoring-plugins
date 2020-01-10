@@ -83,9 +83,12 @@ There are a few reserved options that should not be used for other purposes:
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
-    -f, --filename          filename or directory name
+    -f, --filename          file or directory name
+    -f, --for
     -h, --help              help
     -H, --hostname          hostname
+    -i, --input
+    -i, --interface
     -l, --logname           login name
     -p, --password          password
     -p, --port              network port
