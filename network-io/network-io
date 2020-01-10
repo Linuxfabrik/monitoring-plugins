@@ -12,9 +12,10 @@
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020010901'
 
-DESCRIPTION = 'Checks network IO.'
+DESCRIPTION = 'Checks network IO for all interfaces. We only consider inferfaces that have a MAC-Address, therefore we ignore `lo`.'
 
 DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
+DB = '/tmp/network-io.db'
 
 RX_ERR_DEFAULT_WARN = 1
 RX_ERR_DEFAULT_CRIT = None
@@ -34,17 +35,18 @@ TX_DRP_DEFAULT_CRIT = None
 TX_COLL_DEFAULT_WARN = 1
 TX_COLL_DEFAULT_CRIT = None
 
-DEFAULT_IGNORE = ['lo']
+DEFAULT_INTERFACES = [['*', 1000, 80, 90]]
 
 #====================
 import argparse
 import sqlite3
 import psutil
+import time
 
 from lib.globals import *
 from lib.utils import execute_command
-from lib.output import unpack_perfdata, bytes2human, state_to_string, console_color
-from lib.parse_arguments import csv_arg
+from lib.output import unpack_perfdata, bytes2human, state_to_string, format_as_table
+from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater
 
 
@@ -56,26 +58,12 @@ def define_args():
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    # parser.add_argument('-w', '--warning',
-    #     help = 'Set the warning threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-    #     dest = 'WARN',
-    #     type = csv_arg,
-    #     default = [RX_RATE_DEFAULT_WARN,TX_RATE_DEFAULT_WARN],
-    #     )
-
-    # parser.add_argument('-c', '--critical',
-    #     help = 'Set the critical threshold in bps for the RX and TX rate, in the format "1000,2000". Default: %(default)s',
-    #     dest = 'CRIT',
-    #     type = csv_arg,
-    #     default = [RX_RATE_DEFAULT_CRIT,TX_RATE_DEFAULT_CRIT],
-    #     )
-    # todo: allow setting of speed, warn and crit per interface (eg `eth1,10,50,70;ifname,warn_mbps,crit_mbps)
-
-    parser.add_argument('-i', '--ignore',
-        help = 'Ignore certain interface names, in the format "lo,eno1". Default: %(default)s',
-        dest = 'IGNORE',
-        type = csv_arg,
-        default = DEFAULT_IGNORE,
+    parser.add_argument('-i', '--interface',
+        help = 'Set the speed and percentage warning / critical thresholds per interface, in the format "interface, speed_mbps, warn_percentage, crit_percentage". Default for all interfaces: {}'.format(DEFAULT_INTERFACES),
+        dest = 'INTERFACES',
+        type = csv,
+        # default = DEFAULT_INTERFACES, does not work, as this would be always added to parsed.INTERFACES. Default is handled in the code below
+        action = 'append',
         )
 
     parser.add_argument('--count',
@@ -88,66 +76,99 @@ def define_args():
     return parser.parse_args()
 
 
-    # https://docs.python.org/2/library/sqlite3.html
-    def insert_into_db(db, values, count):
-        conn = sqlite3.connect(db)
+# https://docs.python.org/2/library/sqlite3.html
+def insert_into_db(db, tablename, values, count):
+    conn = sqlite3.connect(db)
 
-        c = conn.cursor()
+    c = conn.cursor()
 
-        # create table if it does not exist
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS check_values (
-                bytes_sent REAL NOT NULL,
-                tx_rate REAL NOT NULL,
-                bytes_recv REAL NOT NULL,
-                rx_rate REAL NOT NULL,
-                errin REAL NOT NULL,
-                errout REAL NOT NULL,
-                dropin REAL NOT NULL,
-                dropout REAL NOT NULL
-                )
-            ''')
+    # create table if it does not exist
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS "{}" (
+            bytes_sent INTEGER NOT NULL,
+            tx_rate REAL NOT NULL,
+            bytes_recv INTEGER NOT NULL,
+            rx_rate REAL NOT NULL,
+            errin INTEGER NOT NULL,
+            errout INTEGER NOT NULL,
+            dropin INTEGER NOT NULL,
+            dropout INTEGER NOT NULL,
+            unix_timestamp INTEGER NOT NULL
+        )
+        '''.format(tablename))
 
-        # insert a row of data (named values from a dictionary)
-        c.execute('INSERT INTO check_values VALUES (:bytes_sent, :tx_rate, :bytes_recv, :rx_rate, :errin, :errout, :dropin, :dropout)', values)
+    # insert a row of data (named values from a dictionary)
+    c.execute('INSERT INTO "{}" VALUES (:bytes_sent, :tx_rate, :bytes_recv, :rx_rate, :errin, :errout, :dropin, :dropout, :unix_timestamp)'.format(tablename), values)
 
-        # leave only the latest "count" records, using the sqlite built-in "rowid"
-        c.execute('''
-            DELETE FROM check_values
-            WHERE rowid IN (
-                SELECT rowid
-                FROM check_values
-                ORDER BY rowid DESC
-                LIMIT -1
-                OFFSET ?
-            )
-            ''', (count, ))
+    # leave only the latest "count" records, using the sqlite built-in "rowid"
+    c.execute('''
+        DELETE FROM "{tablename}"
+        WHERE rowid IN (
+            SELECT rowid
+            FROM "{tablename}"
+            ORDER BY rowid DESC
+            LIMIT -1
+            OFFSET ?
+        )
+        '''.format(tablename=tablename), (count, ))
 
-        # Save (commit) the changes
-        conn.commit()
+    # Save (commit) the changes
+    conn.commit()
 
-        # We can close the connection if we are done with it.
-        # Just be sure any changes have been committed or they will be lost.
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+
+def get_from_db(db, tablename):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    c.execute('''
+        SELECT *
+        FROM "{}"
+        ORDER BY rowid DESC
+        '''.format(tablename))
+    result = c.fetchall()
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+    return result
+
+
+def evaluate_from_db(db, tablename, warn, crit, count):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    c.execute('''
+        SELECT count(*)
+        FROM "{}"
+        WHERE tx_rate > ? or rx_rate > ?
+        '''.format(tablename), (crit, crit))
+
+    if c.fetchone()[0] == count:
         conn.close()
+        return STATE_CRIT
 
+    c.execute('''
+        SELECT count(*)
+        FROM "{}"
+        WHERE tx_rate > ? or rx_rate > ?
+        '''.format(tablename), (warn, warn))
 
-    def get_from_db(db, threshold):
-        conn = sqlite3.connect(db)
-
-        c = conn.cursor()
-
-        c.execute('''
-            SELECT count(*)
-            FROM check_values
-            WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
-            ''', (threshold, threshold, threshold, threshold))
-        result = c.fetchone()
-
-        # We can close the connection if we are done with it.
-        # Just be sure any changes have been committed or they will be lost.
+    temp = c.fetchone()[0]
+    print('temp: ' + str(temp))
+    if temp == count:
         conn.close()
-
-        return result[0]
+        return STATE_WARN
+    
+    # We can close the connection if we are done with it.
+    conn.close()
+    return STATE_OK
 
 
 def main():    
@@ -157,116 +178,124 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-
-    stats = {}
-    network_stats = psutil.net_io_counters(pernic=True)
-    for interface in network_stats:
-        stats[interface] = {}
-        for stat in ['bytes_sent', 'bytes_recv', 'errin', 'errout', 'dropin', 'dropout']:
-            if hasattr(network_stats[interface], stat):
-                stats[interface][stat] = getattr(network_stats[interface], stat)
-
-    # try to get latest data
-
-
-    exit()
-    # save trend data to local sqlite database, limited to "count" rows max.
-    insert_into_db('/tmp/network-io.db', stats, parsed.COUNT)
+    thresholds = {}
+    INTERFACES = parsed.INTERFACES if parsed.INTERFACES else DEFAULT_INTERFACES
+    for interface in INTERFACES:
+        thresholds[interface[0]] = [float(x) for x in interface[1:]] # convert speed, warn and crit to float, then add to dictionary based on ifname
 
     overall_state = STATE_OK
-
-    perfdata = '' # use speed as max for grafana?
-
+    table_data = []
+    perfdata = ''
     highest_ifname = ''
     highest_rx_rate = 0
     highest_tx_rate = 0
+    unix_timestamp = int(time.time())
 
-    if latest_data:
-        for ifname, values in sorted(current_data.items()):
-            try: # needed to prevent key lookup errors in the latest_date dict when new interfaces appear
-                interface_state = STATE_OK
-                time_delta  = (current_data[ifname]['timestamp'] - latest_data[ifname]['timestamp']).total_seconds();
+    network_stats = psutil.net_io_counters(pernic=True)
+    for ifname in network_stats:
+        if ifname == 'lo':
+            continue
 
-                perfdata += unpack_perfdata('{}_RX_Packets'.format(ifname), current_data[ifname]['RX']['bytes'], 'c', None, None, 0, None)
+        if '*' not in thresholds.keys()\
+        and ifname not in thresholds.keys():
+            continue
 
-                rx_rate = (current_data[ifname]['RX']['bytes'] - latest_data[ifname]['RX']['bytes']) / time_delta * 8; # conversion from bytes/s to bits/s
-                if rx_rate < 0:
-                    rx_rate = 0 # handle negative numbers due to eg reboots
-                interface_state = get_greater_state(interface_state, evaluate_greater(rx_rate, RX_RATE_WARN, RX_RATE_CRIT))
-                perfdata += unpack_perfdata('{}_RX_Rate'.format(ifname), rx_rate, None, RX_RATE_WARN, RX_RATE_CRIT, 0, None)
+        stats = {}
+        tablename = '{}_check_values'.format(ifname)
+        interface_state = STATE_OK
+        stats['unix_timestamp'] = unix_timestamp
+        for stat in ['bytes_sent', 'bytes_recv', 'errin', 'errout', 'dropin', 'dropout']:
+            if hasattr(network_stats[ifname], stat):
+                stats[stat] = getattr(network_stats[ifname], stat)
 
-                interface_state = get_greater_state(interface_state, evaluate_greater(values['RX']['errors'], RX_ERR_DEFAULT_WARN, RX_ERR_DEFAULT_CRIT))
-                perfdata += unpack_perfdata('{}_RX_Err'.format(ifname), values['RX']['errors'], None, RX_ERR_DEFAULT_WARN, RX_ERR_DEFAULT_CRIT, 0, None)
+        # try to get last stats
+        try:
+            last_stats = get_from_db(DB, tablename)
+            # last_stats[0] = (bytes_sent, tx_rate, bytes_recv, rx_rate, errin, errout, dropin, dropout, unix_timestamp)
+            pos_bytes_sent = 0
+            pos_tx_rate = 1
+            pos_bytes_recv = 2
+            pos_rx_rate = 3
+            pos_errin = 4
+            pos_errout = 5
+            pos_dropin = 6
+            pos_dropout = 7
+            pos_unix_timestamp = 8
 
-                perfdata += unpack_perfdata('{}_RX_Drp'.format(ifname), values['RX']['dropped'], None, RX_DRP_DEFAULT_WARN, RX_DRP_DEFAULT_CRIT, 0, None)
+            
+            # first try the ifname, then '*', else None
+            rx_rate_speed, rx_rate_warn_pcent, rx_rate_crit_pcent = thresholds.get(ifname, thresholds.get('*', None))
+            rx_rate_warn = rx_rate_speed * rx_rate_warn_pcent * 0.01 * 10**6 # to percent, them from mbps to bps
+            rx_rate_crit = rx_rate_speed * rx_rate_crit_pcent * 0.01 * 10**6
 
-                interface_state = get_greater_state(interface_state, evaluate_greater(values['RX']['overrun'], RX_OVRUN_DEFAULT_WARN, RX_OVRUN_DEFAULT_CRIT))
-                perfdata += unpack_perfdata('{}_RX_Ovrun'.format(ifname), values['RX']['overrun'], None, RX_OVRUN_DEFAULT_WARN, RX_OVRUN_DEFAULT_CRIT, 0, None)
+            tx_rate_speed, tx_rate_warn_pcent, tx_rate_crit_pcent = thresholds.get(ifname, thresholds.get('*', None))
+            tx_rate_warn = tx_rate_speed * tx_rate_warn_pcent * 0.01 * 10**6
+            tx_rate_crit = tx_rate_speed * tx_rate_crit_pcent * 0.01 * 10**6
 
 
-                perfdata += unpack_perfdata('{}_TX_Packets'.format(ifname), current_data[ifname]['TX']['bytes'], 'c', None, None, 0, None)
+            time_delta = int(stats['unix_timestamp']) - int(last_stats[0][pos_unix_timestamp])
+            stats['rx_rate'] = (stats['bytes_recv'] - last_stats[0][pos_bytes_recv]) / time_delta * 8 # conversion from bytes/s to bits/s
+            if stats['rx_rate'] < 0:
+                stats['rx_rate'] = 0 # handle negative numbers due to eg reboots
+            perfdata += unpack_perfdata('{}_RX_Rate'.format(ifname), stats['rx_rate'], None, rx_rate_warn, rx_rate_crit, 0, None)
+            interface_state = get_greater_state(interface_state, evaluate_from_db(DB, tablename, rx_rate_warn, rx_rate_crit, parsed.COUNT))
 
-                tx_rate = (current_data[ifname]['TX']['bytes'] - latest_data[ifname]['TX']['bytes']) / time_delta * 8; # conversion from bytes/s to bits/s
-                if tx_rate < 0:
-                    tx_rate = 0 # handle negative numbers due to eg reboots
-                interface_state = get_greater_state(interface_state, evaluate_greater(tx_rate, TX_RATE_WARN, TX_RATE_CRIT))
-                perfdata += unpack_perfdata('{}_TX_Rate'.format(ifname), tx_rate, None, TX_RATE_WARN, TX_RATE_CRIT, 0, None)
+            stats['tx_rate'] = (stats['bytes_sent'] - last_stats[0][pos_bytes_sent]) / time_delta * 8 # conversion from bytes/s to bits/s
+            if stats['tx_rate'] < 0:
+                stats['tx_rate'] = 0 # handle negative numbers due to eg reboots
+            perfdata += unpack_perfdata('{}_TX_Rate'.format(ifname), stats['tx_rate'], None, tx_rate_warn, tx_rate_crit, 0, None)
+            interface_state = get_greater_state(interface_state, evaluate_from_db(DB, tablename, rx_rate_warn, rx_rate_crit, parsed.COUNT))
 
-                interface_state = get_greater_state(interface_state, evaluate_greater(values['TX']['errors'], TX_ERR_DEFAULT_WARN, TX_ERR_DEFAULT_CRIT))
-                perfdata += unpack_perfdata('{}_TX_Err'.format(ifname), values['TX']['errors'], None, TX_ERR_DEFAULT_WARN, TX_ERR_DEFAULT_CRIT, 0, None)
+            if stats['rx_rate'] >= highest_rx_rate\
+            or stats['rx_rate'] >= highest_tx_rate:
+                highest_ifname = ifname
+                highest_rx_rate = stats['rx_rate']
+                highest_tx_rate = stats['tx_rate']
 
-                perfdata += unpack_perfdata('{}_TX_Drp'.format(ifname), values['TX']['dropped'], None, TX_DRP_DEFAULT_WARN, TX_DRP_DEFAULT_CRIT, 0, None)
+            if stats['tx_rate'] >= highest_rx_rate\
+            or stats['tx_rate'] >= highest_tx_rate:
+                highest_ifname = ifname
+                highest_rx_rate = stats['rx_rate']
+                highest_tx_rate = stats['tx_rate']
 
-                interface_state = get_greater_state(interface_state, evaluate_greater(values['TX']['collsns'], TX_COLL_DEFAULT_WARN, TX_COLL_DEFAULT_CRIT))
-                perfdata += unpack_perfdata('{}_TX_Coll'.format(ifname), values['TX']['collsns'], None, TX_COLL_DEFAULT_WARN, TX_COLL_DEFAULT_CRIT, 0, None)
+            table_data.append({
+                'ifname': '{} {}'.format(ifname, state_to_string(interface_state)),
+                'rx_rate': '{}bps'.format(bytes2human(stats['rx_rate'])),
+                'errin': stats['errin'],
+                'dropin': stats['dropin'],
+                'dropin': stats['dropin'],
+                'tx_rate': '{}bps'.format(bytes2human(stats['tx_rate'])),
+                'errout': stats['errout'],
+                'dropout': stats['dropout'],
+            })
 
-                if ifname != 'lo':
-                    if rx_rate >= highest_rx_rate\
-                    or rx_rate >= highest_tx_rate:
-                        highest_ifname = ifname
-                        highest_rx_rate = rx_rate
-                        highest_tx_rate = tx_rate
+            overall_state = get_greater_state(overall_state, interface_state)
 
-                    if tx_rate >= highest_rx_rate\
-                    or tx_rate >= highest_tx_rate:
-                        highest_ifname = ifname
-                        highest_rx_rate = rx_rate
-                        highest_tx_rate = tx_rate
+        except sqlite3.OperationalError as e:
+            print(e)
+            stats['tx_rate'] = 0
+            stats['rx_rate'] = 0
 
-                overall_state = get_greater_state(overall_state, interface_state)
-                
-                table += '\n{:25}{:5}║{:12}{:6}{:7}{:6}║{:12}{:6}{:7}{}'.format(
-                    ifname + state_to_string(interface_state), values['mtu'],
-                    str(bytes2human(rx_rate)) + 'bps',
-                    str(values['RX']['errors']),
-                    str(values['RX']['dropped']),
-                    str(values['RX']['overrun']),
-                    str(bytes2human(tx_rate)) + 'bps',
-                    str(values['TX']['errors']),
-                    str(values['TX']['dropped']),
-                    str(values['TX']['collsns'])
-                    )
-            except KeyError as e:
-                pass # needed to prevent empty statement
+        # save trend data to local sqlite database, limited to "count" rows max.
+        insert_into_db(DB, tablename, stats, parsed.COUNT)
 
-        if overall_state == STATE_OK:
-            msg = 'Everything is ok. {}: {}bps/{}bps (RX/TX)'.format(
-                highest_ifname,
-                bytes2human(highest_rx_rate),
-                bytes2human(highest_tx_rate)
-                )
-        else:
-            msg = 'One or more errors. {}: {}bps/{}bps (RX/TX)'.format(
-                highest_ifname,
-                bytes2human(highest_rx_rate),
-                bytes2human(highest_tx_rate)
-                )
 
+    if overall_state == STATE_OK:
+        msg = 'Everything is ok. {}: {}bps/{}bps (RX/TX)'.format(
+            highest_ifname,
+            bytes2human(highest_rx_rate),
+            bytes2human(highest_tx_rate)
+            )
     else:
-        msg = 'Waiting for the latest data...'
+        msg = 'One or more errors. {}: {}bps/{}bps (RX/TX)'.format(
+            highest_ifname,
+            bytes2human(highest_rx_rate),
+            bytes2human(highest_tx_rate)
+            )
 
-    print(msg.strip() + '\n' + table + '|' + perfdata.strip())
+    table = format_as_table(table_data, ['ifname', 'rx_rate', 'errin', 'dropin', 'dropin', 'tx_rate', 'errout', 'dropout'], ['ifname', 'rx_rate', 'errin', 'dropin', 'dropin', 'tx_rate', 'errout', 'dropout'], 'ifname')
 
+    print(msg.strip() + '\n\n' + table + '|' + perfdata.strip())
     exit(overall_state)
 
 if __name__ == '__main__':
