@@ -1,6 +1,6 @@
-* show ALL unit files: `systemctl list-unit-files`
-* show loaded units: `systemctl list-units` 
-* get current state of a unit (needed as input for this check=: `systemctl show -p LoadState,ActiveState,SubState firewalld`
+* show ALL unit files: `systemctl list-unit-files --all`
+* show loaded units: `systemctl list-unit-files` 
+* get current state of a unit (needed as input for this check=: `systemctl show -p LoadState,ActiveState,SubState,UnitFileState firewalld`
 
 systemctl show -p LoadState,ActiveState,SubState,UnitFileState <name>
 
@@ -62,3 +62,18 @@ Examples:
 * Is this service absent/uninstalled? `systemctl-unit --loadstate=not-found --unit=firewalld`
 * Is this path mounted? `systemctl-unit --substate=mounted --unit=mnt-smb.mount`
 * Is this device plugged in? `systemctl-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
+
+
+## Things to check on CentOS 7
+
+Might be useful to check on a fresh CentOS 7 Minimal:
+
+```
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=auditd.service
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=crond.service
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=postfix.service
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=rsyslog.service
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=sshd.service
+./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=tuned.service
+```
+
