@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011301'
+__version__ = '2020011302'
 
 DESCRIPTION = 'This plugin lets you track if server or app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -187,7 +187,6 @@ def main():
 
         # Read the content
         result = json.loads(response.read())
-        #print(result)
 
     except urllib2.HTTPError as error:
         print('HTTP Error: {0} {1}'.format(error.code, error.reason))
@@ -195,7 +194,9 @@ def main():
     except urllib2.URLError as error:
         print('URL Error: {0}'.format(error.reason))
         exit(STATE_UNKNOWN)
-
+    except:
+        print('Result does not seem to be in JSON format.')
+        exit(STATE_UNKNOWN)
 
     if result['ocs']['meta']['status'] != 'ok':
         print('Sorry, something went wrong - no "ok" state returned.')
