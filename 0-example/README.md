@@ -6,24 +6,28 @@ We recommend to run this check once a day / every 5 minutes.
 
 If necessary this README answers questions about:
 * Is there some outstanding feature or something special about this check?
-* What are required OS Packages?
-* What are required Python libs?
 * Is there some kind of Auto Discovery?
 * Does the check use sqlite databases or temporary files?
 
 
-# Usage
+# Installation and Usage
 
-Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'`.
+Requirements:
+* EPEL-Release: `yum install epel-release`
+* Python2 psutil: `yum install python2-psutil` (installation via `pip` is not recommended)
+* Smartmontools: `yum install smartmontools`
+
+
+Use `./0-example --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'`.
 
 ```bash
-./countdown --input='Fileserver Hardware, 2025-02-02, 60, 30'
-./countdown --input='Contract A, 2023-12-31, 60, None; Contract B, 2024-12-31, 30, 14;'
-./countdown --help
+./0-example --input='Fileserver Hardware, 2025-02-02, 60, 30'
+./0-example --input='Contract A, 2023-12-31, 60, None; Contract B, 2024-12-31, 30, 14;'
+./0-example --help
 ```
 
 
-# States
+# States and Perfdata
 
 For each event tuple:
 * CRIT: if event is <= days away; 'None' means that CRIT is never returned

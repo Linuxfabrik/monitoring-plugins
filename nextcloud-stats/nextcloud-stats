@@ -78,6 +78,12 @@ def main():
         exit(STATE_UNKNOWN)
 
     URL = parsed.URL + '?format=json'
+    if URL[0:4] != 'http':
+        print('--url parameter has to start with "http://" or https://".')
+        exit(STATE_UNKNOWN)
+    if 'api/v1/info' not in URL:
+        print('--url parameter has to end in "api/v1/info".')
+        exit(STATE_UNKNOWN)
     USERNAME = parsed.USERNAME
     PASSWORD = parsed.PASSWORD
     INSECURE = parsed.INSECURE
@@ -179,7 +185,7 @@ def main():
         nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h, 
         nc_storage_num_files, nc_system_apps_num_installed,
         )
-    msg += '* Shares: {} shares, {} group, {} link, {} link no password, {} mail, {} room, {} user\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
+    msg += '* Shares: {} shares, {} groups, {} links, {} links no password, {} mails, {} rooms, {} users\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
         nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user)
     msg += '* Federated Shares: {} received, {} sent\n'.format(nc_shares_num_fed_shares_received, nc_shares_num_fed_shares_sent)
     msg += '* Storages: {} storages, {} home, {} other, {} local\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)

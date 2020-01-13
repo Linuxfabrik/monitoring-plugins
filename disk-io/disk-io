@@ -31,13 +31,18 @@ MIN = 0
 MAX = None
 
 #====================
+from lib.globals import *
+
 import argparse
 import cPickle as pickle
 import datetime
 import tempfile
-import psutil
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
 
-from lib.globals import *
 from lib.output import unpack_perfdata, bytes2human
 from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater

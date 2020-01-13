@@ -19,11 +19,16 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 
 
 #====================
+from lib.globals import *
+
 import argparse
-import psutil
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
 import sqlite3
 
-from lib.globals import *
 from lib.output import unpack_perfdata
 
 

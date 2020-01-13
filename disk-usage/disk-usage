@@ -18,10 +18,15 @@ DEFAULT_WARN  = 90
 DEFAULT_CRIT  = 95
 
 #====================
-import argparse
-import psutil       # https://pypi.org/project/psutil/
-
 from lib.globals import *
+
+import argparse
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
+
 from lib.output import unpack_perfdata, bytes2human, format_as_table, state_to_string
 from lib.parse_input import evaluate_greater
 
