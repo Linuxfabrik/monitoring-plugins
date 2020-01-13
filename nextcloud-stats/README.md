@@ -7,6 +7,8 @@ Takes approx. 1 to 2 seconds.
 
 Only throws a warning if app updates are available.
 
+Tested with Nextcloud >= 15.0.4
+
 Inspired by: https://github.com/BornToBeRoot/check_nextcloud
 
 

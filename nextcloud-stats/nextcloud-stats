@@ -9,21 +9,24 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020011301'
 
-DESCRIPTION = 'This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
+DESCRIPTION = 'This plugin lets you track if server or app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
-DEFAULT_URL       = 'http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info'
-DEFAULT_USERNAME  = 'admin'
-DEFAULT_INSECURE  = False
-DEFAULT_NOPROXY   = False
+DEFAULT_URL             = 'http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info'
+DEFAULT_USERNAME        = 'admin'
+DEFAULT_INSECURE        = False
+DEFAULT_NO_PROXY        = False
+DEFAULT_NO_UPDATE_CHECK = False
 
 
 #====================
 import argparse
 import base64
 import json
+import re
 import ssl
+import time
 import urllib2
 
 
@@ -38,14 +41,20 @@ def define_args():
     parser.add_argument('--insecure',
         help = 'This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
         dest = 'INSECURE',
-        type = bool,
+        action = 'store_true',
         default = DEFAULT_INSECURE,
         )
-    parser.add_argument('--noproxy',
+    parser.add_argument('--no-proxy',
         help = 'Do not use a proxy. Default: %(default)s',
-        dest = 'NOPROXY',
-        type = bool,
-        default = DEFAULT_NOPROXY,
+        dest = 'NO_PROXY',
+        action = 'store_true',
+        default = DEFAULT_NO_PROXY,
+        )
+    parser.add_argument('--no-update-check',
+        help = 'This option explicitly disables any update checks. Default: %(default)s',
+        dest = 'NO_UPDATE_CHECK',
+        action = 'store_true',
+        default = DEFAULT_NO_UPDATE_CHECK,
         )
     parser.add_argument('--password',
         help = 'Nextcloud API password.',
@@ -70,6 +79,67 @@ def define_args():
     return parser.parse_args()
 
 
+def get_nc_latest_version():
+    nc_url = 'https://download.nextcloud.com/server/releases/'
+    try:
+        request = urllib2.Request(nc_url)
+        response = urllib2.urlopen(request, timeout=30)
+    except:
+        return None
+
+    result = response.read()
+    if not result:
+        return None
+
+    try:
+        # strip_tags, strip html tags:
+        result = re.sub(r'<[^<]+?>', '', result)
+        matches = re.findall(r'nextcloud-(.*)\.zip', result)
+        return matches[-1]
+    except:
+        return None
+    
+
+def is_nc_update_available(current_version):
+    # check for nc server updates just once a day:
+    #   create last update check table if it does not exist
+    #   select last version for software "nextcloud"
+    #   if empty or result > 24h old:
+    #       get latest version and update database
+    #   return latest version or false
+    import sqlite3
+    conn = sqlite3.connect('/tmp/nextcloud-stats.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS check_values (
+            software TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            version TEXT NOT NULL
+            );
+        ''')
+    c.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx1 
+        ON check_values (software);
+        ''')
+    c.execute('SELECT * FROM check_values WHERE software = "nextcloud"')
+    result = c.fetchone()
+    now = time.time()
+    if result == None or now - int(result[1]) > 24*60*60:
+        latest_version = get_nc_latest_version()
+        if latest_version == None:
+            return False
+        c.execute('REPLACE INTO check_values (software, timestamp, version) VALUES ("nextcloud", ?, ?)', (now, latest_version));
+        conn.commit()
+    else:
+        latest_version = result[2]
+
+    if latest_version > current_version:
+        return latest_version
+
+    conn.close()
+    return False
+
+
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -87,7 +157,9 @@ def main():
     USERNAME = parsed.USERNAME
     PASSWORD = parsed.PASSWORD
     INSECURE = parsed.INSECURE
-    NOPROXY = parsed.NOPROXY
+    NO_PROXY = parsed.NO_PROXY
+    NO_UPDATE_CHECK = parsed.NO_UPDATE_CHECK
+
 
     credentials = base64.b64encode(USERNAME + ':' + PASSWORD)
 
@@ -105,7 +177,7 @@ def main():
             ctx.verify_mode = ssl.CERT_NONE
 
         # Proxy handler
-        if (NOPROXY):
+        if (NO_PROXY):
             proxy_handler = urllib2.ProxyHandler({})
             ctx_handler = urllib2.HTTPSHandler(context=ctx)
             opener = urllib2.build_opener(proxy_handler, ctx_handler)
@@ -115,6 +187,7 @@ def main():
 
         # Read the content
         result = json.loads(response.read())
+        #print(result)
 
     except urllib2.HTTPError as error:
         print('HTTP Error: {0} {1}'.format(error.code, error.reason))
@@ -150,8 +223,8 @@ def main():
     nc_shares_num_shares_groups           = result['ocs']['data']['nextcloud']['shares']['num_shares_groups']
     nc_shares_num_shares_link             = result['ocs']['data']['nextcloud']['shares']['num_shares_link']
     nc_shares_num_shares_link_no_password = result['ocs']['data']['nextcloud']['shares']['num_shares_link_no_password']
-    nc_shares_num_shares_mail             = result['ocs']['data']['nextcloud']['shares']['num_shares_mail']
-    nc_shares_num_shares_room             = result['ocs']['data']['nextcloud']['shares']['num_shares_room']
+    nc_shares_num_shares_mail             = result['ocs']['data']['nextcloud']['shares']['num_shares_mail'] if 'num_shares_mail' in result['ocs']['data']['nextcloud']['shares'] else 'n/a'
+    nc_shares_num_shares_room             = result['ocs']['data']['nextcloud']['shares']['num_shares_room'] if 'num_shares_room' in result['ocs']['data']['nextcloud']['shares'] else 'n/a'
     nc_shares_num_shares_user             = result['ocs']['data']['nextcloud']['shares']['num_shares_user']
 
     nc_server_php_max_execution_time      = result['ocs']['data']['server']['php']['max_execution_time']
@@ -174,13 +247,21 @@ def main():
     perfdata = ''
     state = STATE_OK
 
-    if nc_system_apps_app_updates:
-        state = get_greater_state(state, STATE_WARN)
-        msg += 'There are {} app updates available.\n'.format(nc_system_apps_num_updates_available)
+
+    if not NO_UPDATE_CHECK:
+        # if update check
+        newer_version = is_nc_update_available(nc_system_version)
+        if newer_version:
+            state = get_greater_state(state, STATE_WARN)
+            msg += 'Nextcloud v{} is available. '.format(newer_version)
+
+        if nc_system_apps_app_updates:
+            state = get_greater_state(state, STATE_WARN)
+            msg += 'There are {} app updates available. '.format(nc_system_apps_num_updates_available)
 
 
     # build the (long) multiline message
-    msg += 'v{}, {} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps\n\n'.format(
+    msg += 'v{}, {} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps\n'.format(
         nc_system_version, 
         nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h, 
         nc_storage_num_files, nc_system_apps_num_installed,
