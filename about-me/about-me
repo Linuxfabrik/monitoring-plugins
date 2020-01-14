@@ -18,7 +18,11 @@ DESCRIPTION = 'Reports a quick overview about the host dimensions and installed 
 import argparse
 import os
 import platform
-import psutil       # https://pypi.org/project/psutil/
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
 import re
 
 from lib.utils import execute_command
