@@ -81,6 +81,10 @@ stats (instead of "statistics")
 msgs (abbreviation for "messages")
 get_greater_state > get_most_significant_state
 
+Auslagern:
+* is_sw_update_available (nextcloud, rocket)
+* get_latest_sw_version (nextcloud, rocket)
+
 
 
 Parameters:

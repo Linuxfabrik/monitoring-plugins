@@ -9,21 +9,20 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019123001'
+__version__ = '2020011501'
 
 DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
 
-DEFAULT_URL       = 'http://localhost:3000/api/v1'
-DEFAULT_USERNAME  = 'rocket-stats'
-DEFAULT_INSECURE  = False
-DEFAULT_NOPROXY   = False
+DEFAULT_URL             = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME        = 'rocket-stats'
+DEFAULT_INSECURE        = False
+DEFAULT_NOPROXY         = False
+DEFAULT_NO_UPDATE_CHECK = False
 
 
 #====================
 import argparse
-import base64
 import json
-import ssl
 import urllib
 import urllib2
 
@@ -36,6 +35,12 @@ from lib.utils import execute_command
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
+    parser.add_argument('--no-update-check',
+        help = 'This option explicitly disables any update checks. Default: %(default)s',
+        dest = 'NO_UPDATE_CHECK',
+        action = 'store_true',
+        default = DEFAULT_NO_UPDATE_CHECK,
+        )
     parser.add_argument('--password',
         help='Rocket.Chat API password.',
         dest='PASSWORD',
@@ -56,6 +61,69 @@ def define_args():
         )
 
     return parser.parse_args()
+
+
+def get_rocket_chat_latest_version():
+    rc_url = 'https://api.github.com/repos/RocketChat/Rocket.Chat/releases/latest'
+    try:
+        request = urllib2.Request(rc_url)
+        response = urllib2.urlopen(request, timeout=30)
+    except:
+        return None
+
+    result = response.read()
+    if not result:
+        return None
+
+    try:
+        result = json.loads(result)
+    except:
+        return None
+    #print(json.dumps(result, indent=4, sort_keys=True))
+
+    # on GitHub, here is the version (format depends on the maintainer)
+    return result['tag_name']
+
+
+def is_rocket_chat_update_available(current_version):
+    # check for rocket chat server updates just once a day:
+    #   create last update check table if it does not exist
+    #   select last version for software "rocket-chat"
+    #   if empty or result > 24h old:
+    #       get latest version and update database
+    #   return latest version or false
+    import sqlite3
+    import time
+    conn = sqlite3.connect('/tmp/rocket.chat-stats.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS check_values (
+            software TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            version TEXT NOT NULL
+            );
+        ''')
+    c.execute('''
+        CREATE UNIQUE INDEX IF NOT EXISTS idx1 
+        ON check_values (software);
+        ''')
+    c.execute('SELECT * FROM check_values WHERE software = "rocket-chat"')
+    result = c.fetchone()
+    now = time.time()
+    if result == None or now - int(result[1]) > 24*60*60:
+        latest_version = get_rocket_chat_latest_version()
+        if latest_version == None:
+            return False
+        c.execute('REPLACE INTO check_values (software, timestamp, version) VALUES ("rocket-chat", ?, ?)', (now, latest_version));
+        conn.commit()
+    else:
+        latest_version = result[2]
+
+    if latest_version > current_version:
+        return latest_version
+
+    conn.close()
+    return False
 
 
 def get_token_from_rocket_chat(rc_url, user, password):
@@ -129,6 +197,7 @@ def get_stats_from_rocket_chat(rc_url, authToken, userId):
 
 
 def main():
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         parsed = define_args()
@@ -138,8 +207,7 @@ def main():
     URL = parsed.URL
     USERNAME = parsed.USERNAME
     PASSWORD = parsed.PASSWORD
-    INSECURE = parsed.INSECURE
-    NOPROXY = parsed.NOPROXY
+    NO_UPDATE_CHECK = parsed.NO_UPDATE_CHECK
 
     if not USERNAME or not PASSWORD:
         print('Missing username and/or password.')
@@ -172,6 +240,13 @@ def main():
     msg = ''
     perfdata = ''
     state = STATE_OK
+
+    if not NO_UPDATE_CHECK:
+        # if update check
+        newer_version = is_rocket_chat_update_available(rc_statistics_version)
+        if newer_version:
+            state = get_greater_state(state, STATE_WARN)
+            msg += 'Rocket.Chat v{} is available. '.format(newer_version)
 
 
     # build a compact multiline message
@@ -210,6 +285,7 @@ def main():
     print(msg.strip() + '|' + perfdata.strip())
 
     exit(state)
+
 
 if __name__ == '__main__':
     main()
