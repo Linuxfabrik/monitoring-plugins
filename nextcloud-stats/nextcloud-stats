@@ -111,13 +111,18 @@ def is_nc_update_available(current_version):
     import time
     conn = sqlite3.connect('/tmp/nextcloud-stats.db')
     c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS check_values (
-            software TEXT NOT NULL,
-            timestamp REAL NOT NULL,
-            version TEXT NOT NULL
-            );
-        ''')
+    try:
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS check_values (
+                software TEXT NOT NULL,
+                timestamp REAL NOT NULL,
+                version TEXT NOT NULL
+                );
+            ''')
+    except:
+        print('/tmp/nextcloud-stats.db cannot be written')
+        exit(STATE_UNKNOWN)
+
     c.execute('''
         CREATE UNIQUE INDEX IF NOT EXISTS idx1 
         ON check_values (software);

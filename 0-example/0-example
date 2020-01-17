@@ -129,8 +129,12 @@ def sqlcode():
     c = conn.cursor()
 
     # Create table
-    c.execute('''CREATE TABLE stocks
+    try:
+        c.execute('''CREATE TABLE stocks
                  (date text, trans text, symbol text, qty integer, price real)''')
+    except:
+        print('/tmp/0-example.db cannot be written')
+        exit(STATE_UNKNOWN)
 
     # Insert a row of data
     c.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
