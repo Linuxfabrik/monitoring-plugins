@@ -96,16 +96,12 @@ def main():
 
     if TYPE == 'tcp':
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    elif TYPE == 'tcp6':
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    elif TYPE == 'udp':
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     else:
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     sock.settimeout(TIMEOUT)
 
     try:
-        # works fine with tcp connections, but not with udp...
+        # Works fine for tcp connections, but not for udp. The port response for udp is based on the target application and is not standard like tcp.
         if sock.connect_ex((HOSTNAME, PORT)) == 0:
             state = STATE_OK
         else:
