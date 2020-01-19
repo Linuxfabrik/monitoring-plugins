@@ -116,7 +116,9 @@ There are a few reserved options that should not be used for other purposes:
     -m, --mode 
     -p, --password          password
     -p, --port              network port
+        --state             warn,crit
     -t, --timeout           timeout
+        --type
     -u, --url               URL
     -u, --username          username
     -V, --version           version
