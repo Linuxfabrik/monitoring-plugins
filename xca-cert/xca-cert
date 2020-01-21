@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020010901'
 
 DESCRIPTION = 'Checks expiration date of XCA certificates.'
 
@@ -21,6 +21,7 @@ DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PASSWORD = ''
 DEFAULT_USER     = 'root'
 
+command_installed = 'command -v openssl'
 command_openssl_cert = 'openssl x509 -noout -dates -in /dev/stdin'
 command_openssl_crl = 'openssl crl -noout -nextupdate -in /dev/stdin'
 
@@ -31,48 +32,84 @@ import datetime
 
 
 from lib.globals import *
-from lib.execute_command import execute_command
-from lib.output import unpack_perfdata, format_state
+from lib.utils import execute_command
+from lib.output import unpack_perfdata, state_to_string
 from lib.parse_input import evaluate_smaller_date_to_today
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-w', '--warning', help='Set the warning for the expiration date in days. Default: %(default)s',
-                      default=DEFAULT_WARN, type=float, dest='WARN')
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning for the expiration date in days. Default: %(default)s',
+        dest = 'WARN',
+        type = float,
+        default = DEFAULT_WARN,
+        )
 
-    parser.add_argument('-c', '--critical', help='Set the critical for the expiration date in days. Default: %(default)s',
-                      default=DEFAULT_CRIT, type=float, dest='CRIT')
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical for the expiration date in days. Default: %(default)s',
+        dest = 'CRIT',
+        type = float,
+        default = DEFAULT_CRIT,
+        )
 
-    parser.add_argument('-H', '--hostname', help='Set the hostname of the mysql server containing the XCA database. Default: %(default)s',
-                      default=DEFAULT_HOSTNAME, type=str, dest='HOSTNAME')
+    parser.add_argument('-H', '--hostname',
+        help = 'Set the hostname of the mysql server containing the XCA database. Default: %(default)s',
+        dest = 'HOSTNAME',
+        type = str,
+        default = DEFAULT_HOSTNAME,
+        )
     
-    parser.add_argument('-u', '--user', help='Set the user for the mysql server containing the XCA database. Default: %(default)s',
-                      default=DEFAULT_USER, type=str, dest='USER')
+    parser.add_argument('-u', '--user',
+        help = 'Set the user for the mysql server containing the XCA database. Default: %(default)s',
+        dest = 'USER',
+        type = str,
+        default = DEFAULT_USER,
+        )
     
-    parser.add_argument('-p', '--password', help='Set the password for the mysql server containing the XCA database. Default: %(default)s',
-                      default=DEFAULT_PASSWORD, type=str, dest='PASSWORD')
+    parser.add_argument('-p', '--password',
+        help = 'Set the password for the mysql server containing the XCA database. Default: %(default)s',
+        dest = 'PASSWORD',
+        type = str,
+        default = DEFAULT_PASSWORD,
+        )
     
-    parser.add_argument('-d', '--database', help='Set the mysql database containing the XCA data. Default: %(default)s',
-                      default=DEFAULT_DATABASE, type=str, dest='DATABASE')
+    parser.add_argument('-d', '--database',
+        help = 'Set the mysql database containing the XCA data. Default: %(default)s',
+        dest = 'DATABASE',
+        type = str,
+        default = DEFAULT_DATABASE,
+        )
     
-    parser.add_argument('-x', '--prefix', help='Set the table prefix of the XCA database.',
-                      type=str, dest='PREFIX')
+    parser.add_argument('-x', '--prefix',
+        help = 'Set the table prefix of the XCA database.',
+        dest = 'PREFIX',
+        type = str,
+        )
 
     return parser.parse_args()
 
 
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
-        print('Argument parsing failed')
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    global_state = STATE_OK        
+    # check if shell command is available
+    stdout, stderr, retc = execute_command(command_installed)
+    if (retc != 0):
+        print('"docker" is missing.')
+        exit(STATE_UNKNOWN)
+
+    overall_state = STATE_OK        
     mysql_connection = {
       'user':               parsed.USER,
       'password':           parsed.PASSWORD,
@@ -94,25 +131,22 @@ def main():
         cert_count += 1
 
         pem_cert = '-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(cert[:10], cert[10:]) # add line break after 10th character, for the openssl command to always work
-        proc = execute_command(command_openssl_cert)
-        result, err = proc.communicate(input=pem_cert)
-        result_rc = proc.returncode
-        if (err or result_rc != 0):
-            print('Bash command `{}` failed. {}'.format(command_openssl_cert, err.strip()))
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = execute_command(command_openssl_cert, input=pem_cert)
+        if (stderr or retc != 0):
+            print('Bash command `{}` failed.'.format(bash_command))
+            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
 
-        for line in result.splitlines():
+        for line in stdout.splitlines():
             if line.startswith('notAfter='):
                 date_str = line.split('=')[1]
                 date_in = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z') # Oct 29 08:41:00 2028 GMT
 
-        cert_data = Data('{}-expire-date'.format(name.replace(' ','_')), date_str, parsed.WARN, parsed.CRIT)
-        cert_data.set_state(evaluate_smaller_date_to_today((date_in, cert_data.warn, cert_data.crit)))
-        if cert_data.state != STATE_OK:
-            expired_certs.append('{} {} ({}: {})'.format(name, serial, format_state(cert_data.state), date_str))
-
-            if global_state != STATE_CRIT:
-                global_state = cert_data.state
+        cert_state = evaluate_smaller_date_to_today(date_in, parsed.WARN, parsed.CRIT)
+        if cert_state != STATE_OK:
+            expired_certs.append('{} {} ({}: {})'.format(name, serial, state_to_string(cert_state), date_str))
+            overall_state = get_greater_state(overall_state, cert_state)
 
     # crl
     expired_crl = None
@@ -125,28 +159,25 @@ def main():
         crl_count += 1
 
         pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(cert)
-        proc = execute_command(command_openssl_crl)
-        result, err = proc.communicate(input=pem_cert)
-        result_rc = proc.returncode
-        if (err or result_rc != 0):
-            print('Bash command `{}` failed. {}'.format(command_openssl_crl, err.strip()))
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = execute_command(command_openssl_cert, input=pem_cert)
+        if (stderr or retc != 0):
+            print('Bash command `{}` failed.'.format(bash_command))
+            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
 
-        for line in result.splitlines():
+        for line in stdout.splitlines():
             if line.startswith('nextUpdate='):
                 date_str = line.split('=')[1]
                 date_in = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z') # Oct 29 08:41:00 2028 GMT
 
-        crl_data = Data('{}-expire-date'.format(name.replace(' ','_')), date_str, parsed.WARN, parsed.CRIT)
-        crl_data.set_state(evaluate_smaller_date_to_today((date_in, crl_data.warn, crl_data.crit)))
-        if crl_data.state != STATE_OK:
-            expired_crl = '{} ({}: {})'.format(name, format_state(crl_data.state), date_str)
-
-            if global_state != STATE_CRIT:
-                global_state = crl_data.state
+        crl_state = evaluate_smaller_date_to_today(date_in, parsed.WARN, parsed.CRIT)
+        if crl_state != STATE_OK:
+            expired_crl = '{} ({}: {})'.format(name, state_to_string(crl_data.state), date_str)
+            overall_state = get_greater_state(overall_state, crl_state)
 
 
-    if global_state == STATE_OK:
+    if overall_state == STATE_OK:
         print('{} Certificates and {} CRL checked.'.format(cert_count, crl_count))
     else:
         print('One or more cert is expiring.')
@@ -160,7 +191,7 @@ def main():
             print('Expiring CRL (latest creation date):')
             print('* {}'.format(expired_crl))
 
-    exit(global_state)
+    exit(overall_state)
 
 
 if __name__ == '__main__':

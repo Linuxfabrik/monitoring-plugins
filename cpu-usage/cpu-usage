@@ -9,22 +9,27 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019121901'
+__version__ = '2020011001'
 
-DESCRIPTION = 'Provides utilization percentages for each specific CPU time. Takes a number of times into account that the cpu usage has to be equal or above the given thresholds.'
+DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
 DEFAULT_WARN  = 50      # %
 DEFAULT_CRIT  = 70      # %
-DEFAULT_COUNT = 15
+DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
 
 
 #====================
-import argparse
-import pickle
-import psutil
-import tempfile
-
 from lib.globals import *
+
+import argparse
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
+import sqlite3
+
+from lib.output import unpack_perfdata
 
 
 def define_args():
@@ -49,7 +54,7 @@ def define_args():
         default = DEFAULT_CRIT,
         )
 
-    parser.add_argument('-i', '--count',
+    parser.add_argument('-f', '--for',
         help = 'Number of times the value has to be above the given thresholds. Default: %(default)s',
         dest = 'COUNT',
         type = int,
@@ -57,6 +62,68 @@ def define_args():
         )
     
     return parser.parse_args()
+
+
+# https://docs.python.org/2/library/sqlite3.html
+def insert_into_db(db, values, count):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    # create table if it does not exist
+    try:
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS check_values (
+                user REAL NOT NULL, 
+                system REAL NOT NULL,
+                iowait REAL NOT NULL,
+                cpu_usage REAL NOT NULL
+                )
+            ''')
+    except:
+        print('{} cannot be written'.format(db))
+        exit(STATE_UNKNOWN)
+
+    # insert a row of data (here named values from a dictionary)
+    c.execute('INSERT INTO check_values VALUES (:user, :system, :iowait, :cpu_usage)', values)
+
+    # leave only the latest "count" records, using the sqlite built-in "rowid"
+    c.execute('''
+        DELETE FROM check_values
+        WHERE rowid IN (
+            SELECT rowid
+            FROM check_values
+            ORDER BY rowid DESC
+            LIMIT -1
+            OFFSET ?
+        )
+        ''', (count, ))
+
+    # Save (commit) the changes
+    conn.commit()
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+
+def get_from_db(db, threshold):
+    conn = sqlite3.connect(db)
+
+    c = conn.cursor()
+
+    c.execute('''
+        SELECT count(*)
+        FROM check_values
+        WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
+        ''', (threshold, threshold, threshold, threshold))
+    result = c.fetchone()
+
+    # We can close the connection if we are done with it.
+    # Just be sure any changes have been committed or they will be lost.
+    conn.close()
+
+    return result[0]
 
 
 def main():
@@ -77,13 +144,13 @@ def main():
                  'irq', 'softirq', 'steal', 'guest', 'guest_nice']:
         if hasattr(cpu_times_percent, stat):
             stats[stat] = getattr(cpu_times_percent, stat)
-    stats['cpu-usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
+    stats['cpu_usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
 
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
-    # ctx_switches: number of context switches (voluntary + involuntary) per second
-    # interrupts: number of interrupts per second
-    # soft_interrupts: number of software interrupts per second. Always set to 0 on Windows and SunOS.
+    # ctx_switches: number of context switches (voluntary + involuntary) since boot
+    # interrupts: number of interrupts since boot
+    # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
 
     if psutil.__version__ >= '4.1.0':
@@ -93,50 +160,48 @@ def main():
                 stats[stat] = getattr(cpu_stats, stat)
 
 
-    # dealing with a temporary file for "trends"
+    # save trend data to local sqlite database, limited to "count" rows max.
+    insert_into_db('/tmp/cpu-usage.db', stats, parsed.COUNT)
 
-    # try to read trend data from the temporary file
-    try:
-        trend = pickle.load(open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'rb'))
-    except Exception as e:
-        trend = []
-    
-    # save the new value to the end and cut the array to COUNT number of items, beginning from the end
-    trend.append(stats)
-    trend = trend[-parsed.COUNT:]
 
-    # save the temporary data
-    pickle.dump(trend, open('{}/{}'.format(tempfile.gettempdir(), 'cpu-usage'), 'wb+'))
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
 
 
     # now, calculate the WARN or CRIT.
-    # if there are all values in one trend row below the threshold, overall status is ok.
-    state = STATE_OK
-    for data in trend:
-        if data['user'] < parsed.WARN and data['system'] < parsed.WARN and data['iowait'] < parsed.WARN and data['cpu-usage'] < parsed.WARN:
-            # we have one value found that is below the threshold, so we need no warning at all
-            state = STATE_OK
-            break
-        if data['user'] >= parsed.CRIT or data['system'] >= parsed.CRIT or data['iowait'] >= parsed.CRIT or data['cpu-usage'] >= parsed.CRIT:
-            state = STATE_CRIT
-        elif data['user'] >= parsed.WARN or data['system'] >= parsed.WARN or data['iowait'] >= parsed.WARN or data['cpu-usage'] >= parsed.WARN:
-            state = STATE_WARN
+    # overall status is not ok, if ...
+    #   in a row in any column there is a value above the threshold
+    #   and this is true for every row 
+    if get_from_db('/tmp/cpu-usage.db', parsed.CRIT) == parsed.COUNT:
+        state = STATE_CRIT
+    elif get_from_db('/tmp/cpu-usage.db', parsed.WARN) == parsed.COUNT:
+        state = STATE_WARN
+
 
     # build the message
-    msg = 'CPU: {}%  - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
+    msg += '{}% - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
     msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
     if psutil.__version__ >= '4.1.0':
-        msg += 'ctx_switches: {}/s, interrupts: {}/s, soft_interrupts: {}/s\n'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        msg += 'ctx_switches: {}, interrupts: {}, soft_interrupts: {}'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
 
     # build perfdata
-    perfdata = 'cpu-usage={}%;user={}%;system={}%;iowait={}%;'.format(stats['cpu-usage'], stats['user'], stats['system'], stats['iowait'])
-    perfdata += 'nice={}%;irq={}%;steal={}%;'.format(stats['nice'], stats['irq'], stats['steal'])
+    perfdata += unpack_perfdata('cpu-usage', stats['cpu_usage'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('user', stats['user'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('system', stats['system'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('iowait', stats['iowait'], '%', parsed.WARN, parsed.CRIT, 0, 100)
+
+    perfdata += unpack_perfdata('nice', stats['nice'], '%', None, None, 0, 100)
+    perfdata += unpack_perfdata('irq', stats['irq'], '%', None, None, 0, 100)
+    perfdata += unpack_perfdata('steal', stats['steal'], '%', None, None, 0, 100)
+
     if psutil.__version__ >= '4.1.0':
-        perfdata += 'ctx_switches={};interrupts={};soft_interrupts={};'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+        perfdata += unpack_perfdata('ctx_switches', stats['ctx_switches'], 'c', None, None, 0, None)
+        perfdata += unpack_perfdata('interrupts', stats['interrupts'], 'c', None, None, 0, None)
+        perfdata += unpack_perfdata('soft_interrupts', stats['soft_interrupts'], 'c', None, None, 0, None)
 
     # over and out
-    print(msg.strip())
-    print('|' + perfdata)
+    print(msg.strip() + '|' + perfdata.strip())
     exit(state)
 
 

@@ -10,29 +10,25 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020010901'
 
 DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = 24
 
-DEFAULT_RUNNING_CRIT = 4
-DEFAULT_RUNNING_WARN = 5
-
 #====================
 
 from lib.globals import *
-from lib.parse_input import evaluate_greater, compare_datetime_to_now
-from lib.output import unpack_perfdata
+from lib.parse_input import evaluate_greater, evaluate_greater_datetime_to_now
+from lib.output import unpack_perfdata, state_to_string
 
 import argparse
 import datetime
 import os
-import psutil
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -53,53 +49,24 @@ def parse_args():
         type = int,
         default = DEFAULT_WARN,
         )
-
-    parser.add_argument('--running-critical',
-        help = 'Set the critical threshold for the duration of a running borg process (in hours). Default: %(default)s',
-        dest = 'RUNNING_CRIT',
-        type = int,
-        default = DEFAULT_RUNNING_CRIT,
-        )
-
-    parser.add_argument('--running-warning',
-        help = 'Set the warning threshold for the duration of a running borg process (in hours). Default: %(default)s',
-        dest = 'RUNNING_WARN',
-        type = int,
-        default = DEFAULT_RUNNING_WARN,
-        )
     
     return parser.parse_args()
 
 
-def checkIfProcessRunning(processName):
-    '''
-    Check if there is any running process that contains the given name processName.
-    '''
-    #Iterate over the all the running process
-    for proc in psutil.process_iter():
-        try:
-            # Check if process name contains the given name string.
-            if processName.lower() in proc.name().lower():
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-    return False
-
-
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     perfdata = ''
     path = '/var/log/borg/borg.log'
 
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
-        global_state = STATE_UNKNOWN
-        msg = 'Logfile (`/var/log/borg/borg.log`) is not found or empty.'
+        msg = 'Logfile (`{}`) is not found or empty.'.format(path)
         print(msg)
-        exit(global_state)
+        exit(STATE_UNKNOWN)
 
     mount_lines = ''
     with open('/proc/mounts') as mountlist:
@@ -108,30 +75,9 @@ def main():
                 mount_lines += '* ' + line
 
     if mount_lines:
-        global_state = STATE_WARN
         msg = 'There are active borg mounts.\n\n{}'.format(mount_lines)
         print(msg)
-        exit(global_state)
-
-
-    if checkIfProcessRunning('borg'):
-        logfile = open(path, 'rb')
-        for line in logfile:
-            if line.startswith('start'):
-                starttime = line.split(": ")[1].strip()
-
-        last_starttime_data = Data('last_starttime', starttime, parsed.RUNNING_WARN, parsed.RUNNING_CRIT)
-        last_starttime_data.set_state(compare_datetime_to_now((last_starttime_data.value, last_starttime_data.warn, last_starttime_data.crit)))
-        if last_starttime_data.state != STATE_OK:
-            global_state = last_starttime_data.state
-            msg = 'A borg process is running for too long. Start: {}'.format(starttime)
-            print(msg)
-            exit(global_state)
-
-        global_state = STATE_OK
-        msg = 'A borg process is currently running.'
-        print(msg)
-        exit(global_state)
+        exit(STATE_WARN)
 
 
     logfile = open(path, 'rb')
@@ -148,40 +94,35 @@ def main():
         if line.startswith('prune_rc'):
             prune_rc = int(line.split(": ")[1])
 
-    create_rc_data = Data('create_rc', create_rc, 2, None)
-    prune_rc_data = Data('prune_rc', prune_rc, 2, None)
+    overall_state = STATE_OK
+    create_rc_state = evaluate_greater(create_rc, 2, None)
+    overall_state = get_greater_state(overall_state, create_rc_state)
+    perfdata += unpack_perfdata('create_rc', create_rc, None, 2, None, 0, None)
 
-    for data in create_rc_data, prune_rc_data:
-        data.set_state(evaluate_greater((data.value, data.warn, data.crit)))
-        perfdata += unpack_perfdata((data.label, data.value, None, data.warn, data.crit, 0, None))
+    prune_rc_state = evaluate_greater(prune_rc, 2, None)
+    overall_state = get_greater_state(overall_state, prune_rc_state)
+    perfdata += unpack_perfdata('prune_rc', prune_rc, None, 2, None, 0, None)
 
-    last_starttime_data = Data('last_starttime', starttime, parsed.WARN, parsed.CRIT)
-    last_starttime_data.set_state(compare_datetime_to_now((last_starttime_data.value, last_starttime_data.warn, last_starttime_data.crit)))
+    starttime_datetime = datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')
+    last_starttime_state = evaluate_greater_datetime_to_now(starttime_datetime, parsed.WARN, parsed.CRIT)
+    overall_state = get_greater_state(overall_state, last_starttime_state)
 
-    duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')).total_seconds()
-    duration_data = Data('duration', duration, None, None)
-    perfdata += unpack_perfdata((duration_data.label, duration_data.value, 's', duration_data.warn, duration_data.crit, 0, None))
+    duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - starttime_datetime).total_seconds()
+    perfdata += unpack_perfdata('duration', duration, 's', None, None, 0, None)
 
-    global_state = STATE_OK
-    state_checklist = [create_rc_data.state, prune_rc_data.state, last_starttime_data.state]
-    if STATE_CRIT in state_checklist:
-        global_state = STATE_CRIT
-    elif STATE_WARN in state_checklist:
-        if global_state != STATE_CRIT:
-            global_state = STATE_WARN
-    
-    if global_state == STATE_OK:
+    if overall_state == STATE_OK:
         msg = 'Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
     else:
-        if last_starttime_data.state != STATE_OK:
+        if last_starttime_state != STATE_OK:
             msg = 'Last backup is too long ago. Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
         else:
             msg = 'One or more errors. Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
 
-    msg += create_rc_data.format_submsg('\nCreate rc: {}'.format(create_rc_data.value))
-    msg += prune_rc_data.format_submsg('\nPrune rc: {}'.format(prune_rc_data.value))
+    msg += '\nCreate rc: {} {}'.format(create_rc, state_to_string(create_rc_state))
+    msg += '\nPrune rc: {} {}'.format(prune_rc, state_to_string(prune_rc_state))
 
     print(msg + '|' + perfdata.strip())
-    exit(global_state)
+    exit(overall_state)
 
-main()
+if __name__ == '__main__':
+    main()

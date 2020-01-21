@@ -12,7 +12,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020010901'
 
 DESCRIPTION = 'Checks redis health.'
 
@@ -86,96 +86,227 @@ import socket
 
 from lib.globals import *
 from lib.output import unpack_perfdata, unix_time_to_iso
-from lib.parse_arguments import csv_arg
-from lib.parse_input import evaluate_greater, compare_datetime_to_now, evaluate_smaller
+from lib.parse_arguments import csv
+from lib.parse_input import evaluate_greater, evaluate_greater_datetime_to_now, evaluate_smaller
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version', action='version', version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__))
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
-    parser.add_argument('-H', '--hostname', help='Set the hostname of the redis Server. Default: %(default)s',
-                      default=DEFAULT_HOSTNAME, type=str, dest='HOSTNAME')
+    parser.add_argument('-H', '--hostname',
+        help = 'Set the hostname of the redis Server. Default: %(default)s',
+        dest = 'HOSTNAME',
+        type = str,
+        default = DEFAULT_HOSTNAME,
+        )
 
-    parser.add_argument('-P', '--port', help='Set the port of the redis Server. Default: %(default)s',
-                      default=DEFAULT_PORT, type=int, dest='PORT')
+    parser.add_argument('-P', '--port',
+        help = 'Set the port of the redis Server. Default: %(default)s',
+        dest = 'PORT',
+        type = int,
+        default = DEFAULT_PORT,
+        )
 
-    parser.add_argument('-p', '--password', help='Set the password for the redis Server. Default: %(default)s',
-                      default=DEFAULT_PASSWORD, type=str, dest='PASSWORD')
+    parser.add_argument('-p', '--password',
+        help = 'Set the password for the redis Server. Default: %(default)s',
+        dest = 'PASSWORD',
+        type = str,
+        default = DEFAULT_PASSWORD,
+        )
 
-    parser.add_argument('-t', '--timeout', help='Set the timeout to the redis socket. Default: %(default)s',
-                      default=DEFAULT_SOCKET_TIMEOUT, type=int, dest='SOCKET_TIMEOUT')
+    parser.add_argument('-t', '--timeout',
+        help = 'Set the timeout to the redis socket. Default: %(default)s',
+        dest = 'SOCKET_TIMEOUT',
+        type = int,
+        default = DEFAULT_SOCKET_TIMEOUT,
+        )
 
-    parser.add_argument('--w_maxmemory', help='Set the warning threshold for maxmemory. Default: %(default)s',
-                      default=DEFAULT_W_MAXMEMORY, type=int, dest='W_MAXMEMORY')
-    parser.add_argument('--c_maxmemory', help='Set the critical threshold for maxmemory. Default: %(default)s',
-                      default=DEFAULT_C_MAXMEMORY, type=int, dest='C_MAXMEMORY')
+    parser.add_argument('--w_maxmemory',
+        help = 'Set the warning threshold for maxmemory. Default: %(default)s',
+        dest = 'W_MAXMEMORY',
+        type = int,
+        default = DEFAULT_W_MAXMEMORY,
+        )
+    parser.add_argument('--c_maxmemory',
+        help = 'Set the critical threshold for maxmemory. Default: %(default)s',
+        dest = 'C_MAXMEMORY',
+        type = int,
+        default = DEFAULT_C_MAXMEMORY,
+        )
     
-    parser.add_argument('--w_mem_fragmentation_ratio', help='Set the warning threshold for mem_fragmentation_ratio. Default: %(default)s',
-                      default=DEFAULT_W_MEM_FRAGMENTATION_RATIO, type=float, dest='W_MEM_FRAGMENTATION_RATIO')
-    parser.add_argument('--c_mem_fragmentation_ratio', help='Set the critical threshold for mem_fragmentation_ratio. Default: %(default)s',
-                      default=DEFAULT_C_MEM_FRAGMENTATION_RATIO, type=float, dest='C_MEM_FRAGMENTATION_RATIO')
+    parser.add_argument('--w_mem_fragmentation_ratio',
+        help = 'Set the warning threshold for mem_fragmentation_ratio. Default: %(default)s',
+        dest = 'W_MEM_FRAGMENTATION_RATIO',
+        type = float,
+        default = DEFAULT_W_MEM_FRAGMENTATION_RATIO,
+        )
+    parser.add_argument('--c_mem_fragmentation_ratio',
+        help = 'Set the critical threshold for mem_fragmentation_ratio. Default: %(default)s',
+        dest = 'C_MEM_FRAGMENTATION_RATIO',
+        type = float,
+        default = DEFAULT_C_MEM_FRAGMENTATION_RATIO,
+        )
 
-    parser.add_argument('--w_used_memory', help='Set the warning threshold for used_memory. Default: %(default)s',
-                      default=DEFAULT_W_USED_MEMORY, type=int, dest='W_USED_MEMORY')
-    parser.add_argument('--c_used_memory', help='Set the critical threshold for used_memory. Default: %(default)s',
-                      default=DEFAULT_C_USED_MEMORY, type=int, dest='C_USED_MEMORY')
+    parser.add_argument('--w_used_memory',
+        help = 'Set the warning threshold for used_memory. Default: %(default)s',
+        dest = 'W_USED_MEMORY',
+        type = int,
+        default = DEFAULT_W_USED_MEMORY,
+        )
+    parser.add_argument('--c_used_memory',
+        help = 'Set the critical threshold for used_memory. Default: %(default)s',
+        dest = 'C_USED_MEMORY',
+        type = int,
+        default = DEFAULT_C_USED_MEMORY,
+        )
 
-    parser.add_argument('--w_used_memory_percentage', help='Set the warning threshold for used_memory_percentage. Default: %(default)s%%',
-                      default=DEFAULT_W_USED_MEMORY_PERCENTAGE, type=float, dest='W_USED_MEMORY_PERCENTAGE')
-    parser.add_argument('--c_used_memory_percentage', help='Set the critical threshold for used_memory_percentage. Default: %(default)s%%',
-                      default=DEFAULT_C_USED_MEMORY_PERCENTAGE, type=float, dest='C_USED_MEMORY_PERCENTAGE')
+    parser.add_argument('--w_used_memory_percentage',
+        help = 'Set the warning threshold for used_memory_percentage. Default: %(default)s%%',
+        dest = 'W_USED_MEMORY_PERCENTAGE',
+        type = float,
+        default = DEFAULT_W_USED_MEMORY_PERCENTAGE,
+        )
+    parser.add_argument('--c_used_memory_percentage',
+        help = 'Set the critical threshold for used_memory_percentage. Default: %(default)s%%',
+        dest = 'C_USED_MEMORY_PERCENTAGE',
+        type = float,
+        default = DEFAULT_C_USED_MEMORY_PERCENTAGE,
+        )
     
-    parser.add_argument('--w_used_memory_peak', help='Set the warning threshold for used_memory_peak. Default: %(default)s',
-                      default=DEFAULT_W_USED_MEMORY_PEAK, type=int, dest='W_USED_MEMORY_PEAK')
-    parser.add_argument('--c_used_memory_peak', help='Set the critical threshold for used_memory_peak. Default: %(default)s',
-                      default=DEFAULT_C_USED_MEMORY_PEAK, type=int, dest='C_USED_MEMORY_PEAK')
+    parser.add_argument('--w_used_memory_peak',
+        help = 'Set the warning threshold for used_memory_peak. Default: %(default)s',
+        dest = 'W_USED_MEMORY_PEAK',
+        type = int,
+        default = DEFAULT_W_USED_MEMORY_PEAK,
+        )
+    parser.add_argument('--c_used_memory_peak',
+        help = 'Set the critical threshold for used_memory_peak. Default: %(default)s',
+        dest = 'C_USED_MEMORY_PEAK',
+        type = int,
+        default = DEFAULT_C_USED_MEMORY_PEAK,
+        )
 
-    parser.add_argument('--w_used_memory_peak_percentage', help='Set the warning threshold for used_memory_peak_percentage. Default: %(default)s%%',
-                      default=DEFAULT_W_USED_MEMORY_PEAK_PERCENTAGE, type=float, dest='W_USED_MEMORY_PEAK_PERCENTAGE')
-    parser.add_argument('--c_used_memory_peak_percentage', help='Set the critical threshold for used_memory_peak_percentage. Default: %(default)s%%',
-                      default=DEFAULT_C_USED_MEMORY_PEAK_PERCENTAGE, type=float, dest='C_USED_MEMORY_PEAK_PERCENTAGE')
+    parser.add_argument('--w_used_memory_peak_percentage',
+        help = 'Set the warning threshold for used_memory_peak_percentage. Default: %(default)s%%',
+        dest = 'W_USED_MEMORY_PEAK_PERCENTAGE',
+        type = float,
+        default = DEFAULT_W_USED_MEMORY_PEAK_PERCENTAGE,
+        )
+    parser.add_argument('--c_used_memory_peak_percentage',
+        help = 'Set the critical threshold for used_memory_peak_percentage. Default: %(default)s%%',
+        dest = 'C_USED_MEMORY_PEAK_PERCENTAGE',
+        type = float,
+        default = DEFAULT_C_USED_MEMORY_PEAK_PERCENTAGE,
+        )
 
-    parser.add_argument('--w_used_memory_rss', help='Set the warning threshold for used_memory_rss. Default: %(default)s',
-                      default=DEFAULT_W_USED_MEMORY_RSS, type=int, dest='W_USED_MEMORY_RSS')
-    parser.add_argument('--c_used_memory_rss', help='Set the critical threshold for used_memory_rss. Default: %(default)s',
-                      default=DEFAULT_C_USED_MEMORY_RSS, type=int, dest='C_USED_MEMORY_RSS')
+    parser.add_argument('--w_used_memory_rss',
+        help = 'Set the warning threshold for used_memory_rss. Default: %(default)s',
+        dest = 'W_USED_MEMORY_RSS',
+        type = int,
+        default = DEFAULT_W_USED_MEMORY_RSS,
+        )
+    parser.add_argument('--c_used_memory_rss',
+        help = 'Set the critical threshold for used_memory_rss. Default: %(default)s',
+        dest = 'C_USED_MEMORY_RSS',
+        type = int,
+        default = DEFAULT_C_USED_MEMORY_RSS,
+        )
     
-    parser.add_argument('--w_rdb_changes_since_last_save', help='Set the warning threshold for rdb_changes_since_last_save. Default: %(default)s',
-                      default=DEFAULT_W_RDB_CHANGES_SINCE_LAST_SAVE, type=int, dest='W_RDB_CHANGES_SINCE_LAST_SAVE')
-    parser.add_argument('--c_rdb_changes_since_last_save', help='Set the critical threshold for rdb_changes_since_last_save. Default: %(default)s',
-                      default=DEFAULT_C_RDB_CHANGES_SINCE_LAST_SAVE, type=int, dest='C_RDB_CHANGES_SINCE_LAST_SAVE')
+    parser.add_argument('--w_rdb_changes_since_last_save',
+        help = 'Set the warning threshold for rdb_changes_since_last_save. Default: %(default)s',
+        dest = 'W_RDB_CHANGES_SINCE_LAST_SAVE',
+        type = int,
+        default = DEFAULT_W_RDB_CHANGES_SINCE_LAST_SAVE,
+        )
+    parser.add_argument('--c_rdb_changes_since_last_save',
+        help = 'Set the critical threshold for rdb_changes_since_last_save. Default: %(default)s',
+        dest = 'C_RDB_CHANGES_SINCE_LAST_SAVE',
+        type = int,
+        default = DEFAULT_C_RDB_CHANGES_SINCE_LAST_SAVE,
+        )
 
-    parser.add_argument('--w_rdb_last_save_time', help='Set the warning threshold for rdb_last_save_time in hours. Default: %(default)s',
-                      default=DEFAULT_W_RDB_LAST_SAVE_TIME, type=int, dest='W_RDB_LAST_SAVE_TIME')
-    parser.add_argument('--c_rdb_last_save_time', help='Set the critical threshold for rdb_last_save_time in hours. Default: %(default)s',
-                      default=DEFAULT_C_RDB_LAST_SAVE_TIME, type=int, dest='C_RDB_LAST_SAVE_TIME')
+    parser.add_argument('--w_rdb_last_save_time',
+        help = 'Set the warning threshold for rdb_last_save_time in hours. Default: %(default)s',
+        dest = 'W_RDB_LAST_SAVE_TIME',
+        type = int,
+        default = DEFAULT_W_RDB_LAST_SAVE_TIME,
+        )
+    parser.add_argument('--c_rdb_last_save_time',
+        help = 'Set the critical threshold for rdb_last_save_time in hours. Default: %(default)s',
+        dest = 'C_RDB_LAST_SAVE_TIME',
+        type = int,
+        default = DEFAULT_C_RDB_LAST_SAVE_TIME,
+        )
     
-    parser.add_argument('--w_blocked_clients', help='Set the warning threshold for blocked_clients. Default: %(default)s',
-                      default=DEFAULT_W_BLOCKED_CLIENTS, type=int, dest='W_BLOCKED_CLIENTS')
-    parser.add_argument('--c_blocked_clients', help='Set the critical threshold for blocked_clients. Default: %(default)s',
-                      default=DEFAULT_C_BLOCKED_CLIENTS, type=int, dest='C_BLOCKED_CLIENTS')
+    parser.add_argument('--w_blocked_clients',
+        help = 'Set the warning threshold for blocked_clients. Default: %(default)s',
+        dest = 'W_BLOCKED_CLIENTS',
+        type = int,
+        default = DEFAULT_W_BLOCKED_CLIENTS,
+        )
+    parser.add_argument('--c_blocked_clients',
+        help = 'Set the critical threshold for blocked_clients. Default: %(default)s',
+        dest = 'C_BLOCKED_CLIENTS',
+        type = int,
+        default = DEFAULT_C_BLOCKED_CLIENTS,
+        )
     
-    parser.add_argument('--w_connected_clients', help='Set the warning threshold for connected_clients. Default: %(default)s',
-                      default=DEFAULT_W_CONNECTED_CLIENTS, type=int, dest='W_CONNECTED_CLIENTS')
-    parser.add_argument('--c_connected_clients', help='Set the critical threshold for connected_clients. Default: %(default)s',
-                      default=DEFAULT_C_CONNECTED_CLIENTS, type=int, dest='C_CONNECTED_CLIENTS')
+    parser.add_argument('--w_connected_clients',
+        help = 'Set the warning threshold for connected_clients. Default: %(default)s',
+        dest = 'W_CONNECTED_CLIENTS',
+        type = int,
+        default = DEFAULT_W_CONNECTED_CLIENTS,
+        )
+    parser.add_argument('--c_connected_clients',
+        help = 'Set the critical threshold for connected_clients. Default: %(default)s',
+        dest = 'C_CONNECTED_CLIENTS',
+        type = int,
+        default = DEFAULT_C_CONNECTED_CLIENTS,
+        )
     
-    parser.add_argument('--w_evicted_keys', help='Set the warning threshold for evicted_keys. Default: %(default)s',
-                      default=DEFAULT_W_EVICTED_KEYS, type=int, dest='W_EVICTED_KEYS')
-    parser.add_argument('--c_evicted_keys', help='Set the critical threshold for evicted_keys. Default: %(default)s',
-                      default=DEFAULT_C_EVICTED_KEYS, type=int, dest='C_EVICTED_KEYS')
+    parser.add_argument('--w_evicted_keys',
+        help = 'Set the warning threshold for evicted_keys. Default: %(default)s',
+        dest = 'W_EVICTED_KEYS',
+        type = int,
+        default = DEFAULT_W_EVICTED_KEYS,
+        )
+    parser.add_argument('--c_evicted_keys',
+        help = 'Set the critical threshold for evicted_keys. Default: %(default)s',
+        dest = 'C_EVICTED_KEYS',
+        type = int,
+        default = DEFAULT_C_EVICTED_KEYS,
+        )
     
-    parser.add_argument('--w_rejected_connections', help='Set the warning threshold for rejected_connections. Default: %(default)s',
-                      default=DEFAULT_W_REJECTED_CONNECTIONS, type=int, dest='W_REJECTED_CONNECTIONS')
-    parser.add_argument('--c_rejected_connections', help='Set the critical threshold for rejected_connections. Default: %(default)s',
-                      default=DEFAULT_C_REJECTED_CONNECTIONS, type=int, dest='C_REJECTED_CONNECTIONS')
+    parser.add_argument('--w_rejected_connections',
+        help = 'Set the warning threshold for rejected_connections. Default: %(default)s',
+        dest = 'W_REJECTED_CONNECTIONS',
+        type = int,
+        default = DEFAULT_W_REJECTED_CONNECTIONS,
+        )
+    parser.add_argument('--c_rejected_connections',
+        help = 'Set the critical threshold for rejected_connections. Default: %(default)s',
+        dest = 'C_REJECTED_CONNECTIONS',
+        type = int,
+        default = DEFAULT_C_REJECTED_CONNECTIONS,
+        )
     
-    parser.add_argument('--w_connected_slaves', help='Set the warning threshold for connected_slaves. Default: %(default)s',
-                      default=DEFAULT_W_CONNECTED_SLAVES, type=int, dest='W_CONNECTED_SLAVES')
-    parser.add_argument('--c_connected_slaves', help='Set the critical threshold for connected_slaves. Default: %(default)s',
-                      default=DEFAULT_C_CONNECTED_SLAVES, type=int, dest='C_CONNECTED_SLAVES')
+    parser.add_argument('--w_connected_slaves',
+        help = 'Set the warning threshold for connected_slaves. Default: %(default)s',
+        dest = 'W_CONNECTED_SLAVES',
+        type = int,
+        default = DEFAULT_W_CONNECTED_SLAVES,
+        )
+    parser.add_argument('--c_connected_slaves',
+        help = 'Set the critical threshold for connected_slaves. Default: %(default)s',
+        dest = 'C_CONNECTED_SLAVES',
+        type = int,
+        default = DEFAULT_C_CONNECTED_SLAVES,
+        )
 
     return parser.parse_args()
 
@@ -215,139 +346,133 @@ def get_info(host, port, timeout, auth):
 
 
 def main():
-    parsed = parse_args()
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     result = get_info(parsed.HOSTNAME, parsed.PORT, parsed.SOCKET_TIMEOUT, parsed.PASSWORD)
 
     perfdata = ''
+    overall_state = STATE_OK
     submsg = '\nServer'
 
-    redis_version_data = Data('redis_version', result['redis_version'], None, None)
-    submsg += '\n' + '* {}: {}'.format(redis_version_data.label, redis_version_data.value)
+    submsg += '\n' + '* {}: {}'.format('redis_version', result['redis_version'])
     
     submsg += '\n\nMemory'
 
-    maxmemory_data = Data('maxmemory', result['maxmemory'], parsed.W_MAXMEMORY, parsed.C_MAXMEMORY)
-    maxmemory_data.set_state(evaluate_greater((maxmemory_data.value, maxmemory_data.warn, maxmemory_data.crit)))
-    perfdata += unpack_perfdata((maxmemory_data.label, maxmemory_data.value, None, maxmemory_data.warn, maxmemory_data.crit, 0, None))
-    submsg += '\n' + maxmemory_data.format_submsg('* {}: {}'.format(maxmemory_data.label, result['maxmemory_human']))
+    maxmemory_state = evaluate_greater(result['maxmemory'], parsed.W_MAXMEMORY, parsed.C_MAXMEMORY)
+    overall_state = get_greater_state(overall_state, maxmemory_state)
+    perfdata += unpack_perfdata('maxmemory', result['maxmemory'], None, parsed.W_MAXMEMORY, parsed.C_MAXMEMORY, 0, None)
+    submsg += '\n* maxmemory: {} {}'.format(result['maxmemory_human'], state_to_string(maxmemory_state))
 
-    mem_fragmentation_ratio_data = Data('mem_fragmentation_ratio', result['mem_fragmentation_ratio'], parsed.W_MEM_FRAGMENTATION_RATIO, parsed.C_MEM_FRAGMENTATION_RATIO)
-    mem_fragmentation_ratio_data.set_state(evaluate_greater((mem_fragmentation_ratio_data.value, mem_fragmentation_ratio_data.warn, mem_fragmentation_ratio_data.crit)))
-    perfdata += unpack_perfdata((mem_fragmentation_ratio_data.label, mem_fragmentation_ratio_data.value, None, mem_fragmentation_ratio_data.warn, mem_fragmentation_ratio_data.crit, 0, None))
-    submsg += '\n' + mem_fragmentation_ratio_data.format_submsg('* {}: {}'.format(mem_fragmentation_ratio_data.label, mem_fragmentation_ratio_data.value))
+    mem_fragmentation_ratio_state = evaluate_greater(result['mem_fragmentation_ratio'], parsed.W_MEM_FRAGMENTATION_RATIO, parsed.C_MEM_FRAGMENTATION_RATIO)
+    overall_state = get_greater_state(overall_state, mem_fragmentation_ratio_state)
+    perfdata += unpack_perfdata('mem_fragmentation_ratio', result['mem_fragmentation_ratio'], None, parsed.W_MEM_FRAGMENTATION_RATIO, parsed.C_MEM_FRAGMENTATION_RATIO, 0, None)
+    submsg += '\n* mem_fragmentation_ratio: {} {}'.format(result['mem_fragmentation_ratio'], state_to_string(mem_fragmentation_ratio_state))
 
-    used_memory_data = Data('used_memory', result['used_memory'], parsed.W_USED_MEMORY, parsed.C_USED_MEMORY)
-    used_memory_data.set_state(evaluate_greater((used_memory_data.value, used_memory_data.warn, used_memory_data.crit)))
-    perfdata += unpack_perfdata((used_memory_data.label, used_memory_data.value, None, used_memory_data.warn, used_memory_data.crit, 0, None))
-    submsg += '\n' + used_memory_data.format_submsg('* {}: {}'.format(used_memory_data.label, result['used_memory_human']))
-
-    if int(result['maxmemory']) == 0:
-        used_memory_percentage_data = Data('used_memory_percentage', round(float(result['used_memory']) / float(result['total_system_memory']) * 100, 2), parsed.W_USED_MEMORY_PERCENTAGE, parsed.C_USED_MEMORY_PERCENTAGE)
-    else:
-        used_memory_percentage_data = Data('used_memory_percentage', round(float(result['used_memory']) / float(result['maxmemory']) * 100, 2), parsed.W_USED_MEMORY_PERCENTAGE, parsed.C_USED_MEMORY_PERCENTAGE)
-    used_memory_percentage_data.set_state(evaluate_greater((used_memory_percentage_data.value, used_memory_percentage_data.warn, used_memory_percentage_data.crit)))
-    perfdata += unpack_perfdata((used_memory_percentage_data.label, used_memory_percentage_data.value, '%', used_memory_percentage_data.warn, used_memory_percentage_data.crit, 0, 100))
-    submsg += '\n' + used_memory_percentage_data.format_submsg('* {}: {}%'.format(used_memory_percentage_data.label, used_memory_percentage_data.value))
-
-    used_memory_peak_data = Data('used_memory_peak', result['used_memory_peak'], parsed.W_USED_MEMORY_PEAK, parsed.C_USED_MEMORY_PEAK)
-    used_memory_peak_data.set_state(evaluate_greater((used_memory_peak_data.value, used_memory_peak_data.warn, used_memory_peak_data.crit)))
-    perfdata += unpack_perfdata((used_memory_peak_data.label, used_memory_peak_data.value, None, used_memory_peak_data.warn, used_memory_peak_data.crit, 0, None))
-    submsg += '\n' + used_memory_peak_data.format_submsg('* {}: {}'.format(used_memory_peak_data.label, result['used_memory_peak_human']))
+    used_memory_state = evaluate_greater(result['used_memory'], parsed.W_USED_MEMORY, parsed.C_USED_MEMORY)
+    overall_state = get_greater_state(overall_state, used_memory_state)
+    perfdata += unpack_perfdata('used_memory', result['used_memory'], None, parsed.W_USED_MEMORY, parsed.C_USED_MEMORY, 0, None)
+    submsg += '\n* used_memory: {} {}'.format(result['used_memory_human'], state_to_string(mem_fragmentation_ratio_state))
 
     if int(result['maxmemory']) == 0:
-        used_memory_peak_percentage_data = Data('used_memory_peak_percentage', round(float(result['used_memory_peak']) / float(result['total_system_memory']) * 100, 2), parsed.W_USED_MEMORY_PEAK_PERCENTAGE, parsed.C_USED_MEMORY_PEAK_PERCENTAGE)
+        used_memory_percentage_value = round(float(result['used_memory']) / float(result['total_system_memory']) * 100, 2)
     else:
-        used_memory_peak_percentage_data = Data('used_memory_peak_percentage', round(float(result['used_memory_peak']) / float(result['maxmemory']) * 100, 2), parsed.W_USED_MEMORY_PEAK_PERCENTAGE, parsed.C_USED_MEMORY_PEAK_PERCENTAGE)
-    used_memory_peak_percentage_data.set_state(evaluate_greater((used_memory_peak_percentage_data.value, used_memory_peak_percentage_data.warn, used_memory_peak_percentage_data.crit)))
-    perfdata += unpack_perfdata((used_memory_peak_percentage_data.label, used_memory_peak_percentage_data.value, '%', used_memory_peak_percentage_data.warn, used_memory_peak_percentage_data.crit, 0, 100))
-    submsg += '\n' + used_memory_peak_percentage_data.format_submsg('* {}: {}%'.format(used_memory_peak_percentage_data.label, used_memory_peak_percentage_data.value))
+        used_memory_percentage_value = round(float(result['used_memory']) / float(result['maxmemory']) * 100, 2)
+    used_memory_percentage_state = evaluate_greater(used_memory_percentage_value, parsed.W_USED_MEMORY_PERCENTAGE, parsed.C_USED_MEMORY_PERCENTAGE)
+    perfdata += unpack_perfdata('used_memory_percentage', used_memory_percentage_value, '%', parsed.W_USED_MEMORY_PERCENTAGE, parsed.C_USED_MEMORY_PERCENTAGE, 0, 100)
+    submsg += '\n* used_memory_percentage: {} {}'.format(used_memory_percentage_value, state_to_string(used_memory_percentage_state))
 
-    used_memory_rss_data = Data('used_memory_rss', result['used_memory_rss'], parsed.W_USED_MEMORY_RSS, parsed.C_USED_MEMORY_RSS)
-    used_memory_rss_data.set_state(evaluate_greater((used_memory_rss_data.value, used_memory_rss_data.warn, used_memory_rss_data.crit)))
-    perfdata += unpack_perfdata((used_memory_rss_data.label, used_memory_rss_data.value, None, used_memory_rss_data.warn, used_memory_rss_data.crit, 0, None))
-    submsg += '\n' + used_memory_rss_data.format_submsg('* {}: {}'.format(used_memory_rss_data.label, result['used_memory_rss_human']))
+    used_memory_peak_state = evaluate_greater(result['used_memory_peak'], parsed.W_USED_MEMORY_PEAK, parsed.C_USED_MEMORY_PEAK)
+    overall_state = get_greater_state(overall_state, used_memory_peak_state)
+    perfdata += unpack_perfdata('used_memory_peak', result['used_memory_peak'], None, parsed.W_USED_MEMORY_PEAK, parsed.C_USED_MEMORY_PEAK, 0, None)
+    submsg += '\n* used_memory_peak: {} {}'.format(result['used_memory_peak_human'], state_to_string(mem_fragmentation_ratio_state))
+
+    if int(result['maxmemory']) == 0:
+        used_memory_peak_percentage_value = round(float(result['used_memory_peak']) / float(result['total_system_memory']) * 100, 2)
+    else:
+        used_memory_peak_percentage_value = round(float(result['used_memory_peak']) / float(result['maxmemory']) * 100, 2)
+
+    used_memory_peak_percentage_state = evaluate_greater(used_memory_peak_percentage_value, parsed.W_USED_MEMORY_PEAK_PERCENTAGE, parsed.C_USED_MEMORY_PEAK_PERCENTAGE)
+    perfdata += unpack_perfdata('used_memory_peak_percentage', used_memory_peak_percentage_value, '%', parsed.W_USED_MEMORY_PEAK_PERCENTAGE, parsed.C_USED_MEMORY_PEAK_PERCENTAGE, 0, 100)
+    submsg += '\n* used_memory_peak_percentage: {} {}'.format(used_memory_peak_percentage_value, state_to_string(used_memory_percentage_state))
+
+    used_memory_rss_state = evaluate_greater(result['used_memory_rss'], parsed.W_USED_MEMORY_RSS, parsed.C_USED_MEMORY_RSS)
+    overall_state = get_greater_state(overall_state, used_memory_rss_state)
+    perfdata += unpack_perfdata('used_memory_rss', result['used_memory_rss'], None, parsed.W_USED_MEMORY_RSS, parsed.C_USED_MEMORY_RSS, 0, None)
+    submsg += '\n* used_memory_rss: {} {}'.format(result['used_memory_rss_human'], state_to_string(mem_fragmentation_ratio_state))
 
     submsg += '\n\nPersistence'
 
-    rdb_changes_since_last_save_data = Data('rdb_changes_since_last_save', result['rdb_changes_since_last_save'], parsed.W_RDB_CHANGES_SINCE_LAST_SAVE, parsed.C_RDB_CHANGES_SINCE_LAST_SAVE)
-    rdb_changes_since_last_save_data.set_state(evaluate_greater((rdb_changes_since_last_save_data.value, rdb_changes_since_last_save_data.warn, rdb_changes_since_last_save_data.crit)))
-    perfdata += unpack_perfdata((rdb_changes_since_last_save_data.label, rdb_changes_since_last_save_data.value, None, rdb_changes_since_last_save_data.warn, rdb_changes_since_last_save_data.crit, 0, None))
-    submsg += '\n' + rdb_changes_since_last_save_data.format_submsg('* {}: {}'.format(rdb_changes_since_last_save_data.label, rdb_changes_since_last_save_data.value))
+    rdb_changes_since_last_save_state = evaluate_greater(result['rdb_changes_since_last_save'], parsed.W_RDB_CHANGES_SINCE_LAST_SAVE, parsed.C_RDB_CHANGES_SINCE_LAST_SAVE)
+    overall_state = get_greater_state(overall_state, rdb_changes_since_last_save_state)
+    perfdata += unpack_perfdata('rdb_changes_since_last_save', result['rdb_changes_since_last_save'], None, parsed.W_RDB_CHANGES_SINCE_LAST_SAVE, parsed.C_RDB_CHANGES_SINCE_LAST_SAVE, 0, None)
+    submsg += '\n* rdb_changes_since_last_save: {} {}'.format(result['rdb_changes_since_last_save'], state_to_string(rdb_changes_since_last_save_state))
 
-    rdb_last_save_time_data = Data('rdb_last_save_time', unix_time_to_iso(result['rdb_last_save_time']), parsed.W_RDB_LAST_SAVE_TIME, parsed.C_RDB_LAST_SAVE_TIME)
-    rdb_last_save_time_data.set_state(compare_datetime_to_now((rdb_last_save_time_data.value, rdb_last_save_time_data.warn, rdb_last_save_time_data.crit)))
-    perfdata += unpack_perfdata((rdb_last_save_time_data.label, result['rdb_last_save_time'], None, rdb_last_save_time_data.warn, rdb_last_save_time_data.crit, 0, None))
-    submsg += '\n' + rdb_last_save_time_data.format_submsg('* {}: {}'.format(rdb_last_save_time_data.label, rdb_last_save_time_data.value))
+    rdb_last_save_time_datetime = datetime.datetime.fromtimestamp(result['rdb_last_save_time'])
+    rdb_last_save_time_state = evaluate_greater_datetime_to_now(rdb_last_save_time_datetime, parsed.W_RDB_LAST_SAVE_TIME, parsed.C_RDB_LAST_SAVE_TIME) # todo
+    overall_state = get_greater_state(overall_state, rdb_last_save_time_state)
+    perfdata += unpack_perfdata('rdb_last_save_time', result['rdb_last_save_time'], None, parsed.W_RDB_LAST_SAVE_TIME, parsed.C_RDB_LAST_SAVE_TIME, 0, None)
+    submsg += '\n* rdb_last_save_time: {} {}'.format(unix_to_iso(result['rdb_last_save_time']), state_to_string(rdb_last_save_time_state))
 
     submsg += '\n\nClients'
 
-    blocked_clients_data = Data('blocked_clients', result['blocked_clients'], parsed.W_BLOCKED_CLIENTS, parsed.C_BLOCKED_CLIENTS)
-    blocked_clients_data.set_state(evaluate_greater((blocked_clients_data.value, blocked_clients_data.warn, blocked_clients_data.crit)))
-    perfdata += unpack_perfdata((blocked_clients_data.label, blocked_clients_data.value, None, blocked_clients_data.warn, blocked_clients_data.crit, 0, None))
-    submsg += '\n' + blocked_clients_data.format_submsg('* {}: {}'.format(blocked_clients_data.label, blocked_clients_data.value))
+    blocked_clients_state = evaluate_greater(result['blocked_clients'], parsed.W_BLOCKED_CLIENTS, parsed.C_BLOCKED_CLIENTS)
+    overall_state = get_greater_state(overall_state, blocked_clients_state)
+    perfdata += unpack_perfdata('blocked_clients', result['blocked_clients'], None, parsed.W_BLOCKED_CLIENTS, parsed.C_BLOCKED_CLIENTS, 0, None)
+    submsg += '\n* blocked_clients: {} {}'.format(result['blocked_clients'], state_to_string(blocked_clients_state))
 
-    connected_clients_data = Data('connected_clients', result['connected_clients'], parsed.W_CONNECTED_CLIENTS, parsed.C_CONNECTED_CLIENTS)
-    connected_clients_data.set_state(evaluate_greater((connected_clients_data.value, connected_clients_data.warn, connected_clients_data.crit)))
-    perfdata += unpack_perfdata((connected_clients_data.label, connected_clients_data.value, None, connected_clients_data.warn, connected_clients_data.crit, 0, None))
-    submsg += '\n' + connected_clients_data.format_submsg('* {}: {}'.format(connected_clients_data.label, connected_clients_data.value))
+    connected_clients_state = evaluate_greater(result['connected_clients'], parsed.W_CONNECTED_CLIENTS, parsed.C_CONNECTED_CLIENTS)
+    overall_state = get_greater_state(overall_state, connected_clients_state)
+    perfdata += unpack_perfdata('connected_clients', result['connected_clients'], None, parsed.W_CONNECTED_CLIENTS, parsed.C_CONNECTED_CLIENTS, 0, None)
+    submsg += '\n* connected_clients: {} {}'.format(result['connected_clients'], state_to_string(connected_clients_state))
 
     submsg += '\n\nStats'
 
-    evicted_keys_data = Data('evicted_keys', result['evicted_keys'], parsed.W_EVICTED_KEYS, parsed.C_EVICTED_KEYS)
-    evicted_keys_data.set_state(evaluate_greater((evicted_keys_data.value, evicted_keys_data.warn, evicted_keys_data.crit)))
-    perfdata += unpack_perfdata((evicted_keys_data.label, evicted_keys_data.value, None, evicted_keys_data.warn, evicted_keys_data.crit, 0, None))
-    submsg += '\n' + evicted_keys_data.format_submsg('* {}: {}'.format(evicted_keys_data.label, evicted_keys_data.value))
+    evicted_keys_state = evaluate_greater(result['evicted_keys'], parsed.W_EVICTED_KEYS, parsed.C_EVICTED_KEYS)
+    overall_state = get_greater_state(overall_state, evicted_keys_state)
+    perfdata += unpack_perfdata('evicted_keys', result['evicted_keys'], None, parsed.W_EVICTED_KEYS, parsed.C_EVICTED_KEYS, 0, None)
+    submsg += '\n* evicted_keys: {} {}'.format(result['evicted_keys'], state_to_string(evicted_keys_state))
 
-    rejected_connections_data = Data('rejected_connections', result['rejected_connections'], parsed.W_REJECTED_CONNECTIONS, parsed.C_REJECTED_CONNECTIONS)
-    rejected_connections_data.set_state(evaluate_greater((rejected_connections_data.value, rejected_connections_data.warn, rejected_connections_data.crit)))
-    perfdata += unpack_perfdata((rejected_connections_data.label, rejected_connections_data.value, None, rejected_connections_data.warn, rejected_connections_data.crit, 0, None))
-    submsg += '\n' + rejected_connections_data.format_submsg('* {}: {}'.format(rejected_connections_data.label, rejected_connections_data.value))
+    rejected_connections_state = evaluate_greater(result['rejected_connections'], parsed.W_REJECTED_CONNECTIONS, parsed.C_REJECTED_CONNECTIONS)
+    overall_state = get_greater_state(overall_state, rejected_connections_state)
+    perfdata += unpack_perfdata('rejected_connections', result['rejected_connections'], None, parsed.W_REJECTED_CONNECTIONS, parsed.C_REJECTED_CONNECTIONS, 0, None)
+    submsg += '\n* rejected_connections: {} {}'.format(result['rejected_connections'], state_to_string(rejected_connections_state))
 
     submsg += '\n\nReplication'
     submsg +='\n* role: {}'.format(result['role'])
 
-    connected_slaves_data = Data('connected_slaves', result['connected_slaves'], parsed.W_CONNECTED_SLAVES, parsed.C_CONNECTED_SLAVES)
-    connected_slaves_data.set_state(evaluate_greater((connected_slaves_data.value, connected_slaves_data.warn, connected_slaves_data.crit)))
-    perfdata += unpack_perfdata((connected_slaves_data.label, connected_slaves_data.value, None, connected_slaves_data.warn, connected_slaves_data.crit, 0, None))
-    submsg += '\n' + connected_slaves_data.format_submsg('* {}: {}'.format(connected_slaves_data.label, connected_slaves_data.value))
+    connected_slaves_state = evaluate_greater(result['connected_slaves'], parsed.W_CONNECTED_SLAVES, parsed.C_CONNECTED_SLAVES)
+    overall_state = get_greater_state(overall_state, connected_slaves_state)
+    perfdata += unpack_perfdata('connected_slaves', result['connected_slaves'], None, parsed.W_CONNECTED_SLAVES, parsed.C_CONNECTED_SLAVES, 0, None)
+    submsg += '\n* connected_slaves: {} {}'.format(result['connected_slaves'], state_to_string(connected_slaves_state))
 
     submsg += '\n\nLinux Server Configuration'
     with open('/proc/sys/net/core/somaxconn') as file:
-        somaxconn_data = Data('/proc/sys/net/core/somaxconn', int(file.readline()), SOMAXCONN_WARN, SOMAXCONN_CRIT)
-        somaxconn_data.set_state(evaluate_smaller((somaxconn_data.value, somaxconn_data.warn, somaxconn_data.crit)))
-        submsg += '\n' + somaxconn_data.format_submsg('* {}: {}'.format(somaxconn_data.label, somaxconn_data.value))
+        somaxconn_value = int(file.readline())
+        somaxconn_state = evaluate_greater(somaxconn_value, SOMAXCONN_WARN, SOMAXCONN_CRIT)
+        overall_state = get_greater_state(overall_state, somaxconn_state)
+        submsg += '\n* /proc/sys/net/core/somaxconn: {} {}'.format(somaxconn_value, state_to_string(somaxconn_state))
 
     with open('/proc/sys/vm/overcommit_memory') as file:
         overcommit_memory_value = int(file.readline())
-        overcommit_memory_data = Data('/proc/sys/vm/overcommit_memory', overcommit_memory_value, None, None)
-        overcommit_memory_data.set_state(STATE_OK if overcommit_memory_value == OVERCOMMIT_MEMORY_EXPECTED_VALUE else STATE_WARN)
-        submsg += '\n' + overcommit_memory_data.format_submsg('* {}: {}'.format(overcommit_memory_data.label, overcommit_memory_data.value))
+        overcommit_memory_state = STATE_OK if overcommit_memory_value == OVERCOMMIT_MEMORY_EXPECTED_VALUE else STATE_WARN
+        overall_state = get_greater_state(overall_state, overcommit_memory_state)
+        submsg += '\n* /proc/sys/vm/overcommit_memory: {} {}'.format(overcommit_memory_value, state_to_string(overcommit_memory_state))
 
     with open('/sys/kernel/mm/transparent_hugepage/enabled') as file:
         transparent_hugepage_value = file.readline().strip()
-        transparent_hugepage_data = Data('/sys/kernel/mm/transparent_hugepage/enabled', transparent_hugepage_value, None, None)
-        transparent_hugepage_data.set_state(STATE_OK if transparent_hugepage_value == TRANSPARENT_HUGEPAGE_EXPECTED_VALUE else STATE_WARN)
-        submsg += '\n' + transparent_hugepage_data.format_submsg('* {}: {}'.format(transparent_hugepage_data.label, transparent_hugepage_data.value))
+        transparent_hugepage_state = STATE_OK if transparent_hugepage_value == TRANSPARENT_HUGEPAGE_EXPECTED_VALUE else STATE_WARN
+        overall_state = get_greater_state(overall_state, transparent_hugepage_state)
+        submsg += '\n* /sys/kernel/mm/transparent_hugepage/enabled: {} {}'.format(transparent_hugepage_value, state_to_string(transparent_hugepage_state))
 
-    statelist = [maxmemory_data.state, mem_fragmentation_ratio_data.state, used_memory_data.state, used_memory_percentage_data.state, used_memory_peak_data.state, used_memory_peak_percentage_data.state, used_memory_rss_data.state, rdb_changes_since_last_save_data.state, rdb_last_save_time_data.state, blocked_clients_data.state, connected_clients_data.state, rejected_connections_data.state, evicted_keys_data.state, connected_slaves_data.state, somaxconn_data.state, overcommit_memory_data.state, transparent_hugepage_data.state]
-
-    global_state = STATE_OK
-    if STATE_CRIT in statelist:
-        global_state = STATE_CRIT
-    elif STATE_WARN in statelist:
-        if global_state != STATE_CRIT:
-            global_state = STATE_WARN
-
-    if global_state == STATE_OK:
+    if overall_state == STATE_OK:
         msg = 'Everything is ok. (Role: {})\n{}'.format(result['role'], submsg)
     else:
         msg = 'One or more errors. (Role: {})\n{}'.format(result['role'], submsg)
     print(msg.strip() + '|' + perfdata.strip())
-    exit(global_state)
+    exit(overall_state)
     
 main()

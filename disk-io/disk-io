@@ -31,15 +31,20 @@ MIN = 0
 MAX = None
 
 #====================
+from lib.globals import *
+
 import argparse
 import cPickle as pickle
 import datetime
 import tempfile
-import psutil
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
 
-from lib.globals import *
 from lib.output import unpack_perfdata, bytes2human
-from lib.parse_arguments import csv_arg
+from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater
 
 
@@ -54,21 +59,21 @@ def parse_args():
     parser.add_argument('-w', '--warning',
         help = 'Set the warning threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
         dest = 'WARN',
-        type = csv_arg,
+        type = csv,
         default = [DEFAULT_READ_WARN, DEFAULT_WRITE_WARN],
         )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
         dest = 'CRIT',
-        type = csv_arg,
+        type = csv,
         default = [DEFAULT_READ_CRIT, DEFAULT_WRITE_CRIT],
         )
 
     parser.add_argument('-i', '--ignore',
         help = 'Ignore certain disk names, in the format "sr0,dm-1". Default: %(default)s',
         dest = 'IGNORE',
-        type = csv_arg,
+        type = csv,
         default = DEFAULT_IGNORE,
         )
 

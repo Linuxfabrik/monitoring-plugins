@@ -9,9 +9,9 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122801'
+__version__ = '2020010801'
 
-DESCRIPTION = 'todo'
+DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
 
 DEFAULT_WARN = 50      # days
 DEFAULT_CRIT = 30      # days
@@ -22,6 +22,7 @@ import argparse
 import datetime
 
 from lib.globals import *
+from lib.parse_arguments import csv
 
 
 def define_args():
@@ -34,7 +35,10 @@ def define_args():
 
     parser.add_argument('-i', '--input',
         help = '"Display Name 1, yyyy-mm-dd, warn, crit; Display Name 2, yyyy-mm-dd, warn, crit; ..."',
-        dest = 'INPUT'
+        dest = 'INPUT',
+        type = csv,
+        required = True,
+        action = 'append',
         )
     
     return parser.parse_args()
@@ -47,36 +51,39 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
+
     msg = ''
     state = STATE_OK
     overall_state = STATE_OK
 
     try:
-        # "Supermicro SYS1, 2022-01-10, 50, None; Contract XMPL.COM, 2021-12-24, 50, 30"
-        for line in parsed.INPUT.split(';'):
-            if line.strip():
-                line = line.split(',')
+        # ['Supermicro SYS1, 2022-01-10, 50, None', 'Contract XMPL.COM, 2021-12-24, 50, 30']
+        for line in parsed.INPUT:
+            item, expiration_date, warn, crit = line
 
-                item = line[0].strip()
-                expiration_date = line[1].strip()
-                warn = line[2].strip()
-                crit = line[3].strip()
+            expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
+            today = datetime.datetime.today()
+            delta = expiration_date - today
+            delta = int(delta.days) + 1
 
-                expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-                today = datetime.datetime.today()
-                delta = expiration_date - today
+            if delta > 0:
+                line = '{} expires in {} days (thresholds {}/{})\n'.format(item, delta, warn, crit)
+            elif delta == 0:
+                line = '{} expires today.\n'.format(item)
+            else:
+                line = '{} already expired {} day(s) ago.\n'.format(item, abs(delta))
 
-                if crit != 'None' and int(delta.days) <= int(crit):
-                    msg += '* CRIT {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
-                    state = STATE_CRIT
-                elif int(delta.days) <= int(warn):
-                    msg += '* WARN {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
-                    state = STATE_WARN
-                else:
-                    msg += '* {} expires in {} days (thresholds {}/{})\n'.format(item, delta.days, warn, crit)
-                    state = STATE_OK
+            if crit != 'None' and delta < int(crit):
+                msg += '* CRIT ' + line
+                state = STATE_CRIT
+            elif delta < int(warn):
+                msg += '* WARN ' + line
+                state = STATE_WARN
+            else:
+                msg += '* ' + line
+                state = STATE_OK
 
-                overall_state = get_greater_state(state, overall_state)
+            overall_state = get_greater_state(state, overall_state)
         
         if overall_state == STATE_CRIT:
             msg = 'There are one or more criticals.\n' + msg

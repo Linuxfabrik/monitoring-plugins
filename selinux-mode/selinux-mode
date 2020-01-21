@@ -9,11 +9,11 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122301'
+__version__ = '2020011001'
 
 DESCRIPTION = 'Checks the current mode of SELinux against a desired mode, and returns a warning on a non-match.'
 
-bash_command = '/usr/sbin/getenforce'
+bash_command = 'getenforce'
 
 DEFAULT_SELINUX_MODE = 'Enforcing'
 
@@ -31,7 +31,7 @@ def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}'.format(__version__, __author__))
-    parser.add_argument('-m', '--expected-mode', help='The expected SELinux mode, one of "Enforcing", "Permissive" or "Disabled" (case-insensitiv). Default: %(default)s', default=DEFAULT_SELINUX_MODE, dest='SELINUX_MODE')
+    parser.add_argument('-m', '--expected-mode', help='The expected SELinux mode, one of "Enforcing", "Permissive" or "Disabled" (case-insensitive). Default: %(default)s', default=DEFAULT_SELINUX_MODE, dest='SELINUX_MODE')
 
     return parser.parse_args()
 
@@ -56,7 +56,7 @@ def main():
 
     # calculating the final check state
     if result.lower() == selinux_mode.lower():
-        print('SELinux mode is as expected ({}).'.format(result))
+        print('SELinux mode is {} (as expected).'.format(result))
         exit(STATE_OK)
 
     print('SELinux mode is {}, but supposed to be {}.'.format(result, selinux_mode))

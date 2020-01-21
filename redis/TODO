@@ -1,9 +1,54 @@
+What to check
+-------------
+  - name: Redis
+    exporters:
+      - name: oliver006/redis_exporter
+        doc_url: https://github.com/oliver006/redis_exporter
+        rules:
+          - name: Redis down
+            description: Redis instance is down
+            query: "redis_up == 0"
+            severity: error
+          - name: Missing backup
+            description: Redis has not been backuped for 24 hours
+            query: "time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24"
+            severity: error
+          - name: Out of memory
+            description: Redis is running out of memory (> 90%)
+            query: "redis_memory_used_bytes / redis_total_system_memory_bytes * 100 > 90"
+            severity: warning
+          - name: Replication broken
+            description: Redis instance lost a slave
+            query: "delta(redis_connected_slaves[1m]) < 0"
+            severity: error
+          - name: Too many connections
+            description: Redis instance has too many connections
+            query: "redis_connected_clients > 100"
+            severity: warning
+          - name: Not enough connections
+            description: Redis instance should have more connections (> 5)
+            query: "redis_connected_clients < 5"
+            severity: warning
+          - name: Rejected connections
+            description: Some connections to Redis has been rejected
+            query: "increase(redis_rejected_connections_total[1m]) > 0"
+            severity: error
+
+---
+
+Replication:
+
+redis-cli -a <the servers password> info replication
+
+---
+
+
 Inspiration: https://gist.github.com/luanntvn/3800a9fa007a9c49c87b6da31df1d8de
 
-Manueller Weg (zu testen auf t74-app01:
+Manueller Weg (zu testen auf t74-app01):
 
 	redis-cli
-	AUTH CT6SGRMd8UCQzy4XWa4cUHnrjMuBuwpwvtvX6D2KCHW69fFTW3bsVKuCJZJ8gubP
+	AUTH ...
 	INFO
 
 Der AUTH-Teil kann optional sein.

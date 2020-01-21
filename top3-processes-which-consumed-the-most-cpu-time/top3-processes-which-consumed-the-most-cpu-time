@@ -15,10 +15,15 @@ DESCRIPTION = 'Displays the top 3 processes which consume the most cpu time.'
 
 #====================
 
-import psutil
+from lib.globals import *
+
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
 from collections import Counter
 
-from lib.globals import *
 from lib.output import seconds2human
 
 def main():

@@ -1,0 +1,124 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020011501'
+
+DESCRIPTION = 'Check the mail queue.'
+
+command_installed  = 'command -v mailq'
+command = 'mailq'
+
+DEFAULT_WARN  =    2     # mails
+DEFAULT_CRIT  =  250     # mails
+
+
+#====================
+from lib.globals import *
+
+import argparse
+import re
+
+from lib.utils import execute_command
+from lib.output import unpack_perfdata
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold for mails in the queue. Default: %(default)s',
+        dest = 'CRIT',
+        type = int,
+        default = DEFAULT_CRIT,
+        )
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold for mails in the queue. Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # check if shell command is available
+    stdout, stderr, retc = execute_command(command_installed)
+    if (retc != 0):
+        print('"mailq" is missing. On CentOS, install Postfix, sendmail, exim or related.')
+        exit(STATE_UNKNOWN)
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = execute_command(command)
+    mailq_err_msg = None
+    if (stderr):
+        # does mailq report something unusual?
+        mailq_err_msg = stderr.strip()
+
+    # count the mails in the queue
+    mailq_count = 0
+    if stdout.strip() != 'Mail queue is empty' and stdout.strip() != '0 mails to deliver':
+        # "-- 2 Kbytes in 3 Requests."
+        mailq_count = re.search(r' in (.*) Requests\.', stdout)
+        if mailq_count:
+            mailq_count = int(mailq_count.group(1).strip())
+        else:
+            # other mailq version? "17 mails to deliver"
+            mailq_count = re.search(r'(.*) mails to deliver', stdout)
+            if mailq_count:
+                mailq_count = int(mailq_count.group(1).strip())
+                
+
+    CRIT = int(parsed.CRIT)
+    WARN = int(parsed.WARN)
+
+    if mailq_err_msg:
+        state = STATE_WARN
+    if mailq_count >= CRIT:
+        state = STATE_CRIT
+    elif mailq_count >= WARN:
+        state = STATE_WARN
+
+    if mailq_err_msg:
+        msg += '{}. '.format(mailq_err_msg)
+    if mailq_count:
+        if mailq_count == 1:
+            msg += '{} mail to deliver. '.format(mailq_count)
+        else:
+            msg += '{} mails to deliver. '.format(mailq_count)
+    else:
+        msg += 'Mail queue is empty.'
+    
+    perfdata += unpack_perfdata('mailq', mailq_count, None, WARN, CRIT, 0, None)
+
+    # over and out
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(state)
+
+
+if __name__ == '__main__':
+    main()

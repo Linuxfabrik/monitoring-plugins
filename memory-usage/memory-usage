@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122101'
+__version__ = '2020011001'
 
 DESCRIPTION = 'Displays amount of free and used memory in the system, checks against used memory in percent.'
 
@@ -19,10 +19,15 @@ DEFAULT_CRIT  = 95  # %
 
 #====================
 
-import argparse
-import psutil
-
 from lib.globals import *
+
+import argparse
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
+
 from lib.output import bytes2human, unpack_perfdata
 
 
@@ -64,7 +69,7 @@ def main():
     virt = psutil.virtual_memory()
     mem_usage_percent = float(getattr(virt, 'percent', 0))
 
-    msg = 'MEM: {}% - total: {}, used: {}, free: {}, available: {}\n'.format(
+    msg = '{}% - total: {}, used: {}, free: {}, available: {}\n'.format(
         mem_usage_percent,
         bytes2human(virt.total),
         bytes2human(virt.used),

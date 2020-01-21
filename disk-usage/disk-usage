@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020011001'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -18,11 +18,16 @@ DEFAULT_WARN  = 90
 DEFAULT_CRIT  = 95
 
 #====================
-import argparse
-import psutil       # https://pypi.org/project/psutil/
-
 from lib.globals import *
-from lib.output import unpack_perfdata, bytes2human, format_as_table
+
+import argparse
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
+
+from lib.output import unpack_perfdata, bytes2human, format_as_table, state_to_string
 from lib.parse_input import evaluate_greater
 
 
@@ -59,7 +64,7 @@ def main():
         print(e)
         exit(STATE_UNKNOWN)
 
-    global_state = STATE_OK
+    overall_state = STATE_OK
     perfdata = ''
     table_data = []
     slash_usage_text = ''
@@ -69,25 +74,16 @@ def main():
         usage = psutil.disk_usage(part.mountpoint)
 
         # todo check if / in perfdata works
-        usage_data = Data(part.mountpoint, usage.percent, parsed.WARN, parsed.CRIT)
-        usage_data.set_state(evaluate_greater((usage_data.value, usage_data.warn, usage_data.crit)))
-        perfdata += unpack_perfdata(('{}-percent'.format(usage_data.label), usage_data.value, '%', usage_data.warn, usage_data.crit, 0, 100))
-        perfdata += unpack_perfdata(('{}-usage'.format(usage_data.label), usage.used, 'B', None, None, 0, usage.total))
+        state = evaluate_greater(usage.percent, parsed.WARN, parsed.CRIT)
+        overall_state = get_greater_state(overall_state, state)
+        perfdata += unpack_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', parsed.WARN, parsed.CRIT, 0, 100)
+        perfdata += unpack_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
         if part.mountpoint == '/':
-            slash_usage_text = '{}: {} of {} used ({}%)'.format(part.mountpoint, bytes2human(usage.used), bytes2human(usage.total), usage.percent)
-
-        state = ''
-        if usage_data.state == STATE_CRIT:
-            state = ' (CRIT)'
-            global_state = STATE_CRIT
-        elif usage_data.state == STATE_WARN:
-            state = ' (WARN)'
-            if global_state != STATE_CRIT:
-                global_state = STATE_WARN
+            slash_usage_text = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, bytes2human(usage.total), bytes2human(usage.used), bytes2human(usage.free))
 
         table_data.append({
-            'mountpoint': part.mountpoint + state,
+            'mountpoint': '{} {}'.format(part.mountpoint, state_to_string(state)),
             'used': bytes2human(usage.used),
             'total': bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
@@ -95,7 +91,7 @@ def main():
 
     table = format_as_table(table_data, ['mountpoint', 'used', 'total', 'percent'], ['mountpoint', 'used', 'total', 'percent'], 'percent')
     print(slash_usage_text.strip() + '\n\n' + table.strip() + '|' + perfdata.strip())
-    exit(global_state)
+    exit(overall_state)
 
 if __name__ == '__main__':
     main()

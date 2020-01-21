@@ -7,34 +7,27 @@
 # License: The Unlicense, see LICENSE file.
 
 # https://nagios-plugins.org/doc/guidelines.html
-# todo
-# - warning when too many ignored lines
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010601'
+__version__ = '2020010801'
 
 DESCRIPTION = 'Check dmesg for emerg / alert / crit / err. Use "dmesg --level=emerg,alert,crit,err --reltime" to debug the error messages using human readable timestamps. Fix them. After fixing / review, use "dmesg --clear" to clear the Kernel Ring Buffer Messages.'
 
-command = '/usr/bin/dmesg --level=emerg,alert,crit,err --reltime'
+command = 'dmesg --level=emerg,alert,crit,err --reltime'
 
 # ignore false positives / bugs:
-ignore = []
-
-ignore.append(' unhandled wrmsr: ')
-ignore.append(' unhandled rdmsr: ')
-# https://bugzilla.redhat.com/show_bug.cgi?id=874627
-# https://access.redhat.com/solutions/59299
-
-ignore.append('ioctl error in smb2_get_dfs_refer rc=-5')
-# https://access.redhat.com/solutions/3496971
+ignore = [
+    ' unhandled wrmsr: ',                        # https://bugzilla.redhat.com/show_bug.cgi?id=874627
+    ' unhandled rdmsr: ',                        # https://access.redhat.com/solutions/59299
+    'ioctl error in smb2_get_dfs_refer rc=-5',   # https://access.redhat.com/solutions/3496971
+]
 
 
 #====================
 
 from lib.globals import *
-from lib.execute_command import execute_command
 from lib.parse_input import filter_input
-from lib.output import unpack_perfdata
+from lib.utils import execute_command
 
 
 def main():
@@ -50,7 +43,10 @@ def main():
 
     if len(result) > 0:
         state = STATE_CRIT
-        msg = 'One or more errors in dmesg.\n{0}'.format(result)
+        if len(result) == 1:
+            msg = 'Error in dmesg.\n{0}'.format(result)
+        else:
+            msg = 'Errors in dmesg.\n{0}'.format(result)
     else:
         state = STATE_OK
         msg = 'No errors in dmesg.'

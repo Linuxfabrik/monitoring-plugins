@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122301'
+__version__ = '2020011001'
 
 DESCRIPTION = 'Displays amount of free and used swap space in the system, checks against used swap in percent.'
 
@@ -19,10 +19,15 @@ DEFAULT_CRIT  = 90  # %
 
 #====================
 
-import argparse
-import psutil
-
 from lib.globals import *
+
+import argparse
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    exit(STATE_UNKNOWN)
+
 from lib.output import bytes2human, unpack_perfdata
 
 
@@ -51,7 +56,7 @@ def main():
     swap = psutil.swap_memory()
     swap_usage_percent = swap.percent
 
-    msg = 'Swap: {}% - total: {}, used: {}, free: {}\n'.format(
+    msg = '{}% - total: {}, used: {}, free: {}\n'.format(
         swap_usage_percent,
         bytes2human(swap.total),
         bytes2human(swap.used),
