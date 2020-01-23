@@ -1,6 +1,6 @@
 todo
 
-/usr/lib64/nagios/plugins/nextcloud-stats --url https://myserver:8443/ocs/v2.php/apps/serverinfo/api/v1/info --username myuser --password mypassword
+./nextcloud-stats --url https://myserver:8443/ocs/v2.php/apps/serverinfo/api/v1/info --username myuser --password mypassword
 
 Run every 15 minutes.
 Might take up to 30 seconds for the first time; after that, takes approx. 1 to 2 seconds.

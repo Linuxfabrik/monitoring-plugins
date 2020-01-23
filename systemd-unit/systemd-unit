@@ -93,36 +93,36 @@ def main():
         exit(STATE_UNKNOWN)
     result = stdout.split('\n')
 
-    loadstate 	  = result[0].replace('LoadState=', '')
+    loadstate     = result[0].replace('LoadState=', '')
     activestate   = result[1].replace('ActiveState=', '')
-    substate 	  = result[2].replace('SubState=', '')
+    substate      = result[2].replace('SubState=', '')
     unitfilestate = result[3].replace('UnitFileState=', '')
 
 
     state = STATE_OK
     msg = '{} is {}, {}, {} '.format(parsed.UNIT, loadstate, activestate, substate)
     if parsed.UNITFILESTATE:
-    	msg = msg.strip() + ', unit file is "{}". '.format(unitfilestate)
+        msg = msg.strip() + ', unit file is {}. '.format(unitfilestate)
 
     # now do the checks
     problem = False
     problem_msg = ''
     if parsed.LOADSTATE and parsed.LOADSTATE != loadstate:
-    	problem = True
-    	problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, parsed.LOADSTATE)
+        problem = True
+        problem_msg += 'LoadState is {}, but supposed to be {}; '.format(loadstate, parsed.LOADSTATE)
     if parsed.ACTIVESTATE and parsed.ACTIVESTATE != activestate:
-    	problem = True
-    	problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, parsed.ACTIVESTATE)
+        problem = True
+        problem_msg += 'ActiveState is {}, but supposed to be {}; '.format(activestate, parsed.ACTIVESTATE)
     if parsed.SUBSTATE and parsed.SUBSTATE != substate:
-    	problem = True
-    	problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, parsed.SUBSTATE)
+        problem = True
+        problem_msg += 'SubState is {}, but supposed to be {}; '.format(substate, parsed.SUBSTATE)
     if parsed.UNITFILESTATE and parsed.UNITFILESTATE != unitfilestate:
-    	problem = True
-    	problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, parsed.UNITFILESTATE)
+        problem = True
+        problem_msg += 'UnitFileState is {}, but supposed to be {}; '.format(unitfilestate, parsed.UNITFILESTATE)
 
     if problem:
-    	msg = '{} - '.format(parsed.UNIT) + problem_msg[:-2]
-    	state = STATE_CRIT if parsed.SEVERITY == 'crit' else STATE_WARN
+        msg = '{} - '.format(parsed.UNIT) + problem_msg[:-2]
+        state = STATE_CRIT if parsed.SEVERITY == 'crit' else STATE_WARN
 
 
     print(msg.strip())

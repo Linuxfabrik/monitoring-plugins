@@ -26,15 +26,19 @@ command_openssl_cert = 'openssl x509 -noout -dates -in /dev/stdin'
 command_openssl_crl = 'openssl crl -noout -nextupdate -in /dev/stdin'
 
 #====================
-import argparse
-import mysql.connector # yum install mysql-connector-python
-import datetime
-
-
 from lib.globals import *
 from lib.utils import execute_command
 from lib.output import unpack_perfdata, state_to_string
 from lib.parse_input import evaluate_smaller_date_to_today
+
+
+import argparse
+import datetime
+try:
+    import mysql.connector # yum install mysql-connector-python
+except:
+    print('The mysql.connector library is missing.')
+    exit(STATE_UNKNOWN)
 
 
 def define_args():
