@@ -46,6 +46,7 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 * optional: Icinga Director Basket Config
 * optional: Icingaweb2 Grafana Module .ini file
 * optional: sudoers file
+* optional: `test` - the unittest file
 
 
 ## Rules of Thumb
@@ -66,6 +67,13 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 * Timeout gracefully on errors (for example `df` on a failed network drive) and return WARN.
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators have to wake up at night.
+
+
+## Unit Tests
+
+Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html), run the check as a bash command, capture stdout, stderr and its return code, and run your assertions.
+
+To test a check that need to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
 
 ## Names, Naming Conventions
