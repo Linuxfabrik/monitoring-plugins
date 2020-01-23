@@ -53,15 +53,15 @@ Attention:
 
 Examples:
 
-* Does the service exist? (and nothing more!) `systemctl-unit --unit=firewalld`
-* Is the service running? `systemctl-unit --substate=running --unit=firewalld.service`
-* Is the service disabled? `systemctl-unit --unitfilestate=disabled --unit=firewalld`
-* Is the service stopped and disabled? `systemctl-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld`
-* Is the service exited? `systemctl-unit --substate=exited --unit=firewalld.service`
-* Is this service with instance name "server" running? `systemctl-unit --substate=running --unit=openvpn-server@server.service`
-* Is this service absent/uninstalled? `systemctl-unit --loadstate=not-found --unit=firewalld`
-* Is this path mounted? `systemctl-unit --substate=mounted --unit=mnt-smb.mount`
-* Is this device plugged in? `systemctl-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
+* Does the service exist? (and nothing more!) `systemd-unit --unit=firewalld`
+* Is the service running? `systemd-unit --substate=running --unit=firewalld.service`
+* Is the service disabled? `systemd-unit --unitfilestate=disabled --unit=firewalld`
+* Is the service stopped and disabled? `systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld`
+* Is the service exited? `systemd-unit --substate=exited --unit=firewalld.service`
+* Is this service with instance name "server" running? `systemd-unit --substate=running --unit=openvpn-server@server.service`
+* Is this service absent/uninstalled? `systemd-unit --loadstate=not-found --unit=firewalld`
+* Is this path mounted? `systemd-unit --substate=mounted --unit=mnt-smb.mount`
+* Is this device plugged in? `systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
 
 
 ## Things to check on CentOS 7
@@ -69,11 +69,11 @@ Examples:
 Might be useful to check on a fresh CentOS 7 Minimal:
 
 ```
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=auditd.service
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=crond.service
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=postfix.service
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=rsyslog.service
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=sshd.service
-./systemctl-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=tuned.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=auditd.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=crond.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=postfix.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=rsyslog.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=sshd.service
+./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=tuned.service
 ```
 
