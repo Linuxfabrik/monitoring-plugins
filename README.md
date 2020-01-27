@@ -114,24 +114,19 @@ There are a few reserved options that should not be used for other purposes:
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
-    -f, --filename          file or directory name
-        --count             count intervals, the same as "for" in prometheus ("for 5 minutes")
     -h, --help              help
     -H, --hostname          hostname
-    -i, --input
-    -i, --interface
     -l, --logname           login name
-    -m, --mode 
     -p, --password          password
     -p, --port              network port
-        --state             warn,crit
     -t, --timeout           timeout
-        --type
     -u, --url               URL
     -u, --username          username
     -V, --version           version
     -v, --verbose           verbose
     -w, --warning           warning threshold
+
+* For all other options, use long parameters.
 
 * For complex parameter tupels, use the `csv` type. 
   `--input='Name, Value, Warn, Crit'` results in
