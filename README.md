@@ -95,13 +95,6 @@ Auslagern:
 
 
 
-Parameters:
-
-* ignore-...
-* disable-...
-* noproxy
-* insecure
-
 Libraries:
 
 * utils.py
@@ -109,7 +102,7 @@ Libraries:
 
 ## Parameters, Option Processing
 
-There are a few reserved options that should not be used for other purposes:
+There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
     -a, --authentication    authentication password
     -C, --community         SNMP community
@@ -126,7 +119,32 @@ There are a few reserved options that should not be used for other purposes:
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-* For all other options, use long parameters.
+For all other options, use long parameters only. We recommend using some of those:
+
+    --count
+	--database
+	--filename
+	--ignore
+	--ignore-...
+	--insecure
+	--interface
+	--loadstate
+	--mount
+	--no-proxy
+	--no-update-check
+	--port
+	--portname 
+	--prefix
+	--severity
+	--state 
+	--substate
+	--test
+	--timespan
+	--type
+	--unit
+	--unitfilestate
+
+
 
 * For complex parameter tupels, use the `csv` type. 
   `--input='Name, Value, Warn, Crit'` results in
