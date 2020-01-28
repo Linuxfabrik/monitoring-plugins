@@ -23,10 +23,26 @@ except ImportError, e:
     print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
     exit(STATE_UNKNOWN)
 from collections import Counter
-
 from lib.output import seconds2human
+import argparse
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    return parser.parse_args()
 
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+        
     msg = ''
     cnt = Counter()
 

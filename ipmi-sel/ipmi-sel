@@ -9,13 +9,12 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019120604'
+__version__ = '2020012801'
 
 DESCRIPTION         = 'Checks the IPMI System Event Log (SEL) and returns WARN if there are entries. Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'
 
 command_installed   = 'command -v ipmitool'
 command_cmd         = 'ipmitool sel elist'
-# command_cmd         = 'cat examples/EXAMPLE01'
 
 
 #====================
@@ -72,4 +71,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)

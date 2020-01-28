@@ -1,0 +1,1 @@
+Address of the remote peer, the reference ID (0.0.0.0 if this is unknown), the stratum of the remote peer, the type of the peer (local, unicast, multicast or broadcast), when the last packet was received, the polling interval in seconds, the reachability register in octal, and the current estimated delay, offset and dispersion of the peer, all in milliseconds.

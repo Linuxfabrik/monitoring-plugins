@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019121601'
+__version__ = '2020012801'
 
 DESCRIPTION = 'This check is some kind of user interface for smartctl, which is a tool for querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in hard disk and solid-state drives. It allows you to inspect the drive\'s SMART data to determine its health.'
 
@@ -42,7 +42,7 @@ def define_args():
         version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
-    parser.add_argument('-i', '--ignore',
+    parser.add_argument('--ignore',
         help = 'A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'. Default: %(default)s',
         dest = 'IGNORE',
         type = csv,
@@ -568,4 +568,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)

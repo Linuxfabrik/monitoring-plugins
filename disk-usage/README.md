@@ -20,48 +20,14 @@ Hints and Recommendations:
 * 
 
 
-# Usage
+# Installation and Usage
 
 ```bash
 ./disk-usage
 ```
 
-
-# Returns
-
-* CRIT: 
-* WARN: 
-* UNKNOWN: 
-
-
-# Parameters
-
-...
-
-
-# Examples
-
-...
-
-
-# Installation in Icinga Director
-
-...
-
-
-# Known Issues and Limitations
-
-* 
-
-
-# Contents
-
-...
-
-
-# Changelog
-
-* 2019120301: Initial release.
+# States and Perfdata
+tbd
 
 
 # Credits, License

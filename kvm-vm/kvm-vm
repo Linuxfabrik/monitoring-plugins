@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011501'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 
@@ -64,38 +64,43 @@ def main():
 
     # count the VM states
     running, idle, paused, in_shutdown, shut_off, crashed, pmsuspended = 0, 0, 0, 0, 0, 0, 0
-    for vm in vm_list:
-        vm = ' '.join(vm.replace('shut off', 'shut_off').replace('in shutdown', 'in_shutdown').split())
-        vm_id, vm_name, vm_state = vm.split(' ')
+    if vm_list:
+        for vm in vm_list:
+            vm = ' '.join(vm.replace('shut off', 'shut_off').replace('in shutdown', 'in_shutdown').split())
+            vm_id, vm_name, vm_state = vm.split(' ')
 
-        running     += 1 if vm_state == 'running' else 0
-        idle        += 1 if vm_state == 'idle' else 0
-        paused      += 1 if vm_state == 'paused' else 0
-        in_shutdown += 1 if vm_state == 'in_shutdown' else 0
-        shut_off    += 1 if vm_state == 'shut_off' else 0
-        crashed     += 1 if vm_state == 'crashed' else 0
-        pmsuspended += 1 if vm_state == 'pmsuspended' else 0
+            running     += 1 if vm_state == 'running' else 0
+            idle        += 1 if vm_state == 'idle' else 0
+            paused      += 1 if vm_state == 'paused' else 0
+            in_shutdown += 1 if vm_state == 'in_shutdown' else 0
+            shut_off    += 1 if vm_state == 'shut_off' else 0
+            crashed     += 1 if vm_state == 'crashed' else 0
+            pmsuspended += 1 if vm_state == 'pmsuspended' else 0
 
+        msg = 'VMs: '
+        if running:
+            msg += '{} running, '.format(running)
+        if idle:
+            msg += '{} idle (WARN), '.format(idle)
+            state = STATE_WARN
+        if paused:
+            msg += '{} paused (WARN), '.format(paused)
+            state = STATE_WARN
+        if in_shutdown:
+            msg += '{} in_shutdown, '.format(in_shutdown)
+        if shut_off:
+            msg += '{} shut_off, '.format(shut_off)
+        if pmsuspended:
+            msg += '{} pmsuspended (WARN), '.format(pmsuspended)
+            state = STATE_WARN
+        if crashed:
+            msg += '{} crashed (CRIT), '.format(crashed)
+            state = STATE_CRIT
 
-    msg = 'VMs: '
-    if running:
-        msg += '{} running, '.format(running)
-    if idle:
-        msg += '{} idle (WARN), '.format(idle)
-        state = STATE_WARN
-    if paused:
-        msg += '{} paused (WARN), '.format(paused)
-        state = STATE_WARN
-    if in_shutdown:
-        msg += '{} in_shutdown, '.format(in_shutdown)
-    if shut_off:
-        msg += '{} shut_off, '.format(shut_off)
-    if pmsuspended:
-        msg += '{} pmsuspended (WARN), '.format(pmsuspended)
-        state = STATE_WARN
-    if crashed:
-        msg += '{} crashed (CRIT), '.format(crashed)
-        state = STATE_CRIT
+        msg = msg[:-2]
+
+    else:
+        msg = 'No VMs running.'
 
     perfdata += unpack_perfdata('vm_running', running, None, None, None, 0, None)
     perfdata += unpack_perfdata('vm_idle', idle, None, None, None, 0, None)
@@ -106,9 +111,13 @@ def main():
     perfdata += unpack_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None)
 
     # over and out
-    print(msg[:-2] + '|' + perfdata.strip())
+    print(msg + '|' + perfdata.strip())
     exit(state)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)

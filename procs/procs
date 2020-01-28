@@ -8,11 +8,10 @@
 
 # https://nagios-plugins.org/doc/guidelines.html
 
-# Plans/Todos:
-# * count procs per user and compare value against `ulimit -u` (default: 80%, 90%)
+
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the number of currently running processes.'
 
@@ -29,7 +28,7 @@ from lib.utils import execute_command
 from lib.parse_input import evaluate_greater
 from lib.output import unpack_perfdata
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -54,10 +53,10 @@ def parse_args():
 
 
 def main():
-    parsed = parse_args()
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     WARN = parsed.WARN
@@ -78,4 +77,8 @@ def main():
     exit(state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)

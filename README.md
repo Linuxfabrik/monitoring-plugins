@@ -122,27 +122,29 @@ There are a few Nagios-compatible reserved options that should not be used for o
 For all other options, use long parameters only. We recommend using some of those:
 
     --count
-	--database
-	--filename
-	--ignore
-	--ignore-...
-	--insecure
-	--interface
-	--loadstate
-	--mount
-	--no-proxy
-	--no-update-check
-	--port
-	--portname 
-	--prefix
-	--severity
-	--state 
-	--substate
-	--test
-	--timespan
-	--type
-	--unit
-	--unitfilestate
+    --database
+    --filename
+    --ignore
+    --ignore-...
+    --input
+    --insecure
+    --interface
+    --loadstate
+    --mode
+    --mount
+    --no-proxy
+    --no-update-check
+    --port
+    --portname 
+    --prefix
+    --severity
+    --state 
+    --substate
+    --test
+    --timespan
+    --type
+    --unit
+    --unitfilestate
 
 
 

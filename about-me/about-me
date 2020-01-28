@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010801'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -270,11 +270,13 @@ def main():
     perfdata += unpack_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += unpack_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
-
     print(msg + '|' + perfdata.strip())
     exit(state)
 
 
 if __name__ == '__main__':
-    main()
-
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)

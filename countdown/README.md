@@ -5,7 +5,7 @@ The check warns before an expiration date of one or more events is scheduled to 
 We recommend to run this check once a day.
 
 
-# Usage
+# Installation and Usage
 
 Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'`.
 
@@ -16,7 +16,7 @@ Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT 
 ```
 
 
-# States
+# States and Perfdata
 
 For each event:
 * CRIT: if event is <= days away; 'None' means that CRIT is never returned

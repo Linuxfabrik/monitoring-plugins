@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011302'
+__version__ = '2020012801'
 
 DESCRIPTION = 'This plugin lets you track if server or app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -32,7 +32,6 @@ import urllib2
 
 from lib.globals import *
 from lib.output import bytes2human, unpack_perfdata
-from lib.utils import execute_command
 
 
 def define_args():
@@ -311,4 +310,8 @@ def main():
     exit(state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(e)
+        exit(STATE_UNKNOWN)
