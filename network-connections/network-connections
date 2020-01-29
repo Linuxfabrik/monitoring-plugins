@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020012801'
 
 DESCRIPTION = 'TODO'
 
@@ -19,6 +19,7 @@ DESCRIPTION = 'TODO'
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
@@ -52,6 +53,12 @@ def define_args():
 
 
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
     proc_names = {}
     # Changed in psutil version 5.3.0: added “attrs” and “ad_value” parameters.
     if psutil.__version__ >= '5.3.0':
@@ -89,4 +96,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

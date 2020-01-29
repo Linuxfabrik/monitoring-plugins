@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010901'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
 
@@ -24,6 +24,7 @@ from lib.parse_input import evaluate_greater, evaluate_greater_datetime_to_now
 from lib.output import unpack_perfdata, state_to_string
 
 import argparse
+from traceback import print_exc
 import datetime
 import os
 
@@ -94,23 +95,23 @@ def main():
         if line.startswith('prune_rc'):
             prune_rc = int(line.split(": ")[1])
 
-    overall_state = STATE_OK
+    state = STATE_OK
     create_rc_state = evaluate_greater(create_rc, 2, None)
-    overall_state = get_greater_state(overall_state, create_rc_state)
+    state = get_greater_state(state, create_rc_state)
     perfdata += unpack_perfdata('create_rc', create_rc, None, 2, None, 0, None)
 
     prune_rc_state = evaluate_greater(prune_rc, 2, None)
-    overall_state = get_greater_state(overall_state, prune_rc_state)
+    state = get_greater_state(state, prune_rc_state)
     perfdata += unpack_perfdata('prune_rc', prune_rc, None, 2, None, 0, None)
 
     starttime_datetime = datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')
     last_starttime_state = evaluate_greater_datetime_to_now(starttime_datetime, parsed.WARN, parsed.CRIT)
-    overall_state = get_greater_state(overall_state, last_starttime_state)
+    state = get_greater_state(state, last_starttime_state)
 
     duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - starttime_datetime).total_seconds()
     perfdata += unpack_perfdata('duration', duration, 's', None, None, 0, None)
 
-    if overall_state == STATE_OK:
+    if state == STATE_OK:
         msg = 'Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
     else:
         if last_starttime_state != STATE_OK:
@@ -122,7 +123,11 @@ def main():
     msg += '\nPrune rc: {} {}'.format(prune_rc, state_to_string(prune_rc_state))
 
     print(msg + '|' + perfdata.strip())
-    exit(overall_state)
+    exit(state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

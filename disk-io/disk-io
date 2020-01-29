@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019111401'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks disk IO.'
 
@@ -34,6 +34,7 @@ MAX = None
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 import cPickle as pickle
 import datetime
 import tempfile
@@ -48,7 +49,7 @@ from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -81,9 +82,10 @@ def parse_args():
 
 
 def main():    
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     READ_WARN = int(parsed.WARN[0]) if parsed.WARN[0] else None
@@ -177,4 +179,8 @@ def main():
     exit(global_state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

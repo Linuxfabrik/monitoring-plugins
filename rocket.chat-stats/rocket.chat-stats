@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011501'
+__version__ = '2020012801'
 
 DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -22,6 +22,7 @@ DEFAULT_NO_UPDATE_CHECK = False
 
 #====================
 import argparse
+from traceback import print_exc
 import json
 import urllib
 import urllib2
@@ -29,7 +30,6 @@ import urllib2
 
 from lib.globals import *
 from lib.output import bytes2human, unpack_perfdata
-from lib.utils import execute_command
 
 
 def define_args():
@@ -41,9 +41,10 @@ def define_args():
         action = 'store_true',
         default = DEFAULT_NO_UPDATE_CHECK,
         )
-    parser.add_argument('--password',
+    parser.add_argument('-p', '--password',
         help='Rocket.Chat API password.',
         dest='PASSWORD',
+        required=True,
         )
     parser.add_argument('--url',
         help='Rocket.Chat API URL. Default: %(default)s',
@@ -54,6 +55,7 @@ def define_args():
         help='Rocket.Chat API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
+        required=True,
         )
     parser.add_argument('-V', '--version',
         action='version',
@@ -202,7 +204,6 @@ def get_stats_from_rocket_chat(rc_url, authToken, userId):
 
 
 def main():
-
     # parse the command line, exit with UNKNOWN if it fails
     try:
         parsed = define_args()
@@ -213,11 +214,6 @@ def main():
     USERNAME = parsed.USERNAME
     PASSWORD = parsed.PASSWORD
     NO_UPDATE_CHECK = parsed.NO_UPDATE_CHECK
-
-    if not USERNAME or not PASSWORD:
-        print('Missing username and/or password.')
-        exit(STATE_UNKNOWN)
-
 
     # fetch the data
     authToken, userId = get_token_from_rocket_chat(URL, USERNAME, PASSWORD)
@@ -293,4 +289,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

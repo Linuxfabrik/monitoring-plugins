@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010601'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the ownership and group of a list of files.'
 
@@ -33,13 +33,14 @@ MAX = None
 
 #====================
 import argparse
+from traceback import print_exc
 import os
 
 from lib.globals import *
 from lib.utils import execute_command
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -47,8 +48,8 @@ def parse_args():
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-f', '--files',
-        help = 'Additional files to be checked, in the format "owner:group,path;", separated by ";".',
+    parser.add_argument('--filename',
+        help = 'Additional filename to be checked, in the format "owner:group,path" (repeating).',
         dest = 'FILES',
         type = str,
         default = '',
@@ -58,9 +59,10 @@ def parse_args():
 
 
 def main():    
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     FILES = DEFAULT_FILES + '\n' + parsed.FILES.replace(';', '\n')
@@ -78,7 +80,7 @@ def main():
 
             formatted_command = command.format(path=path)
             # execute the shell command and return its result and exit code
-            stdout, stderr, retc = execute_command(formatted_command, shell=True)
+            stdout, stderr, retc = execute_command(formatted_command)
             if (stderr or retc != 0):
                 print('Bash command `{}` failed.'.format(formatted_command))
                 print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -110,4 +112,8 @@ def main():
         exit(global_state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

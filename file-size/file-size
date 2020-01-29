@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010501'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the size of a file, in bytes.'
 
@@ -19,6 +19,7 @@ DEFAULT_CRIT = 1024*1024*1024     # byte
 
 #====================
 import argparse
+from traceback import print_exc
 import os
 
 from lib.globals import *
@@ -40,7 +41,7 @@ def define_args():
         default = DEFAULT_CRIT,
         )
 
-    parser.add_argument('-f', '--filename',
+    parser.add_argument('--filename',
         help='File name to check.',
         dest='FILE',
         required = True,
@@ -88,4 +89,8 @@ def main():
     exit(STATE_OK)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

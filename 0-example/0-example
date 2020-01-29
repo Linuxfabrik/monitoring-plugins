@@ -28,6 +28,7 @@ DEFAULT_FEATURE = True
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 import datetime
 import pickle
 try:
@@ -43,8 +44,6 @@ from lib.utils import execute_command
 
 
 def define_args():
-
-    # https://docs.python.org/2/library/argparse.html
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -253,4 +252,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

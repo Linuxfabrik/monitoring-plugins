@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010901'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks expiration date of XCA certificates.'
 
@@ -19,7 +19,7 @@ DEFAULT_CRIT     = 5  # days
 DEFAULT_DATABASE = 'xca'
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PASSWORD = ''
-DEFAULT_USER     = 'root'
+DEFAULT_USERNAME = 'root'
 
 command_installed = 'command -v openssl'
 command_openssl_cert = 'openssl x509 -noout -dates -in /dev/stdin'
@@ -28,11 +28,12 @@ command_openssl_crl = 'openssl crl -noout -nextupdate -in /dev/stdin'
 #====================
 from lib.globals import *
 from lib.utils import execute_command
-from lib.output import unpack_perfdata, state_to_string
+from lib.output import state_to_string
 from lib.parse_input import evaluate_smaller_date_to_today
 
 
 import argparse
+from traceback import print_exc
 import datetime
 try:
     import mysql.connector # yum install mysql-connector-python
@@ -52,14 +53,14 @@ def define_args():
     parser.add_argument('-w', '--warning',
         help = 'Set the warning for the expiration date in days. Default: %(default)s',
         dest = 'WARN',
-        type = float,
+        type = int,
         default = DEFAULT_WARN,
         )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical for the expiration date in days. Default: %(default)s',
         dest = 'CRIT',
-        type = float,
+        type = int,
         default = DEFAULT_CRIT,
         )
 
@@ -70,11 +71,11 @@ def define_args():
         default = DEFAULT_HOSTNAME,
         )
     
-    parser.add_argument('-u', '--user',
-        help = 'Set the user for the mysql server containing the XCA database. Default: %(default)s',
-        dest = 'USER',
+    parser.add_argument('-u', '--username',
+        help = 'Set the username for the mysql server containing the XCA database. Default: %(default)s',
+        dest = 'USERNAME',
         type = str,
-        default = DEFAULT_USER,
+        default = DEFAULT_USERNAME,
         )
     
     parser.add_argument('-p', '--password',
@@ -84,14 +85,14 @@ def define_args():
         default = DEFAULT_PASSWORD,
         )
     
-    parser.add_argument('-d', '--database',
+    parser.add_argument('--database',
         help = 'Set the mysql database containing the XCA data. Default: %(default)s',
         dest = 'DATABASE',
         type = str,
         default = DEFAULT_DATABASE,
         )
     
-    parser.add_argument('-x', '--prefix',
+    parser.add_argument('--prefix',
         help = 'Set the table prefix of the XCA database.',
         dest = 'PREFIX',
         type = str,
@@ -113,9 +114,9 @@ def main():
         print('"docker" is missing.')
         exit(STATE_UNKNOWN)
 
-    overall_state = STATE_OK        
+    state = STATE_OK        
     mysql_connection = {
-      'user':               parsed.USER,
+      'user':               parsed.USERNAME,
       'password':           parsed.PASSWORD,
       'host':               parsed.HOSTNAME,
       'database':           parsed.DATABASE,
@@ -150,7 +151,7 @@ def main():
         cert_state = evaluate_smaller_date_to_today(date_in, parsed.WARN, parsed.CRIT)
         if cert_state != STATE_OK:
             expired_certs.append('{} {} ({}: {})'.format(name, serial, state_to_string(cert_state), date_str))
-            overall_state = get_greater_state(overall_state, cert_state)
+            state = get_greater_state(state, cert_state)
 
     # crl
     expired_crl = None
@@ -178,10 +179,10 @@ def main():
         crl_state = evaluate_smaller_date_to_today(date_in, parsed.WARN, parsed.CRIT)
         if crl_state != STATE_OK:
             expired_crl = '{} ({}: {})'.format(name, state_to_string(crl_data.state), date_str)
-            overall_state = get_greater_state(overall_state, crl_state)
+            state = get_greater_state(state, crl_state)
 
 
-    if overall_state == STATE_OK:
+    if state == STATE_OK:
         print('{} Certificates and {} CRL checked.'.format(cert_count, crl_count))
     else:
         print('One or more cert is expiring.')
@@ -195,8 +196,12 @@ def main():
             print('Expiring CRL (latest creation date):')
             print('* {}'.format(expired_crl))
 
-    exit(overall_state)
+    exit(state)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

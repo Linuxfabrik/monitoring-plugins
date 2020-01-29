@@ -24,8 +24,27 @@ except ImportError, e:
     exit(STATE_UNKNOWN)
 
 from lib.output import bytes2human
+import argparse
+from traceback import print_exc
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    return parser.parse_args()
+
 
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+        
     msg = ''
     cnt = {}
 
@@ -46,4 +65,9 @@ def main():
     print(msg[:-2] + ' (r/w)') # strip trailing ', '
     exit(STATE_OK)
 
-main()
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

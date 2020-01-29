@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011401'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Return the average system load per cpu over the last 1, 5 and 15 minutes.'
 
@@ -23,6 +23,7 @@ DEFAULT_CRIT  = 5.00     # load divided by all cpus
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
@@ -92,7 +93,7 @@ def main():
     elif load15 >= WARN:
         state = STATE_WARN
 
-    msg += 'Load average per CPU: {:0.2f}, {:0.2f}, {:0.2f} (thresholds {:0.2f}/{:0.2f})'.format(load1, load5, load15, parsed.WARN, parsed.CRIT)
+    msg += 'Load average per CPU: {:0.2f}, {:0.2f}, {:0.2f}'.format(load1, load5, load15)
     perfdata += unpack_perfdata('load1',  load1,  None, WARN, CRIT, 0, None)
     perfdata += unpack_perfdata('load5',  load5,  None, WARN, CRIT, 0, None)
     perfdata += unpack_perfdata('load15', load15, None, WARN, CRIT, 0, None)
@@ -103,4 +104,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

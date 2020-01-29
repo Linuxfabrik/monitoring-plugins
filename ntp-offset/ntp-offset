@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020012801'
 
 DESCRIPTION = 'This plugin checks the clock offset with the ntp server.'
 
@@ -26,13 +26,14 @@ DEFAULT_CRIT = 1000
 
 #====================
 import argparse
+from traceback import print_exc
 
 from lib.globals import *
 from lib.utils import execute_command
 from lib.output import unpack_perfdata
 
 
-def parse_args():
+def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -58,9 +59,10 @@ def parse_args():
 
 
 def main():
+    # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = parse_args()
-    except:
+        parsed = define_args()
+    except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     WARN = parsed.WARN
@@ -119,9 +121,6 @@ def main():
             print('No NTP server used.')
             exit(STATE_UNKNOWN)
 
-        result += '\nAddress of the remote peer, the reference ID (0.0.0.0 if this is unknown), the stratum of the remote peer, the type of the peer (local, unicast, multicast or broadcast), when the last packet was received, the polling interval in seconds, the reachability register in octal, and the current estimated delay, offset and dispersion of the peer, all in milliseconds.' # todo: move this to the icinga help text. this cloggs up the icinga database for no reason
-
-
     if chronyd_present:
         formatted_command_installed = command_installed.format(program='chronyc')
         # check if shell command is available
@@ -163,17 +162,17 @@ def main():
     perfdata = unpack_perfdata('offset', offset, 'ms', WARN, CRIT, None, None)
 
     if abs(offset) >= CRIT:
-        msg = 'NTP offset to low/high. Offset is {0}ms, abs(thresholds) are {1}/{2}ms.'.format(offset, WARN, CRIT)
+        msg = 'NTP offset to low/high. Offset is {0}ms.'.format(offset)
         print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
         exit(STATE_CRIT)
 
     if abs(offset) >= WARN:
-        msg = 'NTP offset to low/high. Offset is {0}ms, abs(thresholds) are {1}/{2}ms.'.format(offset, WARN, crit)
+        msg = 'NTP offset to low/high. Offset is {0}ms.'.format(offset)
         print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
         exit(STATE_WARN)
 
     if stratum >= 9:
-        msg = 'Stratum {0} is >= 9. NTP offset {1}, abs(thresholds) are {2}/{3}ms.'.format(stratum, offset, WARN, CRIT)
+        msg = 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
         print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
         exit(STATE_WARN)
 
@@ -181,4 +180,9 @@ def main():
     print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
     exit(STATE_OK)
 
-main()
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

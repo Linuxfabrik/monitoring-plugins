@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Prints a list of all clients connected to the OpenVPN Server'
 
@@ -21,6 +21,7 @@ DEFAULT_CRIT  = None
 
 #====================
 import argparse
+from traceback import print_exc
 
 from lib.globals import *
 from lib.output import unpack_perfdata
@@ -38,18 +39,18 @@ def parse_args():
     parser.add_argument('-w', '--warning',
         help = 'Set the warning threshold for the number of connected clients. Default: %(default)s',
         dest = 'WARN',
-        type = float,
+        type = int,
         default = DEFAULT_WARN,
         )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold for the number of connected clients. Default: %(default)s',
         dest = 'CRIT',
-        type = float,
+        type = int,
         default = DEFAULT_CRIT,
         )
 
-    parser.add_argument('-f', '--filename',
+    parser.add_argument('--filename',
         help = 'Set the path of the log filename. Default: %(default)s',
         dest = 'FILENAME',
         type = str,
@@ -78,13 +79,17 @@ def main():
         print('Failed to read file!')
         exit(STATE_UNKNOWN)
 
-    overall_state = evaluate_greater(counter, parsed.WARN, parsed.CRIT)
+    state = evaluate_greater(counter, parsed.WARN, parsed.CRIT)
     perfdata = unpack_perfdata('clients', counter, None, parsed.WARN, parsed.CRIT, 0, None)
 
     msg = '{} Users connected to OpenVPN Server.\n{}'.format(data.value, msg)
     print(msg.strip() + '|' + perfdata.strip())
-    exit(overall_state)
+    exit(state)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

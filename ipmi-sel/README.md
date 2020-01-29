@@ -9,7 +9,7 @@ Hints and Recommendations:
 * We recommend running this check every 15 minutes.
 
 
-# Usage
+# Installation and Usage
 
 Requirements: `yum install ipmitools`
 
@@ -19,7 +19,7 @@ Requirements: `yum install ipmitools`
 ```
 
 
-# States
+# States and Perfdata
 
 * WARN, if SEL has entries.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.

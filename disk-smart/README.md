@@ -36,7 +36,7 @@ Requirements: `yum install smartmontools`
 ```
 
 
-# States
+# States and Perfdata
 
 CRIT, when SMART reports:
 * Overall Health Self-Assessment Test: FAILED!
@@ -58,28 +58,6 @@ is returned.
 # Known Issues and Limitations
 
 * The check can't handle NVMe (for example /dev/mmcblk0).
-
-
-# Contents
-
-* README.md: This file.
-* LICENSE: The license file.
-
-* disk-smart: The service check in source code format.
-* disk-smart.basket.json: The Icinga Director Basket Configuration file for this service.
-* disk-smart.grafana.json: The panel file in JSON format for any Grafana dashboard.
-* disk-smart.icingaweb2-grafana.ini: The .ini file for the Icingaweb2 Grafana Module.
-* disk-smart.png: The 16x16 black icon for the service check.
-* disk-smart.sudoers: The sudoers file for the service check.
-
-* examples: Some output files from `smartctl --xall`.
-* gsmartcontrol: The two main source code files from `GSmartControl` that we used to implement this check.
-
-
-# Changelog
-
-* 2019120501: Minor output improvements.
-* 2019120403: Initial release.
 
 
 # Credits, License

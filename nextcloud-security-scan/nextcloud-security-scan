@@ -9,13 +9,14 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010701'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
 
 #====================
 import argparse
+from traceback import print_exc
 import datetime
 import json
 import ssl
@@ -24,8 +25,6 @@ import urllib2
 
 
 from lib.globals import *
-from lib.output import bytes2human, unpack_perfdata
-from lib.utils import execute_command
 
 
 def define_args():
@@ -37,7 +36,7 @@ def define_args():
         )
 
     parser.add_argument('-u', '--url',
-        help = 'Nextcloud API URL, for example "cloud.example.com".',
+        help = 'Nextcloud API URL, for example "cloud.linuxfabrik.io".',
         dest = 'URL',
         required = True,
         )
@@ -157,7 +156,6 @@ def main():
 
     # let's do some checks
     msg = ''
-    perfdata = ''
     state = STATE_OK
 
 
@@ -229,4 +227,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

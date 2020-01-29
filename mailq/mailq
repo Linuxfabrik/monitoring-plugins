@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011501'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Check the mail queue.'
 
@@ -24,6 +24,7 @@ DEFAULT_CRIT  =  250     # mails
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 import re
 
 from lib.utils import execute_command
@@ -121,4 +122,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

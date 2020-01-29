@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011001'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Displays amount of free and used swap space in the system, checks against used swap in percent.'
 
@@ -22,6 +22,7 @@ DEFAULT_CRIT  = 90  # %
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
@@ -34,11 +35,24 @@ from lib.output import bytes2human, unpack_perfdata
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-c', '--critical', help='Set the critical threshold for swap usage (in percent). Default: %(default)s',
-                      default=DEFAULT_CRIT, type=int, dest='CRIT')
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s: v{} by {}'.format(__version__, __author__))
-    parser.add_argument('-w', '--warning', help='Set the warning threshold for swap usage (in percent). Default: %(default)s',
-                      default=DEFAULT_WARN, type=int, dest='WARN')
+    parser.add_argument('-c', '--critical',
+        default=DEFAULT_CRIT,
+        dest='CRIT',
+        help='Set the critical threshold for swap usage (in percent). Default: %(default)s',
+        type=int,
+        )
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__),
+        )
+
+    parser.add_argument('-w', '--warning',
+        default=DEFAULT_WARN,
+        dest='WARN',
+        help='Set the warning threshold for swap usage (in percent). Default: %(default)s',
+        type=int,
+        )
 
     return parser.parse_args()
 
@@ -87,5 +101,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
-
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

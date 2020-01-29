@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011001'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Displays amount of free and used memory in the system, checks against used memory in percent.'
 
@@ -22,6 +22,7 @@ DEFAULT_CRIT  = 95  # %
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
@@ -29,6 +30,7 @@ except ImportError, e:
     exit(STATE_UNKNOWN)
 
 from lib.output import bytes2human, unpack_perfdata
+from lib.parse_input import evaluate_greater
 
 
 def define_args():
@@ -82,7 +84,6 @@ def main():
         bytes2human(getattr(virt, 'cached', 0)),
     )
 
-    # 'label'=value[UOM];[warn];[crit];[min];[max]
     perfdata =  unpack_perfdata('usage_percent', mem_usage_percent, '%', WARN, CRIT, 0, 100)
     perfdata += unpack_perfdata('total', virt.total, 'B', None, None, 0, virt.total)
     perfdata += unpack_perfdata('used', virt.used, 'B', None, None, 0, virt.total)
@@ -96,12 +97,13 @@ def main():
 
 
     # calculating the final check state
-    if mem_usage_percent >= CRIT:
-        exit(STATE_CRIT)
-    if mem_usage_percent >= WARN:
-        exit(STATE_WARN)
-    exit(STATE_OK)
+    state = evaluate_greater(mem_usage_percent, WARN, CRIT)
+    exit(state)
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

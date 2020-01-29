@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011301'
+__version__ = '2020012801'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses (for a list of jails).'
 
@@ -21,6 +21,7 @@ DEFAULT_WARN = 1000
 
 #====================
 import argparse
+from traceback import print_exc
 import re
 
 from lib.globals import *
@@ -69,8 +70,9 @@ def main():
     # fail2ban-client ping
     stdout, stderr, retc = execute_command(command + ' ping')
     if retc:
-        print('Problem while testing if the fail2ban server is alive: {}'.format(stdout))
-        exit(STATE_WARN)    
+        print('Problem while testing if the fail2ban server is alive.')
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
 
     # fail2ban-client status
     stdout, stderr, retc = execute_command(command + ' status')
@@ -132,4 +134,8 @@ def main():
     exit(state)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

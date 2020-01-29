@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010901'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Checks the used inode space in percent, default on "/", "/tmp" and "/boot".'
 
@@ -19,6 +19,7 @@ DEFAULT_MOUNT = '/, /tmp, /boot'
 
 #====================
 import argparse
+from traceback import print_exc
 import os
 
 from lib.globals import *
@@ -34,7 +35,7 @@ def define_args():
         type = float,
         default = DEFAULT_CRIT,
         )
-    parser.add_argument('-m', '--mount',
+    parser.add_argument('--mount',
         help = 'The mount point. Default: "%(default)s"',
         dest = 'MOUNT',
         type = lambda s: [str(item).strip() for item in s.split(',')],
@@ -94,6 +95,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
-
-
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

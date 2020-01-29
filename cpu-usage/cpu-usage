@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011001'
+__version__ = '2020012801'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -22,6 +22,7 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 from lib.globals import *
 
 import argparse
+from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
@@ -206,4 +207,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

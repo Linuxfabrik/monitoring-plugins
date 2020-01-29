@@ -46,6 +46,7 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 * optional: Icinga Director Basket Config
 * optional: Icingaweb2 Grafana Module .ini file
 * optional: sudoers file
+* optional: `test` - the unittest file
 
 
 ## Rules of Thumb
@@ -68,6 +69,13 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 * Mainly return WARN. Only return CRIT if the operators have to wake up at night.
 
 
+## Unit Tests
+
+Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html), run the check as a bash command, capture stdout, stderr and its return code, and run your assertions.
+
+To test a check that need to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+
+
 ## Names, Naming Conventions
 
 define_args     > get_options
@@ -87,13 +95,6 @@ Auslagern:
 
 
 
-Parameters:
-
-* ignore-...
-* disable-...
-* noproxy
-* insecure
-
 Libraries:
 
 * utils.py
@@ -101,29 +102,52 @@ Libraries:
 
 ## Parameters, Option Processing
 
-There are a few reserved options that should not be used for other purposes:
+There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
-    -f, --filename          file or directory name
-        --count             count intervals, the same as "for" in prometheus ("for 5 minutes")
     -h, --help              help
     -H, --hostname          hostname
-    -i, --input
-    -i, --interface
     -l, --logname           login name
-    -m, --mode 
     -p, --password          password
     -p, --port              network port
-        --state             warn,crit
     -t, --timeout           timeout
-        --type
     -u, --url               URL
     -u, --username          username
     -V, --version           version
     -v, --verbose           verbose
     -w, --warning           warning threshold
+
+For all other options, use long parameters only. We recommend using some of those:
+
+    --count
+    --database
+    --filename
+    --ignore
+    --ignore-...
+    --input
+    --insecure
+    --interface
+    --loadstate
+    --mode
+    --mount
+    --no-proxy
+    --no-update-check
+    --port
+    --portname 
+    --prefix
+    --prefix
+    --severity
+    --state 
+    --substate
+    --test
+    --timespan
+    --type
+    --unit
+    --unitfilestate
+
+
 
 * For complex parameter tupels, use the `csv` type. 
   `--input='Name, Value, Warn, Crit'` results in

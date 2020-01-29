@@ -27,7 +27,7 @@ Requirements: `yum install ipmitools`
 ```
 
 
-# States
+# States and Perfdata
 
 * CRIT, if sensor value is non-recoverable (very worse)
 * CRIT, if sensor value is above/below IPMI critical threshold
@@ -41,28 +41,7 @@ Requirements: `yum install ipmitools`
 * "Discrete" sensors support is not implemented.
 
 
-# Contents
-
-* README.md: This file.
-* LICENSE: The license file.
-
-* ipmi-sensor: The service check in source code format.
-* ipmi-sensor.basket.json: The Icinga Director Basket Configuration file for this service.
-* ipmi-sensor.grafana.json: The panel file in JSON format for any Grafana dashboard.
-* ipmi-sensor.icingaweb2-grafana.ini: The .ini file for the Icingaweb2 Grafana Module.
-* ipmi-sensor.png: The 16x16 black icon for the service check.
-* ipmi-sensor.sudoers: The sudoers file for the service check.
-
-* examples: Some output files from `ipmitool sensor list`.
-
-
-# Changelog
-
-* 2019120601: Initial release.
-
-
 # Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
-
