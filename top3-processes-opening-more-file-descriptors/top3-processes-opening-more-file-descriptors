@@ -24,6 +24,7 @@ except ImportError, e:
     exit(STATE_UNKNOWN)
 from collections import Counter
 import argparse
+from traceback import print_exc
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -63,4 +64,9 @@ def main():
     print(msg[:-2]) # strip trailing ', '
     exit(STATE_OK)
 
-main()
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)
