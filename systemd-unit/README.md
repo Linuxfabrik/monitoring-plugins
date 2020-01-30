@@ -1,6 +1,6 @@
 * show ALL unit files: `systemctl list-unit-files --all`
 * show loaded units: `systemctl list-unit-files` 
-* get current state of a unit (needed as input for this check=: `systemctl show -p LoadState,ActiveState,SubState,UnitFileState firewalld`
+* get current state of a unit (needed as input for this check: `systemctl show -p LoadState,ActiveState,SubState,UnitFileState firewalld`
 
 systemctl show -p LoadState,ActiveState,SubState,UnitFileState <name>
 
@@ -10,6 +10,9 @@ What to check:
 * postfix.service
 * rsyslog.service
 * sshd.service
+
+No perfdata.
+
 
 
 ## Parameters

@@ -9,9 +9,11 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020013001'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
+
+DEFAULT_NO_WARN = False
 
 
 #====================
@@ -34,6 +36,13 @@ from lib.output import bytes2human, unpack_perfdata
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('--no-warn',
+        help = 'This option disables throwing a WARN state if some special tools are found. Default: %(default)s',
+        dest = 'NO_WARN',
+        action = 'store_true',
+        default = DEFAULT_NO_WARN,   # False
+        )
 
     parser.add_argument('-V', '--version',
         action = 'version',
@@ -157,7 +166,7 @@ def get_apps():
         return ''
 
 
-def get_dangerous_tools():
+def get_tools():
     # tools that should not be installed on a server system
     sw = ''
     sw += find_command('nmap', 'command -v nmap', version_cmd='nmap --version', version_regex=r'Nmap version (.*?) ')
@@ -223,6 +232,24 @@ def get_os_info():
     return '{} {} {}'.format(platform_info[0], platform_info[1], os_info[2])
 
 
+def get_python_modules():
+    pm = ''
+    try:
+        import psutil
+        pm += 'psutil {}, '.format(psutil.__version__)
+    except:
+        pm += ''
+    try:
+        import mysql.connector
+        pm += 'mysql.connector {}, '.format(mysql.connector.__version__)
+    except:
+        pm += ''
+    if pm:
+        return pm[:-2]
+    else:
+        return ''
+
+
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
@@ -235,12 +262,8 @@ def main():
     perfdata = ''
     state = STATE_OK
 
+
     sys_dimensions = get_sys_dimensions()
-    apps = get_apps()
-    repos_sw = get_repo_sw()
-    dangerous_tools = get_dangerous_tools()
-
-
     if sys_dimensions['cpu'] == 1:
         msg += '{} CPU, '.format(sys_dimensions['cpu'])
     else:
@@ -252,16 +275,22 @@ def main():
         msg += '{} Disks ({}), '.format(sys_dimensions['disks'], sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
-
-    if dangerous_tools:
+    tools = get_tools()
+    if tools and not parsed.NO_WARN:
         state = STATE_WARN
-        msg += ' - WARN Tools: ' + dangerous_tools
+        msg += ' - WARN Tools: ' + tools
 
-    if repos_sw:
-        msg += ' - SW: ' + repos_sw 
+    repo_sw = get_repo_sw()
+    if repo_sw:
+        msg += ' - SW: ' + repo_sw 
 
+    apps = get_apps()
     if apps:
         msg += ' - Apps: ' + apps 
+
+    pm = get_python_modules()
+    if pm:
+        msg += ' - Python modules: ' + pm 
 
     
     msg += ' - OS: ' + get_os_info()
