@@ -9,12 +9,12 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020013001'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
-DEFAULT_WARN  = 50      # %
-DEFAULT_CRIT  = 70      # %
+DEFAULT_WARN  = 80      # %
+DEFAULT_CRIT  = 90      # %
 DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
 
 
@@ -135,34 +135,43 @@ def main():
         exit(STATE_UNKNOWN)
 
     stats = {}
+    extstats = {}
 
     # Grab CPU stats using psutil's cpu_times_percent
-    # Get all possible values for CPU stats: user, system, idle,
-    # nice (UNIX), iowait (Linux), irq (Linux, FreeBSD), steal (Linux 2.6.11+)
-
     cpu_times_percent = psutil.cpu_times_percent(interval=0.25, percpu=False)
-    for stat in ['user', 'system', 'idle', 'nice', 'iowait',
-                 'irq', 'softirq', 'steal', 'guest', 'guest_nice']:
-        if hasattr(cpu_times_percent, stat):
-            stats[stat] = getattr(cpu_times_percent, stat)
-    stats['cpu_usage'] = round(100 - getattr(cpu_times_percent, 'idle'), 1)
+    stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
 
+    if hasattr(cpu_times_percent, 'guest'):         stats['guest']      = getattr(cpu_times_percent, 'guest')
+    if hasattr(cpu_times_percent, 'guest_nice'):    stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice')
+    if hasattr(cpu_times_percent, 'iowait'):        stats['iowait']     = getattr(cpu_times_percent, 'iowait')
+    if hasattr(cpu_times_percent, 'irq'):           stats['irq']        = getattr(cpu_times_percent, 'irq')
+    if hasattr(cpu_times_percent, 'nice'):          stats['nice']       = getattr(cpu_times_percent, 'nice')
+    if hasattr(cpu_times_percent, 'softirq'):       stats['softirq']    = getattr(cpu_times_percent, 'softirq')
+    if hasattr(cpu_times_percent, 'steal'):         stats['steal']      = getattr(cpu_times_percent, 'steal')
+    if hasattr(cpu_times_percent, 'system'):        stats['system']     = getattr(cpu_times_percent, 'system')
+    if hasattr(cpu_times_percent, 'user'):          stats['user']       = getattr(cpu_times_percent, 'user')
+    
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) since boot
     # interrupts: number of interrupts since boot
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
-
     if psutil.__version__ >= '4.1.0':
         cpu_stats = psutil.cpu_stats()
-        for stat in ['ctx_switches', 'interrupts', 'soft_interrupts', 'syscalls']:
-            if hasattr(cpu_stats, stat):
-                stats[stat] = getattr(cpu_stats, stat)
+        if hasattr(cpu_stats, 'ctx_switches'):      extstats['ctx_switches']       = getattr(cpu_stats, 'ctx_switches')
+        if hasattr(cpu_stats, 'interrupts'):        extstats['interrupts']         = getattr(cpu_stats, 'interrupts')
+        if hasattr(cpu_stats, 'soft_interrupts'):   extstats['soft_interrupts']    = getattr(cpu_stats, 'soft_interrupts')
 
 
     # save trend data to local sqlite database, limited to "count" rows max.
     insert_into_db('/tmp/cpu-usage.db', stats, parsed.COUNT)
+
+
+    # sort by highest value
+    cpu_usage = stats['cpu_usage']
+    del stats['cpu_usage']
+    stats = sorted(stats.items(), key=lambda x: x[1], reverse=True)
 
 
     msg = ''
@@ -181,25 +190,26 @@ def main():
 
 
     # build the message
-    msg += '{}% - user: {}%, system: {}%, iowait: {}%\n'.format(stats['cpu_usage'], stats['user'], stats['system'], stats['iowait'])
-    msg += 'nice: {}%, irq: {}%, steal: {}%\n'.format(stats['nice'], stats['irq'], stats['steal'])
-    if psutil.__version__ >= '4.1.0':
-        msg += 'ctx_switches: {}, interrupts: {}, soft_interrupts: {}'.format(stats['ctx_switches'], stats['interrupts'], stats['soft_interrupts'])
+    perfdata += unpack_perfdata('cpu-usage', cpu_usage, '%', parsed.WARN, parsed.CRIT, 0, 100)
+    line1, line2 = '', ''
+    for i in range(len(stats)):
+        if stats[i][1] != 0:
+            line1 += '{}: {}%, '.format(stats[i][0], stats[i][1])
+        else:
+            line2 += '{}: {}%, '.format(stats[i][0], stats[i][1])
+        perfdata += unpack_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
+    msg += '{}% - '.format(cpu_usage) + line1[:-2]
+    if line2:
+        msg += '\n' + line2[:-2]
 
-    # build perfdata
-    perfdata += unpack_perfdata('cpu-usage', stats['cpu_usage'], '%', parsed.WARN, parsed.CRIT, 0, 100)
-    perfdata += unpack_perfdata('user', stats['user'], '%', parsed.WARN, parsed.CRIT, 0, 100)
-    perfdata += unpack_perfdata('system', stats['system'], '%', parsed.WARN, parsed.CRIT, 0, 100)
-    perfdata += unpack_perfdata('iowait', stats['iowait'], '%', parsed.WARN, parsed.CRIT, 0, 100)
 
-    perfdata += unpack_perfdata('nice', stats['nice'], '%', None, None, 0, 100)
-    perfdata += unpack_perfdata('irq', stats['irq'], '%', None, None, 0, 100)
-    perfdata += unpack_perfdata('steal', stats['steal'], '%', None, None, 0, 100)
+    if extstats:
+        msg += '\n'
+        for key in extstats:
+            msg += '{}: {}, '.format(key, extstats[key])
+            perfdata += unpack_perfdata(key, extstats[key], 'c', None, None, 0, None)
+        msg = msg[:-2]
 
-    if psutil.__version__ >= '4.1.0':
-        perfdata += unpack_perfdata('ctx_switches', stats['ctx_switches'], 'c', None, None, 0, None)
-        perfdata += unpack_perfdata('interrupts', stats['interrupts'], 'c', None, None, 0, None)
-        perfdata += unpack_perfdata('soft_interrupts', stats['soft_interrupts'], 'c', None, None, 0, None)
 
     # over and out
     print(msg.strip() + '|' + perfdata.strip())
