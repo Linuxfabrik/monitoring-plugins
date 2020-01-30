@@ -134,6 +134,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --mount
     --no-proxy
     --no-update-check
+    --no-warn
     --port
     --portname 
     --prefix
@@ -146,8 +147,6 @@ For all other options, use long parameters only. We recommend using some of thos
     --type
     --unit
     --unitfilestate
-
-
 
 * For complex parameter tupels, use the `csv` type. 
   `--input='Name, Value, Warn, Crit'` results in
