@@ -12,7 +12,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010901'
+__version__ = '2020020401'
 
 DESCRIPTION = 'Checks redis health.'
 
@@ -83,9 +83,10 @@ TRANSPARENT_HUGEPAGE_EXPECTED_VALUE = 'always madvise [never]'
 #====================
 import argparse
 import socket
+import datetime
 
 from lib.globals import *
-from lib.output import unpack_perfdata, unix_time_to_iso
+from lib.output import unpack_perfdata, unix_time_to_iso, state_to_string
 from lib.parse_arguments import csv
 from lib.parse_input import evaluate_greater, evaluate_greater_datetime_to_now, evaluate_smaller
 
@@ -411,11 +412,11 @@ def main():
     perfdata += unpack_perfdata('rdb_changes_since_last_save', result['rdb_changes_since_last_save'], None, parsed.W_RDB_CHANGES_SINCE_LAST_SAVE, parsed.C_RDB_CHANGES_SINCE_LAST_SAVE, 0, None)
     submsg += '\n* rdb_changes_since_last_save: {} {}'.format(result['rdb_changes_since_last_save'], state_to_string(rdb_changes_since_last_save_state))
 
-    rdb_last_save_time_datetime = datetime.datetime.fromtimestamp(result['rdb_last_save_time'])
+    rdb_last_save_time_datetime = datetime.datetime.fromtimestamp(float(result['rdb_last_save_time']))
     rdb_last_save_time_state = evaluate_greater_datetime_to_now(rdb_last_save_time_datetime, parsed.W_RDB_LAST_SAVE_TIME, parsed.C_RDB_LAST_SAVE_TIME) # todo
     overall_state = get_greater_state(overall_state, rdb_last_save_time_state)
     perfdata += unpack_perfdata('rdb_last_save_time', result['rdb_last_save_time'], None, parsed.W_RDB_LAST_SAVE_TIME, parsed.C_RDB_LAST_SAVE_TIME, 0, None)
-    submsg += '\n* rdb_last_save_time: {} {}'.format(unix_to_iso(result['rdb_last_save_time']), state_to_string(rdb_last_save_time_state))
+    submsg += '\n* rdb_last_save_time: {} {}'.format(unix_time_to_iso(result['rdb_last_save_time']), state_to_string(rdb_last_save_time_state))
 
     submsg += '\n\nClients'
 

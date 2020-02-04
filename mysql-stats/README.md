@@ -1,26 +1,45 @@
-This checks needs a MySQL driver to access a MySQL/MariaDB database. We recommend that you use PIP to install "MySQL Connector". 
+# Overview
 
-`python -m pip install mysql-connector` or just `pip install mysql-connector`.
+This check is more or less a port of the MySQLTuner script. The check _allows you to review a MySQL installation quickly and make adjustments to increase performance and stability. The current configuration variables and status data is retrieved and presented in a brief format along with some basic performance suggestions_.
+
+This check needs a user with at least "PROCESS" (= Role "MonitorAdmin") privileges, locked down to "127.0.0.1" - for example a user "mariadb-monitor@127.0.0.1". It also needs the Python library `mysql.connector` to access a MySQL/MariaDB server. If you use `pip`, you might use `python -m pip install mysql-connector` or just `pip install mysql-connector`.
+
+If you compare the output from MySQLTuner with this check keep in mind that this check does not use so much connections as MySQLTuner does (in fact this check uses one connection per call only).
+
+If you just want to check if MySQL or MariaDB is listening on its port, use the `network-port-tcp` check.
 
 
-If you just want to check if MySQL/MariaDB is listening on its port, use the `network-port-tcp` check. Otherwise use a read-only database user, locked down to address of the monitoring server, and only with SELECT permissions on the databases you want to connect to and monitor.
+# Installation and Usage
 
 Using an empty password is done with `--password=''` (also this is of course not recommended).
 
-This check does not use so much connections as MySQLTuner does (in fact this check uses one connection per call).
+```bash
+./mysql-stats --username mariadb-monitor --password mypassword
+./mysql-stats --help
+```
 
 
-Currently
-from mysqltuner:
-* only performance options ported
-* validation / comparison is needed
+# States and Perfdata
 
-from check_mysql / mysqltuner:
-* connections via sockets are not supported
-* only login with username / password (not via SSL/TLS)
-* no option file support
-* currently no slave check via "show slave status"
+* CRIT: if MySQL's / MariaDB's maximum memory usage is dangerously high
+* WARN: if any recommendation regarding system ressources is found
 
-Inspired by
-* check_mysql from monitoring-plugins.org.
-* MySQLTuner (https://github.com/major/MySQLTuner-perl)
+
+# Known Issues and Limitations
+
+* compared to MySQLTuner only performance checks are ported
+* compared to check_mysql / MySQLTuner:
+  - connections via sockets are not supported
+  - only login with username / password (not via SSL/TLS) implemented
+  - no option file support
+  - currently no slave check via "show slave status"
+
+
+# Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see LICENSE file.
+
+* Credits:
+  - check_mysql from monitoring-plugins.org.
+  - heavily inspired by MySQLTuner (https://github.com/major/MySQLTuner-perl)
