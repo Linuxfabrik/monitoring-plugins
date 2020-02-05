@@ -5,11 +5,60 @@
 systemctl show -p LoadState,ActiveState,SubState,UnitFileState <name>
 
 
-What to check:
+What to check on a fresh CentOS 7 Minimal:
 * crond.service
 * postfix.service
 * rsyslog.service
 * sshd.service
+
+What to check on a Gluster Node:
+* chronyd.service
+* firewalld.service (loaded, inactive, dead, disabled)
+* glusterd.service
+
+What to check on an oVirt Host:
+* chronyd.service
+* firewalld.service
+* iptables.service (loaded, inactive, dead, disabled)
+* iscsi.service
+* ksm.service
+* libvirt-guests.service
+* libvirtd.service
+* mom-vdsm.service
+* ntpd.service (loaded, inactive, dead, disabled)
+* openvswitch.service
+* ovirt-ha-agent.service
+* ovirt-ha-broker.service
+* ovn-controller.service
+* rhsmcertd.service
+* sysstat.service
+* vdsm-network-init.service
+* vdsm-network.service
+
+What to check on the oVirt Engine:
+* chronyd.service
+* cloud-config.service
+* cloud-final.service
+* firewalld.service
+* httpd.service
+* openvswitch.service
+* ovirt-engine-dwhd.service
+* ovirt-engine.service
+* ovirt-fence-kdump-listener.service
+* ovirt-guest-agent.service
+* ovirt-imageio-proxy.service
+* ovirt-provider-ovn.service
+* ovirt-vmconsole-proxy-sshd.service
+* ovirt-websocket-proxy.service
+* ovn-northd.service
+* qemu-guest-agent.service
+* rh-postgresql95-postgresql.service
+
+What to check on Bare Metal Servers:
+* ipmievd.service
+* smartd.service
+
+
 
 No perfdata.
 

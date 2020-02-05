@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020013001'
+__version__ = '2020020501'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -99,7 +99,7 @@ def get_sys_dimensions():
 
 
 def get_apps():
-    # try to find some non-yum-installed software - here called "apps";
+    # try to find some non-yum-installed real-world applications - here called "apps";
     # mainly found in /home, /opt or /var/www/html;
     # and: this is just an incomplete and naive guess
     apps = ''
@@ -166,11 +166,14 @@ def get_apps():
         return ''
 
 
-def get_tools():
-    # tools that should not be installed on a server system
+def get_doubtful_tools():
+    # tools that we think should not be installed on a server system
     sw = ''
+    sw += find_command('hdparm', 'command -v hdparm')
+    sw += find_command('ncat', 'command -v ncat', version_cmd='ncat --version', version_regex=r'Ncat: Version (.*?) ')
     sw += find_command('nmap', 'command -v nmap', version_cmd='nmap --version', version_regex=r'Nmap version (.*?) ')
-    sw += find_command('tcpdump', 'command -v tcpdump', version_cmd='tcpdump --version', version_regex=r'tcpdump version (.*)')
+    sw += find_command('tcpdump', 'command -v tcpdump')
+    sw += find_command('telnet', 'command -v telnet', version_cmd='telnet --version', version_regex=r'telnet version (.*)')
     sw += find_command('Wireshark', 'command -v tshark', version_cmd='tshark -v', version_regex=r'TShark (.*?) ')
 
     if sw:
@@ -179,9 +182,30 @@ def get_tools():
         return ''
 
 
+def get_simple_tools():
+    # yum installed tools, alphabetically sorted by output
+    sw = ''
+
+    sw += find_command('dig', 'command -v dig')
+    sw += find_command('iftop', 'command -v iftop')
+    sw += find_command('lsof', 'command -v lsof')
+    sw += find_command('nano', 'command -v nano')
+    sw += find_command('rsync', 'command -v rsync')
+    sw += find_command('unzip', 'command -v unzip')
+    sw += find_command('vim', 'command -v vim')
+    sw += find_command('wget', 'command -v wget')
+    sw += find_command('whois', 'command -v whois')
+    
+    if sw:
+        return sw[:-2]
+    else:
+        return ''
+
+
 def get_repo_sw():
-    # yum installed Software, alphabetically sorted by output
-    # but sometimes not callable (like Elastic or Graylog)
+    # yum installed real-world applications, alphabetically sorted by output
+    # but sometimes not callable for Icinga (like Elastic or Graylog)
+    # or without version info
     sw = ''
 
     sw += find_command('Apache httpd', 'command -v httpd', version_cmd='httpd -v', version_regex=r'Apache/(.*) ')
@@ -189,13 +213,13 @@ def get_repo_sw():
     sw += find_command('Borg', 'command -v borg', version_cmd='borg --version', version_regex=r' (.*)')
     sw += find_command('ClamAV', 'command -v clamd', version_cmd='clamd --version', version_regex=r' (.*)/')
     sw += find_command('Containerd', 'command -v containerd', version_cmd='containerd --version', version_regex=r' (.*) ')
-    sw += find_command('dig', 'command -v dig', version_cmd='dig -v', version_regex=r' (.*)-')
     sw += find_command('Docker', 'command -v docker', version_cmd='docker --version', version_regex=r' version (.*?),')
     sw += 'Elasticsearch, ' if os.path.isfile('/usr/share/elasticsearch/bin/elasticsearch') else ''
-    sw += find_command('Erlang', 'command -v erl', version_cmd='erl -noshell -eval \'io:fwrite("~s\n", [erlang:system_info(otp_release)]).\' -s erlang halt')
+    sw += find_command('Erlang', 'command -v erl')
     sw += find_command('Fail2ban-Server', 'command -v fail2ban-server', version_cmd='fail2ban-server --version', version_regex=r' v(.*)')
     sw += find_command('FreeIPA', 'command -v ipa', version_cmd='ipa --version', version_regex=r' (.*?),')
     sw += find_command('Git', 'command -v git', version_cmd='git --version', version_regex=r'git version (.*)')
+    sw += find_command('Glances', 'command -v glances', version_cmd='glances --version', version_regex=r'Glances v(.*?) ')
     sw += find_command('Grafana-Server', 'command -v grafana-server', version_cmd='grafana-server -v', version_regex=r'Version (.*?) ')
     sw += 'Graylog-Server, ' if os.path.isfile('/usr/share/graylog-server/bin/graylog-server') else ''
     sw += find_command('Icinga2', 'command -v icinga2', version_cmd='icinga2 --version', version_regex=r'\(version: (.*)\)')
@@ -210,12 +234,13 @@ def get_repo_sw():
     sw += find_command('MongoDB', 'command -v mongod', version_cmd='mongod --version', version_regex=r'db version v(.*?)\n')
     sw += find_command('Node', 'command -v node', version_cmd='node --version', version_regex=r'v(.*)')
     sw += find_command('NodeJS', 'command -v nodejs', version_cmd='nodejs --version', version_regex=r'v(.*)')
+    sw += find_command('npm', 'command -v npm', version_cmd='npm --version', version_regex=r'(.*)')
     sw += find_command('Perl', 'command -v perl', version_cmd='perl --version', version_regex=r' \(v(.*?)\) ')
     sw += find_command('PHP', 'command -v php', version_cmd='php --version', version_regex=r'PHP (.*?) \(.*')
     sw += find_command('PostgreSQL', 'command -v psql', version_cmd='psql --version', version_regex=r'\(PostgreSQL\) (.*)')
     sw += find_command('Python2', 'command -v python2', version_cmd='python --version', version_regex=r' (.*)')
     sw += find_command('Python3', 'command -v python3', version_cmd='python3 --version', version_regex=r' (.*)')
-    sw += find_command('RabbitMQ-Server', 'command -v rabbitmq-server', version_cmd='rabbitmqctl --version')
+    sw += find_command('RabbitMQ-Server', 'command -v rabbitmq-server')
     sw += find_command('Redis-Server', 'command -v redis-server', version_cmd='redis-server --version', version_regex=r' v=(.*?) ')
     sw += find_command('Sublime Text', 'command -v subl', version_cmd='subl --version', version_regex=r'.* (.*)$')
     sw += find_command('TeamViewer', 'command -v teamviewer', version_cmd='teamviewer --version', version_regex=r'   (.*) ')
@@ -275,18 +300,24 @@ def main():
         msg += '{} Disks ({}), '.format(sys_dimensions['disks'], sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
-    tools = get_tools()
-    if tools and not parsed.NO_WARN:
-        state = STATE_WARN
-        msg += ' - WARN Tools: ' + tools
+    doubtful_tools = get_doubtful_tools()
+    if doubtful_tools:
+        msg += ' - Doubtful: ' + doubtful_tools
+        if not parsed.NO_WARN:
+            state = STATE_WARN
+            msg += ' (WARN)'
 
     repo_sw = get_repo_sw()
     if repo_sw:
-        msg += ' - SW: ' + repo_sw 
+        msg += ' - Software: ' + repo_sw 
 
     apps = get_apps()
     if apps:
         msg += ' - Apps: ' + apps 
+
+    simple_tools = get_simple_tools()
+    if simple_tools:
+        msg += ' - Tools: ' + simple_tools
 
     pm = get_python_modules()
     if pm:
