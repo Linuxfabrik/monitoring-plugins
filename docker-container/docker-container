@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020010901'
+__version__ = '2020020401'
 
 DESCRIPTION = 'Checks the stats and number of docker containers.'
 
@@ -160,8 +160,8 @@ def main():
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = execute_command(command_info)
-    if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(bash_command))
+    if (retc != 0): # stderr is ok, will contain ERR and WARNING
+        print('Bash command `{}` failed.'.format(command_info))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
