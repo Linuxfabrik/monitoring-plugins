@@ -9,15 +9,16 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012901'
+__version__ = '2020020601'
 
 DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "firewalld" is running, use "systemctl-unit --substate==running --unit=firewalld". Have a look at the README for more details.'
 
 command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
 
+DEFAULT_ACTIVESTATE  = []
 DEFAULT_LOADSTATE  = 'loaded'
-DEFAULT_ACTIVESTATE  = 'active'
 DEFAULT_SERVERITY = 'warn'
+DEFAULT_SUBSTATE  = []
 
 
 #====================
@@ -33,9 +34,10 @@ def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--activestate',
-        help = 'Expected systemd ActiveState. Default: %(default)s',
+        help = 'Expected systemd ActiveState (repeating).',
         dest = 'ACTIVESTATE',
         default = DEFAULT_ACTIVESTATE,
+        action = 'append',
         choices = ['active', 'failed', 'inactive'],
         )
 
@@ -54,8 +56,10 @@ def define_args():
         )
 
     parser.add_argument('--substate',
-        help = 'Expected systemd SubState.',
+        help = 'Expected systemd SubState (repeating).',
         dest = 'SUBSTATE',
+        default = DEFAULT_SUBSTATE,
+        action = 'append',
         choices = ['abandoned', 'active', 'dead', 'exited', 'failed', 'listening', 'mounted', 'plugged', 'running', 'waiting'],
         )
 
@@ -101,24 +105,24 @@ def main():
 
 
     state = STATE_OK
-    msg = '{} is {}, {}, {} '.format(parsed.UNIT, loadstate, activestate, substate)
+    msg = '{} is {}, {}, {}'.format(parsed.UNIT, loadstate, activestate, substate)
     if parsed.UNITFILESTATE:
-        msg = msg.strip() + ', unit file is {}. '.format(unitfilestate)
+        msg += ', unit file is {}.'.format(unitfilestate)
 
     # now do the checks
     problem = False
     problem_msg = ''
     if parsed.LOADSTATE and loadstate == 'not-found':
         problem = True
-        problem_msg += 'Unit not found  '
+        problem_msg += 'Unit not found.  '
     else:
 	    if parsed.LOADSTATE and parsed.LOADSTATE != loadstate:
 	        problem = True
 	        problem_msg += 'LoadState is {}, but supposed to be {}; '.format(loadstate, parsed.LOADSTATE)
-	    if parsed.ACTIVESTATE and parsed.ACTIVESTATE != activestate:
+	    if parsed.ACTIVESTATE and activestate not in parsed.ACTIVESTATE:
 	        problem = True
 	        problem_msg += 'ActiveState is {}, but supposed to be {}; '.format(activestate, parsed.ACTIVESTATE)
-	    if parsed.SUBSTATE and parsed.SUBSTATE != substate:
+	    if parsed.SUBSTATE and substate not in parsed.SUBSTATE:
 	        problem = True
 	        problem_msg += 'SubState is {}, but supposed to be {}; '.format(substate, parsed.SUBSTATE)
 	    if parsed.UNITFILESTATE and parsed.UNITFILESTATE != unitfilestate:

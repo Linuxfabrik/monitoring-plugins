@@ -66,6 +66,12 @@ No perfdata.
 
 ## Parameters
 
+Attention:
+* If any of `--activestate`, `--substate` or `--unitfilestate` is ommited, the related unit state value will not be checked (don't care, just print).
+* Best practise is to specify `--activestate` and `--substate` at least.
+* The unit suffix `.service` is optional for service units only, but it is recommended to use it.
+
+
 `--unit`:
 * The unit name (service, timer, mount etc.).
 * Required.
@@ -77,15 +83,18 @@ No perfdata.
 
 `--activestate`:
 * The high-level unit activation state, i.e. generalization of SUB.
+* If ommited, the unit's active state will not be checked.
 * activestate=active,failed,inactive
-* Default: active
+* Default: none
 
 `--substate`:
 * The low-level unit activation state, values depend on unit type.
+* If ommited, the unit's substate will not be checked.
 * substate=abandoned,active,dead,exited,failed,listening,mounted,plugged,running,waiting
 * Default: none
 
 `--unitfilestate`:
+* If ommited, the unit's unit-file state will not be checked.
 * unitfilestate=bad,disabled,enabled,enabled-runtime,generated,indirect,static,transient
 * Default: none
 
@@ -93,12 +102,6 @@ No perfdata.
 * If something was found, the check returns WARN unless set here.
 * severity=warn,crit
 * Default: warn
-
-Attention:
-* If any of `--substate` or `--unitfilestate` is ommited, their value will not be checked at all (don't care).
-* The above mentioned defaults make sense in 99% of all cases.
-* Best practise is to specify `--activestate` and `--substate` at least.
-* The unit suffix `.service` is optional for service units only.
 
 
 ## Usage
@@ -114,6 +117,8 @@ Examples:
 * Is this service absent/uninstalled? `systemd-unit --loadstate=not-found --unit=firewalld`
 * Is this path mounted? `systemd-unit --substate=mounted --unit=mnt-smb.mount`
 * Is this device plugged in? `systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
+* The current state of a timer job? `systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer`
+* A service depending on a timer: `systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service`
 
 
 ## Things to check on CentOS 7
