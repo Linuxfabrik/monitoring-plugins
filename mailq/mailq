@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020020601'
 
 DESCRIPTION = 'Check the mail queue.'
 
@@ -27,8 +27,9 @@ import argparse
 from traceback import print_exc
 import re
 
-from lib.utils import execute_command
 from lib.output import unpack_perfdata
+from lib.parse_arguments import csv
+from lib.utils import execute_command
 
 
 def define_args():
@@ -39,6 +40,12 @@ def define_args():
         dest = 'CRIT',
         type = int,
         default = DEFAULT_CRIT,
+        )
+
+    parser.add_argument('--test',
+        help = 'For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest = 'TEST',
+        type = csv,
         )
 
     parser.add_argument('-V', '--version',
@@ -63,18 +70,36 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = execute_command(command_installed)
-    if (retc != 0):
-        print('"mailq" is missing. On CentOS, install Postfix, sendmail, exim or related.')
-        exit(STATE_UNKNOWN)
+    if parsed.TEST == None:
+        # check if shell command is available
+        stdout, stderr, retc = execute_command(command_installed)
+        if (retc != 0):
+            print('"mailq" is missing.')
+            exit(STATE_UNKNOWN)
+
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = execute_command(command)
+    else:
+        # do not call the command, put in test data
+        import os
+        if parsed.TEST[0] and os.path.isfile(parsed.TEST[0]):
+            f = open(parsed.TEST[0], 'r')
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = parsed.TEST[0]
+        if parsed.TEST[1] and os.path.isfile(parsed.TEST[1]):
+            f = open(parsed.TEST[1], 'r')
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = parsed.TEST[1]
+        retc = parsed.TEST[2]
 
     msg = ''
     perfdata = ''
     state = STATE_OK
 
-    # execute the shell command and return its result and exit code
-    stdout, stderr, retc = execute_command(command)
     mailq_err_msg = None
     if (stderr):
         # does mailq report something unusual?
@@ -84,7 +109,7 @@ def main():
     mailq_count = 0
     if stdout.strip() != 'Mail queue is empty' and stdout.strip() != '0 mails to deliver':
         # "-- 2 Kbytes in 3 Requests."
-        mailq_count = re.search(r' in (.*) Requests\.', stdout)
+        mailq_count = re.search(r' in (.*) Requests?\.', stdout)
         if mailq_count:
             mailq_count = int(mailq_count.group(1).strip())
         else:
@@ -92,7 +117,6 @@ def main():
             mailq_count = re.search(r'(.*) mails to deliver', stdout)
             if mailq_count:
                 mailq_count = int(mailq_count.group(1).strip())
-                
 
     CRIT = int(parsed.CRIT)
     WARN = int(parsed.WARN)
@@ -108,9 +132,9 @@ def main():
         msg += '{}. '.format(mailq_err_msg)
     if mailq_count:
         if mailq_count == 1:
-            msg += '{} mail to deliver. '.format(mailq_count)
+            msg += '{} mail to deliver.'.format(mailq_count)
         else:
-            msg += '{} mails to deliver. '.format(mailq_count)
+            msg += '{} mails to deliver.'.format(mailq_count)
     else:
         msg += 'Mail queue is empty.'
     
