@@ -9,11 +9,9 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020020501'
+__version__ = '2020020601'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
-
-DEFAULT_NO_WARN = False
 
 
 #====================
@@ -36,13 +34,6 @@ from lib.output import bytes2human, unpack_perfdata
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-
-    parser.add_argument('--no-warn',
-        help = 'This option disables throwing a WARN state if some special tools are found. Default: %(default)s',
-        dest = 'NO_WARN',
-        action = 'store_true',
-        default = DEFAULT_NO_WARN,   # False
-        )
 
     parser.add_argument('-V', '--version',
         action = 'version',
@@ -166,35 +157,25 @@ def get_apps():
         return ''
 
 
-def get_doubtful_tools():
-    # tools that we think should not be installed on a server system
-    sw = ''
-    sw += find_command('hdparm', 'command -v hdparm')
-    sw += find_command('ncat', 'command -v ncat', version_cmd='ncat --version', version_regex=r'Ncat: Version (.*?) ')
-    sw += find_command('nmap', 'command -v nmap', version_cmd='nmap --version', version_regex=r'Nmap version (.*?) ')
-    sw += find_command('tcpdump', 'command -v tcpdump')
-    sw += find_command('telnet', 'command -v telnet', version_cmd='telnet --version', version_regex=r'telnet version (.*)')
-    sw += find_command('Wireshark', 'command -v tshark', version_cmd='tshark -v', version_regex=r'TShark (.*?) ')
-
-    if sw:
-        return sw[:-2]
-    else:
-        return ''
-
-
-def get_simple_tools():
-    # yum installed tools, alphabetically sorted by output
+def get_tools():
+    # yum installed simple tools, alphabetically sorted by output
     sw = ''
 
     sw += find_command('dig', 'command -v dig')
+    sw += find_command('hdparm', 'command -v hdparm')
     sw += find_command('iftop', 'command -v iftop')
     sw += find_command('lsof', 'command -v lsof')
     sw += find_command('nano', 'command -v nano')
+    sw += find_command('ncat', 'command -v ncat')
+    sw += find_command('nmap', 'command -v nmap')
     sw += find_command('rsync', 'command -v rsync')
+    sw += find_command('tcpdump', 'command -v tcpdump')
+    sw += find_command('telnet', 'command -v telnet')
     sw += find_command('unzip', 'command -v unzip')
     sw += find_command('vim', 'command -v vim')
     sw += find_command('wget', 'command -v wget')
     sw += find_command('whois', 'command -v whois')
+    sw += find_command('wireshark', 'command -v tshark')
     
     if sw:
         return sw[:-2]
@@ -300,24 +281,21 @@ def main():
         msg += '{} Disks ({}), '.format(sys_dimensions['disks'], sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
-    doubtful_tools = get_doubtful_tools()
-    if doubtful_tools:
-        msg += ' - Doubtful: ' + doubtful_tools
-        if not parsed.NO_WARN:
-            state = STATE_WARN
-            msg += ' (WARN)'
 
     repo_sw = get_repo_sw()
     if repo_sw:
         msg += ' - Software: ' + repo_sw 
 
+
     apps = get_apps()
     if apps:
         msg += ' - Apps: ' + apps 
 
-    simple_tools = get_simple_tools()
-    if simple_tools:
-        msg += ' - Tools: ' + simple_tools
+
+    tools = get_tools()
+    if tools:
+        msg += ' - Tools: ' + tools
+
 
     pm = get_python_modules()
     if pm:
