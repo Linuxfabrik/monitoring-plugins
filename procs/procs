@@ -8,26 +8,26 @@
 
 # https://nagios-plugins.org/doc/guidelines.html
 
-
-
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020020501'
 
-DESCRIPTION = 'Checks the number of currently running processes.'
+DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
-bash_command = '/usr/bin/ls /proc | /usr/bin/grep ^[1-9] --count'
+bash_command = 'ps -eo stat:10,pid:10,comm --no-headers'
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = None
 
+
 #====================
+from lib.globals import *
+
 import argparse
 from traceback import print_exc
-
-from lib.globals import *
 from lib.utils import execute_command
 from lib.parse_input import evaluate_greater
 from lib.output import unpack_perfdata
+
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -60,9 +60,6 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    WARN = parsed.WARN
-    CRIT = parsed.CRIT
-
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = execute_command(bash_command)
     if (stderr or retc != 0):
@@ -70,11 +67,72 @@ def main():
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
 
-    result = int(stdout.strip())
-    state = evaluate_greater(result, WARN, CRIT)
-    msg = str(result) + ' processes'
-    perfdata = unpack_perfdata('procs', result, None, WARN, CRIT, 0, None)
-    print(msg.strip() + '|' + perfdata.strip())
+    stdout = stdout.strip().split('\n')
+
+    proc_states = {
+        'D': 0,
+        'R': 0,
+        'S': 0,
+        'T': 0,
+        'W': 0,
+        'X': 0,
+        'Z': 0,
+    }
+
+    uninterruptible, running, zombies = '', '', ''
+    for proc in stdout:
+        # S+              31574 executable-name
+        proc_state = proc[0:1].strip()
+        proc_pid   = proc[11:21].strip()
+        proc_name  = proc[22:]
+        if proc_state == 'D':                                   # uninterruptible
+            proc_states['D'] += 1
+            uninterruptible += proc_name + ', '
+        proc_states['S'] += 1 if proc_state == 'I' else 0       # idle counts like sleeping
+        if proc_state == 'R':                                   # running
+            proc_states['R'] += 1
+            running += proc_name + ', '
+        proc_states['S'] += 1 if proc_state == 'S' else 0       # sleeping
+        proc_states['T'] += 1 if proc_state == 'T' else 0       # stopped
+        proc_states['T'] += 1 if proc_state == 't' else 0       # stopped t counts as stopped T
+        proc_states['W'] += 1 if proc_state == 'W' else 0       # paging
+        proc_states['X'] += 1 if proc_state == 'X' else 0       # dead
+        if proc_state == 'Z':                                   # zombies
+            proc_states['Z'] += 1
+            zombies += proc_name + ', '
+
+    # sort by highest value
+    stats = sorted(proc_states.items(), key=lambda x: x[1], reverse=True)
+
+    # count the procs
+    proc_cnt = len(stdout)
+    state = evaluate_greater(proc_cnt, parsed.WARN, parsed.CRIT)
+
+    msg = '{} tasks, '.format(proc_cnt)
+    for proc_state, proc_state_cnt in stats:
+        if proc_state_cnt > 0:
+            msg += '{} dead, '.format(proc_state_cnt) if proc_state == 'X' else '' 
+            msg += '{} paging, '.format(proc_state_cnt) if proc_state == 'W' else '' 
+            msg += '{} running ({}), '.format(proc_state_cnt, running[:-2]) if proc_state == 'R' else '' 
+            msg += '{} sleeping, '.format(proc_state_cnt) if proc_state == 'S' else '' 
+            msg += '{} stopped, '.format(proc_state_cnt) if proc_state == 'T' else '' 
+            msg += '{} uninterruptible ({}), '.format(proc_state_cnt, uninterruptible[:-2]) if proc_state == 'D' else '' 
+            if proc_state == 'Z':
+                msg += '{} zombies (WARN: {}), '.format(proc_state_cnt, zombies[:-2])
+                state = get_greater_state(state, STATE_WARN)
+
+    perfdata = ''
+    perfdata += unpack_perfdata('procs', proc_cnt, None, parsed.WARN, parsed.CRIT, 0, None)
+
+    perfdata += unpack_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('procs_zombies', proc_states['Z'], None, 1, None, 0, None)
+    perfdata += unpack_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
+    perfdata += unpack_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
+
+    print(msg[:-2] + '|' + perfdata.strip())
     exit(state)
 
 if __name__ == '__main__':

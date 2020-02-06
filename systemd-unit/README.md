@@ -1,5 +1,5 @@
 * show ALL unit files: `systemctl list-unit-files --all`
-* show loaded units: `systemctl list-unit-files` 
+* show units: `systemctl list-units` 
 * get current state of a unit (needed as input for this check: `systemctl show -p LoadState,ActiveState,SubState,UnitFileState firewalld`
 
 systemctl show -p LoadState,ActiveState,SubState,UnitFileState <name>
