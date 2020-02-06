@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+
+import unittest
+
+import os
+import time
+
+from lib.globals import *
+from lib.utils import execute_command
+
+        
+class TestCheck(unittest.TestCase):
+
+    check = './mailq'
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE01,,0')
+        self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE02,,0')
+        self.assertRegexpMatches(stdout, r'2 mails to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE03,,0')
+        self.assertRegexpMatches(stdout, r'Mail queue is empty\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE04,,0')
+        self.assertRegexpMatches(stdout, r'2 mails to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE05,,0')
+        self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE06(self):
+        stdout, stderr, retc = execute_command(self.check + ' --test=examples/EXAMPLE03,examples/EXAMPLE06,0')
+        self.assertRegexpMatches(stdout, r'postqueue: warning: Mail system is down -- accessing queue directly\. Mail queue is empty\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+if __name__ == '__main__':
+    unittest.main()
