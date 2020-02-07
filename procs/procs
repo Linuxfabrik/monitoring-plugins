@@ -13,7 +13,7 @@ __version__ = '2020020501'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
-bash_command = 'ps -eo stat:10,pid:10,comm --no-headers'
+bash_command = 'ps -eo stat:10,pid:10,comm:30,lstart --no-headers'
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = None
@@ -23,6 +23,8 @@ DEFAULT_WARN = None
 from lib.globals import *
 
 import argparse
+import datetime
+
 from traceback import print_exc
 from lib.utils import execute_command
 from lib.parse_input import evaluate_greater
@@ -69,6 +71,7 @@ def main():
 
     stdout = stdout.strip().split('\n')
 
+    # the counter for the different process states
     proc_states = {
         'D': 0,
         'R': 0,
@@ -79,12 +82,16 @@ def main():
         'Z': 0,
     }
 
+    state = STATE_OK
+
     uninterruptible, running, zombies = '', '', ''
+    now = datetime.datetime.now()
     for proc in stdout:
-        # S+              31574 executable-name
         proc_state = proc[0:1].strip()
         proc_pid   = proc[11:21].strip()
-        proc_name  = proc[22:]
+        proc_name  = proc[22:53].strip()
+        proc_start = datetime.datetime.strptime(proc[53:].strip(), '%a %b %d %H:%M:%S %Y')     # Thu Feb  6 20:39:50 2020
+
         if proc_state == 'D':                                   # uninterruptible
             proc_states['D'] += 1
             uninterruptible += proc_name + ', '
@@ -99,14 +106,18 @@ def main():
         proc_states['X'] += 1 if proc_state == 'X' else 0       # dead
         if proc_state == 'Z':                                   # zombies
             proc_states['Z'] += 1
-            zombies += proc_name + ', '
+            zombies += proc_name.replace(' <defunct>', '') + ', '
+            # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/issues/1
+            delta = now - proc_start
+            if delta.total_seconds() > 24*60*60:
+                state = STATE_WARN
+
 
     # sort by highest value
     stats = sorted(proc_states.items(), key=lambda x: x[1], reverse=True)
 
     # count the procs
     proc_cnt = len(stdout)
-    state = evaluate_greater(proc_cnt, parsed.WARN, parsed.CRIT)
 
     msg = '{} tasks, '.format(proc_cnt)
     for proc_state, proc_state_cnt in stats:
@@ -118,8 +129,15 @@ def main():
             msg += '{} stopped, '.format(proc_state_cnt) if proc_state == 'T' else '' 
             msg += '{} uninterruptible ({}), '.format(proc_state_cnt, uninterruptible[:-2]) if proc_state == 'D' else '' 
             if proc_state == 'Z':
-                msg += '{} zombies (WARN: {}), '.format(proc_state_cnt, zombies[:-2])
-                state = get_greater_state(state, STATE_WARN)
+                if state == STATE_WARN:
+                    msg += 'WARN: '
+                if proc_state_cnt == 1:
+                    msg += '{} zombie ({}), '.format(proc_state_cnt, zombies[:-2])
+                else:
+                    msg += '{} zombies ({}), '.format(proc_state_cnt, zombies[:-2])
+
+
+    state = get_greater_state(state, evaluate_greater(proc_cnt, parsed.WARN, parsed.CRIT))
 
     perfdata = ''
     perfdata += unpack_perfdata('procs', proc_cnt, None, parsed.WARN, parsed.CRIT, 0, None)
