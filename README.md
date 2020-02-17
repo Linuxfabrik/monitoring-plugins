@@ -70,9 +70,12 @@ To run a check make sure that the symbolic link `lib` points to `lib-linux`, whi
 
 ## Unit Tests
 
-Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
+Running tests: `python2 path/to/check-plugin/test`
 
-To test a check that need to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+Implementing tests:
+
+* Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
+* To test a check that needs to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
 
 ## Names, Naming Conventions, Parameters, Option Processing
