@@ -10,9 +10,9 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020021901'
 
-DESCRIPTION = 'Checks the ownership and group of a list of files.'
+DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
 command = 'stat {path}'
 
@@ -35,6 +35,7 @@ MAX = None
 import argparse
 from traceback import print_exc
 import os
+import re
 
 from lib.globals import *
 from lib.utils import execute_command
@@ -43,16 +44,16 @@ from lib.utils import execute_command
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
-
     parser.add_argument('--filename',
-        help = 'Additional filename to be checked, in the format "owner:group,path" (repeating).',
+        help = 'A list of filenames to be checked, in the format "owner:group,path;owner:group,path;...".',
         dest = 'FILES',
         type = str,
         default = '',
+        )
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
     return parser.parse_args()
@@ -67,16 +68,24 @@ def main():
 
     FILES = DEFAULT_FILES + '\n' + parsed.FILES.replace(';', '\n')
 
-    global_state = STATE_OK
+    state = STATE_OK
     msg = ''
-    checked_counter = 0
+    cnt = 0
 
     for line in FILES.splitlines():
-        line = line.split(',')
-        path = line[1]
+        try:
+            line = line.split(',')
+            path = line[1]
+        except:
+            print('--filename parameter seems to be in the wrong format.')
+            exit(STATE_UNKNOWN)
 
         if os.path.exists(path):
-            owner, group = line[0].split(':')
+            try:
+                owner, group = line[0].split(':')
+            except:
+                print('--filename parameter seems to be in the wrong format.')
+                exit(STATE_UNKNOWN)
 
             formatted_command = command.format(path=path)
             # execute the shell command and return its result and exit code
@@ -88,28 +97,30 @@ def main():
 
             for line in stdout.splitlines():
                 if line.startswith('Access: ('):
-                    line = line.split()
-                    actual_owner = line[5][:-1] # remove trailing ')'
-                    actual_group = line[9][:-1] # remove trailing ')'
+                    # Access: (0644/-rw-r--r--)  Uid: (  982/ unbound)   Gid: (  981/ unbound)
+                    # Access: (0600/-rw-------)  Uid: ( 1000/markus.frei)   Gid: ( 1000/markus.frei)
+                    current_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
+                    current_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
 
-                    if owner != actual_owner or group != actual_group:
-                        global_state = STATE_WARN
-                        msg = '* {path} is [{actual_owner}:{actual_group}], fix using "chown {owner}:{group} {path}" (WARN)\n'.format(path=path, actual_owner=actual_owner, actual_group=actual_group, owner=owner, group=group) + msg # append to start of msg
+                    if owner != current_owner or group != current_group:
+                        state = STATE_WARN
+                        msg = '* {path} is [{current_owner}:{current_group}], fix using "chown {owner}:{group} {path}" (WARN)\n'.format(path=path, current_owner=current_owner, current_group=current_group, owner=owner, group=group) + msg # append to start of msg
                     else:
-                        msg += '* {path} is [{actual_owner}:{actual_group}]\n'.format(path=path, actual_owner=actual_owner, actual_group=actual_group)
+                        msg += '* {path} is [{current_owner}:{current_group}]\n'.format(path=path, current_owner=current_owner, current_group=current_group)
 
-                    checked_counter += 1
+                    cnt += 1
 
-    if checked_counter == 0:
+    if cnt == 0:
         print('No files checked.\n')
-        exit(global_state)
+        exit(state)
 
-    if global_state == STATE_OK:
-        print('All owners and groups are correct.\n' + 'Checked: \n' + msg.strip())
-        exit(global_state)
+    if state == STATE_OK:
+        print('Owners and groups are correct.\n' + 'Checked: \n' + msg.strip())
+        exit(state)
     else:
         print('One or more problems with owners or groups.\n' + 'Checked: \n' + msg.strip())
-        exit(global_state)
+        exit(state)
+
 
 if __name__ == '__main__':
     try:
