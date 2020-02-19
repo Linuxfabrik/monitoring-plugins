@@ -137,12 +137,13 @@ For all other options, use long parameters only. We recommend using some of thos
     --port
     --portname 
     --prefix
-    --prefix
     --severity
     --state 
     --substate
     --test
+    --timeout
     --timespan
+    --trigger
     --type
     --unit
     --unitfilestate
