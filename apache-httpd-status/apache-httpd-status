@@ -1,0 +1,195 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://nagios-plugins.org/doc/guidelines.html
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020021701'
+
+DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
+
+DEFAULT_URL = 'http://localhost/server-stats'
+DEFAULT_WARN = 90       # %
+DEFAULT_CRIT = 95       # %
+
+
+#====================
+import argparse
+from traceback import print_exc
+import urllib2
+
+
+from lib.globals import *
+from lib.output import bytes2human, unpack_perfdata
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-c', '--critical', 
+        help = 'Set the CRIT threshold for the number of workers processing requests in percent. Default: >= %(default)s',
+        dest = 'CRIT',
+        type = int,
+        default = DEFAULT_CRIT,
+        )
+    parser.add_argument('--url',
+        help = 'Apache Server Status URL. Default: %(default)s',
+        dest = 'URL',
+        default = DEFAULT_URL,
+        )
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+    parser.add_argument('-w', '--warning',
+        help = 'Set the WARN threshold for the number of workers processing requests in percent. Default: >= %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    URL = parsed.URL
+    if URL[0:4] != 'http':
+        print('--url parameter has to start with "http://" or https://".')
+        exit(STATE_UNKNOWN)
+    URL = URL + '?auto'
+
+    # fetch the URL
+    try:
+        request = urllib2.Request(URL)
+        response = urllib2.urlopen(request, timeout=5)
+    except urllib2.HTTPError as error:
+        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
+        exit(STATE_UNKNOWN)
+    except urllib2.URLError as error:
+        print('URL Error: {0}'.format(error.reason))
+        exit(STATE_UNKNOWN)
+    except:
+        print('Unknown Error, maybe timeout.')
+        exit(STATE_UNKNOWN)
+
+    result = response.read()
+    if not result:
+        print('There was no result from {} for {}.'.format(URL, nc_url))
+        exit(STATE_UNKNOWN)
+
+    result = result.strip().split('\n')
+    for item in result:
+        key, value = item.split(': ')
+
+        if key == 'Total Accesses':
+            httpd_total_accesses = value
+        if key == 'Total kBytes':
+            httpd_total_traffic = int(value) * 1024
+        if key == 'ReqPerSec':
+            try:
+                httpd_reqpersec = float(value)
+            except:
+                httpd_reqpersec = 0
+        if key == 'BytesPerSec':
+            try:
+                httpd_bytespersec = int(round(float(value), 0))
+            except:
+                httpd_bytespersec = 0
+        if key == 'BytesPerReq':
+            try:
+                httpd_bytesperreq = int(round(float(value), 0))
+            except:
+                httpd_bytesperreq = 0
+        if key == 'BusyWorkers':
+            workers_busy_total = value
+        if key == 'IdleWorkers':
+            workers_idle_total = value
+        if key == 'Scoreboard':
+            scoreboard = value
+
+    workers_total     = len(scoreboard)
+
+    workers_closing   = scoreboard.count('C')
+    workers_dns       = scoreboard.count('D')
+    workers_finishing = scoreboard.count('G')
+    workers_idle      = scoreboard.count('I')
+    workers_keepalive = scoreboard.count('K')
+    workers_logging   = scoreboard.count('L')
+    workers_open      = scoreboard.count('.')
+    workers_reading   = scoreboard.count('R')
+    workers_replying  = scoreboard.count('W')
+    workers_starting  = scoreboard.count('S')
+    workers_waiting   = scoreboard.count('_')
+
+    
+    msg = ''
+    state = STATE_OK
+
+    if int(workers_finishing) > 0:
+        msg += 'Gracefully finishing worker(s) "G" found (WARN). '
+        state = STATE_WARN
+
+
+    workers = int(round(float(workers_busy_total) / float(workers_total) * 100.0, 1))
+
+    if workers >= parsed.CRIT:
+        msg += 'Workers (CRIT): '
+        state = STATE_CRIT
+    elif workers >= parsed.WARN:
+        msg += 'Workers (WARN): '
+        state = STATE_WARN
+    else:
+        msg += 'Workers: '
+
+
+    # build the message
+    msg += '{} busy ({}%), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req'.format(
+        workers_busy_total, workers, workers_idle_total, workers_open,
+        httpd_total_accesses, round(httpd_reqpersec, 0),
+        bytes2human(httpd_total_traffic), bytes2human(httpd_bytespersec), bytes2human(httpd_bytesperreq)
+        )
+
+    perfdata = ''
+    # unpack_perfdata(label, value, uom, warn, crit, min, max)
+    perfdata += unpack_perfdata('httpd_total_accesses', httpd_total_accesses, 'c', None, None, 0, None)
+    perfdata += unpack_perfdata('httpd_total_traffic',  httpd_total_traffic,  'B', None, None, 0, None)
+    perfdata += unpack_perfdata('httpd_reqpersec',      httpd_reqpersec,     None, None, None, 0, None)
+    perfdata += unpack_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
+    perfdata += unpack_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
+
+    perfdata += unpack_perfdata('workers',              workers,              '%', parsed.WARN, parsed.CRIT, 0, 100)
+
+    perfdata += unpack_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_finishing',    workers_finishing,   None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_open',         workers_open,        None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
+
+
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

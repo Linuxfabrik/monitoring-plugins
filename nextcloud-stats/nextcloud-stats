@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020021901'
 
 DESCRIPTION = 'This plugin lets you track if server or app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -208,7 +208,6 @@ def main():
         print('Sorry, something went wrong - no "ok" state returned.')
         exit(STATE_UNKNOWN)
 
-
     # extract some application specific data
     nc_system_apps_app_updates            = result['ocs']['data']['nextcloud']['system']['apps']['app_updates']
     nc_system_apps_num_installed          = result['ocs']['data']['nextcloud']['system']['apps']['num_installed']
@@ -226,6 +225,7 @@ def main():
     
     nc_shares_num_fed_shares_received     = result['ocs']['data']['nextcloud']['shares']['num_fed_shares_received']
     nc_shares_num_fed_shares_sent         = result['ocs']['data']['nextcloud']['shares']['num_fed_shares_sent']
+
     nc_shares_num_shares                  = result['ocs']['data']['nextcloud']['shares']['num_shares']
     nc_shares_num_shares_groups           = result['ocs']['data']['nextcloud']['shares']['num_shares_groups']
     nc_shares_num_shares_link             = result['ocs']['data']['nextcloud']['shares']['num_shares_link']
@@ -273,13 +273,14 @@ def main():
         nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h, 
         nc_storage_num_files, nc_system_apps_num_installed,
         )
-    msg += '* Shares: {} shares, {} groups, {} links, {} links no password, {} mails, {} rooms, {} users\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
-        nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user)
-    msg += '* Federated Shares: {} received, {} sent\n'.format(nc_shares_num_fed_shares_received, nc_shares_num_fed_shares_sent)
-    msg += '* Storages: {} storages, {} home, {} other, {} local\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
-    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, bytes2human(nc_server_database_size))
+    msg += '* Shares: {} ({} groups, {} links [{} w/o password], {} mails, {} rooms, {} users, {} federated sent)\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
+        nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user, nc_shares_num_fed_shares_sent)
+    msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
+    msg += '* Storages: {} ({} home, {} other, {} local)\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
     msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, bytes2human(nc_server_php_memory_limit))
-    msg += '* Sys: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
+    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, bytes2human(nc_server_database_size))
+    msg += '* Web: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
+
 
     perfdata += unpack_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)
 

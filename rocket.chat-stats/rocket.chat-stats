@@ -251,36 +251,37 @@ def main():
 
 
     # build a compact multiline message
-    msg += 'v{}, {} users ({} online), {} rooms, {} direct msgs, {} private groups, {} livechats, {} uploads\n'.format(
+    msg += 'v{}, {} users ({} online), {} msgs, {} uploads, {} uploads total size\n'.format(
         rc_statistics_version, 
         rc_statistics_totalUsers,
         rc_statistics_onlineUsers,
-        rc_statistics_totalRooms,
-        rc_statistics_totalDirectMessages,
-        rc_statistics_totalPrivateGroups,
-        rc_statistics_totalLivechat,
-        rc_statistics_uploadsTotal
-        )
-    msg += '{} msgs, {} private group msgs, {} livechat visitors, {} livechat msgs, {} uploads total size'.format(
         rc_statistics_totalMessages,
-        rc_statistics_totalPrivateGroupMessages,
-        rc_statistics_totalLivechatVisitors,
-        rc_statistics_totalLivechatMessages,
+        rc_statistics_uploadsTotal,
         bytes2human(rc_statistics_uploadsTotalSize),
         )
+    msg += '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
+        rc_statistics_totalRooms,
+        rc_statistics_totalPrivateGroups,
+        rc_statistics_totalPrivateGroupMessages,
+        rc_statistics_totalDirectMessages,
+        )
+    msg += '{} livechat visitors, {} livechats, {} livechat msgs\n'.format(
+        rc_statistics_totalLivechatVisitors,
+        rc_statistics_totalLivechat,
+        rc_statistics_totalLivechatMessages,
+        )
 
-    perfdata += unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
-
+    perfdata += unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
+    perfdata += unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
     perfdata += unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
 
     print(msg.strip() + '|' + perfdata.strip())

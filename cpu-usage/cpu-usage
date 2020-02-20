@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020013001'
+__version__ = '2020021101'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -191,6 +191,8 @@ def main():
 
     # build the message
     perfdata += unpack_perfdata('cpu-usage', cpu_usage, '%', parsed.WARN, parsed.CRIT, 0, 100)
+    # line1: values > 0%
+    # line2: values == 0%
     line1, line2 = '', ''
     for i in range(len(stats)):
         if stats[i][1] != 0:
@@ -198,7 +200,9 @@ def main():
         else:
             line2 += '{}: {}%, '.format(stats[i][0], stats[i][1])
         perfdata += unpack_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
-    msg += '{}% - '.format(cpu_usage) + line1[:-2]
+    msg += '{}%'.format(cpu_usage)
+    if  line1:
+        msg += ' - ' + line1[:-2]
     if line2:
         msg += '\n' + line2[:-2]
 
