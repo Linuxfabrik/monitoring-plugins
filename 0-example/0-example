@@ -119,6 +119,13 @@ def define_args():
         type = float,
         default = DEFAULT_WARN,
         )
+
+    parser.add_argument('--always-ok',
+        help = 'This option means the check always return the state OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
     
 
     return parser.parse_args()
@@ -248,6 +255,8 @@ def main():
     perfdata = unpack_perfdata('random_value', result, None, parsed.WARN, parsed.CRIT, 0, 100)
     print('|' + perfdata.strip())
 
+    if ALWAYS_OK:
+        exit(STATE_OK)
     exit(state)
 
 

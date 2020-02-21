@@ -52,8 +52,15 @@ def define_args():
     parser.add_argument('-w', '--warning',
         help = 'Set the warning threshold for uptime in days. Default: %(default)s',
         dest = 'WARN',
-        type = int,
+        type = int_or_None,
         default = DEFAULT_WARN,
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'This option means the check always return the state OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     return parser.parse_args()
@@ -88,6 +95,9 @@ def main():
 
     # over and out
     print(msg.strip() + '|' + perfdata.strip())
+
+    if parsed.ALWAYS_OK:
+        exit(STATE_OK)
     exit(state)
 
 
