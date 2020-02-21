@@ -9,14 +9,14 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012901'
+__version__ = '2020022101'
 
 DESCRIPTION = 'This check is some kind of user interface for smartctl, which is a tool for querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in hard disk and solid-state drives. It allows you to inspect the drive\'s SMART data to determine its health.'
 
 command_installed  = 'command -v smartctl'
 command_list_disks = 'lsblk --nodeps --noheadings --output name,type --scsi'
 command_smartctl   = 'smartctl --xall {disk_path}'
-# command_smartctl  = 'cat examples/EXAMPLE01'
+#command_smartctl  = 'cat examples/EXAMPLE01'
 
 
 DEFAULT_IGNORE = []
@@ -113,6 +113,7 @@ def main():
 
             temp = {}
             temp['disk'] = disk
+            temp['model'] = ''
             continue_flag = False
             in_section_information = True # this is always the first section of each disk
             for line in stdout.splitlines():
@@ -149,9 +150,16 @@ def main():
 
                     if line.startswith(b'Model Family:'):
                         temp['model_family'] = line.split(b':')[1].decode().strip()
+                        temp['model'] += temp['model_family'] + ', '
+
+                    if line.startswith(b'Model Number:'):
+                        temp['model_family'] = line.split(b':')[1].decode().strip()
+                        temp['model'] += temp['model_family'] + ', '
 
                     if line.startswith(b'Device Model:'):
                         temp['device_model'] = line.split(b':')[1].decode().strip()
+                        temp['model'] += temp['device_model'] + ', '
+
 
                     if line.startswith(b'Serial Number:'):
                         temp['serial_number'] = line.split(b':')[1].decode().strip()
@@ -159,13 +167,13 @@ def main():
                     if line.startswith(b'SMART support is'):
                         if b'Disabled' in line:
                             temp['state'] = get_greater_state(STATE_UNKNOWN, temp.get('state', STATE_OK))
-                            temp['msg'] = temp.get('msg', '') + '* General: SMART on drive is disabled. You should enable it to read any SMART information from this drive. Additionally, some drives do not log useful data with SMART disabled, so it\'s advisable to keep it always enabled.\n'
+                            temp['msg'] = temp.get('msg', '') + '  - General: SMART on drive is disabled. You should enable it to read any SMART information from this drive. Additionally, some drives do not log useful data with SMART disabled, so it\'s advisable to keep it always enabled.\n'
                             continue_flag = True
                             break
                         
                         if b'Unavailable' in line:
                             temp['state'] = get_greater_state(STATE_UNKNOWN, temp.get('state', STATE_OK))
-                            temp['msg'] = temp.get('msg', '') + '* General: SMART on drive is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
+                            temp['msg'] = temp.get('msg', '') + '  - General: SMART on drive is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
                             continue_flag = True
                             break
 
@@ -184,9 +192,10 @@ def main():
                             and not current_warning.startswith('Unknown SCT Status format version')\
                             and not current_warning.startswith('Read SMART Thresholds failed')\
                             and not current_warning.startswith('>> Terminate command early due to bad response to IEC mode page')\
-                            and not current_warning.startswith('scsiModePageOffset:'):
+                            and not current_warning.startswith('scsiModePageOffset:')\
+                            and not current_warning.startswith('This firmware returns bogus raw values'):
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* General: Drive may be affected by a warning, please see the details: "{}"\n'.format(current_warning.strip())
+                                temp['msg'] = temp.get('msg', '') + '  - General: Drive may be affected by a warning, please see the details: "{}"\n'.format(current_warning.strip())
 
                             current_warning = ''
                         else:
@@ -206,7 +215,7 @@ def main():
                     if line.startswith(b'SMART overall-health self-assessment'):
                         if b'PASSED' not in line.split(b':')[1].strip():
                             temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                            temp['msg'] = temp.get('msg', '') + '* Overall Health Self-Assessment Test: FAILED! Drive is reporting that it will FAIL very soon. Please back up as soon as possible!\n'
+                            temp['msg'] = temp.get('msg', '') + '  - Overall Health Self-Assessment Test: FAILED! Drive is reporting that it will FAIL very soon. Please back up as soon as possible!\n'
 
                     # subsection_attributes
                     # SMART Attributes Data Structure revision number: 16
@@ -230,12 +239,12 @@ def main():
                             if 'P' in flags:
                                 # pre-fail
                                 temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a failing pre-fail attribute ("{} {}"). Usually this indicates that the drive will FAIL soon. Please back up immediately!\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a failing pre-fail attribute ("{} {}"). Usually this indicates that the drive will FAIL soon. Please back up immediately!\n'.format(split_line[0], split_line[1])
                                 continue
                             else:
                                 # old_age
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a failing old-age attribute ("{} {}"). Usually this indicates a wear-out. You should consider replacing the drive.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a failing old-age attribute ("{} {}"). Usually this indicates a wear-out. You should consider replacing the drive.\n'.format(split_line[0], split_line[1])
                                 continue
                         elif 'Past' in fail:
                             # check if pre-fail or old_age
@@ -243,7 +252,7 @@ def main():
                             if 'P' in flags:
                                 # pre-fail
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: had a failing pre-fail attribute ("{} {}"), but it has been restored to a normal value. This may be a serious problem, you should consider replacing the drive.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: had a failing pre-fail attribute ("{} {}"), but it has been restored to a normal value. This may be a serious problem, you should consider replacing the drive.\n'.format(split_line[0], split_line[1])
                                 continue
                             else:
                                 # old_age - do nothing. We don't warn about e.g. temperature increase in the past
@@ -253,19 +262,19 @@ def main():
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b' 10 Spin_Retry_Count'):
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. Your drive may have problems spinning up, which could lead to a complete mechanical failure. Please back up.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. Your drive may have problems spinning up, which could lead to a complete mechanical failure. Please back up.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b' 13 Read_Soft_Error_Rate'):
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b'190 Temperature_Celsius')\
                         or line.startswith(b'194 Temperature_Celsius')\
@@ -277,34 +286,34 @@ def main():
                             perfdata += unpack_perfdata('{}_{}_{}'.format(perfdata_prefix, split_line[0], split_line[1]), raw_value, None, None, None, 0, None)
                             if raw_value > 50:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
 
                         if line.startswith(b'194 Temperature_Celsius_x10'):
                             raw_value = int(split_line[7])
                             perfdata += unpack_perfdata('{}_{}_{}'.format(perfdata_prefix, split_line[0], split_line[1]), raw_value, None, None, None, 0, None)
                             if raw_value > 500:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
 
                         if line.startswith(b'196 Reallocated_Event_Count'):
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b'197 Current_Pending_Sector')\
                         or line.startswith(b'197 Total_Pending_Sectors'):
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b'198 Offline_Uncorrectable')\
                         or line.startswith(b'198 Total_Offl_Uncorrectabl'):
                             raw_value = int(split_line[7])
                             if raw_value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b'  5 Retired_Block_Count')\
                         or line.startswith(b'169 Remaining_Lifetime_Perc')\
@@ -316,17 +325,17 @@ def main():
                         or line.startswith(b'233 Media_Wearout_Indicator')\
                         or line.startswith(b'233 Remaining_Lifetime_Perc'):
                             value = int(split_line[3])
-                            perfdata += unpack_perfdata('{}_{}_{}'.format(perfdata_prefix, split_line[0], split_line[1]), raw_value, None, None, None, 0, 100)
+                            perfdata += unpack_perfdata('{}_{}_{}'.format(perfdata_prefix, split_line[0], split_line[1]), value, None, None, None, 0, 100)
                             if value < 50:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(split_line[0], split_line[1])
 
                         if line.startswith(b'202 Percent_Lifetime_Used'):
                             raw_value = int(split_line[7])
                             perfdata += unpack_perfdata('{}_{}_{}'.format(perfdata_prefix, split_line[0], split_line[1]), raw_value, None, None, None, 0, 100)
                             if raw_value >= 50:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(split_line[0], split_line[1])
+                                temp['msg'] = temp.get('msg', '') + '  - Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(split_line[0], split_line[1])
 
                         # collect perfdata for attributes that are not evaluated
                         if line.startswith(b'  9 Power_On_Hours')\
@@ -372,17 +381,17 @@ def main():
                             value = int(split_line[3])
                             if value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
 
                         if 'Utilization Usage Rate' in description\
                         or 'Percentage Used Endurance Indicator' in description:
                             value = int(split_line[3])
                             if value >= 50:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
                             if value >= 100:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is past its estimated lifespan.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is past its estimated lifespan.\n'
 
                         if 'Number of Reallocated Logical Sectors' in description:
                             # check if value is normalized or not
@@ -392,43 +401,49 @@ def main():
                                 # normalized
                                 if value <= 0:
                                     temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                    temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+                                    temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
                             else:
                                 # not normalized
                                 if value > 0:
                                     temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                    temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+                                    temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
 
                         if 'Number of Mechanical Start Failures' in description:
                             value = int(split_line[3])
                             if value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting mechanical errors ("{}").\n'.format(description)
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting mechanical errors ("{}").\n'.format(description)
 
                         if 'Number of Realloc. Candidate Logical Sectors' in description\
                         or 'Number of Reported Uncorrectable Errors' in description:
                             value = int(split_line[3])
                             if value > 0:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
 
                         if 'Current Temperature' in description:
                             value = int(split_line[3])
                             if value > 50:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: The temperature of the drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Statistics: The temperature of the drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
 
                         if 'Time in Over-Temperature' in description:
-                            value = int(split_line[3])
-                            if value > 0:
-                                temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: The temperature of the drive is or was over the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please install a cooling solution.\n'
+                            try:
+                                value = int(split_line[3])
+                                if value > 0:
+                                    temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
+                                    temp['msg'] = temp.get('msg', '') + '  - Statistics: The temperature of the drive is or was over the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please install a cooling solution.\n'
+                            except:
+                                tmp = ''
 
                         if 'Time in Under-Temperature' in description:
-                            value = int(split_line[3])
-                            if value > 0:
-                                temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Statistics: The temperature of the drive is or was under the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please operate the drive within manufacturer-specified temperature range.\n'
+                            try:
+                                value = int(split_line[3])
+                                if value > 0:
+                                    temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
+                                    temp['msg'] = temp.get('msg', '') + '  - Statistics: The temperature of the drive is or was under the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please operate the drive within manufacturer-specified temperature range.\n'
+                            except:
+                                tmp = ''
 
                     # find the start of the devstat subsection
                     # Device Statistics (GP Log 0x04)
@@ -487,43 +502,43 @@ def main():
                         matches = re.search(regex_error_count, line)
                         if matches:
                             temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                            temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting {int(matches[1])} internal errors. Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                            temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting {} internal errors. Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'.format(matches.group(1))
 
                         if in_subsection_error_log_error:
                             if b'AMNF' in line:
                                 temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Address mark not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Address mark not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
                             if b'CCTO' in line:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Command completion timed out"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Command completion timed out"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
                             if b'EOM' in line:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("End of media"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("End of media"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
                             if b'ICRC' in line:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Interface CRC error"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Interface CRC error"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
                             if b'IDNF' in line:
                                 temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Identity not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Identity not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
 
                             if b'ILI' in line:
                                 temp['state'] = get_greater_state(STATE_WARN, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Packet command-set specific"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Packet command-set specific"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
 
                             if b'TK0NF' in line:
                                 temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Track 0 not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Track 0 not found"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
 
                             if b'UNC' in line:
                                 temp['state'] = get_greater_state(STATE_CRIT, temp.get('state', STATE_OK))
-                                temp['msg'] = temp.get('msg', '') + '* Error Log: Drive is reporting internal errors ("Uncorrectable error in data"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
+                                temp['msg'] = temp.get('msg', '') + '  - Error Log: Drive is reporting internal errors ("Uncorrectable error in data"). Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'
 
 
                         # find the start of an error block
@@ -547,7 +562,10 @@ def main():
     disk_counter = 0
     for disk in checkdata:
         disk_counter += 1
-        msg += '\n{} "{} ({}, SerNo: {})"\n'.format(state_to_string(disk.get('state', STATE_OK)), disk['disk'], disk['device_model'], disk['serial_number'])
+        if disk.get('state') == None:
+            msg += '* {} ({}, SerNo {})\n'.format(disk['disk'], disk['model'][:-2], disk['serial_number'])
+        else:
+            msg += '* {} {} ({}, SerNo {})\n'.format(state_to_string(disk.get('state', STATE_OK)), disk['disk'], disk['model'][:-2], disk['serial_number'])
         msg += disk.get('msg', '')
         overall_state = get_greater_state(disk.get("state", STATE_OK), overall_state)
 
@@ -559,7 +577,7 @@ def main():
         print('Checked {} disk(s). All are healthy.'.format(disk_counter))
 
     if msg:
-        print(msg)
+        print(msg.strip())
 
     # print out perfdata
     if perfdata:
