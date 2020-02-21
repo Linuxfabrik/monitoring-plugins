@@ -9,12 +9,12 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020022101'
 
 DESCRIPTION = 'Tell how long the system has been running.'
 
-DEFAULT_WARN  = 180     # days
-DEFAULT_CRIT  = 366     # days
+DEFAULT_WARN = 180     # days
+DEFAULT_CRIT = 366     # days
 
 
 #====================
@@ -30,6 +30,8 @@ except ImportError, e:
 import time
 
 from lib.output import seconds2human, unpack_perfdata
+from lib.parse_arguments import int_or_None
+from lib.parse_input import evaluate_greater
 
 
 def define_args():
@@ -38,7 +40,7 @@ def define_args():
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold for uptime in days. Default: %(default)s',
         dest = 'CRIT',
-        type = int,
+        type = int_or_None,
         default = DEFAULT_CRIT,
         )
 
@@ -64,19 +66,22 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    CRIT = float(parsed.CRIT)*24*60*60
-    WARN = float(parsed.WARN)*24*60*60
+    if parsed.CRIT is None:
+        CRIT = None
+    else:
+        CRIT = parsed.CRIT*24*60*60
+
+    if parsed.WARN is None:
+        WARN = None
+    else:
+        WARN = parsed.WARN*24*60*60
 
     seconds_elapsed = time.time() - psutil.boot_time()
 
     msg = ''
     perfdata = ''
-    state = STATE_OK
 
-    if float(seconds_elapsed) >= CRIT:
-        state = STATE_CRIT
-    elif float(seconds_elapsed) >= WARN:
-        state = STATE_WARN
+    state = evaluate_greater(seconds_elapsed, WARN, CRIT)
 
     msg += 'Up {}'.format(seconds2human(seconds_elapsed))
     perfdata += unpack_perfdata('uptime', seconds_elapsed, 's', WARN, CRIT, 0, None)
