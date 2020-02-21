@@ -80,27 +80,6 @@ Implementing tests:
 
 ## Names, Naming Conventions, Parameters, Option Processing
 
-TODO - rename some function names from > to:
-
-* define_args     > get_options
-* parsed          > options
-* unpack_perfdata > format_perfdata
-* filter_input    > filter_values (gehört auch nicht in parse_input, sondern ist eine array-funktion)
-
-set_thresholds
-get_status
-stats (instead of "statistics")
-msgs (abbreviation for "messages")
-get_greater_state > get_most_significant_state
-
-TODO - put in a library:
-* is_update_available (nextcloud, rocket)
-* get_latest_version (nextcloud, rocket)
-
-Libraries:
-
-* utils.py
-
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
     -a, --authentication    authentication password
@@ -120,6 +99,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 For all other options, use long parameters only. We recommend using some of those:
 
+    --always-ok
     --count
     --database
     --filename
