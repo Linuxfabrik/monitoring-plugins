@@ -136,7 +136,7 @@ def is_rocket_chat_update_available(current_version):
 def get_token_from_rocket_chat(rc_url, user, password):
     # curl -X "POST" \
     #      -d "user=admin&password=mypassword" \
-    #      http://localhost:3000/api/v1/statistics
+    #      http://localhost:3000/api/v1/login
     data = {
         'user': user,
         'password': password,
@@ -221,20 +221,38 @@ def main():
 
 
     # extract some application specific data
-    rc_statistics_onlineUsers               = result['statistics']['onlineUsers']
-    rc_statistics_totalDirectMessages       = result['statistics']['totalDirectMessages']
-    rc_statistics_totalLivechat             = result['statistics']['totalLivechat']
-    rc_statistics_totalPrivateGroups        = result['statistics']['totalPrivateGroups']
-    rc_statistics_totalRooms                = result['statistics']['totalRooms']
-    rc_statistics_totalUsers                = result['statistics']['totalUsers']
-    rc_statistics_uploadsTotal              = result['statistics']['uploadsTotal']
-    rc_statistics_version                   = result['statistics']['version']
+    if result.get('statistics', None):
+        # version < 3.0.0
+        rc_statistics_onlineUsers               = result['statistics']['onlineUsers']
+        rc_statistics_totalDirectMessages       = result['statistics']['totalDirectMessages']
+        rc_statistics_totalLivechat             = result['statistics']['totalLivechat']
+        rc_statistics_totalPrivateGroups        = result['statistics']['totalPrivateGroups']
+        rc_statistics_totalRooms                = result['statistics']['totalRooms']
+        rc_statistics_totalUsers                = result['statistics']['totalUsers']
+        rc_statistics_uploadsTotal              = result['statistics']['uploadsTotal']
+        rc_statistics_version                   = result['statistics']['version']
 
-    rc_statistics_totalLivechatMessages     = result['statistics']['totalLivechatMessages']
-    rc_statistics_totalLivechatVisitors     = result['statistics']['totalLivechatVisitors']
-    rc_statistics_totalMessages             = result['statistics']['totalMessages']
-    rc_statistics_totalPrivateGroupMessages = result['statistics']['totalPrivateGroupMessages']
-    rc_statistics_uploadsTotalSize          = result['statistics']['uploadsTotalSize']
+        rc_statistics_totalLivechatMessages     = result['statistics']['totalLivechatMessages']
+        rc_statistics_totalLivechatVisitors     = result['statistics']['totalLivechatVisitors']
+        rc_statistics_totalMessages             = result['statistics']['totalMessages']
+        rc_statistics_totalPrivateGroupMessages = result['statistics']['totalPrivateGroupMessages']
+        rc_statistics_uploadsTotalSize          = result['statistics']['uploadsTotalSize']
+    else:
+        # version >= 3.0.0
+        rc_statistics_onlineUsers               = result['onlineUsers']
+        rc_statistics_totalDirectMessages       = result['totalDirectMessages']
+        rc_statistics_totalLivechat             = result['totalLivechat']
+        rc_statistics_totalPrivateGroups        = result['totalPrivateGroups']
+        rc_statistics_totalRooms                = result['totalRooms']
+        rc_statistics_totalUsers                = result['totalUsers']
+        rc_statistics_uploadsTotal              = result['uploadsTotal']
+        rc_statistics_version                   = result['version']
+
+        rc_statistics_totalLivechatMessages     = result['totalLivechatMessages']
+        rc_statistics_totalLivechatVisitors     = result['totalLivechatVisitors']
+        rc_statistics_totalMessages             = result['totalMessages']
+        rc_statistics_totalPrivateGroupMessages = result['totalPrivateGroupMessages']
+        rc_statistics_uploadsTotalSize          = result['uploadsTotalSize']
 
 
     # no checks here, just for your information
