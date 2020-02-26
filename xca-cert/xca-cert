@@ -10,7 +10,7 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020022101'
 
 DESCRIPTION = 'Checks expiration date of XCA certificates.'
 
@@ -137,9 +137,9 @@ def main():
 
         pem_cert = '-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(cert[:10], cert[10:]) # add line break after 10th character, for the openssl command to always work
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = execute_command(command_openssl_cert, input=pem_cert)
+        stdout, stderr, retc = execute_command(command_openssl_cert, stdin_input=pem_cert)
         if (stderr or retc != 0):
-            print('Bash command `{}` failed.'.format(bash_command))
+            print('Bash command `{}` failed.'.format(command_openssl_cert))
             print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
 
@@ -165,9 +165,9 @@ def main():
 
         pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(cert)
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = execute_command(command_openssl_cert, input=pem_cert)
+        stdout, stderr, retc = execute_command(command_openssl_crl , stdin_input=pem_cert)
         if (stderr or retc != 0):
-            print('Bash command `{}` failed.'.format(bash_command))
+            print('Bash command `{}` failed.'.format(command_openssl_cert))
             print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
 

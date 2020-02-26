@@ -95,6 +95,17 @@ def main():
         if line.startswith('prune_rc'):
             prune_rc = int(line.split(": ")[1])
 
+    # check if all variables are defined
+    try:
+        starttime
+        endtime
+        create_rc
+        prune_rc
+    except UnboundLocalError as e:
+        print('Could not find all expected values in the logfile.')
+        print(e)
+        exit(STATE_UNKNOWN)
+
     state = STATE_OK
     create_rc_state = evaluate_greater(create_rc, 2, None)
     state = get_greater_state(state, create_rc_state)

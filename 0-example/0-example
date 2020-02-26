@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2019122801'
+__version__ = '2020022101'
 
 DESCRIPTION = 'This check is just a development template. It gets a random number with a bash command between 0 and 100 and compares the result against given thresholds. As an extra feature it also uses a temp file to store the last five results.'
 
@@ -34,7 +34,7 @@ import pickle
 try:
     import psutil
 except ImportError, e:
-    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 
 from lib.output import unpack_perfdata, state_to_string, format_as_table
@@ -118,6 +118,13 @@ def define_args():
         dest = 'WARN',
         type = float,
         default = DEFAULT_WARN,
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'This option means the check always return the state OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
     
 
@@ -219,7 +226,7 @@ def main():
     try:
         import tempfile
     except ImportError, e:
-        print('Python module "tempfile" is not installed. Try `yum -y install python-tempfile` or `pip install tempfile`.')
+        print('Python module "tempfile" is not installed.')
         exit(STATE_UNKNOWN)
 
 
@@ -248,6 +255,8 @@ def main():
     perfdata = unpack_perfdata('random_value', result, None, parsed.WARN, parsed.CRIT, 0, 100)
     print('|' + perfdata.strip())
 
+    if ALWAYS_OK:
+        exit(STATE_OK)
     exit(state)
 
 

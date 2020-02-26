@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020022101'
 
 DESCRIPTION = 'Return the average system load per cpu over the last 1, 5 and 15 minutes.'
 
@@ -27,7 +27,7 @@ from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
-    print('Python module "psutil" is not installed. Try `yum -y install epel-release;yum -y install python2-psutil`.')
+    print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 
 from lib.output import seconds2human, unpack_perfdata
@@ -93,7 +93,7 @@ def main():
     elif load15 >= WARN:
         state = STATE_WARN
 
-    msg += 'Load average per CPU: {:0.2f}, {:0.2f}, {:0.2f}'.format(load1, load5, load15)
+    msg += 'Avg per CPU: {:0.2f} {:0.2f} {:0.2f}'.format(load1, load5, load15)
     perfdata += unpack_perfdata('load1',  load1,  None, WARN, CRIT, 0, None)
     perfdata += unpack_perfdata('load5',  load5,  None, WARN, CRIT, 0, None)
     perfdata += unpack_perfdata('load15', load15, None, WARN, CRIT, 0, None)
