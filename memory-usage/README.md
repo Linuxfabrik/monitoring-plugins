@@ -1,4 +1,6 @@
-todo
+# Overview
+
+We recommend to run this check every minute.
 
 Return statistics about system memory usage as a named tuple including the following fields, expressed in bytes. Main metrics:
 
@@ -23,3 +25,25 @@ The sum of used and available does not necessarily equal total.
 
 Credits:
 * https://github.com/giampaolo/psutil/blob/master/scripts/free.py
+
+
+# Installation and Usage
+
+Requirements:
+* Python2 module `psutil`
+
+```bash
+./0-example --help
+```
+
+
+# States and Perfdata
+
+
+# Known Issues and Limitations
+
+
+# Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see LICENSE file.

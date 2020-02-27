@@ -1,10 +1,14 @@
 # Overview
 
 Checks system load average, normalized for the number of CPUs in a system.
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
+
+Requirements:
+* Python2 module `psutil`
 
 ```bash
 ./load --warning 1.15 --critical 5.0

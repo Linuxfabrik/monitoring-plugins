@@ -2,6 +2,8 @@
 
 Checks the security of your private cloud server using Nextcloud Security Scan from https://scan.nextcloud.com/, so the check itself does not need to run on the same host that serves Nextcloud. Have a look at https://scan.nextcloud.com/ for further explanation. Works with ownCloud, too.
 
+We recommend to run this check once a day.
+
 
 # Installation and Usage
 
@@ -17,6 +19,8 @@ Checks the security of your private cloud server using Nextcloud Security Scan f
 * CRIT if Nextcloud Rating is F, E
 * WARN if Nextcloud Rating is D, C
 * otherwise OK
+
+There is no perfdata.
 
 
 # Known Issues and Limitations

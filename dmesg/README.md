@@ -4,6 +4,8 @@ Checks emerg, alert, crit and err messages in dmesg, and therefore always return
 
 Some of those messages are ignored, for example `Assuming drive cache: write through` (should be a debug message) or `ioctl error in smb2_get_dfs_refer rc=-5` (a bug as stated in https://access.redhat.com/solutions/3496971).
 
+We recommend to run this check every minute.
+
 
 # Installation and Usage
 
@@ -15,6 +17,8 @@ Some of those messages are ignored, for example `Assuming drive cache: write thr
 # States and Perfdata
 
 Returns CRIT if any of (filtered) emerg, alert, crit and err messages in dmesg are found.
+
+There is no perfdata.
 
 
 # Credits, License

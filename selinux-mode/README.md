@@ -1,12 +1,9 @@
 # Overview
 
-We recommend to run this check every minute.
+We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
-
-Requirements:
-* Python2 module `psutil`
 
 ```bash
 ./0-example --help
@@ -14,6 +11,8 @@ Requirements:
 
 
 # States and Perfdata
+
+There is no perfdata.
 
 
 # Known Issues and Limitations

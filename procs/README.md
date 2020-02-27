@@ -1,3 +1,7 @@
+# Overview
+
+We recommend to run this check every minute.
+
 Why does the check most of the time shows "1 running (ps)"?
 
 This is due to the fact that the check calls `ps` with some parameters to fetch the current process list. In other words, `ps` is in state `R` ("running") while fetching the process list.  Like `top` we take this into account and do not ignore its own call.
@@ -22,3 +26,22 @@ PROCESS STATE CODES
                W    paging            paging (not valid since the 2.6.xx kernel)
                X    dead              dead (should never be seen)
                Z    zombies           defunct ("zombie") process, terminated but not reaped by its parent
+
+
+# Installation and Usage
+
+```bash
+./0-example --help
+```
+
+
+# States and Perfdata
+
+
+# Known Issues and Limitations
+
+
+# Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see LICENSE file.

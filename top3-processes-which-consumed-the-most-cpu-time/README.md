@@ -1,5 +1,7 @@
 # Overview
 
+Displays the top 3 processes which consume the most cpu time.
+
 We recommend to run this check every minute.
 
 
@@ -9,17 +11,19 @@ Requirements:
 * Python2 module `psutil`
 
 ```bash
-./0-example --help
+./top3-processes-which-consumed-the-most-cpu-time
+./top3-processes-which-consumed-the-most-cpu-time --help
 ```
 
 
 # States and Perfdata
 
-
-# Known Issues and Limitations
+There is no perfdata.
 
 
 # Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
+* Credits:
+  - [psutil Documentation](https://psutil.readthedocs.io/en/latest/)

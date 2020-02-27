@@ -6,12 +6,14 @@ expected to be OK.
 
 Hints and Recommendations:
 * Running this check just makes sense on hardware providing an IPMI interface.
-* We recommend running this check every 15 minutes.
+
+We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
 
-Requirements: `yum install ipmitools`
+Requirements:
+* `ipmitools`
 
 ```bash
 ./ipmi-sel
@@ -23,6 +25,8 @@ Requirements: `yum install ipmitools`
 
 * WARN, if SEL has entries.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+
+There is no perfdata.
 
 
 # Known Issues and Limitations

@@ -14,12 +14,14 @@ Features:
 
 Hints and Recommendations:
 * Running this check just makes sense on hardware using an IPMI interface.
-* We recommend running this check every 5 minutes.
+
+We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
 
-Requirements: `yum install ipmitools`
+Requirements:
+* `ipmitools`
 
 ```bash
 ./ipmi-sensor

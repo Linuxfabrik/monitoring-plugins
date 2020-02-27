@@ -19,6 +19,8 @@ Idle workers are:
 Free workers are:
 * `.`: Open slot with no current process
 
+We recommend to run this check every minute.
+
 
 # Installation and Usage
 

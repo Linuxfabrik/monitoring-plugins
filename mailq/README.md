@@ -1,12 +1,9 @@
 # Overview
 
-We recommend to run this check every minute.
+We recommend to run this check every 5 minutes.
 
 
 # Installation and Usage
-
-Requirements:
-* Python2 module `psutil`
 
 ```bash
 ./0-example --help

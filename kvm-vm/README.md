@@ -1,3 +1,7 @@
+# Overview
+
+We recommend to run this check every 15 minutes.
+
 The State field lists what state each domain is currently in. A domain
 can be in one of the following possible states:
 
@@ -40,3 +44,22 @@ can be in one of the following possible states:
 
   The domain has been suspended by guest power management, e.g. entered
   into s3 state.
+
+
+# Installation and Usage
+
+```bash
+./0-example --help
+```
+
+
+# States and Perfdata
+
+
+# Known Issues and Limitations
+
+
+# Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see LICENSE file.

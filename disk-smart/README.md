@@ -20,14 +20,16 @@ Hints and Recommendations:
   HDDs and SSDs.
 * The check tries to identify all disks automatically. Disks without SMART
   capability can be ignored using the `--ignore` parameter manually.
-* We recommend running this check every 8 hours.
 * Keep in mind that a `smartctl` run can take up to one or two seconds per disk,
   depending on its health and (interface/bus) speed.
+
+We recommend to run this check every 8 hours.
 
 
 # Installation and Usage
 
-Requirements: `yum install smartmontools`
+Requirements:
+* `smartctl` from `smartmontools`
 
 ```bash
 ./disk-smart
