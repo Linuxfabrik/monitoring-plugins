@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022601'
+__version__ = '2020022701'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -37,15 +37,18 @@ def define_args():
         type = int,
         default = DEFAULT_CRIT,
         )
+
     parser.add_argument('--url',
         help = 'Apache Server Status URL. Default: %(default)s',
         dest = 'URL',
         default = DEFAULT_URL,
         )
+
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
+
     parser.add_argument('-w', '--warning',
         help = 'Set the WARN threshold for the number of workers processing requests in percent. Default: >= %(default)s',
         dest = 'WARN',
@@ -69,6 +72,7 @@ def main():
         exit(STATE_UNKNOWN)
     URL = URL + '?auto'
 
+
     # fetch the URL
     try:
         request = urllib2.Request(URL)
@@ -87,6 +91,7 @@ def main():
     if not result:
         print('There was no result from {} for {}.'.format(URL, nc_url))
         exit(STATE_UNKNOWN)
+
 
     result = result.strip().split('\n')
     for item in result:
@@ -118,6 +123,7 @@ def main():
         if key == 'Scoreboard':
             scoreboard = value
 
+
     workers_total     = len(scoreboard)
 
     workers_closing   = scoreboard.count('C')
@@ -126,7 +132,7 @@ def main():
     workers_idle      = scoreboard.count('I')
     workers_keepalive = scoreboard.count('K')
     workers_logging   = scoreboard.count('L')
-    workers_open      = scoreboard.count('.')
+    workers_free      = scoreboard.count('.')
     workers_reading   = scoreboard.count('R')
     workers_replying  = scoreboard.count('W')
     workers_starting  = scoreboard.count('S')
@@ -136,8 +142,10 @@ def main():
     msg = ''
     state = STATE_OK
 
-    if int(workers_finishing) > 0:
-        msg += 'Gracefully finishing worker(s) "G" found (WARN). '
+
+    # warn if number of "G" gracefully finishing is more than 25% compared to free "." workers
+    if float(workers_finishing) / float(workers_free) * 100 > 25:
+        msg += 'Too many gracefully finishing workers "G" found (WARN). '
         state = STATE_WARN
 
 
@@ -155,7 +163,7 @@ def main():
 
     # build the message
     msg += '{} busy ({}%), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req'.format(
-        workers_busy_total, workers, workers_idle_total, workers_open,
+        workers_busy_total, workers, workers_idle_total, workers_free,
         httpd_total_accesses, round(httpd_reqpersec, 0),
         bytes2human(httpd_total_traffic), bytes2human(httpd_bytespersec), bytes2human(httpd_bytesperreq)
         )
@@ -176,7 +184,7 @@ def main():
     perfdata += unpack_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
-    perfdata += unpack_perfdata('workers_open',         workers_open,        None, None, None, 0, workers_total)
+    perfdata += unpack_perfdata('workers_free',         workers_free,        None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
