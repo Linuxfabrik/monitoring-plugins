@@ -1,4 +1,4 @@
-# Overview
+# Check "disk-smart" - Overview
 
 The check calls `smartctl`, which itself _controls the Self-Monitoring, Analysis 
 and Reporting Technology (SMART) system built into most ATA/SATA and SCSI/SAS 
@@ -6,28 +6,21 @@ hard drives and solid-state drives. The purpose of SMART is to monitor the
 reliability of the hard drive and predict drive failures._ 
 (from the man page of `smart`)
 
-* Tested on OS: CentOS 7 Minimal, Fedora 30, Fedora 31
-* Tested with Monitoring Tool: Icinga2
-
-Features:
-* Auto Discovery: yes
-* Default Thresholds: no (does not use any thresholds at all)
-* Takes time periods into account: no
-* Uses temporary files: no
-
 Hints and Recommendations:
 * Running this check just makes sense on hardware using ATA/SATA and/or SCSI/SAS
   HDDs and SSDs.
 * The check tries to identify all disks automatically. Disks without SMART
   capability can be ignored using the `--ignore` parameter manually.
-* We recommend running this check every 8 hours.
 * Keep in mind that a `smartctl` run can take up to one or two seconds per disk,
   depending on its health and (interface/bus) speed.
+
+We recommend to run this check every 8 hours.
 
 
 # Installation and Usage
 
-Requirements: `yum install smartmontools`
+Requirements:
+* `smartctl` from `smartmontools`
 
 ```bash
 ./disk-smart
@@ -36,7 +29,7 @@ Requirements: `yum install smartmontools`
 ```
 
 
-# States and Perfdata
+# States
 
 CRIT, when SMART reports:
 * Overall Health Self-Assessment Test: FAILED!
@@ -55,9 +48,18 @@ If `smartctl` reports more than one issue, the worst issue state over all disks
 is returned.
 
 
+# Perfdata
+
+* Temperatures
+* Remaining or used Lifetimes
+* Power On Hours
+* Power Cycle Counts
+
+
 # Known Issues and Limitations
 
 * The check can't handle NVMe (for example /dev/mmcblk0).
+* The check can't handle disks attached to a HP Smart Array Controller.
 
 
 # Credits, License

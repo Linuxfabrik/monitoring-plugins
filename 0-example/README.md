@@ -1,4 +1,4 @@
-# Overview
+# Check "0-example" - Overview
 
 The `0-example` check is just a development code base and as such may be correct or not. This `README.md` is a copy&paste template.
 
@@ -13,9 +13,9 @@ If necessary this README answers questions about:
 # Installation and Usage
 
 Requirements:
-* EPEL-Release: `yum install epel-release`
-* Python2 psutil: `yum install python2-psutil` (installation via `pip` is not recommended)
-* Smartmontools: `yum install smartmontools`
+* Python2 module `psutil`
+* Python2 module `mysql.connector`
+* `smartctl` from `smartmontools`
 
 
 Use `./0-example --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'`.
@@ -27,13 +27,19 @@ Use `./0-example --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT 
 ```
 
 
-# States and Perfdata
+# States
 
-For each event tuple:
-* CRIT: if event is <= days away; 'None' means that CRIT is never returned
+* Always returns OK.
+* WARN or CRIT if process count is above a given threshold.
 * WARN: if event is <= days away; 'None' is not possible
+* CRIT: if event is <= days away; 'None' means that CRIT is never returned
+
+
+# Perfdata
 
 There is no perfdata.
+
+* Value 1: ...
 
 
 # Known Issues and Limitations
@@ -45,7 +51,6 @@ There is no perfdata.
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
-
 * Credits:
-  * only if needed
-  * This tool, written in C++ (https://this.tool/): We re-implemented the logic in Python and copied the excellent output.
+  - This tool, written in C++ (https://this.tool/): We re-implemented the logic in Python and copied the excellent output.
+  - only if needed

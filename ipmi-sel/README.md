@@ -1,17 +1,14 @@
-# Overview
+# Check "ipmi-sel" - Overview
 
-The check calls `ipmitool sel elist` locally to fetch the IPMI System Event Log
-(SEL). If there are entries, it throws a warning, otherwise everything is
-expected to be OK.
+The check calls `ipmitool sel elist` to fetch the IPMI System Event Log (SEL). If there are entries, it returns a warning, otherwise everything is expected to be OK. Running this check just makes sense on hardware providing an IPMI interface. Needs sudo.
 
-Hints and Recommendations:
-* Running this check just makes sense on hardware providing an IPMI interface.
-* We recommend running this check every 15 minutes.
+We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
 
-Requirements: `yum install ipmitools`
+Requirements:
+* `ipmitool`
 
 ```bash
 ./ipmi-sel
@@ -19,10 +16,15 @@ Requirements: `yum install ipmitools`
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN, if SEL has entries.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+
+
+# Perfdata
+
+There is no perfdata.
 
 
 # Known Issues and Limitations

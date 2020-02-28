@@ -1,25 +1,14 @@
-# Overview
+# Check "ipmi-sensor" - Overview
 
-The check calls `ipmitool sensor list` locally to fetch detailed sensor
-information.
+The check calls `ipmitool sensor list` to fetch detailed sensor information. Running this check just makes sense on hardware using an IPMI interface. Needs sudo.
 
-* Tested on OS: CentOS 7 Minimal, Fedora 30, Fedora 31
-* Tested with Monitoring Tool: Icinga2
-
-Features:
-* Auto Discovery: no
-* Default Thresholds: yes (as stated from IPMI)
-* Takes time periods into account: no
-* Uses temporary files: no
-
-Hints and Recommendations:
-* Running this check just makes sense on hardware using an IPMI interface.
-* We recommend running this check every 5 minutes.
+We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
 
-Requirements: `yum install ipmitools`
+Requirements:
+* `ipmitool`
 
 ```bash
 ./ipmi-sensor
@@ -27,12 +16,49 @@ Requirements: `yum install ipmitools`
 ```
 
 
-# States and Perfdata
+# States
 
-* CRIT, if sensor value is non-recoverable (very worse)
-* CRIT, if sensor value is above/below IPMI critical threshold
-* WARN, if sensor value is above/below IPMI non-critical threshold
+* CRIT, if sensor value is non-recoverable (very worse).
+* CRIT, if sensor value is above/below critical threshold given by IPMI.
+* WARN, if sensor value is above/below IPMI non-critical threshold.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+
+
+# Perfdata
+
+Depends on your hardware - as an example:
+
+* 1.05V_PCH
+* 1.2V_BMC
+* 1.5V_PCH
+* 12V
+* 3.3VCC
+* 3.3VSB
+* 5VCC
+* 5VSB
+* CPU_Temp
+* DIMMA1_Temp
+* DIMMA2_Temp
+* DIMMB1_Temp
+* DIMMB2_Temp
+* DIMMC1_Temp
+* DIMMC2_Temp
+* DIMMD1_Temp
+* DIMMD2_Temp
+* FAN1
+* FAN2
+* FAN3
+* FAN4
+* PCH_Temp
+* Peripheral_Temp
+* System_Temp
+* VBAT
+* Vcpu
+* VcpuVRM_Temp
+* VDIMMAB
+* VDIMMCD
+* VmemABVRM_Temp
+* VmemCDVRM_Temp
 
 
 # Known Issues and Limitations

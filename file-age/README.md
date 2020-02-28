@@ -1,9 +1,33 @@
-todo
+# Check "file-age" - Overview
 
-The plugin is able to follow symlinks.
+Checks the time of last data modification for a file or directory, in seconds. The plugin is able to follow symlinks. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
 
-need sudo depending on the file (sudoers).
+We recommend to run this check every minute.
 
 
-Limitations:
+# Installation and Usage
+
+```bash
+./file-age --help
+```
+
+
+# States
+
+tbd
+
+
+# Perfdata
+
+tbd
+
+
+# Known Issues and Limitations
+
 * Does not work with wildcards.
+
+
+# Credits, License
+
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* License: The Unlicense, see LICENSE file.
