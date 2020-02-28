@@ -31,7 +31,7 @@ Requirements:
 
 # States and Perfdata
 
-* Always OK.
+* Always returns OK.
 
 Perfdata - for example:
 

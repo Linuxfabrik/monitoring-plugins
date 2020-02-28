@@ -19,7 +19,7 @@ Requirements:
 
 # States and Perfdata
 
-* WARN and CRIT as provided.
+* WARN or CRIT if swap usage is above a given threshold.
 
 Perfdata:
 * Swap Usage (%)

@@ -29,11 +29,16 @@ Use `./0-example --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT 
 
 # States and Perfdata
 
-* WARN and CRIT as provided.
+* Always returns OK.
+* WARN or CRIT if process count is above a given threshold.
 * WARN: if event is <= days away; 'None' is not possible
 * CRIT: if event is <= days away; 'None' means that CRIT is never returned
 
 There is no perfdata.
+
+Perfdata:
+
+* Value 1: ...
 
 
 # Known Issues and Limitations

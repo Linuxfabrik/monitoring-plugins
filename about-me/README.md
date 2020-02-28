@@ -25,7 +25,11 @@ Requirements:
 # States and Perfdata
 
 * Always returns OK.
-* Perfdata: number of CPUs, size of memory, number of disks and their size.
+
+Perfdata
+* cpu: Number of CPUs
+* ram: Size of memory
+* disks: Number of disks
 
 
 # Credits, License

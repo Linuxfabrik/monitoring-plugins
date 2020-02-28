@@ -20,7 +20,7 @@ Requirements:
 
 # States and Perfdata
 
-* WARN and CRIT as provided.
+* WARN or CRIT if system uptime is above a given threshold.
 
 
 # Credits, License

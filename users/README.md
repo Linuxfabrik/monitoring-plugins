@@ -17,8 +17,11 @@ We recommend to run this check every minute.
 
 # States and Perfdata
 
-* WARN and CRIT as provided.
-* Perfdata: Number of TTY and PTY users.
+* WARN or CRIT if number of users is above a given threshold.
+
+Perfdata:
+* tty: Number of TTY users.
+* pty: Number of PTY users (for example SSH).
 
 
 # Credits, License
