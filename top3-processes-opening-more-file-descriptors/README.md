@@ -1,4 +1,4 @@
-# Overview
+# Check "top3-processes-opening-more-file-descriptors" - Overview
 
 Displays the top 3 processes opening more file descriptors.
 
@@ -16,7 +16,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
+
+* Always returns OK.
+
+
+# Perfdata
 
 There is no perfdata.
 

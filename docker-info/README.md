@@ -1,4 +1,4 @@
-# Overview
+# Check "docker-info" - Overview
 
 Checks additional info about docker containers like data space usage, docker warnings etc. Needs sudo.
 
@@ -15,11 +15,17 @@ Requirements:
 ./docker-info --help
 ```
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if data space is above a given threshold.
 * WARN or CRIT if metadata space is above a given threshold.
 * WARN on `docker info` warnings and errors.
+
+
+# Perfdata
+
+* Data Space used (%)
+* Metadata Space used (%)
 
 
 # Credits, License

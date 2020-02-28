@@ -1,4 +1,4 @@
-# Overview
+# Check "docker-container" - Overview
 
 Checks the stats and number of docker containers. Needs sudo.
 
@@ -16,14 +16,15 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if container cpu usage is above a given threshold.
 * WARN or CRIT if container memory usage is above a given threshold.
 * WARN if number of installed containers is less than expected.
 * WARN if number of running containers is less than expected.
 
-Perfdata:
+
+# Perfdata
 
 * Installed Container count
 * Running container count

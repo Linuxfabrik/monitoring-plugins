@@ -1,4 +1,4 @@
-# Overview
+# Check "mailq" - Overview
 
 Checks the mail queue.
 
@@ -14,12 +14,14 @@ We recommend to run this check every 5 minutes.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN on error messages from mailq.
 * WARN or CRIT if number of messages is greater than or equal to the thresholds.
 
-Perfdata:
+
+# Perfdata
+
 * Mails in mail queue
 
 

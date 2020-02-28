@@ -1,4 +1,4 @@
-# Overview
+# Check "top3-processes-which-consumed-the-most-cpu-time" - Overview
 
 Displays the top 3 processes which consume the most cpu time.
 
@@ -16,7 +16,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
+
+* Always returns OK.
+
+
+# Perfdata
 
 There is no perfdata.
 

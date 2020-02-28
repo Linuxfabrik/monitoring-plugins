@@ -1,4 +1,4 @@
-# Overview
+# Check "fail2ban" - Overview
 
 In fail2ban, checks the amount of banned IP addresses (for a list of jails).
 
@@ -13,11 +13,14 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if number of blocked IP addresses is above a given threshold.
 
-Perfdata (per jail):
+
+# Perfdata
+
+Per jail:
 
 * Number of blocked IP addresses.
 

@@ -1,4 +1,4 @@
-# Overview
+# Check "systemd-unit" - Overview
 
 Checks states of a service, job, mount etc., using `systemctl show`.
 
@@ -69,10 +69,13 @@ Attention:
 * Default: warn
 
 
-# States and Perfdata
+# States
 
 * WARN if result does not match parameter values.
 * CRIT only if configured as such.
+
+
+# Perfdata
 
 There is no perfdata.
 

@@ -1,4 +1,4 @@
-# Overview
+# Check "ntp-offset" - Overview
 
 This plugin checks the clock offset in milliseconds compared to ntp servers.
 
@@ -39,11 +39,12 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if ntp offset is above a given threshold.
 
-Perfdata:
+
+# Perfdata
 
 * Time Offset (Milliseconds)
 

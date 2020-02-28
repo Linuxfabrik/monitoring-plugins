@@ -1,4 +1,4 @@
-# Overview
+# Check "mysql-stats" - Overview
 
 This check is more or less a port of the MySQLTuner script. The check _allows you to review a MySQL installation quickly and make adjustments to increase performance and stability. The current configuration variables and status data is retrieved and presented in a brief format along with some basic performance suggestions_.
 
@@ -13,7 +13,7 @@ We recommend to run this check every 5 minutes.
 
 Requirements:
 * Python2 module `mysql.connector`
-* A user with at least "PROCESS" (Role "MonitorAdmin") privileges, locked down to "127.0.0.1" - for example a user `mariadb-monitor@127.0.0.1`.
+* A user with at least "PROCESS" (Role "MonitorAdmin") privileges, locked down to "127.0.0.1" - for example a user `mariadb-stats@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars.
 
 Using an empty password is done with `--password=''` (although this is of course not recommended).
 
@@ -23,10 +23,32 @@ Using an empty password is done with `--password=''` (although this is of course
 ```
 
 
-# States and Perfdata
+# States
 
 * CRIT if MySQL's / MariaDB's maximum memory usage is dangerously high.
 * WARN if any recommendation regarding system ressources is found.
+
+
+# Perfdata
+
+* bytes_received
+* bytes_sent
+* connections
+* joins_without_indexes
+* pct_connections_aborted
+* pct_connections_used
+* pct_files_open
+* pct_max_physical_memory
+* pct_max_used_memory
+* pct_slow_queries
+* pct_table_locks_immediate
+* pct_temp_disk
+* pct_temp_sort_table
+* qps: Queries per second
+* questions: Number of queries
+* table_cache_hit_rate
+* thread_cache_hit_rate
+* uptime: MySQL/MariaDB's uptime
 
 
 # Known Issues and Limitations
@@ -45,4 +67,4 @@ Using an empty password is done with `--password=''` (although this is of course
 * License: The Unlicense, see LICENSE file.
 * Credits:
   - heavily inspired by MySQLTuner (https://github.com/major/MySQLTuner-perl)
-  - check_mysql from monitoring-plugins.org.
+  - check_mysql from monitoring-plugins.org

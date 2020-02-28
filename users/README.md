@@ -1,4 +1,4 @@
-# Overview
+# Check "users" - Overview
 
 Counts how many users are currently logged in, both via tty and pts (typically SSH).
 
@@ -15,11 +15,13 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if number of users is above a given threshold.
 
-Perfdata:
+
+# Perfdata
+
 * tty: Number of TTY users.
 * pty: Number of PTY users (for example SSH).
 

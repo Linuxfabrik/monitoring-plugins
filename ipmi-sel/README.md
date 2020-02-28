@@ -1,4 +1,4 @@
-# Overview
+# Check "ipmi-sel" - Overview
 
 The check calls `ipmitool sel elist` to fetch the IPMI System Event Log (SEL). If there are entries, it returns a warning, otherwise everything is expected to be OK. Running this check just makes sense on hardware providing an IPMI interface. Needs sudo.
 
@@ -16,10 +16,13 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN, if SEL has entries.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
+
+
+# Perfdata
 
 There is no perfdata.
 

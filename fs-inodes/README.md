@@ -1,4 +1,4 @@
-# Overview
+# Check "fs-inodes" - Overview
 
 Checks the used inode space in percent, default on `/`, `/tmp` and `/boot`.
 
@@ -14,11 +14,14 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if inode usage is above a given threshold.
 
-Perfdata (for each mount):
+
+# Perfdata
+
+For each mount:
 
 * inode usage (%)
 

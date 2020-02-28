@@ -1,4 +1,4 @@
-# Overview
+# Check "file-size" - Overview
 
 Checks the size of a file, in bytes. The plugin is able to follow symlinks. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
 
@@ -13,11 +13,12 @@ We recommend to run this check every 15 minutes.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if file size is above a given threshold.
 
-Perfdata:
+
+# Perfdata
 
 * File Size (Bytes)
 

@@ -1,4 +1,4 @@
-# Overview
+# Check "ipmi-sensor" - Overview
 
 The check calls `ipmitool sensor list` to fetch detailed sensor information. Running this check just makes sense on hardware using an IPMI interface. Needs sudo.
 
@@ -16,14 +16,17 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * CRIT, if sensor value is non-recoverable (very worse).
 * CRIT, if sensor value is above/below critical threshold given by IPMI.
 * WARN, if sensor value is above/below IPMI non-critical threshold.
 * UNKNOWN on `ipmitool` not found or errors running `ipmitool`.
 
-Perfdata (depends on your hardware) - as an example:
+
+# Perfdata
+
+Depends on your hardware - as an example:
 
 * 1.05V_PCH
 * 1.2V_BMC

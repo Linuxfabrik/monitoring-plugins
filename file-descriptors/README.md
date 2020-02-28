@@ -1,4 +1,4 @@
-# Overview
+# Check "file-descriptors" - Overview
 
 Checks the number of allocated file handles in percent. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
 
@@ -13,11 +13,12 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if usage of file descriptors in % is above a given threshold.
 
-Perfdata:
+
+# Perfdata
 
 * File descriptors (%)
 

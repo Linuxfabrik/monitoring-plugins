@@ -1,4 +1,4 @@
-# Overview
+# Check "network-io" - Overview
 
 Checks network I/O for all interfaces. We only consider inferfaces that have a MAC-Address, therefore we ignore `lo`.
 
@@ -21,7 +21,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
+
+tbd
+
+
+# Perfdata
 
 tbd
 

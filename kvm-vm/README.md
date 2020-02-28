@@ -1,4 +1,4 @@
-# Overview
+# Check "kvm-vm" - Overview
 
 Check VMs on a KVM host using "virsh list".
 
@@ -54,13 +54,14 @@ We recommend to run this check every 15 minutes.
 ```
 
 
-# States and Perfdata
+# States
 
 * CRIT if any VM is crashed.
 * WARN if any VM is in state idle, paused or pmsuspended.
 * Otherwise OK (even if no VM is running at all).
 
-Perfdata:
+
+# Perfdata
 
 * vm_running
 * vm_idle

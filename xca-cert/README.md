@@ -1,6 +1,6 @@
-# Overview
+# Check "xca-cert" - Overview
 
-If you are using XCA by Christian Hohnstädt (an _application is intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs_) with ["Remote Databases" feature enabled](https://hohnstaedt.de/xca/index.php/documentation/remote-databases), this plugin lets you check the expiration date of any certificate within the databases. CRLs are also taken into account.
+If you are using XCA by Christian Hohnstädt (an _application that is intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs_) with ["Remote Databases" feature enabled](https://hohnstaedt.de/xca/index.php/documentation/remote-databases), this plugin lets you check the expiration date of any certificate within those XCA databases. CRLs are also taken into account.
 
 We recommend to run this check once a day.
 
@@ -16,9 +16,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
-* WARN or CRIT if certificate expires in 14 or 5 days.
+* WARN or CRIT if a certificate expires within a given threshold.
+
+
+# Perfdata
 
 There is no perfdata.
 

@@ -1,4 +1,4 @@
-# Overview
+# Check "rocket.chat-stats" - Overview
 
 This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).
 
@@ -16,12 +16,13 @@ We recommend to run this check every 15 minutes.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if a newer Rocket.Chat version is available.
 * Otherwise OK.
 
-Perfdata:
+
+# Perfdata
 
 * Online Users
 * Total Direct Messages

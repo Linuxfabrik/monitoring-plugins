@@ -1,4 +1,4 @@
-# Overview
+# Check "disk-smart" - Overview
 
 The check calls `smartctl`, which itself _controls the Self-Monitoring, Analysis 
 and Reporting Technology (SMART) system built into most ATA/SATA and SCSI/SAS 
@@ -29,7 +29,7 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 CRIT, when SMART reports:
 * Overall Health Self-Assessment Test: FAILED!
@@ -47,7 +47,9 @@ available or not supported.
 If `smartctl` reports more than one issue, the worst issue state over all disks
 is returned.
 
-Perfdata:
+
+# Perfdata
+
 * Temperatures
 * Remaining or used Lifetimes
 * Power On Hours

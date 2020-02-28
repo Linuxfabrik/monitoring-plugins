@@ -1,4 +1,4 @@
-# Overview
+# Check "disk-usage" - Overview
 
 Measures the usage of all mounted disk _partitions_ on physical disks only (e.g. hard disks, cd-rom drives, USB keys) found. It does not check the usage on the raw disks, because for example in LVM more than one disk can be a member of a logical volume, and some of the disks might be full - which is ok as long as the LVM has some space available. The check also ignores all other partition types (e.g. memory partitions such as /dev/shm).
 
@@ -15,11 +15,12 @@ Requirements:
 ./disk-usage --warning=80 --critical=90
 ```
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if disk usage is above a given threshold.
 
-Perfdata:
+
+# Perfdata
 
 * Usage (%)
 * Usage (Bytes)

@@ -1,4 +1,4 @@
-# Overview
+# Check "about-me" - Overview
 
 Reports a quick overview about the host dimensions and installed software. Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
@@ -22,11 +22,13 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * Always returns OK.
 
-Perfdata
+
+# Perfdata
+
 * cpu: Number of CPUs
 * ram: Size of memory
 * disks: Number of disks

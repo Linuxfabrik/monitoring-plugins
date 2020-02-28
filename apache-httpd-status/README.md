@@ -1,4 +1,4 @@
-# Overview
+# Check "apache-httpd-status" - Overview
 
 This check "allows a server administrator to find out how well their server is performing". For the check plugin to work you have to enable `mod_status` and set `ExtendedStatus` to `On`. Have a look at https://httpd.apache.org/docs/2.4/mod/mod_status.html
 
@@ -30,12 +30,13 @@ We recommend to run this check every minute.
 ./apache-httpd-status --help
 ```
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if more than 90% or 95% busy workers compared to the total possible number of workers are found.
 * WARN if more than 25% gracefully finishing workers compared to free workers are found.
 
-Perfdata:
+
+# Perfdata
 
 * httpd_bytesperreq: Bytes per request
 * httpd_bytespersec: Bytes per second

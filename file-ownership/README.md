@@ -1,4 +1,4 @@
-# Overview
+# Check "file-ownership" - Overview
 
 Checks the ownership (owner and group, both have to be names) of a list of files. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
 
@@ -13,9 +13,12 @@ We recommend to run this check every 5 minutes.
 ./file-ownership --help
 ```
 
-# States and Perfdata
+# States
 
 * WARN if ownership does not match expected values.
+
+
+# Perfdata
 
 There is no perfdata.
 

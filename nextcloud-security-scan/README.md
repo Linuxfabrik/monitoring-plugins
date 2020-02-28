@@ -1,4 +1,4 @@
-# Overview
+# Check "nextcloud-security-scan" - Overview
 
 Checks the security of your private cloud server using Nextcloud Security Scan from https://scan.nextcloud.com/, so the check itself does not need to run on the same host that serves Nextcloud. Triggers a rescan on https://scan.nextcloud.com/ if result is older than 14 days (default). Have a look at https://scan.nextcloud.com/ for further explanation. 
 
@@ -15,11 +15,14 @@ We recommend to run this check once a day or week.
 ./nextcloud-security-scan --help
 ```
 
-# States and Perfdata
+# States
 
 * CRIT if Nextcloud Rating is F, E.
 * WARN if Nextcloud Rating is D, C.
 * Otherwise OK.
+
+
+# Perfdata
 
 There is no perfdata.
 

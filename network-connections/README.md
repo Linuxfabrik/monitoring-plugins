@@ -1,4 +1,4 @@
-# Overview
+# Check "network-connections" - Overview
 
 Counts tcp, tcp6, udp and udp6 connection details. Emulating `ss -antp`.
 
@@ -29,11 +29,14 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * Always returns OK.
 
-Perfdata - for example:
+
+# Perfdata
+
+As an example:
 
 * tcp_CLOSE_WAIT
 * tcp_ESTABLISHED

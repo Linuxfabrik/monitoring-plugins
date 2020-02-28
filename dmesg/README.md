@@ -1,4 +1,4 @@
-# Overview
+# Check "dmesg" - Overview
 
 Checks emerg, alert, crit and err messages in dmesg, and therefore always returns CRIT if something was found. This check does not need any arguments.
 
@@ -14,9 +14,12 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * CRIT if any of (filtered) emerg, alert, crit and err messages in dmesg are found.
+
+
+# Perfdata
 
 There is no perfdata.
 

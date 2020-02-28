@@ -1,4 +1,4 @@
-# Overview
+# Check "fs-file-usage" - Overview
 
 Checks the number of files opened (found in `/proc/sys/fs/file-nr`), in percent.
 
@@ -13,11 +13,12 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if file usage is above a given threshold.
 
-Perfdata:
+
+# Perfdata
 
 * File Usage (%)
 

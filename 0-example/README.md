@@ -1,4 +1,4 @@
-# Overview
+# Check "0-example" - Overview
 
 The `0-example` check is just a development code base and as such may be correct or not. This `README.md` is a copy&paste template.
 
@@ -27,16 +27,17 @@ Use `./0-example --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT 
 ```
 
 
-# States and Perfdata
+# States
 
 * Always returns OK.
 * WARN or CRIT if process count is above a given threshold.
 * WARN: if event is <= days away; 'None' is not possible
 * CRIT: if event is <= days away; 'None' means that CRIT is never returned
 
-There is no perfdata.
 
-Perfdata:
+# Perfdata
+
+There is no perfdata.
 
 * Value 1: ...
 

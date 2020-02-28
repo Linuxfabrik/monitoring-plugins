@@ -1,4 +1,4 @@
-# Overview
+# Check "sensors" - Overview
 
 Checks the status of some hardware sensors using the lm_sensors package.
 
@@ -25,9 +25,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if sensor reports an alarm.
+
+
+# Perfdata
 
 There is no perfdata.
 

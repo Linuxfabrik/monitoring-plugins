@@ -1,4 +1,4 @@
-# Overview
+# Check "nextcloud-stats" - Overview
 
 This plugin lets you track if server or app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, takes approx. 1 to 2 seconds.
 
@@ -20,9 +20,33 @@ We recommend to run this check every 15 minutes.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if Nextcloud or App updates are available.
+
+
+# Perfdata
+
+* nc_active_users_last5min
+* nc_active_users_last1h
+* nc_active_users_last24h
+* nc_server_database_size
+* nc_shares_num_fed_shares_received
+* nc_shares_num_fed_shares_sent
+* nc_shares_num_shares
+* nc_shares_num_shares_groups
+* nc_shares_num_shares_link
+* nc_shares_num_shares_link_no_password
+* nc_shares_num_shares_mail
+* nc_shares_num_shares_room
+* nc_shares_num_shares_user
+* nc_storage_num_files
+* nc_storage_num_storages
+* nc_storage_num_storages_home
+* nc_storage_num_storages_local
+* nc_storage_num_storages_other
+* nc_storage_num_users
+* nc_system_apps_num_installed
 
 
 # Credits, License

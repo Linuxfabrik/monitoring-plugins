@@ -1,4 +1,4 @@
-# Overview
+# Check "uptime" - Overview
 
 Checks and tells how long the system has been running (in days).
 
@@ -18,9 +18,14 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if system uptime is above a given threshold.
+
+
+# Perfdata
+
+* Uptime (seconds)
 
 
 # Credits, License

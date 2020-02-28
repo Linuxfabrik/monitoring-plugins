@@ -1,4 +1,4 @@
-# Overview
+# Check "swap-usage" - Overview
 
 Displays amount of free and used swap space in the system, checks against used swap in percent.
 
@@ -17,11 +17,13 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if swap usage is above a given threshold.
 
-Perfdata:
+
+# Perfdata
+
 * Swap Usage (%)
 * Total Swap Space (Bytes)
 * Used (Bytes)

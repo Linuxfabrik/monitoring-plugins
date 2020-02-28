@@ -1,4 +1,4 @@
-# Overview
+# Check "procs" - Overview
 
 Checks the number of currently running processes and warns on process counts or zombie process states. Only zombies that last longer than 24 hours result in a WARN, otherwise you might get flapping results, for example on a heavy-duty Apache webserver.
 
@@ -32,10 +32,22 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if there is at least one zombie process "living" for more than 24 hours. 
 * WARN or CRIT if process count is above a given threshold.
+
+
+# Perfdata
+
+* procs: Total number of processes.
+* procs_sleeping
+* procs_running
+* procs_uninterruptible
+* procs_zombies
+* procs_stopped
+* procs_paging
+* procs_dead
 
 
 # Credits, License

@@ -1,4 +1,4 @@
-# Overview
+# Check "load" - Overview
 
 Return the average system load _per cpu_ over the last 1, 5 and 15 minutes. Therefore a value of "1" means that the overall system has a load of 100%. Warns on load15 only.
 
@@ -17,12 +17,13 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if load15 >= 1.15 (default)
 * CRIT if load15 >= 5.00 (default)
 
-Perfdata:
+
+# Perfdata
 
 * load1
 * load5

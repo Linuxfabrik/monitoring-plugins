@@ -1,4 +1,4 @@
-# Overview
+# Check "memory-usage" - Overview
 
 Displays amount of free and used memory in the system, checks against used memory in percent.
 
@@ -17,11 +17,12 @@ Requirements:
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN or CRIT if total memory usage is above a given threshold.
 
-Perfdata
+
+# Perfdata
 
 * total: total physical memory (exclusive swap).
 * used: memory used, calculated differently depending on the platform and designed for informational purposes only. total - free does not necessarily match used.

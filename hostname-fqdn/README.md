@@ -1,4 +1,4 @@
-# Overview
+# Check "hostname-fqdn" - Overview
 
 Checks if the local or a given hostname is a valid fully qualified domain name in full compliance with RFC 1035. The parameter `--hostname` checks the given string, not a remote host.
 
@@ -13,9 +13,12 @@ We recommend to run this check once a week or once in the lifetime of a machine.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN if hostname is not a valid fully qualified domain name in full compliance with RFC 1035.
+
+
+# Perfdata
 
 There is no perfdata.
 

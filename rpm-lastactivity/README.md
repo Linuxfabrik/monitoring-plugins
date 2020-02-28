@@ -1,4 +1,4 @@
-# Overview
+# Check "rpm-lastactivity" - Overview
 
 Checks the timespan since the last rpm activity, for example due to a yum/dnf install, update or remove.
 
@@ -17,7 +17,12 @@ We recommend to run this check once a day.
 ```
 
 
-# States and Perfdata
+# States
+
+* WARN or CRIT if last activity is above a given threshold.
+
+
+# Perfdata
 
 There is no perfdata.
 

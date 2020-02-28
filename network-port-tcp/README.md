@@ -1,4 +1,4 @@
-# Overview
+# Check "network-port-tcp" - Overview
 
 Checks whether a network port is reachable.
 
@@ -15,9 +15,12 @@ We recommend to run this check every minute.
 ```
 
 
-# States and Perfdata
+# States
 
 * WARN (default) or CRIT if port is unreachable.
+
+
+# Perfdata
 
 There is no perfdata.
 
