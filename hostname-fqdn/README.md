@@ -2,7 +2,7 @@
 
 Checks if the local or a given hostname is a valid fully qualified domain name in full compliance with RFC 1035. The parameter `--hostname` checks the given string, not a remote host.
 
-We recommend to run this check once a week or in the lifetime of a machine.
+We recommend to run this check once a week or once in the lifetime of a machine.
 
 
 # Installation and Usage
@@ -14,6 +14,8 @@ We recommend to run this check once a week or in the lifetime of a machine.
 
 
 # States and Perfdata
+
+* WARN if hostname is not a valid fully qualified domain name in full compliance with RFC 1035.
 
 There is no perfdata.
 

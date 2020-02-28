@@ -16,7 +16,7 @@ We recommend to run this check every minute.
 
 # States and Perfdata
 
-Returns CRIT if any of (filtered) emerg, alert, crit and err messages in dmesg are found.
+* CRIT if any of (filtered) emerg, alert, crit and err messages in dmesg are found.
 
 There is no perfdata.
 

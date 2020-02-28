@@ -60,6 +60,16 @@ We recommend to run this check every 15 minutes.
 * WARN if any VM is in state idle, paused or pmsuspended.
 * Otherwise OK (even if no VM is running at all).
 
+Perfdata:
+
+* vm_running
+* vm_idle
+* vm_paused
+* vm_in_shutdown
+* vm_shut_off
+* vm_crashed
+* vm_pmsuspended
+
 
 # Credits, License
 

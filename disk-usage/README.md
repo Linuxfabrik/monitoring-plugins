@@ -19,6 +19,11 @@ Requirements:
 
 * WARN or CRIT if disk usage is above a given threshold.
 
+Perfdata:
+
+* Usage (%)
+* Usage (Bytes)
+
 
 # Credits, License
 

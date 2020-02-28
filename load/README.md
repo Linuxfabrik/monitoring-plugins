@@ -22,6 +22,12 @@ Requirements:
 * WARN if load15 >= 1.15 (default)
 * CRIT if load15 >= 5.00 (default)
 
+Perfdata:
+
+* load1
+* load5
+* load15
+
 
 # Credits, License
 

@@ -35,6 +35,26 @@ We recommend to run this check every minute.
 * WARN or CRIT if more than 90% or 95% busy workers compared to the total possible number of workers are found.
 * WARN if more than 25% gracefully finishing workers compared to free workers are found.
 
+Perfdata:
+
+* httpd_bytesperreq: Bytes per request
+* httpd_bytespersec: Bytes per second
+* httpd_reqpersec: Requests per seond
+* httpd_total_accesses
+* httpd_total_traffic
+* workers: Maximum number of workers possible
+* workers_closing
+* workers_dns
+* workers_finishing
+* workers_free
+* workers_idle
+* workers_keepalive
+* workers_logging
+* workers_reading
+* workers_replying
+* workers_starting
+* workers_waiting
+
 
 # Known Issues and Limitations
 

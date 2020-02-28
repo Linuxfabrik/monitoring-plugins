@@ -8,13 +8,18 @@ We recommend to run this check every minute.
 # Installation and Usage
 
 ```bash
+./fail2ban --warning 1000 --critical 10000 
 ./fail2ban --help
 ```
 
 
 # States and Perfdata
 
-tbd
+* WARN or CRIT if number of blocked IP addresses is above a given threshold.
+
+Perfdata (per jail):
+
+* Number of blocked IP addresses.
 
 
 # Credits, License
