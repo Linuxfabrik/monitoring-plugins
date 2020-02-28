@@ -9,14 +9,19 @@ Requirements:
 * Python2 module `psutil`
 
 ```bash
-./0-example --help
+./disk-io
+./disk-io --help
 ```
 
 
 # States and Perfdata
 
+tbd
+
 
 # Known Issues and Limitations
+
+tbd
 
 
 # Credits, License

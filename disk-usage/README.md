@@ -17,7 +17,7 @@ Requirements:
 
 # States and Perfdata
 
-WARN or CRIT if disk usage is about a given threshold.
+* WARN or CRIT if disk usage is above a given threshold.
 
 
 # Credits, License

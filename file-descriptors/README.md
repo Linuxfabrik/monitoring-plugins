@@ -1,19 +1,20 @@
 # Overview
 
+Checks the number of allocated file handles in percent.
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./file-descriptors --help
 ```
 
 
 # States and Perfdata
 
-
-# Known Issues and Limitations
+tbd
 
 
 # Credits, License

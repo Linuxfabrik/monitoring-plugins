@@ -2,7 +2,7 @@
 
 Checks emerg, alert, crit and err messages in dmesg, and therefore always returns CRIT if something was found. This check does not need any arguments.
 
-Some of those messages are ignored, for example `Assuming drive cache: write through` (should be a debug message) or `ioctl error in smb2_get_dfs_refer rc=-5` (a bug as stated in https://access.redhat.com/solutions/3496971).
+Some very common dmesg messages are ignored, for example `Assuming drive cache: write through` (should be a debug message) or `ioctl error in smb2_get_dfs_refer rc=-5` (a bug as stated in https://access.redhat.com/solutions/3496971).
 
 We recommend to run this check every minute.
 

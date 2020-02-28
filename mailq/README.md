@@ -1,19 +1,26 @@
 # Overview
 
+Checks the mail queue.
+
 We recommend to run this check every 5 minutes.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./mailq
+./mailq --warning 2 --critical 250
+./mailq --help
 ```
 
 
 # States and Perfdata
 
+* WARN on error messages from mailq.
+* WARN or CRIT if number of messages is greater than or equal to the thresholds.
 
-# Known Issues and Limitations
+Perfdata:
+* Mails in mail queue
 
 
 # Credits, License

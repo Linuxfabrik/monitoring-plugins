@@ -1,19 +1,21 @@
 # Overview
 
+Checks the number of files presently opened, in percent.
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./fs-file-usage --help
 ```
 
 
 # States and Perfdata
 
+tbd
 
-# Known Issues and Limitations
 
 
 # Credits, License

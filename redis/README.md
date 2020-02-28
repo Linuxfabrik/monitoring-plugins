@@ -8,14 +8,18 @@ We recommend to run this check every minute.
 # Installation and Usage
 
 ```bash
-./0-example --help
+./redis --help
 ```
 
 
 # States and Perfdata
 
+tbd
+
 
 # Known Issues and Limitations
+
+* Has to be rewritten.
 
 
 # Credits, License

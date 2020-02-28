@@ -1,21 +1,22 @@
 # Overview
 
+Checks the current mode of SELinux against a desired mode, and returns a warning on a non-match. If `--mode` is ommited, we suppose SELinux is in `Enforcing` mode.
+
 We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./selinux-mode
+./selinux-mode --mode permissive
+./selinux-mode --help
 ```
 
 
 # States and Perfdata
 
 There is no perfdata.
-
-
-# Known Issues and Limitations
 
 
 # Credits, License

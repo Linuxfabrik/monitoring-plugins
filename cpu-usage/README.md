@@ -22,7 +22,7 @@ CPU attributes returned:
 
 Hints and Recommendations:
 * We check system-wide CPU stats, not per-CPU.
-* `--count=5` (the default) while checking every minute means that the check reports a warning if `user`, `system`, `iowait` or overall `cpu-usage` was above a threshold in the last 5 minutes.
+* `--count=5` (the default) while checking every minute means that the check reports a warning if any of `user`, `system`, `iowait` or overall `cpu-usage` was above a threshold in the last 5 minutes.
 * Check needs at least 250ms to run.
 * Check uses a SQLite database in `/tmp` to store its historic data.
 
@@ -41,7 +41,7 @@ Requirements:
 
 # States and Perfdata
 
-* OK: if `user`, `system`, `iowait` and overall `cpu-usage` are all below the thresholds within the last `--count` checks.
+* OK if `user`, `system`, `iowait` and overall `cpu-usage` are all below the thresholds within the last `--count` checks.
 * Otherwise CRIT or WARN.
 
 

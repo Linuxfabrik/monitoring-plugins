@@ -1,6 +1,6 @@
 # Overview
 
-Checks system load average, normalized for the number of CPUs in a system.
+Return the average system load _per cpu_ over the last 1, 5 and 15 minutes. Therefore a value of "1" means that the overall system has a load of 100%. Warns on load15 only.
 
 We recommend to run this check every minute.
 
@@ -11,14 +11,13 @@ Requirements:
 * Python2 module `psutil`
 
 ```bash
+./load
 ./load --warning 1.15 --critical 5.0
 ./load --help
 ```
 
 
 # States and Perfdata
-
-Prints load1, load5 and load15, but warns on load15 only.
 
 * WARN if load15 >= 1.15 (default)
 * CRIT if load15 >= 5.00 (default)

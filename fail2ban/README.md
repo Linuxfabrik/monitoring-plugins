@@ -1,19 +1,20 @@
 # Overview
 
+In fail2ban, checks the amount of banned IP addresses (for a list of jails).
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./fail2ban --help
 ```
 
 
 # States and Perfdata
 
-
-# Known Issues and Limitations
+tbd
 
 
 # Credits, License

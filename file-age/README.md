@@ -1,31 +1,30 @@
 # Overview
 
+Checks the time of last data modification for a file or directory, in seconds.
+
+The plugin is able to follow symlinks. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
 
 ```bash
-./0-example --help
+./file-age --help
 ```
 
 
 # States and Perfdata
 
+tbd
+
 
 # Known Issues and Limitations
+
+* Does not work with wildcards.
 
 
 # Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
-
-
-The plugin is able to follow symlinks.
-
-need sudo depending on the file (sudoers).
-
-
-Limitations:
-* Does not work with wildcards.
