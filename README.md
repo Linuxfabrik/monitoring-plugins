@@ -3,7 +3,7 @@
 This git repo provides various Python 2 based check plugins for Nagios and compatible monitoring systems like Icinga. All checks are tested on CentOS 7 Minimal and Fedora >= 30.
 
 If you
-* are disappointed by `nagios-plugins-all` (who needs `check_games`?)
+* are disappointed by `nagios-plugins-all`
 * search for checks that are written in Python2 only (your system language on CentOS)
 * want to have a look into the source code of the checks
 * want to use checks that are fast, reliable and focused on CentOS and Icinga2
