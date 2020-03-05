@@ -16,6 +16,8 @@ Hints and Recommendations:
 
 We recommend to run this check every 8 hours.
 
+Don't forget to run `/usr/sbin/update-smart-drivedb` from time to time to get the newest drive database (sometimes there are improvements on how to interpret some attributes).
+
 
 # Installation and Usage
 
