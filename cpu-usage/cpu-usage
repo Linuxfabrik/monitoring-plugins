@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020030901'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -138,7 +138,8 @@ def main():
     extstats = {}
 
     # Grab CPU stats using psutil's cpu_times_percent
-    cpu_times_percent = psutil.cpu_times_percent(interval=0.25, percpu=False)
+    # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/issues/57: changed from 0.25 to 1.25
+    cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
     stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
 
     if hasattr(cpu_times_percent, 'guest'):         stats['guest']      = getattr(cpu_times_percent, 'guest')
