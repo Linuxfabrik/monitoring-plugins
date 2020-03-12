@@ -7,6 +7,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `fail2ban-client`
+
 ```bash
 ./fail2ban --warning 1000 --critical 10000 
 ./fail2ban --help

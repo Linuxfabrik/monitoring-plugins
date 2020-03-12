@@ -67,7 +67,8 @@ For all other options, use long parameters only. We recommend using some of thos
     --mount
     --no-proxy
     --no-update-check
-    --no-warn
+    --no-summary
+    --no-...
     --port
     --portname 
     --prefix

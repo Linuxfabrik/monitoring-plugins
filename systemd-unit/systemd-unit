@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021901'
+__version__ = '2020031001'
 
 DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "firewalld" is running, use "systemd-unit --substate=running --unit=firewalld". Have a look at the README for more details.'
 
@@ -118,16 +118,16 @@ def main():
     else:
 	    if parsed.LOADSTATE and parsed.LOADSTATE != loadstate:
 	        problem = True
-	        problem_msg += 'LoadState is {}, but supposed to be {}; '.format(loadstate, parsed.LOADSTATE)
+	        problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, parsed.LOADSTATE)
 	    if parsed.ACTIVESTATE and activestate not in parsed.ACTIVESTATE:
 	        problem = True
-	        problem_msg += 'ActiveState is {}, but supposed to be {}; '.format(activestate, parsed.ACTIVESTATE)
+	        problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, parsed.ACTIVESTATE)
 	    if parsed.SUBSTATE and substate not in parsed.SUBSTATE:
 	        problem = True
-	        problem_msg += 'SubState is {}, but supposed to be {}; '.format(substate, parsed.SUBSTATE)
+	        problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, parsed.SUBSTATE)
 	    if parsed.UNITFILESTATE and parsed.UNITFILESTATE != unitfilestate:
 	        problem = True
-	        problem_msg += 'UnitFileState is {}, but supposed to be {}; '.format(unitfilestate, parsed.UNITFILESTATE)
+	        problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, parsed.UNITFILESTATE)
 
     if problem:
         msg = '{} - '.format(parsed.UNIT) + problem_msg[:-2]
