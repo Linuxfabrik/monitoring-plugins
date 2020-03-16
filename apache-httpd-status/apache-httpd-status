@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031601'
+__version__ = '2020031602'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -25,7 +25,7 @@ import urllib2
 
 
 from lib.globals import *
-from lib.output import bytes2human, unpack_perfdata
+from lib.output import bytes2human, seconds2human, unpack_perfdata
 
 
 def define_args():
@@ -122,6 +122,8 @@ def main():
             workers_idle_total = value
         if key == 'Scoreboard':
             scoreboard = value
+        if key == 'Uptime':
+            uptime = value
 
 
     workers_total     = len(scoreboard)
@@ -162,10 +164,11 @@ def main():
 
 
     # build the message
-    msg += '{} busy ({}%), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req'.format(
+    msg += '{} busy ({}%), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
         workers_busy_total, workers, workers_idle_total, workers_free,
         httpd_total_accesses, round(httpd_reqpersec, 0),
-        bytes2human(httpd_total_traffic), bytes2human(httpd_bytespersec), bytes2human(httpd_bytesperreq)
+        bytes2human(httpd_total_traffic), bytes2human(httpd_bytespersec), bytes2human(httpd_bytesperreq),
+        seconds2human(uptime),
         )
 
     perfdata = ''
@@ -190,6 +193,7 @@ def main():
     perfdata += unpack_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
 
+    perfdata += unpack_perfdata('uptime',               uptime,               's', None, None, 0, None)
 
     print(msg.strip() + '|' + perfdata.strip())
     exit(state)
