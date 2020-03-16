@@ -9,7 +9,7 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022701'
+__version__ = '2020031601'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -144,13 +144,13 @@ def main():
 
 
     # warn if number of "G" gracefully finishing is more than 25% compared to free "." workers
-    if float(workers_finishing) / float(workers_free) * 100 > 25:
-        msg += 'Too many gracefully finishing workers "G" found (WARN). '
+    workers_finishing_pct = int(round(float(workers_finishing) / float(workers_total) * 100.0, 1))
+    if workers_finishing_pct > 25:
+        msg += '{}% gracefully finishing workers "G" found (WARN). '.format(workers_finishing_pct)
         state = STATE_WARN
 
 
     workers = int(round(float(workers_busy_total) / float(workers_total) * 100.0, 1))
-
     if workers >= parsed.CRIT:
         msg += 'Workers (CRIT): '
         state = STATE_CRIT
