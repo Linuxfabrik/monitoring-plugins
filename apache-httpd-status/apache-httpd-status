@@ -9,12 +9,12 @@
 # https://nagios-plugins.org/doc/guidelines.html
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031602'
+__version__ = '2020031702'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
 DEFAULT_URL = 'http://localhost/server-status'
-DEFAULT_WARN = 90       # %
+DEFAULT_WARN = 80       # %
 DEFAULT_CRIT = 95       # %
 
 
@@ -145,18 +145,11 @@ def main():
     state = STATE_OK
 
 
-    # warn if number of "G" gracefully finishing is more than 25% compared to free "." workers
-    workers_finishing_pct = int(round(float(workers_finishing) / float(workers_total) * 100.0, 1))
-    if workers_finishing_pct > 25:
-        msg += '{}% gracefully finishing workers "G" found (WARN). '.format(workers_finishing_pct)
-        state = STATE_WARN
-
-
-    workers = int(round(float(workers_busy_total) / float(workers_total) * 100.0, 1))
-    if workers >= parsed.CRIT:
+    workers_pct = int(round(float(workers_busy_total) / float(workers_total) * 100.0, 1))
+    if workers_pct >= parsed.CRIT:
         msg += 'Workers (CRIT): '
         state = STATE_CRIT
-    elif workers >= parsed.WARN:
+    elif workers_pct >= parsed.WARN:
         msg += 'Workers (WARN): '
         state = STATE_WARN
     else:
@@ -164,8 +157,8 @@ def main():
 
 
     # build the message
-    msg += '{} busy ({}%), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
-        workers_busy_total, workers, workers_idle_total, workers_free,
+    msg += '{}/{} busy ({}%; {} "G"), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
+        workers_busy_total, workers_total, workers_pct, workers_finishing, workers_idle_total, workers_free,
         httpd_total_accesses, round(httpd_reqpersec, 0),
         bytes2human(httpd_total_traffic), bytes2human(httpd_bytespersec), bytes2human(httpd_bytesperreq),
         seconds2human(uptime),
@@ -179,7 +172,7 @@ def main():
     perfdata += unpack_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
     perfdata += unpack_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
 
-    perfdata += unpack_perfdata('workers',              workers,              '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += unpack_perfdata('workers',              workers_pct,          '%', parsed.WARN, parsed.CRIT, 0, 100)
 
     perfdata += unpack_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
     perfdata += unpack_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
