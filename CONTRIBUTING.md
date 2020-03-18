@@ -54,6 +54,8 @@ There are a few Nagios-compatible reserved options that should not be used for o
 For all other options, use long parameters only. We recommend using some of those:
 
     --always-ok
+    --cache-expire
+    --channel
     --count
     --database
     --filename
@@ -69,14 +71,13 @@ For all other options, use long parameters only. We recommend using some of thos
     --no-update-check
     --no-summary
     --no-...
-    --port
+    --path
     --portname 
     --prefix
     --severity
     --state 
     --substate
     --test
-    --timeout
     --timespan
     --trigger
     --type
@@ -90,6 +91,15 @@ For all other options, use long parameters only. We recommend using some of thos
 
 * If you combine `csv` type and `append` action, you get a two-dimensional list: `--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'` results in
   `[['1', '2', '3'], ['a', 'b', 'c']]`
+
+
+## Error Handling
+
+* Catch exceptions using `try`/`except`, especially in functions.
+* In functions, if you have to catch exceptions (means, if they could occur), always return `(True, result)` if the function succeeds, otherwise return `(False, errormessage)`.
+* A function calling a function with such error handling has to return a `(retc, result)` tuple itself.
+* In `main()` you can use `continue_or_exit()` to simplify error handling.
+* Have a look at `nextcloud-version` for details.
 
 
 ## Plugin Output
