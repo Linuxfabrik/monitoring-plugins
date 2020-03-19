@@ -1,6 +1,6 @@
 # Check "rocket.chat-version" - Overview
 
-This plugin lets you track if a Rocket.Chat server update is available. To check for updates, this plugin uses the Git Repo at https://github.com/RocketChat/Rocket.Chat/releases. To compare against the current/installed version of Rocket.Chat, the check needs URL/API access to the Rocket.Chat server.
+This plugin lets you track if a Rocket.Chat server update is available. To check for updates, this plugin uses the Git Repo at https://github.com/RocketChat/Rocket.Chat/releases. To compare against the current/installed version of Rocket.Chat, the check needs URL/API access to the Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).
 
 We recommend to run this check once a day.
 
