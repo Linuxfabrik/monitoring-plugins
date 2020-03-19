@@ -53,6 +53,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 For all other options, use long parameters only. We recommend using some of those:
 
+    --activestate
     --always-ok
     --cache-expire
     --channel
@@ -60,7 +61,6 @@ For all other options, use long parameters only. We recommend using some of thos
     --database
     --filename
     --ignore
-    --ignore-...
     --input
     --insecure
     --interface
@@ -68,14 +68,12 @@ For all other options, use long parameters only. We recommend using some of thos
     --mode
     --mount
     --no-proxy
-    --no-update-check
     --no-summary
-    --no-...
     --path
-    --portname 
+    --portname
     --prefix
     --severity
-    --state 
+    --state
     --substate
     --test
     --timespan
@@ -96,8 +94,8 @@ For all other options, use long parameters only. We recommend using some of thos
 ## Error Handling
 
 * Catch exceptions using `try`/`except`, especially in functions.
-* In functions, if you have to catch exceptions (means, if they could occur), always return `(True, result)` if the function succeeds, otherwise return `(False, errormessage)`.
-* A function calling a function with such error handling has to return a `(retc, result)` tuple itself.
+* In functions, if you have to catch exceptions, on such an exception always return `(False, errormessage)`. Otherwise return `(True, result)` if the function succeeds in any way. For example, returning `(True, False)` means that the function has not raised an exception and its result is simply `False`.
+* A function calling a function with such an extended error handling has to return a `(retc, result)` tuple itself.
 * In `main()` you can use `continue_or_exit()` to simplify error handling.
 * Have a look at `nextcloud-version` for details.
 
