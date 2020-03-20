@@ -96,14 +96,14 @@ nextcloud-stats                     | App Updates avail. | -
 nextcloud-version                 | Server Update avail. | -
 ntp-offset                                     | > 500ms | > 1000ms
 openvpn-client-list                              | -     | -
-procs                                            | >24h Z | -  
+procs                                          | > 24h Z | -  
 redis                                            |       |       
 rocket.chat-stats                                | -     | -
 rocket.chat-version               | Server Update avail. | -
 rpm-lastactivity                                 | > 90d | > 365d
 selinux-mode                              | != Enforcing | -
 sensors                               | any Sensor Alarm | -
-swap-usage                                       | >70%  | > 90%
+swap-usage                                      | > 70%  | > 90%
 systemd-unit                                 | _complex_ | -
 top3-most-memory-consuming-processes             | -     | -
 top3-processes-opening-more-file-descriptors     | -     | -
