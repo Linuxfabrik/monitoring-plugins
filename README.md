@@ -3,6 +3,7 @@
 This git repo provides various Python 2 based check plugins for Nagios and compatible monitoring systems like Icinga. All checks are tested on CentOS 7 Minimal and Fedora >= 30.
 
 If you
+
 * are disappointed by `nagios-plugins-all`
 * search for checks that are written in Python2 only (your system language on CentOS)
 * want to have a look into the source code of the checks
@@ -31,6 +32,83 @@ We try to avoid dependencies on libraries wherever possible. If we have to use a
 
 ## Running a Check
 
-To run a check make sure that the symbolic link `lib` points to `lib-linux`, which you also have to clone (from [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux)).
+To run a check make sure that the `lib` directory or the `lib` symbolic link contains or points to the Python libraries from our GitLab repo [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux).
+
+So this is what your check plugin directory should look like:
+
+```
+$ tree /usr/lib64/nagios/plugins/
+
+/usr/lib64/nagios/plugins/
+├── about-me
+├── ...
+├── ipmi-sensor
+├── kvm-vm
+├── lib
+│   ├── globals.py
+│   ├── ...
+│   └── ...
+├── load
+├── ...
+└── xca
+```
 
 
+## Default Thresholds
+
+This table describes the default thresholds of each check at a glance.
+
+Check                                            | WARN  | CRIT  
+------------------------------------------------ | -----:| -----:
+about-me                                         | -     | -
+apache-httpd-status                     | #Workers > 80% | #Workers > 95%
+borgbackup                           | Last Backup > 24h | -
+countdown                                      | 50 days | 30 days
+cpu-usage                         | > 80% during 5 calls | > 90% during 5 calls
+disk-io                                   | > 200 MB/sec | > 350 MB/sec
+disk-smart                                   | _complex_ | _complex_
+disk-usage                                       | > 90% | > 95%
+dmesg                                            | -     | dmesg == emerg,alert,crit,err  
+docker-container                             | _complex_ | _complex_
+docker-info              | data and metadata space > 90% | data and metadata space > 95% 
+fail2ban                             | > 1000 banned IPs | > 10000 banned IPs
+feed                                 | 2h on new entries | -
+file-age                                         | > 30d | > 365d
+file-descriptors                                 | > 90% | > 95%
+file-ownership                               | _complex_ | _complex_
+file-size                                       | > 100M | > 1G
+fs-file-usage                                    | > 90% | > 95%
+fs-inodes                                        | > 90% | > 95%
+hostname-fqdn                             | invalid FQDN | -
+ipmi-sel                             | any entries found | -
+ipmi-sensor                                  | _complex_ | _complex_
+kvm-vm                    | idle, paused, pmsuspended VM | crashed VM
+load                                     | > 1.15 Load15 | > 5.00 Load15
+mailq                                       | >= 2 Mails | >= 250 Mails
+memory-usage                                     | > 90% | > 95%
+mysql-stats                                  | _complex_ | _complex_
+needs-restarting               | (Service) Reboot needed | -
+network-connections                              | -     | -
+network-io                                       |       |       
+network-port-tcp                           | unreachable | -
+nextcloud-security-scan | outdated scan result, low rating | lowest rating
+nextcloud-stats                     | App Updates avail. | -
+nextcloud-version                 | Server Update avail. | -
+ntp-offset                                     | > 500ms | > 1000ms
+openvpn-client-list                              | -     | -
+procs                                            | >24h Z | -  
+redis                                            |       |       
+rocket.chat-stats                                | -     | -
+rocket.chat-version               | Server Update avail. | -
+rpm-lastactivity                                 | > 90d | > 365d
+selinux-mode                              | != Enforcing | -
+sensors                               | any Sensor Alarm | -
+swap-usage                                       | >70%  | > 90%
+systemd-unit                                 | _complex_ | -
+top3-most-memory-consuming-processes             | -     | -
+top3-processes-opening-more-file-descriptors     | -     | -
+top3-processes-which-caused-the-most-io          | -     | -
+top3-processes-which-consumed-the-most-cpu-time  | -     | -
+uptime                                          | > 180d | > 366d
+users                                         | >= 1 TTY | -
+xca-cert                                     | _complex_ | -
