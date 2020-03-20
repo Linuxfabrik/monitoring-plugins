@@ -111,4 +111,4 @@ top3-processes-which-caused-the-most-io          | -     | -
 top3-processes-which-consumed-the-most-cpu-time  | -     | -
 uptime                                          | > 180d | > 366d
 users                                         | >= 1 TTY | -
-xca-cert                                     | _complex_ | -
+xca-cert                                    | < 14d left | < 5d left
