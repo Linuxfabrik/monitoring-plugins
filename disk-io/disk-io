@@ -6,46 +6,35 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020032602'
 
 DESCRIPTION = 'Checks disk IO.'
 
+DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
 
-DEFAULT_READ_CRIT = 350000000
-DEFAULT_WRITE_CRIT = 350000000
-
-DEFAULT_READ_WARN = 200000000
-DEFAULT_WRITE_WARN = 200000000
+DEFAULT_WARN = 60       # MB/s
+DEFAULT_CRIT = 100      # MB/s
 
 DEFAULT_IGNORE = ['sr0']
 
 
-UOM_RATE = None
-UOM_PACKETS = 'c'
-UOM = None
-MIN = 0
-MAX = None
-
 #====================
 from lib.globals import *
 
+import lib.base
+import lib.db
+from lib.output import unpack_perfdata, bytes2human
+
 import argparse
 from traceback import print_exc
-import cPickle as pickle
-import datetime
-import tempfile
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-
-from lib.output import unpack_perfdata, bytes2human
-from lib.parse_arguments import csv
-from lib.parse_input import evaluate_greater
 
 
 def define_args():
@@ -56,25 +45,32 @@ def define_args():
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
-        dest = 'WARN',
-        type = csv,
-        default = [DEFAULT_READ_WARN, DEFAULT_WRITE_WARN],
+    parser.add_argument('--count',
+        help = 'Number of times the value has to be above the given thresholds. Default: %(default)s',
+        dest = 'COUNT',
+        type = int,
+        default = DEFAULT_COUNT,
         )
 
     parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold in bytes per second for the read and write rate, in the format "1000,2000". Default: %(default)s',
+        help = 'The critical threshold in MB/sec for the read and write rate. Default: %(default)s',
         dest = 'CRIT',
-        type = csv,
-        default = [DEFAULT_READ_CRIT, DEFAULT_WRITE_CRIT],
+        type = int,
+        default = DEFAULT_CRIT,
         )
 
-    parser.add_argument('-i', '--ignore',
-        help = 'Ignore certain disk names, in the format "sr0,dm-1". Default: %(default)s',
+    parser.add_argument('--ignore',
+        help = 'Ignore some disks like "sr0" or "dm-1 (repeat this parameter to add multiple disks). Default: %(default)s',
         dest = 'IGNORE',
-        type = csv,
         default = DEFAULT_IGNORE,
+        action = 'append',
+        )
+
+    parser.add_argument('-w', '--warning',
+        help = 'The warning threshold in MB/sec for the read and write rate. Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
         )
 
     return parser.parse_args()
@@ -87,95 +83,126 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    READ_WARN = int(parsed.WARN[0]) if parsed.WARN[0] else None
-    WRITE_WARN = int(parsed.WARN[1]) if parsed.WARN[1] else None
-    READ_CRIT = int(parsed.CRIT[0]) if parsed.CRIT[0] else None
-    WRITE_CRIT = int(parsed.CRIT[1]) if parsed.CRIT[1] else None
-    IGNORE = parsed.IGNORE if parsed.IGNORE else []
 
-    # try to get the latest data
-    try:
-        (latest_timestamp, latest_data) = pickle.load(open('{}/disk-io-dump'.format(tempfile.gettempdir()), 'rb'))        
-    except:
-        latest_data = None
+    # create the db table
+    definition = '''
+            name                TEXT NOT NULL,
+            busy_time           INT NOT NULL, 
+            read_bytes          INT NOT NULL,
+            read_count          INT NOT NULL,
+            read_merged_count   INT NOT NULL,
+            read_time           INT NOT NULL,
+            write_bytes         INT NOT NULL,
+            write_count         INT NOT NULL,
+            write_merged_count  INT NOT NULL,
+            write_time          INT NOT NULL,
+            timestamp           INT NOT NULL
+        '''
+    conn = lib.base.continue_or_exit(lib.db.connect(filename='disk-io.db'))
+    lib.base.continue_or_exit(lib.db.create_table(conn, definition, drop_table_first=False))
+    lib.base.continue_or_exit(lib.db.create_index(conn, 'name'))
 
-    # get current data
-    current_data = psutil.disk_io_counters(perdisk=True)
-    current_timestamp = datetime.datetime.today()
 
-    pickle.dump((current_timestamp, current_data), open('{}/disk-io-dump'.format(tempfile.gettempdir()), 'wb+'))
+    # get disk data and store it to database
+    disk_io_counters = psutil.disk_io_counters(perdisk=True)
+    timestamp = lib.base.now()
 
-    global_state = STATE_OK
+    disks = []
+    for disk, values in disk_io_counters.items():
+        if disk in parsed.IGNORE:
+            continue
+        data = {}
+        data['name'] = disk
+        data['busy_time'] = values.busy_time
+        data['read_bytes'] = values.read_bytes
+        data['read_count'] = values.read_count
+        data['read_merged_count'] = values.read_merged_count
+        data['read_time'] = values.read_time
+        data['write_bytes'] = values.write_bytes
+        data['write_count'] = values.write_count
+        data['write_merged_count'] = values.write_merged_count
+        data['write_time'] = values.write_time
+        data['timestamp'] = timestamp
+        disks.append(disk)
+        lib.base.continue_or_exit(lib.db.insert(conn, data))
 
+    lib.base.continue_or_exit(lib.db.cut(conn, max=parsed.COUNT*len(disks)))
+    lib.base.continue_or_exit(lib.db.commit(conn))
+
+
+    msg_header, msg_body, msg_item, msg_warn = '', '', '', ''
     perfdata = ''
+    state = STATE_OK
 
-    table = '''
-‌Disk        ║ Write Rate  ║ Read Rate
-════════════╬═════════════╬═══════════'''
 
-    highest_value = 0
+    max_rw = 0       # disk with the highest sum of r/w: show this on top later on
+    for disk in sorted(disks):
+        # get the two newest historical data rows for a specific disk, newest item first
+        diskdata = lib.base.continue_or_exit(lib.db.select(conn, 
+            'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC LIMIT 2',
+            {'name': disk}
+        ))
+        if len(diskdata) != 2:
+            print('Waiting for more data.')
+            lib.db.close(conn)
+            exit(state)
 
-    if latest_data:
-        time_delta  = (current_timestamp - latest_timestamp).total_seconds();
-        for disk, values in sorted(current_data.items()):
-            if disk not in IGNORE:
-                try: # needed to prevent key lookup errors in the latest_data dict
-                    write_rate = (current_data[disk].write_bytes - latest_data[disk].write_bytes) / time_delta
-                    if write_rate < 0: # in case of a counter reset
-                        write_rate = 0
+        # calculate
+        timestamp_diff = diskdata[0]['timestamp'] - diskdata[1]['timestamp']            # in seconds
+        read_bytes_per_second = int((diskdata[0]['read_bytes'] - diskdata[1]['read_bytes']) / timestamp_diff)
+        read_count_per_second = int((diskdata[0]['read_count'] - diskdata[1]['read_count']) / timestamp_diff)
+        write_bytes_per_second = int((diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff)
+        write_count_per_second = int((diskdata[0]['write_count'] - diskdata[1]['write_count']) / timestamp_diff)
 
-                    write_rate_data = Data('{}_write_rate'.format(disk), write_rate, WRITE_WARN, WRITE_CRIT)
-                    write_rate_data.set_state(evaluate_greater((write_rate_data.value, write_rate_data.warn, write_rate_data.crit)))
-                    perfdata += unpack_perfdata((write_rate_data.label, write_rate_data.value, UOM_RATE, write_rate_data.warn, write_rate_data.crit, MIN, MAX))
+        perfdata += unpack_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second, 'B', None, None, 0, None)
+        perfdata += unpack_perfdata('{}_read_count_per_second'.format(disk), read_count_per_second, None, None, None, 0, None)
+        perfdata += unpack_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second, 'B', None, None, 0, None)
+        perfdata += unpack_perfdata('{}_write_count_per_second'.format(disk), write_count_per_second, None, None, None, 0, None)
 
-                    read_rate = (current_data[disk].read_bytes - latest_data[disk].read_bytes) / time_delta
-                    if read_rate < 0: # in case of a counter reset
-                        read_rate = 0
-                        
-                    read_rate_data = Data('{}_read_rate'.format(disk), read_rate, READ_WARN, READ_CRIT)
-                    read_rate_data.set_state(evaluate_greater((read_rate_data.value, read_rate_data.warn, read_rate_data.crit)))
-                    perfdata += unpack_perfdata((read_rate_data.label, read_rate_data.value, UOM_RATE, read_rate_data.warn, read_rate_data.crit, MIN, MAX))
+        msg_item = '{}: {} R/s, {} W/s, {} IO/s\n'.format(disk, bytes2human(read_bytes_per_second), bytes2human(write_bytes_per_second), read_count_per_second+write_count_per_second)
+        if read_bytes_per_second + write_bytes_per_second > max_rw:
+            msg_header = msg_item
+            max_rw = read_bytes_per_second + write_bytes_per_second
+        msg_body += '* ' + msg_item
 
-                    if write_rate >= highest_value:
-                        highest_value = write_rate
-                        highest_disk = disk
-                        highest_write_rate_data = write_rate_data
-                        highest_read_rate_data = read_rate_data
 
-                    if read_rate >= highest_value:
-                        highest_value = read_rate
-                        highest_disk = disk
-                        highest_write_rate_data = write_rate_data
-                        highest_read_rate_data = read_rate_data
+    parsed.WARN = parsed.WARN * 1024 * 1024     # Megabytes > Bytes
+    parsed.CRIT = parsed.CRIT * 1024 * 1024     # Megabytes > Bytes
 
-                    state_checklist = [write_rate_data.state, read_rate_data.state]
+    # the real check goes here - we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
+    for disk in sorted(disks):
+        # get all historical data rows for a specific disk, newest item first
+        diskdata = lib.base.continue_or_exit(lib.db.select(conn, 
+            'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
+            {'name': disk}
+        ))
+        if len(diskdata) != parsed.COUNT:
+            # not enough data yet
+            continue
 
-                    state = ''
-                    if STATE_CRIT in state_checklist:
-                        state = ' (CRIT)'
-                        global_state = STATE_CRIT
-                    elif STATE_WARN in state_checklist:
-                        state = ' (WARN)'
-                        if global_state != STATE_CRIT:
-                            global_state = STATE_WARN
+        # calculate
+        timestamp_diff = diskdata[0]['timestamp'] - diskdata[parsed.COUNT - 1]['timestamp']            # in seconds
+        read_bytes_per_second = int((diskdata[0]['read_bytes'] - diskdata[parsed.COUNT - 1]['read_bytes']) / timestamp_diff)
+        write_bytes_per_second = int((diskdata[0]['write_bytes'] - diskdata[parsed.COUNT - 1]['write_bytes']) / timestamp_diff)
 
-                    
-                    table += '\n{:12}║{:13}║{:11}'.format(disk + state, bytes2human(write_rate) + '/s', bytes2human(read_rate) + '/s')
+        throughput = read_bytes_per_second + write_bytes_per_second
+        if throughput >= parsed.CRIT:
+            msg_warn += '{} (CRIT): {}/s, '.format(disk, bytes2human(throughput))
+            state = STATE_CRIT
+        elif throughput >= parsed.WARN:
+            msg_warn += '{} (WARN): {}/s, '.format(disk, bytes2human(throughput))
+            state = STATE_WARN
 
-                except KeyError:
-                    pass # needed to prevent empty if statement
+    lib.db.close(conn)
 
-        if global_state == STATE_OK:
-            msg = 'Everything is ok. {}: {}/s, {}/s (Read, Write)'.format(highest_disk, bytes2human(highest_read_rate_data.value), bytes2human(highest_write_rate_data.value))
-        else:
-            msg = 'One or more errors. {}: {}/s, {}/s (Read, Write)'.format(highest_disk, bytes2human(highest_read_rate_data.value), bytes2human(highest_write_rate_data.value))
 
-    else:
-        msg = 'Waiting for the latest data...'
+    if msg_warn:
+        msg_header = msg_warn[:-2] + '\n'
+    msg = msg_header + msg_body
 
-    print(msg.strip() + '\n' + table + '|' + perfdata.strip())
+    print(msg.strip() + '|' + perfdata.strip())
+    exit(state)
 
-    exit(global_state)
 
 if __name__ == '__main__':
     try:
