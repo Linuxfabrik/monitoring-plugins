@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031901'
+__version__ = '2020032101'
 
 DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -22,7 +22,7 @@ from lib.globals import *
 
 from lib.base import continue_or_exit
 from lib.output import bytes2human, unpack_perfdata
-from lib.rc import rc_get_token, rc_get_stats
+from lib.rc import get_token, get_stats
 
 import argparse
 from traceback import print_exc
@@ -66,9 +66,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = continue_or_exit(rc_get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
+    credentials = continue_or_exit(get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = continue_or_exit(rc_get_stats(parsed.URL, authToken, userId))
+    result = continue_or_exit(get_stats(parsed.URL, authToken, userId))
 
     # extract some application specific data
     if result.get('statistics', None):
