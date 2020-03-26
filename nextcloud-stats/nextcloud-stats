@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031801'
+__version__ = '2020032601'
 
 DESCRIPTION = 'This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -29,7 +29,7 @@ import json
 
 from lib.output import bytes2human, unpack_perfdata
 from lib.base import continue_or_exit
-from lib.url import fetch_url
+import lib.url
 
 
 def define_args():
@@ -106,7 +106,7 @@ def main():
         'OCS-APIRequest': 'true',
     }
     # and get the info from the API
-    jsonst = continue_or_exit(fetch_url(URL, insecure=INSECURE, no_proxy=NO_PROXY, header=header))
+    jsonst = continue_or_exit(lib.url.fetch(URL, insecure=INSECURE, no_proxy=NO_PROXY, header=header))
     result = json.loads(jsonst)
 
 
