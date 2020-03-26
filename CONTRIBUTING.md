@@ -103,21 +103,22 @@ For all other options, use long parameters only. We recommend using some of thos
 ## Plugin Output
 
 * Print a short concise message in the first line within the first 80 chars if possible.
-* Use multi-line output for details, with important output in the first line.
-* Don't print "OK", "WARN", "CRIT".
-* Give a help text to solve the problem.
+* Use multi-line output for details (`msg_body`), with the most important output in the first line (`msg_header`).
+* Don't print "OK".
+* Print "(WARN)" or "(CRIT)" for clarification next to a specific item.
+* If possible give a help text to solve the problem.
 * Multiple items checked, and ...
-  - ... everything ok? Print "Everything is ok." in the first line, and optional the items and their data attached in multiple lines.
-  - ... there are warnings or errors? Print "There are warnings." or "There are errors.", and optional the items and their data attached in multiple lines.
-* Output short "Units of Measurements" without white spaces:
+  - ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+  - ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+* Use short "Units of Measurements" without white spaces:
   * Percentage: 93.2%
   * Bytes: 7B, 3.4K, M, G, T
   * Temperatures: 7.3C, 45F
   * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-  * I/O: 220.4MB/s (Megabyte per Second)
-  * Read/Write: "R/s", "W/s"
-* Use ISO format for datetime ("yyyy-mm-dd hh:mm:ss")
-* Print human readable datetimes ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
+  * I/O and Throughput: 220.4MB/s (Megabyte per Second)
+  * Read/Write: "R/s", "W/s", "IO/s"
+* Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
+* Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
 
 
 ## Plugin Perfdata
