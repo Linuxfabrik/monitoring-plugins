@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031801'
+__version__ = '2020032101'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -22,7 +22,7 @@ DEFAULT_CACHE_EXPIRE    = 24 # hours
 from lib.globals import *
 
 from lib.base import continue_or_exit, grep_file, now
-from lib.cache import get_cache, set_cache
+from lib.cache import get_key, set_key
 from lib.url import fetch_url
 
 import argparse
@@ -111,7 +111,7 @@ def nc_get_update_url(path, channel):
 
 def nc_get_latest_version(path, channel, expire):
     # get version online, but first from cache
-    latest_version = get_cache('nextcloud-version')
+    latest_version = get_key('nextcloud-version')
     if latest_version:
         return (True, latest_version)
 
@@ -130,13 +130,13 @@ def nc_get_latest_version(path, channel, expire):
         success, latest_version = nc_get_installed_version(path)
         if not success:
             return (success, latest_version)
-        set_cache('nextcloud-version', latest_version, now() + expire)
+        set_key('nextcloud-version', latest_version, now() + expire)
         return (True, latest_version)
 
     # there is an upate available, so result contains xml here
     dom = minidom.parseString(xmlst)
     latest_version = dom.getElementsByTagName('version')[0].firstChild.nodeValue.strip()
-    set_cache('nextcloud-version', latest_version, now() + expire)
+    set_key('nextcloud-version', latest_version, now() + expire)
     return (True, latest_version)
 
 
