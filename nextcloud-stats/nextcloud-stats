@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032801'
+__version__ = '2020032802'
 
 DESCRIPTION = 'This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -91,6 +91,9 @@ def main():
 
     if not parsed.URL.startswith('http'):
         print('--url parameter has to start with "http://" or https://".')
+        exit(STATE_UNKNOWN)
+    if not parsed.URL.endswith('/info'):
+        print('--url parameter has to end in "/info".')
         exit(STATE_UNKNOWN)
     URL = parsed.URL + '?format=json'
     USERNAME = parsed.USERNAME
