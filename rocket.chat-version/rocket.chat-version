@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032601'
+__version__ = '2020032801'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -21,10 +21,10 @@ DEFAULT_CACHE_EXPIRE    = 24 # hours
 #====================
 from lib.globals import *
 
-from lib.base import continue_or_exit, now
-from lib.rc import get_token, get_stats
-from lib.url import get_latest_version_from_github
+import lib.base
 import lib.kvs
+import lib.rc
+import lib.url
 
 import argparse
 from traceback import print_exc
@@ -81,11 +81,11 @@ def get_latest_version(expire):
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version = get_latest_version_from_github('RocketChat', 'Rocket.Chat')
+    success, latest_version = lib.url.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
     if not success:
         return (success, latest_version)
     
-    lib.kvs.set('rocket.chat-version', latest_version, now() + expire)
+    lib.kvs.set('rocket.chat-version', latest_version, lib.base.now() + expire)
     return (True, latest_version)
 
 
@@ -97,9 +97,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = continue_or_exit(get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
+    credentials = lib.base.continue_or_exit(lib.rc.get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = continue_or_exit(get_stats(parsed.URL, authToken, userId))
+    result = lib.base.continue_or_exit(lib.rc.get_stats(parsed.URL, authToken, userId))
 
     if result.get('statistics', None):
         # version < 3.0.0
@@ -108,7 +108,7 @@ def main():
         # version >= 3.0.0
         installed_version = result['version']
 
-    latest_version = continue_or_exit(get_latest_version(parsed.CACHE_EXPIRE*60*60))
+    latest_version = lib.base.continue_or_exit(get_latest_version(parsed.CACHE_EXPIRE*60*60))
 
     if installed_version >= latest_version:
         print('Rocket.Chat v{} is up to date'.format(installed_version))
