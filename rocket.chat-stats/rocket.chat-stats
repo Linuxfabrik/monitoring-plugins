@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032101'
+__version__ = '2020032801'
 
 DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -20,9 +20,10 @@ DEFAULT_USERNAME        = 'rocket-stats'
 #====================
 from lib.globals import *
 
-from lib.base import continue_or_exit
-from lib.output import bytes2human, unpack_perfdata
-from lib.rc import get_token, get_stats
+import lib.base
+import lib.output
+import lib.rc
+import lib.url
 
 import argparse
 from traceback import print_exc
@@ -66,9 +67,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = continue_or_exit(get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
+    credentials = lib.base.continue_or_exit(lib.rc.get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = continue_or_exit(get_stats(parsed.URL, authToken, userId))
+    result = lib.base.continue_or_exit(lib.rc.get_stats(parsed.URL, authToken, userId))
 
     # extract some application specific data
     if result.get('statistics', None):
@@ -116,7 +117,7 @@ def main():
         rc_statistics_onlineUsers,
         rc_statistics_totalMessages,
         rc_statistics_uploadsTotal,
-        bytes2human(rc_statistics_uploadsTotalSize),
+        lib.output.bytes2human(rc_statistics_uploadsTotalSize),
         rc_statistics_version, 
         )
     msg += '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
@@ -131,18 +132,18 @@ def main():
         rc_statistics_totalLivechatMessages,
         )
 
-    perfdata += unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
 
     print(msg.strip() + '|' + perfdata.strip())
 
