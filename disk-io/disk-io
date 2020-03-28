@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032602'
+__version__ = '2020032801'
 
 DESCRIPTION = 'Checks disk IO.'
 
@@ -104,7 +104,12 @@ def main():
 
 
     # get disk data and store it to database
-    disk_io_counters = psutil.disk_io_counters(perdisk=True)
+    try:
+        disk_io_counters = psutil.disk_io_counters(perdisk=True)
+    except:
+        print('psutil raised an error.')
+        exit(STATE_UNKNOWN)
+
     timestamp = lib.base.now()
 
     disks = []
