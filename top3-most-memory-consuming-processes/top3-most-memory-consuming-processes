@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020032901'
 
 DESCRIPTION = 'Displays the top 3 memory consuming processes.'
 
@@ -27,13 +27,15 @@ from collections import Counter
 import argparse
 from traceback import print_exc
 
+
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+                        action='version',
+                        version='%(prog)s: v{} by {}'.format(
+                            __version__, __author__)
+                        )
 
     return parser.parse_args()
 
@@ -48,20 +50,25 @@ def main():
     msg = ''
     cnt = Counter()
 
-    # only works with psutil version >= 5.3.0
-    # for p in psutil.process_iter(attrs=['name', 'memory_percent']):
-    #     cnt[p.info['name']] += p.info['memory_percent']
-    try:
-        for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
-            cnt[p['name']] += p['memory_percent']
-    except psutil.NoSuchProcess:
-        pass
+    if psutil.__version__ >= '5.3.0':
+        try:
+            for p in psutil.process_iter(attrs=['name', 'memory_percent']):
+                cnt[p.info['name']] += p.info['memory_percent']
+        except psutil.NoSuchProcess:
+            pass
+    else:
+        try:
+            for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
+                cnt[p['name']] += p['memory_percent']
+        except psutil.NoSuchProcess:
+            pass
 
     for i, p in enumerate(cnt.most_common(3)):
         msg += '{}. {}: {:.2f}%, '.format(i + 1, p[0], p[1])
 
-    print(msg[:-2]) # strip trailing ', '
+    print(msg[:-2])  # strip trailing ', '
     exit(STATE_OK)
+
 
 if __name__ == '__main__':
     try:

@@ -6,16 +6,17 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020033001'
 
 DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
 
 #====================
 
 from lib.globals import *
+import lib.output
 
 try:
     import psutil
@@ -23,17 +24,18 @@ except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 
-from lib.output import bytes2human
 import argparse
 from traceback import print_exc
+
 
 def define_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+                        action='version',
+                        version='%(prog)s: v{} by {}'.format(
+                            __version__, __author__)
+                        )
 
     return parser.parse_args()
 
@@ -44,26 +46,31 @@ def main():
         parsed = define_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
-        
+
     msg = ''
     cnt = {}
 
-    # only works with psutil version >= 5.3.0
-    # for p in psutil.process_iter(attrs=['name', 'io_counters']):
-    #     if p.info['io_counters']:
-    #         cnt[p.info['name']] += sum(p.info['io_counters'][:2])
     try:
         for p in [x.as_dict(attrs=['name', 'io_counters']) for x in psutil.process_iter()]:
             if p['io_counters']:
-                cnt[p['name']] = [x + y for x, y in zip(cnt.get(p['name'], [0, 0]), [p['io_counters'].read_bytes, p['io_counters'].write_bytes])]
+                if p['name'] not in cnt.keys():
+                    cnt[p['name']] = {'r': 0, 'w': 0}
+                cnt[p['name']]['r'] += p['io_counters'].read_bytes
+                cnt[p['name']]['w'] += p['io_counters'].write_bytes
     except psutil.NoSuchProcess:
         pass
-        
-    for i, item in enumerate(sorted(cnt.items(), key=lambda item : sum(item[1]), reverse=True)[:3]):
-        msg += '{}. {}: {}/{}, '.format(i + 1, item[0], bytes2human(item[1][0]), bytes2human(item[1][1]))
 
-    print(msg[:-2] + ' (r/w)') # strip trailing ', '
+    # cnt.items: [('WebKitNetworkProcess', {'r': 1716224, 'w': 0}), ('ibus-x11', {'r': 0, 'w': 0}), ...
+    cnt = sorted(cnt.items(), key=lambda x: x[1]['r']+x[1]['w'], reverse=True)
+    for i, (key, value) in enumerate(cnt):
+        if i > 2:
+            break
+        msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.output.bytes2human(
+            value['r']), lib.output.bytes2human(value['w']))
+
+    print(msg[:-2])  # strip trailing ', '
     exit(STATE_OK)
+
 
 if __name__ == '__main__':
     try:
