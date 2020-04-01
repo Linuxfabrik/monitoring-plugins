@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040101'
+__version__ = '2020040102'
 
 DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics.'
 
@@ -352,7 +352,7 @@ def main():
     perfdata += lib.output.unpack_perfdata('questions', mystat['Questions'], 'c', None, None, 0, None)
     perfdata += lib.output.unpack_perfdata('qps', qps, 'c', None, None, 0, None)
 
-    msg += '{} Connections, '.format(mystat['Connections'])
+    msg += '{} Connections, '.format(lib.output.number2human(mystat['Connections']))
     perfdata += lib.output.unpack_perfdata('connections', mystat['Connections'], 'c', None, None, 0, None)
 
     msg += '{}/{} (Rx/Tx)\n'.format(lib.output.bytes2human(mystat['Bytes_received']), lib.output.bytes2human(mystat['Bytes_sent']))
@@ -389,7 +389,7 @@ def main():
     if mycalc['pct_slow_queries'] > 5:
         msg_warn += '* Slow Queries > 5% (use the slow query log to troubleshoot bad queries)\n'
         state = get_greater_state(state, STATE_WARN)
-    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], mystat['Questions'])
+    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], lib.output.number2human(mystat['Questions']))
     perfdata += lib.output.unpack_perfdata('pct_slow_queries', mycalc['pct_slow_queries'], '%', 5, None, 0, 100)
 
     # Connections
@@ -429,7 +429,7 @@ def main():
         if mycalc['query_cache_efficiency'] < 20:
             msg_warn += '* Query cache efficiency < 20% (increase query_cache_limit or use smaller result sets)\n'
             state = get_greater_state(state, STATE_WARN)
-        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], mystat['Qcache_hits'] + mystat['Com_select'])
+        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.output.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
         perfdata += lib.output.unpack_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
             
         if mycalc['query_cache_prunes_per_day'] > 98:
@@ -449,7 +449,7 @@ def main():
         if mycalc['pct_temp_sort_table'] > 10:
             msg_warn += '* Sorts are requiring temporary tables (increase sort_buffer_size, increase read_rnd_buffer_size)\n'
             state = get_greater_state(state, STATE_WARN)
-        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], mycalc['total_sorts'])
+        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], lib.output.number2human(mycalc['total_sorts']))
         perfdata += lib.output.unpack_perfdata('pct_temp_sort_table', mycalc['pct_temp_sort_table'], '%', 10, None, 0, 100)
 
     # Joins
@@ -467,7 +467,7 @@ def main():
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
             msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n' 
             state = get_greater_state(state, STATE_WARN)
-    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], mystat['Created_tmp_disk_tables'], mystat['Created_tmp_tables'])
+    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.output.number2human(mystat['Created_tmp_disk_tables']), lib.output.number2human(mystat['Created_tmp_tables']))
     perfdata += lib.output.unpack_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)
 
     # Thread cache
