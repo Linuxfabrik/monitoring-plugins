@@ -5,8 +5,8 @@ This git repo provides various Python 2 based check plugins for Nagios and compa
 If you
 
 * are disappointed by `nagios-plugins-all`
-* search for checks that are written in Python2 only (your system language on CentOS)
-* want to have a look into the source code of the checks
+* search for checks that are all written in Python2 only (your system language on CentOS)
+* want to have an easy look into the source code of the checks
 * want to use checks that are fast, reliable and focused on CentOS and Icinga2
 * want to use checks that all behave uniform and report the same (for example "used") in a short and precise manner
 * want to use checks out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
@@ -96,7 +96,7 @@ nextcloud-stats                     | App Updates avail. | -
 nextcloud-version                 | Server Update avail. | -
 ntp-offset                                     | > 500ms | > 1000ms
 openvpn-client-list                              | -     | -
-procs                                          | > 24h Z | -  
+procs                                            | -     | -
 redis                                            |       |       
 rocket.chat-stats                                | -     | -
 rocket.chat-version               | Server Update avail. | -
