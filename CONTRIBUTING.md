@@ -91,6 +91,52 @@ For all other options, use long parameters only. We recommend using some of thos
   `[['1', '2', '3'], ['a', 'b', 'c']]`
 
 
+## Threshold and Ranges
+
+If a threshold has to be handled as a range parameter, this is how to interpret them. Pretty much the same as stated in the [Nagios Development Guidelines](http://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
+
+* simple value: a range from 0 up to and including the value
+* `:`: describes a range
+* empty value before or after `:`: positive infinity
+* `~`: negative infinity
+* `@`: if range starts with "@", then alert if inside this range (including endpoints)
+
+-w, -c    | OK if result is   | WARN/CRIT if      | lib.range.parse() returns
+----------|-------------------|-------------------|----------------------------
+10        | in (0..10)        | not in (0..10)    | (0, 10, False)
+-10       | in (-10..0)       | not in (-10..0)   | (0, -10, False)
+10:       | in (10..inf)      | not in (10..inf)  | (10, inf, False)
+:         | in (0..inf)       | not in (0..inf)   | (0, inf, False)
+~:10      | in (-inf..10)     | not in (-inf..10) | (-inf, 10, False)
+10:20     | in (10..20)       | not in (10..20)   | (10, 20, False)
+@10:20    | not in (10..20)   | in 10..20         | (10, 20, True)
+@~:20     | not in (-inf..20) | in (-inf..20)     | (-inf, 20, True)
+@         | not in (0..inf)   | in (0..inf)       | (0, inf, True)
+
+So, a definition like `--warning 2:100 --critical 1:150` should return the states:
+
+    val   0   1   2 .. 100 101 .. 150 151
+    -w   WA  WA  OK     OK  WA     WA  WA
+    -c   CR  OK  OK     OK  OK     OK  CR
+    =>   CR  WA  OK     OK  WA     WA  CR
+
+Another example: `--warning 190: --critical 200:`
+
+    val 189 190 191 .. 199 200 201
+    -w   WA  OK  OK     OK  OK  OK
+    -c   CR  CR  CR     CR  OK  OK
+    =>   CR  CR  CR     CR  OK  OK
+
+Another example: `--warning ~:0 --critical 10`
+
+    val  -2  -1   0   1 ..   9  10  11
+    -w   OK  OK  OK  WA     WA  WA  WA
+    -c   CR  CR  OK  OK     OK  OK  CR
+    =>   CR  CR  OK  WA     WA  WA  CR
+
+Have a look at `procs` on how to implement this.
+
+
 ## Error Handling
 
 * Catch exceptions using `try`/`except`, especially in functions.
