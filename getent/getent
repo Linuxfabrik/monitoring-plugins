@@ -1,0 +1,94 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020040302'
+
+DESCRIPTION = 'Trys to get entries from Name Service Switch libraries and warns if no match.'
+
+bash_command = '/usr/bin/getent'
+
+DEFAULT_DATABASE = 'group'
+
+
+#====================
+from lib.globals import *
+
+import lib.base
+import lib.utils
+
+import argparse
+from traceback import print_exc
+
+
+def define_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        )
+
+    parser.add_argument('--database',
+        default = DEFAULT_DATABASE,
+        dest = 'DATABASE',
+        help = 'May be any of those supported by "getent", for example "group", "hosts" etc. Default: %(default)s',
+        )
+
+    parser.add_argument('--key',
+        help='Key for getent, for example a group name (repeating, optional).',
+        dest='KEY',
+        action='append',
+        )
+    
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        parsed = define_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # build the getent command
+    cmd = bash_command + ' {}'.format(parsed.DATABASE)
+    if parsed.KEY:
+        for key in parsed.KEY:
+            cmd += ' {}'.format(key)
+
+    state = STATE_OK
+    msg = 'Everything is ok.'
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.utils.execute_command(cmd)
+    if (stderr):
+        print('Bash command `{}` failed.'.format(bash_command))
+        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
+        exit(STATE_UNKNOWN)
+    if (retc == 1):
+        mesg = 'Missing arguments for getent, or database "{}" unknown.'.format(parsed.DATABASE)
+        state = STATE_UNKNOWN
+    if (retc == 2):
+        msg = 'One or more supplied keys could not be found in "{}", using "{}".'.format(parsed.DATABASE, cmd)
+        state = STATE_WARN
+    if (retc == 3):
+        msg = 'Multiple keys (enumeration) not supported on database "{}".'.format(parsed.DATABASE)
+        state = STATE_UNKNOWN
+
+    lib.base.oao(msg, state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

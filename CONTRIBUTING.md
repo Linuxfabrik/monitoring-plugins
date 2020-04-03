@@ -57,6 +57,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --always-ok
     --cache-expire
     --channel
+    --command
     --count
     --database
     --filename
@@ -67,6 +68,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --loadstate
     --mode
     --mount
+    --no-kthreads
     --no-proxy
     --no-summary
     --path
