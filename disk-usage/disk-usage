@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020040501'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -19,16 +19,17 @@ DEFAULT_CRIT  = 95
 #====================
 from lib.globals import *
 
+import lib.base
+import lib.output
+import lib.parse_input
+
 import argparse
-from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-
-from lib.output import unpack_perfdata, bytes2human, format_as_table, state_to_string
-from lib.parse_input import evaluate_greater
+from traceback import print_exc
 
 
 def define_args():
@@ -39,20 +40,27 @@ def define_args():
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold partition usage percentage. Default: %(default)s',
-        dest = 'WARN',
-        type = float,
-        default = DEFAULT_WARN,
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold partition usage percentage. Default: %(default)s',
         dest = 'CRIT',
-        type = float,
+        type = int,
         default = DEFAULT_CRIT,
         )
     
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold partition usage percentage. Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
+
     return parser.parse_args()
 
 
@@ -63,33 +71,34 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    overall_state = STATE_OK
+    state = STATE_OK
     perfdata = ''
     table_data = []
-    slash_usage_text = ''
+    msg_slash_usage = ''
 
     parts = psutil.disk_partitions(all=False)
     for part in parts:
         usage = psutil.disk_usage(part.mountpoint)
 
-        state = evaluate_greater(usage.percent, parsed.WARN, parsed.CRIT)
-        overall_state = get_greater_state(overall_state, state)
-        perfdata += unpack_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', parsed.WARN, parsed.CRIT, 0, 100)
-        perfdata += unpack_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
+        disk_state = lib.parse_input.evaluate_greater(usage.percent, parsed.WARN, parsed.CRIT)
+        state = lib.globals.get_worst(state, disk_state)
+        perfdata += lib.output.unpack_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', parsed.WARN, parsed.CRIT, 0, 100)
+        perfdata += lib.output.unpack_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
         if part.mountpoint == '/':
-            slash_usage_text = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, bytes2human(usage.total), bytes2human(usage.used), bytes2human(usage.free))
+            msg_slash_usage = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.output.bytes2human(usage.total), lib.output.bytes2human(usage.used), lib.output.bytes2human(usage.free))
 
         table_data.append({
-            'mountpoint': '{} {}'.format(part.mountpoint, state_to_string(state)),
-            'used': bytes2human(usage.used),
-            'total': bytes2human(usage.total),
+            'mountpoint': '{} {}'.format(part.mountpoint, lib.output.state_to_string(disk_state)),
+            'used': lib.output.bytes2human(usage.used),
+            'total': lib.output.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 
-    table = format_as_table(table_data, ['mountpoint', 'used', 'total', 'percent'], ['mountpoint', 'used', 'total', 'percent'], 'percent')
-    print(slash_usage_text.strip() + '\n\n' + table.strip() + '|' + perfdata.strip())
-    exit(overall_state)
+    table = lib.output.format_as_table(table_data, ['mountpoint', 'used', 'total', 'percent'], ['mountpoint', 'used', 'total', 'percent'], 'percent')
+
+    lib.base.oao(msg_slash_usage.strip() + '\n\n' + table, state, perfdata, always_ok=parsed.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:
