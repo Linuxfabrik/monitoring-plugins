@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020040501'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -17,8 +17,11 @@ DESCRIPTION = 'Reports a quick overview about the host dimensions and installed 
 #====================
 from lib.globals import *
 
+import lib.base
+import lib.output
+import lib.utils
+
 import argparse
-from traceback import print_exc
 import os
 import platform
 try:
@@ -27,9 +30,7 @@ except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 import re
-
-from lib.utils import execute_command
-from lib.output import bytes2human, unpack_perfdata
+from traceback import print_exc
 
 
 def define_args():
@@ -44,7 +45,7 @@ def define_args():
 
 
 def execute_command_or_unknown(command):
-    stdout, stderr, retc = execute_command(command)
+    stdout, stderr, retc = lib.utils.execute_command(command)
     if (stderr or retc != 0):
         print('Bash command `{}` failed.'.format(command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -53,10 +54,10 @@ def execute_command_or_unknown(command):
 
 
 def find_command(return_text, command, version_cmd=None, version_regex=None):
-    stdout, stderr, retc = execute_command(command)
+    stdout, stderr, retc = lib.utils.execute_command(command)
     if retc == 0:
         if version_cmd:
-            ver, stderr, retc = execute_command(version_cmd)
+            ver, stderr, retc = lib.utils.execute_command(version_cmd)
             if ver == '' and stderr != '':
                 # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
                 # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr]
@@ -245,12 +246,12 @@ def get_python_modules():
         import psutil
         pm += 'psutil {}, '.format(psutil.__version__)
     except:
-        pm += ''
+        pass
     try:
         import mysql.connector
         pm += 'mysql.connector {}, '.format(mysql.connector.__version__)
     except:
-        pm += ''
+        pass
     if pm:
         return pm[:-2]
     else:
@@ -264,54 +265,39 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-
     msg = ''
     perfdata = ''
     state = STATE_OK
 
-
     sys_dimensions = get_sys_dimensions()
-    if sys_dimensions['cpu'] == 1:
-        msg += '{} CPU, '.format(sys_dimensions['cpu'])
-    else:
-        msg += '{} CPUs, '.format(sys_dimensions['cpu'])
-    msg += bytes2human(sys_dimensions['ram']) + ' RAM, '
-    if sys_dimensions['disks'] == 1:
-        msg += '{} Disk ({}), '.format(sys_dimensions['disks'], sys_dimensions['disk-sizes'])
-    else:
-        msg += '{} Disks ({}), '.format(sys_dimensions['disks'], sys_dimensions['disk-sizes'])
+    msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base.pluralize('CPU', sys_dimensions['cpu']))
+    msg += lib.output.bytes2human(sys_dimensions['ram']) + ' RAM, '
+    msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
     msg = msg[:-2]
-
 
     repo_sw = get_repo_sw()
     if repo_sw:
         msg += ' - Software: ' + repo_sw 
 
-
     apps = get_apps()
     if apps:
         msg += ' - Apps: ' + apps 
-
 
     tools = get_tools()
     if tools:
         msg += ' - Tools: ' + tools
 
-
     pm = get_python_modules()
     if pm:
         msg += ' - Python modules: ' + pm 
-
     
     msg += ' - OS: ' + get_os_info()
 
+    perfdata += lib.output.unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    perfdata += lib.output.unpack_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
-    perfdata += unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += unpack_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
-    perfdata += unpack_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
-
-    print(msg + '|' + perfdata.strip())
-    exit(state)
+    lib.base.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':
