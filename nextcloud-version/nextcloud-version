@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -22,8 +22,8 @@ DEFAULT_CACHE_EXPIRE    = 24 # hours
 from lib.globals import *
 
 import lib.base
-import lib.fs
-import lib.kvs
+import lib.cache
+import lib.disk
 import lib.url
 
 import argparse
@@ -31,7 +31,7 @@ from traceback import print_exc
 from xml.dom import minidom
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -71,7 +71,7 @@ def define_args():
 
 def nc_get_installed_version(path):
     # nextcloud/version.php: $OC_Version = array(18,0,2,2);
-    success, nc_version = lib.fs.grep_file(path + '/version.php', r'\$OC_Version = array\((.*)\)')
+    success, nc_version = lib.disk.grep_file(path + '/version.php', r'\$OC_Version = array\((.*)\)')
     if not success:
         return (success, nc_version)
     if nc_version:
@@ -82,7 +82,7 @@ def nc_get_installed_version(path):
 
 
 def nc_get_update_url(path, channel):
-    # We need this:
+    # We need to call this URL schema:
     # https://updates.nextcloud.com/updater_server/?version=18x0x1x3x1484370109x1484370109xstablexxf6bd5afd0370ae6308529047ba6344acf8d382a3x7x2x28
     update_url = 'https://updates.nextcloud.com/updater_server/?version='
 
@@ -98,7 +98,7 @@ def nc_get_update_url(path, channel):
     nc_updatechannel = channel
     nc_edition = ''
 
-    success, nc_build = lib.fs.grep_file(path + '/version.php', r"\$OC_Build = '.* (.*)';")
+    success, nc_build = lib.disk.grep_file(path + '/version.php', r"\$OC_Build = '.* (.*)';")
     if not success:
         return (success, nc_version)
     if not nc_build:
@@ -112,7 +112,7 @@ def nc_get_update_url(path, channel):
 
 def nc_get_latest_version(path, channel, expire):
     # get version online, but first from cache
-    latest_version = lib.kvs.get('nextcloud-version')
+    latest_version = lib.cache.get('nextcloud-version')
     if latest_version:
         return (True, latest_version)
 
@@ -131,35 +131,30 @@ def nc_get_latest_version(path, channel, expire):
         success, latest_version = nc_get_installed_version(path)
         if not success:
             return (success, latest_version)
-        lib.kvs.set('nextcloud-version', latest_version, lib.base.now() + expire)
+        lib.cache.set('nextcloud-version', latest_version, lib.base.now() + expire)
         return (True, latest_version)
 
     # there is an upate available, so result contains xml here
     dom = minidom.parseString(xmlst)
     latest_version = dom.getElementsByTagName('version')[0].firstChild.nodeValue.strip()
-    lib.kvs.set('nextcloud-version', latest_version, lib.base.now() + expire)
+    lib.cache.set('nextcloud-version', latest_version, lib.base.now() + expire)
     return (True, latest_version)
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    installed_version = lib.base.continue_or_exit(nc_get_installed_version(parsed.PATH))
-    latest_version = lib.base.continue_or_exit(nc_get_latest_version(parsed.PATH, parsed.CHANNEL, parsed.CACHE_EXPIRE*60*60))
+    installed_version = lib.base.coe(nc_get_installed_version(args.PATH))
+    latest_version = lib.base.coe(nc_get_latest_version(args.PATH, args.CHANNEL, args.CACHE_EXPIRE*60*60))
 
-    if installed_version >= latest_version:
-        print('Nextcloud v{} is up to date'.format(installed_version))
-        exit(STATE_OK)
+    if lib.base.version(installed_version) >= lib.base.version(latest_version):
+        lib.base.oao('Nextcloud v{} is up to date'.format(installed_version), STATE_OK)
     else:
-        print('Nextcloud v{} is available (installed: v{})'.format(latest_version, installed_version))
-        if parsed.ALWAYS_OK:
-            exit(STATE_OK)
-        else:
-            exit(STATE_WARN)
+        lib.base.oao('Nextcloud v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
    
 
 if __name__ == '__main__':

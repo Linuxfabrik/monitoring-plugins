@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021901'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the size of a file, in bytes.'
 
@@ -18,16 +18,29 @@ DEFAULT_CRIT = 1024*1024*1024     # 1G (Gibibyte)
 
 
 #====================
-import argparse
-from traceback import print_exc
-import os
-
 from lib.globals import *
-from lib.output import bytes2human, unpack_perfdata
+
+import lib.base
+
+import argparse
+import os
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
 
     parser.add_argument('-c', '--critical', 
         help = 'Set the critical size threshold in bytes. Default: >= %(default)s (1G)',
@@ -40,11 +53,6 @@ def define_args():
         help='File name to check.',
         dest='FILE',
         required = True,
-        )
-
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     parser.add_argument('-w', '--warning',
@@ -60,33 +68,25 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    FILE = parsed.FILE
-    WARN = parsed.WARN
-    CRIT = parsed.CRIT
-
     # fetch the data
     try:
-        st = os.stat(FILE)
+        st = os.stat(args.FILE)
     except:
-        print('Error reading file or directory "{}".'.format(FILE))
+        print('Error reading file or directory "{}".'.format(args.FILE))
         exit(STATE_UNKNOWN)
 
     size = st.st_size
 
-    msg = '{} is {}.'.format(FILE, bytes2human(size))
-    # label, value, uom, warn, crit, min, max):
-    perfdata = unpack_perfdata('file_size_{}'.format(FILE), size, 'B', WARN, CRIT, 0, None)
-    print(msg.strip() + '|' + perfdata.strip())
+    msg = '{} is {}.'.format(args.FILE, lib.base.bytes2human(size))
+    perfdata = lib.base.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
+    state = lib.base.get_state(size, args.WARN, args.CRIT, 'ge')
 
-    if size >= CRIT:
-        exit(STATE_CRIT)
-    if size >= WARN:
-        exit(STATE_WARN)
-    exit(STATE_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:

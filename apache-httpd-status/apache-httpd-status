@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020033101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -22,19 +22,25 @@ DEFAULT_CRIT = 95       # %
 from lib.globals import *
 
 import lib.base
-import lib.output
 import lib.url
 
 import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     parser.add_argument('-c', '--critical', 
@@ -63,18 +69,18 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    URL = parsed.URL
+    URL = args.URL
     if URL[0:4] != 'http':
         print('--url parameter has to start with "http://" or https://".')
         exit(STATE_UNKNOWN)
     URL = URL + '?auto'
 
     # fetch the URL
-    result = lib.base.continue_or_exit(lib.url.fetch(URL))
+    result = lib.base.coe(lib.url.fetch(URL))
     result = result.strip().split('\n')
     for item in result:
         if ': ' not in item:
@@ -131,10 +137,10 @@ def main():
 
 
     workers_pct = int(round(float(workers_busy_total) / float(workers_total) * 100.0, 1))
-    if workers_pct >= parsed.CRIT:
+    if workers_pct >= args.CRIT:
         msg += 'Workers (CRIT): '
         state = STATE_CRIT
-    elif workers_pct >= parsed.WARN:
+    elif workers_pct >= args.WARN:
         msg += 'Workers (WARN): '
         state = STATE_WARN
     else:
@@ -145,35 +151,35 @@ def main():
     msg += '{}/{} busy ({}%; {} "G"), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
         workers_busy_total, workers_total, workers_pct, workers_finishing, workers_idle_total, workers_free,
         httpd_total_accesses, round(httpd_reqpersec, 0),
-        lib.output.bytes2human(httpd_total_traffic), lib.output.bytes2human(httpd_bytespersec), lib.output.bytes2human(httpd_bytesperreq),
-        lib.output.seconds2human(uptime),
+        lib.base.bytes2human(httpd_total_traffic), lib.base.bytes2human(httpd_bytespersec), lib.base.bytes2human(httpd_bytesperreq),
+        lib.base.seconds2human(uptime),
         )
 
     perfdata = ''
-    # lib.output.unpack_perfdata(label, value, uom, warn, crit, min, max)
-    perfdata += lib.output.unpack_perfdata('httpd_total_accesses', httpd_total_accesses, 'c', None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('httpd_total_traffic',  httpd_total_traffic,  'B', None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('httpd_reqpersec',      httpd_reqpersec,     None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
+    # lib.base.get_perfdata(label, value, uom, warn, crit, min, max)
+    perfdata += lib.base.get_perfdata('httpd_total_accesses', httpd_total_accesses, 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('httpd_total_traffic',  httpd_total_traffic,  'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('httpd_reqpersec',      httpd_reqpersec,     None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
 
-    perfdata += lib.output.unpack_perfdata('workers',              workers_pct,          '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += lib.base.get_perfdata('workers',              workers_pct,          '%', args.WARN, args.CRIT, 0, 100)
 
-    perfdata += lib.output.unpack_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_finishing',    workers_finishing,   None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_free',         workers_free,        None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
-    perfdata += lib.output.unpack_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_finishing',    workers_finishing,   None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_free',         workers_free,        None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
+    perfdata += lib.base.get_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
 
-    perfdata += lib.output.unpack_perfdata('uptime',               uptime,               's', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('uptime',               uptime,               's', None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

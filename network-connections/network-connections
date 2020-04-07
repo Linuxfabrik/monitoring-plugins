@@ -6,42 +6,40 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Counts tcp, tcp6, udp and udp6 connections.'
 
 
 #====================
-
 from lib.globals import *
 
+import lib.base
+
 import argparse
-from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 import socket
-
-from lib.utils import execute_command
-from lib.output import unpack_perfdata
 from socket import AF_INET, SOCK_STREAM, SOCK_DGRAM
+from traceback import print_exc
 
 
 AF_INET6 = getattr(socket, 'AF_INET6', object())
 proto_map = {
-    (AF_INET, SOCK_STREAM): 'tcp',
+    (AF_INET,  SOCK_STREAM): 'tcp',
     (AF_INET6, SOCK_STREAM): 'tcp6',
-    (AF_INET, SOCK_DGRAM): 'udp',
-    (AF_INET6, SOCK_DGRAM): 'udp6',
+    (AF_INET,  SOCK_DGRAM):  'udp',
+    (AF_INET6, SOCK_DGRAM):  'udp6',
 }
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -55,13 +53,13 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     proc_names = {}
     # Changed in psutil version 5.3.0: added “attrs” and “ad_value” parameters.
-    if psutil.__version__ >= '5.3.0':
+    if lib.base.version(psutil.__version__) >= lib.base.version('5.3.0'):
         for p in psutil.process_iter(attrs=['pid', 'name']):
             proc_names[p.info['pid']] = p.info['name']
     else:
@@ -71,28 +69,24 @@ def main():
             except psutil.Error:
                 pass
 
-    conn_count = {}
+    stats = {}
     for c in psutil.net_connections(kind='inet'):
-        proto = proto_map[(c.family, c.type)]
-        status = c.status
-
-        if proto not in conn_count.keys():
-            conn_count[proto] = {}
-        if status not in conn_count[proto].keys():
-            conn_count[proto][status] = 1
+        key = proto_map[(c.family, c.type)] + '_' + c.status
+        if key not in stats.keys():
+            stats[key] = 1
         else:
-            conn_count[proto][status] += 1
+            stats[key] += 1
 
     msg = ''
     perfdata = ''
-    for proto in sorted(conn_count.keys()):
-        for status in sorted(conn_count[proto].keys()):
-            msg += '{} {}: {}, '.format(proto, status, conn_count[proto][status])
-            # perfdata += '{}_{}={};;;0;; '.format(proto, status, conn_count[proto][status])
-            perfdata += unpack_perfdata('{}_{}'.format(proto, status), conn_count[proto][status], None, None, None, None, None)
 
-    print(msg[:-2] + '|' + perfdata)
-    exit(STATE_OK)
+    for item in lib.base.sort(stats, reverse=True):
+        proto, value = item
+        if value:
+            msg += '{}: {}, '.format(proto.replace('_', ' '), value)
+        perfdata += lib.base.get_perfdata(proto, value, None, None, None, None, None)
+
+    lib.base.oao(msg[:-2], STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

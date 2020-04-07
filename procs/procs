@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040301'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
@@ -24,10 +24,7 @@ DEFAULT_WARN = None
 from lib.globals import *
 
 import lib.base
-import lib.output
-import lib.parse_input
 import lib.range
-import lib.utils
 
 import argparse
 import datetime
@@ -35,7 +32,7 @@ import os
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -80,12 +77,12 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.utils.execute_command(bash_command)
+    stdout, stderr, retc = lib.base.shell_exec(bash_command)
     if (stderr or retc != 0):
         print('Bash command `{}` failed.'.format(bash_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -122,7 +119,7 @@ def main():
         #print(proc_state, proc_pid, proc_ppid, proc_name, proc_start)
 
         # ignore command name (if set)
-        if parsed.COMMAND and not os.path.basename(proc_cmd).startswith(parsed.COMMAND):
+        if args.COMMAND and not os.path.basename(proc_cmd).startswith(args.COMMAND):
             continue
 
         # ignore myself
@@ -134,7 +131,7 @@ def main():
             continue
         
         # filter kernel threads (childs of KTHREAD_PARENT)
-        if parsed.NO_KTHREADS:
+        if args.NO_KTHREADS:
             if proc_name == 'kthreadd':
                 kthreadd_pid = proc_pid
             else:
@@ -162,12 +159,12 @@ def main():
 
     # build the state
     state = STATE_OK
-    state = lib.globals.get_worst(state, STATE_WARN if not lib.range.match(parsed.WARN, proc_cnt) else STATE_OK)
-    state = lib.globals.get_worst(state, STATE_CRIT if not lib.range.match(parsed.CRIT, proc_cnt) else STATE_OK)
+    state = lib.base.get_worst(state, STATE_WARN if not lib.range.match(args.WARN, proc_cnt) else STATE_OK)
+    state = lib.base.get_worst(state, STATE_CRIT if not lib.range.match(args.CRIT, proc_cnt) else STATE_OK)
 
     # build the message
     msg = '{} {}, '.format(proc_cnt, lib.base.pluralize('task', proc_cnt))
-    for proc_state, proc_cnt in sorted(proc_states.items(), key=lambda x: x[1], reverse=True):
+    for proc_state, proc_cnt in lib.base.sort(proc_states, reverse=True):
         if proc_cnt > 0:
             msg += '{} dead, '.format(proc_cnt)                           if proc_state == 'X' else '' 
             msg += '{} paging, '.format(proc_cnt)                         if proc_state == 'W' else '' 
@@ -183,17 +180,17 @@ def main():
 
     # build perfdata
     perfdata = ''
-    perfdata += lib.output.unpack_perfdata('procs', proc_cnt, None, parsed.WARN, parsed.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('procs', proc_cnt, None, args.WARN, args.CRIT, 0, None)
 
-    perfdata += lib.output.unpack_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
 
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=parsed.ALWAYS_OK)
+    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

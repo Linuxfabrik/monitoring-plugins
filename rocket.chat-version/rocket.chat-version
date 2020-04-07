@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -22,15 +22,15 @@ DEFAULT_CACHE_EXPIRE    = 24 # hours
 from lib.globals import *
 
 import lib.base
-import lib.kvs
-import lib.rc
+import lib.cache
+import lib.rocket
 import lib.url
 
 import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -76,7 +76,7 @@ def define_args():
 
 def get_latest_version(expire):
     # get version online, but first from cache
-    latest_version = lib.kvs.get('rocket.chat-version')
+    latest_version = lib.cache.get('rocket.chat-version')
     if latest_version:
         return (True, latest_version)
 
@@ -85,21 +85,21 @@ def get_latest_version(expire):
     if not success:
         return (success, latest_version)
     
-    lib.kvs.set('rocket.chat-version', latest_version, lib.base.now() + expire)
+    lib.cache.set('rocket.chat-version', latest_version, lib.base.now() + expire)
     return (True, latest_version)
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = lib.base.continue_or_exit(lib.rc.get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
+    credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = lib.base.continue_or_exit(lib.rc.get_stats(parsed.URL, authToken, userId))
+    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
 
     if result.get('statistics', None):
         # version < 3.0.0
@@ -107,18 +107,12 @@ def main():
     else:
         # version >= 3.0.0
         installed_version = result['version']
-
-    latest_version = lib.base.continue_or_exit(get_latest_version(parsed.CACHE_EXPIRE*60*60))
+    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
 
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
-        print('Rocket.Chat v{} is up to date'.format(installed_version))
-        exit(STATE_OK)
+        lib.base.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
     else:
-        print('Rocket.Chat v{} is available (installed: v{})'.format(latest_version, installed_version))
-        if parsed.ALWAYS_OK:
-            exit(STATE_OK)
-        else:
-            exit(STATE_WARN)
+        lib.base.oao('Rocket.Chat v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

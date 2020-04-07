@@ -9,26 +9,25 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020033001'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
 
 #====================
-
 from lib.globals import *
-import lib.output
 
+import lib.base
+
+import argparse
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-
-import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -43,7 +42,7 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
@@ -65,11 +64,10 @@ def main():
     for i, (key, value) in enumerate(cnt):
         if i > 2:
             break
-        msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.output.bytes2human(
-            value['r']), lib.output.bytes2human(value['w']))
+        msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.base.bytes2human(
+            value['r']), lib.base.bytes2human(value['w']))
 
-    print(msg[:-2])  # strip trailing ', '
-    exit(STATE_OK)
+    lib.base.oao(msg[:-2], STATE_OK)
 
 
 if __name__ == '__main__':

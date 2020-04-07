@@ -239,7 +239,7 @@ bool SmartctlParser::parse_full(const std::string& full, StorageAttribute::DiskT
 		}
 	}
 
-	if (!check_parsed_version(version, version_full)) {
+	if (!check_args_version(version, version_full)) {
 		set_error_msg("Incompatible smartctl version.");
 		debug_out_warn("app", DBG_FUNC_MSG << "Incompatible smartctl version. Returning.\n");
 		return false;
@@ -249,7 +249,7 @@ bool SmartctlParser::parse_full(const std::string& full, StorageAttribute::DiskT
 	// sections
 
 	std::string::size_type section_start_pos = 0, section_end_pos = 0, tmp_pos = 0;
-	bool status = false;  // true if at least one section was parsed
+	bool status = false;  // true if at least one section was args
 
 	// sections are started by
 	// === START OF <NAME> SECTION ===
@@ -273,8 +273,8 @@ bool SmartctlParser::parse_full(const std::string& full, StorageAttribute::DiskT
 	}
 
 	if (!status) {
-		set_error_msg("No ATA sections could be parsed.");
-		debug_out_warn("app", DBG_FUNC_MSG << "No ATA sections could be parsed. Returning.\n");
+		set_error_msg("No ATA sections could be args.");
+		debug_out_warn("app", DBG_FUNC_MSG << "No ATA sections could be args. Returning.\n");
 		return false;
 	}
 
@@ -304,8 +304,8 @@ bool SmartctlParser::parse_version(const std::string& s, std::string& version, s
 
 
 
-// check that the version of smartctl output can be parsed with this parser.
-bool SmartctlParser::check_parsed_version(const std::string& version_str, const std::string& version_full_str)
+// check that the version of smartctl output can be args with this parser.
+bool SmartctlParser::check_args_version(const std::string& version_str, const std::string& version_full_str)
 {
 	// tested with 5.1-xx versions (1 - 18), and 5.[20 - 38].
 	// note: 5.1-11 (maybe others too) with scsi disk gives non-parsable output (why?).
@@ -392,11 +392,11 @@ bool SmartctlParser::parse_section(const std::string& header, const std::string&
 	} else if (app_pcre_match("/START OF READ SMART DATA SECTION/mi", header)) {
 		return true;
 
-	// We don't parse this - it's parsed by the respective command issuer.
+	// We don't parse this - it's args by the respective command issuer.
 	} else if (app_pcre_match("/START OF ENABLE/DISABLE COMMANDS SECTION/mi", header)) {
 		return true;
 
-	// This is printed when executing "-t long", etc... . Parsed by respective command issuer.
+	// This is printed when executing "-t long", etc... . args by respective command issuer.
 	} else if (app_pcre_match("/START OF OFFLINE IMMEDIATE AND SELF-TEST SECTION/mi", header)) {
 		return true;
 	}
@@ -763,7 +763,7 @@ bool SmartctlParser::parse_section_data(const std::string& body)
 	// - "scttemp" subsection, which has 3 blocks.
 	hz::string_split(body, "\n\n", split_subsections, true);
 
-	bool status = false;  // at least one subsection was parsed
+	bool status = false;  // at least one subsection was args
 
 
 	std::vector<std::string> subsections;
@@ -1038,7 +1038,7 @@ SCT capabilities: 	       (0x003d)	SCT Status supported.
 
 		if (!re.FullMatch(block, &name_orig, &numvalue_orig, &strvalue_orig)) {
 			debug_out_error("app", DBG_FUNC_MSG << "Block "
-					<< i << " cannot be parsed.\n");
+					<< i << " cannot be args.\n");
 			debug_out_dump("app", "---------------- Begin unparsable block dump ----------------\n");
 			debug_out_dump("app", block << "\n");
 			debug_out_dump("app", "----------------- End unparsable block dump -----------------\n");
@@ -1055,7 +1055,7 @@ SCT capabilities: 	       (0x003d)	SCT Status supported.
 		int numvalue = -1;
 		if (!hz::string_is_numeric<int>(hz::string_trim_copy(numvalue_orig), numvalue, false)) {  // this will autodetect number base.
 			debug_out_warn("app", DBG_FUNC_MSG
-					<< "Numeric value: \"" << numvalue_orig << "\" cannot be parsed as number.\n");
+					<< "Numeric value: \"" << numvalue_orig << "\" cannot be args as number.\n");
 		}
 
 		// 		debug_out_dump("app", "name: \"" << name << "\"\n\tnumvalue: \"" << numvalue
@@ -1595,7 +1595,7 @@ ID# ATTRIBUTE_NAME          FLAGS    VALUE WORST THRESH FAIL RAW_VALUE
 			}
 
 			a.raw_value = hz::string_trim_copy(raw_value);
-			hz::string_is_numeric(hz::string_trim_copy(raw_value), a.raw_value_int, false);  // same as raw_value, but parsed as int.
+			hz::string_is_numeric(hz::string_trim_copy(raw_value), a.raw_value_int, false);  // same as raw_value, but args as int.
 
 			StorageProperty p(pt);
 			p.set_name(hz::string_trim_copy(name));
@@ -1849,7 +1849,7 @@ Error 1 [0] occurred at disk power-on lifetime: 1 hours (0 days + 1 hours)
 	}
 
 	// We may further split this subsection by Error blocks, but it's unnecessary -
-	// the data is too advanced to be of any use if parsed.
+	// the data is too advanced to be of any use if args.
 
 	return data_found;
 }

@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
 DESCRIPTION         = 'Checks IPMI sensor information in detail.'
 
@@ -29,16 +29,15 @@ COL_UPPERNR = 9     # NR = non-recoverable
 
 
 #====================
+from lib.globals import *
+
+import lib.base
 
 import argparse
 from traceback import print_exc
 
-from lib.globals import *
-from lib.utils import execute_command
-from lib.output import unpack_perfdata
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -62,18 +61,18 @@ def shorten_uom(uom):
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # check if shell command is available
-    stdout, stderr, retc = execute_command(command_installed)
+    stdout, stderr, retc = lib.base.shell_exec(command_installed)
     if (retc != 0):
-        print('`ipmitool` is missing. On CentOS, use `yum install ipmitool`.')
+        print('"ipmitool" is missing.')
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = execute_command(command_cmd)
+    stdout, stderr, retc = lib.base.shell_exec(command_cmd)
     if (stderr or retc != 0):
         print('Bash command `{}` failed.'.format(command_cmd))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -81,16 +80,16 @@ def main():
 
     msg = ''
     perfdata = ''
-    overall_state = STATE_OK
+    state = STATE_OK
     sensor_counter = 0
 
-    for line in stdout.splitlines():
+    for sensor in stdout.splitlines():
         # split by '|'' and trim each column
-        cols = [col.strip() for col in line.split('|')]
+        cols = [col.strip() for col in sensor.split('|')]
 
         if cols[COL_UOM] == 'discrete':
             # for now we support only 'Threshold' sensors - maybe enhance this in future
-            # Chassis Intru    | 0x0        | discrete   | 0x0000| na        | na        | na        | na        | na        | na        
+            # ['Chassis Intru', '0x0', 'discrete', '0x0000', 'na', 'na', 'na', 'na', 'na', 'na']
             continue
 
         # na - Not Available, ns - Not Specified
@@ -103,7 +102,7 @@ def main():
         perfmin  = None if cols[COL_LOWERNR] == 'na' else cols[COL_LOWERNR]
         perfmin  = 0    if perfmin and float(perfmin) > 0 else perfmin
         perfmax  = None if cols[COL_UPPERNR] == 'na' else cols[COL_UPPERNR]
-        perfdata += unpack_perfdata(cols[COL_SENSOR].replace(' ', '_'), cols[COL_VALUE], perfuom, perfwarn, perfcrit, perfmin, perfmax)
+        perfdata += lib.base.get_perfdata(cols[COL_SENSOR].replace(' ', '_'), cols[COL_VALUE], perfuom, perfwarn, perfcrit, perfmin, perfmax)
 
         sensor_counter += 1
 
@@ -113,36 +112,30 @@ def main():
 
         # nr - Non Recoverable
         if cols[COL_STATE] == 'nr':
-            msg += '\n{} ({} {}) is NON-RECOVERABLE. Hardware might be DAMAGED.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
-            state = STATE_CRIT
+            msg += '\n* {} ({} {}) is NON-RECOVERABLE. Hardware might be DAMAGED.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_CRIT
 
         # cr - Critical
         if cols[COL_STATE] == 'cr':
-            msg += '\n{} ({} {}) is above/below a critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
-            state = STATE_CRIT
+            msg += '\n* {} ({} {}) is above/below a critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_CRIT
 
         # nc - Non Critical
         if cols[COL_STATE] == 'nc':
-            msg += '\n{} ({} {}) is above/below a non-critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
-            state = STATE_WARN
+            msg += '\n* {} ({} {}) is above/below a non-critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_WARN
 
-        overall_state = get_greater_state(state, overall_state)
+        state = lib.base.get_worst(sensor_state, state)
 
 
-    if overall_state == STATE_CRIT:
-        print('Checked {} sensor(s). There are critical errors.'.format(sensor_counter))
-    elif overall_state == STATE_WARN:
-        print('Checked {} sensor(s). There are warnings.'.format(sensor_counter))
+    if state == STATE_CRIT:
+        msg = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
+    elif state == STATE_WARN:
+        msg = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
     else:
-        print('Checked {} sensor(s). All are ok.'.format(sensor_counter))
+        msg = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
 
-    if msg:
-        print(msg)
-
-    # print out perfdata
-    print('|' + perfdata)
-
-    exit(overall_state)
+    lib.base.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

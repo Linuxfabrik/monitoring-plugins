@@ -9,27 +9,25 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032801'
+__version__ = '2020040701'
 
-DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
+DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and (just) "view-statistics" permission.'
 
-DEFAULT_URL             = 'http://localhost:3000/api/v1'
-DEFAULT_USERNAME        = 'rocket-stats'
+DEFAULT_URL      = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME = 'rocket-stats'
 
 
 #====================
 from lib.globals import *
 
 import lib.base
-import lib.output
-import lib.rc
-import lib.url
+import lib.rocket
 
 import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -62,14 +60,14 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = lib.base.continue_or_exit(lib.rc.get_token(parsed.URL, parsed.USERNAME, parsed.PASSWORD))
+    credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = lib.base.continue_or_exit(lib.rc.get_stats(parsed.URL, authToken, userId))
+    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
 
     # extract some application specific data
     if result.get('statistics', None):
@@ -106,48 +104,45 @@ def main():
         rc_statistics_uploadsTotalSize          = result['uploadsTotalSize']
 
 
-    # no checks here, just for your information
-    msg = ''
     perfdata = ''
     state = STATE_OK
 
+    # no checks here, just for your information
     # build a compact multiline message
-    msg += '{} users ({} online), {} msgs, {} uploads, {} uploads total size, v{}\n'.format(
+    msg_header = '{} users ({} online), {} msgs, {} uploads, {} uploads total size, v{}'.format(
         rc_statistics_totalUsers,
         rc_statistics_onlineUsers,
         rc_statistics_totalMessages,
         rc_statistics_uploadsTotal,
-        lib.output.bytes2human(rc_statistics_uploadsTotalSize),
+        lib.base.bytes2human(rc_statistics_uploadsTotalSize),
         rc_statistics_version, 
         )
-    msg += '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
+    msg_body = '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
         rc_statistics_totalRooms,
         rc_statistics_totalPrivateGroups,
         rc_statistics_totalPrivateGroupMessages,
         rc_statistics_totalDirectMessages,
         )
-    msg += '{} livechat visitors, {} livechats, {} livechat msgs\n'.format(
+    msg_body += '{} livechat visitors, {} livechats, {} livechat msgs'.format(
         rc_statistics_totalLivechatVisitors,
         rc_statistics_totalLivechat,
         rc_statistics_totalLivechatMessages,
         )
 
-    perfdata += lib.output.unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
 
-    print(msg.strip() + '|' + perfdata.strip())
-
-    exit(state)
+    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata)
 
 
 if __name__ == '__main__':

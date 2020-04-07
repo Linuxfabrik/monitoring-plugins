@@ -140,12 +140,17 @@ Another example: `--warning ~:0 --critical 10`
 Have a look at `procs` on how to implement this.
 
 
+## Caching temporary data, SQLite database
+
+Use `cache` if you need a simple key-value store, for example as used in `nextcloud-version`. Otherwise, use `db_sqlite` as used in `cpu-usage`.
+
+
 ## Error Handling
 
 * Catch exceptions using `try`/`except`, especially in functions.
 * In functions, if you have to catch exceptions, on such an exception always return `(False, errormessage)`. Otherwise return `(True, result)` if the function succeeds in any way. For example, returning `(True, False)` means that the function has not raised an exception and its result is simply `False`.
 * A function calling a function with such an extended error handling has to return a `(retc, result)` tuple itself.
-* In `main()` you can use `continue_or_exit()` to simplify error handling.
+* In `main()` you can use `lib.base.coe()` to simplify error handling.
 * Have a look at `nextcloud-version` for details.
 
 
@@ -196,6 +201,9 @@ Implementing tests:
 * Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
 * To test a check that needs to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
-Running tests: `python2 path/to/check-plugin/test`
+Running tests:
 
-
+```bash
+# cd into the check directory and run:
+python2 test
+```

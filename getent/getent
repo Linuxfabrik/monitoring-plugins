@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040302'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Trys to get entries from Name Service Switch libraries and warns if no match.'
 
@@ -22,13 +22,12 @@ DEFAULT_DATABASE = 'group'
 from lib.globals import *
 
 import lib.base
-import lib.utils
 
 import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -43,9 +42,9 @@ def define_args():
         )
 
     parser.add_argument('--key',
-        help='Key for getent, for example a group name (repeating, optional).',
-        dest='KEY',
-        action='append',
+        help = 'Key for getent, for example a group name (repeating, optional).',
+        dest = 'KEY',
+        action = 'append',
         )
     
     return parser.parse_args()
@@ -54,33 +53,33 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # build the getent command
-    cmd = bash_command + ' {}'.format(parsed.DATABASE)
-    if parsed.KEY:
-        for key in parsed.KEY:
+    cmd = bash_command + ' {}'.format(args.DATABASE)
+    if args.KEY:
+        for key in args.KEY:
             cmd += ' {}'.format(key)
 
     state = STATE_OK
     msg = 'Everything is ok.'
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.utils.execute_command(cmd)
+    stdout, stderr, retc = lib.base.shell_exec(cmd)
     if (stderr):
         print('Bash command `{}` failed.'.format(bash_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
     if (retc == 1):
-        mesg = 'Missing arguments for getent, or database "{}" unknown.'.format(parsed.DATABASE)
+        mesg = 'Missing arguments for getent, or database "{}" unknown.'.format(args.DATABASE)
         state = STATE_UNKNOWN
     if (retc == 2):
-        msg = 'One or more supplied keys could not be found in "{}", using "{}".'.format(parsed.DATABASE, cmd)
+        msg = 'One or more supplied keys could not be found in "{}", using "{}".'.format(args.DATABASE, cmd)
         state = STATE_WARN
     if (retc == 3):
-        msg = 'Multiple keys (enumeration) not supported on database "{}".'.format(parsed.DATABASE)
+        msg = 'Multiple keys (enumeration) not supported on database "{}".'.format(args.DATABASE)
         state = STATE_UNKNOWN
 
     lib.base.oao(msg, state)

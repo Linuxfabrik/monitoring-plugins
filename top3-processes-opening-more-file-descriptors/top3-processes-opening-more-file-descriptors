@@ -9,26 +9,26 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020032901'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Displays the top 3 processes opening more file descriptors.'
 
 #====================
-
 from lib.globals import *
 
+import lib.base
+
+import argparse
+from collections import Counter
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-
-from collections import Counter
-import argparse
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -43,14 +43,14 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     msg = ''
     cnt = Counter()
 
-    if psutil.__version__ >= '5.3.0':
+    if lib.base.version(psutil.__version__) >= lib.base.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'num_fds']):
                 if p.info['num_fds']:
@@ -68,8 +68,7 @@ def main():
     for i, p in enumerate(cnt.most_common(3)):
         msg += '{}. {}: {} FD, '.format(i + 1, p[0], p[1])
 
-    print(msg[:-2])  # strip trailing ', '
-    exit(STATE_OK)
+    lib.base.oao(msg[:-2], STATE_OK)
 
 
 if __name__ == '__main__':

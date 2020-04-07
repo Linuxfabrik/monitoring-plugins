@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Displays amount of free and used swap space in the system, checks against used swap in percent.'
 
@@ -17,33 +17,39 @@ DEFAULT_WARN  = 70  # %
 DEFAULT_CRIT  = 90  # %
 
 #====================
-
 from lib.globals import *
 
+import lib.base
+
 import argparse
-from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
+from traceback import print_exc
 
-from lib.output import bytes2human, unpack_perfdata
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__),
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
 
     parser.add_argument('-c', '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
         help='Set the critical threshold for swap usage (in percent). Default: %(default)s',
         type=int,
-        )
-
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__),
         )
 
     parser.add_argument('-w', '--warning',
@@ -59,44 +65,34 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
-
-    CRIT = parsed.CRIT
-    WARN = parsed.WARN
 
     swap = psutil.swap_memory()
     swap_usage_percent = swap.percent
 
-    msg = '{}% - total: {}, used: {}, free: {}\n'.format(
+    msg_header = '{}% - total: {}, used: {}, free: {}'.format(
         swap_usage_percent,
-        bytes2human(swap.total),
-        bytes2human(swap.used),
-        bytes2human(swap.free),
+        lib.base.bytes2human(swap.total),
+        lib.base.bytes2human(swap.used),
+        lib.base.bytes2human(swap.free),
     )
-    msg += 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-        bytes2human(getattr(swap, 'sin', 0)),
-        bytes2human(getattr(swap, 'sout', 0)),
+    msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
+        lib.base.bytes2human(getattr(swap, 'sin', 0)),
+        lib.base.bytes2human(getattr(swap, 'sout', 0)),
     )
 
-    # 'label'=value[UOM];[warn];[crit];[min];[max]
-    perfdata =  unpack_perfdata('usage_percent', swap_usage_percent, '%', WARN, CRIT, 0, 100)
-    perfdata += unpack_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
-    perfdata += unpack_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
-    perfdata += unpack_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
-    perfdata += unpack_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-    perfdata += unpack_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
-
-    print(msg + '|' + perfdata.strip())
-
+    perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
+    perfdata += lib.base.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
+    perfdata += lib.base.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
+    perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
 
     # calculating the final check state
-    if swap_usage_percent >= CRIT:
-        exit(STATE_CRIT)
-    if swap_usage_percent >= WARN:
-        exit(STATE_WARN)
-    exit(STATE_OK)
+    state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
+    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

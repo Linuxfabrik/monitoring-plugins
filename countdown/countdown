@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
 
@@ -18,15 +18,17 @@ DEFAULT_CRIT = 30      # days
 
 
 #====================
-import argparse
-from traceback import print_exc
-import datetime
-
 from lib.globals import *
-from lib.parse_arguments import csv
+
+import lib.args
+import lib.base
+
+import argparse
+import datetime
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -34,10 +36,17 @@ def define_args():
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
+
     parser.add_argument('--input',
         help = '"Display Name 1, yyyy-mm-dd, warn, crit" (repeating)',
         dest = 'INPUT',
-        type = csv,
+        type = lib.args.csv,
         required = True,
         action = 'append',
         )
@@ -48,53 +57,51 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-
     msg = ''
+    line_state = STATE_OK
     state = STATE_OK
-    overall_state = STATE_OK
 
     try:
         # ['Supermicro SYS1, 2022-01-10, 50, None', 'Contract XMPL.COM, 2021-12-24, 50, 30']
-        for line in parsed.INPUT:
+        for line in args.INPUT:
             item, expiration_date, warn, crit = line
 
             expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-            today = datetime.datetime.today()
+            today = lib.base.today()
             delta = expiration_date - today
             delta = int(delta.days) + 1
 
             if delta > 0:
-                line = '{} expires in {} days (thresholds {}/{})\n'.format(item, delta, warn, crit)
+                line = '{} expires in {} {} (thresholds {}/{})\n'.format(item, delta, lib.base.pluralize('day', delta), warn, crit)
             elif delta == 0:
                 line = '{} expires today.\n'.format(item)
             else:
-                line = '{} already expired {} day(s) ago.\n'.format(item, abs(delta))
+                line = '{} already expired {} {} ago.\n'.format(item, abs(delta), lib.base.pluralize('day', abs(delta)))
 
-            if crit != 'None' and delta < int(crit):
+            if crit.lower() != 'none' and delta < int(crit):
                 msg += '* CRIT ' + line
-                state = STATE_CRIT
+                line_state = STATE_CRIT
             elif delta < int(warn):
                 msg += '* WARN ' + line
-                state = STATE_WARN
+                line_state = STATE_WARN
             else:
                 msg += '* ' + line
-                state = STATE_OK
+                line_state = STATE_OK
 
-            overall_state = get_greater_state(state, overall_state)
+            state = lib.base.get_worst(line_state, state)
         
-        if overall_state == STATE_CRIT:
+        if state == STATE_CRIT:
             msg = 'There are one or more criticals.\n' + msg
-        elif overall_state == STATE_WARN:
+        elif state == STATE_WARN:
             msg = 'There are one or more warnings.\n' + msg
         else:
             msg = 'Everything is ok.\n' + msg
 
-        print(msg.strip())
-        exit(overall_state)
+        lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
     except Exception as e:
         print('Something seems to be wrong with the input parameter format or its timestamps. The error was: ')

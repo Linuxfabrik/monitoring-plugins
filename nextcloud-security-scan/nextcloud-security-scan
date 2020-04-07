@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020033101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
@@ -24,12 +24,12 @@ import lib.base
 import lib.url
 
 import argparse
-from traceback import print_exc
 import datetime
 import json
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     
     parser.add_argument('-V', '--version',
@@ -109,18 +109,15 @@ def get_rating_string(rating):
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
     
-    uuid = lib.base.continue_or_exit(get_uuid_from_scan_nextcloud_com(parsed.URL, parsed.TIMEOUT))
-    result = lib.base.continue_or_exit(get_scan_result_from_scan_nextcloud_com(uuid, parsed.TIMEOUT))
-
+    uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args.TIMEOUT))
+    result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args.TIMEOUT))
 
     msg = ''
     state = STATE_OK
-
-
     # we just warn if Nextcloud security scanner warns, too
     if result['rating'] == 0 or result['rating'] == 1:
         # sorry for being CRIT, but such a state is not acceptable
@@ -132,9 +129,8 @@ def main():
     scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], "%Y-%m-%d")
     today = lib.base.today()
     delta = scan_date - today
-    if abs(delta.days) > parsed.TRIGGER:
-        tmp = lib.base.continue_or_exit(trigger_rescan_nextcloud_com(parsed.URL, parsed.TIMEOUT))
-
+    if abs(delta.days) > args.TRIGGER:
+        tmp = lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))
 
     msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
     

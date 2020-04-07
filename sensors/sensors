@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021901'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the status of some hardware sensors using the lm_sensors package.'
 
@@ -18,26 +18,27 @@ command = 'sensors'
 
 
 #====================
+from lib.globals import *
+
+import lib.args
+import lib.base
+
 import argparse
 from traceback import print_exc
 
-from lib.globals import *
-from lib.parse_arguments import csv
-from lib.utils import execute_command
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-
-    parser.add_argument('--test',
-        help = 'For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
-        dest = 'TEST',
-        type = csv,
-        )
 
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--test',
+        help = 'For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest = 'TEST',
+        type = lib.args.csv,
         )
 
     return parser.parse_args()
@@ -46,34 +47,33 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    if parsed.TEST == None:
+    if args.TEST == None:
         # check if shell command is available
-        stdout, stderr, retc = execute_command(command_installed)
+        stdout, stderr, retc = lib.base.shell_exec(command_installed)
         if (retc != 0):
-            print('"sensors" is missing. Did you install lmsensors / lm_sensors?')
-            exit(STATE_UNKNOWN)
+            lib.base.oao('"sensors" is missing.', STATE_UNKNOWN)
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = execute_command(command)
+        stdout, stderr, retc = lib.base.shell_exec(command)
     else:
         # do not call the command, put in test data
         import os
-        if parsed.TEST[0] and os.path.isfile(parsed.TEST[0]):
-            f = open(parsed.TEST[0], 'r')
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r')
             stdout = f.read()
             f.close()
         else:
-            stdout = parsed.TEST[0]
-        if parsed.TEST[1] and os.path.isfile(parsed.TEST[1]):
-            f = open(parsed.TEST[1], 'r')
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r')
             stderr = f.read()
             f.close()
         else:
-            stderr = parsed.TEST[1]
-        retc = parsed.TEST[2]
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
 
     result = stdout.split('\n')
 
@@ -90,8 +90,7 @@ def main():
         msg = 'Everything is ok.'
         state = STATE_OK
 
-    print(msg.strip())
-    exit(state)
+    lib.base.oao(msg, state)
 
 
 if __name__ == '__main__':

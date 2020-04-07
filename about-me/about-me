@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040501'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -18,8 +18,6 @@ DESCRIPTION = 'Reports a quick overview about the host dimensions and installed 
 from lib.globals import *
 
 import lib.base
-import lib.output
-import lib.utils
 
 import argparse
 import os
@@ -33,7 +31,7 @@ import re
 from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -44,8 +42,8 @@ def define_args():
     return parser.parse_args()
 
 
-def execute_command_or_unknown(command):
-    stdout, stderr, retc = lib.utils.execute_command(command)
+def shell_exec_or_exit(command):
+    stdout, stderr, retc = lib.base.shell_exec(command)
     if (stderr or retc != 0):
         print('Bash command `{}` failed.'.format(command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -54,10 +52,10 @@ def execute_command_or_unknown(command):
 
 
 def find_command(return_text, command, version_cmd=None, version_regex=None):
-    stdout, stderr, retc = lib.utils.execute_command(command)
+    stdout, stderr, retc = lib.base.shell_exec(command)
     if retc == 0:
         if version_cmd:
-            ver, stderr, retc = lib.utils.execute_command(version_cmd)
+            ver, stderr, retc = lib.base.shell_exec(version_cmd)
             if ver == '' and stderr != '':
                 # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
                 # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr]
@@ -84,7 +82,7 @@ def get_sys_dimensions():
     sys['cpu'] = psutil.cpu_count(logical=True)
     sys['ram'] = psutil.virtual_memory().total
 
-    stdout, stderr, retc = execute_command_or_unknown('lsblk --nodeps --output SIZE --noheadings --include 8,252')
+    stdout, stderr, retc = shell_exec_or_exit('lsblk --nodeps --output SIZE --noheadings --include 8,252')
     sys['disks'] = stdout.count('\n') + 1
     sys['disk-sizes'] = re.sub(r'\s+', ' ', stdout)
     return sys
@@ -261,7 +259,7 @@ def get_python_modules():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
@@ -271,7 +269,7 @@ def main():
 
     sys_dimensions = get_sys_dimensions()
     msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base.pluralize('CPU', sys_dimensions['cpu']))
-    msg += lib.output.bytes2human(sys_dimensions['ram']) + ' RAM, '
+    msg += lib.base.bytes2human(sys_dimensions['ram']) + ' RAM, '
     msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
@@ -293,9 +291,9 @@ def main():
     
     msg += ' - OS: ' + get_os_info()
 
-    perfdata += lib.output.unpack_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
-    perfdata += lib.output.unpack_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
     lib.base.oao(msg, state, perfdata)
 
