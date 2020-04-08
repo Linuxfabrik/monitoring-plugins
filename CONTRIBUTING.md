@@ -65,6 +65,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --input
     --insecure
     --interface
+    --interval
     --key
     --loadstate
     --mode
