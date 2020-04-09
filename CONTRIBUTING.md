@@ -105,7 +105,7 @@ If a threshold has to be handled as a range parameter, this is how to interpret 
 * `~`: negative infinity
 * `@`: if range starts with "@", then alert if inside this range (including endpoints)
 
--w, -c    | OK if result is   | WARN/CRIT if      | lib.range.parse() returns
+-w, -c    | OK if result is   | WARN/CRIT if      | lib.base.parse_range() returns
 ----------|-------------------|-------------------|----------------------------
 10        | in (0..10)        | not in (0..10)    | (0, 10, False)
 -10       | in (-10..0)       | not in (-10..0)   | (0, -10, False)

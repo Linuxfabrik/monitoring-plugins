@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040901'
+__version__ = '2020040902'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
@@ -24,7 +24,6 @@ DEFAULT_WARN = None
 from lib.globals import *
 
 import lib.base
-import lib.range
 
 import argparse
 import datetime
@@ -157,10 +156,12 @@ def main():
     # count the procs (total)
     proc_cnt = sum(proc_states.values())
 
-    # build the state
+    # build the state, check the ranges
     state = STATE_OK
-    state = lib.base.get_worst(state, STATE_WARN if not lib.range.match(args.WARN, proc_cnt) else STATE_OK)
-    state = lib.base.get_worst(state, STATE_CRIT if not lib.range.match(args.CRIT, proc_cnt) else STATE_OK)
+    in_range = lib.base.coe(lib.base.match_range(proc_cnt, args.WARN))
+    state = lib.base.get_worst(state, STATE_WARN if not in_range else STATE_OK)
+    in_range = lib.base.coe(lib.base.match_range(proc_cnt, args.CRIT))
+    state = lib.base.get_worst(state, STATE_CRIT if not in_range else STATE_OK)
 
     # build the message
     msg = '{} {}, '.format(proc_cnt, lib.base.pluralize('task', proc_cnt))
