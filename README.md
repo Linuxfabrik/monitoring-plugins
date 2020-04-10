@@ -61,16 +61,14 @@ This table describes the default thresholds of each check at a glance.
 Check                                            | WARN  | CRIT  
 ------------------------------------------------ | -----:| -----:
 about-me                                         | -     | -
-apache-httpd-status                     | #Workers > 80% | #Workers > 95%
-borgbackup                           | Last Backup > 24h | -
+apache-httpd-status     	             	   | #Workers > 80% | #Workers > 95%
+borgbackup                           | Last Backup >= 24h | -
 countdown                                      | 50 days | 30 days
-cpu-usage                         | > 80% during 5 calls | > 90% during 5 calls
-disk-io                                   | > 200 MB/sec | > 350 MB/sec
+cpu-usage                                    | 5x >= 80% | 5x >= 90%
+disk-io                                | 5x >= 60 MB/sec | 5x >= 100 MB/sec
 disk-smart                                   | _complex_ | _complex_
 disk-usage                                       | > 90% | > 95%
 dmesg                                            | -     | dmesg == emerg,alert,crit,err  
-docker-container                             | _complex_ | _complex_
-docker-info              | data and metadata space > 90% | data and metadata space > 95% 
 fail2ban                             | > 1000 banned IPs | > 10000 banned IPs
 feed                                 | 2h on new entries | -
 file-age                                         | > 30d | > 365d
@@ -83,9 +81,9 @@ hostname-fqdn                             | invalid FQDN | -
 ipmi-sel                             | any entries found | -
 ipmi-sensor                                  | _complex_ | _complex_
 kvm-vm                    | idle, paused, pmsuspended VM | crashed VM
-load                                     | > 1.15 Load15 | > 5.00 Load15
+load                                     | >= 1.15 Load15 | >= 5.00 Load15
 mailq                                       | >= 2 Mails | >= 250 Mails
-memory-usage                                     | > 90% | > 95%
+memory-usage                                     | >= 90% | >= 95%
 mysql-stats                                  | _complex_ | _complex_
 needs-restarting               | (Service) Reboot needed | -
 network-connections                              | -     | -
@@ -96,8 +94,8 @@ nextcloud-stats                     | App Updates avail. | -
 nextcloud-version                 | Server Update avail. | -
 ntp-offset                                     | > 500ms | > 1000ms
 openvpn-client-list                              | -     | -
+ping                                             | -     | 100% packet loss
 procs                                            | -     | -
-redis                                            |       |       
 rocket.chat-stats                                | -     | -
 rocket.chat-version               | Server Update avail. | -
 rpm-lastactivity                                 | > 90d | > 365d

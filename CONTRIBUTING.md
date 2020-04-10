@@ -60,6 +60,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --command
     --count
     --database
+    --depth
     --filename
     --ignore
     --input
