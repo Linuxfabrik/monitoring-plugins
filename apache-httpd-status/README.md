@@ -25,15 +25,14 @@ We recommend to run this check every minute.
 # Installation and Usage
 
 ```bash
-./apache-httpd-status --url http://localhost/server-status
+./apache-httpd-status
 ./apache-httpd-status --url http://localhost/server-status --warning 80 --critical 90
 ./apache-httpd-status --help
 ```
 
 # States
 
-* WARN or CRIT if more than 90% or 95% busy workers compared to the total possible number of workers are found.
-* WARN if more than 25% gracefully finishing workers compared to free workers are found.
+* WARN or CRIT if more than 80% or 95% busy workers compared to the total possible number of workers are found.
 
 
 # Perfdata
@@ -43,6 +42,7 @@ We recommend to run this check every minute.
 * httpd_reqpersec: Requests per seond
 * httpd_total_accesses
 * httpd_total_traffic
+
 * workers: Maximum number of workers possible
 * workers_closing
 * workers_dns
@@ -66,4 +66,3 @@ We recommend to run this check every minute.
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
-

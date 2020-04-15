@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020030702'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Warns on the newest feed item of an RSS or Atom feed for a given amount of time.'
 
@@ -21,27 +21,31 @@ DEFAULT_WARN = 120  # minutes
 #====================
 from lib.globals import *
 
+import lib.base
+
 import argparse
-import datetime
-import time
-
-from traceback import print_exc
-from lib.output import seconds2human
-
 try:
     import feedparser
 except ImportError, e:
     print('Python module "feedparser" is not installed.')
     exit(STATE_UNKNOWN)
+import time
+from traceback import print_exc
 
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     parser.add_argument('--no-summary',
@@ -95,27 +99,23 @@ def fetch_feed_last_entry(feed_url):
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    feed_item = fetch_feed_last_entry(parsed.FEED_URL)
+    feed_item = fetch_feed_last_entry(args.FEED_URL)
+    delta = lib.base.now() - time.mktime(feed_item['updated_parsed'])     # in seconds, float
 
-    now = time.mktime(time.localtime())
-    feed_time = time.mktime(feed_item['updated_parsed'])
-    delta = now - feed_time     # in seconds, float
-
-    if parsed.NO_SUMMARY:
-        msg = '{} ({} ago)'.format(feed_item['title'].encode('utf-8').strip(), seconds2human(delta))
+    if args.NO_SUMMARY:
+        msg = '{} ({} ago)'.format(feed_item['title'].encode('utf-8').strip(), lib.base.seconds2human(delta))
     else:
-        msg = '{}: {} ({} ago)'.format(feed_item['title'].encode('utf-8').strip(), feed_item['summary'].encode('utf-8').strip(), seconds2human(delta))
+        msg = '{}: {} ({} ago)'.format(feed_item['title'].encode('utf-8').strip(), feed_item['summary'].encode('utf-8').strip(), lib.base.seconds2human(delta))
 
     state = STATE_OK
-    if delta/60 < parsed.WARN:
+    if delta/60 < args.WARN:
         state = STATE_WARN
 
-    print(msg)
-    exit(state)
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -6,219 +6,68 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
-DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).'
+DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and (just) "view-statistics" permission.'
 
-DEFAULT_URL             = 'http://localhost:3000/api/v1'
-DEFAULT_USERNAME        = 'rocket-stats'
-DEFAULT_INSECURE        = False
-DEFAULT_NOPROXY         = False
-DEFAULT_NO_UPDATE_CHECK = False
+DEFAULT_URL      = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME = 'rocket-stats'
 
 
 #====================
+from lib.globals import *
+
+import lib.base
+import lib.rocket
+
 import argparse
 from traceback import print_exc
-import json
-import urllib
-import urllib2
 
 
-from lib.globals import *
-from lib.output import bytes2human, unpack_perfdata
-
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('--no-update-check',
-        help = 'This option explicitly disables any update checks. Default: %(default)s',
-        dest = 'NO_UPDATE_CHECK',
-        action = 'store_true',
-        default = DEFAULT_NO_UPDATE_CHECK,
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
+
     parser.add_argument('-p', '--password',
         help='Rocket.Chat API password.',
         dest='PASSWORD',
         required=True,
         )
+
     parser.add_argument('--url',
         help='Rocket.Chat API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
         )
+
     parser.add_argument('--username',
         help='Rocket.Chat API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
         )
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
 
     return parser.parse_args()
-
-
-def get_rocket_chat_latest_version():
-    rc_url = 'https://api.github.com/repos/RocketChat/Rocket.Chat/releases/latest'
-    try:
-        request = urllib2.Request(rc_url)
-        response = urllib2.urlopen(request, timeout=30)
-    except:
-        return None
-
-    result = response.read()
-    if not result:
-        return None
-
-    try:
-        result = json.loads(result)
-    except:
-        return None
-    #print(json.dumps(result, indent=4, sort_keys=True))
-
-    # on GitHub, here is the version (format depends on the maintainer)
-    return result['tag_name']
-
-
-def is_rocket_chat_update_available(current_version):
-    # check for rocket chat server updates just once a day:
-    #   create last update check table if it does not exist
-    #   select last version for software "rocket-chat"
-    #   if empty or result > 24h old:
-    #       get latest version and update database
-    #   return latest version or false
-    import sqlite3
-    import time
-    conn = sqlite3.connect('/tmp/rocket.chat-stats.db')
-    c = conn.cursor()
-    try:
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS check_values (
-                software TEXT NOT NULL,
-                timestamp REAL NOT NULL,
-                version TEXT NOT NULL
-                );
-            ''')
-    except:
-        print('/tmp/rocket.chat-stats.db cannot be written')
-        exit(STATE_UNKNOWN)
-
-    c.execute('''
-        CREATE UNIQUE INDEX IF NOT EXISTS idx1 
-        ON check_values (software);
-        ''')
-    c.execute('SELECT * FROM check_values WHERE software = "rocket-chat"')
-    result = c.fetchone()
-    now = time.time()
-    if result == None or now - int(result[1]) > 24*60*60:
-        latest_version = get_rocket_chat_latest_version()
-        if latest_version == None:
-            return False
-        c.execute('REPLACE INTO check_values (software, timestamp, version) VALUES ("rocket-chat", ?, ?)', (now, latest_version));
-        conn.commit()
-    else:
-        latest_version = result[2]
-
-    if latest_version > current_version:
-        return latest_version
-
-    conn.close()
-    return False
-
-
-def get_token_from_rocket_chat(rc_url, user, password):
-    # curl -X "POST" \
-    #      -d "user=admin&password=mypassword" \
-    #      http://localhost:3000/api/v1/login
-    data = {
-        'user': user,
-        'password': password,
-        }
-    data = urllib.urlencode(data)
-
-    try:
-        request = urllib2.Request(rc_url + '/login', data=data)
-        response = urllib2.urlopen(request, timeout=7)
-
-    except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
-        exit(STATE_UNKNOWN)
-    except urllib2.URLError as error:
-        print('URL Error: {0}'.format(error.reason))
-        exit(STATE_UNKNOWN)
-    except:
-        print('Unknown Error, maybe timeout.')
-        exit(STATE_UNKNOWN)
-
-    result = response.read()
-    if not result:
-        print('There was no result from {}.'.format(rc_url))
-        exit(STATE_UNKNOWN)
-
-    result = json.loads(result)
-    if not 'authToken' in result['data']:
-        print('Something went wrong, maybe user is unauthorized.')
-        exit(STATE_UNKNOWN)
-
-    return result['data']['authToken'], result['data']['userId']
-
-
-def get_stats_from_rocket_chat(rc_url, authToken, userId):
-    # https://rocket.chat/docs/developer-guides/rest-api/miscellaneous/statistics/
-    # curl -H "X-Auth-Token: 8h2mKAwxB3AQrFSjLVKMooJyjdCFaA7W45sWlHP8IzO" \
-    #      -H "X-User-Id: ew28DpvKw3R" \
-    #      http://localhost:3000/api/v1/statistics
-
-    headers = {
-        'X-Auth-Token': authToken,
-        'X-User-Id': userId,
-        }
-
-    try:
-        request = urllib2.Request(rc_url + '/statistics', headers=headers)
-        response = urllib2.urlopen(request, timeout=7)
-
-    except urllib2.HTTPError as error:
-        print('HTTP Error: {0} {1}'.format(error.code, error.reason))
-        exit(STATE_UNKNOWN)
-    except urllib2.URLError as error:
-        print('URL Error: {0}'.format(error.reason))
-        exit(STATE_UNKNOWN)
-    except:
-        print('Unknown Error, maybe timeout.')
-        exit(STATE_UNKNOWN)
-
-    result = response.read()
-    if not result:
-        print('There was no result from {}.'.format(rc_url))
-        exit(STATE_UNKNOWN)
-
-    return json.loads(result)
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    URL = parsed.URL
-    USERNAME = parsed.USERNAME
-    PASSWORD = parsed.PASSWORD
-    NO_UPDATE_CHECK = parsed.NO_UPDATE_CHECK
-
     # fetch the data
-    authToken, userId = get_token_from_rocket_chat(URL, USERNAME, PASSWORD)
-    result = get_stats_from_rocket_chat(URL, authToken, userId)
-
+    credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
+    authToken, userId = credentials.split(':')
+    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
 
     # extract some application specific data
     if result.get('statistics', None):
@@ -255,56 +104,45 @@ def main():
         rc_statistics_uploadsTotalSize          = result['uploadsTotalSize']
 
 
-    # no checks here, just for your information
-    msg = ''
     perfdata = ''
     state = STATE_OK
 
-    if not NO_UPDATE_CHECK:
-        # if update check
-        newer_version = is_rocket_chat_update_available(rc_statistics_version)
-        if newer_version:
-            state = get_greater_state(state, STATE_WARN)
-            msg += 'Rocket.Chat v{} is available. '.format(newer_version)
-
-
+    # no checks here, just for your information
     # build a compact multiline message
-    msg += 'v{}, {} users ({} online), {} msgs, {} uploads, {} uploads total size\n'.format(
-        rc_statistics_version, 
+    msg_header = '{} users ({} online), {} msgs, {} uploads, {} uploads total size, v{}'.format(
         rc_statistics_totalUsers,
         rc_statistics_onlineUsers,
         rc_statistics_totalMessages,
         rc_statistics_uploadsTotal,
-        bytes2human(rc_statistics_uploadsTotalSize),
+        lib.base.bytes2human(rc_statistics_uploadsTotalSize),
+        rc_statistics_version, 
         )
-    msg += '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
+    msg_body = '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
         rc_statistics_totalRooms,
         rc_statistics_totalPrivateGroups,
         rc_statistics_totalPrivateGroupMessages,
         rc_statistics_totalDirectMessages,
         )
-    msg += '{} livechat visitors, {} livechats, {} livechat msgs\n'.format(
+    msg_body += '{} livechat visitors, {} livechats, {} livechat msgs'.format(
         rc_statistics_totalLivechatVisitors,
         rc_statistics_totalLivechat,
         rc_statistics_totalLivechatMessages,
         )
 
-    perfdata += unpack_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
-    perfdata += unpack_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
 
-    print(msg.strip() + '|' + perfdata.strip())
-
-    exit(state)
+    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata)
 
 
 if __name__ == '__main__':

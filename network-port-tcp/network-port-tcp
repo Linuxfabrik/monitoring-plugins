@@ -6,33 +6,37 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020011901'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks whether a network port is reachable.'
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 22
 DEFAULT_STATE = 'warn'
-DEFAULT_TIMEOUT = 1.5
+DEFAULT_TIMEOUT = 2
 DEFAULT_TYPE = 'tcp'
 
 
 #====================
-
 from lib.globals import *
 
+import lib.base
+
 import argparse
-from traceback import print_exc
 import socket
+from traceback import print_exc
 
-from lib.output import unpack_perfdata
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
 
     parser.add_argument('-H', '--hostname', 
         help = 'The host or ip address to check. Default: %(default)s',
@@ -73,48 +77,33 @@ def define_args():
         choices = ['tcp', 'tcp6'],
         )
 
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
-
     return parser.parse_args()
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    HOSTNAME = parsed.HOSTNAME
-    PORT = parsed.PORT
-    PORTNAME = parsed.PORTNAME
-    STATE = STATE_WARN if parsed.STATE == 'warn' else STATE_CRIT
-    TIMEOUT = parsed.TIMEOUT
-    TYPE = parsed.TYPE
-
-    if TYPE == 'tcp':
+    if args.TYPE == 'tcp':
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else:
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    sock.settimeout(TIMEOUT)
+    sock.settimeout(args.TIMEOUT)
 
     try:
         # Works fine for tcp connections, but not for udp. The port response for udp is based on the target application and is not standard like tcp.
-        if sock.connect_ex((HOSTNAME, PORT)) == 0:
+        if sock.connect_ex((args.HOSTNAME, args.PORT)) == 0:
             state = STATE_OK
         else:
-            state = STATE
+            state = STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+        sock.close()
     except:
-        print('Cannot initiate a connection to {}:{}/{}.'.format(HOSTNAME, PORT, TYPE))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Cannot initiate a connection to {}:{}/{}.'.format(args.HOSTNAME, args.PORT, TYPE), STATE_UNKNOWN)
 
-    sock.close()
-
-    print('{}:{}/{} is {}.'.format(HOSTNAME, PORTNAME if PORTNAME else PORT, TYPE, 'reachable' if state == STATE_OK else 'unreachable'))
-    exit(state)
+    lib.base.oao('{}:{}/{} is {}.'.format(args.HOSTNAME, args.PORTNAME if args.PORTNAME else args.PORT, args.TYPE, 'reachable' if state == STATE_OK else 'unreachable'), state)
 
 
 if __name__ == '__main__':

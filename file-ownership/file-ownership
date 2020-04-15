@@ -6,18 +6,16 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
-
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021901'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
 command = 'stat {path}'
 
-DEFAULT_FILES = '''apache:apache,/usr/share/httpd/.cache
-apache:apache,/usr/share/httpd/.config
+DEFAULT_FILES = '''apache:apache,/usr/share/httpd/*
 graylog:graylog,/etc/graylog/certs
 hnet:hnet,/var/hnet
 ldap:ldap,/var/run/openldap
@@ -27,22 +25,24 @@ root:named,/etc/named.conf
 unbound:unbound,/var/lib/unbound/root.key
 vdsm:kvm,/home/ovirt'''
 
-UOM = None
-MIN = 0
-MAX = None
-
 #====================
+from lib.globals import *
+
+import lib.base
+
 import argparse
-from traceback import print_exc
 import os
 import re
-
-from lib.globals import *
-from lib.utils import execute_command
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
     parser.add_argument('--filename',
         help = 'A list of filenames to be checked, in the format "owner:group,path;owner:group,path;...".',
@@ -51,22 +51,17 @@ def define_args():
         default = '',
         )
 
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
-
     return parser.parse_args()
 
 
 def main():    
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    FILES = DEFAULT_FILES + '\n' + parsed.FILES.replace(';', '\n')
+    FILES = DEFAULT_FILES + '\n' + args.FILES.replace(';', '\n')
 
     state = STATE_OK
     msg = ''
@@ -89,7 +84,7 @@ def main():
 
             formatted_command = command.format(path=path)
             # execute the shell command and return its result and exit code
-            stdout, stderr, retc = execute_command(formatted_command)
+            stdout, stderr, retc = lib.base.shell_exec(formatted_command)
             if (stderr or retc != 0):
                 print('Bash command `{}` failed.'.format(formatted_command))
                 print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -101,25 +96,18 @@ def main():
                     # Access: (0600/-rw-------)  Uid: ( 1000/markus.frei)   Gid: ( 1000/markus.frei)
                     current_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
                     current_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
-
                     if owner != current_owner or group != current_group:
                         state = STATE_WARN
                         msg = '* {path} is [{current_owner}:{current_group}], fix using "chown {owner}:{group} {path}" (WARN)\n'.format(path=path, current_owner=current_owner, current_group=current_group, owner=owner, group=group) + msg # append to start of msg
                     else:
                         msg += '* {path} is [{current_owner}:{current_group}]\n'.format(path=path, current_owner=current_owner, current_group=current_group)
-
                     cnt += 1
 
     if cnt == 0:
-        print('No files checked.\n')
-        exit(state)
-
+        lib.base.oao('No files checked.', state)
     if state == STATE_OK:
-        print('Owners and groups are correct.\n' + 'Checked: \n' + msg.strip())
-        exit(state)
-    else:
-        print('One or more problems with owners or groups.\n' + 'Checked: \n' + msg.strip())
-        exit(state)
+        lib.base.oao('Owners and groups are correct.\n' + 'Checked: \n' + msg, state)
+    lib.base.oao('One or more problems with owners or groups.\n' + 'Checked: \n' + msg, state)
 
 
 if __name__ == '__main__':

@@ -31,4 +31,4 @@ There is no perfdata.
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
 * Credits:
-  - [psutil Documentation](https://psutil.readthedocs.io/en/latest/)
+  - [psutil Documentation](https://psutil.readthedocs.io/en/release-5.3.0/)

@@ -1,6 +1,6 @@
 # Check "openvpn-client-list" - Overview
 
-Prints a list of all clients connected to the OpenVPN Server, and optionally checks their number against thresholds. Fetches the info from `/var/log/openvpn-status.log` (default). Needs sudo.
+Prints a list of all clients connected to the OpenVPN Server, and optionally checks their number against thresholds. Fetches the info from `/var/log/openvpn-status.log` (default), which you configure on your OpenVPN appliance using `status /var/log/openvpn-status.log`. Needs sudo.
 
 We recommend to run this check every 5 minutes.
 

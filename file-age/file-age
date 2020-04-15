@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -18,21 +18,29 @@ DEFAULT_CRIT = 60*60*24*365     # sec
 
 
 #====================
-import argparse
-from traceback import print_exc
-import os
-import time
-
 from lib.globals import *
-from lib.output import seconds2human, unpack_perfdata
+
+import lib.base
+
+import argparse
+import os
+from traceback import print_exc
 
 
-def define_args():
+
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     parser.add_argument('-c', '--critical', 
@@ -61,33 +69,29 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    FILE = parsed.FILE
-    WARN = parsed.WARN
-    CRIT = parsed.CRIT
-
     # fetch the data
     try:
-        st = os.stat(FILE)
+        st = os.stat(args.FILE)
     except:
-        print('Error reading file or directory "{}".'.format(FILE))
+        print('Error reading args.file or directory "{}".'.format(args.FILE))
         exit(STATE_UNKNOWN)
 
-    age = (time.time() - st.st_mtime)
+    age = (lib.base.now() - st.st_mtime)
 
-    msg = '{} is {} old.'.format(FILE, seconds2human(age))
-    # label, value, uom, warn, crit, min, max):
-    perfdata = unpack_perfdata('file_age_{}'.format(FILE), age, 's', WARN, CRIT, 0, None)
-    print(msg.strip() + '|' + perfdata.strip())
+    msg = '{} is {} old.'.format(args.FILE, lib.base.seconds2human(age))
+    perfdata = lib.base.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
+    state = STATE_OK
+    if age >= args.CRIT:
+        state = STATE_CRIT
+    elif age >= args.WARN:
+        state = STATE_WARN
 
-    if age >= CRIT:
-        exit(STATE_CRIT)
-    if age >= WARN:
-        exit(STATE_WARN)
-    exit(STATE_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:

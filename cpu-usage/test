@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
-import unittest
-
-import os
-import time
-
-from lib.utils import execute_command
 from lib.globals import *
+
+import lib.base
+
+import time
+import os
+import unittest
 
         
 class TestCheck(unittest.TestCase):
@@ -16,16 +16,16 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_first_time_without_database(self):
         if os.path.isfile('/tmp/cpu-usage.db'):
             os.remove('/tmp/cpu-usage.db') 
-        stdout, stderr, retc = execute_command(self.check)
+        stdout, stderr, retc = lib.base.shell_exec(self.check)
         # 8.8% - user: 4.9%, system: 2.0%, iowait: 1.0%
-        self.assertRegexpMatches(stdout, r'\d+\.\d+% - user: \d+\.\d+%, system: \d+\.\d+%, iowait: \d+\.\d+%')
+        self.assertRegexpMatches(stdout, r'^\d+\.\d+%')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_second_time_without_params(self):
-        stdout, stderr, retc = execute_command(self.check)
+        stdout, stderr, retc = lib.base.shell_exec(self.check)
         # 8.8% - user: 4.9%, system: 2.0%, iowait: 1.0%
-        self.assertRegexpMatches(stdout, r'\d+\.\d+% - user: \d+\.\d+%, system: \d+\.\d+%, iowait: \d+\.\d+%')
+        self.assertRegexpMatches(stdout, r'^\d+\.\d+%')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
@@ -34,11 +34,11 @@ class TestCheck(unittest.TestCase):
             os.remove('/tmp/cpu-usage.db') 
         time.sleep(5)
         for i in range(4):      # 0..3
-            stdout, stderr, retc = execute_command(self.check + ' --count 5 --critical 0.1')
+            stdout, stderr, retc = lib.base.shell_exec(self.check + ' --count 5 --critical 1')
             self.assertEqual(retc, STATE_OK)
             time.sleep(1.5)
-        # the 5th time the check should report CRIT because CPU load is constantly above 0.1%
-        stdout, stderr, retc = execute_command(self.check + ' --count 5 --critical 0.1')
+        # the 5th time the check should report CRIT because CPU load is constantly above 1%
+        stdout, stderr, retc = lib.base.shell_exec(self.check + ' --count 5 --critical 1')
         self.assertEqual(retc, STATE_CRIT)
     
 

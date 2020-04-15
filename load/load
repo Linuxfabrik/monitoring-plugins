@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020022101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Return the average system load per cpu over the last 1, 5 and 15 minutes.'
 
@@ -22,31 +22,37 @@ DEFAULT_CRIT  = 5.00     # load divided by all cpus
 #====================
 from lib.globals import *
 
+import lib.base
+
 import argparse
-from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-
-from lib.output import seconds2human, unpack_perfdata
-from lib.utils import execute_command
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold for load15 per cpu. Default: %(default)s',
         dest = 'CRIT',
         type = float,
         default = DEFAULT_CRIT,
-        )
-
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
     parser.add_argument('-w', '--warning',
@@ -62,16 +68,13 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    CRIT = float(parsed.CRIT)
-    WARN = float(parsed.WARN)
-
     # we could get the load natively with psutil >= 5.6.2
     # but until then, we do this here:
-    stdout, stderr, retc = execute_command(command)
+    stdout, stderr, retc = lib.base.shell_exec(command)
     if (retc != 0):
         print('Bash command `{}` failed.'.format(command_cmd))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -86,21 +89,14 @@ def main():
 
     msg = ''
     perfdata = ''
-    state = STATE_OK
-
-    if load15 >= CRIT:
-        state = STATE_CRIT
-    elif load15 >= WARN:
-        state = STATE_WARN
 
     msg += 'Avg per CPU: {:0.2f} {:0.2f} {:0.2f}'.format(load1, load5, load15)
-    perfdata += unpack_perfdata('load1',  load1,  None, WARN, CRIT, 0, None)
-    perfdata += unpack_perfdata('load5',  load5,  None, WARN, CRIT, 0, None)
-    perfdata += unpack_perfdata('load15', load15, None, WARN, CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('load1',  load1,  None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('load5',  load5,  None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('load15', load15, None, args.WARN, args.CRIT, 0, None)
 
-    # over and out
-    print(msg.strip() + '|' + perfdata.strip())
-    exit(state)
+    state = lib.base.get_state(load15, float(args.WARN), float(args.CRIT), operator='ge')
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

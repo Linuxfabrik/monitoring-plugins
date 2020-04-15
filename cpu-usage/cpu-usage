@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020030901'
+__version__ = '2020040901'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -21,19 +21,19 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 #====================
 from lib.globals import *
 
+import lib.base
+import lib.db_sqlite
+
 import argparse
-from traceback import print_exc
 try:
     import psutil
 except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
-import sqlite3
-
-from lib.output import unpack_perfdata
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -41,18 +41,11 @@ def define_args():
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold CPU Usage Percentage. Default: %(default)s',
-        dest = 'WARN',
-        type = float,
-        default = DEFAULT_WARN,
-        )
-
-    parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold CPU Usage Percentage. Default: %(default)s',
-        dest = 'CRIT',
-        type = float,
-        default = DEFAULT_CRIT,
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
         )
 
     parser.add_argument('--count',
@@ -62,84 +55,74 @@ def define_args():
         default = DEFAULT_COUNT,
         )
     
+    parser.add_argument('-c', '--critical',
+        help = 'Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+        dest = 'CRIT',
+        type = int,
+        default = DEFAULT_CRIT,
+        )
+
+    parser.add_argument('-w', '--warning',
+        help = 'Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+        dest = 'WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
+
     return parser.parse_args()
 
 
-# https://docs.python.org/2/library/sqlite3.html
-def insert_into_db(db, values, count):
-    conn = sqlite3.connect(db)
-
-    c = conn.cursor()
-
-    # create table if it does not exist
-    try:
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS check_values (
-                user REAL NOT NULL, 
-                system REAL NOT NULL,
-                iowait REAL NOT NULL,
-                cpu_usage REAL NOT NULL
-                )
-            ''')
-    except:
-        print('{} cannot be written'.format(db))
-        exit(STATE_UNKNOWN)
-
-    # insert a row of data (here named values from a dictionary)
-    c.execute('INSERT INTO check_values VALUES (:user, :system, :iowait, :cpu_usage)', values)
-
-    # leave only the latest "count" records, using the sqlite built-in "rowid"
-    c.execute('''
-        DELETE FROM check_values
-        WHERE rowid IN (
-            SELECT rowid
-            FROM check_values
-            ORDER BY rowid DESC
-            LIMIT -1
-            OFFSET ?
-        )
-        ''', (count, ))
-
-    # Save (commit) the changes
-    conn.commit()
-
-    # We can close the connection if we are done with it.
-    # Just be sure any changes have been committed or they will be lost.
-    conn.close()
-
-
-def get_from_db(db, threshold):
-    conn = sqlite3.connect(db)
-
-    c = conn.cursor()
-
-    c.execute('''
-        SELECT count(*)
-        FROM check_values
-        WHERE user > ? or system > ? or iowait > ? or cpu_usage > ?
-        ''', (threshold, threshold, threshold, threshold))
-    result = c.fetchone()
-
-    # We can close the connection if we are done with it.
-    # Just be sure any changes have been committed or they will be lost.
-    conn.close()
-
-    return result[0]
+def get_from_db(conn, threshold):
+    result = lib.base.coe(lib.db_sqlite.select(conn, 
+        '''
+        SELECT count(*) as cnt
+        FROM perfdata
+        WHERE user > :user or system > :system or iowait > :iowait or cpu_usage > :cpu_usage
+        ''',
+        {'user': threshold, 'system': threshold, 'iowait': threshold, 'cpu_usage': threshold},
+        fetchone=True
+    ))
+    return int(result['cnt'])
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     stats = {}
     extstats = {}
 
+
+    # create the db table
+    definition = '''
+                guest REAL NOT NULL,
+                guest_nice REAL NOT NULL,
+                iowait REAL NOT NULL,
+                irq REAL NOT NULL,
+                nice REAL NOT NULL,
+                softirq REAL NOT NULL,
+                steal REAL NOT NULL,
+                system REAL NOT NULL,
+                user REAL NOT NULL,
+                cpu_usage REAL NOT NULL
+        '''
+    conn = lib.base.coe(lib.db_sqlite.connect(filename='cpu-usage.db'))
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+
+
     # Grab CPU stats using psutil's cpu_times_percent
     # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/issues/57: changed from 0.25 to 1.25
-    cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
+    try:
+        cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
+    except ValueError as e:
+        print('psutil raised error "{}"'.format(e))
+        lib.db_sqlite.close(conn)
+        exit(STATE_UNKNOWN)
+
+
     stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
 
     if hasattr(cpu_times_percent, 'guest'):         stats['guest']      = getattr(cpu_times_percent, 'guest')
@@ -152,27 +135,27 @@ def main():
     if hasattr(cpu_times_percent, 'system'):        stats['system']     = getattr(cpu_times_percent, 'system')
     if hasattr(cpu_times_percent, 'user'):          stats['user']       = getattr(cpu_times_percent, 'user')
     
+    # save trend data to local sqlite database, limited to "count" rows max.
+    lib.base.coe(lib.db_sqlite.insert(conn, stats))
+    lib.base.coe(lib.db_sqlite.cut(conn, max=args.COUNT))
+    lib.base.coe(lib.db_sqlite.commit(conn))
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) since boot
     # interrupts: number of interrupts since boot
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
-    if psutil.__version__ >= '4.1.0':
+    if lib.base.version(psutil.__version__) >= lib.base.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
         if hasattr(cpu_stats, 'ctx_switches'):      extstats['ctx_switches']       = getattr(cpu_stats, 'ctx_switches')
         if hasattr(cpu_stats, 'interrupts'):        extstats['interrupts']         = getattr(cpu_stats, 'interrupts')
         if hasattr(cpu_stats, 'soft_interrupts'):   extstats['soft_interrupts']    = getattr(cpu_stats, 'soft_interrupts')
 
 
-    # save trend data to local sqlite database, limited to "count" rows max.
-    insert_into_db('/tmp/cpu-usage.db', stats, parsed.COUNT)
-
-
     # sort by highest value
     cpu_usage = stats['cpu_usage']
     del stats['cpu_usage']
-    stats = sorted(stats.items(), key=lambda x: x[1], reverse=True)
+    stats = lib.base.sort(stats, reverse=True)
 
 
     msg = ''
@@ -181,44 +164,41 @@ def main():
 
 
     # now, calculate the WARN or CRIT.
-    # overall status is not ok, if ...
+    # overall state is not ok, if ...
     #   in a row in any column there is a value above the threshold
     #   and this is true for every row 
-    if get_from_db('/tmp/cpu-usage.db', parsed.CRIT) == parsed.COUNT:
+    if get_from_db(conn, args.CRIT) == args.COUNT:
         state = STATE_CRIT
-    elif get_from_db('/tmp/cpu-usage.db', parsed.WARN) == parsed.COUNT:
+    elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
+    lib.db_sqlite.close(conn)
 
 
     # build the message
-    perfdata += unpack_perfdata('cpu-usage', cpu_usage, '%', parsed.WARN, parsed.CRIT, 0, 100)
-    # line1: values > 0%
-    # line2: values == 0%
-    line1, line2 = '', ''
+    perfdata += lib.base.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
+    # msg_header: values > 0%
+    # msg_body: values == 0%
+    msg_header, msg_body = '', ''
     for i in range(len(stats)):
         if stats[i][1] != 0:
-            line1 += '{}: {}%, '.format(stats[i][0], stats[i][1])
+            msg_header += '{}: {}%, '.format(stats[i][0], stats[i][1])
         else:
-            line2 += '{}: {}%, '.format(stats[i][0], stats[i][1])
-        perfdata += unpack_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
+            msg_body += '{}: {}%, '.format(stats[i][0], stats[i][1])
+        perfdata += lib.base.get_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
     msg += '{}%'.format(cpu_usage)
-    if  line1:
-        msg += ' - ' + line1[:-2]
-    if line2:
-        msg += '\n' + line2[:-2]
-
+    if msg_header:
+        msg += ' - ' + msg_header[:-2]
+    if msg_body:
+        msg += '\n' + msg_body[:-2]
 
     if extstats:
         msg += '\n'
         for key in extstats:
             msg += '{}: {}, '.format(key, extstats[key])
-            perfdata += unpack_perfdata(key, extstats[key], 'c', None, None, 0, None)
+            perfdata += lib.base.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2]
 
-
-    # over and out
-    print(msg.strip() + '|' + perfdata.strip())
-    exit(state)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

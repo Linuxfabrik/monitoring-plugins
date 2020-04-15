@@ -2,9 +2,6 @@
 
 This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and "view-statistics" permission (only).
 
-Hints:
-* Check uses a SQLite database in `/tmp` to store its historic data.
-
 We recommend to run this check every 15 minutes.
 
 
@@ -18,8 +15,7 @@ We recommend to run this check every 15 minutes.
 
 # States
 
-* WARN if a newer Rocket.Chat version is available.
-* Otherwise OK.
+* Always returns OK.
 
 
 # Perfdata
@@ -36,12 +32,6 @@ We recommend to run this check every 15 minutes.
 * Total Users
 * Uploads Total
 * Uploads Total Size (Byte)
-
-
-# Known Issues and Limitations
-
-* `--noproxy` not implemented
-* `--insecure` not implemented
 
 
 # Credits, License

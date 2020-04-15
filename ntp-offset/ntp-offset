@@ -6,11 +6,11 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'This plugin checks the clock offset with the ntp server.'
 
@@ -20,32 +20,25 @@ command_installed = 'command -v {program}'                  # ntpq / chronyc
 ntpq_command = 'ntpq -p'
 chronyc_command = 'chronyc tracking'
 
-DEFAULT_WARN = 500
-DEFAULT_CRIT = 1000
+DEFAULT_WARN = 800
+DEFAULT_CRIT = 1001
 
 
 #====================
+from lib.globals import *
+
+import lib.base
+
 import argparse
 from traceback import print_exc
 
-from lib.globals import *
-from lib.utils import execute_command
-from lib.output import unpack_perfdata
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
         action = 'version',
         version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
-
-    parser.add_argument('-w', '--warning',
-        help='Set the warning threshold for the ntp time offset, in ms. Default: %(default)sms',
-        dest='WARN',
-        type = int,
-        default = DEFAULT_WARN,
         )
 
     parser.add_argument('-c', '--critical',
@@ -55,22 +48,26 @@ def define_args():
         default = DEFAULT_CRIT,
         )
     
+    parser.add_argument('-w', '--warning',
+        help='Set the warning threshold for the ntp time offset, in ms. Default: %(default)sms',
+        dest='WARN',
+        type = int,
+        default = DEFAULT_WARN,
+        )
+
     return parser.parse_args()
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    WARN = parsed.WARN
-    CRIT = parsed.CRIT
-
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='ntpd')
-    stdout, stderr, retc = execute_command(formatted_systemctl_command)
+    stdout, stderr, retc = lib.base.shell_exec(formatted_systemctl_command)
     if (stderr):
         print('Bash command `{}` failed.'.format(formatted_systemctl_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
@@ -79,36 +76,33 @@ def main():
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
-    stdout, stderr, retc = execute_command(formatted_systemctl_command)
+    stdout, stderr, retc = lib.base.shell_exec(formatted_systemctl_command)
     if (stderr):
         print('Bash command `{}` failed.'.format(formatted_systemctl_command))
         print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
         exit(STATE_UNKNOWN)
-
     chronyd_present = True if retc == 0 else False
 
     if ntpd_present == False and chronyd_present == False:
-        print('neither ntpd nor chronyd found.')
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Neither ntpd nor chronyd found.', STATE_UNKNOWN)
 
     if ntpd_present:
         formatted_command_installed = command_installed.format(program='ntpq')
         # check if shell command is available
-        stdout, stderr, retc = execute_command(formatted_command_installed)
+        stdout, stderr, retc = lib.base.shell_exec(formatted_command_installed)
         if (retc != 0):
-            print('"ntpq" is missing. On CentOS, use "yum install todo".')
-            exit(STATE_UNKNOWN)
+            lib.base.oao('"ntpq" is missing.', STATE_UNKNOWN)
 
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = execute_command(ntpq_command)
+        stdout, stderr, retc = lib.base.shell_exec(ntpq_command)
         if (stderr): # todo check retc?
             print('Bash command `{}` failed.'.format(ntpq_command))
             print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
-        result = stdout
+        msg_body = stdout
 
         ntp_server_found = False
-        for line in result.splitlines():
+        for line in msg_body.splitlines():
             line = line.strip()
             if line.startswith('*'):
                 ntp_server_found = True
@@ -118,26 +112,24 @@ def main():
                 stratum = int(line[2])
 
         if not ntp_server_found:
-            print('No NTP server used.')
-            exit(STATE_UNKNOWN)
+            lib.base.oao('No NTP server used.', STATE_UNKNOWN)
 
     if chronyd_present:
         formatted_command_installed = command_installed.format(program='chronyc')
         # check if shell command is available
-        stdout, stderr, retc = execute_command(formatted_command_installed)
+        stdout, stderr, retc = lib.base.shell_exec(formatted_command_installed)
         if (retc != 0):
-            print('"chronyc" is missing. On CentOS, use "yum install todo".')
-            exit(STATE_UNKNOWN)
+            lib.base.oao('"chronyc" is missing.', STATE_UNKNOWN)
 
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = execute_command(chronyc_command)
+        stdout, stderr, retc = lib.base.shell_exec(chronyc_command)
         if (stderr): # todo check retc?
             print('Bash command `{}` failed.'.format(chronyc_command))
             print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
             exit(STATE_UNKNOWN)
-        result = stdout
+        msg_body = stdout
 
-        for line in result.splitlines():
+        for line in msg_body.splitlines():
             line = line.strip()
             if line.startswith('Reference ID'):
                 ntp_server = line[line.find("(")+1:line.find(")")] # extract text in () using string splicing
@@ -152,33 +144,28 @@ def main():
                 continue
 
     if ntp_server == '':
-        print('No NTP server used.')
-        exit(STATE_UNKNOWN)
+        lib.base.oao('No NTP server found.', STATE_UNKNOWN)
 
     if ntp_server == 'LOCAL':
-        print('No NTP server configured.')
-        exit(STATE_UNKNOWN)
+        lib.base.oao('No NTP server used.', STATE_UNKNOWN)
 
-    perfdata = unpack_perfdata('offset', offset, 'ms', WARN, CRIT, None, None)
+    perfdata = lib.base.get_perfdata('offset', offset, 'ms', args.WARN, args.CRIT, None, None)
 
-    if abs(offset) >= CRIT:
-        msg = 'NTP offset to low/high. Offset is {0}ms.'.format(offset)
-        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
-        exit(STATE_CRIT)
+    if abs(offset) >= args.CRIT:
+        msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
+        lib.base.oao(msg_header + '\n' + msg_body, STATE_CRIT, perfdata)
 
-    if abs(offset) >= WARN:
-        msg = 'NTP offset to low/high. Offset is {0}ms.'.format(offset)
-        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
-        exit(STATE_WARN)
+    if abs(offset) >= args.WARN:
+        msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
+        lib.base.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
 
     if stratum >= 9:
-        msg = 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
-        print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
-        exit(STATE_WARN)
+        msg_header = 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
+        lib.base.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
 
-    msg = 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
-    print(msg.strip() + '\n\n' + result + '|' + perfdata.strip())
-    exit(STATE_OK)
+    msg_header = 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
+    lib.base.oao(msg_header + '\n' + msg_body, STATE_OK, perfdata)
+
 
 if __name__ == '__main__':
     try:

@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012801'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the number of files presently opened, in percent.'
 
@@ -17,16 +17,29 @@ DEFAULT_WARN  = 90
 DEFAULT_CRIT  = 95
 
 #====================
-import argparse
-from traceback import print_exc
-import os
-
 from lib.globals import *
-from lib.output import unpack_perfdata
+
+import lib.base
+
+import argparse
+import os
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
 
     parser.add_argument('-c', '--critical',
         help = 'Set the critical threshold file number usage percentage. Default: %(default)s',
@@ -34,10 +47,7 @@ def define_args():
         type = int,
         default = DEFAULT_CRIT,
         )
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+
     parser.add_argument('-w', '--warning',
         help = 'Set the warning threshold file number usage percentage. Default: %(default)s',
         dest = 'WARN',
@@ -51,7 +61,7 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
@@ -65,16 +75,10 @@ def main():
     files_used = round(fs[0] / fs[2] * 100, 1)
 
     msg += '{}% files used.'.format(files_used)
-    perfdata += unpack_perfdata('fs-file-usage', files_used, '%', parsed.WARN, parsed.CRIT, 0, 100)
+    perfdata += lib.base.get_perfdata('fs-file-usage', files_used, '%', args.WARN, args.CRIT, 0, 100)
+    state = lib.base.get_state(files_used, args.WARN, args.CRIT, 'ge')
 
-    if files_used >= parsed.CRIT:
-        state = STATE_CRIT
-    elif files_used >= parsed.WARN:
-        state = STATE_WARN
-
-
-    print(msg + '|' + perfdata.strip())
-    exit(state)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

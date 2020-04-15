@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020031001'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "firewalld" is running, use "systemd-unit --substate=running --unit=firewalld". Have a look at the README for more details.'
 
@@ -22,16 +22,22 @@ DEFAULT_SUBSTATE  = []
 
 
 #====================
+from lib.globals import *
+
+import lib.base
+
 import argparse
 from traceback import print_exc
 
-from lib.globals import *
-from lib.output import unpack_perfdata
-from lib.utils import execute_command
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
 
     parser.add_argument('--activestate',
         help = 'Expected systemd ActiveState (repeating).',
@@ -75,27 +81,20 @@ def define_args():
         choices = ['bad', 'disabled', 'enabled', 'enabled-runtime', 'generated', 'indirect', 'linked', 'linked-runtime', 'masked', 'masked-runtime', 'static', 'transient']
         )
 
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
-
     return parser.parse_args()
 
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
 
-    stdout, stderr, retc = execute_command(command + parsed.UNIT)
+    stdout, stderr, retc = lib.base.shell_exec(command + args.UNIT)
     if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
     result = stdout.split('\n')
 
     loadstate     = result[0].replace('LoadState=', '')
@@ -105,38 +104,35 @@ def main():
 
 
     state = STATE_OK
-    msg = '{} is {}, {}, {}'.format(parsed.UNIT, loadstate, activestate, substate)
-    if parsed.UNITFILESTATE:
+    msg = '{} is {}, {}, {}'.format(args.UNIT, loadstate, activestate, substate)
+    if args.UNITFILESTATE:
         msg += ', unit file is {}.'.format(unitfilestate)
 
     # now do the checks
     problem = False
     problem_msg = ''
-    if parsed.LOADSTATE and loadstate == 'not-found':
+    if args.LOADSTATE and loadstate == 'not-found':
         problem = True
-        problem_msg += 'Unit not found.  '
+        problem_msg += 'Unit {} not found.  '.format(args.UNIT)
     else:
-	    if parsed.LOADSTATE and parsed.LOADSTATE != loadstate:
+	    if args.LOADSTATE and args.LOADSTATE != loadstate:
 	        problem = True
-	        problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, parsed.LOADSTATE)
-	    if parsed.ACTIVESTATE and activestate not in parsed.ACTIVESTATE:
+	        problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, args.LOADSTATE)
+	    if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
 	        problem = True
-	        problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, parsed.ACTIVESTATE)
-	    if parsed.SUBSTATE and substate not in parsed.SUBSTATE:
+	        problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, args.ACTIVESTATE)
+	    if args.SUBSTATE and substate not in args.SUBSTATE:
 	        problem = True
-	        problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, parsed.SUBSTATE)
-	    if parsed.UNITFILESTATE and parsed.UNITFILESTATE != unitfilestate:
+	        problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
+	    if args.UNITFILESTATE and args.UNITFILESTATE != unitfilestate:
 	        problem = True
-	        problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, parsed.UNITFILESTATE)
+	        problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
 
     if problem:
-        msg = '{} - '.format(parsed.UNIT) + problem_msg[:-2]
-        state = STATE_CRIT if parsed.SEVERITY == 'crit' else STATE_WARN
+        msg = '{} - '.format(args.UNIT) + problem_msg[:-2]
+        state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
-
-    print(msg.strip())
-    exit(state)
-
+    lib.base.oao(msg, state)
 
 
 if __name__ == '__main__':

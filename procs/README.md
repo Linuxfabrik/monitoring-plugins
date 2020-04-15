@@ -1,18 +1,14 @@
 # Check "procs" - Overview
 
-Checks the number of currently running processes and warns on process counts or zombie process states. Only zombies that last longer than 24 hours result in a WARN, otherwise you might get flapping results, for example on a heavy-duty Apache webserver.
+Checks the number of currently running processes and warns on process counts.
 
-Why does the check most of the time shows "1 running (ps)"?
+Process State Codes are summarized:
 
-This is due to the fact that the check calls `ps` with some parameters to fetch the current process list. In other words, `ps` is in state `R` ("running") while fetching the process list.  Like `top` we take this into account and do not ignore its own call.
-
-Process State Codes:
-
-    procstate   shown as          meaning
+    procstate   shown as/grouped  meaning
     --------------------------------------------------------------------------------------------------
            D    uninterruptible   uninterruptible sleep (usually IO)
-           I    sleeping          idle kernel thread
            R    running           running or runnable (on run queue)
+           I    sleeping          idle kernel thread
            S    sleeping          interruptible sleep (waiting for an event to complete)
            T    stopped           stopped by job control signal
            t    stopped           stopped by debugger during the tracing
@@ -26,15 +22,14 @@ We recommend to run this check every minute.
 # Installation and Usage
 
 ```bash
-./procs
-./procs --warning 250 --critical 500
+./procs --no-kthreads --always-ok
+./procs --warning 2:100 --critical 1:150 --command httpd
 ./procs --help
 ```
 
 
 # States
 
-* WARN if there is at least one zombie process "living" for more than 24 hours. 
 * WARN or CRIT if process count is above a given threshold.
 
 

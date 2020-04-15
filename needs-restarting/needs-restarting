@@ -6,10 +6,10 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021101'
+__version__ = '2020040701'
 
 DESCRIPTION = 'Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. Should be called once a day or after a `yum update` only.'
 
@@ -18,14 +18,15 @@ command = 'needs-restarting'
 
 
 #====================
+from lib.globals import *
+
+import lib.base
+
 import argparse
 from traceback import print_exc
 
-from lib.globals import *
-from lib.utils import execute_command
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -39,41 +40,36 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     # check if shell command is available
-    stdout, stderr, retc = execute_command(command_installed)
+    stdout, stderr, retc = lib.base.shell_exec(command_installed)
     if (retc != 0):
-        print('"needs-restarting" is missing. On CentOS, use "yum install yum-utils", on Fedora "dnf install dnf-utils".')
+        print('"needs-restarting" is missing.')
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
 	# 1. full reboot necessary? check the return code (<> 0: needs reboot): needs-restarting --reboothint
-    stdout, stderr, retc = execute_command(command + ' --reboothint')
+    stdout, stderr, retc = lib.base.shell_exec(command + ' --reboothint')
 
     # calculating the final check state
     if int(retc) >= 1:
-    	print('A system reboot maybe required.')
-    	exit(STATE_WARN)
+    	lib.base.oao('A system reboot may be required.', STATE_WARN)
 
     # execute the shell command and return its result and exit code
 	# 2. long list of all updated services (process list): needs-restarting
-    stdout, stderr2, retc = execute_command(command)
+    stdout, tmp_stderr, retc = lib.base.shell_exec(command)
     service_restart_needed = stdout.strip()
 
     # calculating the final check state
     if service_restart_needed:
-    	print('Found some running processes that have been updated:\n{}'.format(service_restart_needed))
-    	exit(STATE_WARN)
-
+    	lib.base.oao('Found some running processes that have been updated:\n{}'.format(service_restart_needed), STATE_WARN)
     if not stderr:
-        print('No system or service restart needed.')
+        lib.base.oao('No system or service restart needed.', STATE_OK)
     else:
-        print('No system or service restart needed, but {}'.format(stderr))
-
-    exit(STATE_OK)
+        lib.base.oao('No system or service restart needed, but {}'.format(stderr), STATE_OK)
 
 
 if __name__ == '__main__':

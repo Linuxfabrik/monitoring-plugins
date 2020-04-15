@@ -6,11 +6,11 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020021101'
+__version__ = '2020040902'
 
 DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
 
@@ -18,18 +18,17 @@ DEFAULT_CRIT = None
 DEFAULT_WARN = 24
 
 #====================
-
 from lib.globals import *
-from lib.parse_input import evaluate_greater, evaluate_greater_datetime_to_now
-from lib.output import unpack_perfdata, state_to_string
+
+import lib.base
 
 import argparse
-from traceback import print_exc
 import datetime
 import os
+from traceback import print_exc
 
 
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -57,17 +56,21 @@ def define_args():
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     perfdata = ''
     path = '/var/log/borg/borg.log'
 
+    # content of the log file:
+        # start: 2020-04-08 23:00:01
+        # prune_rc: 0
+        # create_rc: 0
+        # end: 2020-04-08 23:00:13
+
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
-        msg = 'Logfile {} not found or empty.'.format(path)
-        print(msg)
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Logfile {} not found or empty.'.format(path), STATE_UNKNOWN)
 
     mount_lines = ''
     with open('/proc/mounts') as mountlist:
@@ -76,9 +79,7 @@ def main():
                 mount_lines += '* ' + line
 
     if mount_lines:
-        msg = 'There are active borg mounts.\n\n{}'.format(mount_lines)
-        print(msg)
-        exit(STATE_WARN)
+        lib.base.oao('There are active borg mounts.\n\n{}'.format(mount_lines), STATE_WARN)
 
 
     logfile = open(path, 'rb')
@@ -90,51 +91,50 @@ def main():
             endtime = line.split(": ")[1].strip()
 
         if line.startswith('create_rc'):
-            create_rc = int(line.split(": ")[1])
+            create_retc = int(line.split(": ")[1])
 
         if line.startswith('prune_rc'):
-            prune_rc = int(line.split(": ")[1])
+            prune_retc = int(line.split(": ")[1])
 
     # check if all variables are defined
     try:
         starttime
         endtime
-        create_rc
-        prune_rc
+        create_retc
+        prune_retc
     except UnboundLocalError as e:
-        print('Could not find all expected values in the logfile.')
-        print(e)
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Could not find all expected values in the logfile.\n{}'.format(e), STATE_UNKNOWN)
 
+    # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
-    create_rc_state = evaluate_greater(create_rc, 2, None)
-    state = get_greater_state(state, create_rc_state)
-    perfdata += unpack_perfdata('create_rc', create_rc, None, 2, None, 0, None)
+    create_retc_state = lib.base.get_state(create_retc, 2, None, operator='ge')
+    state = lib.base.get_worst(state, create_retc_state)
+    perfdata += lib.base.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
 
-    prune_rc_state = evaluate_greater(prune_rc, 2, None)
-    state = get_greater_state(state, prune_rc_state)
-    perfdata += unpack_perfdata('prune_rc', prune_rc, None, 2, None, 0, None)
+    prune_retc_state = lib.base.get_state(prune_retc, 2, None, operator='ge')
+    state = lib.base.get_worst(state, prune_retc_state)
+    perfdata += lib.base.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
-    starttime_datetime = datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S')
-    last_starttime_state = evaluate_greater_datetime_to_now(starttime_datetime, parsed.WARN, parsed.CRIT)
-    state = get_greater_state(state, last_starttime_state)
+    now = lib.base.now(as_type='iso')
+    delta = lib.base.timestrdiff(now, starttime)
 
-    duration = (datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S') - starttime_datetime).total_seconds()
-    perfdata += unpack_perfdata('duration', duration, 's', None, None, 0, None)
+    last_starttime_state = lib.base.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
+    state = lib.base.get_worst(state, last_starttime_state)
 
-    if state == STATE_OK:
-        msg = 'Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
-    else:
+    duration = lib.base.timestrdiff(endtime, starttime)     # in seconds
+    perfdata += lib.base.get_perfdata('duration', duration, 's', None, None, 0, None)
+
+    msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.base.seconds2human(duration))
+    if state != STATE_OK:
         if last_starttime_state != STATE_OK:
-            msg = 'Last backup is too long ago. Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
+            msg = 'Last backup is too long ago. ' + msg
         else:
-            msg = 'One or more errors. Last Backup: Start: {}, End: {} ({}s)'.format(starttime, endtime, duration)
+            msg = 'One or more errors. ' + msg
+    msg += '* Create retc: {}, State: {}\n'.format(create_retc, lib.base.state2str(create_retc_state))
+    msg += '* Prune retc: {}, State: {}'.format(prune_retc, lib.base.state2str(prune_retc_state))
 
-    msg += '\nCreate rc: {} {}'.format(create_rc, state_to_string(create_rc_state))
-    msg += '\nPrune rc: {} {}'.format(prune_rc, state_to_string(prune_rc_state))
+    lib.base.oao(msg, state, perfdata)
 
-    print(msg + '|' + perfdata.strip())
-    exit(state)
 
 if __name__ == '__main__':
     try:

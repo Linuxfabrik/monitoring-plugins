@@ -6,12 +6,12 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://nagios-plugins.org/doc/guidelines.html
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020012601'
+__version__ = '2020040701'
 
-DESCRIPTION = 'This program tests connections to a mysql server and gets some statistics.'
+DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics.'
 
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
@@ -20,22 +20,37 @@ DEFAULT_PORT = '3306'
 #====================
 from lib.globals import *
 
+import lib.base
+
 import argparse
-import os
-from traceback import print_exc
 try:
     import mysql.connector
 except ImportError, e:
     print('Python module "mysql.connector" is not installed.')
     exit(STATE_UNKNOWN)
+import os
+try:
+    import psutil
+except ImportError, e:
+    print('Python module "psutil" is not installed.')
+    exit(STATE_UNKNOWN)
+from traceback import print_exc
 
-from lib.output import unpack_perfdata, bytes2human, seconds2human
-from mysql.connector import errorcode
-from psutil import virtual_memory
 
-
-def define_args():
+def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help = 'Always returns OK.',
+        dest = 'ALWAYS_OK',
+        action = 'store_true',
+        default = False,
+        )
 
     parser.add_argument('-H', '--hostname',
         help = 'MySQL/MariaDB hostname. Default: %(default)s',
@@ -61,22 +76,7 @@ def define_args():
         required = True,        
         )
 
-    parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
-
     return parser.parse_args()
-
-
-def smartcast(value):
-     for test in [float, str]:
-         try:
-             return test(value)
-         except ValueError:
-             continue
-     # No match
-     return value
 
 
 def get_pf_memory(myvar, perfschema):
@@ -132,31 +132,31 @@ def log_file_recommendations(myvar):
 def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        parsed = define_args()
+        args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
     try:
         if mysql.connector.__version__ >= '2.1.1':
             cnx = mysql.connector.connect(
-                host = parsed.HOSTNAME,
-                port = parsed.PORT,
-                user = parsed.USERNAME,
-                password = parsed.PASSWORD,
+                host = args.HOSTNAME,
+                port = args.PORT,
+                user = args.USERNAME,
+                password = args.PASSWORD,
                 use_pure = False,
                 )
         else:
             cnx = mysql.connector.connect(
-                host = parsed.HOSTNAME,
-                port = parsed.PORT,
-                user = parsed.USERNAME,
-                password = parsed.PASSWORD,
+                host = args.HOSTNAME,
+                port = args.PORT,
+                user = args.USERNAME,
+                password = args.PASSWORD,
                 )
     except mysql.connector.Error as err:
-        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
             print('Wrong username or password')
             exit(STATE_UNKNOWN)
-        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        elif err.errno == mysql.connector.errorcode.ER_BAD_DB_ERROR:
             print('Unknown database')
             exit(STATE_UNKNOWN)
         else:
@@ -188,21 +188,21 @@ def main():
     query = 'show variables;'
     cursor.execute(query)
     for (key, value) in cursor:
-        myvar[key] = smartcast(value)
+        myvar[key] = lib.base.smartcast(value)
     query = 'show global variables;'
     cursor.execute(query)
     for (key, value) in cursor:
-        myvar[key] = smartcast(value)
+        myvar[key] = lib.base.smartcast(value)
 
     # https://dev.mysql.com/doc/refman/8.0/en/show-status.html
     query = 'show status;'
     cursor.execute(query)
     for (key, value) in cursor:
-        mystat[key] = smartcast(value)
+        mystat[key] = lib.base.smartcast(value)
     query = 'show global status;'
     cursor.execute(query)
     for (key, value) in cursor:
-        mystat[key] = smartcast(value)
+        mystat[key] = lib.base.smartcast(value)
 
     query = 'select count(*) from information_schema.tables;'
     cursor.execute(query)
@@ -212,7 +212,7 @@ def main():
     try:
         cursor.execute(query)
         for (ptype, pname, pstatus) in cursor:
-            perfschema[pname] = smartcast(pstatus)
+            perfschema[pname] = lib.base.smartcast(pstatus)
     except mysql.connector.Error as err:
         print('Failed querying performance_schema status. {}'.format(err))
         exit(STATE_UNKNOWN)
@@ -227,7 +227,7 @@ def main():
 
     # calculations as done in mysqltuner.pl
     # https://github.com/major/MySQLTuner-perl/blob/master/mysqltuner.pl
-    mem = virtual_memory()
+    mem = psutil.virtual_memory()
     physical_memory = mem.total
 
     mycalc['pct_reads']  = 0
@@ -342,20 +342,20 @@ def main():
 
     msg += '{} v{}.{}, '.format(mysqltype, mysqlvermajor, mysqlverminor)
     msg += '{}%/{}% r/w, '.format(mycalc['pct_reads'], mycalc['pct_writes'])
-    msg += 'up {}, '.format(seconds2human(mystat['Uptime']))
-    perfdata += unpack_perfdata('uptime', mystat['Uptime'], 's', None, None, 0, None)
+    msg += 'up {}, '.format(lib.base.seconds2human(mystat['Uptime']))
+    perfdata += lib.base.get_perfdata('uptime', mystat['Uptime'], 's', None, None, 0, None)
 
     qps = round(mystat['Questions'] / mystat['Uptime'], 1)
-    msg += '{} Questions, {} QPS, '.format(mystat['Questions'], qps)
-    perfdata += unpack_perfdata('questions', mystat['Questions'], 'c', None, None, 0, None)
-    perfdata += unpack_perfdata('qps', qps, 'c', None, None, 0, None)
+    msg += '{} Questions, {} QPS, '.format(lib.base.number2human(mystat['Questions']), qps)
+    perfdata += lib.base.get_perfdata('questions', mystat['Questions'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('qps', qps, 'c', None, None, 0, None)
 
-    msg += '{} Connections, '.format(mystat['Connections'])
-    perfdata += unpack_perfdata('connections', mystat['Connections'], 'c', None, None, 0, None)
+    msg += '{} Connections, '.format(lib.base.number2human(mystat['Connections']))
+    perfdata += lib.base.get_perfdata('connections', mystat['Connections'], 'c', None, None, 0, None)
 
-    msg += '{}/{} (Rx/Tx)\n'.format(bytes2human(mystat['Bytes_received']), bytes2human(mystat['Bytes_sent']))
-    perfdata += unpack_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
-    perfdata += unpack_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
+    msg += '{}/{} (Rx/Tx)\n'.format(lib.base.bytes2human(mystat['Bytes_received']), lib.base.bytes2human(mystat['Bytes_sent']))
+    perfdata += lib.base.get_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
 
     
     msg += log_file_recommendations(myvar)
@@ -366,49 +366,49 @@ def main():
     # Memory usage
     if mycalc['pct_max_physical_memory'] > 90:
         msg_warn += '* MySQL\'s maximum memory usage is dangerously high. Add RAM before increasing MySQL buffer variables.\n'
-        state = get_greater_state(state, STATE_CRIT)
+        state = lib.base.get_worst(state, STATE_CRIT)
     elif mycalc['pct_max_physical_memory'] > 85:
         msg_warn += '* Maximum possible memory usage > 85% (reduce your overall MySQL memory footprint or increase RAM >= 2GB for system stability)\n'
-        state = get_greater_state(state, STATE_WARN)
-    msg += '* Maximum possible memory usage: {} ({}% of installed RAM)\n'.format(bytes2human(mycalc['max_peak_memory']), mycalc['pct_max_physical_memory'])
-    perfdata += unpack_perfdata('pct_max_physical_memory', mycalc['pct_max_physical_memory'], '%', 85, None, 0, None)
+        state = lib.base.get_worst(state, STATE_WARN)
+    msg += '* Maximum possible memory usage: {} ({}% of installed RAM)\n'.format(lib.base.bytes2human(mycalc['max_peak_memory']), mycalc['pct_max_physical_memory'])
+    perfdata += lib.base.get_perfdata('pct_max_physical_memory', mycalc['pct_max_physical_memory'], '%', 85, None, 0, None)
 
     if mycalc['pct_max_used_memory'] > 85:
         msg_warn += '* Maximum reached memory usage > 85%\n'
-        state = get_greater_state(state, STATE_WARN)
-    msg += '* Maximum reached memory usage: {} ({}% of installed RAM)\n'.format(bytes2human(mycalc['max_used_memory']), mycalc['pct_max_used_memory'])
-    perfdata += unpack_perfdata('pct_max_used_memory', mycalc['pct_max_used_memory'], '%', 85, None, 0, 100)
+        state = lib.base.get_worst(state, STATE_WARN)
+    msg += '* Maximum reached memory usage: {} ({}% of installed RAM)\n'.format(lib.base.bytes2human(mycalc['max_used_memory']), mycalc['pct_max_used_memory'])
+    perfdata += lib.base.get_perfdata('pct_max_used_memory', mycalc['pct_max_used_memory'], '%', 85, None, 0, 100)
 
     if physical_memory < mycalc['max_peak_memory'] + get_other_process_memory():
         msg_warn += '* Overall possible memory usage with other process exceeded memory (dedicate this server to your database for highest performance)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
 
     # Slow queries
     if mycalc['pct_slow_queries'] > 5:
         msg_warn += '* Slow Queries > 5% (use the slow query log to troubleshoot bad queries)\n'
-        state = get_greater_state(state, STATE_WARN)
-    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], mystat['Questions'])
-    perfdata += unpack_perfdata('pct_slow_queries', mycalc['pct_slow_queries'], '%', 5, None, 0, 100)
+        state = lib.base.get_worst(state, STATE_WARN)
+    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], lib.base.number2human(mystat['Questions']))
+    perfdata += lib.base.get_perfdata('pct_slow_queries', mycalc['pct_slow_queries'], '%', 5, None, 0, 100)
 
     # Connections
     if mycalc['pct_connections_used'] > 85:
         msg_warn += '* Connections used > 85% (reduce or eliminate persistent connections to reduce connection usage, increase max_connections, decrease wait_timeout and/or decrease interactive_timeout)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
     msg += '* Highest connection usage: {}% ({}/{})\n'.format(mycalc['pct_connections_used'], mystat['Max_used_connections'], myvar['max_connections'])
-    perfdata += unpack_perfdata('pct_connections_used', mycalc['pct_connections_used'], '%', 85, None, 0, 100)
+    perfdata += lib.base.get_perfdata('pct_connections_used', mycalc['pct_connections_used'], '%', 85, None, 0, 100)
 
     # Aborted Connections
     if mycalc['pct_connections_aborted'] > 3:
         msg_warn += '* Connections aborted > 3% (reduce or eliminate unclosed connections and network issues)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
     msg += '* Aborted connections: {}% ({}/{})\n'.format(mycalc['pct_connections_aborted'], mystat['Aborted_connects'], mystat['Connections'])
-    perfdata += unpack_perfdata('pct_connections_aborted', mycalc['pct_connections_aborted'], '%', 85, None, 0, 100)
+    perfdata += lib.base.get_perfdata('pct_connections_aborted', mycalc['pct_connections_aborted'], '%', 85, None, 0, 100)
 
     # name resolution
     if 'skip_networking' in myvar and myvar['skip_networking'] == 'OFF':
         if 'skip_name_resolve' in myvar and myvar['skip_name_resolve'] == 'OFF':
             msg_warn += '* Name resolution is active: a reverse name resolution is made for each new connection and can reduce performance (configure your accounts with ip or subnets only, set skip_name_resolve=1)\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
 
     # Query cache
     if mysqlvermajor < 4 or (mysqlvermajor >= 8 and mysqltype == 'MySQL'):
@@ -420,24 +420,24 @@ def main():
         tmp = 'do nothing'
     elif mystat['Com_select'] == 0:
         msg_warn += '* Query cache cannot be analyzed - no SELECT statements executed\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
     else:
         msg_warn += '* Query cache should be disabled due to mutex contention on multiprocessor machines (set query_cache_size=0, query_cache_type=OFF)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
         if mycalc['query_cache_efficiency'] < 20:
             msg_warn += '* Query cache efficiency < 20% (increase query_cache_limit or use smaller result sets)\n'
-            state = get_greater_state(state, STATE_WARN)
-        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], mystat['Qcache_hits'] + mystat['Com_select'])
-        perfdata += unpack_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.base.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
+        perfdata += lib.base.get_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
             
         if mycalc['query_cache_prunes_per_day'] > 98:
             if myvar['query_cache_size'] >= 128 * 1024 * 1024:
                 msg_warn += '* Increasing the query_cache size over 128M may reduce performance\n'
             else:
                 msg_warn += '* Increase query_cache_size up to 128M\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         msg += '* Query cache prunes per day: {}\n'.format(mycalc['query_cache_prunes_per_day'])
-        perfdata += unpack_perfdata('query_cache_prunes_per_day', mycalc['query_cache_prunes_per_day'], None, 98, None, 0, None)
+        perfdata += lib.base.get_perfdata('query_cache_prunes_per_day', mycalc['query_cache_prunes_per_day'], None, 98, None, 0, None)
 
     # Sorting
     if mycalc['total_sorts'] == 0:
@@ -446,27 +446,27 @@ def main():
     else:
         if mycalc['pct_temp_sort_table'] > 10:
             msg_warn += '* Sorts are requiring temporary tables (increase sort_buffer_size, increase read_rnd_buffer_size)\n'
-            state = get_greater_state(state, STATE_WARN)
-        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], mycalc['total_sorts'])
-        perfdata += unpack_perfdata('pct_temp_sort_table', mycalc['pct_temp_sort_table'], '%', 10, None, 0, 100)
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], lib.base.number2human(mycalc['total_sorts']))
+        perfdata += lib.base.get_perfdata('pct_temp_sort_table', mycalc['pct_temp_sort_table'], '%', 10, None, 0, 100)
 
     # Joins
     if mycalc['joins_without_indexes_per_day'] > 250:
         msg_warn += '* More than 250 JOINs without indexes per day (increase join_buffer_size until JOINs not using indexes are found, or always use indexes with JOINs)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
     msg += '* Joins performed without indexes: {}\n'.format(mycalc['joins_without_indexes'])
-    perfdata += unpack_perfdata('joins_without_indexes', mycalc['joins_without_indexes'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('joins_without_indexes', mycalc['joins_without_indexes'], None, None, None, 0, None)
 
     # Temporary tables
     if mystat['Created_tmp_tables'] > 0:
         if mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] < 256 * 1024 * 1024:
             msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and/or increase tmp_table_size + increase max_heap_table_size (when making adjustments, make tmp_table_size/max_heap_table_size equal)\n' 
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
             msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n' 
-            state = get_greater_state(state, STATE_WARN)
-    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], mystat['Created_tmp_disk_tables'], mystat['Created_tmp_tables'])
-    perfdata += unpack_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)
+            state = lib.base.get_worst(state, STATE_WARN)
+    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.base.number2human(mystat['Created_tmp_disk_tables']), lib.base.number2human(mystat['Created_tmp_tables']))
+    perfdata += lib.base.get_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)
 
     # Thread cache
     if 'thread_handling' in myvar and myvar['thread_handling'] == 'pool-of-threads':
@@ -477,13 +477,13 @@ def main():
     else:
         if myvar['thread_cache_size'] == 0:
             msg_warn += '* Thread cache is disabled (set thread_cache_size, start at 4)\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         else:
             if mycalc['thread_cache_hit_rate'] <= 50:
                 msg_warn += '* Thread cache hit rate <= 50% (increase thread_cache_size)\n'
-                state = get_greater_state(state, STATE_WARN)
+                state = lib.base.get_worst(state, STATE_WARN)
             msg += '* Thread cache hit rate: {}% ({} created / {} connections)\n'.format(mycalc['thread_cache_hit_rate'], mystat['Threads_created'], mystat['Connections'])
-            perfdata += unpack_perfdata('thread_cache_hit_rate', mycalc['thread_cache_hit_rate'], '%', 50, None, 0, 100)
+            perfdata += lib.base.get_perfdata('thread_cache_hit_rate', mycalc['thread_cache_hit_rate'], '%', 50, None, 0, 100)
 
     # Table cache
     table_cache_var = ''
@@ -494,9 +494,9 @@ def main():
             else:
                 table_cache_var = 'table_cache'
             msg_warn += '* Table cache hit rate < 20% (increase {} gradually to avoid file descriptor limits, read https://mariadb.com/kb/en/library/optimizing-table_open_cache/ before increasing for MariaDB)\n'.format(table_cache_var)
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         msg += '* Table cache hit rate: {}% ({} open / {} opened)\n'.format(mycalc['table_cache_hit_rate'], mystat['Open_tables'], mystat['Opened_tables'])
-        perfdata += unpack_perfdata('table_cache_hit_rate', mycalc['table_cache_hit_rate'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata('table_cache_hit_rate', mycalc['table_cache_hit_rate'], '%', None, None, 0, 100)
 
     # Table definition cache
     if 'table_definition_cache' in myvar:
@@ -504,46 +504,42 @@ def main():
             tmp = 'do nothing'
         elif myvar['table_definition_cache'] < nbtables[0]:
             msg_warn += '* table_definition_cache is lower than number of tables (increase table_definition_cache or enable autosizing by setting table_definition_cache=-1)\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
 
     # Open files
     if 'pct_files_open' in mycalc and mycalc['pct_files_open'] > 85:
         msg_warn += '* Open files > 85% (increase open_files_limit)\n'
-        state = get_greater_state(state, STATE_WARN)
+        state = lib.base.get_worst(state, STATE_WARN)
     msg += '* Open file limit used: {}% ({}/{})\n'.format(mycalc['pct_files_open'], mystat['Open_files'], myvar['open_files_limit'])
-    perfdata += unpack_perfdata('pct_files_open', mycalc['pct_files_open'], '%', 85, None, 0, 100)
+    perfdata += lib.base.get_perfdata('pct_files_open', mycalc['pct_files_open'], '%', 85, None, 0, 100)
 
     # Table locks
     if 'pct_table_locks_immediate' in mycalc:
         if mycalc['pct_table_locks_immediate'] < 95:
             msg_warn += '* Table locks acquired immediately < 95% (optimize queries and/or use InnoDB to reduce lock wait)\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         msg += '* Table locks acquired immediately: {}% ({} immediate / {} locks)\n'.format(mycalc['pct_table_locks_immediate'], mystat['Table_locks_immediate'], mystat['Table_locks_waited'] + mystat['Table_locks_immediate'])
-        perfdata += unpack_perfdata('pct_table_locks_immediate', mycalc['pct_table_locks_immediate'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata('pct_table_locks_immediate', mycalc['pct_table_locks_immediate'], '%', None, None, 0, 100)
 
     # Binlog cache
     if 'pct_binlog_cache' in mycalc:
         if mycalc['pct_binlog_cache'] < 90 and mystat['Binlog_cache_use'] > 0:
             msg_warn += '* Increase binlog_cache_size\n'
-            state = get_greater_state(state, STATE_WARN)
+            state = lib.base.get_worst(state, STATE_WARN)
         msg += '* Binlog cache memory access: {}% ({} Memory / {} Total)\n'.format(mycalc['pct_binlog_cache'], mystat['Binlog_cache_use'] - mystat['Binlog_cache_disk_use'], mystat['Binlog_cache_use'])
-        perfdata += unpack_perfdata('pct_binlog_cache', mycalc['pct_binlog_cache'], '%', None, None, 0, 100)
+        perfdata += lib.base.get_perfdata('pct_binlog_cache', mycalc['pct_binlog_cache'], '%', None, None, 0, 100)
 
     # Performance options
     if 'concurrent_insert' in myvar and (myvar['concurrent_insert'] == 0 or myvar['concurrent_insert'] == 'OFF'):
         msg_warn += '* Enable concurrent_insert\n'
-        state = get_greater_state(state, STATE_WARN)
-
-
+        state = lib.base.get_worst(state, STATE_WARN)
 
 
     if msg_warn != 'WARN: ':
         msg = msg_warn.replace('WARN: ', 'There are warnings.\n').strip() + '\n---\n' + msg
 
 
-    # over and out
-    print(msg.strip() + '|' + perfdata.strip())
-    exit(state)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
