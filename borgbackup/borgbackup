@@ -105,12 +105,13 @@ def main():
     except UnboundLocalError as e:
         lib.base.oao('Could not find all expected values in the logfile.\n{}'.format(e), STATE_UNKNOWN)
 
+    # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
-    create_retc_state = lib.base.get_state(create_retc, 1, 2, operator='ge')
+    create_retc_state = lib.base.get_state(create_retc, 2, None, operator='ge')
     state = lib.base.get_worst(state, create_retc_state)
     perfdata += lib.base.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
 
-    prune_retc_state = lib.base.get_state(prune_retc, 1, 2, operator='ge')
+    prune_retc_state = lib.base.get_state(prune_retc, 2, None, operator='ge')
     state = lib.base.get_worst(state, prune_retc_state)
     perfdata += lib.base.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
