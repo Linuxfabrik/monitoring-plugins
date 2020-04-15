@@ -1,6 +1,6 @@
-# Check "fah-team-stats" - Overview
+# Check "fah-stats" - Overview
 
-Returns information about a specific team at Folding@Home.
+Returns information about a specific team or donor at Folding@Home.
 
 No need to run this every minute (depends on your number of team members and/or active CPUs).
 
@@ -8,8 +8,9 @@ No need to run this every minute (depends on your number of team members and/or 
 # Installation and Usage
 
 ```bash
-./fah-team-stats --team 260774
-./fah-team-stats --help
+./fah-stats --team 260774
+./fah-stats --donor 105577492
+./fah-stats --help
 ```
 
 # States
@@ -21,7 +22,7 @@ No need to run this every minute (depends on your number of team members and/or 
 
 * active_50: Active CPUs within 50 days
 * credit: Grand Score
-* donors: Number of Team Members
+* donors: Number of Team Members (only when querying for a team)
 * rank: Team Ranking
 * wus: Work Unit Count
 
