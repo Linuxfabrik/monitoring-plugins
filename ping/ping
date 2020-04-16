@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040901'
+__version__ = '2020041601'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -28,6 +28,7 @@ import lib.base
 
 import argparse
 import os
+import re
 from traceback import print_exc
 
 
@@ -95,77 +96,43 @@ def main():
     # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).
     # `ping` returns 1 when: !nreceived || (deadline && nreceived < npackets));
     state = STATE_CRIT if retc else STATE_OK
-
-    # we have the state, lets build the message and create some perfdata;
-    # but be nice and efficient: no regex here, simple string parsing to be as fast as possible
-
-    # line1: "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
-    line1 = result[0]
-    line1 = line1[0:line1.find(') ') + 1]
-
-    # line4: "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
-    line4 = result[3]
-    
-    pos2 = line4.find(' packets transmitted,')
-    pos1 = 0
-    transmitted = line4[pos1:pos2] if pos2 != -1 else 0
-
-    pos2 = line4.find(' received,')
-    pos1 = line4.find(', ', pos2 - 6) + 2
-    received = line4[pos1:pos2] if pos2 != -1 else 0
-
-    pos2 = line4.find(' duplicates,')
-    pos1 = line4.find(', ', pos2 - 6) + 2
-    duplicates = line4[pos1:pos2] if pos2 != -1 else 0
-
-    pos2 = line4.find(' checksum corrupted,')
-    pos1 = line4.find(', ', pos2 - 6) + 2
-    checksum_corrupted = line4[pos1:pos2] if pos2 != -1 else 0
-
-    pos2 = line4.find(' errors,')
-    pos1 = line4.find(', ', pos2 - 6) + 2
-    errors = line4[pos1:pos2].replace('+', '') if pos2 != -1 else 0
-
-    pos2 = line4.find(' packet loss,') - 1
-    pos1 = line4.find(', ', pos2 - 6) + 2
-    packet_loss = int(line4[pos1:pos2]) if pos2 != -1 else 0
-
-    pos1 = line4.find(', time ') + 7
-    time = line4[pos1:-2] if pos1 != -1 else 0
-
-    rtt_min, rtt_avg, rtt_max, rtt_mdev = 0, 0, 0, 0
-    if result[4] and not result[4].startswith('pipe '):
-        # host is reachable
-        line5 = result[4]
-        # line5: "rtt min/avg/max/mdev = %ld.%03ld/%lu.%03ld/%ld.%03ld/%ld.%03ld ms"
-        pos1 = 23
-        pos2 = line5.find('/', pos1)
-        rtt_min = line5[pos1:pos2]
-        pos1 = pos2 + 1
-        pos2 = line5.find('/', pos1)
-        rtt_avg = line5[pos1:pos2]
-        pos1 = pos2 + 1
-        pos2 = line5.find('/', pos1)
-        rtt_max = line5[pos1:pos2]
-        pos1 = pos2 + 1
-        pos2 = line5.find(' ', pos1)
-        rtt_mdev = line5[pos1:pos2]
-
     if state == STATE_OK:
         msg = ''
     else:
         msg = 'Destination Host Unreachable. '
 
-    msg += line1 + ': '
-    msg += '{} {} transmitted, '.format(transmitted, lib.base.pluralize('packet', transmitted))
-    msg += '{} received, '.format(received)
-    msg += '{} {}, '.format(duplicates, lib.base.pluralize('duplicate', duplicates)) if duplicates else ''
-    msg += '{} {}, '.format(checksum_corrupted, 'checksum corrupted') if checksum_corrupted else ''
-    msg += '{} {}, '.format(errors, lib.base.pluralize('error', errors)) if errors else ''
-    msg += '{}% packet loss, '.format(packet_loss, lib.base.pluralize('packet', packet_loss)) if packet_loss else ''
-    msg += 'time {}ms. '.format(time)
+    # we have the state, lets build the message and create some perfdata;
 
-    msg += 'rtt min/avg/max/mdev = {}/{}/{}/{} ms'.format(rtt_min, rtt_avg, rtt_max, rtt_mdev)
+    #['PING www.linuxfabrik.ch (185.231.52.10) 56(84) bytes of data.'
+    # ''
+    # '--- www.linuxfabrik.ch ping statistics ---'
+    # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
+    # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms']
+
+    # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
+    ping = re.search(r'^PING (.*?) ', result[0])
+    msg += 'PING {}'.format(ping.group(1).strip()) + ': '
+
+    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
+    matches            = re.search(r'^(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)ms$', result[3])
+    transmitted        = matches.group(1)
+    received           = matches.group(2)
+    duplicates         = matches.group(4).replace('+', '') if matches.group(4) else 0
+    checksum_corrupted = matches.group(6).replace('+', '') if matches.group(6) else 0
+    errors             = matches.group(8).replace('+', '') if matches.group(8) else 0
+    packet_loss        = matches.group(9)
+    time               = matches.group(10)
+    msg += result[3] + '. '
+
+    rtt_min, rtt_avg, rtt_max, rtt_mdev = 0, 0, 0, 0
+    if result[4] and not result[4].startswith('pipe '):
+        # host is reachable
+        matches  = re.search(r'(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+) ms', result[4])
+        rtt_min  = matches.group(1)
+        rtt_avg  = matches.group(2)
+        rtt_max  = matches.group(3)
+        rtt_mdev = matches.group(4)
+        msg += result[4]
 
     perfdata = ''
     perfdata += lib.base.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
