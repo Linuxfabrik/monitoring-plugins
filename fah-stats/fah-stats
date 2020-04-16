@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041502'
+__version__ = '2020041601'
 
 DESCRIPTION = 'Returns information about a specific team or donor at Folding@Home.'
 
@@ -78,33 +78,27 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
+    perfdata = ''
+
     if args.DONOR:
         result = lib.base.coe(get_json(args.URL + 'donor/' + args.DONOR, args.TIMEOUT))
         delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
 
-        msg = 'Rank {}/{}, {} Work Units (last one {} ago), {} Grand Score, {} Active CPUs within 50 days, Donor ID {}'.format(
-            result['rank'], result['total_users'],
+        msg = '{} Total Score, {} Work Units (last one {} ago), {} Active Clients within 50 days, Rank (if points are combined) {}/{}, Donor ID {}'.format(
+            lib.base.number2human(result['credit']),
             lib.base.number2human(result['wus']),
             lib.base.seconds2human(delta),
-            lib.base.number2human(result['credit']),
             result['active_50'],
+            result['rank'], result['total_users'],
             args.DONOR
             )
-
-        perfdata = ''
         perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_users'])
-        perfdata += lib.base.get_perfdata('wus', result['wus'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('credit', result['credit'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
-
-        lib.base.oao(msg, STATE_OK, perfdata)
-
-    if args.TEAM:
+    else:
         result = lib.base.coe(get_json(args.URL + 'team/' + args.TEAM, args.TIMEOUT))
         delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
         donors = len(result['donors'])
 
-        msg = 'Rank {}/{}, {} Work Units (last one {} ago), {} Grand Score, {} Active CPUs within 50 days, {} Donors, Team ID {}'.format(
+        msg = 'Team Ranking {}/{}, {} Work Units (last one {} ago), {} Grand Score, {} Active CPUs within 50 days, {} Donors, Team ID {}'.format(
             result['rank'], result['total_teams'],
             lib.base.number2human(result['wus']),
             lib.base.seconds2human(delta),
@@ -113,15 +107,15 @@ def main():
             str(donors) + '+' if donors >= 1000 else donors,
             args.TEAM
             )
-
-        perfdata = ''
         perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_teams'])
-        perfdata += lib.base.get_perfdata('wus', result['wus'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('credit', result['credit'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
         perfdata += lib.base.get_perfdata('donors', donors, None, None, None, 0, None)
 
-        lib.base.oao(msg, STATE_OK, perfdata)
+
+    perfdata += lib.base.get_perfdata('wus', result['wus'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('credit', result['credit'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
+    
+    lib.base.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
