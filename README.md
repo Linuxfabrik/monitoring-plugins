@@ -85,8 +85,8 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
-                              | CentOS   | Fedora   | Ubuntu   | shell_exec | Libs for Python          | SQLite | Test | WARN                              | CRIT                          
-------------------------------|:---------|:---------|:---------|:-----------|:-------------------------|:-------|:-----|:----------------------------------|:------------------------------
+Plugin                        | CentOS   | Fedora   | Ubuntu   | shell_exec | Python 3rd Party Libs    | SQLite | Test | WARN                              | CRIT                          
+------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
 about-me                      | 7, 8     | 30+      | no       | yes        | psutil                   |        |      | -                                 | -                             
 apache-httpd-status           | 7, 8     | 30+      | 20       |            |                          |        |      | #Workers > 80%                    | #Workers > 95%                
 borgbackup                    | 7, 8     | 30+      | 20       |            |                          |        |      | Last Backup >= 24h                | -                             
