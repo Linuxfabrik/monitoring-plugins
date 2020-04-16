@@ -85,7 +85,7 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
-Plugin                        | CentOS   | Fedora   | Ubuntu   | shell_exec | Python 3rd Party Libs    | SQLite | Test | WARN                              | CRIT                          
+Check Plugin | Tested on CentOS | Tested on Fedora | Tested on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
 about-me                      | 7, 8     | 30+      | no       | yes        | psutil                   |        |      | -                                 | -                             
 apache-httpd-status           | 7, 8     | 30+      | 20       |            |                          |        |      | #Workers > 80%                    | #Workers > 95%                
