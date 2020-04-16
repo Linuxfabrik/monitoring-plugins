@@ -108,7 +108,7 @@ fs-inodes                     | 7, 8     | 30+      | 20       |            |   
 getent                        | 7, 8     | 30+      | no       | yes        |                          |        |      |                                   |  
 hostname-fqdn                 | 7, 8     | 30+      | 20       |            |                          |        |      | Invalid FQDN                      | -
 ipmi-sel                      | 7, 8     | 30+      | no       | yes        |                          |        |      | any entries found                 | -
-ipmi-sensor                   | 7, 8     | 30+      | no       | yes        |                          |        |      | _complex_                         | _complex
+ipmi-sensor                   | 7, 8     | 30+      | no       | yes        |                          |        |      | _complex_                         | _complex_
 kvm-vm                        | 7, 8     | 30+      | no       | yes        |                          |        |      | idle, paused, pmsuspended VM      | crashed VM
 load                          | 7, 8     | 30+      | no       | yes        | psutil                   |        |      | >= 1.15 Load15                    | >= 5.00 Load15
 mailq                         | 7, 8     | 30+      | no       | yes        |                          |        | yes  | >= 2 Mails                        | >= 250 Mails
