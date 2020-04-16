@@ -96,7 +96,7 @@ disk-io                       | 7, 8     | 30+      | 20       |            | ps
 disk-smart                    | 7, 8     | 30+      | no       | yes        |                          |        |      | _complex_                         | _complex_
 disk-usage                    | 7, 8     | 30+      | 20       |            | psutil                   |        |      | >= 90%                            | >= 95%
 dmesg                         | 7, 8     | 30+      | no       | yes        |                          |        | yes  | -                                 | dmesg == emerg,alert,crit,err
-fah-stats                     | 7, 8     | 30+      | 20       |            |                          |        |      |                                   |  
+fah-stats                     | 7, 8     | 30+      | 20       |            |                          |        |      | -                                 | -
 fail2ban                      | 7, 8     | 30+      | no       | yes        |                          |        |      | >= 1000 banned IPs                | >= 10000 banned IPs
 feed                          | 7        | 30+      | no       |            | feedparser               |        |      | 2h on new entries                 | -
 file-age                      | 7, 8     | 30+      | 20       |            |                          |        |      | >= 30d                            | >= 365d
@@ -105,7 +105,7 @@ file-ownership                | 7, 8     | 30+      | no       | yes        |   
 file-size                     | 7, 8     | 30+      | 20       |            |                          |        |      | >= 100M                           | >= 1G
 fs-file-usage                 | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
 fs-inodes                     | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
-getent                        | 7, 8     | 30+      | no       | yes        |                          |        |      |                                   |  
+getent                        | 7, 8     | 30+      | no       | yes        |                          |        |      | key not found                     | -
 hostname-fqdn                 | 7, 8     | 30+      | 20       |            |                          |        |      | Invalid FQDN                      | -
 ipmi-sel                      | 7, 8     | 30+      | no       | yes        |                          |        |      | any entries found                 | -
 ipmi-sensor                   | 7, 8     | 30+      | no       | yes        |                          |        |      | _complex_                         | _complex_
