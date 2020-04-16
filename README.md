@@ -85,7 +85,6 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
-                              | Works on | Works on | Works on | Uses       | Requires 3rd Party       | Uses   | Unit | Default                           | Default                       
                               | CentOS   | Fedora   | Ubuntu   | shell_exec | Libs for Python          | SQLite | Test | WARN                              | CRIT                          
 ------------------------------|:---------|:---------|:---------|:-----------|:-------------------------|:-------|:-----|:----------------------------------|:------------------------------
 about-me                      | 7, 8     | 30+      | no       | yes        | psutil                   |        |      | -                                 | -                             
