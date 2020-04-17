@@ -9,6 +9,9 @@ This command works with both IPv4 and IPv6.
 
 # Installation and Usage
 
+Requirements:
+* `ping`
+
 ```bash
 ./ping --hostname www.linuxfabrik.ch 
 ./ping --help

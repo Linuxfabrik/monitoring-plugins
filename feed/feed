@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Warns on the newest feed item of an RSS or Atom feed for a given amount of time.'
 
@@ -76,22 +76,18 @@ def fetch_feed_last_entry(feed_url):
     try:
         myfeed = feedparser.parse(feed_url)
     except:
-        print('Could not parse URL (%s)' % feed_url)
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Could not parse URL (%s)' % feed_url, STATE_UNKNOWN)
 
     # slightly enhanced
     if ('status' not in myfeed):
-        print('HTTP Error, maybe wrong URL')
-        exit(STATE_UNKNOWN)
+        lib.base.oao('HTTP Error, maybe wrong URL', STATE_UNKNOWN)
 
     if (myfeed.status != 200):
-        print('Status %s - %s' % (myfeed.status, myfeed.feed.summary))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Status %s - %s' % (myfeed.status, myfeed.feed.summary), STATE_UNKNOWN)
 
     # feed with 0 entries are good too
     if (len(myfeed.entries) == 0): 
-        print('No news are good news.')
-        exit(STATE_OK)
+        lib.base.oao('No news are good news.', STATE_OK)
     
     return myfeed.entries[0]
 

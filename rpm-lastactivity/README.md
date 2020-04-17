@@ -10,6 +10,9 @@ We recommend to run this check once a day.
 
 # Installation and Usage
 
+Requirements:
+* `rpm`
+
 ```bash
 ./rpm-lastactivity
 ./rpm-lastactivity --warning 90 --critical 365

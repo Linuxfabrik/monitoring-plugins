@@ -76,11 +76,9 @@ def main():
 
     if args.TEST == None:
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.shell_exec(command)
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command))
         if (stderr or retc != 0):
-            print('Bash command `{}` failed.'.format(command))
-            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-            exit(STATE_UNKNOWN)
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
         if args.TEST[0] and os.path.isfile(args.TEST[0]):

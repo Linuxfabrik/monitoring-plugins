@@ -7,6 +7,9 @@ We recommend to run this check once a day or after a `yum update` only.
 
 # Installation and Usage
 
+Requirements:
+* `needs-restarting`
+
 ```bash
 ./needs-restarting
 ./needs-restarting --help

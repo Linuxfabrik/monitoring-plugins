@@ -13,8 +13,7 @@ __version__ = '2020040701'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses (for a list of jails).'
 
-command_installed = 'command -v fail2ban-client'
-command = 'fail2ban-client'
+cmd = 'fail2ban-client'
 
 DEFAULT_CRIT = 10000
 DEFAULT_WARN = 1000
@@ -68,25 +67,15 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        print('`fail2ban-client` is missing.')
-        exit(STATE_UNKNOWN)
-
     # fail2ban-client ping
-    stdout, stderr, retc = lib.base.shell_exec(command + ' ping')
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' ping'))
     if retc:
-        print('Problem while testing if the fail2ban server is alive.')
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
 
     # fail2ban-client status
-    stdout, stderr, retc = lib.base.shell_exec(command + ' status')
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' status'))
     if (retc != 0):
-        print('Bash command `{}` failed.'.format(command_cmd))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
 
     # extract the jail list
     jail_list = re.search(r'Jail list:\t(.*)\n', stdout)
@@ -101,11 +90,9 @@ def main():
     #     fail2ban-client status jail_name
     for jail in jail_list:
 
-        stdout, stderr, retc = lib.base.shell_exec(command + ' status {}'.format(jail))
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' status {}'.format(jail)))
         if (retc != 0):
-            print('Bash command `{}` failed.'.format(command_cmd))
-            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-            exit(STATE_UNKNOWN)
+            lib.base.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
 
         f2b_filelist = re.search(r'File list:\t(.*)\n', stdout)
         if f2b_filelist:

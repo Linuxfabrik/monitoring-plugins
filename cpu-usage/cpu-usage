@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040901'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -118,9 +118,8 @@ def main():
     try:
         cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
     except ValueError as e:
-        print('psutil raised error "{}"'.format(e))
         lib.db_sqlite.close(conn)
-        exit(STATE_UNKNOWN)
+        lib.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
 
     stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')

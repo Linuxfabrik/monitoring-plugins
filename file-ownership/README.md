@@ -7,6 +7,9 @@ We recommend to run this check every 5 minutes.
 
 # Installation and Usage
 
+Requirements:
+* `stat`
+
 ```bash
 ./file-ownership
 ./file-ownership/file-ownership --filename root:root,/tmp

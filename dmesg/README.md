@@ -9,6 +9,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `dmesg`
+
 ```bash
 ./dmesg --help
 ```

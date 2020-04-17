@@ -17,7 +17,7 @@ We recommend to run this check every minute.
 # Installation and Usage
 
 Requirements:
-* `sensors` from `lm_sensors`
+* `sensors`
 
 ```bash
 ./sensors

@@ -1,6 +1,6 @@
 # Check "kvm-vm" - Overview
 
-Check VMs on a KVM host using "virsh list".
+Check VMs on a KVM host using "virsh list". Needs sudo.
 
 The state field lists what state each domain (a VM) is currently in. A domain
 can be in one of the following possible states:
@@ -48,6 +48,9 @@ We recommend to run this check every 15 minutes.
 
 
 # Installation and Usage
+
+Requirements:
+* `virsh`
 
 ```bash
 ./kvm-vm --help

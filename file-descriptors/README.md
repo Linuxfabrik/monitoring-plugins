@@ -7,6 +7,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `sysctl`
+
 ```bash
 ./file-descriptors --warning 90 --critical 95
 ./file-descriptors --help

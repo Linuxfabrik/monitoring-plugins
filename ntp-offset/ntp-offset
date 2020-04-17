@@ -10,12 +10,11 @@
 
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'This plugin checks the clock offset with the ntp server.'
 
 systemctl_command = 'systemctl is-active --quiet {service}' # ntpd / chronyd
-command_installed = 'command -v {program}'                  # ntpq / chronyc
 
 ntpq_command = 'ntpq -p'
 chronyc_command = 'chronyc tracking'
@@ -67,38 +66,26 @@ def main():
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='ntpd')
-    stdout, stderr, retc = lib.base.shell_exec(formatted_systemctl_command)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
     if (stderr):
-        print('Bash command `{}` failed.'.format(formatted_systemctl_command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     ntpd_present = True if retc == 0 else False
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
-    stdout, stderr, retc = lib.base.shell_exec(formatted_systemctl_command)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
     if (stderr):
-        print('Bash command `{}` failed.'.format(formatted_systemctl_command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     chronyd_present = True if retc == 0 else False
 
     if ntpd_present == False and chronyd_present == False:
         lib.base.oao('Neither ntpd nor chronyd found.', STATE_UNKNOWN)
 
     if ntpd_present:
-        formatted_command_installed = command_installed.format(program='ntpq')
-        # check if shell command is available
-        stdout, stderr, retc = lib.base.shell_exec(formatted_command_installed)
-        if (retc != 0):
-            lib.base.oao('"ntpq" is missing.', STATE_UNKNOWN)
-
-        # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.shell_exec(ntpq_command)
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(ntpq_command))
         if (stderr): # todo check retc?
-            print('Bash command `{}` failed.'.format(ntpq_command))
-            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-            exit(STATE_UNKNOWN)
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+
         msg_body = stdout
 
         ntp_server_found = False
@@ -115,18 +102,9 @@ def main():
             lib.base.oao('No NTP server used.', STATE_UNKNOWN)
 
     if chronyd_present:
-        formatted_command_installed = command_installed.format(program='chronyc')
-        # check if shell command is available
-        stdout, stderr, retc = lib.base.shell_exec(formatted_command_installed)
-        if (retc != 0):
-            lib.base.oao('"chronyc" is missing.', STATE_UNKNOWN)
-
-        # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.shell_exec(chronyc_command)
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(chronyc_command))
         if (stderr): # todo check retc?
-            print('Bash command `{}` failed.'.format(chronyc_command))
-            print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-            exit(STATE_UNKNOWN)
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_body = stdout
 
         for line in msg_body.splitlines():

@@ -11,6 +11,9 @@ We recommend to run this check every 15 minutes.
 
 # Installation and Usage
 
+Requirements:
+* `getent`
+
 ```bash
 ./getent --database group --key SysOps
 ./getent --database hosts --key localhost --key localhost.localdomain

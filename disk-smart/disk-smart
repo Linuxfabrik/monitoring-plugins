@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'This check is some kind of user interface for smartctl, which is a tool for querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in hard disk and solid-state drives. It allows you to inspect the drive\'s SMART data to determine its health.'
 
@@ -66,18 +66,10 @@ def main():
 
     IGNORE = args.IGNORE
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        print('"smartctl" is missing.')
-        exit(STATE_UNKNOWN)
-
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(command_list_disks)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command_list_disks))
     if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(command_list_disks))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     # compile regex for faster performance
     regex_error_count = re.compile(r'^(?:ATA|Device) Error Count:[ \t]*([0-9]+)', re.M | re.I)
@@ -99,20 +91,16 @@ def main():
         disk = disk.decode()
         if disk not in IGNORE and b'disk' in disk_type:
             formatted_command_smartctl = command_smartctl.format(disk_path='/dev/' + str(disk))
-            stdout, stderr, retc = lib.base.shell_exec(formatted_command_smartctl)
+            stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_command_smartctl))
             if (stderr):
-                print('Bash command `{}` failed.'.format(formatted_command_smartctl))
-                print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-                exit(STATE_UNKNOWN)
+                lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
 
             # compare the retc using bitmasks according to the man page
             if (retc & 1):
-                print('smartctl failed with the exit status "Command line did not parse."')
-                exit(STATE_UNKNOWN)
+                lib.base.oao('smartctl failed with the exit status "Command line did not parse."', STATE_UNKNOWN)
 
             if (retc & 2):
-                print('smartctl failed with the exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode."')
-                exit(STATE_WARN)
+                lib.base.oao('smartctl failed with the exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode."', STATE_WARN)
 
 
             temp = {}

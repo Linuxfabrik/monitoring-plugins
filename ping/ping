@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041601'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -84,7 +84,7 @@ def main():
         )
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(cmd)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
     if (stderr or retc == 2):
         lib.base.oao(stderr, STATE_UNKNOWN)
 
@@ -110,7 +110,7 @@ def main():
     # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms']
 
     # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
-    ping = re.search(r'^PING (.*?) ', result[0])
+    ping = re.search(r'^PING (.*?)\(', result[0])
     msg += 'PING {}'.format(ping.group(1).strip()) + ': '
 
     # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
