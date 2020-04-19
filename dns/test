@@ -1,0 +1,58 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+from lib.globals import *
+
+import lib.base
+
+import unittest
+
+        
+class TestCheck(unittest.TestCase):
+
+    def test_dns(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns'))
+        self.assertRegexpMatches(stdout, r'^Lookup for localhost returns ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_dns_127_0_0_1(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H 127.0.0.1'))
+        self.assertRegexpMatches(stdout, r'^Lookup for 127\.0\.0\.1 returns 127\.0\.0\.1 \(')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_dns___1(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H ::1'))
+        self.assertRegexpMatches(stdout, r'^Lookup for ::1 returns ::1 \(')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_1_1_1_1_udp6(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H 1.1.1.1 --type udp6'))
+        self.assertRegexpMatches(stdout, r'^Socket error "\[Errno -9] Address family for hostname not supported" for 1\.1\.1\.1:53/udp6\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_www_google_chh(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.chh'))
+        self.assertRegexpMatches(stdout, r'^Socket error "\[Errno -2] Name or service not known" for www\.google\.chh:53/None\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+   
+    def test_www_google_ch(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.ch -c 1'))
+        self.assertRegexpMatches(stdout, r'^Lookup for www\.google\.ch returns ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+   
+
+if __name__ == '__main__':
+    unittest.main()
