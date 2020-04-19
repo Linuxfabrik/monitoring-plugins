@@ -110,11 +110,11 @@ def main():
     # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms']
 
     # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
-    ping = re.search(r'^PING (.*?)\(', result[0])
+    ping = re.search(r'G (.*?)\(', result[0])       # regex: 45 steps
     msg += 'PING {}'.format(ping.group(1).strip()) + ': '
 
     # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
-    matches            = re.search(r'^(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)ms$', result[3])
+    matches            = re.search(r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)', result[3])       # regex: 92 steps
     transmitted        = matches.group(1)
     received           = matches.group(2)
     duplicates         = matches.group(4).replace('+', '') if matches.group(4) else 0
@@ -127,7 +127,7 @@ def main():
     rtt_min, rtt_avg, rtt_max, rtt_mdev = 0, 0, 0, 0
     if result[4] and not result[4].startswith('pipe '):
         # host is reachable
-        matches  = re.search(r'(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+) ms', result[4])
+        matches  = re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4])       # regex: 26 steps
         rtt_min  = matches.group(1)
         rtt_avg  = matches.group(2)
         rtt_max  = matches.group(3)
