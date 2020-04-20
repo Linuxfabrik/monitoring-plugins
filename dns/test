@@ -17,38 +17,32 @@ import unittest
         
 class TestCheck(unittest.TestCase):
 
-    def test_dns(self):
+    def test01(self):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns'))
         self.assertRegexpMatches(stdout, r'^Lookup for localhost returns ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_dns_127_0_0_1(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H 127.0.0.1'))
+    def test02(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname 127.0.0.1'))
         self.assertRegexpMatches(stdout, r'^Lookup for 127\.0\.0\.1 returns 127\.0\.0\.1 \(')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_dns___1(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H ::1'))
+    def test03(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname ::1'))
         self.assertRegexpMatches(stdout, r'^Lookup for ::1 returns ::1 \(')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_1_1_1_1_udp6(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H 1.1.1.1 --type udp6'))
-        self.assertRegexpMatches(stdout, r'^Socket error "\[Errno ')
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_www_google_chh(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.chh'))
+    def test04(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname www.google.chh'))
         self.assertRegexpMatches(stdout, r'^Socket error "\[Errno ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
    
-    def test_www_google_ch(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.ch --critical 1'))
+    def test05(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname www.google.ch --critical 1'))
         self.assertRegexpMatches(stdout, r'^Lookup for www\.google\.ch returns ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
