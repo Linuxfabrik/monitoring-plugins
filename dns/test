@@ -39,16 +39,16 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H 1.1.1.1 --type udp6'))
         self.assertRegexpMatches(stdout, r'^Socket error "\[Errno -9] Address family for hostname not supported" for 1\.1\.1\.1:53/udp6\.')
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertEqual(retc, STATE_WARN)
 
     def test_www_google_chh(self):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.chh'))
         self.assertRegexpMatches(stdout, r'^Socket error "\[Errno -2] Name or service not known" for www\.google\.chh:53/None\.')
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertEqual(retc, STATE_WARN)
    
     def test_www_google_ch(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.ch -c 1'))
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns -H www.google.ch --critical 1'))
         self.assertRegexpMatches(stdout, r'^Lookup for www\.google\.ch returns ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
