@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020042101'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -51,7 +51,7 @@ def parse_args():
         type = int,
         default = DEFAULT_CRIT,
         )
-    
+
     parser.add_argument('-w', '--warning',
         help = 'Set the warning threshold partition usage percentage. Default: %(default)s',
         dest = 'WARN',
@@ -76,6 +76,10 @@ def main():
 
     parts = psutil.disk_partitions(all=False)
     for part in parts:
+        # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
+        if part.fstype == 'squashfs':
+            # ignore `/snap` mountpoints, for example
+            continue
         usage = psutil.disk_usage(part.mountpoint)
 
         disk_state = lib.base.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
@@ -89,14 +93,15 @@ def main():
 
         table_data.append({
             'mountpoint': '{} {}'.format(part.mountpoint, lib.base.state2str(disk_state)),
+            'type': '{}'.format(part.fstype),
             'used': lib.base.bytes2human(usage.used),
             'total': lib.base.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 
     table = lib.base.get_table(table_data, 
-        ['mountpoint', 'used', 'total', 'percent'], 
-        ['mountpoint', 'used', 'total', 'percent'], 
+        ['mountpoint', 'type', 'used', 'total', 'percent'], 
+        ['mountpoint', 'type', 'used', 'total', 'percent'], 
         'percent'
         )
 
