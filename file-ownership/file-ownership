@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
@@ -22,6 +22,7 @@ ldap:ldap,/var/run/openldap
 lool:lool,/etc/loolwsd/loolwsd.xml
 named:named,/var/named/*.zone
 root:named,/etc/named.conf
+root:root,/tmp
 unbound:unbound,/var/lib/unbound/root.key
 vdsm:kvm,/home/ovirt'''
 
@@ -72,23 +73,19 @@ def main():
             line = line.split(',')
             path = line[1]
         except:
-            print('--filename parameter seems to be in the wrong format.')
-            exit(STATE_UNKNOWN)
+            lib.base.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
         if os.path.exists(path):
             try:
                 owner, group = line[0].split(':')
             except:
-                print('--filename parameter seems to be in the wrong format.')
-                exit(STATE_UNKNOWN)
+                lib.base.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
-            formatted_command = command.format(path=path)
+            cmd = command.format(path=path)
             # execute the shell command and return its result and exit code
-            stdout, stderr, retc = lib.base.shell_exec(formatted_command)
+            stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
             if (stderr or retc != 0):
-                print('Bash command `{}` failed.'.format(formatted_command))
-                print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-                exit(STATE_UNKNOWN)
+                lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
 
             for line in stdout.splitlines():
                 if line.startswith('Access: ('):

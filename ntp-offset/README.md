@@ -32,6 +32,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `ntpq` or `chronyc`
+
 ```bash
 ./ntp-offset
 ./ntp-offset --warning 500 --critical 1000

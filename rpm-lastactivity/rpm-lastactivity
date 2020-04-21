@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Checks the timespan since the last rpm activity, for example due to a yum/dnf install/update.'
 
@@ -17,7 +17,7 @@ DEFAULT_WARN  = 90   # days
 DEFAULT_CRIT  = 365  # days
 
 command_installed  = 'command -v rpm'
-bash_command = 'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sort | tail -1'
+cmd = 'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sort | tail -1'
 
 
 #====================
@@ -61,15 +61,10 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        lib.base.oao('"rpm" is missing.', STATE_UNKNOWN)
-
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(bash_command, shell=True)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
     if (stderr):
-        lib.base.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(bash_command, stdout, stderr), STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     last_activity = stdout.strip().split(' ')
 
     # calculating the final check state

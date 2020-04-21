@@ -7,6 +7,9 @@ We recommend to run this check every 15 minutes.
 
 # Installation and Usage
 
+Requirements:
+* `getenforce`
+
 ```bash
 ./selinux-mode
 ./selinux-mode --mode permissive

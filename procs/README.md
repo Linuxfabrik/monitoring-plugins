@@ -21,6 +21,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `ps`
+
 ```bash
 ./procs --no-kthreads --always-ok
 ./procs --warning 2:100 --critical 1:150 --command httpd

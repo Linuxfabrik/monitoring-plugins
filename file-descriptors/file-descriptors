@@ -9,14 +9,13 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
 # Not in psutil because it's too complex, too low level and not portable by using a consistent API.
 # So we have to call an external command.
-command_installed  = 'command -v sysctl'
-command_sysctl     = 'sysctl fs.file-nr'
+cmd = 'sysctl fs.file-nr'
 
 DEFAULT_WARN  = 90      # %
 DEFAULT_CRIT  = 95      # %
@@ -70,18 +69,10 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        print('"sysctl" is missing.')
-        exit(STATE_UNKNOWN)
-
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(command_sysctl)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
     if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(command_sysctl))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     file_descriptors = stdout.split('\t')
     # fs.file-nr = 1248\t0\t90913

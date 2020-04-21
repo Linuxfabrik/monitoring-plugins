@@ -7,6 +7,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `w`
+
 ```bash
 ./users
 ./users --warning '1, None'

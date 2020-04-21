@@ -7,6 +7,9 @@ We recommend to run this check every 5 minutes.
 
 # Installation and Usage
 
+Requirements:
+* `mailq`
+
 ```bash
 ./mailq
 ./mailq --warning 2 --critical 250

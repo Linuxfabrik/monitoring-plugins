@@ -15,6 +15,9 @@ We recommend to run this check every minute.
 
 # Installation and Usage
 
+Requirements:
+* `systemctl`
+
 ## Examples
 
 * Does the service exist? (and nothing more!) `systemd-unit --unit=firewalld.service`

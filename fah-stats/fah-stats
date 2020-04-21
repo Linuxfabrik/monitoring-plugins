@@ -1,0 +1,126 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020041601'
+
+DESCRIPTION = 'Returns information about a specific team or donor at Folding@Home.'
+
+DEFAULT_TIMEOUT = 7
+DEFAULT_URL = 'https://stats.foldingathome.org/api/'
+DEFAULT_TEAM = '260774'
+
+
+#====================
+from lib.globals import *
+
+import lib.base
+import lib.url
+
+import argparse
+import json
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('--donor',
+        help = 'Folding@Home Donor ID. Mutually exclusive with --team',
+        dest = 'DONOR',
+        )
+
+    parser.add_argument('-V', '--version',
+        action = 'version',
+        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--team',
+        help = 'Folding@Home Team ID. Mutually exclusive with --donor. Default: %(default)s',
+        dest = 'TEAM',
+        default = DEFAULT_TEAM,
+        )
+
+    parser.add_argument('--timeout',
+        help = 'Network timeout in seconds. Default: %(default)s (seconds)',
+        dest = 'TIMEOUT',
+        type = int,
+        default = DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument('-u', '--url',
+        help = 'Folding@Home Team Stats API URL. Default: %(default)s',
+        dest = 'URL',
+        default = DEFAULT_URL,
+        )
+
+    return parser.parse_args()
+
+
+def get_json(url, timeout):
+    success, result = lib.url.fetch(url, timeout=timeout)
+    if not success:
+        return (success, result)
+    return (True, json.loads(result))
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    perfdata = ''
+
+    if args.DONOR:
+        result = lib.base.coe(get_json(args.URL + 'donor/' + args.DONOR, args.TIMEOUT))
+        delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
+
+        msg = '{} Total Score, {} Work Units (last one {} ago), {} Active Clients within 50 days, Rank (if points are combined) {}/{}, Donor ID {}'.format(
+            lib.base.number2human(result['credit']),
+            lib.base.number2human(result['wus']),
+            lib.base.seconds2human(delta),
+            result['active_50'],
+            result['rank'], result['total_users'],
+            args.DONOR
+            )
+        perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_users'])
+    else:
+        result = lib.base.coe(get_json(args.URL + 'team/' + args.TEAM, args.TIMEOUT))
+        delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
+        donors = len(result['donors'])
+
+        msg = 'Team Ranking {}/{}, {} Work Units (last one {} ago), {} Grand Score, {} Active CPUs within 50 days, {} Donors, Team ID {}'.format(
+            result['rank'], result['total_teams'],
+            lib.base.number2human(result['wus']),
+            lib.base.seconds2human(delta),
+            lib.base.number2human(result['credit']),
+            result['active_50'],
+            str(donors) + '+' if donors >= 1000 else donors,
+            args.TEAM
+            )
+        perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_teams'])
+        perfdata += lib.base.get_perfdata('donors', donors, None, None, None, 0, None)
+
+
+    perfdata += lib.base.get_perfdata('wus', result['wus'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('credit', result['credit'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
+    
+    lib.base.oao(msg, STATE_OK, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

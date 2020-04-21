@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. Should be called once a day or after a `yum update` only.'
 
@@ -44,23 +44,17 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        print('"needs-restarting" is missing.')
-        exit(STATE_UNKNOWN)
-
     # execute the shell command and return its result and exit code
 	# 1. full reboot necessary? check the return code (<> 0: needs reboot): needs-restarting --reboothint
-    stdout, stderr, retc = lib.base.shell_exec(command + ' --reboothint')
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command + ' --reboothint'))
 
     # calculating the final check state
-    if int(retc) >= 1:
+    if int(retc) == 1:
     	lib.base.oao('A system reboot may be required.', STATE_WARN)
 
     # execute the shell command and return its result and exit code
 	# 2. long list of all updated services (process list): needs-restarting
-    stdout, tmp_stderr, retc = lib.base.shell_exec(command)
+    stdout, tmp_stderr, retc = lib.base.coe(lib.base.shell_exec(command))
     service_restart_needed = stdout.strip()
 
     # calculating the final check state

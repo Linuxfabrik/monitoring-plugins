@@ -9,9 +9,9 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
-DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "firewalld" is running, use "systemd-unit --substate=running --unit=firewalld". Have a look at the README for more details.'
+DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "sshd" is running, use "systemd-unit --substate=running --unit=sshd". Have a look at the README for more details.'
 
 command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
 
@@ -92,7 +92,7 @@ def main():
         exit(STATE_UNKNOWN)
 
 
-    stdout, stderr, retc = lib.base.shell_exec(command + args.UNIT)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command + args.UNIT))
     if (stderr or retc != 0):
         lib.base.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
     result = stdout.split('\n')

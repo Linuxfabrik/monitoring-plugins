@@ -22,7 +22,6 @@
 * Comments and output should be in English only.
 * If possible avoid libraries that have to be installed.
 * Validate user input.
-* Check for system commands, libraries and their versions (`try` ... `except`).
 * It is not needed to execute system (shell/bash) commands by specifying their full path.
 * It is ok to use temp files if needed.
 * Much better: use a local SQLite database if you want to use a temp file.
@@ -30,6 +29,7 @@
 * Timeout gracefully on errors (for example `df` on a failed network drive) and return WARN.
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
+* EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements. 
 
 
 ## Names, Naming Conventions, Parameters, Option Processing

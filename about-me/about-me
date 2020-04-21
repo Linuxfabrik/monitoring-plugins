@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -42,38 +42,27 @@ def parse_args():
     return parser.parse_args()
 
 
-def shell_exec_or_exit(command):
-    stdout, stderr, retc = lib.base.shell_exec(command)
-    if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
-    return stdout.strip(), stderr, retc
-
-
-def find_command(return_text, command, version_cmd=None, version_regex=None):
-    stdout, stderr, retc = lib.base.shell_exec(command)
-    if retc == 0:
-        if version_cmd:
-            ver, stderr, retc = lib.base.shell_exec(version_cmd)
-            if ver == '' and stderr != '':
-                # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
-                # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr]
-                ver = stderr
-            ver = ver.strip()
-            # where to find the version number in output?
-            if version_regex:
-                try:
-                    ver = re.search(version_regex, ver)
-                    return return_text + ' {}, '.format(ver.group(1).strip())
-                except:
-                    return ''
-            else:
-                return return_text + ' {}, '.format(ver).strip()
-        else:
-            return return_text + ', '
-    else:
+def find_command(return_text, cmd, version_regex=None):
+    success, result = lib.base.shell_exec(cmd)
+    if not success:
         return ''
+    if cmd.endswith(' -h'):
+        return '{}, '.format(return_text)
+    stdout, stderr, retc = result
+    if stdout == '' and stderr != '':
+        # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
+        # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr]
+        stdout = stderr
+    stdout = stdout.strip()
+    # where to find the version number in output?
+    if version_regex:
+        try:
+            stdout = re.search(version_regex, stdout)
+            return return_text + ' {}, '.format(stdout.group(1).strip())
+        except:
+            return ''
+    else:
+        return return_text + ' {}, '.format(stdout).strip()
 
 
 def get_sys_dimensions():
@@ -82,9 +71,9 @@ def get_sys_dimensions():
     sys['cpu'] = psutil.cpu_count(logical=True)
     sys['ram'] = psutil.virtual_memory().total
 
-    stdout, stderr, retc = shell_exec_or_exit('lsblk --nodeps --output SIZE --noheadings --include 8,252')
-    sys['disks'] = stdout.count('\n') + 1
-    sys['disk-sizes'] = re.sub(r'\s+', ' ', stdout)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('lsblk --nodeps --output SIZE --noheadings --include 8,252,259'))
+    sys['disks'] = stdout.strip().count('\n') + 1
+    sys['disk-sizes'] = re.sub(r'\s+', ' ', stdout).strip()
     return sys
 
 
@@ -94,61 +83,61 @@ def get_apps():
     # and: this is just an incomplete and naive guess
     apps = ''
 
-    apps += 'H-Net SecureService (eFaktura), ' if os.path.isdir('/home/hnet/HnetSecureService') else ''
-    apps += 'Hostbill, ' if os.path.isdir('/home/hostbill') else ''
+    apps += 'H-Net SecureService (eFaktura), '  if os.path.isdir('/home/hnet/HnetSecureService') else ''
+    apps += 'Hostbill, '                        if os.path.isdir('/home/hostbill') else ''
 
-    apps += 'Apache Tomcat, ' if os.path.isdir('/opt/tomcat') else ''
-    apps += 'Atlassian Bitbucket, ' if os.path.isdir('/opt/atlassian/bitbucket') else ''
-    apps += 'Atlassian Confluence, ' if os.path.isdir('/opt/atlassian/confluence') else ''
-    apps += 'Atlassian Jira, ' if os.path.isdir('/opt/atlassian/jira') else ''
-    apps += 'Atomicorp, ' if os.path.isdir('/opt/atomicorp') else ''
-    apps += 'Bacchus, ' if os.path.isdir('/opt/bacchus') else ''
-    apps += 'BizBus, ' if os.path.isdir('/opt/bizbus') else ''
-    apps += 'Brother Printer SW, ' if os.path.isdir('/opt/brother') else ''
-    apps += 'Collabora Office 5.3, ' if os.path.isdir('/opt/collaboraoffice5.3') else ''
-    apps += 'Collabora Office 6.0, ' if os.path.isdir('/opt/collaboraoffice6.0') else ''
-    apps += 'DCM4CHEE, ' if os.path.isdir('/opt/dcm4chee') else ''
-    apps += 'F5 VPN SW, ' if os.path.isdir('/opt/f5/vpn') else ''
-    apps += 'GitLab, ' if os.path.isdir('/opt/gitlab') else ''
-    apps += 'Google Chrome, ' if os.path.isdir('/opt/google/chrome') else ''
-    apps += 'JBoss, ' if os.path.isdir('/opt/jboss') else ''
-    apps += 'JumpCloud, ' if os.path.isdir('/opt/jc') else ''
-    apps += 'KeeWeb, ' if os.path.isdir('/opt/KeeWeb') else ''
-    apps += 'Keycloak, ' if os.path.isdir('/opt/keycloak') else ''
-    apps += 'MariaDB ColumnStore, ' if os.path.isdir('/opt/columnstore') else ''
-    apps += 'Medidata (eFaktura), ' if os.path.isdir('/opt/MPCommunicator') else ''
-    apps += 'Metabase, ' if os.path.isdir('/opt/metabase') else ''
-    apps += 'NodeBB, ' if os.path.isdir('/opt/nodebb') else ''
-    apps += 'PHP 7.1 (RH), ' if os.path.isdir('/opt/rh/rh-php71') else ''
-    apps += 'PHP 7.2 (RH), ' if os.path.isdir('/opt/rh/rh-php72') else ''
-    apps += 'PHP 7.3 (RH), ' if os.path.isdir('/opt/rh/rh-php73') else ''
-    apps += 'PHP 7.4 (RH), ' if os.path.isdir('/opt/rh/rh-php74') else ''
-    apps += 'PostgreSQL 9.0 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql90') else ''
-    apps += 'PostgreSQL 9.1 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql91') else ''
-    apps += 'PostgreSQL 9.2 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql92') else ''
-    apps += 'PostgreSQL 9.3 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql93') else ''
-    apps += 'PostgreSQL 9.4 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql94') else ''
-    apps += 'PostgreSQL 9.5 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql95') else ''
-    apps += 'PostgreSQL 9.6 (RH), ' if os.path.isdir('/opt/rh/rh-postgresql96') else ''
-    apps += 'Rambox, ' if os.path.isdir('/opt/Rambox') else ''
-    apps += 'Rocket.Chat, ' if os.path.isdir('/opt/Rocket.Chat') else ''
-    apps += 'Tarifpool, ' if os.path.isdir('/opt/tarifpool') else ''
-    apps += 'VMware Tools, ' if os.path.isdir('/etc/vmware-tools') else ''
-    apps += 'WildFly, ' if os.path.isdir('/opt/wildfly') else ''
-    apps += 'Zimbra, ' if os.path.isdir('/opt/zimbra') else ''
+    apps += 'Apache Tomcat, '                   if os.path.isdir('/opt/tomcat') else ''
+    apps += 'Atlassian Bitbucket, '             if os.path.isdir('/opt/atlassian/bitbucket') else ''
+    apps += 'Atlassian Confluence, '            if os.path.isdir('/opt/atlassian/confluence') else ''
+    apps += 'Atlassian Jira, '                  if os.path.isdir('/opt/atlassian/jira') else ''
+    apps += 'Atomicorp, '                       if os.path.isdir('/opt/atomicorp') else ''
+    apps += 'Bacchus, '                         if os.path.isdir('/opt/bacchus') else ''
+    apps += 'BizBus, '                          if os.path.isdir('/opt/bizbus') else ''
+    apps += 'Brother Printer SW, '              if os.path.isdir('/opt/brother') else ''
+    apps += 'Collabora Office 5.3, '            if os.path.isdir('/opt/collaboraoffice5.3') else ''
+    apps += 'Collabora Office 6.0, '            if os.path.isdir('/opt/collaboraoffice6.0') else ''
+    apps += 'DCM4CHEE, '                        if os.path.isdir('/opt/dcm4chee') else ''
+    apps += 'F5 VPN SW, '                       if os.path.isdir('/opt/f5/vpn') else ''
+    apps += 'GitLab, '                          if os.path.isdir('/opt/gitlab') else ''
+    apps += 'Google Chrome, '                   if os.path.isdir('/opt/google/chrome') else ''
+    apps += 'JBoss, '                           if os.path.isdir('/opt/jboss') else ''
+    apps += 'JumpCloud, '                       if os.path.isdir('/opt/jc') else ''
+    apps += 'KeeWeb, '                          if os.path.isdir('/opt/KeeWeb') else ''
+    apps += 'Keycloak, '                        if os.path.isdir('/opt/keycloak') else ''
+    apps += 'MariaDB ColumnStore, '             if os.path.isdir('/opt/columnstore') else ''
+    apps += 'Medidata (eFaktura), '             if os.path.isdir('/opt/MPCommunicator') else ''
+    apps += 'Metabase, '                        if os.path.isdir('/opt/metabase') else ''
+    apps += 'NodeBB, '                          if os.path.isdir('/opt/nodebb') else ''
+    apps += 'PHP 7.1 (RH), '                    if os.path.isdir('/opt/rh/rh-php71') else ''
+    apps += 'PHP 7.2 (RH), '                    if os.path.isdir('/opt/rh/rh-php72') else ''
+    apps += 'PHP 7.3 (RH), '                    if os.path.isdir('/opt/rh/rh-php73') else ''
+    apps += 'PHP 7.4 (RH), '                    if os.path.isdir('/opt/rh/rh-php74') else ''
+    apps += 'PostgreSQL 9.0 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql90') else ''
+    apps += 'PostgreSQL 9.1 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql91') else ''
+    apps += 'PostgreSQL 9.2 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql92') else ''
+    apps += 'PostgreSQL 9.3 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql93') else ''
+    apps += 'PostgreSQL 9.4 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql94') else ''
+    apps += 'PostgreSQL 9.5 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql95') else ''
+    apps += 'PostgreSQL 9.6 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql96') else ''
+    apps += 'Rambox, '                          if os.path.isdir('/opt/Rambox') else ''
+    apps += 'Rocket.Chat, '                     if os.path.isdir('/opt/Rocket.Chat') else ''
+    apps += 'Tarifpool, '                       if os.path.isdir('/opt/tarifpool') else ''
+    apps += 'VMware Tools, '                    if os.path.isdir('/etc/vmware-tools') else ''
+    apps += 'WildFly, '                         if os.path.isdir('/opt/wildfly') else ''
+    apps += 'Zimbra, '                          if os.path.isdir('/opt/zimbra') else ''
 
-    apps += 'Contao, ' if os.path.isdir('/var/www/html/contao') else ''
-    apps += 'HTMLy, ' if os.path.isdir('/var/www/html/htmly') else ''
-    apps += 'Matomo, ' if os.path.isdir('/var/www/html/matomo') else ''
-    apps += 'MediaWiki, ' if os.path.isdir('/var/www/html/mediawiki') else ''
-    apps += 'Nextcloud, ' if os.path.isdir('/var/www/html/nextcloud') else ''
-    apps += 'Piwik, ' if os.path.isdir('/var/www/html/piwik') else ''
-    apps += 'Roundcube, ' if os.path.isdir('/var/www/html/roundcubemail') else ''
-    apps += 'Vtiger, ' if os.path.isdir('/var/www/html/vtigercrm') else ''
-    apps += 'Yii, ' if os.path.isdir('/var/www/html/yii') else ''
-    apps += 'Yii2, ' if os.path.isdir('/var/www/html/yii2') else ''
-    apps += 'Yii2, ' if os.path.isdir('/var/www/html/yii2-basic') else ''
-    apps += 'Yii2, ' if os.path.isdir('/var/www/html/yii2-advanced') else ''
+    apps += 'Contao, '                          if os.path.isdir('/var/www/html/contao') else ''
+    apps += 'HTMLy, '                           if os.path.isdir('/var/www/html/htmly') else ''
+    apps += 'Matomo, '                          if os.path.isdir('/var/www/html/matomo') else ''
+    apps += 'MediaWiki, '                       if os.path.isdir('/var/www/html/mediawiki') else ''
+    apps += 'Nextcloud, '                       if os.path.isdir('/var/www/html/nextcloud') else ''
+    apps += 'Piwik, '                           if os.path.isdir('/var/www/html/piwik') else ''
+    apps += 'Roundcube, '                       if os.path.isdir('/var/www/html/roundcubemail') else ''
+    apps += 'Vtiger, '                          if os.path.isdir('/var/www/html/vtigercrm') else ''
+    apps += 'Yii, '                             if os.path.isdir('/var/www/html/yii') else ''
+    apps += 'Yii2, '                            if os.path.isdir('/var/www/html/yii2') else ''
+    apps += 'Yii2, '                            if os.path.isdir('/var/www/html/yii2-basic') else ''
+    apps += 'Yii2, '                            if os.path.isdir('/var/www/html/yii2-advanced') else ''
 
     if apps:
         return apps[:-2]
@@ -160,21 +149,21 @@ def get_tools():
     # yum installed simple tools, alphabetically sorted by output
     sw = ''
 
-    sw += find_command('dig', 'command -v dig')
-    sw += find_command('hdparm', 'command -v hdparm')
-    sw += find_command('iftop', 'command -v iftop')
-    sw += find_command('lsof', 'command -v lsof')
-    sw += find_command('nano', 'command -v nano')
-    sw += find_command('ncat', 'command -v ncat')
-    sw += find_command('nmap', 'command -v nmap')
-    sw += find_command('rsync', 'command -v rsync')
-    sw += find_command('tcpdump', 'command -v tcpdump')
-    sw += find_command('telnet', 'command -v telnet')
-    sw += find_command('unzip', 'command -v unzip')
-    sw += find_command('vim', 'command -v vim')
-    sw += find_command('wget', 'command -v wget')
-    sw += find_command('whois', 'command -v whois')
-    sw += find_command('wireshark', 'command -v tshark')
+    sw += find_command('dig',       'dig -h')
+    sw += find_command('hdparm',    'hdparm -h')
+    sw += find_command('iftop',     'iftop -h')
+    sw += find_command('lsof',      'lsof -h')
+    sw += find_command('nano',      'nano -h')
+    sw += find_command('ncat',      'ncat -h')
+    sw += find_command('nmap',      'nmap -h')
+    sw += find_command('rsync',     'rsync -h')
+    sw += find_command('tcpdump',   'tcpdump -h')
+    sw += find_command('telnet',    'telnet -h')
+    sw += find_command('unzip',     'unzip -h')
+    sw += find_command('vim',       'vim -h')
+    sw += find_command('wget',      'wget -h')
+    sw += find_command('whois',     'whois -h')
+    sw += find_command('wireshark', 'tshark -h')
     
     if sw:
         return sw[:-2]
@@ -183,48 +172,48 @@ def get_tools():
 
 
 def get_repo_sw():
-    # yum installed real-world applications, alphabetically sorted by output
+    # from package manager installed real-world applications, alphabetically sorted by output
     # but sometimes not callable for Icinga (like Elastic or Graylog)
     # or without version info
     sw = ''
 
-    sw += find_command('Apache httpd', 'command -v httpd', version_cmd='httpd -v', version_regex=r'Apache/(.*) ')
-    sw += find_command('BIND', 'command -v named', version_cmd='named -v', version_regex=r'^BIND (.*?)-')
-    sw += find_command('Borg', 'command -v borg', version_cmd='borg --version', version_regex=r' (.*)')
-    sw += find_command('ClamAV', 'command -v clamd', version_cmd='clamd --version', version_regex=r' (.*)/')
-    sw += find_command('Containerd', 'command -v containerd', version_cmd='containerd --version', version_regex=r' (.*) ')
-    sw += find_command('Docker', 'command -v docker', version_cmd='docker --version', version_regex=r' version (.*?),')
+    sw += find_command('Apache httpd',              'httpd -v',                  version_regex=r'Apache/(.*) ')
+    sw += find_command('BIND',                      'named -v',                  version_regex=r'^BIND (.*?)-')
+    sw += find_command('Borg',                      'borg --version',            version_regex=r' (.*)')
+    sw += find_command('ClamAV',                    'clamd --version',           version_regex=r' (.*)/')
+    sw += find_command('Containerd',                'containerd --version',      version_regex=r' (.*) ')
+    sw += find_command('Docker',                    'docker --version',          version_regex=r' version (.*?),')
     sw += 'Elasticsearch, ' if os.path.isfile('/usr/share/elasticsearch/bin/elasticsearch') else ''
-    sw += find_command('Erlang', 'command -v erl')
-    sw += find_command('Fail2ban-Server', 'command -v fail2ban-server', version_cmd='fail2ban-server --version', version_regex=r' v(.*)')
-    sw += find_command('FreeIPA', 'command -v ipa', version_cmd='ipa --version', version_regex=r' (.*?),')
-    sw += find_command('Git', 'command -v git', version_cmd='git --version', version_regex=r'git version (.*)')
-    sw += find_command('Glances', 'command -v glances', version_cmd='glances --version', version_regex=r'Glances v(.*?) ')
-    sw += find_command('Grafana-Server', 'command -v grafana-server', version_cmd='grafana-server -v', version_regex=r'Version (.*?) ')
+    sw += find_command('Erlang', 'erl -h')
+    sw += find_command('Fail2ban-Server',           'fail2ban-server --version', version_regex=r' v(.*)')
+    sw += find_command('FreeIPA',                   'ipa --version',             version_regex=r' (.*?),')
+    sw += find_command('Git',                       'git --version',             version_regex=r'git version (.*)')
+    sw += find_command('Glances',                   'glances --version',         version_regex=r'Glances v(.*?) ')
+    sw += find_command('Grafana-Server',            'grafana-server -v',         version_regex=r'Version (.*?) ')
     sw += 'Graylog-Server, ' if os.path.isfile('/usr/share/graylog-server/bin/graylog-server') else ''
-    sw += find_command('Icinga2', 'command -v icinga2', version_cmd='icinga2 --version', version_regex=r'\(version: (.*)\)')
-    sw += find_command('InfluxDB', 'command -v influx', version_cmd='influx --version', version_regex=r': (.*)')
-    sw += find_command('Java', 'command -v java', version_cmd='java -version', version_regex=r'(.*)').replace('version ', '').replace('"', '')
-    sw += find_command('LibreOffice', 'command -v libreoffice', version_cmd='libreoffice --version', version_regex=r' (.*?) ')
-    sw += find_command('LibreOffice Online (LOOL)', 'command -v loolwsd')
-    tmp = find_command('MySQL', 'command -v mysqld', version_cmd='mysqld --version', version_regex=r'Ver (.*?) ')
+    sw += find_command('Icinga2',                   'icinga2 --version',         version_regex=r'\(version: (.*)\)')
+    sw += find_command('InfluxDB',                  'influx --version',          version_regex=r': (.*)')
+    sw += find_command('Java',                      'java -version',             version_regex=r'(.*)').replace('version ', '').replace('"', '')
+    sw += find_command('LibreOffice',               'libreoffice --version',     version_regex=r' (.*?) ')
+    sw += find_command('LibreOffice Online (LOOL)', 'loolwsd -h')
+    tmp = find_command('MySQL',                     'mysqld --version',          version_regex=r'Ver (.*?) ')
     if 'MariaDB' in tmp:
         tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
     sw += tmp
-    sw += find_command('MongoDB', 'command -v mongod', version_cmd='mongod --version', version_regex=r'db version v(.*?)\n')
-    sw += find_command('Node', 'command -v node', version_cmd='node --version', version_regex=r'v(.*)')
-    sw += find_command('NodeJS', 'command -v nodejs', version_cmd='nodejs --version', version_regex=r'v(.*)')
-    sw += find_command('npm', 'command -v npm', version_cmd='npm --version', version_regex=r'(.*)')
-    sw += find_command('Perl', 'command -v perl', version_cmd='perl --version', version_regex=r' \(v(.*?)\) ')
-    sw += find_command('PHP', 'command -v php', version_cmd='php --version', version_regex=r'PHP (.*?) \(.*')
-    sw += find_command('PostgreSQL', 'command -v psql', version_cmd='psql --version', version_regex=r'\(PostgreSQL\) (.*)')
-    sw += find_command('Python', 'command -v python', version_cmd='python --version', version_regex=r' (.*)')
-    sw += find_command('Python2', 'command -v python2', version_cmd='python2 --version', version_regex=r' (.*)')
-    sw += find_command('Python3', 'command -v python3', version_cmd='python3 --version', version_regex=r' (.*)')
-    sw += find_command('RabbitMQ-Server', 'command -v rabbitmq-server')
-    sw += find_command('Redis-Server', 'command -v redis-server', version_cmd='redis-server --version', version_regex=r' v=(.*?) ')
-    sw += find_command('Sublime Text', 'command -v subl', version_cmd='subl --version', version_regex=r'.* (.*)$')
-    sw += find_command('TeamViewer', 'command -v teamviewer', version_cmd='teamviewer --version', version_regex=r'   (.*) ')
+    sw += find_command('MongoDB',                   'mongod --version',          version_regex=r'db version v(.*?)\n')
+    sw += find_command('Node',                      'node --version',            version_regex=r'v(.*)')
+    sw += find_command('NodeJS',                    'nodejs --version',          version_regex=r'v(.*)')
+    sw += find_command('npm',                       'npm --version',             version_regex=r'(.*)')
+    sw += find_command('Perl',                      'perl --version',            version_regex=r' \(v(.*?)\) ')
+    sw += find_command('PHP',                       'php --version',             version_regex=r'PHP (.*?) \(.*')
+    sw += find_command('PostgreSQL',                'psql --version',            version_regex=r'\(PostgreSQL\) (.*)')
+    sw += find_command('Python',                    'python --version',          version_regex=r' (.*)')
+    sw += find_command('Python2',                   'python2 --version',         version_regex=r' (.*)')
+    sw += find_command('Python3',                   'python3 --version',         version_regex=r' (.*)')
+    sw += find_command('RabbitMQ-Server',           'rabbitmq-server -h')
+    sw += find_command('Redis-Server',              'redis-server --version',    version_regex=r' v=(.*?) ')
+    sw += find_command('Sublime Text',              'subl --version',            version_regex=r'.* (.*)$')
+    sw += find_command('TeamViewer',                'teamviewer --version',      version_regex=r'    (.*) ')  # TODO: better regex here
     
     if sw:
         return sw[:-2]

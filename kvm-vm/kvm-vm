@@ -9,12 +9,11 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 
-command_installed  = 'command -v virsh'
-command = 'virsh list --all'
+cmd = 'virsh list --all'
 
 #====================
 from lib.globals import *
@@ -50,21 +49,13 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # check if shell command is available
-    stdout, stderr, retc = lib.base.shell_exec(command_installed)
-    if (retc != 0):
-        print('"virsh" is missing.')
-        exit(STATE_UNKNOWN)
-
     perfdata = ''
     state = STATE_OK
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(command)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
     if (stderr or retc != 0):
-        print('Bash command `{}` failed.'.format(command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_WARN)
+        lib.base.oao('{}'.format(stderr), STATE_WARN)
     # we got a VM list and their states - strip first two header and last two empty rows
     vm_list = stdout.strip().split('\n')[2:]
 

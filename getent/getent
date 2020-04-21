@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__version__ = '2020041701'
 
 DESCRIPTION = 'Trys to get entries from Name Service Switch libraries and warns if no match.'
 
@@ -67,11 +67,9 @@ def main():
     msg = 'Everything is ok.'
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.shell_exec(cmd)
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
     if (stderr):
-        print('Bash command `{}` failed.'.format(bash_command))
-        print('Stdout: {}\nStderr: {}'.format(stdout, stderr))
-        exit(STATE_UNKNOWN)
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     if (retc == 1):
         mesg = 'Missing arguments for getent, or database "{}" unknown.'.format(args.DATABASE)
         state = STATE_UNKNOWN
