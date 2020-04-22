@@ -1,6 +1,6 @@
 # Check "fortios-sensor" - Overview
 
-The check fteches detailed sensor information.
+The check fetches detailed sensor information.
 
 We recommend to run this check every 15 minutes.
 
