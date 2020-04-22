@@ -104,6 +104,9 @@ file-age                      | 7, 8     | 30+      | 20       |            |   
 file-descriptors              | 7, 8     | 30+      | 20       | yes        | psutil                   |        |      | >= 90%                            | >= 95%
 file-ownership                | 7, 8     | 30+      | 20       | yes        |                          |        |      | _complex_                         | _complex_
 file-size                     | 7, 8     | 30+      | 20       |            |                          |        |      | >= 25M                            | >= 1G
+fortios-cpu-usage             | 7, 8     | 30+      | 20       |            |                          | yes    |      | 5x >= cpu-use-threshold/80%       | 5x >= 90%
+fortios-memory-usage          | 7, 8     | 30+      | 20       |            |                          |        | yes  | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
+fortios-sensor                | 7, 8     | 30+      | 20       |            |                          |        |      | _complex_                         | _complex_
 fs-file-usage                 | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
 fs-inodes                     | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
 getent                        | 7, 8     | 30+      | 20       | yes        |                          |        |      | key not found                     | -
@@ -139,4 +142,4 @@ top3-processes-which-consume  | 7, 8     | 30+      | 20       |            | ps
 uptime                        | 7, 8     | 30+      | 20       |            | psutil                   |        |      | >= 180d                           | >= 366d
 users                         | 7, 8     | 30+      | 20       | yes        |                          |        |      | >= 1 tty                          | -
 
-2020042101
+2020042201
