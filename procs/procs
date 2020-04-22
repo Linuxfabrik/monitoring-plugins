@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041701'
+__version__ = '2020042201'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
@@ -152,17 +152,17 @@ def main():
     del proc_states['t']
 
     # count the procs (total)
-    proc_cnt = sum(proc_states.values())
+    proc_total = sum(proc_states.values())
 
     # build the state, check the ranges
     state = STATE_OK
-    in_range = lib.base.coe(lib.base.match_range(proc_cnt, args.WARN))
+    in_range = lib.base.coe(lib.base.match_range(proc_total, args.WARN))
     state = lib.base.get_worst(state, STATE_WARN if not in_range else STATE_OK)
-    in_range = lib.base.coe(lib.base.match_range(proc_cnt, args.CRIT))
+    in_range = lib.base.coe(lib.base.match_range(proc_total, args.CRIT))
     state = lib.base.get_worst(state, STATE_CRIT if not in_range else STATE_OK)
 
     # build the message
-    msg = '{} {}, '.format(proc_cnt, lib.base.pluralize('task', proc_cnt))
+    msg = '{} {}, '.format(proc_total, lib.base.pluralize('task', proc_total))
     for proc_state, proc_cnt in lib.base.sort(proc_states, reverse=True):
         if proc_cnt > 0:
             msg += '{} dead, '.format(proc_cnt)                           if proc_state == 'X' else '' 
@@ -179,7 +179,7 @@ def main():
 
     # build perfdata
     perfdata = ''
-    perfdata += lib.base.get_perfdata('procs', proc_cnt, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
 
     perfdata += lib.base.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
