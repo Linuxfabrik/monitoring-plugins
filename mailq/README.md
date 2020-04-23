@@ -1,6 +1,6 @@
 # Check "mailq" - Overview
 
-Checks the mail queue.
+Checks the mail queue. Tested with Postfix and Exim.
 
 We recommend to run this check every 5 minutes.
 
@@ -25,7 +25,7 @@ Requirements:
 
 # Perfdata
 
-* Mails in mail queue
+* mailq: Mails in mail queue
 
 
 # Credits, License

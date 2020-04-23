@@ -9,11 +9,11 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041701'
+__version__ = '2020042301'
 
-DESCRIPTION = 'Check the mail queue.'
+DESCRIPTION = 'Checks the mail queue.'
 
-cmd = 'mailq'
+cmd = 'mailq'       # `mailq` for `exim` is an alias for `exim -bq`
 
 DEFAULT_WARN  =    2     # mails
 DEFAULT_CRIT  =  250     # mails
@@ -112,6 +112,9 @@ def main():
             mailq_count = re.search(r'(.*) mails to deliver', stdout)
             if mailq_count:
                 mailq_count = int(mailq_count.group(1).strip())
+            else:
+                # exim? for now, just count the lines (could be done better in the future)
+                mailq_count = stdout.count('\n')
 
     msg = ''
     perfdata = ''
