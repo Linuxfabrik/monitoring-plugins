@@ -107,6 +107,7 @@ file-size                     | 7, 8     | 30+      | 20       |            |   
 fortios-cpu-usage             | 7, 8     | 30+      | 20       |            |                          | yes    |      | 5x >= cpu-use-threshold/80%       | 5x >= 90%
 fortios-memory-usage          | 7, 8     | 30+      | 20       |            |                          |        | yes  | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
 fortios-sensor                | 7, 8     | 30+      | 20       |            |                          |        |      | _complex_                         | _complex_
+fortios-version               | 7, 8     | 30+      | 20       |            |                          |        |      | update avail.                     | -
 fs-file-usage                 | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
 fs-inodes                     | 7, 8     | 30+      | 20       |            |                          |        |      | >= 90%                            | >= 95%
 getent                        | 7, 8     | 30+      | 20       | yes        |                          |        |      | key not found                     | -
@@ -142,4 +143,4 @@ top3-processes-which-consume  | 7, 8     | 30+      | 20       |            | ps
 uptime                        | 7, 8     | 30+      | 20       |            | psutil                   |        |      | >= 180d                           | >= 366d
 users                         | 7, 8     | 30+      | 20       | yes        |                          |        |      | >= 1 tty                          | -
 
-2020042201
+2020042301
