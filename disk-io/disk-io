@@ -18,7 +18,7 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 DEFAULT_WARN = 60       # MB/s
 DEFAULT_CRIT = 100      # MB/s
 
-DEFAULT_IGNORE = ['sr0']
+DEFAULT_IGNORE = ['sr0', 'loop0', 'loop1', 'loop2', 'loop3', 'loop4', 'loop5', 'loop6', 'loop7', 'loop8', 'loop9']
 
 
 #====================
@@ -116,15 +116,15 @@ def main():
             continue
         data = {}
         data['name'] = disk
-        data['busy_time'] = values.busy_time
-        data['read_bytes'] = values.read_bytes
-        data['read_count'] = values.read_count
-        data['read_merged_count'] = values.read_merged_count
-        data['read_time'] = values.read_time
-        data['write_bytes'] = values.write_bytes
-        data['write_count'] = values.write_count
-        data['write_merged_count'] = values.write_merged_count
-        data['write_time'] = values.write_time
+        data['busy_time'] = getattr(values, 'busy_time', 0)
+        data['read_bytes'] = getattr(values, 'read_bytes', 0)
+        data['read_count'] = getattr(values, 'read_count', 0)
+        data['read_merged_count'] = getattr(values, 'read_merged_count', 0)
+        data['read_time'] = getattr(values, 'read_time', 0)
+        data['write_bytes'] = getattr(values, 'write_bytes', 0)
+        data['write_count'] = getattr(values, 'write_count', 0)
+        data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
+        data['write_time'] = getattr(values, 'write_time', 0)
         data['timestamp'] = timestamp
         disks.append(disk)
         lib.base.coe(lib.db_sqlite.insert(conn, data))
