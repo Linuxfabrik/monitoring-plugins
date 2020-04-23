@@ -4,7 +4,7 @@ Checks the disk throughput over a certain amount of time. Warns only if any of y
 
 Hints and Recommendations:
 * `--count=5` (the default) while checking every minute means that the check reports a warning if any of your disks was above a threshold in the last 5 minutes.
-* Check uses a SQLite database in `/tmp` to store its historic data.
+* Check uses a SQLite database in `/tmp` to store its historicaldata.
 * If you are wondering about `dm-0`, `dm-1` etc.: It's part of the "device mapper" in the kernel, used by LVM. Use `dmsetup ls` to see what is behind it.
 
 We recommend to run this check every minute.
