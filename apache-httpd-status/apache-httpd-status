@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041701'
+__version__ = '2020042301'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -81,6 +81,17 @@ def main():
     # fetch the URL
     result = lib.base.coe(lib.url.fetch(URL))
     result = result.strip().split('\n')
+
+    httpd_bytesperreq = 0
+    httpd_bytespersec = 0
+    httpd_reqpersec = 0
+    httpd_total_accesses = 0
+    httpd_total_traffic = 0
+    scoreboard = ''
+    uptime = 0
+    workers_busy_total = 0
+    workers_idle_total = 0
+
     for item in result:
         if ': ' not in item:
             # Apache 2.4.37 (CentOS 8) - just contains "servername" in the first row, ignore it
@@ -92,20 +103,11 @@ def main():
         if key == 'Total kBytes':
             httpd_total_traffic = int(value) * 1024
         if key == 'ReqPerSec':
-            try:
-                httpd_reqpersec = float(value)
-            except:
-                httpd_reqpersec = 0
+            httpd_reqpersec = float(value)
         if key == 'BytesPerSec':
-            try:
-                httpd_bytespersec = int(round(float(value), 0))
-            except:
-                httpd_bytespersec = 0
+            httpd_bytespersec = int(round(float(value), 0))
         if key == 'BytesPerReq':
-            try:
-                httpd_bytesperreq = int(round(float(value), 0))
-            except:
-                httpd_bytesperreq = 0
+            httpd_bytesperreq = int(round(float(value), 0))
         if key == 'BusyWorkers':
             workers_busy_total = value
         if key == 'IdleWorkers':
