@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042501'
+__version__ = '2020042502'
 
 DESCRIPTION = 'Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).'
 
@@ -84,9 +84,11 @@ def main():
     for name, entries in fans.items():
         msg += '{}: '.format(name)
         for entry in entries:
-            msg += '{} = {} RPM'.format(entry.label or name, entry.current)
-            perfdata += lib.base.get_perfdata('{}'.format(entry.label or name), entry.current, None, args.WARN, args.CRIT, 0, None)
-            state = lib.base.get_worst(state, lib.base.get_state(entry.current, args.WARN, args.CRIT, 'ge'))
+            perfdata += lib.base.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, args.WARN, args.CRIT, 0, None)
+            sensor_state = lib.base.get_state(entry.current, args.WARN, args.CRIT, 'ge')
+            msg += '{} = {} RPM{}, '.format(entry.label or name, entry.current, lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
+            state = lib.base.get_worst(state, sensor_state)
+        msg = msg[:-2] + '; '
 
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
