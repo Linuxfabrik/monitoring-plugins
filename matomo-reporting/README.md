@@ -1,4 +1,4 @@
-# Check "nextcloud-version" - Overview
+# Check "matomo-reporting" - Overview
 
 This plugin lets you check the most common analytics values from Matomo, for one website and for any given date and period.
 
