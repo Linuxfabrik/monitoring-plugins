@@ -93,6 +93,8 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
+2020042501
+
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
 about-me                      | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | -                                 | -
@@ -141,7 +143,9 @@ rocket.chat-stats             | 7, 8     | 30+      | 16, 20   |            |   
 rocket.chat-version           | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | server update avail.              | -
 rpm-lastactivity              | 7, 8     | 30+      | no       | yes        |                          |        |      | > 90d                             | > 365d
 selinux-mode                  | 7, 8     | 30+      | no       | yes        |                          |        |      | != enforcing                      | -
-sensors                       | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | any sensor alarm                  | -
+sensors-battery               | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | battery power <= 20%              | battery power <= 5%
+sensors-fans                  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | fan speed >= 10000 rpm            | fan speed => 20000 rpm
+sensors-temperatures          | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | sensor temp >= hardware threshold | sensor temp >= hardware threshold
 swap-usage                    | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 70%                            | >= 90%
 systemd-unit                  | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | -
 top3-most-memory-consuming-p  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | -                                 | -
@@ -151,4 +155,3 @@ top3-processes-which-consume  | 7, 8     | 30+      | 16, 20   |            | ps
 uptime                        | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 180d                           | >= 366d
 users                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 1 tty                          | -
 
-2020042302
