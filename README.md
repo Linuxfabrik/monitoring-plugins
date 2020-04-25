@@ -93,7 +93,7 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
-2020042501
+2020042503
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -102,7 +102,7 @@ apache-httpd-status           | 7, 8     | 30+      | 16, 20   |            |   
 borgbackup                    | 7, 8     | 30+      | 16, 20   |            |                          |        |      | last backup >= 24h                | -
 countdown                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | 50 days                           | 30 days
 cpu-usage                     | 7, 8     | 30+      | 16, 20   |            | psutil                   | yes    | yes  | 5x >= 80%                         | 5x >= 90%
-disk-io                       | 7, 8     | 30+      | 16, 20   |            | psutil                   | yes    |      | 5x >= 60 mb/sec                   | 5x >= 100 mb/sec
+disk-io                       | 7, 8     | no       | 16, 20   |            | psutil                   | yes    |      | 5x >= 60 mb/sec                   | 5x >= 100 mb/sec
 disk-smart                    | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
 disk-usage                    | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 90%                            | >= 95%
 dmesg                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | -                                 | dmesg == emerg,alert,crit,err
@@ -127,6 +127,7 @@ ipmi-sensor                   | 7, 8     | 30+      | 16, 20   | yes        |   
 kvm-vm                        | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | idle, paused, pmsuspended vm      | crashed vm
 load                          | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | >= 1.15 load15                    | >= 5.00 load15
 mailq                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | >= 2 mails                        | >= 250 mails
+matomo-reporting              | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
 memory-usage                  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 90%                            | >= 95%
 mysql-stats                   | 7        | no       | 16       |            | psutil, mysql.connector  |        |      | _complex_                         | _complex_
 needs-restarting              | 7, 8     | 30+      | no       | yes        |                          |        |      | (service) reboot needed           | -
