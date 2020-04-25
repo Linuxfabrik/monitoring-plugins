@@ -1,4 +1,4 @@
-# Check "battery" - Overview
+# Check "sensors-battery" - Overview
 
 Return battery status information. If no battery is installed or metrics can’t be determined OK is returned.
 
@@ -11,8 +11,8 @@ Requirements:
 * Python2 psutil
 
 ```bash
-./battery --warning 20 --critical 5
-./battery --help
+./sensors-battery --warning 20 --critical 5
+./sensors-battery --help
 ```
 
 
