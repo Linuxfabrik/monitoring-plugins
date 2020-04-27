@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042601'
+__version__ = '2020042701'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -119,6 +119,8 @@ def main():
 
 
     workers_total     = len(scoreboard)
+    if workers_total == 0:
+        lib.base.oao('Malformed Apache server info.', STATE_UNKNOWN)
 
     workers_closing   = scoreboard.count('C')
     workers_dns       = scoreboard.count('D')
