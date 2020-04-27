@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042101'
+__version__ = '2020042701'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -77,8 +77,9 @@ def main():
     parts = psutil.disk_partitions(all=False)
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
-        if part.fstype == 'squashfs':
-            # ignore `/snap` mountpoints, for example
+        # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
+        if part.fstype == 'squashfs' or part.fstype == 'iso9660':
+            # ignore `/snap` and iso mountpoints, for example
             continue
         usage = psutil.disk_usage(part.mountpoint)
 
