@@ -1,6 +1,6 @@
 # Python-based Checks for Icinga, Nagios etc.
 
-This git repo provides various Python 2 based check plugins for Nagios and compatible monitoring systems like Icinga. All checks are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu 16+.
+This git repo provides various Python 2 based check plugins for Nagios and compatible monitoring systems like Icinga or Shinken. All checks are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+.
 
 If you
 
@@ -15,43 +15,51 @@ If you
 
 ... then these checks might be for you.
 
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+
 
 ## Python2
 
 All checks are written in Python 2, because ...
 
 * in a datacenter environment (where these checks are mainly used) the `python == python2` side is still more popular.
-* in CentOS 7, Python 2.7 is the default.
+* in CentOS 7, Python 2.7 is the default (Python3 became available in CentOS 7.8).
 * in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
 * support for Python 2 has ended, but not in CentOS 8 (Python 2 remains available in CentOS 8 until the late 2020's decade - for further details have a look at https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/).
 
 Our checks call Python 2 by using `#!/usr/bin/env python2`.
 
-We try to avoid dependencies on libraries wherever possible. If we have to use additional libraries for various reasons, we stick on official versions.
+
+## Python3
+
+Providing a Python 3 variant of each check is on our roadmap.
 
 
-## Running a Check
+## Libraries
 
-To run a check make sure that the `lib` directory or the `lib` symbolic link contains or points to the Python libraries from our GitLab repo [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux).
+We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick on official versions. Have a look at the plugin README or at the Check Plugin Fact Sheet at the end of this document.
 
-So this is what your check plugin directory should look like:
+Of course we make use of our own libraries, which you simply have to copy from our [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) GitLab repo to the plugins `lib` directory (mostly `/usr/lib64/nagios/plugins/lib`).
+
+So this is how your check plugin directory should look like:
 
 ```
 $ tree /usr/lib64/nagios/plugins/
 
 /usr/lib64/nagios/plugins/
-├── about-me
-├── ...
-├── ipmi-sensor
-├── kvm-vm
-├── lib
-│   ├── globals.py
-│   ├── ...
-│   └── ...
-├── load
-└── ...
+|-- about-me
+|-- ...
+|-- lib
+|   |-- globals.py
+|   |-- ...
+|   |-- ...
+|-- ...
 ```
 
+
+## Running a Check
+
+What you need:
 
 **CentOS 8**
 
@@ -93,7 +101,7 @@ $ tree /usr/lib64/nagios/plugins/
 
 ## Check Plugin Fact Sheet
 
-2020042503
+2020042902
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -116,6 +124,7 @@ file-ownership                | 7, 8     | 30+      | 16, 20   | yes        |   
 file-size                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 25M                            | >= 1G
 fortios-cpu-usage             | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | 5x >= cpu-use-threshold/80%       | 5x >= 90%
 fortios-memory-usage          | 7, 8     | 30+      | 16, 20   |            |                          |        | yes  | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
+fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          |        | yes  | >= 800mbps, link changes          | >= 900mbps, link changes
 fortios-sensor                | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
 fortios-version               | 7, 8     | 30+      | 16, 20   |            |                          |        |      | update avail.                     | -
 fs-file-usage                 | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 90%                            | >= 95%
@@ -128,6 +137,7 @@ kvm-vm                        | 7, 8     | 30+      | 16, 20   | yes        |   
 load                          | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | >= 1.15 load15                    | >= 5.00 load15
 mailq                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | >= 2 mails                        | >= 250 mails
 matomo-reporting              | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
+matomo-version                | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | server update avail.              | -
 memory-usage                  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 90%                            | >= 95%
 mysql-stats                   | 7        | no       | 16       |            | psutil, mysql.connector  |        |      | _complex_                         | _complex_
 needs-restarting              | 7, 8     | 30+      | no       | yes        |                          |        |      | (service) reboot needed           | -
