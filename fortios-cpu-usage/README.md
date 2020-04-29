@@ -5,7 +5,7 @@ Returns the current system-wide CPU utilization as a percentage from Forti Appli
 Hints and Recommendations:
 * This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.
 * `--count=5` (the default) while checking every minute means that the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes.
-* Check uses a SQLite database in `/tmp` to store its historicaldata.
+* Check uses a SQLite database in `/tmp` to store its historical data.
 
 We recommend to run this check every minute.
 

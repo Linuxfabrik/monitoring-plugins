@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042201'
+__version__ = '2020042701'
 
 DESCRIPTION = 'Returns the current system-wide CPU utilization as a percentage from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy". Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check\'s command line values (or their defaults) are used.'
 
@@ -124,19 +124,19 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    # create the db table
-    definition = '''
-                cpu_usage REAL NOT NULL
-        '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='forti-cpu-usage.db'))
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
-
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
     url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
     result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
     stats['cpu_usage'] = result['results']['cpu'][0]['current']
+
+    # create the db table
+    definition = '''
+                cpu_usage REAL NOT NULL
+        '''
+    conn = lib.base.coe(lib.db_sqlite.connect(filename='fortios-cpu-usage.db'))
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
 
     # save trend data to local sqlite database, limited to "count" rows max.
     lib.base.coe(lib.db_sqlite.insert(conn, stats))
