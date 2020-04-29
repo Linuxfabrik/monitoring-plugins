@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042501'
+__version__ = '2020042901'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -69,7 +69,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def nc_get_installed_version(path):
+def get_installed_version(path):
     # nextcloud/version.php: $OC_Version = array(18,0,2,2);
     success, nc_version = lib.disk.grep_file(path + '/version.php', r'\$OC_Version = array\((.*)\)')
     if not success:
@@ -81,12 +81,12 @@ def nc_get_installed_version(path):
         return (True, False)
 
 
-def nc_get_update_url(path, channel):
+def get_update_url(path, channel):
     # We need to call this URL schema:
     # https://updates.nextcloud.com/updater_server/?version=18x0x1x3x1484370109x1484370109xstablexxf6bd5afd0370ae6308529047ba6344acf8d382a3x7x2x28
     update_url = 'https://updates.nextcloud.com/updater_server/?version='
 
-    success, nc_version = nc_get_installed_version(path)
+    success, nc_version = get_installed_version(path)
     if not success:
         return (success, nc_version)
     if not nc_version:
@@ -111,14 +111,14 @@ def nc_get_update_url(path, channel):
     return (True, update_url)
 
 
-def nc_get_latest_version(path, channel, expire):
+def get_latest_version(path, channel, expire):
     # get version online, but first from cache
     latest_version = lib.cache.get('nextcloud-version')
     if latest_version:
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from nc update server (and not from github)
-    success, url = nc_get_update_url(path, channel)
+    success, url = get_update_url(path, channel)
     #success, url = (True, 'https://updates.nextcloud.com/updater_server/?version=18x0x1x3x1484370109x1484370109xstablexxf6bd5afd0370ae6308529047ba6344acf8d382a3x7x2x28')
     if not success:
         return (success, url)
@@ -129,7 +129,7 @@ def nc_get_latest_version(path, channel, expire):
     
     if xmlst == '':
         # no answer is a good answer, we already have the newest version
-        success, latest_version = nc_get_installed_version(path)
+        success, latest_version = get_installed_version(path)
         if not success:
             return (success, latest_version)
         lib.cache.set('nextcloud-version', latest_version, lib.base.now() + expire)
@@ -149,10 +149,10 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    installed_version = lib.base.coe(nc_get_installed_version(args.PATH))
+    installed_version = lib.base.coe(get_installed_version(args.PATH))
     # the nextcloud update server isn't very reliable, so ignore if it is not available for any reason (we can't do anything about it,
     # so exiting with a warning or unknown would not help)
-    success, latest_version = nc_get_latest_version(args.PATH, args.CHANNEL, args.CACHE_EXPIRE*60*60)
+    success, latest_version = get_latest_version(args.PATH, args.CHANNEL, args.CACHE_EXPIRE*60*60)
     if not success:
         lib.base.oao('Nextcloud v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
