@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042501'
+__version__ = '2020042901'
 
 DESCRIPTION = 'Return certain hardware temperature sensors (it may be a CPU, an hard disk or something else, depending on the OS and its configuration). All temperatures are expressed in celsius. Check is done automatically against hardware thresholds. If sensors are not supported by the OS OK is returned.'
 
@@ -26,6 +26,8 @@ except ImportError, e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 from traceback import print_exc
+import warnings
+warnings.filterwarnings("ignore")
 
 
 def parse_args():
@@ -65,7 +67,7 @@ def main():
     perfdata = ''
 
     for name, entries in temps.items():
-        msg += '{}: '.format(name)
+        msg += '* {}: '.format(name)
         for entry in entries:
             perfdata += lib.base.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, entry.high, entry.critical, 0, None)
             sensor_state = lib.base.get_state(entry.current, entry.high, entry.critical, 'ge')
@@ -73,7 +75,7 @@ def main():
             msg += lib.base.state2str(sensor_state)
             msg = msg.strip() + ', '
             state = lib.base.get_worst(state, sensor_state)
-        msg = msg[:-2] + '; '
+        msg = msg[:-2] + '\n'
 
     lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
