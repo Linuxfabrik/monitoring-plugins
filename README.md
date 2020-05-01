@@ -101,7 +101,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020042902
+2020050101
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -123,8 +123,9 @@ file-descriptors              | 7, 8     | 30+      | 16, 20   | yes        | ps
 file-ownership                | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
 file-size                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 25M                            | >= 1G
 fortios-cpu-usage             | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | 5x >= cpu-use-threshold/80%       | 5x >= 90%
-fortios-memory-usage          | 7, 8     | 30+      | 16, 20   |            |                          |        | yes  | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
-fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          |        | yes  | >= 800mbps, link changes          | >= 900mbps, link changes
+fortios-firewall-stats        | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
+fortios-memory-usage          | 7, 8     | 30+      | 16, 20   |            |                          |        |      | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
+fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 800mbps, link changes          | >= 900mbps, link changes
 fortios-sensor                | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
 fortios-version               | 7, 8     | 30+      | 16, 20   |            |                          |        |      | update avail.                     | -
 fs-file-usage                 | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 90%                            | >= 95%
@@ -165,4 +166,5 @@ top3-processes-which-caused-  | 7, 8     | 30+      | 16, 20   |            | ps
 top3-processes-which-consume  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | -                                 | -
 uptime                        | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 180d                           | >= 366d
 users                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 1 tty                          | -
+xca                           | 7        | no       | 16       | yes        | mysql.connector          |        |      | expiry date <= 14d                | expiry date <= 5d
 

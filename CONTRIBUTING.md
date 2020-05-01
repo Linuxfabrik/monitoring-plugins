@@ -197,6 +197,25 @@ Perfdata value-suffixes:
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
 
+## PEP8 Sytle Guide for Python Code
+
+We recently started to use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/).
+
+
+## docstring, pydoc
+
+Not long ago we started to document our [Check Plugin Libraries](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) using docstrings, so that calling `pydoc lib/base.py` works, for example.
+
+
+## Pylint
+
+To further improve code quality, we recently started using [Pylint](https://www.pylint.org/) with pure `pylint` for the libraries, and with `pylint --disable=C0103,C0114,C0116` for the check plugins, on a more regular basis. The parameter disables warnings for
+
+* non-conformance to snake_case naming style
+* missing module docstring
+* missing function or method docstring
+
+
 ## Unit Tests
 
 Implementing tests:
