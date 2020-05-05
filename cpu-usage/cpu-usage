@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
 
@@ -27,7 +27,7 @@ import lib.db_sqlite
 import argparse
 try:
     import psutil
-except ImportError, e:
+except ImportError as e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 from traceback import print_exc
@@ -37,36 +37,36 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('--count',
-        help = 'Number of times the value has to be above the given thresholds. Default: %(default)s',
-        dest = 'COUNT',
-        type = int,
-        default = DEFAULT_COUNT,
+        help='Number of times the value has to be above the given thresholds. Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
         )
     
     parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold CPU Usage Percentage. Default: %(default)s',
-        dest = 'CRIT',
-        type = int,
-        default = DEFAULT_CRIT,
+        help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
         )
 
     parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold CPU Usage Percentage. Default: %(default)s',
-        dest = 'WARN',
-        type = int,
-        default = DEFAULT_WARN,
+        help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
         )
 
     return parser.parse_args()

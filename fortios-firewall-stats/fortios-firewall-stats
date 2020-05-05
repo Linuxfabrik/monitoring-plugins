@@ -17,7 +17,7 @@ import lib.base
 import lib.url
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020043001'
+__version__ = '2020050501'
 
 DESCRIPTION = """
     Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
@@ -107,34 +107,52 @@ def main():
     policy_count = len(result4['results']) + len(result6['results'])
     total = lib.base.sum_dict(lib.base.sum_lod(
         result4['results']), lib.base.sum_lod(result6['results']))
+    # {
+    #     u'active_sessions': 2
+    #     u'asic_bytes': 0
+    #     u'asic_packets': 0
+    #     u'bytes': 69229872
+    #     u'first_used': 3164897177
+    #     u'hit_count': 828
+    #     u'last_used': 3165744600
+    #     u'nturbo_bytes': 0
+    #     u'nturbo_packets': 0
+    #     u'packets': 1279872
+    #     u'policyid': 11
+    #     u'session_count': 2
+    #     u'session_first_used': 1588147935
+    #     u'session_last_used': 1588169820
+    #     u'software_bytes': 69229872
+    #     u'software_packets': 1279872
+    # }
 
     msg = '{} policies, {} sessions ({} active), {} hits, {} bytes ({} software, {} asic, {} nturbo)'.format(
         policy_count,
-        total['session_count'],
-        total['active_sessions'],
-        total['hit_count'],
-        lib.base.bytes2human(total['bytes']),
-        lib.base.bytes2human(total['software_bytes']),
-        lib.base.bytes2human(total['asic_bytes']),
-        lib.base.bytes2human(total['nturbo_bytes']),
+        total.get('session_count', 0),
+        total.get('active_sessions', 0),
+        total.get('hit_count', 0),
+        lib.base.bytes2human(total.get('bytes', 0)),
+        lib.base.bytes2human(total.get('software_bytes', 0)),
+        lib.base.bytes2human(total.get('asic_bytes', 0)),
+        lib.base.bytes2human(total.get('nturbo_bytes', 0)),
     )
     state = STATE_OK
 
     perfdata = ''
     perfdata += lib.base.get_perfdata('total_session_count',
-                                      total['session_count'], None, None, None, 0, None)
+                                      total.get('session_count', 0), None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_active_sessions',
-                                      total['active_sessions'], None, None, None, 0, None)
+                                      total.get('active_sessions', 0), None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_hit_count',
-                                      total['hit_count'], None, None, None, 0, None)
+                                      total.get('hit_count', 0), None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_bytes',
-                                      total['bytes'], 'B', None, None, 0, None)
+                                      total.get('bytes', 0), 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_software_bytes',
-                                      total['software_bytes'], 'B', None, None, 0, None)
+                                      total.get('software_bytes', 0), 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_asic_bytes',
-                                      total['asic_bytes'], 'B', None, None, 0, None)
+                                      total.get('asic_bytes', 0), 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('total_nturbo_bytes',
-                                      total['nturbo_bytes'], 'B', None, None, 0, None)
+                                      total.get('nturbo_bytes', 0), 'B', None, None, 0, None)
 
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

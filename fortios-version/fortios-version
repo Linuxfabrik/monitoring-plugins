@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042301'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050501'
 
 DESCRIPTION = ''
 
@@ -32,48 +32,48 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('-H', '--hostname', 
-        help = 'FortiOS-based Appliance address.',
-        dest = 'HOSTNAME',
+        help='FortiOS-based Appliance address.',
+        dest='HOSTNAME',
         required = True,
         )
 
     parser.add_argument('--insecure',
-        help = 'This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
-        dest = 'INSECURE',
-        action = 'store_true',
-        default = DEFAULT_INSECURE,
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
         )
 
     parser.add_argument('--no-proxy',
-        help = 'Do not use a proxy. Default: %(default)s',
-        dest = 'NO_PROXY',
-        action = 'store_true',
-        default = DEFAULT_NO_PROXY,
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
         )
 
     parser.add_argument('--password',
-        help = 'FortiOS REST API Single Access Token.',
-        dest = 'PASSWORD',
+        help='FortiOS REST API Single Access Token.',
+        dest='PASSWORD',
         required = True,
         )
 
     parser.add_argument('--timeout',
-        help = 'Network timeout in seconds. Default: %(default)s (seconds)',
-        dest = 'TIMEOUT',
-        type = int,
-        default = DEFAULT_TIMEOUT,
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
         )
 
     return parser.parse_args()
@@ -90,7 +90,11 @@ def main():
     result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     installed_version = result['results']['current']['version'].replace('v', '')
-    latest_version = result['results']['available'][0]['version'].replace('v', '')
+    if len(result['results']['available']) > 0:
+        latest_version = result['results']['available'][0]['version'].replace('v', '')
+    else:
+        # no available version found, assume 0.0.0
+        latest_version = '0.0.0'
 
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
         lib.base.oao('{} v{} is up to date'.format(result['results']['current']['name'], installed_version), STATE_OK)

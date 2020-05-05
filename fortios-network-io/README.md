@@ -1,6 +1,6 @@
 # Check "fortios-network-io" - Overview
 
-This plugin checks network I/O and interface link states on Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns on link up/down, speed or duplex change as well as bandwidth saturation. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+This plugin checks network I/O and link states on all interfaces found on a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns on link up/down, speed or duplex change as well as bandwidth saturation. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 Hints and Recommendations:
 * `--count=5` (the default) while checking every minute means that the check reports a warning if any interface was above a threshold in the last 5 minutes.
@@ -28,69 +28,13 @@ We recommend to run this check every minute.
 
 # Perfdata
 
-Depends on your hardware - as an example:
+Depends on your hardware. Example:
 
-* fan.fan1
-* fan.fan2
-* fan.fan3
-* fan.fan4
-* fan.fan5
-* fan.fan6
-* fan.ps1_fan_1
-* fan.ps2_fan_1
-* temperature.cpu_0_core_0
-* temperature.cpu_0_core_1
-* temperature.cpu_0_core_2
-* temperature.cpu_0_core_3
-* temperature.cpu_0_core_4
-* temperature.cpu_0_core_5
-* temperature.cpu_0_core_6
-* temperature.cpu_0_core_7
-* temperature.cpu_1_core_0
-* temperature.cpu_1_core_1
-* temperature.cpu_1_core_2
-* temperature.cpu_1_core_3
-* temperature.cpu_1_core_4
-* temperature.cpu_1_core_5
-* temperature.cpu_1_core_6
-* temperature.cpu_1_core_7
-* temperature.dts_cpu0
-* temperature.dts_cpu1
-* temperature.ps1_temp
-* temperature.ps2_temp
-* temperature.td1
-* temperature.td2
-* temperature.td3
-* temperature.td4
-* temperature.ts1
-* temperature.ts2
-* temperature.ts3
-* temperature.ts4
-* temperature.ts5
-* voltage.+12v
-* voltage.+3.3vsb
-* voltage.+3.3vsb_smc
-* voltage.3vdd
-* voltage.cpu0_pvccin
-* voltage.cpu1_pvccin
-* voltage.mac_1.025v
-* voltage.mac_avs_1v
-* voltage.p1v05_pch
-* voltage.p3v3_aux
-* voltage.ps1_vin
-* voltage.ps1_vout_12v
-* voltage.ps2_vin
-* voltage.ps2_vout_12v
-* voltage.pvccio
-* voltage.pvddq_ab
-* voltage.pvddq_ef
-* voltage.pvtt_ab
-* voltage.pvtt_cd
-* voltage.pvtt_gh
-* voltage.vcc1.15v
-* voltage.vcc2.5v
-* voltage.vcc3v3
-* voltage.vcc5v
+* modem_rx1: Received bytes on this interface since the last check
+* modem_tx1: Sent bytes since the last check
+* modem_rxn: Received bytes since the last n checks (default: 5)
+* modem_txn: Sent bytes since the last n checks
+* ...
 
 
 # Credits, License

@@ -1,6 +1,6 @@
 # Check "fortios-memory-usage" - Overview
 
-Returns the current system-wide memory utilization as a percentage from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Returns the current system-wide memory utilization as a percentage from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 Hints and Recommendations:
 * This plugin tries to check against the global configured `memory-use-threshold-green` and `memory-use-threshold-red` first; only if there is no value, the check's command line values are used.

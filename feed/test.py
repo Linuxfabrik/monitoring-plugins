@@ -11,11 +11,11 @@
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020050101'
 
-DESCRIPTION = 'Warns on the newest feed items of an RSS or Atom feed for a given amount of time.'
+DESCRIPTION = 'Warns on the newest feed item of an RSS or Atom feed for a given amount of time.'
 
 DEFAULT_FEED_URL = 'https://www.heise.de/security/rss/alert-news-atom.xml'
 DEFAULT_NO_SUMMARY = False
-DEFAULT_WARN = 4*24*60 # 4 days in minutes
+DEFAULT_WARN = 96*60  # 96h in minutes
 
 
 #====================
@@ -25,11 +25,6 @@ import lib.base
 import lib.icinga
 
 import argparse
-try:
-    import feedparser
-except ImportError as e:
-    print('Python module "feedparser" is not installed.')
-    exit(STATE_UNKNOWN)
 import time
 from traceback import print_exc
 
@@ -124,19 +119,23 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    feed_item = fetch_feed_last_entry(args.FEED_URL)
-    delta = lib.base.now() - time.mktime(feed_item.get('updated_parsed', lib.base.now()))     # in seconds, float
+    # lets have a look if the check shows a warning and/or was acknowledged
+    result = lib.base.coe(lib.icinga.get_service(args.ICINGA_URL, args.ICINGA_USERNAME, args.ICINGA_PASSWORD, servicename=args.ICINGA_SERVICE_NAME, attrs='acknowledgement,state'))
+    print(result['results'][0]['attrs'])
+    print('--------')
 
-    if args.NO_SUMMARY:
-        msg = '{} ({} ago)'.format(feed_item.get('title', 'No title').encode('utf-8').strip(), lib.base.seconds2human(delta))
-    else:
-        msg = '{}: {} ({} ago)'.format(feed_item.get('title', 'No title').encode('utf-8').strip(), feed_item.get('summary', 'No summary').encode('utf-8').strip(), lib.base.seconds2human(delta))
 
-    state = STATE_OK
-    if delta/60 < args.WARN:
-        state = STATE_WARN
 
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    result = lib.base.coe(lib.icinga.remove_ack(args.ICINGA_URL, args.ICINGA_USERNAME, args.ICINGA_PASSWORD, objectname='p1-db01.linuxfabrik.it!XCA - net74'))
+    print(result)
+    print('--------')
+
+    result = lib.base.coe(lib.icinga.remove_ack(args.ICINGA_URL, args.ICINGA_USERNAME, args.ICINGA_PASSWORD, objectname='p1-cloud01.linuxfabrik.it!Nextcloud Stats'))
+    print(result)
+    print('--------')
+
+
+    exit()
 
 
 if __name__ == '__main__':

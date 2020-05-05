@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020042501'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'Return battery status information. If no battery is installed or metrics can’t be determined OK is returned.'
 
@@ -25,7 +25,7 @@ import lib.base
 import argparse
 try:
     import psutil
-except ImportError, e:
+except ImportError as e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 from traceback import print_exc
@@ -35,29 +35,29 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold for battery power left as a percentage. Default: %(default)s',
-        dest = 'CRIT',
-        type = int,
-        default = DEFAULT_CRIT,
+        help='Set the critical threshold for battery power left as a percentage. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
         )
     
     parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold for battery power left as a percentage. Default: %(default)s',
-        dest = 'WARN',
-        type = int,
-        default = DEFAULT_WARN,
+        help='Set the warning threshold for battery power left as a percentage. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
         )
 
     return parser.parse_args()

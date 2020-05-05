@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020041701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'This check is some kind of user interface for smartctl, which is a tool for querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in hard disk and solid-state drives. It allows you to inspect the drive\'s SMART data to determine its health.'
 
@@ -36,22 +36,22 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('--ignore',
-        help = 'A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'. Default: %(default)s',
-        dest = 'IGNORE',
-        type = lib.args.csv,
-        default = DEFAULT_IGNORE,
+        help='A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'. Default: %(default)s',
+        dest='IGNORE',
+        type=lib.args.csv,
+        default=DEFAULT_IGNORE,
         )
 
     return parser.parse_args()
@@ -87,7 +87,7 @@ def main():
     checkdata = []
     perfdata = ''
     for line in stdout.splitlines():
-        disk, disk_type = line.split()
+        disk, disk_type=line.split()
         disk = disk.decode()
         if disk not in IGNORE and b'disk' in disk_type:
             formatted_command_smartctl = command_smartctl.format(disk_path='/dev/' + str(disk))

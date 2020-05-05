@@ -1,6 +1,6 @@
 # Check "fortios-sensor" - Overview
 
-The check fetches detailed sensor information from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns automatically by comparing to pre-defined appliance thresholds. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+The check fetches detailed sensor information from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns automatically by comparing to pre-defined appliance thresholds. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 We recommend to run this check every 15 minutes.
 
@@ -21,7 +21,7 @@ We recommend to run this check every 15 minutes.
 
 # Perfdata
 
-Depends on your hardware - as an example:
+Depends on your hardware. Example:
 
 * fan.fan1
 * fan.fan2

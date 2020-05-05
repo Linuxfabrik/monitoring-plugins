@@ -4,6 +4,11 @@ This check warns on the newest feed item of an RSS or Atom feed for a given amou
 
 Please remember to set a reasonable check interval time. Usually it is a waste of bandwidth to poll feeds more often than each hour.
 
+object ApiUser "icinga2-api-plugin-feed" {
+  password = "mypassword"
+  permissions = [ "actions/reschedule-check", "actions/schedule-downtime", "actions/remove-downtime", "actions/generate-ticket", "objects/query/host", "status/query", "objects/query/service" ]
+ }
+
 We recommend to run this check every hour, and in most cases during office hours only. 
 
 

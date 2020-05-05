@@ -1,6 +1,6 @@
 # Check "fortios-version" - Overview
 
-This plugin lets you track if an update for FortiOS is available.
+This plugin lets you track if an FortiOS update for a Forti Appliance like FortiGate is available, using the FortiOS REST API
 
 We recommend to run this check once a day.
 

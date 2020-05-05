@@ -1,6 +1,6 @@
 # Check "fortios-ha-stats" - Overview
 
-Returns statistics for members of HA cluster from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns if the number of HA members is more or less than expected (default: 2). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Returns statistics for members of HA cluster from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns if the number of HA members is more or less than expected (default: 2). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 We recommend to run this check every minute.
 
