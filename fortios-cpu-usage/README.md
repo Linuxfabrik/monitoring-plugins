@@ -1,6 +1,6 @@
 # Check "fortios-cpu-usage" - Overview
 
-Returns the current system-wide CPU utilization as a percentage from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Returns the current system-wide CPU utilization as a percentage from a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 Hints and Recommendations:
 * This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check's command line values (or their defaults) are used.

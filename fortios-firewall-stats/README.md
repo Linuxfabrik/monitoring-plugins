@@ -1,6 +1,6 @@
 # Check "fortios-firewall-stats" - Overview
 
-Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like a Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
 
 We recommend to run this check every minute.
 
