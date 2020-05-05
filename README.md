@@ -101,7 +101,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020050101
+2020050501
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -124,6 +124,7 @@ file-ownership                | 7, 8     | 30+      | 16, 20   | yes        |   
 file-size                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 25M                            | >= 1G
 fortios-cpu-usage             | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | 5x >= cpu-use-threshold/80%       | 5x >= 90%
 fortios-firewall-stats        | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
+fortios-ha-stats              | 7, 8     | 30+      | 16, 20   |            |                          |        |      | cluster members != expected       | -
 fortios-memory-usage          | 7, 8     | 30+      | 16, 20   |            |                          |        |      | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
 fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 800mbps, link changes          | >= 900mbps, link changes
 fortios-sensor                | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
