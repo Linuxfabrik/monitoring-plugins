@@ -22,26 +22,28 @@ Don't forget to run `/usr/sbin/update-smart-drivedb` from time to time to get th
 # Installation and Usage
 
 Requirements:
-* `smartctl` from `smartmontools`
+* `smartctl` >= 6.5 from `smartmontools`
+
+Use `--full` to get also a warning for notices.
 
 ```bash
 ./disk-smart
-./disk-smart --ignore sdd,sdbx,mmcblk0
+./disk-smart --ignore sdd,sdbx,mmcblk0 --full
 ./disk-smart --help
 ```
 
 
 # States
 
-CRIT, when SMART reports:
-* Overall Health Self-Assessment Test: FAILED!
-* Attribute list: failing pre-fail attribute
-* Error Log: "Address mark not found"
-* Error Log: "Identity not found"
-* Error Log: "Track 0 not found"
-* Error Log: "Uncorrectable error in data"
+CRIT, if SMART reports
 
-WARN, when SMART reports any other issue.
+* any messages in subsection "health"
+* drive has a failing pre-fail attribute
+* "Address mark not found" in subsection "error_log"
+* "Identity not found" in subsection "error_log"
+* "Track 0 not found" in subsection "error_log"
+* "Uncorrectable error in data" in subsection "error_log"
+* SMART status check returned DISK FAILING
 
 UNKNOWN on `smartctl` not found, errors running `smartctl`, SMART not
 available or not supported.
