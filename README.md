@@ -101,7 +101,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020050501
+2020050601
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -111,7 +111,7 @@ borgbackup                    | 7, 8     | 30+      | 16, 20   |            |   
 countdown                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | 50 days                           | 30 days
 cpu-usage                     | 7, 8     | 30+      | 16, 20   |            | psutil                   | yes    | yes  | 5x >= 80%                         | 5x >= 90%
 disk-io                       | 7, 8     | no       | 16, 20   |            | psutil                   | yes    |      | 5x >= 60 mb/sec                   | 5x >= 100 mb/sec
-disk-smart                    | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
+disk-smart                    | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | _complex_                         | _complex_
 disk-usage                    | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 90%                            | >= 95%
 dmesg                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | -                                 | dmesg == emerg,alert,crit,err
 dns                           | 7, 8     | 30+      | 16, 20   |            |                          |        |      | socket or address related errors  | -
