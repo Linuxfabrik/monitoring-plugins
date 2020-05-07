@@ -222,11 +222,13 @@ To further improve code quality, we recently started using [Pylint](https://www.
 Implementing tests:
 
 * Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
-* To test a check that needs to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+* To test a check that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in `examples` and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
-Running tests:
+Have a look at the `fs-ro` check on how to do this.
+
+Running a complete unit test:
 
 ```bash
 # cd into the check directory and run:
-python2 test
+./test
 ```
