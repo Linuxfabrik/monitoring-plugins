@@ -20,7 +20,7 @@ We recommend to run this check every 1 minute.
 
 # Perfdata
 
-* systemd-units-failed: Number of faild units
+* systemd-units-failed: Number of failed units
 
 
 # Credits, License
