@@ -15,7 +15,7 @@ We recommend to run this check every 1 minute.
 
 # States
 
-* WARN if at least unit has a failed active state or failed sub state.
+* WARN if at least one unit has a failed active state or failed sub state.
 
 
 # Perfdata
