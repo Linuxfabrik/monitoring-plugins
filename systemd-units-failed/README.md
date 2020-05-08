@@ -1,6 +1,6 @@
 # Check "systemd-units-failed" - Overview
 
-This plugin warns on any `systemd` unit file which is in a failed state (wether active state or sub state).
+This plugin warns on any `systemd` unit file which is in a failed state (whether active state or sub state).
 
 We recommend to run this check every 1 minute.
 
