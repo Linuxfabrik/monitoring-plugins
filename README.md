@@ -101,7 +101,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020050701
+2020050801
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -162,6 +162,7 @@ sensors-fans                  | 7, 8     | 30+      | 16, 20   |            | ps
 sensors-temperatures          | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | sensor temp >= hardware threshold | sensor temp >= hardware threshold
 swap-usage                    | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | >= 70%                            | >= 90%
 systemd-unit                  | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | -
+systemd-units-failed          | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | >= 1 unit in failed act/sub state | -
 top3-most-memory-consuming-p  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | -                                 | -
 top3-processes-opening-more-  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | -                                 | -
 top3-processes-which-caused-  | 7, 8     | 30+      | 16, 20   |            | psutil                   |        |      | -                                 | -
