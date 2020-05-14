@@ -97,7 +97,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020050801
+2020051401
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -113,7 +113,7 @@ dmesg                         | 7, 8     | 30+      | 16, 20   | yes        |   
 dns                           | 7, 8     | 30+      | 16, 20   |            |                          |        |      | socket or address related errors  | -
 fah-stats                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
 fail2ban                      | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 1000 banned ips                | >= 10000 banned ips
-feed                          | 7        | 30+      | 16       |            | feedparser               |        |      | 2h on new entries                 | -
+feed                          | 7        | 30+      | 16       |            | feedparser               |        |      | 3d on new entries                 | -
 file-age                      | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 30d                            | >= 365d
 file-descriptors              | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | >= 90%                            | >= 95%
 file-ownership                | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
