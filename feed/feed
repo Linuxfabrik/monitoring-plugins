@@ -21,7 +21,7 @@ import lib.icinga
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020051401'
+__version__ = '2020051402'
 
 DESCRIPTION = '''Warns on the newest feed item of an RSS or Atom feed. Does not warn any longer
     if you acknowledge it in Icingaweb2, and/or if a given amount of time is over.'''
@@ -166,6 +166,8 @@ def get_feed_state(feed_id, delta, args):
     """
 
     if delta < args.WARN*60:
+        if args.NO_ICINGA_CALLBACK:
+            return STATE_WARN
         cached_item = lib.cache.get('feed-{}'.format(feed_id), as_dict=True)
         if cached_item:
             if cached_item['value'] == 'acked':
