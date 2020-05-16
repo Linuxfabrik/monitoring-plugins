@@ -97,7 +97,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020051401
+2020051402
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -122,7 +122,7 @@ fortios-cpu-usage             | 7, 8     | 30+      | 16, 20   |            |   
 fortios-firewall-stats        | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
 fortios-ha-stats              | 7, 8     | 30+      | 16, 20   |            |                          |        |      | cluster members != expected       | -
 fortios-memory-usage          | 7, 8     | 30+      | 16, 20   |            |                          |        |      | > memory-use-threshold-green/82%  | > memory-use-threshold-red/88%
-fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 800mbps, link changes          | >= 900mbps, link changes
+fortios-network-io            | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | >= 800mbps, link changes          | >= 900mbps, link changes
 fortios-sensor                | 7, 8     | 30+      | 16, 20   |            |                          |        |      | _complex_                         | _complex_
 fortios-version               | 7, 8     | 30+      | 16, 20   |            |                          |        |      | update avail.                     | -
 fs-file-usage                 | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 90%                            | >= 95%
