@@ -97,7 +97,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020051402
+2020052601
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -132,6 +132,7 @@ getent                        | 7, 8     | 30+      | 16, 20   | yes        |   
 hostname-fqdn                 | 7, 8     | 30+      | 16, 20   |            |                          |        |      | invalid fqdn                      | -
 ipmi-sel                      | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | any entries found                 | -
 ipmi-sensor                   | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
+kemp-services                 | 7, 8     | 30+      | 16, 20   |            |                          |        |      | service == "down"                 | -
 kvm-vm                        | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | idle, paused, pmsuspended vm      | crashed vm
 load                          | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | >= 1.15 load15                    | >= 5.00 load15
 mailq                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | >= 2 mails                        | >= 250 mails
