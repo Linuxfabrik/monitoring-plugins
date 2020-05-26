@@ -66,20 +66,20 @@ What you need:
 * Required: Install Python2, for example by using `dnf install python2`
 * After that, most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
-  `dnf install epel-release; dnf install python2-psutil`.
+  `dnf install epel-release; dnf install python2-psutil`
 
 **CentOS 7**
 
 * Most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
-  `yum install epel-release; yum install python2-psutil`.
+  `yum install epel-release; yum install python2-psutil`
 
 **Fedora**
 
 * Required: Install Python2, for example by using `dnf install python2`
 * After that, most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Example:
-  `dnf install python2-psutil`.
+  `dnf install python2-psutil`
 
 **Ubuntu 20**
 
@@ -97,7 +97,7 @@ What you need:
 
 ## Check Plugin Fact Sheet
 
-2020052601
+2020052602
 
 Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
@@ -113,7 +113,7 @@ dmesg                         | 7, 8     | 30+      | 16, 20   | yes        |   
 dns                           | 7, 8     | 30+      | 16, 20   |            |                          |        |      | socket or address related errors  | -
 fah-stats                     | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
 fail2ban                      | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 1000 banned ips                | >= 10000 banned ips
-feed                          | 7        | 30+      | 16       |            | feedparser               |        |      | 3d on new entries                 | -
+feed                          | 7        | 30+      | 16       |            |                          |        |      | 3d on new entries                 | -
 file-age                      | 7, 8     | 30+      | 16, 20   |            |                          |        |      | >= 30d                            | >= 365d
 file-descriptors              | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | >= 90%                            | >= 95%
 file-ownership                | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | _complex_                         | _complex_
