@@ -20,19 +20,25 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0 --hostname localhost --username user --password password'))
-        self.assertRegexpMatches(stdout.splitlines()[0], r'4 Services checked\.')
+        self.assertRegexpMatches(stdout.splitlines()[0], r'4 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE01_with_filter(self):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0 --hostname localhost --username user --password password --filter PROD'))
-        self.assertRegexpMatches(stdout.splitlines()[0], r'3 Services checked\.')
+        self.assertRegexpMatches(stdout.splitlines()[0], r'3 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02(self):
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --hostname localhost --username user --password password'))
-        self.assertRegexpMatches(stdout.splitlines()[0], r'4 Services checked\.')
+        self.assertRegexpMatches(stdout.splitlines()[0], r'4 services checked\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --state crit --test=examples/EXAMPLE02,,0 --hostname localhost --username user --password password'))
+        self.assertRegexpMatches(stdout.splitlines()[0], r'4 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 

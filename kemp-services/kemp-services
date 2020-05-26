@@ -9,23 +9,24 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 import argparse
+import base64
 import sys
 from traceback import print_exc
-import base64
 import xml.etree.ElementTree as ET
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_CRIT
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.args
 import lib.base
 import lib.url
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020052001'
+__version__ = '2020052601'
 
-DESCRIPTION = '''Checks if the status of the virtual services is not Down'''
+DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
+DEFAULT_STATE = 'warn'
 DEFAULT_TIMEOUT = 3
 
 def parse_args():
@@ -41,7 +42,7 @@ def parse_args():
 
     parser.add_argument(
         '--filter',
-        help='Only check services that contain this string in their nickName.',
+        help='Only check services that contain this string in their NickName.',
         dest='FILTER',
         type=str,
         )
@@ -56,7 +57,8 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure"'
+        ' SSL connections. Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -75,6 +77,14 @@ def parse_args():
         help='API Password.',
         dest='PASSWORD',
         required=True,
+        )
+
+    parser.add_argument(
+        '--state',
+        help='The state that has to be returned. Default: %(default)s',
+        dest='STATE',
+        default=DEFAULT_STATE,
+        choices=['warn', 'crit'],
         )
 
     parser.add_argument(
@@ -117,15 +127,20 @@ def main():
 
     if args.TEST is None:
         # get the values the normal way
-        # stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD))
+        # stdout, stderr, retc = lib.base.shell_exec(CMD)
         url = 'https://{}/access/listvs'.format(args.HOSTNAME)
         header = {
-            'Authorization': "Basic {}".format(base64.b64encode(args.USERNAME + ':' + args.PASSWORD))
+            'Authorization': "Basic {}".format(
+                base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
+                )
         }
-        result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT, header=header))
+        result = lib.base.coe(lib.url.fetch(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT, header=header
+            ))
     else:
         # do not call the command, put in test data
-        result, stdout, retc = lib.base.test(args.TEST)
+        result, stderr, retc = lib.base.test(args.TEST)
 
     state = STATE_OK
     count = 0
@@ -136,24 +151,25 @@ def main():
         if not args.FILTER or args.FILTER in name:
             count += 1
             status = service.find('Status').text
-            srv_state = STATE_OK if status != 'Down' else STATE_CRIT
+            service_state = STATE_OK if status.lower() != 'down' else \
+                STATE_WARN if args.STATE == 'warn' else STATE_CRIT
             table.append({
                 'name': name,
-                'state': lib.base.state2str(srv_state, empty_ok=False),
+                'state': lib.base.state2str(service_state, empty_ok=False),
                 })
-            state = lib.base.get_worst(state, srv_state)
+            state = lib.base.get_worst(state, service_state)
 
     # create the message
     msg = '{} {} checked. '.format(
         count,
-        lib.base.pluralize('Service', count),
+        lib.base.pluralize('service', count),
         )
 
     if len(table) > 0:
         msg += '\n\n' + lib.base.get_table(
             table,
             ['name', 'state'],
-            header=['nickName', 'State'],
+            header=['NickName', 'State'],
             )
 
     lib.base.oao(msg, state)
