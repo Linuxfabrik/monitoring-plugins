@@ -66,20 +66,20 @@ What you need:
 * Required: Install Python2, for example by using `dnf install python2`
 * After that, most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
-  `dnf install epel-release; dnf install python2-psutil`.
+  `dnf install epel-release; dnf install python2-psutil`
 
 **CentOS 7**
 
 * Most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
-  `yum install epel-release; yum install python2-psutil`.
+  `yum install epel-release; yum install python2-psutil`
 
 **Fedora**
 
 * Required: Install Python2, for example by using `dnf install python2`
 * After that, most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Example:
-  `dnf install python2-psutil`.
+  `dnf install python2-psutil`
 
 **Ubuntu 20**
 
