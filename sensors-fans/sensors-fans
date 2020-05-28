@@ -1,0 +1,101 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
+
+DESCRIPTION = 'Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).'
+
+DEFAULT_WARN  = 10000      # RPM
+DEFAULT_CRIT  = 20000      # RPM
+
+
+#====================
+from lib.globals import *
+
+import lib.base
+
+import argparse
+try:
+    import psutil
+except ImportError as e:
+    print('Python module "psutil" is not installed.')
+    exit(STATE_UNKNOWN)
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('-c', '--critical',
+        help='Set the critical threshold for fan speed in RPM. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+    
+    parser.add_argument('-w', '--warning',
+        help='Set the warning threshold for fan speed in RPM. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    if not hasattr(psutil, 'sensors_fans'):
+        lib.base.oao('Platform not supported.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    fans = psutil.sensors_fans()
+    if not fans:
+        lib.base.oao('No fans detected.', STATE_OK, always_ok=args.ALWAYS_OK)
+
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    for name, entries in fans.items():
+        msg += '{}: '.format(name)
+        for entry in entries:
+            perfdata += lib.base.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, args.WARN, args.CRIT, 0, None)
+            sensor_state = lib.base.get_state(entry.current, args.WARN, args.CRIT, 'ge')
+            msg += '{} = {} RPM{}, '.format(entry.label or name, entry.current, lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
+            state = lib.base.get_worst(state, sensor_state)
+        msg = msg[:-2] + '; '
+
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

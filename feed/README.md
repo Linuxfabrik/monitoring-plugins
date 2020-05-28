@@ -2,15 +2,36 @@
 
 This check warns on the newest feed item of an RSS or Atom feed for a given amount of time.
 
-Please remember to set a reasonable check interval time. Usually it is a waste of bandwidth to poll feeds more often than each hour.
+To enable the check plugin to get the ACK status from Icinga, you have to create an Icinga API User like so:
 
-We recommend to run this check every hour, and in most cases during office hours only. 
+```
+object ApiUser "linuxfabrik-check-api-user" {
+  password = "mysupersecretpassword"
+  permissions = [ "objects/query/service" ]
+}
+```
+
+Please remember to set a reasonable check interval time. Usually it is a waste of bandwidth to poll feeds more often than each hour.
 
 
 # Installation and Usage
 
 Requirements:
-* Python2 module `feedparser`
+* Python2 module `BeautifulSoup4` (Version 4) with `lxml`
+
+Where to get it:
+* CentOS 8: `dnf install python2-beautifulsoup4`
+* CentOS 7: `yum install python-beautifulsoup4`
+* On Fedora and Ubuntu, one way is to download the [Beautiful Soup 4 source tarball](https://www.crummy.com/software/BeautifulSoup/bs4/download/4.0/beautifulsoup4-4.1.0.tar.gz) and install it with `python2 setup.py install`.
+
+```bash
+./feed
+./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --no-icinga-callback --warn 1440
+./feed --icinga-url https://icinga-host:5665 --icinga-username linuxfabrik-check-api-user --icinga-password mysupersecretpassword --icinga-service-name 'icinga-host!Feed Service Name' --url https://www.heise.de/security/rss/alert-news-atom.xml
+./feed --help
+```
+
+Feed examples:
 
 Heise Security Feed (German):
 * Feed: https://www.heise.de/security/rss/alert-news-atom.xml
@@ -26,16 +47,9 @@ Icinga2 Releases Feed on GitHub:
 * `./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --warn 1440`
 
 
-```bash
-./feed
-./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --warn 1440
-./feed --help
-```
-
-
 # States
 
-* WARN if newest feed item is not older than a given threshold.
+* WARN if newest feed item is not acknowledged and not older than a given threshold.
 * Otherwise always returns OK.
 
 
@@ -48,5 +62,3 @@ There is no perfdata.
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
 * License: The Unlicense, see LICENSE file.
-* Credits:
-  - https://github.com/jrottenberg/check_rss/blob/master/check_rss.py

@@ -1,6 +1,8 @@
 # Check "mailq" - Overview
 
-Checks the mail queue.
+Checks the mail queue. Tested with Postfix and Exim.
+
+Regarding Exim: _By default, `exim -bq` (`mailq`) can be used only by an admin user. However, the `queue_list_requires_admin` option can be set false to allow any user to see the queue._ Alternatively, add the icinga user to the exim group.
 
 We recommend to run this check every 5 minutes.
 
@@ -25,7 +27,7 @@ Requirements:
 
 # Perfdata
 
-* Mails in mail queue
+* mailq: Mails in mail queue
 
 
 # Credits, License

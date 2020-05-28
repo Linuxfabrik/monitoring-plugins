@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server.'
 
@@ -36,47 +36,47 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '%(prog)s: v{} by {}'.format(__version__, __author__)
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('--insecure',
-        help = 'This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
-        dest = 'INSECURE',
-        action = 'store_true',
-        default = DEFAULT_INSECURE,
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
         )
 
     parser.add_argument('--no-proxy',
-        help = 'Do not use a proxy. Default: %(default)s',
-        dest = 'NO_PROXY',
-        action = 'store_true',
-        default = DEFAULT_NO_PROXY,
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
         )
 
     parser.add_argument('--password',
-        help = 'Nextcloud API password.',
-        dest = 'PASSWORD',
+        help='Nextcloud API password.',
+        dest='PASSWORD',
         required = True,
         )
 
     parser.add_argument('--url',
-        help = 'Nextcloud API URL. Default: %(default)s',
-        dest = 'URL',
-        default = DEFAULT_URL,
+        help='Nextcloud API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
         )
 
     parser.add_argument('--username',
-        help = 'Nextcloud API username. Default: %(default)s',
-        dest = 'USERNAME',
-        default = DEFAULT_USERNAME,
+        help='Nextcloud API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
         )
 
     return parser.parse_args()
@@ -160,7 +160,7 @@ def main():
 
     # let's do some checks
     if nc_system_apps_app_updates:
-        msg += 'There are {} app updates available. '.format(nc_system_apps_num_updates_available)
+        msg += 'There {} {} app {} available. '.format(lib.base.pluralize('', nc_system_apps_num_updates_available, 'is,are'), nc_system_apps_num_updates_available, lib.base.pluralize('update', nc_system_apps_num_updates_available))
         if not args.ALWAYS_OK:
             state = STATE_WARN
 

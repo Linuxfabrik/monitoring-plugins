@@ -62,6 +62,8 @@ For all other options, use long parameters only. We recommend using some of thos
     --database
     --depth
     --filename
+    --filter
+    --full
     --ignore
     --input
     --insecure
@@ -69,6 +71,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --interval
     --key
     --loadstate
+    --metric
     --mode
     --mount
     --no-kthreads
@@ -196,16 +199,37 @@ Perfdata value-suffixes:
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
 
+## PEP8 Sytle Guide for Python Code
+
+We recently started to use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/).
+
+
+## docstring, pydoc
+
+Not long ago we started to document our [Check Plugin Libraries](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) using docstrings, so that calling `pydoc lib/base.py` works, for example.
+
+
+## Pylint
+
+To further improve code quality, we recently started using [Pylint](https://www.pylint.org/) with pure `pylint` for the libraries, and with `pylint --disable=C0103,C0114,C0116` for the check plugins, on a more regular basis. The parameter disables warnings for
+
+* non-conformance to snake_case naming style
+* missing module docstring
+* missing function or method docstring
+
+
 ## Unit Tests
 
 Implementing tests:
 
 * Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
-* To test a check that needs to run some tools that aren't on your machine, provide an `examples` stdout file and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+* To test a check that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in `examples` and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
-Running tests:
+Have a look at the `fs-ro` check on how to do this.
+
+Running a complete unit test:
 
 ```bash
 # cd into the check directory and run:
-python2 test
+./test
 ```

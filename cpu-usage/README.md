@@ -6,7 +6,7 @@ Hints and Recommendations:
 * We check system-wide CPU stats, not per-CPU.
 * `--count=5` (the default) while checking every minute means that the check reports a warning if any of `user`, `system`, `iowait` or overall `cpu-usage` was above a threshold in the last 5 minutes.
 * Check needs at least 250ms to run.
-* Check uses a SQLite database in `/tmp` to store its historic data.
+* Check uses a SQLite database in `/tmp` to store its historical data.
 
 We recommend to run this check every minute.
 

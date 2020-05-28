@@ -1,0 +1,98 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
+
+DESCRIPTION = 'Return battery status information. If no battery is installed or metrics can’t be determined OK is returned.'
+
+DEFAULT_WARN  = 20      # %
+DEFAULT_CRIT  = 5       # %
+
+
+#====================
+from lib.globals import *
+
+import lib.base
+
+import argparse
+try:
+    import psutil
+except ImportError as e:
+    print('Python module "psutil" is not installed.')
+    exit(STATE_UNKNOWN)
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('-c', '--critical',
+        help='Set the critical threshold for battery power left as a percentage. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+    
+    parser.add_argument('-w', '--warning',
+        help='Set the warning threshold for battery power left as a percentage. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    if not hasattr(psutil, 'sensors_battery'):
+        lib.base.oao('Platform not supported.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    batt = psutil.sensors_battery()
+    if batt is None:
+        lib.base.oao('No battery installed.', STATE_OK, always_ok=args.ALWAYS_OK)
+
+    msg = '{}%'.format(round(batt.percent, 2))
+    if batt.power_plugged:
+        msg += ' (plugged in and {})'.format('charging' if batt.percent < 100 else 'fully charged')
+    else:
+        msg += ' Left: {} '.format(lib.base.seconds2human(batt.secsleft))
+        msg += '(not plugged in and discharging)'
+
+    perfdata = lib.base.get_perfdata('battery_percent', batt.percent, '%', args.WARN, args.CRIT, 0, 100)
+    state = lib.base.get_state(batt.percent, args.WARN, args.CRIT, 'le')
+
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

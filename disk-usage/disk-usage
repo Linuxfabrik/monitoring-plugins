@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -24,7 +24,7 @@ import lib.base
 import argparse
 try:
     import psutil
-except ImportError, e:
+except ImportError as e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 from traceback import print_exc
@@ -34,29 +34,29 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('-c', '--critical',
-        help = 'Set the critical threshold partition usage percentage. Default: %(default)s',
-        dest = 'CRIT',
-        type = int,
-        default = DEFAULT_CRIT,
+        help='Set the critical threshold partition usage percentage. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
         )
-    
+
     parser.add_argument('-w', '--warning',
-        help = 'Set the warning threshold partition usage percentage. Default: %(default)s',
-        dest = 'WARN',
-        type = int,
-        default = DEFAULT_WARN,
+        help='Set the warning threshold partition usage percentage. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
         )
 
     return parser.parse_args()
@@ -76,6 +76,11 @@ def main():
 
     parts = psutil.disk_partitions(all=False)
     for part in parts:
+        # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
+        # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
+        if part.fstype == 'squashfs' or part.fstype == 'iso9660':
+            # ignore `/snap` and iso mountpoints, for example
+            continue
         usage = psutil.disk_usage(part.mountpoint)
 
         disk_state = lib.base.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
@@ -89,14 +94,15 @@ def main():
 
         table_data.append({
             'mountpoint': '{} {}'.format(part.mountpoint, lib.base.state2str(disk_state)),
+            'type': '{}'.format(part.fstype),
             'used': lib.base.bytes2human(usage.used),
             'total': lib.base.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 
     table = lib.base.get_table(table_data, 
-        ['mountpoint', 'used', 'total', 'percent'], 
-        ['mountpoint', 'used', 'total', 'percent'], 
+        ['mountpoint', 'type', 'used', 'total', 'percent'], 
+        ['mountpoint', 'type', 'used', 'total', 'percent'], 
         'percent'
         )
 

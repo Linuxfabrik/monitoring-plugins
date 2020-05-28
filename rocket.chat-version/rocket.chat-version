@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available. Requires a user with strong password and "view-statistics" permission (only).'
 
@@ -39,17 +39,17 @@ def parse_args():
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('--cache-expire',
-        help = 'The amount of time after which the update check cache expires, in hours. Default: %(default)s',
-        dest = 'CACHE_EXPIRE',
-        type = int,
-        default = DEFAULT_CACHE_EXPIRE,
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
         )
 
     parser.add_argument('-p', '--password',
@@ -76,12 +76,12 @@ def parse_args():
 
 def get_latest_version(expire):
     # get version online, but first from cache
-    latest_version = lib.cache.get('rocket.chat-version')
+    latest_version=lib.cache.get('rocket.chat-version')
     if latest_version:
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
+    success, latest_version=lib.url.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
     if not success:
         return (success, latest_version)
     
@@ -103,11 +103,11 @@ def main():
 
     if result.get('statistics', None):
         # version < 3.0.0
-        installed_version = result['statistics']['version']
+        installed_version=result['statistics']['version']
     else:
         # version >= 3.0.0
-        installed_version = result['version']
-    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+        installed_version=result['version']
+    latest_version=lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
 
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
         lib.base.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)

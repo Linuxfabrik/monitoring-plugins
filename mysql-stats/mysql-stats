@@ -8,8 +8,8 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__  = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020040701'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
 
 DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics.'
 
@@ -25,13 +25,13 @@ import lib.base
 import argparse
 try:
     import mysql.connector
-except ImportError, e:
+except ImportError as e:
     print('Python module "mysql.connector" is not installed.')
     exit(STATE_UNKNOWN)
 import os
 try:
     import psutil
-except ImportError, e:
+except ImportError as e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 from traceback import print_exc
@@ -41,38 +41,38 @@ def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
-        action = 'version',
-        version = '{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
     parser.add_argument('--always-ok',
-        help = 'Always returns OK.',
-        dest = 'ALWAYS_OK',
-        action = 'store_true',
-        default = False,
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
         )
 
     parser.add_argument('-H', '--hostname',
-        help = 'MySQL/MariaDB hostname. Default: %(default)s',
-        dest = 'HOSTNAME',
-        default = DEFAULT_HOSTNAME,
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
         )
 
     parser.add_argument('-p', '--password',
-        help = 'Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
-        dest = 'PASSWORD',
+        help='Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
+        dest='PASSWORD',
         required = True,        
         )
 
     parser.add_argument('--port',
-        help = 'MySQL/MariaDB port. Default: %(default)s',
-        dest = 'PORT',
-        default = DEFAULT_PORT,
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
         )
 
     parser.add_argument('-u', '--username',
-        help = 'MySQL/MariaDB username.',
-        dest = 'USERNAME',
+        help='MySQL/MariaDB username.',
+        dest='USERNAME',
         required = True,        
         )
 
@@ -172,16 +172,16 @@ def main():
 
     query = 'select version();'
     cursor.execute(query)
-    version = cursor.fetchone()
+    version=cursor.fetchone()
     if len(version) <1:
         print('You probably did not get enough privileges for running this check.')
         exit(STATE_UNKNOWN)
     
-    version = version[0].split('.')
+    version=version[0].split('.')
     mysqlvermajor = int(version[0])
     mysqlverminor = int(version[1])
     mysqlvermicro = version[2]
-    mysqltype = 'MariaDB' if 'MariaDB' in mysqlvermicro else 'MySQL'
+    mysqltype='MariaDB' if 'MariaDB' in mysqlvermicro else 'MySQL'
 
 
     # https://dev.mysql.com/doc/refman/8.0/en/show-variables.html
