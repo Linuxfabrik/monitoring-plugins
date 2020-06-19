@@ -50,9 +50,9 @@ $ tree /usr/lib64/nagios/plugins/
 |-- about-me
 |-- ...
 |-- lib
-|   |-- globals.py
-|   |-- ...
-|   |-- ...
+|   |-- globals.py
+|   |-- ...
+|   |-- ...
 |-- ...
 ```
 
@@ -93,6 +93,14 @@ What you need:
 * After that, most of the checks will run out of the box.
 * Optional: Install 3rd party Python modules if a check requires them. Example:
   `apt install python-psutil`
+
+
+## Reporting Issues
+
+For now, there are two ways:
+
+1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
+2. Create an account on https://git.linuxfabrik.ch and [submit an issue](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/issues/new)
 
 
 ## Check Plugin Fact Sheet

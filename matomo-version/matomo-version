@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020060301'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -62,7 +62,7 @@ def parse_args():
 
 def get_installed_version(path):
     # matomo/Version.php: const version='3.13.4';
-    success, matomo_version=lib.disk.grep_file(path + '/core/Version.php', r"N = '(.*?)'")
+    success, matomo_version = lib.disk.grep_file(path + '/core/Version.php', r"N = '(.*?)'")
     if not success:
         return (success, matomo_version)
     if matomo_version:
@@ -74,12 +74,12 @@ def get_installed_version(path):
 
 def get_latest_version(expire):
     # get version online, but first from cache
-    latest_version=lib.cache.get('matomo-version')
+    latest_version = lib.cache.get('matomo-version')
     if latest_version:
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version=lib.url.get_latest_version_from_github('matomo-org', 'matomo')
+    success, latest_version = lib.url.get_latest_version_from_github('matomo-org', 'matomo')
     if not success:
         return (success, latest_version)
 
@@ -99,8 +99,8 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    installed_version=lib.base.coe(get_installed_version(args.PATH))
-    latest_version=lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+    installed_version = lib.base.coe(get_installed_version(args.PATH))
+    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
 
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
         lib.base.oao('Matomo v{} is up to date'.format(installed_version), STATE_OK)
