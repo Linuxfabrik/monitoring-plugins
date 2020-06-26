@@ -21,14 +21,14 @@ import lib.icinga
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020051402'
+__version__ = '2020062601'
 
 DESCRIPTION = '''Warns on the newest feed item of an RSS or Atom feed. Does not warn any longer
     if you acknowledge it in Icingaweb2, and/or if a given amount of time is over.'''
 
 DEFAULT_FEED_URL = 'https://www.heise.de/security/rss/alert-news-atom.xml'
 DEFAULT_INSECURE = False
-DEFAULT_NO_ICINGA_CALLBACK = True
+DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
@@ -85,11 +85,11 @@ def parse_args():
         )
 
     parser.add_argument(
-        '--no-icinga-callback',
-        help='Do not get the service acknowledgement from Icinga. Default: %(default)s',
-        dest='NO_ICINGA_CALLBACK',
-        action='store_false',
-        default=DEFAULT_NO_ICINGA_CALLBACK,   # True
+        '--icinga-callback',
+        help='Get the service acknowledgement from Icinga. Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,   # False
         )
 
     parser.add_argument(
@@ -166,7 +166,7 @@ def get_feed_state(feed_id, delta, args):
     """
 
     if delta < args.WARN*60:
-        if args.NO_ICINGA_CALLBACK:
+        if not args.ICINGA_CALLBACK:
             return STATE_WARN
         cached_item = lib.cache.get('feed-{}'.format(feed_id), as_dict=True)
         if cached_item:
@@ -198,6 +198,10 @@ def main():
     try:
         args = parse_args()
     except SystemExit as e:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.ICINGA_CALLBACK and (not args.ICINGA_URL or not args.ICINGA_PASSWORD or not args.ICINGA_USERNAME or not args.ICINGA_SERVICE_NAME):
+        print('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name')
         sys.exit(STATE_UNKNOWN)
 
     # get the newest/latest feed item
