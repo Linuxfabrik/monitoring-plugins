@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020062601'
 
 DESCRIPTION = 'Prints a list of all clients connected to the OpenVPN Server'
 
@@ -68,20 +68,30 @@ def main():
     try:
         with open(args.FILENAME, 'rb') as file:
             counter = 0
-            msg_body = ''
+            table = []
             for line in file:
                 if line.startswith('CLIENT_LIST'):
                     counter += 1
                     line = line.split(',')
-                    msg_body += '* {}, ext: {}, int: {}, since: {}\n'.format(line[1], line[2].split(':')[0], line[3], line[7])
+                    table.append({
+                        'name': line[1],
+                        'ext_ip': line[2].split(':')[0],
+                        'int_ip': line[3],
+                        'connection_time': line[7],
+                        })
     except IOError:
         lib.base.oao('Failed to read file {}.'.format(args.FILENAME), STATE_UNKNOWN)
 
     state = lib.base.get_state(counter, args.WARN, args.CRIT)
     perfdata = lib.base.get_perfdata('clients', counter, None, args.WARN, args.CRIT, 0, None)
 
-    msg_header = '{} {} connected to OpenVPN Server.'.format(counter, lib.base.pluralize('user', counter))
-    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata)
+    msg = '{} {} connected to OpenVPN Server.\n\n'.format(counter, lib.base.pluralize('user', counter))
+    msg += lib.base.get_table(
+            table,
+            ['name', 'ext_ip', 'int_ip', 'connection_time'],
+            header=['Common Name', 'External IP', 'Internal IP', 'Connected since'],
+            )
+    lib.base.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':
