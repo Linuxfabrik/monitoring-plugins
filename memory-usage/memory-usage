@@ -8,51 +8,58 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
-
-DESCRIPTION = 'Displays amount of free and used memory in the system, checks against used memory in percent.'
-
-DEFAULT_WARN  = 90  # %
-DEFAULT_CRIT  = 95  # %
-
-#====================
-from lib.globals import *
-
-import lib.base
-
 import argparse
+import sys
+
+from collections import Counter
+from traceback import print_exc
+
+from lib.globals import STATE_UNKNOWN
+
 try:
     import psutil
 except ImportError as e:
     print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
-from traceback import print_exc
+    sys.exit(STATE_UNKNOWN)
+
+import lib.base
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020062601'
+
+DESCRIPTION = 'Displays amount of free and used memory in the system, checks against used memory in percent.'
+
+DEFAULT_WARN = 90  # %
+DEFAULT_CRIT = 95  # %
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
         )
 
-    parser.add_argument('-c', '--critical',
+    parser.add_argument(
+        '-c', '--critical',
         help='Set the critical threshold for memory usage (in percent). Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
         )
-    
-    parser.add_argument('-w', '--warning',
+
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning threshold for memory usage (in percent). Default: %(default)s',
         dest='WARN',
         type=int,
@@ -66,8 +73,8 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     virt = psutil.virtual_memory()
     mem_usage_percent = float(getattr(virt, 'percent', 0))
@@ -79,11 +86,29 @@ def main():
         lib.base.bytes2human(virt.free),
         lib.base.bytes2human(getattr(virt, 'available', 0)),
     )
-    msg_body = 'shared: {}, buffers: {}, cache: {}'.format(
+    msg_body = 'shared: {}, buffers: {}, cache: {}\n\n'.format(
         lib.base.bytes2human(getattr(virt, 'shared', 0)),
         lib.base.bytes2human(getattr(virt, 'buffers', 0)),
         lib.base.bytes2human(getattr(virt, 'cached', 0)),
     )
+
+    cnt = Counter()
+    msg_body += 'Top3 most memory consuming processes:\n'
+    if lib.base.version(psutil.__version__) >= lib.base.version('5.3.0'):
+        try:
+            for p in psutil.process_iter(attrs=['name', 'memory_percent']):
+                cnt[p.info['name']] += p.info['memory_percent']
+        except psutil.NoSuchProcess:
+            pass
+    else:
+        try:
+            for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
+                cnt[p['name']] += p['memory_percent']
+        except psutil.NoSuchProcess:
+            pass
+
+    for i, p in enumerate(cnt.most_common(3)):
+        msg_body += '{}. {}: {:.2f}%\n'.format(i + 1, p[0], p[1])
 
     perfdata =  lib.base.get_perfdata('usage_percent', mem_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base.get_perfdata('total', virt.total, 'B', None, None, 0, virt.total)
@@ -103,4 +128,4 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
