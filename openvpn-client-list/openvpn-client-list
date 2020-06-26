@@ -8,6 +8,15 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals import STATE_UNKNOWN
+
+import lib.base
+
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020062601'
 
@@ -15,41 +24,37 @@ DESCRIPTION = 'Prints a list of all clients connected to the OpenVPN Server'
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
 
-DEFAULT_WARN  = None
-DEFAULT_CRIT  = None
-
-#====================
-from lib.globals import *
-
-import argparse
-from traceback import print_exc
-
-import lib.base
+DEFAULT_WARN = None
+DEFAULT_CRIT = None
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-c', '--critical',
+    parser.add_argument(
+        '-c', '--critical',
         help='Set the critical threshold for the number of connected clients. Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
         )
 
-    parser.add_argument('--filename',
+    parser.add_argument(
+        '--filename',
         help='Set the path of the log filename. Default: %(default)s',
         dest='FILENAME',
         type=str,
         default=DEFAULT_FILENAME,
         )
 
-    parser.add_argument('-w', '--warning',
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning threshold for the number of connected clients. Default: %(default)s',
         dest='WARN',
         type=int,
@@ -62,8 +67,8 @@ def parse_args():
 def main():
     try:
         args = parse_args()
-    except:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     try:
         with open(args.FILENAME, 'rb') as file:
@@ -85,12 +90,16 @@ def main():
     state = lib.base.get_state(counter, args.WARN, args.CRIT)
     perfdata = lib.base.get_perfdata('clients', counter, None, args.WARN, args.CRIT, 0, None)
 
-    msg = '{} {} connected to OpenVPN Server.\n\n'.format(counter, lib.base.pluralize('user', counter))
+    msg = '{} {} connected to OpenVPN Server.\n\n'.format(
+        counter,
+        lib.base.pluralize('user', counter)
+        )
+
     msg += lib.base.get_table(
-            table,
-            ['name', 'ext_ip', 'int_ip', 'connection_time'],
-            header=['Common Name', 'External IP', 'Internal IP', 'Connected since'],
-            )
+        table,
+        ['name', 'ext_ip', 'int_ip', 'connection_time'],
+        header=['Common Name', 'External IP', 'Internal IP', 'Connected since'],
+        )
     lib.base.oao(msg, state, perfdata)
 
 
@@ -99,4 +108,4 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
