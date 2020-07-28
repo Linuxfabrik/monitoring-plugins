@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020072801'
 
 DESCRIPTION = 'This plugin checks the clock offset with the ntp server.'
 
@@ -17,6 +17,7 @@ systemctl_command = 'systemctl is-active --quiet {service}' # ntpd / chronyd
 
 ntpq_command = 'ntpq -p'
 chronyc_command = 'chronyc tracking'
+systemd_timesyncd_command = 'timedatectl timesync-status'
 
 DEFAULT_WARN = 800
 DEFAULT_CRIT = 1001
@@ -77,8 +78,15 @@ def main():
         lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     chronyd_present = True if retc == 0 else False
 
-    if ntpd_present == False and chronyd_present == False:
-        lib.base.oao('Neither ntpd nor chronyd found.', STATE_UNKNOWN)
+    # execute the shell command and return its result and exit code
+    formatted_systemctl_command = systemctl_command.format(service='systemd-timesyncd')
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    systemd_timesyncd_present = True if retc == 0 else False
+
+    if ntpd_present == False and chronyd_present == False and systemd_timesyncd_present == False:
+        lib.base.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
 
     if ntpd_present:
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(ntpq_command))
@@ -117,6 +125,28 @@ def main():
                 continue
 
             if line.startswith('Stratum'):
+                stratum = int(line.split()[-1])
+                continue
+
+    if systemd_timesyncd_present:
+        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(systemd_timesyncd_command))
+        if stderr:
+            if 'Unknown operation' in stderr:
+                lib.base.oao('sytemd-timesyncd found. No further information can be extracted.', STATE_UNKNOWN)
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        msg_body = stdout
+
+        for line in msg_body.splitlines():
+            line = line.strip()
+            if line.startswith('Server:'):
+                ntp_server = line[line.find("(")+1:line.find(")")] # extract text in () using string splicing
+                continue
+
+            if line.startswith('Offset:'):
+                offset = float(line.split()[-1][:-2])
+                continue
+
+            if line.startswith('Stratum:'):
                 stratum = int(line.split()[-1])
                 continue
 

@@ -27,13 +27,28 @@ If `chronyd` is used, prints
 * update interval
 * leap status
 
+If `systemd-timesyncd` is used and `systemd` v239 or higher is available, prints
+* server
+* poll interval
+* leap
+* version
+* stratum
+* reference
+* precision
+* root distance
+* offset
+* delay
+* jitter
+* packet count
+* frequency
+
 We recommend to run this check every minute.
 
 
 # Installation and Usage
 
 Requirements:
-* `ntpq` or `chronyc`
+* `ntpq`, `chronyc` or `sytemd-timesyncd`
 
 ```bash
 ./ntp-offset
