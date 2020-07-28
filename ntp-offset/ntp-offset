@@ -8,6 +8,16 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+
+import argparse
+import sys
+
+from traceback import print_exc
+
+from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+
+import lib.base
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020072801'
 
@@ -23,31 +33,28 @@ DEFAULT_WARN = 800
 DEFAULT_CRIT = 1001
 
 
-#====================
-from lib.globals import *
-
-import lib.base
-
-import argparse
-from traceback import print_exc
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V',
+        '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
         )
 
-    parser.add_argument('-c', '--critical',
+    parser.add_argument(
+        '-c',
+        '--critical',
         help='Set the critical threshold for the ntp time offset, in ms. Default: %(default)sms',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
         )
-    
-    parser.add_argument('-w', '--warning',
+
+    parser.add_argument(
+        '-w',
+        '--warning',
         help='Set the warning threshold for the ntp time offset, in ms. Default: %(default)sms',
         dest='WARN',
         type=int,
@@ -61,36 +68,36 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='ntpd')
     stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
-    if (stderr):
+    if stderr:
         lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
-    ntpd_present = True if retc == 0 else False
+    ntpd_present = bool(retc == 0)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
     stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
-    if (stderr):
+    if stderr:
         lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
-    chronyd_present = True if retc == 0 else False
+    chronyd_present = bool(retc == 0)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='systemd-timesyncd')
     stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
     if stderr:
         lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
-    systemd_timesyncd_present = True if retc == 0 else False
+    systemd_timesyncd_present = bool(retc == 0)
 
-    if ntpd_present == False and chronyd_present == False and systemd_timesyncd_present == False:
+    if not ntpd_present and not chronyd_present and not systemd_timesyncd_present:
         lib.base.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
 
     if ntpd_present:
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(ntpq_command))
-        if (stderr): # todo check retc?
+        if stderr: # todo check retc?
             lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
 
         msg_body = stdout
@@ -110,7 +117,7 @@ def main():
 
     if chronyd_present:
         stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(chronyc_command))
-        if (stderr): # todo check retc?
+        if stderr: # todo check retc?
             lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_body = stdout
 
@@ -179,4 +186,4 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
