@@ -21,7 +21,7 @@ We recommend to run this check every 15 minutes.
 
 # Perfdata
 
-* ro_mount_points: Number of read only mount points
+There is no perfdata.
 
 
 # Credits, License
