@@ -1,6 +1,6 @@
-# Check "wordpress-version" - Overview
+# Check "keycloak-version" - Overview
 
-This plugin lets you track if a WordPress server update is available. To check for updates, this plugin uses the GitHub free API. To compare against the current/installed version of WordPress, the check has to run on the WordPress server itself and needs access to the WordPress installation directory.
+This plugin lets you track if a Keycloak server update is available. To check for updates, this plugin uses the GitHub free API. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
 
 We recommend to run this check once a day.
 
