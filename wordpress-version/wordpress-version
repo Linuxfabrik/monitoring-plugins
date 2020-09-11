@@ -12,7 +12,7 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 import lib.base
 import lib.cache
@@ -31,30 +31,33 @@ DEFAULT_CACHE_EXPIRE = 24 # hours
 #====================
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
         )
 
-    parser.add_argument('--cache-expire',
+    parser.add_argument(
+        '--cache-expire',
         help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
         )
 
-    parser.add_argument('--path',
+    parser.add_argument(
+        '--path',
         help='Local path to your WordPress installation. Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
@@ -71,11 +74,10 @@ def get_installed_version(path):
         return (success, version)
     if version:
         return (True, version)
-    else:
-        return (True, False)
+    return (True, False)
 
 
-def get_latest_version(path, expire):
+def get_latest_version(expire):
     # get version online, but first from cache
     latest_version = lib.cache.get('wordpress-version')
     if latest_version:
@@ -85,7 +87,7 @@ def get_latest_version(path, expire):
     success, jsonst = lib.url.fetch_json('https://api.github.com/repos/WordPress/WordPress/tags')
     if not success:
         return (success, jsonst)
-    
+
     # there is an update available, so result contains xml here
     latest_version = jsonst[0]['name']
     lib.cache.set('wordpress-version', latest_version, lib.base.now() + expire)
@@ -96,17 +98,17 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
     installed_version = lib.base.coe(get_installed_version(args.PATH))
-    success, latest_version = get_latest_version(args.PATH,  args.CACHE_EXPIRE*60*60)
+    success, latest_version = get_latest_version(args.CACHE_EXPIRE*60*60)
     if not success:
         lib.base.oao('WordPress v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
     if lib.base.version(installed_version) >= lib.base.version(latest_version):
         lib.base.oao('WordPress v{} is up to date'.format(installed_version), STATE_OK)
     lib.base.oao('WordPress v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
-   
+
 
 if __name__ == '__main__':
     try:
