@@ -1,6 +1,6 @@
 # Check "keycloak-version" - Overview
 
-This plugin lets you track if a Keycloak server update is available. To check for updates, this plugin uses the GitHub free API. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
+This plugin lets you track if a Keycloak update is available. To check for updates, this plugin uses the Git Repo at https://github.com/keycloak/keycloak/releases. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
 
 We recommend to run this check once a day.
 
@@ -10,9 +10,9 @@ The check uses a sqlite database to cache its query result.
 # Installation and Usage
 
 ```bash
-./atlassian-jira-version --path /opt/atlassian/jira
-./atlassian-jira-version --path /opt/atlassian/jira --cache-expire 8 --always-ok
-./atlassian-jira-version --help
+./keycloak-version --path /opt/keycloak
+./keycloak-version --path /opt/keycloak --cache-expire 8 --always-ok
+./keycloak-version --help
 ```
 
 
