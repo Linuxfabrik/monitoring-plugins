@@ -23,16 +23,16 @@ We recommend to run this check every minute.
 
 For example:
 
-* node1_sessions
-* node1_net_usage
-* node1_tbyte
-* node1_cpu_usage
-* node1_mem_usage
-* node2_sessions
-* node2_net_usage
-* node2_tbyte
-* node2_cpu_usage
-* node2_mem_usage
+* `node1_sessions`
+* `node1_net_usage`
+* `node1_tbyte`
+* `node1_cpu_usage`
+* `node1_mem_usage`
+* `node2_sessions`
+* `node2_net_usage`
+* `node2_tbyte`
+* `node2_cpu_usage`
+* `node2_mem_usage`
 
 
 

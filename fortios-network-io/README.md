@@ -30,10 +30,10 @@ We recommend to run this check every minute.
 
 Depends on your hardware. Example:
 
-* modem_rx1: Received bytes on this interface since the last check
-* modem_tx1: Sent bytes since the last check
-* modem_rxn: Received bytes since the last n checks (default: 5)
-* modem_txn: Sent bytes since the last n checks
+* `modem_rx1`: Received bytes on this interface since the last check
+* `modem_tx1`: Sent bytes since the last check
+* `modem_rxn`: Received bytes since the last n checks (default: 5)
+* `modem_txn`: Sent bytes since the last n checks
 * ...
 
 

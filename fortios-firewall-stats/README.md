@@ -22,13 +22,13 @@ We recommend to run this check every minute.
 
 For example:
 
-* total_active_sessions
-* total_asic_bytes
-* total_bytes
-* total_hit_count
-* total_nturbo_bytes
-* total_session_count
-* total_software_bytes
+* `total_active_sessions`
+* `total_asic_bytes`
+* `total_bytes`
+* `total_hit_count`
+* `total_nturbo_bytes`
+* `total_session_count`
+* `total_software_bytes`
 
 
 # Credits, License
