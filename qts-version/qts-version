@@ -26,7 +26,7 @@ import lib.base
 import lib.url
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020072801'
+__version__ = '2020090801'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -133,8 +133,11 @@ def main():
     url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, authSid)
     result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     latest_version = xmltodict.parse(result)['QDocRoot']['func']['ownContent']['newVersion']
-    if latest_version == 'none' or len(latest_version) == 0:
+    if latest_version == 'none':
         latest_version = None
+    elif latest_version == 'error' or len(latest_version) == 0:
+        print('Got an error from from the QNAP API.')
+        sys.exit(STATE_UNKNOWN)
 
     # build the message
     if latest_version:
