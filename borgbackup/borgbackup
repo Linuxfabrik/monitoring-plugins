@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020091601'
 
 DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
 
@@ -63,8 +63,8 @@ def main():
 
     # content of the log file:
         # start: 2020-04-08 23:00:01
-        # prune_rc: 0
-        # create_rc: 0
+        # prune_retc: 0
+        # create_retc: 0
         # end: 2020-04-08 23:00:13
 
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
@@ -88,10 +88,10 @@ def main():
         if line.startswith('end'):
             endtime = line.split(": ")[1].strip()
 
-        if line.startswith('create_rc'):
+        if line.startswith('create_retc'):
             create_retc = int(line.split(": ")[1])
 
-        if line.startswith('prune_rc'):
+        if line.startswith('prune_retc'):
             prune_retc = int(line.split(": ")[1])
 
     # check if all variables are defined
