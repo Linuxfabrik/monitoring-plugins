@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+# Todo: allow export of whole rows
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020091601'
+
+import json
+import sys
+
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        'INPUT_FILE',
+        help='Set the input file.',
+    )
+
+    return parser.parse_args()
+
+def get_panels(panels):
+    panel_list = []
+    for panel in panels:
+        if panel['type'] == 'row':
+            panel_list += get_panels(panel['panels'])
+        else:
+            # assume everything else is a panel
+            # panel_list.append((panel['id'], panel['title'] + panel['description']))
+            panel_list.append(panel)
+    return panel_list
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(3)
+
+    with open(args.INPUT_FILE, 'rb') as file:
+        data = json.load(file)
+
+    all_panels = get_panels(data['panels'])
+    all_panels_desc = [(panel['id'], '{} ({})'.format(panel['title'], panel['type'])) for panel in all_panels]
+
+    print('Which panels(s) would you like to combine?')
+    print('- ' * 40)
+    all_panels_desc = sorted(all_panels_desc, key=lambda item: item[1])
+    for index, text in enumerate(all_panels_desc):
+        print('{}: {}'.format(index, text[1]))
+
+    print('- ' * 40)
+    try:
+        selection = input('Select the appropriate numbers separated by commas: ').strip(',').split(',')
+    except KeyboardInterrupt:
+        sys.exit()
+
+    try:
+        selection = [int(item.strip()) for item in selection]
+    except ValueError:
+        print('Failed to parse selection.')
+        sys.exit(3)
+
+    new_panel_ids = [all_panels_desc[index][0] for index in selection]
+    data['panels'][:] = [panel for panel in all_panels if panel['id'] in new_panel_ids]
+
+    # re-number the panel ids
+    for index, panel in enumerate(data['panels']):
+        panel['id'] = index + 1
+
+    try:
+        data['title'] = input('Choose the title for the new dashboard: ').strip()
+        data['uid'] = input('Choose the uid for the new dashboard: ').strip()
+        out_filename = input('Choose the filename: ').strip()
+    except KeyboardInterrupt:
+        sys.exit()
+
+    with open(out_filename, 'w+') as file:
+        json.dump(data, file, sort_keys=True, indent=2, separators=(',', ': '))
+
+if __name__ == '__main__':
+    main()
