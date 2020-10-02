@@ -78,6 +78,13 @@ def main():
         lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
     ntpd_present = bool(retc == 0)
 
+    # For Debian
+    formatted_systemctl_command = systemctl_command.format(service='ntp')
+    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    ntpd_present = bool(retc == 0)
+
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
     stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
