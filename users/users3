@@ -1,0 +1,141 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+import argparse
+import os
+import sys
+from traceback import print_exc
+
+import lib3.args
+import lib3.base
+from lib3.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+
+WINDOWS = os.name == "nt"
+LINUX = sys.platform.startswith("linux")
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020101601'
+
+DESCRIPTION = 'Counts how many users are currently logged in, both via tty and pts.'
+
+DEFAULT_WARN_PTS = 50
+DEFAULT_WARN_TTY = 1
+DEFAULT_CRIT_PTS = None
+DEFAULT_CRIT_TTY = None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        default=[DEFAULT_CRIT_TTY, DEFAULT_CRIT_PTS],
+        dest='CRIT',
+        help='Set the critical threshold for logged in tty/pts users, in the format "3,10". Default: %(default)s',
+        type=lib3.args.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        default=[DEFAULT_WARN_TTY, DEFAULT_WARN_PTS],
+        dest='WARN',
+        help='Set the warning threshold for logged in tty/pts users, in the format "1,5". Default: %(default)s',
+        type=lib3.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    WARN_TTY = lib3.args.int_or_none(args.WARN[0])
+    WARN_PTS = lib3.args.int_or_none(args.WARN[1])
+    CRIT_TTY = lib3.args.int_or_none(args.CRIT[0])
+    CRIT_PTS = lib3.args.int_or_none(args.CRIT[1])
+
+    if LINUX:
+        cmd = '/usr/bin/w'
+    elif WINDOWS:
+        cmd = 'query user'
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib3.base.coe(lib3.base.shell_exec(cmd))
+    if (LINUX and (stderr or retc != 0))\
+        or (WINDOWS and stderr):
+        # Could not find any documentation in the return codes of 'query user'. Therefore we assume any is ok.
+        lib3.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    result = stdout.strip()
+
+    # calculating the final check state
+    if LINUX:
+        lines = result.splitlines()[2:] # ignore the first two lines
+    if WINDOWS:
+        lines = result.splitlines()[1:] # ignore the first line
+
+    count_pts = 0
+    count_tty = 0
+    for line in lines:
+        value = line.split()[1]
+        if 'tty' in value or ':' in value\
+            or 'console' in value:
+            # for example, ":0", the 0. host display (https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean)
+            count_tty += 1
+        if 'pts' in value\
+            or 'rdp' in value:
+            count_pts += 1
+
+    msg = ''
+    perfdata = lib3.base.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
+    perfdata += lib3.base.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
+    state = STATE_OK
+
+    if count_tty == 0 and count_pts == 0:
+        msg = 'No one is logged in.'
+    else:
+        if CRIT_TTY and count_tty >= CRIT_TTY:
+            msg += 'TTY: {} (CRIT)'.format(count_tty)
+            state = lib3.base.get_worst(state, STATE_CRIT)
+        elif WARN_TTY and count_tty >= WARN_TTY:
+            msg += 'TTY: {} (WARN)'.format(count_tty)
+            state = lib3.base.get_worst(state, STATE_WARN)
+        else:
+            msg += 'TTY: {}'.format(count_tty)
+
+        if CRIT_PTS and count_pts >= CRIT_PTS:
+            msg += ', PTS: {} (CRIT)'.format(count_pts)
+            state = lib3.base.get_worst(state, STATE_CRIT)
+        elif WARN_PTS and count_pts >= WARN_PTS:
+            msg += ', PTS: {} (WARN)'.format(count_pts)
+            state = lib3.base.get_worst(state, STATE_WARN)
+        else:
+            msg += ', PTS: {}'.format(count_pts)
+
+        msg += '\n' + '\n'.join(lines)
+
+    lib3.base.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

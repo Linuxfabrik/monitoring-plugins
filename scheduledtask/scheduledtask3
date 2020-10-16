@@ -1,0 +1,97 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import csv
+import sys
+from traceback import print_exc
+
+import lib3.args
+import lib3.base
+from lib3.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020101601'
+
+DESCRIPTION = 'Check the status of a scheduled task.'
+
+DEFAULT_SERVERITY = 'warn'
+DEFAULT_STATUS = ['Ready', 'Running']
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--task',
+        help='Name of the scheduled task.',
+        dest='TASK',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity if something is found. One of "warn" or "crit". Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SERVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--status',
+        help='Expected task status (repeating). Default: %(default)s',
+        dest='STATUS',
+        default=DEFAULT_STATUS,
+        action='append',
+        choices=['Disabled', 'Queued', 'Ready', 'Running', 'Unknown'],
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    problem_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
+
+    cmd = 'schtasks /query /fo csv /nh'
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib3.base.coe(lib3.base.shell_exec(cmd))
+    if stderr or retc != 0:
+        lib3.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    reader = csv.reader(stdout.strip().splitlines())
+    for row in reader:
+        task_name, next_run_time, status = row
+        if task_name == args.TASK:
+            if status in args.STATUS:
+                lib3.base.oao(f'{args.TASK} is {status}', STATE_OK)
+            lib3.base.oao(f'{args.TASK} is {status}, but supposed to be {args.STATUS}', problem_state)
+
+    lib3.base.oao(f'Scheduled Task {args.TASK} not found', STATE_UNKNOWN)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
