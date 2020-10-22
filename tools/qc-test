@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -11,26 +11,30 @@
 import os
 
 SKIP_DIRS = [
-        '0-default',
-        'lib',
     ]
 
 REQUIRED_FILES = [
         'LICENSE',
         'README.md',
-        '{directory}',
         '{directory}.png',
     ]
+BASE = './plugins/'
 
-missing_files = []
-for directory in os.listdir('.'):
-    if not os.path.isdir(directory) or directory in SKIP_DIRS or directory.startswith('.'):
-        continue
-    for req_file in REQUIRED_FILES:
-        req_file = req_file.format(directory=directory)
-        path = os.path.join(directory, req_file)
-        if not os.path.isfile(path):
-            missing_files.append(path)
 
-print('Missing files:')
-print('\n'.join(missing_files))
+def main():
+    missing_files = []
+    for directory in os.listdir(BASE):
+        dir_path = os.path.join(BASE, directory)
+        if not os.path.isdir(dir_path) or directory in SKIP_DIRS:
+            continue
+        for req_file in REQUIRED_FILES:
+            req_file = req_file.format(directory=directory)
+            file_path = os.path.join(dir_path, req_file)
+            if not os.path.isfile(file_path):
+                missing_files.append(file_path)
+
+    print('Missing files:')
+    print('\n'.join(missing_files))
+
+if __name__ == '__main__':
+    main()
