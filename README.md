@@ -27,28 +27,49 @@ All checks are written in Python 2, because ...
 * in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
 * support for Python 2 has ended, but not in CentOS 8 (Python 2 remains available in CentOS 8 until the late 2020's decade - for further details have a look at https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/).
 
-Our checks call Python 2 by using `#!/usr/bin/env python2`.
+Our checks call Python 2 using `#!/usr/bin/env python2`.
 
 
 ## Python3
 
 Providing a Python 3 variant of each check is on our roadmap.
 
-
 ## Libraries
 
-We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick on official versions. Have a look at the plugin README or at the Check Plugin Fact Sheet at the end of this document.
+We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the Check Plugin Fact Sheet at the end of this document.
 
-Of course we make use of our own libraries, which you simply have to copy from our [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) GitLab repo to the plugins `lib` directory (mostly `/usr/lib64/nagios/plugins/lib`).
+Of course we make use of our own libraries, which you can find [here](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux). See todo Deployment or CONTRIBUTING# Setting up your development environment for instructions on using them with the checks.
 
-So this is how your check plugin directory should look like:
 
+# Deployment
+
+## Checks & Libraries
+
+As the required [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) is a separate git repo, we need to make sure to deploy the checks and the library correctly.
+
+In the following example, we will deploy everything to `/usr/lib64/nagios/plugins/` on the remote server `icinga2-master`:
+```bash
+# first, make sure the directory exists on the remote
+ssh icinga2-master
+mkdir -p  /usr/lib64/nagios/plugins/lib
+Ctrl^D
+
+# on your administrator machine
+git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux
+cd lib-linux
+scp *.py icinga2-master:/usr/lib64/nagios/plugins/lib/
+
+git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux
+cd checks-linux
+# copy a selection of checks to the remote server
+scp about-me/about-me disk-smart/disk-smart /usr/lib64/nagios/plugins/
 ```
-$ tree /usr/lib64/nagios/plugins/
 
+Your directory on `icinga2-master` should now look like this:
+```bash
 /usr/lib64/nagios/plugins/
 |-- about-me
-|-- ...
+|-- disk-smart
 |-- lib
 |   |-- globals.py
 |   |-- ...
@@ -56,8 +77,39 @@ $ tree /usr/lib64/nagios/plugins/
 |-- ...
 ```
 
+To make the deployment easier, we deploy the checks and libraries using [ansible](todo). You can take a look at our [icinga2-plugins-checks role](todo).
 
-## Running a Check
+## sudoers File
+
+If the check requires `sudo`-permissions to run, there will different `.sudoers` files for the supported operating systems in the check folder.
+You need to append the required sudoers from the checks to `todo/0-defaults.sudoers`, and place the resulting file in `/etc/sudoers.d/` on the remote server. For example:
+```bash
+cd checks-linux
+cat todo/0-defaults.sudoers-CentOS7 disk-smart/disk-smart.sudoers-CentOS7 > icinga2-plugins
+scp icinga2-plugins icinga2-master:/etc/sudoers.d/icinga2-plugins
+```
+
+Side note: We are also using `/usr/lib64/nagios/plugins/` for other OSes, even though `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because when adding a command with `sudo` in Icinga Director, one needs to use the full path of the check. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+
+
+## Grafana Dashboards
+
+There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
+
+When importing via the WebGUI simply import the `check-name.grafana-external.json` file.
+
+If you want to use provisioning, take a look at the `icinga2-master-grafana` tag in [our ansible role](todo).
+Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
+
+
+### Creating Custom Grafana Dashboards
+
+If you want to create a custom dashboards that contains a different selection of panels, you can do so using the `tools/grafana-tool` utility.
+
+todo: describe the `grafana-tool` usage
+
+
+# Running a Check
 
 What you need:
 
@@ -95,7 +147,7 @@ What you need:
   `apt install python-psutil`
 
 
-## Reporting Issues
+# Reporting Issues
 
 For now, there are two ways:
 
@@ -103,7 +155,7 @@ For now, there are two ways:
 2. Create an account on https://git.linuxfabrik.ch and [submit an issue](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/issues/new)
 
 
-## Check Plugin Fact Sheet
+# Check Plugin Fact Sheet
 
 2020052602
 
@@ -154,7 +206,7 @@ network-port-tcp              | 7, 8     | 30+      | 16, 20   |            |   
 nextcloud-security-scan       | 7, 8     | 30+      | 16, 20   |            |                          |        |      | outdated scan result, low rating  | lowest rating
 nextcloud-stats               | 7, 8     | 30+      | 16, 20   |            |                          |        |      | app updates avail.                | -
 nextcloud-version             | 7, 8     | 30+      | 16, 20   |            |                          | yes    |      | server update avail.              | -
-ntp-offset                    | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 800ms                          | >= 1001ms
+ntp-offset                    | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | >= 800ms or stratum >= 9          | >= 1001ms
 openvpn-client-list           | 7, 8     | 30+      | 16, 20   |            |                          |        |      | -                                 | -
 ping                          | 7, 8     | 30+      | 16, 20   | yes        |                          |        | yes  | -                                 | 100% packet loss
 procs                         | 7, 8     | 30+      | 16, 20   | yes        |                          |        |      | -                                 | -

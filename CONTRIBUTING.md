@@ -1,16 +1,26 @@
 # Linuxfabrik's Icinga Check Plugin Developer Guidelines
 
+## Setting up your development environment
+Simply clone the libraries and checks:
+
+```bash
+git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux
+git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux
+cd checks-linux
+```
+
+
 ## Deliverables
 
 * The check itself.
 * A nice 16x16 transparent PNG icon, for example based on font-awesome.
-* README file explaining "How?" and Why?" 
+* README file explaining "How?" and Why?"
 * LICENSE file
-* optional: Grafana panel
+* optional: Grafana panel (see [Grafana Dashboards](#grafana-dashboards))
 * optional: Icinga Director Basket Config
-* optional: Icingaweb2 Grafana Module .ini file
-* optional: sudoers file
-* optional: `test` - the unittest file
+* optional: Icinga Web 2 Grafana Module .ini file
+* optional: sudoers file (see [sudoers File](sudoers-file))
+* optional: `test` - the unittest file (see [Unit Tests](#unit-tests))
 
 
 ## Rules of Thumb
@@ -25,11 +35,11 @@
 * It is not needed to execute system (shell/bash) commands by specifying their full path.
 * It is ok to use temp files if needed.
 * Much better: use a local SQLite database if you want to use a temp file.
-* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is great if the plugin executes fast and uses less ressources (cpu time, memory etc.).
+* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is great if the plugin executes fast and uses less resources (CPU time, memory etc.).
 * Timeout gracefully on errors (for example `df` on a failed network drive) and return WARN.
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
-* EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements. 
+* EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
 
 
 ## Names, Naming Conventions, Parameters, Option Processing
@@ -90,7 +100,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --unit
     --unitfilestate
 
-* For complex parameter tupels, use the `csv` type. 
+* For complex parameter tupels, use the `csv` type.
   `--input='Name, Value, Warn, Crit'` results in `[ 'Name', 'Value', 'Warn', 'Crit' ]`
 
 * For repeating parameters, use the `append` action. A `default` variable has to be a list then. `--input=a --input=b` results in `[ 'a', 'b' ]`
@@ -184,9 +194,9 @@ Use `cache` if you need a simple key-value store, for example as used in `nextcl
 
 UOM = Unit of Measurement
 
-Sample: 
+Sample:
 
-    'label'=value[UOM];[warn];[crit];[min];[max];  
+    'label'=value[UOM];[warn];[crit];[min];[max];
 
 Perfdata value-suffixes:
 
@@ -199,7 +209,7 @@ Perfdata value-suffixes:
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
 
-## PEP8 Sytle Guide for Python Code
+## PEP8 Style Guide for Python Code
 
 We recently started to use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/).
 
@@ -217,6 +227,16 @@ To further improve code quality, we recently started using [Pylint](https://www.
 * missing module docstring
 * missing function or method docstring
 
+## isort
+
+To help sort the `import`-statements we use `isort`:
+```bash
+# to sort all imports
+isort --recursive .
+
+# sort in a single check
+isort check_name
+```
 
 ## Unit Tests
 
@@ -233,3 +253,49 @@ Running a complete unit test:
 # cd into the check directory and run:
 ./test
 ```
+
+
+## sudoers File
+
+If the check requires `sudo`-permissions to run, please add the required sudoers files for all supported operating systems, in the form `check-name.sudoers-OS`, where `OS` should match the ansible variables `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (eg `CentOS7`).
+
+The file will be appended to the corresponding `todo/0-defaults/0-default.sudoers-OS`. An example for CentOS7:
+```bash
+icinga    ALL = NOPASSWD: /usr/lib64/nagios/plugins/top3-most-memory-consuming-processes
+
+```
+Caution: The newline at the end is required!
+
+
+## Grafana Dashboards
+
+Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
+When sensible, there should be an additional panel with min, max, mean and last columns. This can be achieved my setting the visualization to table and using the transform > reduce functions. This is preferred to using the legend options, because they change the width of the graph, making it harder to correlate events across panels. Unfortunately, it is currently impossible to set the unit per row, so you need to make on additional panel for each unit.
+
+When modifying existing panels or creating new panels, always work with the 'todo' dashboard (from `/folder/todo.json`). The title of the panels should be capitalized, the metrics should be lowercase. Be sure to create a new row named after the check. This field will be used for the automatic splitting into smaller dashboards later on. Therefore, the name has to match the folder/check name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`).
+
+As there are two options to import the Grafana dashboards (either importing via the WebGUI or provisioning, see the README for details), the Grafana dashboard also need to be exported twice.
+
+Always make sure that there is no sensitive data in the export (eg hostnames).
+
+### Exporting for later import via the WebGUI
+
+* Share dashboard (Icon right of the dashboard title)
+* Export
+* Export for sharing externally: yes
+* Save to file: todo.grafana-external.json
+
+### Exporting for provisioning
+
+* Share dashboard (Icon right of the dashboard title)
+* Export
+* Export for sharing externally: no
+* Save to file: todo.grafana-provisioning.json
+
+
+Afterwards generate the dashboards for each check using the `grafana-tool`:
+```bash
+cd /path/to/checks-linux/git/repo/tools
+./grafana-tool todo
+```
+
