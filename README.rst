@@ -6,14 +6,13 @@ This Enterprise Class Plugin Collection provides various Python 2 based plugins 
 If you
 
 - are disappointed by ``nagios-plugins-all``
-- search for plugins that are all written in Python2 only (your system language on CentOS)
+- search for plugins that are all written in Python only (your system language on CentOS)
 - want to have an easy look into the source code of the plugins
 - want to use plugins that are fast, reliable and mainly focused on CentOS and Icinga2
-- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner
+- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner, on Linux as well as Windows
 - want to use plugins out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
 - are happy about plugins that provide some additional information to help you troubleshoot your system
 - want to use plugins that try to avoid 3rd party dependencies wherever possible
-- todo want same output on linux & windows
 
 ... then these plugins might be for you.
 
@@ -34,23 +33,19 @@ Our plugins call Python 2 using ``#!/usr/bin/env python2``.
 Python3
 -------
 
-Providing a Python 3 variant of each plugin is on our roadmap.
+Providing a Python 3 variant of each plugin is on our roadmap. There are already some Python 3 plugins available (at the time mainly for Windows). Check out the "Plugin Fact Sheet" at the end of this document.
 
 Our plugins call Python 3 using ``#!/usr/bin/env python3``.
-
-todo
 
 Libraries
 ---------
 
-We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the Plugin Fact Sheet at the end of this document.
+We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the "Plugin Fact Sheet" at the end of this document.
 
-Of course we make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See todo Deployment or CONTRIBUTING# Setting up your development environment for instructions on using them with the plugins.
+Of course we make use of our own library, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Deployment" below or "Setting up your development environment" in the CONTRIBUTING for instructions on using it with the plugins.
 
 Deployment
 ==========
-
-.. _monitoring-plugins--libraries:
 
 Monitoring Plugins & Libraries
 ------------------------------
@@ -102,7 +97,7 @@ To make the deployment easier, we deploy the monitoring plugins and libraries us
 sudoers File
 ------------
 
-You can check which plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the `Plugin Fact Sheet <todo>`_.
+You can check which plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
 
 You need to place the ``sudoers``-file in ``/etc/sudoers.d/`` on the remote server. For example:
 
