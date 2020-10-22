@@ -109,9 +109,7 @@ For all other options, use long parameters only. We recommend using some of thos
 
 - For complex parameter tupels, use the ``csv`` type.
   ``--input='Name, Value, Warn, Crit'`` results in ``[ 'Name', 'Value', 'Warn', 'Crit' ]``
-
 - For repeating parameters, use the ``append`` action. A ``default`` variable has to be a list then. ``--input=a --input=b`` results in ``[ 'a', 'b' ]``
-
 - If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in
   ``[['1', '2', '3'], ['a', 'b', 'c']]``
 
@@ -126,19 +124,27 @@ If a threshold has to be handled as a range parameter, this is how to interpret 
 - ``~``: negative infinity
 - ``@``: if range starts with "@", then alert if inside this range (including endpoints)
 
-====== ================= ================= ==============================
--w, -c OK if result is   WARN/CRIT if      lib.base.parse_range() returns
-====== ================= ================= ==============================
-10     in (0..10)        not in (0..10)    (0, 10, False)
--10    in (-10..0)       not in (-10..0)   (0, -10, False)
-10:    in (10..inf)      not in (10..inf)  (10, inf, False)
-:      in (0..inf)       not in (0..inf)   (0, inf, False)
-~:10   in (-inf..10)     not in (-inf..10) (-inf, 10, False)
-10:20in (10..20)       not in (10..20)   (10, 20, False)
-@10:20 not in (10..20)   in 10..20         (10, 20, True)
-@~:20not in (-inf..20) in (-inf..20)     (-inf, 20, True)
-@      not in (0..inf)   in (0..inf)       (0, inf, True)
-====== ================= ================= ==============================
++--------+-------------------+-------------------+--------------------------------+
+| -w, -c | OK if result is   | WARN/CRIT if      | lib.base.parse_range() returns |
++--------+-------------------+-------------------+--------------------------------+
+| 10     | in (0..10)        | not in (0..10)    | (0, 10, False)                 |
++--------+-------------------+-------------------+--------------------------------+
+| -10    | in (-10..0)       | not in (-10..0)   | (0, -10, False)                |
++--------+-------------------+-------------------+--------------------------------+
+| 10:    | in (10..inf)      | not in (10..inf)  | (10, inf, False)               |
++--------+-------------------+-------------------+--------------------------------+
+| :      | in (0..inf)       | not in (0..inf)   | (0, inf, False)                |
++--------+-------------------+-------------------+--------------------------------+
+| ~:10   | in (-inf..10)     | not in (-inf..10) | (-inf, 10, False)              |
++--------+-------------------+-------------------+--------------------------------+
+| 10:20  | in (10..20)       | not in (10..20)   | (10, 20, False)                |
++--------+-------------------+-------------------+--------------------------------+
+| @10:20 | not in (10..20)   | in 10..20         | (10, 20, True)                 |
++--------+-------------------+-------------------+--------------------------------+
+| @~:20  | not in (-inf..20) | in (-inf..20)     | (-inf, 20, True)               |
++--------+-------------------+-------------------+--------------------------------+
+| @      | not in (0..inf)   | in (0..inf)       | (0, inf, True)                 |
++--------+-------------------+-------------------+--------------------------------+
 
 So, a definition like ``--warning 2:100 --critical 1:150`` should return the states:
 
@@ -193,17 +199,17 @@ Plugin Output
 - If possible give a help text to solve the problem.
 - Multiple items checked, and ...
 
-    - ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-    - ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+  - ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+  - ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
 - Use short "Units of Measurements" without white spaces:
 
-    - Percentage: 93.2%
-    - Bytes: 7B, 3.4K, M, G, T
-    - Temperatures: 7.3C, 45F
-    - Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-    - I/O and Throughput: 220.4MB/s (Megabyte per Second)
-    - Read/Write: "R/s", "W/s", "IO/s"
+  - Percentage: 93.2%
+  - Bytes: 7B, 3.4K, M, G, T
+  - Temperatures: 7.3C, 45F
+  - Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
+  - I/O and Throughput: 220.4MB/s (Megabyte per Second)
+  - Read/Write: "R/s", "W/s", "IO/s"
 
 - Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
 - Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
@@ -268,8 +274,8 @@ Unit Tests
 
 Implementing tests:
 
-- Use the ``unittest`` framework (`https://docs.python.org/2.7/library/unittest.html <https://docs.python.org/2.7/library/unittest.html>`_).
-   Within your ``test`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
+- | Use the ``unittest`` framework (`https://docs.python.org/2.7/library/unittest.html <https://docs.python.org/2.7/library/unittest.html>`_).
+  | Within your ``test`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
    against stdout, stderr and retc.
 - To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
@@ -287,7 +293,9 @@ sudoers File
 
 If the plugin requires ``sudo``-permissions to run, please add the plugin to the ``sudoers``-files for all supported operating systems in ``assets/sudoers/``. The OS name should match the ansible variables ``ansible_facts['distribution'] + ansible_facts['distribution_major_version']`` (eg ``CentOS7``).
 
-Caution: The newline at the end is required!
+.. attention::
+
+    The newline at the end is required!
 
 Grafana Dashboards
 ------------------
