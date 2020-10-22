@@ -1,31 +1,31 @@
-# Linuxfabrik's Icinga Check Plugin Developer Guidelines
+# Linuxfabrik's Icinga Plugin Developer Guidelines
 
 ## Setting up your development environment
-Simply clone the libraries and checks:
+Simply clone the libraries and monitoring plugins:
 
 ```bash
-git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux
-git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux
-cd checks-linux
+git clone https://git.linuxfabrik.ch/linuxfabrik/lib
+git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
+cd monitoring-plugins
 ```
 
 
 ## Deliverables
 
-* The check itself.
+* The plugin itself.
 * A nice 16x16 transparent PNG icon, for example based on font-awesome.
 * README file explaining "How?" and Why?"
 * LICENSE file
 * optional: Grafana panel (see [Grafana Dashboards](#grafana-dashboards))
 * optional: Icinga Director Basket Config
 * optional: Icinga Web 2 Grafana Module .ini file
-* optional: sudoers file (see [sudoers File](sudoers-file))
+* optional: sudoers file (see [sudoers File](#sudoers-file))
 * optional: `test` - the unittest file (see [Unit Tests](#unit-tests))
 
 
 ## Rules of Thumb
 
-* The check should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
+* The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
 * Develop with CentOS 7/8 Minimal in mind.
 * Develop with Icinga2 in mind.
 * Avoid complicated or fancy (and therefore unreadable) Python statements.
@@ -216,12 +216,12 @@ We recently started to use [PEP 8 -- Style Guide for Python Code](https://www.py
 
 ## docstring, pydoc
 
-Not long ago we started to document our [Check Plugin Libraries](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) using docstrings, so that calling `pydoc lib/base.py` works, for example.
+Not long ago we started to document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using docstrings, so that calling `pydoc lib/base.py` works, for example.
 
 
 ## Pylint
 
-To further improve code quality, we recently started using [Pylint](https://www.pylint.org/) with pure `pylint` for the libraries, and with `pylint --disable=C0103,C0114,C0116` for the check plugins, on a more regular basis. The parameter disables warnings for
+To further improve code quality, we recently started using [Pylint](https://www.pylint.org/) with pure `pylint` for the libraries, and with `pylint --disable=C0103,C0114,C0116` for the plugins, on a more regular basis. The parameter disables warnings for
 
 * non-conformance to snake_case naming style
 * missing module docstring
@@ -234,36 +234,32 @@ To help sort the `import`-statements we use `isort`:
 # to sort all imports
 isort --recursive .
 
-# sort in a single check
-isort check_name
+# sort in a single plugin
+isort plugin_name
 ```
 
 ## Unit Tests
 
 Implementing tests:
 
-* Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the check as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
-* To test a check that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in `examples` and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your check. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
+* Use the `unittest` framework (https://docs.python.org/2.7/library/unittest.html). Within your `test` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
+* To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in `examples` and a `--test` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin. If you get the `--test` parameter, skip the execution of your bash/psutil/whatever function.
 
-Have a look at the `fs-ro` check on how to do this.
+Have a look at the `fs-ro` plugin on how to do this.
 
 Running a complete unit test:
 
 ```bash
-# cd into the check directory and run:
+# cd into the plugin directory and run:
 ./test
 ```
 
 
 ## sudoers File
 
-If the check requires `sudo`-permissions to run, please add the required sudoers files for all supported operating systems, in the form `check-name.sudoers-OS`, where `OS` should match the ansible variables `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (eg `CentOS7`).
+If the plugin requires `sudo`-permissions to run, please add the plugin to the `sudoers`-files for all supported operating systems in `assets/sudoers/`.
+The OS name should match the ansible variables `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (eg `CentOS7`).
 
-The file will be appended to the corresponding `todo/0-defaults/0-default.sudoers-OS`. An example for CentOS7:
-```bash
-icinga    ALL = NOPASSWD: /usr/lib64/nagios/plugins/top3-most-memory-consuming-processes
-
-```
 Caution: The newline at the end is required!
 
 
@@ -272,11 +268,11 @@ Caution: The newline at the end is required!
 Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
 When sensible, there should be an additional panel with min, max, mean and last columns. This can be achieved my setting the visualization to table and using the transform > reduce functions. This is preferred to using the legend options, because they change the width of the graph, making it harder to correlate events across panels. Unfortunately, it is currently impossible to set the unit per row, so you need to make on additional panel for each unit.
 
-When modifying existing panels or creating new panels, always work with the 'todo' dashboard (from `/folder/todo.json`). The title of the panels should be capitalized, the metrics should be lowercase. Be sure to create a new row named after the check. This field will be used for the automatic splitting into smaller dashboards later on. Therefore, the name has to match the folder/check name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`).
+When modifying existing panels or creating new panels, always work with the 'todo' dashboard (from `assets/grafana/`). The title of the panels should be capitalized, the metrics should be lowercase. Be sure to create a new row named after the plugin. This field will be used for the automatic splitting into smaller dashboards later on. Therefore, the name has to match the folder/plugin name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`).
 
 As there are two options to import the Grafana dashboards (either importing via the WebGUI or provisioning, see the README for details), the Grafana dashboard also need to be exported twice.
 
-Always make sure that there is no sensitive data in the export (eg hostnames).
+Always make sure that there is no sensitive data in the export (eg. hostnames).
 
 ### Exporting for later import via the WebGUI
 
@@ -293,9 +289,9 @@ Always make sure that there is no sensitive data in the export (eg hostnames).
 * Save to file: todo.grafana-provisioning.json
 
 
-Afterwards generate the dashboards for each check using the `grafana-tool`:
+Afterwards generate the dashboards for each plugin using the `grafana-tool`:
 ```bash
-cd /path/to/checks-linux/git/repo/tools
-./grafana-tool todo
+./tools/grafana-tool assets/grafana/todo-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
+./tools/grafana-tool assets/grafana/todo-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
 ```
-
+Make sure to adjust the generated ini file if necessary.

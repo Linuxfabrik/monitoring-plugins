@@ -1,51 +1,51 @@
 # Python-based Icinga Plugins Collection
 
-This Enterprise Class Plugin Collection provides various Python 2 based check plugins for Nagios and compatible monitoring systems like Icinga, Shinken, Centreon or Sensu. All checks are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+.
+This Enterprise Class Plugin Collection provides various Python 2 based plugins for Nagios and compatible monitoring systems like Icinga, Shinken, Centreon or Sensu. All plugins are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+.
 
 If you
 
 * are disappointed by `nagios-plugins-all`
-* search for checks that are all written in Python2 only (your system language on CentOS)
-* want to have an easy look into the source code of the checks
-* want to use checks that are fast, reliable and mainly focused on CentOS and Icinga2
-* want to use checks that all behave uniform and report the same (for example "used") in a short and precise manner
-* want to use checks out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
-* are happy about checks that provide some additional information to help you troubleshoot your system
+* search for plugins that are all written in Python2 only (your system language on CentOS)
+* want to have an easy look into the source code of the plugins
+* want to use plugins that are fast, reliable and mainly focused on CentOS and Icinga2
+* want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner
+* want to use plugins out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
+* are happy about plugins that provide some additional information to help you troubleshoot your system
 * want to use plugins that try to avoid 3rd party dependencies wherever possible
 
-... then these checks might be for you.
+... then these plugins might be for you.
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Python2
 
-All checks are written in Python 2, because ...
+All plugins are written in Python 2, because ...
 
-* in a datacenter environment (where these checks are mainly used) the `python == python2` side is still more popular.
+* in a datacenter environment (where these plugins are mainly used) the `python == python2` side is still more popular.
 * in CentOS 7, Python 2.7 is the default (Python3 became available in CentOS 7.8).
 * in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
 * support for Python 2 has ended, but not in CentOS 8 (Python 2 remains available in CentOS 8 until the late 2020's decade - for further details have a look at https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/).
 
-Our checks call Python 2 using `#!/usr/bin/env python2`.
+Our plugins call Python 2 using `#!/usr/bin/env python2`.
 
 
 ## Python3
 
-Providing a Python 3 variant of each check is on our roadmap.
+Providing a Python 3 variant of each plugin is on our roadmap.
 
 ## Libraries
 
-We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the Check Plugin Fact Sheet at the end of this document.
+We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the Plugin Fact Sheet at the end of this document.
 
-Of course we make use of our own libraries, which you can find [here](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux). See todo Deployment or CONTRIBUTING# Setting up your development environment for instructions on using them with the checks.
+Of course we make use of our own libraries, which you can find [here](https://git.linuxfabrik.ch/linuxfabrik/lib). See todo Deployment or CONTRIBUTING# Setting up your development environment for instructions on using them with the plugins.
 
 
 # Deployment
 
-## Checks & Libraries
+## Monitoring Plugins & Libraries
 
-As the required [lib-linux](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux) is a separate git repo, we need to make sure to deploy the checks and the library correctly.
+As the required [lib](https://git.linuxfabrik.ch/linuxfabrik/lib) is a separate git repo, we need to make sure to deploy the plugins and the library correctly.
 
 In the following example, we will deploy everything to `/usr/lib64/nagios/plugins/` on the remote server `icinga2-master`:
 ```bash
@@ -55,14 +55,22 @@ mkdir -p  /usr/lib64/nagios/plugins/lib
 Ctrl^D
 
 # on your administrator machine
-git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/lib-linux
-cd lib-linux
-scp *.py icinga2-master:/usr/lib64/nagios/plugins/lib/
+git clone https://git.linuxfabrik.ch/linuxfabrik/lib
+cd lib
+# for python2
+scp *2.py icinga2-master:/usr/lib64/nagios/plugins/lib/
+# for python3
+scp *3.py icinga2-master:/usr/lib64/nagios/plugins/lib/
 
-git clone https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux
-cd checks-linux
-# copy a selection of checks to the remote server
-scp about-me/about-me disk-smart/disk-smart /usr/lib64/nagios/plugins/
+git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
+cd monitoring-plugins
+# copy a selection of plugins to the remote server
+# for python2
+scp about-me/about-me2 /usr/lib64/nagios/plugins/about-me
+scp disk-smart/disk-smart2 /usr/lib64/nagios/plugins/disk-smart
+# for python3
+scp about-me/about-me3 /usr/lib64/nagios/plugins/about-me
+scp disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
 ```
 
 Your directory on `icinga2-master` should now look like this:
@@ -71,34 +79,33 @@ Your directory on `icinga2-master` should now look like this:
 |-- about-me
 |-- disk-smart
 |-- lib
-|   |-- globals.py
-|   |-- ...
+|   |-- base2.py
+|   |-- globals2.py
 |   |-- ...
 |-- ...
 ```
 
-To make the deployment easier, we deploy the checks and libraries using [ansible](todo). You can take a look at our [icinga2-plugins-checks role](todo).
+To make the deployment easier, we deploy the monitoring plugins and libraries using [ansible](https://www.ansible.com/). You can take a look at our [monitoring-plugins role](https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins).
 
 ## sudoers File
 
-If the check requires `sudo`-permissions to run, there will different `.sudoers` files for the supported operating systems in the check folder.
-You need to append the required sudoers from the checks to `todo/0-defaults.sudoers`, and place the resulting file in `/etc/sudoers.d/` on the remote server. For example:
+You can check which plugins require `sudo`-permissions to run by looking at the respective `sudoers` file for your operating system in `assets/sudoers/` or by looking at the [Plugin Fact Sheet](todo).
+You need to place the `sudoers`-file in `/etc/sudoers.d/` on the remote server. For example:
 ```bash
-cd checks-linux
-cat todo/0-defaults.sudoers-CentOS7 disk-smart/disk-smart.sudoers-CentOS7 > icinga2-plugins
-scp icinga2-plugins icinga2-master:/etc/sudoers.d/icinga2-plugins
+cd monitoring-plugins/assets/sudoers/
+scp CentOS7.sudoers icinga2-master:/etc/sudoers.d/monitoring-plugins
 ```
 
-Side note: We are also using `/usr/lib64/nagios/plugins/` for other OSes, even though `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because when adding a command with `sudo` in Icinga Director, one needs to use the full path of the check. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+Side note: We are also using the path `/usr/lib64/nagios/plugins/` for other OSes, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because when adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
 ## Grafana Dashboards
 
 There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
 
-When importing via the WebGUI simply import the `check-name.grafana-external.json` file.
+When importing via the WebGUI simply import the `plugin-name.grafana-external.json` file.
 
-If you want to use provisioning, take a look at the `icinga2-master-grafana` tag in [our ansible role](todo).
+If you want to use provisioning, take a look at [Grafana Provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/).
 Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
 
 
@@ -106,44 +113,51 @@ Beware that you also need to provision the datasources if you want to use provis
 
 If you want to create a custom dashboards that contains a different selection of panels, you can do so using the `tools/grafana-tool` utility.
 
-todo: describe the `grafana-tool` usage
+```bash
+# interactive usage
+./tools/grafana-tool assets/grafana/todo-external.json
+./tools/grafana-tool assets/grafana/todo-provisioning.json
+
+# for more options, see
+./tools/grafana-tool --help
+```
 
 
-# Running a Check
+# Running a Plugin
 
 What you need:
 
 **CentOS 8**
 
 * Required: Install Python2, for example by using `dnf install python2`
-* After that, most of the checks will run out of the box.
-* Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
+* After that, most of the plugins will run out of the box.
+* Optional: Install 3rd party Python modules if a plugin requires them. Some of those modules are found in the EPEL repo. Example:
   `dnf install epel-release; dnf install python2-psutil`
 
 **CentOS 7**
 
-* Most of the checks will run out of the box.
-* Optional: Install 3rd party Python modules if a check requires them. Some of those modules are found in the EPEL repo. Example:
+* Most of the plugins will run out of the box.
+* Optional: Install 3rd party Python modules if a plugin requires them. Some of those modules are found in the EPEL repo. Example:
   `yum install epel-release; yum install python2-psutil`
 
 **Fedora**
 
 * Required: Install Python2, for example by using `dnf install python2`
-* After that, most of the checks will run out of the box.
-* Optional: Install 3rd party Python modules if a check requires them. Example:
+* After that, most of the plugins will run out of the box.
+* Optional: Install 3rd party Python modules if a plugin requires them. Example:
   `dnf install python2-psutil`
 
 **Ubuntu 20**
 
-* Most of the checks will run out of the box.
-* Optional: Install 3rd party Python modules if a check requires them. Example:
+* Most of the plugins will run out of the box.
+* Optional: Install 3rd party Python modules if a plugin requires them. Example:
   `apt install python-psutil`
 
 **Ubuntu 16**
 
 * Required: Install Python2, for example by using `apt install python-minimal`
-* After that, most of the checks will run out of the box.
-* Optional: Install 3rd party Python modules if a check requires them. Example:
+* After that, most of the plugins will run out of the box.
+* Optional: Install 3rd party Python modules if a plugin requires them. Example:
   `apt install python-psutil`
 
 
@@ -152,14 +166,14 @@ What you need:
 For now, there are two ways:
 
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
-2. Create an account on https://git.linuxfabrik.ch and [submit an issue](https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/issues/new)
+2. Create an account on https://git.linuxfabrik.ch and [submit an issue](https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new)
 
 
-# Check Plugin Fact Sheet
+# Plugin Fact Sheet
 
 2020052602
 
-Check Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
+Plugin | Works on CentOS | Works on Fedora | Works on Ubuntu | Uses shell_exec() | Requires Python 3rd Party Libs | Uses SQLite DB | Unit Test avail. | Default WARN | Default CRIT
 ------------------------------|---------:|---------:|---------:|-----------:|-------------------------:|-------:|:-----|:----------------------------------|:------------------------------
 about-me                      | 7, 8     | 30+      | 16, 20   | yes        | psutil                   |        |      | -                                 | -
 apache-httpd-status           | 7, 8     | 30+      | 16, 20   |            |                          |        |      | #workers >= 80%                   | #workers >= 95%
