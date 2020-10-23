@@ -1,0 +1,101 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import os
+import sys
+from traceback import print_exc
+
+import lib3.base
+from lib3.globals import *
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020102001'
+
+DESCRIPTION = 'Checks the size of a file, in bytes.'
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020101601'
+
+DEFAULT_WARN = 1024*1024*25       # 25M (Mebibyte)
+DEFAULT_CRIT = 1024*1024*1024     # 1G (Gibibyte)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical size threshold in bytes. Default: >= %(default)s (1G)',
+        dest='CRIT',
+        type=float,
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument(
+        '--filename',
+        help='File name to check.',
+        dest='FILE',
+        required=True,
+        )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning size threshold in bytes. Default: >= %(default)s (100M)',
+        dest='WARN',
+        type=float,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        print_exc(e)
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch the data
+    try:
+        st = os.stat(args.FILE)
+    except:
+        lib3.base.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+
+    size = st.st_size
+
+    msg = '{} is {}.'.format(args.FILE, lib3.base.bytes2human(size))
+    perfdata = lib3.base.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
+    state = lib3.base.get_state(size, args.WARN, args.CRIT, 'ge')
+
+    lib3.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc(e)
+        sys.exit(STATE_UNKNOWN)
