@@ -125,7 +125,7 @@ def main():
             if row['type'] == 'row':
                 row_title = row['title']
                 uid = row_title.lower().replace(' ', '-').replace('/', '')
-                out_filename = f'{uid}/{uid}{args.FILENAME_POSTFIX}.json'
+                out_filename = f'check-plugins/{uid}/{uid}{args.FILENAME_POSTFIX}.json'
                 new_panels = get_panels(row['panels'])
 
                 # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
@@ -136,7 +136,7 @@ def main():
                 if args.GENERATE_ICINGAWEB2_INI:
                     panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
                     repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
-                    generate_icingaweb_ini(f'{uid}/{uid}.icingaweb2-grafana.ini', uid, panel_ids, repeatable)
+                    generate_icingaweb_ini(f'check-plugins/{uid}/{uid}.icingaweb2-grafana.ini', uid, panel_ids, repeatable)
         sys.exit()
 
     all_panels = get_panels(data['panels'])
