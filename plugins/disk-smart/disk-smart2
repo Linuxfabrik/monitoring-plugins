@@ -14,9 +14,9 @@ import re
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.args
-import lib.base
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.args2
+import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020082001'
@@ -63,7 +63,7 @@ def parse_args():
         help='A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'.'
         'Default: %(default)s',
         dest='IGNORE',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         default=DEFAULT_IGNORE,
         )
 
@@ -71,7 +71,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         )
 
     return parser.parse_args()
@@ -341,7 +341,7 @@ def parse_section_info(section):
                 p['w'] = get_worst('notice', p['w'])
                 p['msg'] = p.get('msg', '') + '  - Info: SMART is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
 
-    p['model'] = lib.base.uniq(p['model'].strip())
+    p['model'] = lib.base2.uniq(p['model'].strip())
 
     if warning:
         p['msg'] += '  - There are warnings, your drive may be affected:\n{}'.format(warning)
@@ -780,9 +780,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD_LIST_DISKS))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD_LIST_DISKS))
         if stderr:
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
         stdout, stderr, retc = 'sda  disk', '', 0
 
@@ -810,7 +810,7 @@ def main():
 
         if args.TEST is None:
             cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + str(disk))
-            stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd_smartctl))
+            stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
             if args.TEST[0] and os.path.isfile(args.TEST[0]):
@@ -829,9 +829,9 @@ def main():
 
         # compare the retc using bitmasks according to the man page of smartctl
         if retc & 1:
-            lib.base.oao('smartctl failed with exit status "Command line did not parse."', STATE_UNKNOWN)
+            lib.base2.oao('smartctl failed with exit status "Command line did not parse."', STATE_UNKNOWN)
         if retc & 2:
-            lib.base.oao('smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode."', STATE_UNKNOWN)
+            lib.base2.oao('smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode."', STATE_UNKNOWN)
 
         disk_msg = ''
         disk_state = STATE_OK
@@ -859,17 +859,17 @@ def main():
         for key, item in disk_report.items(): 
             if item['w'] != 'none':
                 disk_msg +=  item['msg'] + '\n'
-                disk_state = lib.base.get_worst(translate(item['w'], args.FULL), disk_state)
+                disk_state = lib.base2.get_worst(translate(item['w'], args.FULL), disk_state)
             if item.get('perfdata'):
                 for sensor_name, sensor_value in item['perfdata'].items():
-                    perfdata += lib.base.get_perfdata('{}--{}--{}--{}'.format(
+                    perfdata += lib.base2.get_perfdata('{}--{}--{}--{}'.format(
                         disk,
                         disk_report['general']['device_model'].replace(" ", "_"),
                         serial_number,
                         sensor_name), sensor_value, None, None, None, 0, None)
 
         msg_body += '* {}{} ({}, {}, SerNo {})\n'.format(
-            lib.base.state2str(disk_state, prefix='', suffix=' '),
+            lib.base2.state2str(disk_state, prefix='', suffix=' '),
             disk,
             disk_report['general']['model'],
             disk_report['general']['device_model'],
@@ -877,20 +877,20 @@ def main():
         if smart_msg:
             msg_body += smart_msg
         msg_body += disk_msg
-        state = lib.base.get_worst(disk_state, state)
+        state = lib.base2.get_worst(disk_state, state)
 
 
     if disk_count:
-        msg_header = 'Checked {} {}.'.format(disk_count, lib.base.pluralize('disk', disk_count))
+        msg_header = 'Checked {} {}.'.format(disk_count, lib.base2.pluralize('disk', disk_count))
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:
             msg_header += ' There are warnings.'
         else:
             msg_header += ' All are healthy.'
-        lib.base.oao('{}\n{}'.format(msg_header, msg_body) , state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('{}\n{}'.format(msg_header, msg_body) , state, perfdata, always_ok=args.ALWAYS_OK)
     else:
-        lib.base.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

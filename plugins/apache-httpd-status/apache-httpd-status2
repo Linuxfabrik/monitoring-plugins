@@ -19,10 +19,10 @@ DEFAULT_CRIT = 95       # %
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -75,11 +75,11 @@ def main():
 
     URL = args.URL
     if URL[0:4] != 'http':
-        lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        lib.base2.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
     URL = URL + '?auto'
 
     # fetch the URL
-    result = lib.base.coe(lib.url.fetch(URL))
+    result = lib.base2.coe(lib.url2.fetch(URL))
     result = result.strip().split('\n')
 
     httpd_bytesperreq = 0
@@ -120,7 +120,7 @@ def main():
 
     workers_total     = len(scoreboard)
     if workers_total == 0:
-        lib.base.oao('Malformed Apache server info.', STATE_UNKNOWN)
+        lib.base2.oao('Malformed Apache server info.', STATE_UNKNOWN)
 
     workers_closing   = scoreboard.count('C')
     workers_dns       = scoreboard.count('D')
@@ -154,35 +154,35 @@ def main():
     msg += '{}/{} busy ({}%; {} "G"), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
         workers_busy_total, workers_total, workers_pct, workers_finishing, workers_idle_total, workers_free,
         httpd_total_accesses, round(httpd_reqpersec, 0),
-        lib.base.bytes2human(httpd_total_traffic), lib.base.bytes2human(httpd_bytespersec), lib.base.bytes2human(httpd_bytesperreq),
-        lib.base.seconds2human(uptime),
+        lib.base2.bytes2human(httpd_total_traffic), lib.base2.bytes2human(httpd_bytespersec), lib.base2.bytes2human(httpd_bytesperreq),
+        lib.base2.seconds2human(uptime),
         )
 
     perfdata = ''
-    # lib.base.get_perfdata(label, value, uom, warn, crit, min, max)
-    perfdata += lib.base.get_perfdata('httpd_total_accesses', httpd_total_accesses, 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('httpd_total_traffic',  httpd_total_traffic,  'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('httpd_reqpersec',      httpd_reqpersec,     None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
+    # lib.base2.get_perfdata(label, value, uom, warn, crit, min, max)
+    perfdata += lib.base2.get_perfdata('httpd_total_accesses', httpd_total_accesses, 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('httpd_total_traffic',  httpd_total_traffic,  'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('httpd_reqpersec',      httpd_reqpersec,     None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('httpd_bytespersec',    httpd_bytespersec,    'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('httpd_bytesperreq',    httpd_bytesperreq,    'B', None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('workers',              workers_pct,          '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('workers',              workers_pct,          '%', args.WARN, args.CRIT, 0, 100)
 
-    perfdata += lib.base.get_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_finishing',    workers_finishing,   None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_free',         workers_free,        None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
-    perfdata += lib.base.get_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_closing',      workers_closing,     None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_dns',          workers_dns,         None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_finishing',    workers_finishing,   None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_idle',         workers_idle,        None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_keepalive',    workers_keepalive,   None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_logging',      workers_logging,     None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_free',         workers_free,        None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_reading',      workers_reading,     None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_replying',     workers_replying,    None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_starting',     workers_starting,    None, None, None, 0, workers_total)
+    perfdata += lib.base2.get_perfdata('workers_waiting',      workers_waiting,     None, None, None, 0, workers_total)
 
-    perfdata += lib.base.get_perfdata('uptime',               uptime,               's', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('uptime',               uptime,               's', None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -20,10 +20,10 @@ DEFAULT_TIMEOUT  = 3
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -103,7 +103,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     url = 'https://{}/api/v2/monitor/system/ha-statistics/select/?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     member_count = len(result['results'])
 
     # we expect for example 2 members in our ha cluster
@@ -114,22 +114,22 @@ def main():
 
     msg = 'Found {} HA cluster {}{}, which handled {} sessions and {} traffic so far.'.format(
         member_count, 
-        lib.base.pluralize('member', member_count),
-        lib.base.state2str(state, prefix= ' (', suffix=')'),
+        lib.base2.pluralize('member', member_count),
+        lib.base2.state2str(state, prefix= ' (', suffix=')'),
         sum(item['sessions'] for item in result['results']),
-        lib.base.bytes2human(sum(item['tbyte'] for item in result['results']))
+        lib.base2.bytes2human(sum(item['tbyte'] for item in result['results']))
         )
 
     perfdata = ''
     for sensor in result['results']:
         name = sensor['hostname']
-        perfdata += lib.base.get_perfdata('{}_sessions'.format(name), sensor['sessions'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_net_usage'.format(name), sensor['net_usage'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_tbyte'.format(name), sensor['tbyte'], None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_cpu_usage'.format(name), sensor['cpu_usage'], '%', None, None, 0, 100)
-        perfdata += lib.base.get_perfdata('{}_mem_usage'.format(name), sensor['mem_usage'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_sessions'.format(name), sensor['sessions'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_net_usage'.format(name), sensor['net_usage'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_tbyte'.format(name), sensor['tbyte'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_cpu_usage'.format(name), sensor['cpu_usage'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_mem_usage'.format(name), sensor['mem_usage'], '%', None, None, 0, 100)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

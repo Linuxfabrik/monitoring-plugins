@@ -16,9 +16,9 @@ DESCRIPTION = 'Checks the IPMI System Event Log (SEL) and returns WARN if there 
 cmd = 'ipmitool sel elist'
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -43,19 +43,19 @@ def main():
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (retc != 0):
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     # everything is ok
     if 'SEL has no entries' in stderr:
-        lib.base.oao('Everything is ok.', STATE_OK)
+        lib.base2.oao('Everything is ok.', STATE_OK)
 
     # there are entries, so we have to throw a warning about that
     msg = ''
     for line in stdout.splitlines():
         msg += '* ' + line.replace('|', ';') + '\n'
-    lib.base.oao(msg, STATE_WARN)
+    lib.base2.oao(msg, STATE_WARN)
 
 
 if __name__ == '__main__':

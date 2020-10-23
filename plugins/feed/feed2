@@ -12,12 +12,12 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-import lib.base
-import lib.cache
-import lib.feedparser
-import lib.icinga
+import lib.base2
+import lib.cache2
+import lib.feedparser2
+import lib.icinga2
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -135,7 +135,7 @@ def parse_args():
 
 
 def fetch_feed_last_item(feed_url, insecure=False, no_proxy=False, timeout=5):
-    success, myfeed = lib.feedparser.parse(
+    success, myfeed = lib.feedparser2.parse(
         feed_url, insecure=insecure, no_proxy=no_proxy, timeout=timeout)
     if not success:
         return (False, myfeed)
@@ -168,11 +168,11 @@ def get_feed_state(feed_id, delta, args):
     if delta < args.WARN*60:
         if not args.ICINGA_CALLBACK:
             return STATE_WARN
-        cached_item = lib.cache.get('feed-{}'.format(feed_id), as_dict=True)
+        cached_item = lib.cache2.get('feed-{}'.format(feed_id), as_dict=True)
         if cached_item:
             if cached_item['value'] == 'acked':
                 return STATE_OK
-            success, icinga = lib.icinga.get_service(
+            success, icinga = lib.icinga2.get_service(
                 args.ICINGA_URL,
                 args.ICINGA_USERNAME,
                 args.ICINGA_PASSWORD,
@@ -182,12 +182,12 @@ def get_feed_state(feed_id, delta, args):
             if not success:
                 return STATE_WARN
             if icinga['results'][0]['attrs']['acknowledgement']:
-                lib.cache.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'])
+                lib.cache2.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'])
                 return STATE_OK
             else:
                 return STATE_WARN
         else:
-            lib.cache.set('feed-{}'.format(feed_id), 'unacked', lib.base.now() + args.WARN*60)
+            lib.cache2.set('feed-{}'.format(feed_id), 'unacked', lib.base2.now() + args.WARN*60)
             return STATE_WARN
     else:
         return STATE_OK
@@ -205,13 +205,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # get the newest/latest feed item
-    feed_item = lib.base.coe(fetch_feed_last_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
+    feed_item = lib.base2.coe(fetch_feed_last_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
 
     # feed with 0 entries
     if not feed_item:
-        lib.base.oao('No news are good news.', STATE_OK)
+        lib.base2.oao('No news are good news.', STATE_OK)
 
-    delta = abs(lib.base.now(as_type='datetime') - feed_item.get('updated_parsed', lib.base.now(as_type='datetime')))
+    delta = abs(lib.base2.now(as_type='datetime') - feed_item.get('updated_parsed', lib.base2.now(as_type='datetime')))
     delta = delta.total_seconds()   # this is the age of the newest feed item, in seconds
 
     state = get_feed_state(feed_item['id'], delta, args)
@@ -219,16 +219,16 @@ def main():
     if args.NO_SUMMARY:
         msg = '{} ({} ago)'.format(
             feed_item.get('title', 'No title').encode('utf-8').strip(),
-            lib.base.seconds2human(delta)
+            lib.base2.seconds2human(delta)
         )
     else:
         msg = '{}. {} ({} ago)'.format(
             feed_item.get('title', 'No title').encode('utf-8').strip(),
             feed_item.get('summary', 'No summary').encode('utf-8').strip(),
-            lib.base.seconds2human(delta)
+            lib.base2.seconds2human(delta)
         )
 
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

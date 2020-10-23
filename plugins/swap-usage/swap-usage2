@@ -17,9 +17,9 @@ DEFAULT_WARN  = 70  # %
 DEFAULT_CRIT  = 90  # %
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 try:
@@ -74,25 +74,25 @@ def main():
 
     msg_header = '{}% - total: {}, used: {}, free: {}'.format(
         swap_usage_percent,
-        lib.base.bytes2human(swap.total),
-        lib.base.bytes2human(swap.used),
-        lib.base.bytes2human(swap.free),
+        lib.base2.bytes2human(swap.total),
+        lib.base2.bytes2human(swap.used),
+        lib.base2.bytes2human(swap.free),
     )
     msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-        lib.base.bytes2human(getattr(swap, 'sin', 0)),
-        lib.base.bytes2human(getattr(swap, 'sout', 0)),
+        lib.base2.bytes2human(getattr(swap, 'sin', 0)),
+        lib.base2.bytes2human(getattr(swap, 'sout', 0)),
     )
 
-    perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
-    perfdata += lib.base.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
-    perfdata += lib.base.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
-    perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
+    perfdata =  lib.base2.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
+    perfdata += lib.base2.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
+    perfdata += lib.base2.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
+    perfdata += lib.base2.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
 
     # calculating the final check state
-    state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
-    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
+    state = lib.base2.get_state(swap_usage_percent, args.WARN, args.CRIT)
+    lib.base2.oao(msg_header + '\n' + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

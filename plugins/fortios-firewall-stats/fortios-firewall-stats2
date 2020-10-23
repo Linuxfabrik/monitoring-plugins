@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN
-import lib.base
-import lib.url
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020050501'
@@ -96,17 +96,17 @@ def main():
 
     url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
         args.HOSTNAME, args.PASSWORD)
-    result4 = lib.base.coe(lib.url.fetch_json(
+    result4 = lib.base2.coe(lib.url2.fetch_json(
         url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     url = 'https://{}/api/v2/monitor/firewall/policy6/select/?access_token={}'.format(
         args.HOSTNAME, args.PASSWORD)
-    result6 = lib.base.coe(lib.url.fetch_json(
+    result6 = lib.base2.coe(lib.url2.fetch_json(
         url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     policy_count = len(result4['results']) + len(result6['results'])
-    total = lib.base.sum_dict(lib.base.sum_lod(
-        result4['results']), lib.base.sum_lod(result6['results']))
+    total = lib.base2.sum_dict(lib.base2.sum_lod(
+        result4['results']), lib.base2.sum_lod(result6['results']))
     # {
     #     u'active_sessions': 2
     #     u'asic_bytes': 0
@@ -131,30 +131,30 @@ def main():
         total.get('session_count', 0),
         total.get('active_sessions', 0),
         total.get('hit_count', 0),
-        lib.base.bytes2human(total.get('bytes', 0)),
-        lib.base.bytes2human(total.get('software_bytes', 0)),
-        lib.base.bytes2human(total.get('asic_bytes', 0)),
-        lib.base.bytes2human(total.get('nturbo_bytes', 0)),
+        lib.base2.bytes2human(total.get('bytes', 0)),
+        lib.base2.bytes2human(total.get('software_bytes', 0)),
+        lib.base2.bytes2human(total.get('asic_bytes', 0)),
+        lib.base2.bytes2human(total.get('nturbo_bytes', 0)),
     )
     state = STATE_OK
 
     perfdata = ''
-    perfdata += lib.base.get_perfdata('total_session_count',
+    perfdata += lib.base2.get_perfdata('total_session_count',
                                       total.get('session_count', 0), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_active_sessions',
+    perfdata += lib.base2.get_perfdata('total_active_sessions',
                                       total.get('active_sessions', 0), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_hit_count',
+    perfdata += lib.base2.get_perfdata('total_hit_count',
                                       total.get('hit_count', 0), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_bytes',
+    perfdata += lib.base2.get_perfdata('total_bytes',
                                       total.get('bytes', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_software_bytes',
+    perfdata += lib.base2.get_perfdata('total_software_bytes',
                                       total.get('software_bytes', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_asic_bytes',
+    perfdata += lib.base2.get_perfdata('total_asic_bytes',
                                       total.get('asic_bytes', 0), 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_nturbo_bytes',
+    perfdata += lib.base2.get_perfdata('total_nturbo_bytes',
                                       total.get('nturbo_bytes', 0), 'B', None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

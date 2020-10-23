@@ -21,10 +21,10 @@ DEFAULT_TIMEOUT  = 3
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -104,7 +104,7 @@ def main():
 
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
     url = 'https://{}/api/v2/monitor/system/resource/usage?resource=mem&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
     stats['usage_percent'] = result['results']['mem'][0]['current']
@@ -112,17 +112,17 @@ def main():
     # try to get the global configured memory warning thresholds from Forti OS
     # if success, use them, otherwise our from args.WARN etc.
     url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    thresholds = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    thresholds = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('memory-use-threshold-green', args.WARN)
     crit = thresholds['results'].get('memory-use-threshold-red', args.CRIT)
 
-    state = lib.base.get_state(stats['usage_percent'], warn, crit, operator='gt')
+    state = lib.base2.get_state(stats['usage_percent'], warn, crit, operator='gt')
 
     # build the message
     msg = '{}%'.format(stats['usage_percent'])
-    perfdata = lib.base.get_perfdata('usage_percent', stats['usage_percent'], '%', warn, crit, 0, 100)
+    perfdata = lib.base2.get_perfdata('usage_percent', stats['usage_percent'], '%', warn, crit, 0, 100)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -18,13 +18,13 @@ DEFAULT_CRIT  = 95
 DEFAULT_MOUNT = '/, /tmp, /boot'
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
 import argparse
 import os
 from traceback import print_exc
 
-import lib.base
+import lib.base2
 
 
 def parse_args():
@@ -85,18 +85,18 @@ def main():
             inodes_used = round((inodes_total - inodes_free) / inodes_total * 100, 1)
 
             msg += '{} {}%, '.format(mount, inodes_used)
-            perfdata += lib.base.get_perfdata(mount, inodes_used, '%', args.WARN, args.CRIT, 0, 100)
+            perfdata += lib.base2.get_perfdata(mount, inodes_used, '%', args.WARN, args.CRIT, 0, 100)
 
             if inodes_used >= args.CRIT:
-                state = lib.base.get_worst(state, STATE_CRIT)
+                state = lib.base2.get_worst(state, STATE_CRIT)
                 msg = msg[:-2] + ' (CRIT), '
             elif inodes_used >= args.WARN:
-                state = lib.base.get_worst(state, STATE_WARN)
+                state = lib.base2.get_worst(state, STATE_WARN)
                 msg = msg[:-2] + ' (WARN), '
         except Exception as e:
-            lib.base.oao('Something seems to be wrong with the input parameter. The error was: {}'.format(e), STATE_UNKNOWN)
+            lib.base2.oao('Something seems to be wrong with the input parameter. The error was: {}'.format(e), STATE_UNKNOWN)
 
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -22,9 +22,9 @@ DEFAULT_HOSTNAME = '127.0.0.1'
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import os
@@ -84,13 +84,13 @@ def main():
         )
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (stderr or retc == 2):
-        lib.base.oao(stderr, STATE_UNKNOWN)
+        lib.base2.oao(stderr, STATE_UNKNOWN)
 
     result = stdout.splitlines()
     if not result[0] or not result[3]:
-        lib.base.oao('Unexpected output from ping.', STATE_UNKNOWN)
+        lib.base2.oao('Unexpected output from ping.', STATE_UNKNOWN)
 
     # throwing CRIT if ping exits with 1 (CRIT instead of WARN beacuse of the 
     # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).
@@ -135,20 +135,20 @@ def main():
         msg += result[4]
 
     perfdata = ''
-    perfdata += lib.base.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('received', received, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('errors', errors, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
-    perfdata += lib.base.get_perfdata('time', time, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('received', received, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('errors', errors, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
+    perfdata += lib.base2.get_perfdata('time', time, 'ms', None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

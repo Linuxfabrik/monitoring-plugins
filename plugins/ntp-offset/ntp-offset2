@@ -14,9 +14,9 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
-import lib.base
+import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020072801'
@@ -73,32 +73,32 @@ def main():
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='ntpd')
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(formatted_systemctl_command))
     if stderr:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     ntpd_present = bool(retc == 0)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(formatted_systemctl_command))
     if stderr:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     chronyd_present = bool(retc == 0)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='systemd-timesyncd')
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(formatted_systemctl_command))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(formatted_systemctl_command))
     if stderr:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     systemd_timesyncd_present = bool(retc == 0)
 
     if not ntpd_present and not chronyd_present and not systemd_timesyncd_present:
-        lib.base.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
+        lib.base2.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
 
     if ntpd_present:
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(ntpq_command))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(ntpq_command))
         if stderr: # todo check retc?
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
         msg_body = stdout
 
@@ -113,12 +113,12 @@ def main():
                 stratum = int(line[2])
 
         if not ntp_server_found:
-            lib.base.oao('No NTP server used.', STATE_UNKNOWN)
+            lib.base2.oao('No NTP server used.', STATE_UNKNOWN)
 
     if chronyd_present:
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(chronyc_command))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(chronyc_command))
         if stderr: # todo check retc?
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_body = stdout
 
         for line in msg_body.splitlines():
@@ -136,11 +136,11 @@ def main():
                 continue
 
     if systemd_timesyncd_present:
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(systemd_timesyncd_command))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(systemd_timesyncd_command))
         if stderr:
             if 'Unknown operation' in stderr:
-                lib.base.oao('sytemd-timesyncd found. No further information can be extracted.', STATE_UNKNOWN)
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+                lib.base2.oao('sytemd-timesyncd found. No further information can be extracted.', STATE_UNKNOWN)
+            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_body = stdout
 
         for line in msg_body.splitlines():
@@ -158,27 +158,27 @@ def main():
                 continue
 
     if ntp_server == '':
-        lib.base.oao('No NTP server found.', STATE_UNKNOWN)
+        lib.base2.oao('No NTP server found.', STATE_UNKNOWN)
 
     if ntp_server == 'LOCAL':
-        lib.base.oao('No NTP server used.', STATE_UNKNOWN)
+        lib.base2.oao('No NTP server used.', STATE_UNKNOWN)
 
-    perfdata = lib.base.get_perfdata('offset', offset, 'ms', args.WARN, args.CRIT, None, None)
+    perfdata = lib.base2.get_perfdata('offset', offset, 'ms', args.WARN, args.CRIT, None, None)
 
     if abs(offset) >= args.CRIT:
         msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
-        lib.base.oao(msg_header + '\n' + msg_body, STATE_CRIT, perfdata)
+        lib.base2.oao(msg_header + '\n' + msg_body, STATE_CRIT, perfdata)
 
     if abs(offset) >= args.WARN:
         msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
-        lib.base.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
+        lib.base2.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
 
     if stratum >= 9:
         msg_header = 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
-        lib.base.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
+        lib.base2.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
 
     msg_header = 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
-    lib.base.oao(msg_header + '\n' + msg_body, STATE_OK, perfdata)
+    lib.base2.oao(msg_header + '\n' + msg_body, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

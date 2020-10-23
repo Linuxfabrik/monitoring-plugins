@@ -27,11 +27,11 @@ DEFAULT_TIMEOUT  = 3
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.args
-import lib.base
-import lib.url
+import lib.args2
+import lib.base2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument('--metric', 
         help='Filter the output and optionally check against thresholds or ranges, for example "--metric nb_visits,100:,50:" (repeating, csv, works with ranges). Default: %(default)s',
         dest='METRIC',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         action='append',
         default=DEFAULT_METRIC, 
         )
@@ -123,9 +123,9 @@ def main():
 
 
     url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     if 'result' in result and result['result'] == 'error':
-        lib.base.oao('{}'.format(result['message']), STATE_UNKNOWN)    
+        lib.base2.oao('{}'.format(result['message']), STATE_UNKNOWN)    
 
     state = STATE_OK
     msg = ''
@@ -148,27 +148,27 @@ def main():
             except:
                 crit = None
             
-            if not lib.base.coe(lib.base.match_range(value, crit)):
+            if not lib.base2.coe(lib.base2.match_range(value, crit)):
                 sensor_state = STATE_CRIT
-            elif not lib.base.coe(lib.base.match_range(value, warn)):
+            elif not lib.base2.coe(lib.base2.match_range(value, warn)):
                 sensor_state = STATE_WARN
             else:
                 sensor_state = STATE_OK
 
-            msg += '{}: {}{}, '.format(key, lib.base.number2human(value), lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
-            state = lib.base.get_worst(state, sensor_state)
+            msg += '{}: {}{}, '.format(key, lib.base2.number2human(value), lib.base2.state2str(sensor_state, prefix=' (', suffix=')'))
+            state = lib.base2.get_worst(state, sensor_state)
 
         # print all sensors as perfdata
-        for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
-            perfdata += lib.base.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
+        for key, value in lib.base2.sort(result, reverse=False, sort_by_key=True):
+            perfdata += lib.base2.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
     else:
-        for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
+        for key, value in lib.base2.sort(result, reverse=False, sort_by_key=True):
             # print all values
-            msg += '{}: {}, '.format(key, lib.base.number2human(value))
-            perfdata += lib.base.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
+            msg += '{}: {}, '.format(key, lib.base2.number2human(value))
+            perfdata += lib.base2.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
-    lib.base.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
    
 
 if __name__ == '__main__':

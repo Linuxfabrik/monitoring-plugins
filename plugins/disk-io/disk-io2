@@ -22,10 +22,10 @@ DEFAULT_IGNORE = ['sr0', 'loop0', 'loop1', 'loop2', 'loop3', 'loop4', 'loop5', '
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.db_sqlite
+import lib.base2
+import lib.db_sqlite2
 
 import argparse
 try:
@@ -97,18 +97,18 @@ def main():
             write_time          INT NOT NULL,
             timestamp           INT NOT NULL
         '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='disk-io.db'))
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
-    lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+    conn = lib.base2.coe(lib.db_sqlite2.connect(filename='disk-io.db'))
+    lib.base2.coe(lib.db_sqlite2.create_table(conn, definition, drop_table_first=False))
+    lib.base2.coe(lib.db_sqlite2.create_index(conn, 'name'))
 
 
     # get disk data and store it to database
     try:
         disk_io_counters = psutil.disk_io_counters(perdisk=True)
     except ValueError as e:
-        lib.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.base2.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
-    timestamp = lib.base.now()
+    timestamp = lib.base2.now()
 
     disks = []
     for disk, values in disk_io_counters.items():
@@ -127,10 +127,10 @@ def main():
         data['write_time'] = getattr(values, 'write_time', 0)
         data['timestamp'] = timestamp
         disks.append(disk)
-        lib.base.coe(lib.db_sqlite.insert(conn, data))
+        lib.base2.coe(lib.db_sqlite2.insert(conn, data))
 
-    lib.base.coe(lib.db_sqlite.cut(conn, max=args.COUNT*len(disks)))
-    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.base2.coe(lib.db_sqlite2.cut(conn, max=args.COUNT*len(disks)))
+    lib.base2.coe(lib.db_sqlite2.commit(conn))
 
 
     msg_header, msg_body, msg_item, msg_warn = '', '', '', ''
@@ -141,13 +141,13 @@ def main():
     max_rw = 0       # disk with the highest sum of r/w: show this on top later on
     for disk in sorted(disks):
         # get the two newest historical data rows for a specific disk, newest item first
-        diskdata = lib.base.coe(lib.db_sqlite.select(conn, 
+        diskdata = lib.base2.coe(lib.db_sqlite2.select(conn, 
             'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC LIMIT 2',
             {'name': disk}
         ))
         if len(diskdata) != 2:
-            lib.db_sqlite.close(conn)
-            lib.base.oao('Waiting for more data.', state)
+            lib.db_sqlite2.close(conn)
+            lib.base2.oao('Waiting for more data.', state)
 
         # calculate
         timestamp_diff = diskdata[0]['timestamp'] - diskdata[1]['timestamp']            # in seconds
@@ -156,12 +156,12 @@ def main():
         write_bytes_per_second = int((diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff)
         write_count_per_second = int((diskdata[0]['write_count'] - diskdata[1]['write_count']) / timestamp_diff)
 
-        perfdata += lib.base.get_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second, 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_read_count_per_second'.format(disk), read_count_per_second, None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second, 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('{}_write_count_per_second'.format(disk), write_count_per_second, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second, 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_read_count_per_second'.format(disk), read_count_per_second, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second, 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_write_count_per_second'.format(disk), write_count_per_second, None, None, None, 0, None)
 
-        msg_item = '{}: {} R/s, {} W/s, {} IO/s\n'.format(disk, lib.base.bytes2human(read_bytes_per_second), lib.base.bytes2human(write_bytes_per_second), read_count_per_second+write_count_per_second)
+        msg_item = '{}: {} R/s, {} W/s, {} IO/s\n'.format(disk, lib.base2.bytes2human(read_bytes_per_second), lib.base2.bytes2human(write_bytes_per_second), read_count_per_second+write_count_per_second)
         if read_bytes_per_second + write_bytes_per_second > max_rw:
             msg_header = msg_item
             max_rw = read_bytes_per_second + write_bytes_per_second
@@ -171,7 +171,7 @@ def main():
     # the real check goes here - we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
     for disk in sorted(disks):
         # get all historical data rows for a specific disk, newest item first
-        diskdata = lib.base.coe(lib.db_sqlite.select(conn, 
+        diskdata = lib.base2.coe(lib.db_sqlite2.select(conn, 
             'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
             {'name': disk}
         ))
@@ -186,18 +186,18 @@ def main():
 
         throughput = read_bytes_per_second + write_bytes_per_second
         if throughput >= args.CRIT * 1024 * 1024:
-            msg_warn += '{} (CRIT): {}/s, '.format(disk, lib.base.bytes2human(throughput))
+            msg_warn += '{} (CRIT): {}/s, '.format(disk, lib.base2.bytes2human(throughput))
             state = STATE_CRIT
         elif throughput >= args.WARN * 1024 * 1024:
-            msg_warn += '{} (WARN): {}/s, '.format(disk, lib.base.bytes2human(throughput))
+            msg_warn += '{} (WARN): {}/s, '.format(disk, lib.base2.bytes2human(throughput))
             state = STATE_WARN
-    lib.db_sqlite.close(conn)
+    lib.db_sqlite2.close(conn)
 
     if msg_warn:
         msg_header = msg_warn[:-2] + '\n'
     msg = msg_header + msg_body
 
-    lib.base.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

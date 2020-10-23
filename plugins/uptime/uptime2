@@ -18,10 +18,10 @@ DEFAULT_CRIT = 366     # days
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.args
-import lib.base
+import lib.args2
+import lib.base2
 
 import argparse
 try:
@@ -51,14 +51,14 @@ def parse_args():
     parser.add_argument('-c', '--critical',
         help='Set the critical threshold for uptime in days. Default: %(default)s',
         dest='CRIT',
-        type=lib.args.int_or_none,
+        type=lib.args2.int_or_none,
         default=DEFAULT_CRIT,
         )
 
     parser.add_argument('-w', '--warning',
         help='Set the warning threshold for uptime in days. Default: %(default)s',
         dest='WARN',
-        type=lib.args.int_or_none,
+        type=lib.args2.int_or_none,
         default=DEFAULT_WARN,
         )
 
@@ -82,13 +82,13 @@ def main():
     else:
         WARN = args.WARN*24*60*60
 
-    delta = lib.base.now() - psutil.boot_time()
+    delta = lib.base2.now() - psutil.boot_time()
 
-    msg = 'Up {}'.format(lib.base.seconds2human(delta))
-    perfdata = lib.base.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
-    state = lib.base.get_state(delta, WARN, CRIT)
+    msg = 'Up {}'.format(lib.base2.seconds2human(delta))
+    perfdata = lib.base2.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
+    state = lib.base2.get_state(delta, WARN, CRIT)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

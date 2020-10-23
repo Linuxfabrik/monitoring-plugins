@@ -21,9 +21,9 @@ cmd = 'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sort | tail 
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -62,19 +62,19 @@ def main():
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (stderr):
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     last_activity = stdout.strip().split(' ')
 
     # calculating the final check state
-    delta = lib.base.now() - int(last_activity[0])
+    delta = lib.base2.now() - int(last_activity[0])
     if delta >= args.CRIT * 24 * 60 * 60:
-        lib.base.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.CRIT), STATE_CRIT)
+        lib.base2.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.CRIT), STATE_CRIT)
     if delta >= args.WARN * 24 * 60 * 60:
-        lib.base.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.WARN), STATE_WARN)
+        lib.base2.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.WARN), STATE_WARN)
     
-    lib.base.oao('Last rpm/yum/dnf activity is {} ago (so below the given thresholds {}d/{}d).'.format(lib.base.seconds2human(delta), args.WARN, args.CRIT), STATE_OK)
+    lib.base2.oao('Last rpm/yum/dnf activity is {} ago (so below the given thresholds {}d/{}d).'.format(lib.base2.seconds2human(delta), args.WARN, args.CRIT), STATE_OK)
 
 
 if __name__ == '__main__':

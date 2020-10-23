@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
-import lib.args
-import lib.base
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.args2
+import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020050801'
@@ -45,7 +45,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         )
 
     return parser.parse_args()
@@ -60,13 +60,13 @@ def main():
 
     if args.TEST is None:
         # get the values the normal way
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.base.test(args.TEST)
+        stdout, stderr, retc = lib.base2.test(args.TEST)
 
     if retc != 0:
-        lib.base.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
+        lib.base2.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
 
     failed_units = stdout.splitlines()
     if len(failed_units) == 0:
@@ -75,9 +75,9 @@ def main():
         state = STATE_OK
     else:
         msg = 'There {} {} failed {}.\n'.format(
-            lib.base.pluralize('', len(failed_units), 'is,are'),
+            lib.base2.pluralize('', len(failed_units), 'is,are'),
             len(failed_units),
-            lib.base.pluralize('unit', len(failed_units)),
+            lib.base2.pluralize('unit', len(failed_units)),
             )
         table_data = []
         for line in failed_units:
@@ -90,15 +90,15 @@ def main():
                 'description': ' '.join(unit[4:]),
                 })
             state = STATE_WARN
-        table = lib.base.get_table(
+        table = lib.base2.get_table(
             table_data,
             ['unit', 'load', 'active', 'sub', 'description'],
             ['unit', 'load', 'active', 'sub', 'description'],
             )
 
-    perfdata = lib.base.get_perfdata(
+    perfdata = lib.base2.get_perfdata(
         'systemd-units-failed', len(failed_units), None, 1, None, 0, None)
-    lib.base.oao('{}\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao('{}\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

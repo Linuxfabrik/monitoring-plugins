@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-import lib3.args
-import lib3.base
-from lib3.globals import STATE_OK, STATE_UNKNOWN
+import lib.args3
+import lib.base3
+from lib.globals3 import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -40,7 +40,7 @@ def parse_args():
         default=DEFAULT_CRIT,
         dest='CRIT',
         help='Set the critical threshold for the number of pending updates. Default: %(default)s',
-        type=lib3.args.int_or_none,
+        type=lib.args3.int_or_none,
     )
 
     parser.add_argument(
@@ -48,7 +48,7 @@ def parse_args():
         default=DEFAULT_WARN,
         dest='WARN',
         help='Set the warning threshold for the number of pending updates. Default: %(default)s',
-        type=lib3.args.int_or_none,
+        type=lib.args3.int_or_none,
     )
 
     return parser.parse_args()
@@ -72,19 +72,19 @@ def main():
     }
     "'''
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib3.base.coe(lib3.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if stderr:
         # Could not find any documentation in the return codes of 'query user'. Therefore we assume any is ok.
-        lib3.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     result = stdout.strip()
 
     count = sum(1 for line in result.splitlines())
-    perfdata = lib3.base.get_perfdata('pending_updates', count, None, args.WARN, args.CRIT, 0, None)
+    perfdata = lib.base3.get_perfdata('pending_updates', count, None, args.WARN, args.CRIT, 0, None)
 
     if count:
-        state = lib3.base.get_state(count, WARN, CRIT)
-        lib3.base.oao(f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '), state, perfdata)
-    lib3.base.oao('There are no pending updates.', STATE_OK, perfdata)
+        state = lib.base3.get_state(count, WARN, CRIT)
+        lib.base3.oao(f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '), state, perfdata)
+    lib.base3.oao('There are no pending updates.', STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

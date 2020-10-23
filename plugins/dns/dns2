@@ -18,10 +18,10 @@ DEFAULT_PORT = 53
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.net
+import lib.base2
+import lib.net2
 
 import argparse
 import socket
@@ -112,11 +112,11 @@ def main():
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
     except socket.error as e:
-        lib.base.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base2.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     except socket.herror as e:
-        lib.base.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base2.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     except socket.gaierror as e:
-        lib.base.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base2.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
 
     msg = 'Lookup for {} returns '.format(args.HOSTNAME)
@@ -124,10 +124,10 @@ def main():
         af, socktype, proto, canonname, sa = res
         msg += '{} ({}{}:{}), '.format(sa[0], lib.net.PROTOSTR[proto], lib.net.FAMILIYSTR[af], sa[1])
 
-    state = lib.base.get_state(runtime, args.WARN, args.CRIT, operator='ge')
-    perfdata = lib.base.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
+    state = lib.base2.get_state(runtime, args.WARN, args.CRIT, operator='ge')
+    perfdata = lib.base2.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
 
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -12,10 +12,10 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
-import lib.args
-import lib.base
-import lib.disk
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.args2
+import lib.base2
+import lib.disk2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020082001'
@@ -49,14 +49,14 @@ def parse_args():
         '\'/sys/fs\' will be ignored. '
         'Default: %(default)s',
         dest='IGNORE',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         default=DEFAULT_IGNORE,
         )
 
     parser.add_argument('--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         )
 
     return parser.parse_args()
@@ -71,17 +71,17 @@ def main():
 
     if args.TEST == None:
         # get the values the normal way
-        mounts = lib.base.coe(lib.disk.read_file('/proc/mounts'))
+        mounts = lib.base2.coe(lib.disk2.read_file('/proc/mounts'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.base.test(args.TEST)
+        stdout, stderr, retc = lib.base2.test(args.TEST)
         mounts = stdout
 
     ros = []
     for mount in mounts.splitlines():
         mnt = mount.split()
         if len(mnt) != 6:
-            lib.base.oao('Unexpected format of /proc/mounts.', STATE_WARN, always_ok=args.ALWAYS_OK)
+            lib.base2.oao('Unexpected format of /proc/mounts.', STATE_WARN, always_ok=args.ALWAYS_OK)
         mount_spec = mnt[0]
         mount_point = mnt[1]
         mount_type = mnt[2]
@@ -96,7 +96,7 @@ def main():
     if len(ros) >= 1:
         msg = '{} read-only mount {} found: '.format(
             len(ros),
-            lib.base.pluralize('point', len(ros)),
+            lib.base2.pluralize('point', len(ros)),
             )
         for item in ros:
             msg += '{}, '.format(item)
@@ -106,7 +106,7 @@ def main():
         msg = 'Everything is ok.'
         state = STATE_OK
 
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

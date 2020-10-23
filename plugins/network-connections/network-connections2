@@ -15,9 +15,9 @@ DESCRIPTION = 'Counts tcp, tcp6, udp and udp6 connections.'
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 try:
@@ -59,7 +59,7 @@ def main():
 
     proc_names = {}
     # Changed in psutil version 5.3.0: added “attrs” and “ad_value” parameters.
-    if lib.base.version(psutil.__version__) >= lib.base.version('5.3.0'):
+    if lib.base2.version(psutil.__version__) >= lib.base2.version('5.3.0'):
         for p in psutil.process_iter(attrs=['pid', 'name']):
             proc_names[p.info['pid']] = p.info['name']
     else:
@@ -80,13 +80,13 @@ def main():
     msg = ''
     perfdata = ''
 
-    for item in lib.base.sort(stats, reverse=True):
+    for item in lib.base2.sort(stats, reverse=True):
         proto, value = item
         if value:
             msg += '{}: {}, '.format(proto.replace('_', ' '), value)
-        perfdata += lib.base.get_perfdata(proto, value, None, None, None, None, None)
+        perfdata += lib.base2.get_perfdata(proto, value, None, None, None, None, None)
 
-    lib.base.oao(msg[:-2], STATE_OK, perfdata)
+    lib.base2.oao(msg[:-2], STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

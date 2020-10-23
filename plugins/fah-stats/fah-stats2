@@ -19,10 +19,10 @@ DEFAULT_TEAM = '260774'
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 import json
@@ -65,7 +65,7 @@ def parse_args():
 
 
 def get_json(url, timeout):
-    success, result = lib.url.fetch(url, timeout=timeout)
+    success, result = lib.url2.fetch(url, timeout=timeout)
     if not success:
         return (success, result)
     return (True, json.loads(result))
@@ -81,41 +81,41 @@ def main():
     perfdata = ''
 
     if args.DONOR:
-        result = lib.base.coe(get_json(args.URL + 'donor/' + args.DONOR, args.TIMEOUT))
-        delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
+        result = lib.base2.coe(get_json(args.URL + 'donor/' + args.DONOR, args.TIMEOUT))
+        delta = lib.base2.timestrdiff(lib.base2.now(as_type='iso'), result['last'])
 
         msg = '{} Total Score, {} Work Units (last one {} ago), {} Active Clients within 50 days, Rank (if points are combined) {}/{}, Donor ID {}'.format(
-            lib.base.number2human(result['credit']),
-            lib.base.number2human(result['wus']),
-            lib.base.seconds2human(delta),
+            lib.base2.number2human(result['credit']),
+            lib.base2.number2human(result['wus']),
+            lib.base2.seconds2human(delta),
             result['active_50'],
             result['rank'], result['total_users'],
             args.DONOR
             )
-        perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_users'])
+        perfdata += lib.base2.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_users'])
     else:
-        result = lib.base.coe(get_json(args.URL + 'team/' + args.TEAM, args.TIMEOUT))
-        delta = lib.base.timestrdiff(lib.base.now(as_type='iso'), result['last'])
+        result = lib.base2.coe(get_json(args.URL + 'team/' + args.TEAM, args.TIMEOUT))
+        delta = lib.base2.timestrdiff(lib.base2.now(as_type='iso'), result['last'])
         donors = len(result['donors'])
 
         msg = 'Team Ranking {}/{}, {} Work Units (last one {} ago), {} Grand Score, {} Active CPUs within 50 days, {} Donors, Team ID {}'.format(
             result['rank'], result['total_teams'],
-            lib.base.number2human(result['wus']),
-            lib.base.seconds2human(delta),
-            lib.base.number2human(result['credit']),
+            lib.base2.number2human(result['wus']),
+            lib.base2.seconds2human(delta),
+            lib.base2.number2human(result['credit']),
             result['active_50'],
             str(donors) + '+' if donors >= 1000 else donors,
             args.TEAM
             )
-        perfdata += lib.base.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_teams'])
-        perfdata += lib.base.get_perfdata('donors', donors, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_teams'])
+        perfdata += lib.base2.get_perfdata('donors', donors, None, None, None, 0, None)
 
 
-    perfdata += lib.base.get_perfdata('wus', result['wus'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('credit', result['credit'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('wus', result['wus'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('credit', result['credit'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('active_50', result['active_50'], None, None, None, 0, None)
     
-    lib.base.oao(msg, STATE_OK, perfdata)
+    lib.base2.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

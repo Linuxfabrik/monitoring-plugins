@@ -14,9 +14,9 @@ __version__ = '2020043001'
 DESCRIPTION = 'Displays the top 3 processes opening more file descriptors.'
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from collections import Counter
@@ -50,7 +50,7 @@ def main():
     msg = ''
     cnt = Counter()
 
-    if lib.base.version(psutil.__version__) >= lib.base.version('5.3.0'):
+    if lib.base2.version(psutil.__version__) >= lib.base2.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'num_fds']):
                 if p.info['num_fds']:
@@ -68,7 +68,7 @@ def main():
     for i, p in enumerate(cnt.most_common(3)):
         msg += '{}. {}: {} FD, '.format(i + 1, p[0], p[1])
 
-    lib.base.oao(msg[:-2], STATE_OK)
+    lib.base2.oao(msg[:-2], STATE_OK)
 
 
 if __name__ == '__main__':

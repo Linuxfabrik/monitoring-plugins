@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-import lib3.base
-import lib3.db_sqlite
-from lib3.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.base3
+import lib.db_sqlite3
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     import psutil
@@ -76,7 +76,7 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib3.base.coe(lib3.db_sqlite.select(
+    result = lib.base3.coe(lib.db_sqlite3.select(
         conn,
         '''
         SELECT count(*) as cnt
@@ -113,8 +113,8 @@ def main():
                 user REAL DEFAULT NULL,
                 cpu_usage REAL NOT NULL
         '''
-    conn = lib3.base.coe(lib3.db_sqlite.connect(filename='cpu-usage.db'))
-    lib3.base.coe(lib3.db_sqlite.create_table(conn, definition))
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='cpu-usage.db'))
+    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition))
 
 
     # Grab CPU stats using psutil's cpu_times_percent
@@ -122,8 +122,8 @@ def main():
     try:
         cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
     except ValueError as e:
-        lib3.db_sqlite.close(conn)
-        lib3.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.db_sqlite3.close(conn)
+        lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
 
     stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
@@ -139,16 +139,16 @@ def main():
     if hasattr(cpu_times_percent, 'user'): stats['user'] = getattr(cpu_times_percent, 'user')
 
     # save trend data to local sqlite database, limited to "count" rows max.
-    lib3.base.coe(lib3.db_sqlite.insert(conn, stats))
-    lib3.base.coe(lib3.db_sqlite.cut(conn, max=args.COUNT))
-    lib3.base.coe(lib3.db_sqlite.commit(conn))
+    lib.base3.coe(lib.db_sqlite3.insert(conn, stats))
+    lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT))
+    lib.base3.coe(lib.db_sqlite3.commit(conn))
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) since boot
     # interrupts: number of interrupts since boot
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
-    if lib3.base.version(psutil.__version__) >= lib3.base.version('4.1.0'):
+    if lib.base3.version(psutil.__version__) >= lib.base3.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
         if hasattr(cpu_stats, 'ctx_switches'): extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches')
         if hasattr(cpu_stats, 'interrupts'): extstats['interrupts'] = getattr(cpu_stats, 'interrupts')
@@ -158,7 +158,7 @@ def main():
     # sort by highest value
     cpu_usage = stats['cpu_usage']
     del stats['cpu_usage']
-    stats = lib3.base.sort(stats, reverse=True)
+    stats = lib.base3.sort(stats, reverse=True)
 
 
     msg = ''
@@ -174,11 +174,11 @@ def main():
         state = STATE_CRIT
     elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
-    lib3.db_sqlite.close(conn)
+    lib.db_sqlite3.close(conn)
 
 
     # build the message
-    perfdata += lib3.base.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base3.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
     # msg_header: values > 0%
     # msg_body: values == 0%
     msg_header, msg_body = '', ''
@@ -187,7 +187,7 @@ def main():
             msg_header += '{}: {}%, '.format(stat[0], stat[1])
         else:
             msg_body += '{}: {}%, '.format(stat[0], stat[1])
-        perfdata += lib3.base.get_perfdata(stat[0], stat[1], '%', None, None, 0, 100)
+        perfdata += lib.base3.get_perfdata(stat[0], stat[1], '%', None, None, 0, 100)
     msg += '{}%'.format(cpu_usage)
     if msg_header:
         msg += ' - ' + msg_header[:-2]
@@ -198,10 +198,10 @@ def main():
         msg += '\n'
         for key in extstats:
             msg += '{}: {}, '.format(key, extstats[key])
-            perfdata += lib3.base.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2]
 
-    lib3.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

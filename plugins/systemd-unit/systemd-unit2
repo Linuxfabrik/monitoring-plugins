@@ -22,9 +22,9 @@ DEFAULT_SUBSTATE  = []
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -92,9 +92,9 @@ def main():
         exit(STATE_UNKNOWN)
 
 
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command + args.UNIT))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(command + args.UNIT))
     if (stderr or retc != 0):
-        lib.base.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
+        lib.base2.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
     result = stdout.split('\n')
 
     loadstate     = result[0].replace('LoadState=', '')
@@ -132,7 +132,7 @@ def main():
         msg = '{} - '.format(args.UNIT) + problem_msg[:-2]
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
-    lib.base.oao(msg, state)
+    lib.base2.oao(msg, state)
 
 
 if __name__ == '__main__':

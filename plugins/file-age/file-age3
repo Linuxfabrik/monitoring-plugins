@@ -12,8 +12,8 @@ import os
 import sys
 from traceback import print_exc
 
-from lib3.globals import *
-import lib3.base
+from lib.globals3 import *
+import lib.base3
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020102101'
@@ -78,19 +78,19 @@ def main():
     try:
         st = os.stat(args.FILE)
     except:
-        lib3.base.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+        lib.base3.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
 
-    age = (lib3.base.now() - st.st_mtime)
+    age = (lib.base3.now() - st.st_mtime)
 
-    msg = '{} is {} old.'.format(args.FILE, lib3.base.seconds2human(age))
-    perfdata = lib3.base.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
+    msg = '{} is {} old.'.format(args.FILE, lib.base3.seconds2human(age))
+    perfdata = lib.base3.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
     state = STATE_OK
     if age >= args.CRIT:
         state = STATE_CRIT
     elif age >= args.WARN:
         state = STATE_WARN
 
-    lib3.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

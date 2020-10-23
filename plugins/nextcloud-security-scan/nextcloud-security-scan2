@@ -18,10 +18,10 @@ DEFAULT_TRIGGER = 14
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 import datetime
@@ -69,7 +69,7 @@ def get_uuid_from_scan_nextcloud_com(nc_url, timeout):
         'Content-type': 'application/x-www-form-urlencoded',
         'X-CSRF': 'true',
         }
-    success, result = lib.url.fetch(url, timeout=timeout, header=header, data=data)
+    success, result = lib.url2.fetch(url, timeout=timeout, header=header, data=data)
     if not success:
         return (success, result)
     return (True, json.loads(result)['uuid'])
@@ -84,7 +84,7 @@ def trigger_rescan_nextcloud_com(nc_url, timeout):
         'Content-type': 'application/x-www-form-urlencoded',
         'X-CSRF': 'true',
         }
-    success, result = lib.url.fetch(url, timeout=timeout, header=header, data=data)
+    success, result = lib.url2.fetch(url, timeout=timeout, header=header, data=data)
     if not success:
         return (success, result)
     if not result:
@@ -94,7 +94,7 @@ def trigger_rescan_nextcloud_com(nc_url, timeout):
 
 def get_scan_result_from_scan_nextcloud_com(nc_uuid, timeout):
     url = 'https://scan.nextcloud.com/api/result/' + nc_uuid
-    success, result = lib.url.fetch(url, timeout=timeout)
+    success, result = lib.url2.fetch(url, timeout=timeout)
     if not success:
         return (success, result)
     return (True, json.loads(result))
@@ -112,8 +112,8 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
     
-    uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args.TIMEOUT))
-    result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args.TIMEOUT))
+    uuid = lib.base2.coe(get_uuid_from_scan_nextcloud_com(args.URL, args.TIMEOUT))
+    result = lib.base2.coe(get_scan_result_from_scan_nextcloud_com(uuid, args.TIMEOUT))
 
     msg = ''
     state = STATE_OK
@@ -126,10 +126,10 @@ def main():
 
     # warn if last check is more than 30 days ago, and trigger a rescan
     scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], "%Y-%m-%d")
-    today = lib.base.now(as_type='datetime')
+    today = lib.base2.now(as_type='datetime')
     delta = scan_date - today
     if abs(delta.days) > args.TRIGGER:
-        tmp = lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))
+        tmp = lib.base2.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))
 
     msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
     
@@ -179,7 +179,7 @@ def main():
     if not result['setup']['https']['used']:
         msg += 'HTTPS not used. '
 
-    lib.base.oao(msg, state)
+    lib.base2.oao(msg, state)
 
 
 if __name__ == '__main__':

@@ -27,9 +27,9 @@ unbound:unbound,/var/lib/unbound/root.key
 vdsm:kvm,/home/ovirt'''
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import os
@@ -73,19 +73,19 @@ def main():
             line = line.split(',')
             path = line[1]
         except:
-            lib.base.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+            lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
         if os.path.exists(path):
             try:
                 owner, group = line[0].split(':')
             except:
-                lib.base.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+                lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
             cmd = command.format(path=path)
             # execute the shell command and return its result and exit code
-            stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+            stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
             if (stderr or retc != 0):
-                lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+                lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
             for line in stdout.splitlines():
                 if line.startswith('Access: ('):
@@ -101,10 +101,10 @@ def main():
                     cnt += 1
 
     if cnt == 0:
-        lib.base.oao('No files checked.', state)
+        lib.base2.oao('No files checked.', state)
     if state == STATE_OK:
-        lib.base.oao('Owners and groups are correct.\n' + 'Checked: \n' + msg, state)
-    lib.base.oao('One or more problems with owners or groups.\n' + 'Checked: \n' + msg, state)
+        lib.base2.oao('Owners and groups are correct.\n' + 'Checked: \n' + msg, state)
+    lib.base2.oao('One or more problems with owners or groups.\n' + 'Checked: \n' + msg, state)
 
 
 if __name__ == '__main__':

@@ -18,9 +18,9 @@ command = 'needs-restarting'
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -46,24 +46,24 @@ def main():
 
     # execute the shell command and return its result and exit code
 	# 1. full reboot necessary? check the return code (<> 0: needs reboot): needs-restarting --reboothint
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(command + ' --reboothint'))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(command + ' --reboothint'))
 
     # calculating the final check state
     if int(retc) == 1:
-    	lib.base.oao('A system reboot may be required.', STATE_WARN)
+    	lib.base2.oao('A system reboot may be required.', STATE_WARN)
 
     # execute the shell command and return its result and exit code
 	# 2. long list of all updated services (process list): needs-restarting
-    stdout, tmp_stderr, retc = lib.base.coe(lib.base.shell_exec(command))
+    stdout, tmp_stderr, retc = lib.base2.coe(lib.base2.shell_exec(command))
     service_restart_needed = stdout.strip()
 
     # calculating the final check state
     if service_restart_needed:
-    	lib.base.oao('Found some running processes that have been updated:\n{}'.format(service_restart_needed), STATE_WARN)
+    	lib.base2.oao('Found some running processes that have been updated:\n{}'.format(service_restart_needed), STATE_WARN)
     if not stderr:
-        lib.base.oao('No system or service restart needed.', STATE_OK)
+        lib.base2.oao('No system or service restart needed.', STATE_OK)
     else:
-        lib.base.oao('No system or service restart needed, but {}'.format(stderr), STATE_OK)
+        lib.base2.oao('No system or service restart needed, but {}'.format(stderr), STATE_OK)
 
 
 if __name__ == '__main__':

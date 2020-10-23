@@ -22,11 +22,11 @@ DEFAULT_TIMEOUT  = 3
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.db_sqlite
-import lib.url
+import lib.base2
+import lib.db_sqlite2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -105,7 +105,7 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib.base.coe(lib.db_sqlite.select(conn, 
+    result = lib.base2.coe(lib.db_sqlite2.select(conn, 
         '''
         SELECT count(*) as cnt
         FROM perfdata
@@ -126,7 +126,7 @@ def main():
 
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
     url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
     stats['cpu_usage'] = result['results']['cpu'][0]['current']
@@ -135,18 +135,18 @@ def main():
     definition = '''
                 cpu_usage REAL NOT NULL
         '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='fortios-cpu-usage.db'))
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+    conn = lib.base2.coe(lib.db_sqlite2.connect(filename='fortios-cpu-usage.db'))
+    lib.base2.coe(lib.db_sqlite2.create_table(conn, definition))
 
     # save trend data to local sqlite database, limited to "count" rows max.
-    lib.base.coe(lib.db_sqlite.insert(conn, stats))
-    lib.base.coe(lib.db_sqlite.cut(conn, max=args.COUNT))
-    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.base2.coe(lib.db_sqlite2.insert(conn, stats))
+    lib.base2.coe(lib.db_sqlite2.cut(conn, max=args.COUNT))
+    lib.base2.coe(lib.db_sqlite2.commit(conn))
 
     # try to get the global configured cpu warning threshold from Forti OS
     # if success, use it, otherwise our from args.WARN etc.
     url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    thresholds = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    thresholds = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('cpu-use-threshold', args.WARN)
 
     # now, calculate the WARN or CRIT.
@@ -158,13 +158,13 @@ def main():
         state = STATE_CRIT
     elif get_from_db(conn, warn) == args.COUNT:
         state = STATE_WARN
-    lib.db_sqlite.close(conn)
+    lib.db_sqlite2.close(conn)
 
     # build the message
     msg = '{}%'.format(stats['cpu_usage'])
-    perfdata = lib.base.get_perfdata('cpu-usage', stats['cpu_usage'], '%', warn, args.CRIT, 0, 100)
+    perfdata = lib.base2.get_perfdata('cpu-usage', stats['cpu_usage'], '%', warn, args.CRIT, 0, 100)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -10,26 +10,26 @@
 
 import unittest
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base2
 
 
 class TestCheck(unittest.TestCase):
 
-    check = './pip-version'
+    check = './pip-version2'
 
     def test_if_check_runs_EXAMPLE01_update(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,,0 --package matrix-synapse'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,,0 --package matrix-synapse'))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE01_no_update(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,,0 --package attrs'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,,0 --package attrs'))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE01_no_package(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,examples/EXAMPLE01-pip-show-stderr,1 --package non-existent-package'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0,examples/EXAMPLE01-pip-show,examples/EXAMPLE01-pip-show-stderr,1 --package non-existent-package'))
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 

@@ -17,9 +17,9 @@ DEFAULT_WARN  = 90
 DEFAULT_CRIT  = 95
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 try:
@@ -83,30 +83,30 @@ def main():
             continue
         usage = psutil.disk_usage(part.mountpoint)
 
-        disk_state = lib.base.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
-        state = lib.base.get_worst(state, disk_state)
-        perfdata += lib.base.get_perfdata('{}-total'.format(part.mountpoint), usage.total, 'B', None, None, 0, usage.total)
-        perfdata += lib.base.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib.base.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
+        disk_state = lib.base2.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
+        state = lib.base2.get_worst(state, disk_state)
+        perfdata += lib.base2.get_perfdata('{}-total'.format(part.mountpoint), usage.total, 'B', None, None, 0, usage.total)
+        perfdata += lib.base2.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
         if part.mountpoint == '/':
-            msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.base.bytes2human(usage.total), lib.base.bytes2human(usage.used), lib.base.bytes2human(usage.free))
+            msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.base2.bytes2human(usage.total), lib.base2.bytes2human(usage.used), lib.base2.bytes2human(usage.free))
 
         table_data.append({
-            'mountpoint': '{} {}'.format(part.mountpoint, lib.base.state2str(disk_state)),
+            'mountpoint': '{} {}'.format(part.mountpoint, lib.base2.state2str(disk_state)),
             'type': '{}'.format(part.fstype),
-            'used': lib.base.bytes2human(usage.used),
-            'total': lib.base.bytes2human(usage.total),
+            'used': lib.base2.bytes2human(usage.used),
+            'total': lib.base2.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 
-    table = lib.base.get_table(table_data, 
+    table = lib.base2.get_table(table_data, 
         ['mountpoint', 'type', 'used', 'total', 'percent'], 
         ['mountpoint', 'type', 'used', 'total', 'percent'], 
         'percent'
         )
 
-    lib.base.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -8,9 +8,9 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import unittest
 
@@ -18,31 +18,31 @@ import unittest
 class TestCheck(unittest.TestCase):
 
     def test01(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('./dns'))
         self.assertRegexpMatches(stdout, r'^Lookup for localhost returns ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test02(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname 127.0.0.1'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('./dns --hostname 127.0.0.1'))
         self.assertRegexpMatches(stdout, r'^Lookup for 127\.0\.0\.1 returns 127\.0\.0\.1 \(')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test03(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname ::1'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('./dns --hostname ::1'))
         self.assertRegexpMatches(stdout, r'^Lookup for ::1 returns ::1 \(')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test04(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname www.google.chh'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('./dns --hostname www.google.chh'))
         self.assertRegexpMatches(stdout, r'^Socket error "\[Errno ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
    
     def test05(self):
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('./dns --hostname www.google.ch --critical 1'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('./dns --hostname www.google.ch --critical 1'))
         self.assertRegexpMatches(stdout, r'^Lookup for www\.google\.ch returns ')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)

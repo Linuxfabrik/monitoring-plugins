@@ -12,8 +12,8 @@ import argparse
 import sys
 from traceback import print_exc
 
-import lib3.base
-from lib3.globals import STATE_OK, STATE_UNKNOWN
+import lib.base3
+from lib.globals3 import STATE_OK, STATE_UNKNOWN
 
 try:
     import psutil
@@ -87,31 +87,31 @@ def main():
             continue
         usage = psutil.disk_usage(part.mountpoint)
 
-        disk_state = lib3.base.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
-        state = lib3.base.get_worst(state, disk_state)
-        perfdata += lib3.base.get_perfdata('{}-total'.format(part.mountpoint), usage.total, 'B', None, None, 0, usage.total)
-        perfdata += lib3.base.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib3.base.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
+        disk_state = lib.base3.get_state(usage.percent, args.WARN, args.CRIT, 'ge')
+        state = lib.base3.get_worst(state, disk_state)
+        perfdata += lib.base3.get_perfdata('{}-total'.format(part.mountpoint), usage.total, 'B', None, None, 0, usage.total)
+        perfdata += lib.base3.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base3.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
         if part.mountpoint in ['/', 'C:\\']:
-            msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib3.base.bytes2human(usage.total), lib3.base.bytes2human(usage.used), lib3.base.bytes2human(usage.free))
+            msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.base3.bytes2human(usage.total), lib.base3.bytes2human(usage.used), lib.base3.bytes2human(usage.free))
 
         table_data.append({
-            'mountpoint': '{} {}'.format(part.mountpoint, lib3.base.state2str(disk_state)),
+            'mountpoint': '{} {}'.format(part.mountpoint, lib.base3.state2str(disk_state)),
             'type': '{}'.format(part.fstype),
-            'used': lib3.base.bytes2human(usage.used),
-            'total': lib3.base.bytes2human(usage.total),
+            'used': lib.base3.bytes2human(usage.used),
+            'total': lib.base3.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 
-    table = lib3.base.get_table(
+    table = lib.base3.get_table(
         table_data,
         ['mountpoint', 'type', 'used', 'total', 'percent'],
         ['mountpoint', 'type', 'used', 'total', 'percent'],
         'percent'
     )
 
-    lib3.base.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

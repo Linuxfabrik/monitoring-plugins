@@ -15,13 +15,13 @@ import re
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN, STATE_OK
-import lib.base
+from lib.globals2 import STATE_UNKNOWN, STATE_OK
+import lib.base2
 
 try:
     import psutil
 except ImportError as e:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020051601'
@@ -42,7 +42,7 @@ def parse_args():
 
 
 def find_command(return_text, cmd, version_regex=None):
-    success, result = lib.base.shell_exec(cmd)
+    success, result = lib.base2.shell_exec(cmd)
     if not success:
         return ''
     if cmd.endswith(' -h'):
@@ -72,7 +72,7 @@ def get_sys_dimensions():
     sys['cpu'] = psutil.cpu_count(logical=True)
     sys['ram'] = psutil.virtual_memory().total
 
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec('lsblk --nodeps --output SIZE --noheadings --include 8,252,259'))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('lsblk --nodeps --output SIZE --noheadings --include 8,252,259'))
     sys['disks'] = stdout.strip().count('\n') + 1
     sys['disk-sizes'] = re.sub(r'\s+', ' ', stdout).strip()
     return sys
@@ -269,9 +269,9 @@ def main():
     perfdata = ''
 
     sys_dimensions = get_sys_dimensions()
-    msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base.pluralize('CPU', sys_dimensions['cpu']))
-    msg += lib.base.bytes2human(sys_dimensions['ram']) + ' RAM, '
-    msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
+    msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base2.pluralize('CPU', sys_dimensions['cpu']))
+    msg += lib.base2.bytes2human(sys_dimensions['ram']) + ' RAM, '
+    msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base2.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
     sw = get_sw()
@@ -292,11 +292,11 @@ def main():
     
     msg += ' - OS: ' + get_os_info()
 
-    perfdata += lib.base.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
-    lib.base.oao(msg, STATE_OK, perfdata)
+    lib.base2.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

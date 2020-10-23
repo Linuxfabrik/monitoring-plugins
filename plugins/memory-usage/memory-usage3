@@ -13,8 +13,8 @@ import sys
 from collections import Counter
 from traceback import print_exc
 
-import lib3.base
-from lib3.globals import STATE_UNKNOWN
+import lib.base3
+from lib.globals3 import STATE_UNKNOWN
 
 try:
     import psutil
@@ -80,10 +80,10 @@ def main():
 
     msg_header = '{}% - total: {}, used: {}, free: {}, available: {}\n'.format(
         mem_usage_percent,
-        lib3.base.bytes2human(virt.total),
-        lib3.base.bytes2human(virt.used),
-        lib3.base.bytes2human(virt.free),
-        lib3.base.bytes2human(getattr(virt, 'available', 0)),
+        lib.base3.bytes2human(virt.total),
+        lib.base3.bytes2human(virt.used),
+        lib.base3.bytes2human(virt.free),
+        lib.base3.bytes2human(getattr(virt, 'available', 0)),
     )
 
     stats = {}
@@ -99,7 +99,7 @@ def main():
 
     cnt = Counter()
     msg_body += '\nTop3 most memory consuming processes:\n'
-    if lib3.base.version(psutil.__version__) >= lib3.base.version('5.3.0'):
+    if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'memory_percent']):
                 cnt[p.info['name']] += p.info['memory_percent']
@@ -115,17 +115,17 @@ def main():
     for i, p in enumerate(cnt.most_common(3)):
         msg_body += '{}. {}: {:.2f}%\n'.format(i + 1, p[0], p[1])
 
-    perfdata = lib3.base.get_perfdata('usage_percent', mem_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib3.base.get_perfdata('total', virt.total, 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('used', virt.used, 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('free', virt.free, 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib3.base.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total)
+    perfdata = lib.base3.get_perfdata('usage_percent', mem_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base3.get_perfdata('total', virt.total, 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('used', virt.used, 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('free', virt.free, 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total)
 
-    state = lib3.base.get_state(mem_usage_percent, args.WARN, args.CRIT, operator='ge')
-    lib3.base.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
+    state = lib.base3.get_state(mem_usage_percent, args.WARN, args.CRIT, operator='ge')
+    lib.base3.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

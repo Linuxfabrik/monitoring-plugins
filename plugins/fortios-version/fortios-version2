@@ -19,10 +19,10 @@ DEFAULT_TIMEOUT  = 3
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -87,7 +87,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     url = 'https://{}/api/v2/monitor/system/firmware/?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     installed_version = result['results']['current']['version'].replace('v', '')
     if len(result['results']['available']) > 0:
@@ -96,10 +96,10 @@ def main():
         # no available version found, assume 0.0.0
         latest_version = '0.0.0'
 
-    if lib.base.version(installed_version) >= lib.base.version(latest_version):
-        lib.base.oao('{} v{} is up to date'.format(result['results']['current']['name'], installed_version), STATE_OK)
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('{} v{} is up to date'.format(result['results']['current']['name'], installed_version), STATE_OK)
     else:
-        lib.base.oao('{} v{} is available (installed: v{})'.format(result['results']['current']['name'], latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('{} v{} is available (installed: v{})'.format(result['results']['current']['name'], latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
    
 
 if __name__ == '__main__':

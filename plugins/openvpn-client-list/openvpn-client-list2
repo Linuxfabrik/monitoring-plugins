@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN
+from lib.globals2 import STATE_UNKNOWN
 
-import lib.base
+import lib.base2
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -85,22 +85,22 @@ def main():
                         'connection_time': line[7],
                         })
     except IOError:
-        lib.base.oao('Failed to read file {}.'.format(args.FILENAME), STATE_UNKNOWN)
+        lib.base2.oao('Failed to read file {}.'.format(args.FILENAME), STATE_UNKNOWN)
 
-    state = lib.base.get_state(counter, args.WARN, args.CRIT)
-    perfdata = lib.base.get_perfdata('clients', counter, None, args.WARN, args.CRIT, 0, None)
+    state = lib.base2.get_state(counter, args.WARN, args.CRIT)
+    perfdata = lib.base2.get_perfdata('clients', counter, None, args.WARN, args.CRIT, 0, None)
 
     msg = '{} {} connected to OpenVPN Server.\n\n'.format(
         counter,
-        lib.base.pluralize('user', counter)
+        lib.base2.pluralize('user', counter)
         )
 
-    msg += lib.base.get_table(
+    msg += lib.base2.get_table(
         table,
         ['name', 'ext_ip', 'int_ip', 'connection_time'],
         header=['Common Name', 'External IP', 'Internal IP', 'Connected since'],
         )
-    lib.base.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN
+from lib.globals2 import STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,8 +22,8 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020070801'
@@ -133,7 +133,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -144,27 +144,27 @@ def main():
 
     # get the memory usage
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     systemp = int(data['func']['ownContent']['root']['sys_tempc'])
     cputemp = int(data['func']['ownContent']['root']['cpu_tempc'])
 
-    systemp_state = lib.base.get_state(systemp, args.WARN, args.CRIT, operator='gt')
-    cputemp_state = lib.base.get_state(cputemp, args.WARN, args.CRIT, operator='gt')
-    state = lib.base.get_worst(systemp_state, cputemp_state)
+    systemp_state = lib.base2.get_state(systemp, args.WARN, args.CRIT, operator='gt')
+    cputemp_state = lib.base2.get_state(cputemp, args.WARN, args.CRIT, operator='gt')
+    state = lib.base2.get_worst(systemp_state, cputemp_state)
 
     # build the message
     msg = 'Sys: {}°C{}, CPU: {}°C{}'.format(
         systemp,
-        lib.base.state2str(systemp_state, prefix=' '),
+        lib.base2.state2str(systemp_state, prefix=' '),
         cputemp,
-        lib.base.state2str(cputemp_state, prefix=' '),
+        lib.base2.state2str(cputemp_state, prefix=' '),
         )
-    perfdata = lib.base.get_perfdata('systemp', systemp, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('cputemp', cputemp, None, args.WARN, args.CRIT, 0, None)
+    perfdata = lib.base2.get_perfdata('systemp', systemp, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base2.get_perfdata('cputemp', cputemp, None, args.WARN, args.CRIT, 0, None)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -14,8 +14,8 @@ import os
 import sys
 from traceback import print_exc
 
-import lib3.base
-from lib3.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.base3
+from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 WINDOWS = os.name == 'nt'
 LINUX = sys.platform.startswith('linux')
@@ -109,9 +109,9 @@ def main():
 
     if LINUX:
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib3.base.coe(lib3.base.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
         if (stderr or retc != 0):
-            lib3.base.coe('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base3.coe('{}'.format(stderr), STATE_UNKNOWN)
 
         stdout = str(stdout).strip().split('\n')
 
@@ -128,7 +128,7 @@ def main():
             'Z': 0,
         }
 
-        now = lib3.base.now(as_type='datetime')
+        now = lib.base3.now(as_type='datetime')
         my_pid = str(os.getpid())
         kthreadd_pid = 0
 
@@ -196,17 +196,17 @@ def main():
 
 
     # build the state, check the ranges
-    if not lib3.base.coe(lib3.base.match_range(proc_total, args.CRIT)):
+    if not lib.base3.coe(lib.base3.match_range(proc_total, args.CRIT)):
         state = STATE_CRIT
-    elif not lib3.base.coe(lib3.base.match_range(proc_total, args.WARN)):
+    elif not lib.base3.coe(lib.base3.match_range(proc_total, args.WARN)):
         state = STATE_WARN
     else:
         state = STATE_OK
 
     # build the message
-    msg = '{} {}, '.format(proc_total, lib3.base.pluralize('task', proc_total))
+    msg = '{} {}, '.format(proc_total, lib.base3.pluralize('task', proc_total))
     if LINUX:
-        for proc_state, proc_cnt in lib3.base.sort(proc_states, reverse=True):
+        for proc_state, proc_cnt in lib.base3.sort(proc_states, reverse=True):
             if proc_cnt > 0:
                 msg += '{} dead, '.format(proc_cnt)                           if proc_state == 'X' else ''
                 msg += '{} paging, '.format(proc_cnt)                         if proc_state == 'W' else ''
@@ -222,18 +222,18 @@ def main():
 
     # build perfdata
     perfdata = ''
-    perfdata += lib3.base.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base3.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
 
     if LINUX:
-        perfdata += lib3.base.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
-        perfdata += lib3.base.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
 
-    lib3.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

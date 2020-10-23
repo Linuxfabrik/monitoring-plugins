@@ -13,8 +13,8 @@ import os
 import sys
 from traceback import print_exc
 
-import lib3.base
-from lib3.globals import *
+import lib.base3
+from lib.globals3 import *
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020102001'
@@ -82,15 +82,15 @@ def main():
     try:
         st = os.stat(args.FILE)
     except:
-        lib3.base.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+        lib.base3.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
 
     size = st.st_size
 
-    msg = '{} is {}.'.format(args.FILE, lib3.base.bytes2human(size))
-    perfdata = lib3.base.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
-    state = lib3.base.get_state(size, args.WARN, args.CRIT, 'ge')
+    msg = '{} is {}.'.format(args.FILE, lib.base3.bytes2human(size))
+    perfdata = lib.base3.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
+    state = lib.base3.get_state(size, args.WARN, args.CRIT, 'ge')
 
-    lib3.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

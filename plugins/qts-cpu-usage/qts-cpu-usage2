@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,9 +22,9 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.db_sqlite
-import lib.url
+import lib.base2
+import lib.db_sqlite2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020070801'
@@ -132,7 +132,7 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib.base.coe(lib.db_sqlite.select(
+    result = lib.base2.coe(lib.db_sqlite2.select(
         conn,
         '''
         SELECT count(*) as cnt
@@ -158,7 +158,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -169,7 +169,7 @@ def main():
 
     # get the cpu usage
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     stats = {}
@@ -179,13 +179,13 @@ def main():
     definition = '''
                 cpu_usage REAL NOT NULL
         '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='qts-cpu-usage.db'))
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+    conn = lib.base2.coe(lib.db_sqlite2.connect(filename='qts-cpu-usage.db'))
+    lib.base2.coe(lib.db_sqlite2.create_table(conn, definition))
 
     # save trend data to local sqlite database, limited to "count" rows max.
-    lib.base.coe(lib.db_sqlite.insert(conn, stats))
-    lib.base.coe(lib.db_sqlite.cut(conn, max=args.COUNT))
-    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.base2.coe(lib.db_sqlite2.insert(conn, stats))
+    lib.base2.coe(lib.db_sqlite2.cut(conn, max=args.COUNT))
+    lib.base2.coe(lib.db_sqlite2.commit(conn))
 
     # now, calculate the WARN or CRIT.
     # overall state is not ok, if ...
@@ -196,13 +196,13 @@ def main():
         state = STATE_CRIT
     elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
-    lib.db_sqlite.close(conn)
+    lib.db_sqlite2.close(conn)
 
     # build the message
     msg = '{}%'.format(stats['cpu_usage'])
-    perfdata = lib.base.get_perfdata('cpu-usage', stats['cpu_usage'], '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base2.get_perfdata('cpu-usage', stats['cpu_usage'], '%', args.WARN, args.CRIT, 0, 100)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

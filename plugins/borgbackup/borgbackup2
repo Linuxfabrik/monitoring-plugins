@@ -17,9 +17,9 @@ DEFAULT_CRIT = None
 DEFAULT_WARN = 24
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import os
@@ -68,7 +68,7 @@ def main():
         # end: 2020-04-08 23:00:13
 
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
-        lib.base.oao('Logfile {} not found or empty.'.format(path), STATE_UNKNOWN)
+        lib.base2.oao('Logfile {} not found or empty.'.format(path), STATE_UNKNOWN)
 
     mount_lines = ''
     with open('/proc/mounts') as mountlist:
@@ -77,7 +77,7 @@ def main():
                 mount_lines += '* ' + line
 
     if mount_lines:
-        lib.base.oao('There are active borg mounts.\n\n{}'.format(mount_lines), STATE_WARN)
+        lib.base2.oao('There are active borg mounts.\n\n{}'.format(mount_lines), STATE_WARN)
 
 
     logfile = open(path, 'rb')
@@ -101,37 +101,37 @@ def main():
         create_retc
         prune_retc
     except UnboundLocalError as e:
-        lib.base.oao('Could not find all expected values in the logfile.\n{}'.format(e), STATE_UNKNOWN)
+        lib.base2.oao('Could not find all expected values in the logfile.\n{}'.format(e), STATE_UNKNOWN)
 
     # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
-    create_retc_state = lib.base.get_state(create_retc, 2, None, operator='ge')
-    state = lib.base.get_worst(state, create_retc_state)
-    perfdata += lib.base.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
+    create_retc_state = lib.base2.get_state(create_retc, 2, None, operator='ge')
+    state = lib.base2.get_worst(state, create_retc_state)
+    perfdata += lib.base2.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
 
-    prune_retc_state = lib.base.get_state(prune_retc, 2, None, operator='ge')
-    state = lib.base.get_worst(state, prune_retc_state)
-    perfdata += lib.base.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
+    prune_retc_state = lib.base2.get_state(prune_retc, 2, None, operator='ge')
+    state = lib.base2.get_worst(state, prune_retc_state)
+    perfdata += lib.base2.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
-    now = lib.base.now(as_type='iso')
-    delta = lib.base.timestrdiff(now, starttime)
+    now = lib.base2.now(as_type='iso')
+    delta = lib.base2.timestrdiff(now, starttime)
 
-    last_starttime_state = lib.base.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
-    state = lib.base.get_worst(state, last_starttime_state)
+    last_starttime_state = lib.base2.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
+    state = lib.base2.get_worst(state, last_starttime_state)
 
-    duration = lib.base.timestrdiff(endtime, starttime)     # in seconds
-    perfdata += lib.base.get_perfdata('duration', duration, 's', None, None, 0, None)
+    duration = lib.base2.timestrdiff(endtime, starttime)     # in seconds
+    perfdata += lib.base2.get_perfdata('duration', duration, 's', None, None, 0, None)
 
-    msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.base.seconds2human(duration))
+    msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.base2.seconds2human(duration))
     if state != STATE_OK:
         if last_starttime_state != STATE_OK:
             msg = 'Last backup is too long ago. ' + msg
         else:
             msg = 'One or more errors. ' + msg
-    msg += '* Create retc: {}, State: {}\n'.format(create_retc, lib.base.state2str(create_retc_state))
-    msg += '* Prune retc: {}, State: {}'.format(prune_retc, lib.base.state2str(prune_retc_state))
+    msg += '* Create retc: {}, State: {}\n'.format(create_retc, lib.base2.state2str(create_retc_state))
+    msg += '* Prune retc: {}, State: {}'.format(prune_retc, lib.base2.state2str(prune_retc_state))
 
-    lib.base.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

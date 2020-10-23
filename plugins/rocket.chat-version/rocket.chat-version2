@@ -19,12 +19,12 @@ DEFAULT_CACHE_EXPIRE    = 24 # hours
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.cache
-import lib.rocket
-import lib.url
+import lib.base2
+import lib.cache2
+import lib.rocket2
+import lib.url2
 
 import argparse
 from traceback import print_exc
@@ -76,16 +76,16 @@ def parse_args():
 
 def get_latest_version(expire):
     # get version online, but first from cache
-    latest_version = lib.cache.get('rocket.chat-version')
+    latest_version = lib.cache2.get('rocket.chat-version')
     if latest_version:
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
+    success, latest_version = lib.url2.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
     if not success:
         return (success, latest_version)
     
-    lib.cache.set('rocket.chat-version', latest_version, lib.base.now() + expire)
+    lib.cache2.set('rocket.chat-version', latest_version, lib.base2.now() + expire)
     return (True, latest_version)
 
 
@@ -97,9 +97,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # fetch the data
-    credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
+    credentials = lib.base2.coe(lib.rocket2.get_token(args.URL, args.USERNAME, args.PASSWORD))
     authToken, userId = credentials.split(':')
-    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
+    result = lib.base2.coe(lib.rocket2.get_stats(args.URL, authToken, userId))
 
     if result.get('statistics', None):
         # version < 3.0.0
@@ -107,12 +107,12 @@ def main():
     else:
         # version >= 3.0.0
         installed_version = result['version']
-    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+    latest_version = lib.base2.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
 
-    if lib.base.version(installed_version) >= lib.base.version(latest_version):
-        lib.base.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
     else:
-        lib.base.oao('Rocket.Chat v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('Rocket.Chat v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

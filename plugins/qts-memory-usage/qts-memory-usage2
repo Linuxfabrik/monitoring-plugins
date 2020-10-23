@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN
+from lib.globals2 import STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,8 +22,8 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020070801'
@@ -133,7 +133,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -144,7 +144,7 @@ def main():
 
     # get the memory usage
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     total = float(data['func']['ownContent']['root']['total_memory']) * 1024 * 1024
@@ -152,21 +152,21 @@ def main():
     used = total - free
     memory_usage = round(used / total * 100, 2)
 
-    state = lib.base.get_state(memory_usage, args.WARN, args.CRIT, operator='gt')
+    state = lib.base2.get_state(memory_usage, args.WARN, args.CRIT, operator='gt')
 
     # build the message
     msg = '{}% - total: {}, used: {}, free: {}'.format(
         memory_usage,
-        lib.base.bytes2human(total),
-        lib.base.bytes2human(used),
-        lib.base.bytes2human(free),
+        lib.base2.bytes2human(total),
+        lib.base2.bytes2human(used),
+        lib.base2.bytes2human(free),
         )
-    perfdata = lib.base.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base.get_perfdata('total', total, 'B', None, None, 0, total)
-    perfdata += lib.base.get_perfdata('used', used, 'B', None, None, 0, total)
-    perfdata += lib.base.get_perfdata('free', free, 'B', None, None, 0, total)
+    perfdata = lib.base2.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('total', total, 'B', None, None, 0, total)
+    perfdata += lib.base2.get_perfdata('used', used, 'B', None, None, 0, total)
+    perfdata += lib.base2.get_perfdata('free', free, 'B', None, None, 0, total)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

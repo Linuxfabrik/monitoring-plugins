@@ -21,9 +21,9 @@ DEFAULT_WARN = None
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import datetime
@@ -91,9 +91,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (stderr or retc != 0):
-        lib.base.coe('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.coe('{}'.format(stderr), STATE_UNKNOWN)
 
     stdout = stdout.strip().split('\n')
 
@@ -110,7 +110,7 @@ def main():
         'Z': 0,
     }
 
-    now = lib.base.now(as_type='datetime')
+    now = lib.base2.now(as_type='datetime')
     my_pid = str(os.getpid())
     kthreadd_pid = 0
 
@@ -174,16 +174,16 @@ def main():
     proc_total = sum(proc_states.values())
 
     # build the state, check the ranges
-    if not lib.base.coe(lib.base.match_range(proc_total, args.CRIT)):
+    if not lib.base2.coe(lib.base2.match_range(proc_total, args.CRIT)):
         state = STATE_CRIT
-    elif not lib.base.coe(lib.base.match_range(proc_total, args.WARN)):
+    elif not lib.base2.coe(lib.base2.match_range(proc_total, args.WARN)):
         state = STATE_WARN
     else:
         state = STATE_OK
 
     # build the message
-    msg = '{} {}, '.format(proc_total, lib.base.pluralize('task', proc_total))
-    for proc_state, proc_cnt in lib.base.sort(proc_states, reverse=True):
+    msg = '{} {}, '.format(proc_total, lib.base2.pluralize('task', proc_total))
+    for proc_state, proc_cnt in lib.base2.sort(proc_states, reverse=True):
         if proc_cnt > 0:
             msg += '{} dead, '.format(proc_cnt)                           if proc_state == 'X' else '' 
             msg += '{} paging, '.format(proc_cnt)                         if proc_state == 'W' else '' 
@@ -199,17 +199,17 @@ def main():
 
     # build perfdata
     perfdata = ''
-    perfdata += lib.base.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base2.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
 
-    perfdata += lib.base.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
 
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

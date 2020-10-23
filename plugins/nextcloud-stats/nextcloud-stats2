@@ -20,10 +20,10 @@ DEFAULT_NO_PROXY        = False
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 import argparse
 import base64
@@ -90,9 +90,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     if not args.URL.startswith('http'):
-        lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        lib.base2.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
     if not args.URL.endswith('/info'):
-        lib.base.oao('--url parameter has to end in "/info".', STATE_UNKNOWN)
+        lib.base2.oao('--url parameter has to end in "/info".', STATE_UNKNOWN)
     URL = args.URL + '?format=json'
 
 
@@ -103,14 +103,14 @@ def main():
         'OCS-APIRequest': 'true',
     }
     # and get the info from the API
-    jsonst = lib.base.coe(lib.url.fetch(URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY, header=header))
+    jsonst = lib.base2.coe(lib.url2.fetch(URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY, header=header))
     try:
         result = json.loads(jsonst)
     except:
-        lib.base.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+        lib.base2.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
 
     if result['ocs']['meta']['status'] != 'ok':
-        lib.base.oao('Sorry, something went wrong - no "ok" state returned.', STATE_UNKNOWN)
+        lib.base2.oao('Sorry, something went wrong - no "ok" state returned.', STATE_UNKNOWN)
 
     # extract some application specific data
     nc_system_apps_app_updates            = result['ocs']['data']['nextcloud']['system']['apps']['app_updates']
@@ -160,7 +160,7 @@ def main():
 
     # let's do some checks
     if nc_system_apps_app_updates:
-        msg += 'There {} {} app {} available. '.format(lib.base.pluralize('', nc_system_apps_num_updates_available, 'is,are'), nc_system_apps_num_updates_available, lib.base.pluralize('update', nc_system_apps_num_updates_available))
+        msg += 'There {} {} app {} available. '.format(lib.base2.pluralize('', nc_system_apps_num_updates_available, 'is,are'), nc_system_apps_num_updates_available, lib.base2.pluralize('update', nc_system_apps_num_updates_available))
         if not args.ALWAYS_OK:
             state = STATE_WARN
 
@@ -174,37 +174,37 @@ def main():
         nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user, nc_shares_num_fed_shares_sent)
     msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
     msg += '* Storages: {} ({} home, {} other, {} local)\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
-    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, lib.base.bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, lib.base.bytes2human(nc_server_php_memory_limit))
-    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, lib.base.bytes2human(nc_server_database_size))
+    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, lib.base2.bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, lib.base2.bytes2human(nc_server_php_memory_limit))
+    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, lib.base2.bytes2human(nc_server_database_size))
     msg += '* Web: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
 
 
-    perfdata += lib.base.get_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('nc_storage_num_users', nc_storage_num_users, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_storage_num_files', nc_storage_num_files, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_storage_num_storages', nc_storage_num_storages, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_storage_num_storages_local', nc_storage_num_storages_local, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_storage_num_storages_home', nc_storage_num_storages_home, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_storage_num_storages_other', nc_storage_num_storages_other, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_users', nc_storage_num_users, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_files', nc_storage_num_files, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_storages', nc_storage_num_storages, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_storages_local', nc_storage_num_storages_local, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_storages_home', nc_storage_num_storages_home, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_storage_num_storages_other', nc_storage_num_storages_other, None, None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('nc_shares_num_fed_shares_received', nc_shares_num_fed_shares_received, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_fed_shares_sent', nc_shares_num_fed_shares_sent, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares', nc_shares_num_shares, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_groups', nc_shares_num_shares_groups, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_link', nc_shares_num_shares_link, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_link_no_password', nc_shares_num_shares_link_no_password, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_mail', nc_shares_num_shares_mail, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_room', nc_shares_num_shares_room, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_shares_num_shares_user', nc_shares_num_shares_user, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_fed_shares_received', nc_shares_num_fed_shares_received, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_fed_shares_sent', nc_shares_num_fed_shares_sent, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares', nc_shares_num_shares, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_groups', nc_shares_num_shares_groups, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_link', nc_shares_num_shares_link, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_link_no_password', nc_shares_num_shares_link_no_password, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_mail', nc_shares_num_shares_mail, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_room', nc_shares_num_shares_room, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_shares_num_shares_user', nc_shares_num_shares_user, None, None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('nc_server_database_size', nc_server_database_size, 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_server_database_size', nc_server_database_size, 'B', None, None, 0, None)
 
-    perfdata += lib.base.get_perfdata('nc_active_users_last5min', nc_active_users_last5min, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_active_users_last1h', nc_active_users_last1h, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('nc_active_users_last24h', nc_active_users_last24h, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_active_users_last5min', nc_active_users_last5min, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_active_users_last1h', nc_active_users_last1h, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nc_active_users_last24h', nc_active_users_last24h, None, None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

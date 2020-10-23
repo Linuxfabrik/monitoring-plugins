@@ -12,13 +12,13 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN, STATE_OK, STATE_WARN, STATE_CRIT
-import lib.base
+from lib.globals2 import STATE_UNKNOWN, STATE_OK, STATE_WARN, STATE_CRIT
+import lib.base2
 
 try:
     import psutil
 except ImportError as e:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020051601'
@@ -76,9 +76,9 @@ def main():
 
     # we could get the load natively with psutil >= 5.6.2
     # but until then, we do this here:
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
     if retc != 0:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     load1, load5, load15, tmp1, tmp2 = stdout.split(' ')
     cpu_count = float(psutil.cpu_count(logical=True))
@@ -91,12 +91,12 @@ def main():
     perfdata = ''
 
     msg += 'Avg per CPU: {:0.2f} {:0.2f} {:0.2f}'.format(load1, load5, load15)
-    perfdata += lib.base.get_perfdata('load1', load1, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('load5', load5, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('load15', load15, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base2.get_perfdata('load1', load1, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base2.get_perfdata('load5', load5, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base2.get_perfdata('load15', load15, None, args.WARN, args.CRIT, 0, None)
 
-    state = lib.base.get_state(load15, float(args.WARN), float(args.CRIT), operator='ge')
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    state = lib.base2.get_state(load15, float(args.WARN), float(args.CRIT), operator='ge')
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -28,9 +28,9 @@ COL_UPPERNR = 9     # NR = non-recoverable
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -65,9 +65,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (stderr or retc != 0):
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     msg = ''
     perfdata = ''
@@ -93,7 +93,7 @@ def main():
         perfmin  = None if cols[COL_LOWERNR] == 'na' else cols[COL_LOWERNR]
         perfmin  = 0    if perfmin and float(perfmin) > 0 else perfmin
         perfmax  = None if cols[COL_UPPERNR] == 'na' else cols[COL_UPPERNR]
-        perfdata += lib.base.get_perfdata(cols[COL_SENSOR].replace(' ', '_'), cols[COL_VALUE], perfuom, perfwarn, perfcrit, perfmin, perfmax)
+        perfdata += lib.base2.get_perfdata(cols[COL_SENSOR].replace(' ', '_'), cols[COL_VALUE], perfuom, perfwarn, perfcrit, perfmin, perfmax)
 
         sensor_counter += 1
 
@@ -116,17 +116,17 @@ def main():
             msg += '\n* {} ({} {}) is above/below a non-critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
             sensor_state = STATE_WARN
 
-        state = lib.base.get_worst(sensor_state, state)
+        state = lib.base2.get_worst(sensor_state, state)
 
 
     if state == STATE_CRIT:
-        msg = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
+        msg = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base2.pluralize('sensor', sensor_counter)) + msg
     elif state == STATE_WARN:
-        msg = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
+        msg = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base2.pluralize('sensor', sensor_counter)) + msg
     else:
-        msg = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base.pluralize('sensor', sensor_counter)) + msg
+        msg = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base2.pluralize('sensor', sensor_counter)) + msg
 
-    lib.base.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

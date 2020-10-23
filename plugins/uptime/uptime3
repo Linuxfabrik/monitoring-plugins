@@ -12,9 +12,9 @@ import argparse
 import sys
 from traceback import print_exc
 
-import lib3.args
-import lib3.base
-from lib3.globals import STATE_UNKNOWN
+import lib.args3
+import lib.base3
+from lib.globals3 import STATE_UNKNOWN
 
 try:
     import psutil
@@ -53,7 +53,7 @@ def parse_args():
         '-c', '--critical',
         help='Set the critical threshold for uptime in days. Default: %(default)s',
         dest='CRIT',
-        type=lib3.args.int_or_none,
+        type=lib.args3.int_or_none,
         default=DEFAULT_CRIT,
     )
 
@@ -61,7 +61,7 @@ def parse_args():
         '-w', '--warning',
         help='Set the warning threshold for uptime in days. Default: %(default)s',
         dest='WARN',
-        type=lib3.args.int_or_none,
+        type=lib.args3.int_or_none,
         default=DEFAULT_WARN,
     )
 
@@ -85,13 +85,13 @@ def main():
     else:
         WARN = args.WARN*24*60*60
 
-    delta = lib3.base.now() - psutil.boot_time()
+    delta = lib.base3.now() - psutil.boot_time()
 
-    msg = 'Up {}'.format(lib3.base.seconds2human(delta))
-    perfdata = lib3.base.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
-    state = lib3.base.get_state(delta, WARN, CRIT)
+    msg = 'Up {}'.format(lib.base3.seconds2human(delta))
+    perfdata = lib.base3.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
+    state = lib.base3.get_state(delta, WARN, CRIT)
 
-    lib3.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

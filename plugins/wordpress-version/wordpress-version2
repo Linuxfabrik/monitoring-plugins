@@ -12,12 +12,12 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-import lib.base
-import lib.cache
-import lib.disk
-import lib.url
+import lib.base2
+import lib.cache2
+import lib.disk2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020082001'
@@ -68,7 +68,7 @@ def parse_args():
 
 def get_installed_version(path):
     # jira/version.php: $OC_Version = array(18,0,2,2);
-    success, version = lib.disk.grep_file(path + '/wp-includes/version.php',
+    success, version = lib.disk2.grep_file(path + '/wp-includes/version.php',
                                           r'wp_version\s*=\s*\'(.*)\'')
     if not success:
         return (success, version)
@@ -79,18 +79,18 @@ def get_installed_version(path):
 
 def get_latest_version(expire):
     # get version online, but first from cache
-    latest_version = lib.cache.get('wordpress-version')
+    latest_version = lib.cache2.get('wordpress-version')
     if latest_version:
         return (True, latest_version)
 
     # nothing found in cache, get the latest version
-    success, jsonst = lib.url.fetch_json('https://api.github.com/repos/WordPress/WordPress/tags')
+    success, jsonst = lib.url2.fetch_json('https://api.github.com/repos/WordPress/WordPress/tags')
     if not success:
         return (success, jsonst)
 
     # there is an update available, so result contains xml here
     latest_version = jsonst[0]['name']
-    lib.cache.set('wordpress-version', latest_version, lib.base.now() + expire)
+    lib.cache2.set('wordpress-version', latest_version, lib.base2.now() + expire)
     return (True, latest_version)
 
 
@@ -101,13 +101,13 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    installed_version = lib.base.coe(get_installed_version(args.PATH))
+    installed_version = lib.base2.coe(get_installed_version(args.PATH))
     success, latest_version = get_latest_version(args.CACHE_EXPIRE*60*60)
     if not success:
-        lib.base.oao('WordPress v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
-    if lib.base.version(installed_version) >= lib.base.version(latest_version):
-        lib.base.oao('WordPress v{} is up to date'.format(installed_version), STATE_OK)
-    lib.base.oao('WordPress v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('WordPress v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('WordPress v{} is up to date'.format(installed_version), STATE_OK)
+    lib.base2.oao('WordPress v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

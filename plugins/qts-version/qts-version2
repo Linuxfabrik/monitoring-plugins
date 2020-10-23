@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_WARN, STATE_UNKNOWN
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,8 +22,8 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020090801'
@@ -113,7 +113,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -124,14 +124,14 @@ def main():
 
     # get the current version
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     installed_version = '{}.{} Build {}'.format(data['firmware']['version'], data['firmware']['number'], data['firmware']['build'])
 
     # check for updates
     url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     latest_version = xmltodict.parse(result)['QDocRoot']['func']['ownContent']['newVersion']
     if latest_version == 'none':
         latest_version = None
@@ -141,8 +141,8 @@ def main():
 
     # build the message
     if latest_version:
-        lib.base.oao('QTS {} is available (installed: {})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
-    lib.base.oao('QTS {} is up to date'.format(installed_version), STATE_OK)
+        lib.base2.oao('QTS {} is available (installed: {})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base2.oao('QTS {} is up to date'.format(installed_version), STATE_OK)
 
 
 if __name__ == '__main__':

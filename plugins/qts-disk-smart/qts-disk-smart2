@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,8 +22,8 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020070801'
@@ -113,7 +113,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -124,7 +124,7 @@ def main():
 
     # get the values
     url = '{}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     disk_count = 0
@@ -140,15 +140,15 @@ def main():
 
             temperature = disk['Temperature'].get('oC', None)
             if temperature:
-                perfdata += lib.base.get_perfdata('{}_{}_{}_{}'.format(
+                perfdata += lib.base2.get_perfdata('{}_{}_{}_{}'.format(
                     disk.get('Disk_Alias', 'Unknown Alias').replace(' ', '_'),
                     disk['Model'].replace(' ', '_'),
                     disk['Serial'].replace(' ', '_'),
                     'temperature'), temperature, None, None, None, 0, None)
 
-            state = lib.base.get_worst(disk_state, state)
+            state = lib.base2.get_worst(disk_state, state)
             msg_body += '* {}{} ({}, SerNo {}, Temp {}°C)\n'.format(
-                lib.base.state2str(disk_state, prefix='', suffix=' '),
+                lib.base2.state2str(disk_state, prefix='', suffix=' '),
                 disk.get('Disk_Alias', 'Unknown Alias'),
                 disk['Model'],
                 disk['Serial'],
@@ -157,16 +157,16 @@ def main():
 
     # build the message
     if disk_count:
-        msg_header = 'Checked {} {}.'.format(disk_count, lib.base.pluralize('disk', disk_count))
+        msg_header = 'Checked {} {}.'.format(disk_count, lib.base2.pluralize('disk', disk_count))
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:
             msg_header += ' There are warnings.'
         else:
             msg_header += ' All are healthy.'
-        lib.base.oao('{}\n{}'.format(msg_header, msg_body), state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('{}\n{}'.format(msg_header, msg_body), state, perfdata, always_ok=args.ALWAYS_OK)
     else:
-        lib.base.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
 
 

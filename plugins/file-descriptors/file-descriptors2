@@ -22,9 +22,9 @@ DEFAULT_CRIT  = 95      # %
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -70,9 +70,9 @@ def main():
         exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
     if (stderr or retc != 0):
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     file_descriptors = stdout.split('\t')
     # fs.file-nr = 1248\t0\t90913
@@ -85,10 +85,10 @@ def main():
 
 
     msg = '{}% file descriptors used ({}/{}).'.format(fd_percent, int(fd_current), int(fd_max))
-    perfdata = lib.base.get_perfdata('fd', fd_percent, '%', args.WARN, args.CRIT, 0, 100)
-    state = lib.base.get_state(fd_percent, args.WARN, args.CRIT, 'ge')
+    perfdata = lib.base2.get_perfdata('fd', fd_percent, '%', args.WARN, args.CRIT, 0, 100)
+    state = lib.base2.get_state(fd_percent, args.WARN, args.CRIT, 'ge')
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

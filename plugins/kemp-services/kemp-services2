@@ -14,10 +14,10 @@ import sys
 from traceback import print_exc
 import xml.etree.ElementTree as ET
 
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.args
-import lib.base
-import lib.url
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.args2
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020052601'
@@ -91,7 +91,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args.csv,
+        type=lib.args2.csv,
         )
 
     parser.add_argument(
@@ -133,13 +133,13 @@ def main():
                 base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
                 )
         }
-        result = lib.base.coe(lib.url.fetch(
+        result = lib.base2.coe(lib.url2.fetch(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT, header=header
             ))
     else:
         # do not call the command, put in test data
-        result, stderr, retc = lib.base.test(args.TEST)
+        result, stderr, retc = lib.base2.test(args.TEST)
 
     state = STATE_OK
     count = 0
@@ -154,24 +154,24 @@ def main():
                 STATE_WARN if args.STATE == 'warn' else STATE_CRIT
             table.append({
                 'name': name,
-                'state': lib.base.state2str(service_state, empty_ok=False),
+                'state': lib.base2.state2str(service_state, empty_ok=False),
                 })
-            state = lib.base.get_worst(state, service_state)
+            state = lib.base2.get_worst(state, service_state)
 
     # create the message
     msg = '{} {} checked. '.format(
         count,
-        lib.base.pluralize('service', count),
+        lib.base2.pluralize('service', count),
         )
 
     if len(table) > 0:
-        msg += '\n\n' + lib.base.get_table(
+        msg += '\n\n' + lib.base2.get_table(
             table,
             ['name', 'state'],
             header=['NickName', 'State'],
             )
 
-    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

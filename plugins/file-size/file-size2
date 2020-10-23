@@ -18,9 +18,9 @@ DEFAULT_CRIT = 1024*1024*1024     # 1G (Gibibyte)
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import os
@@ -76,15 +76,15 @@ def main():
     try:
         st = os.stat(args.FILE)
     except:
-        lib.base.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+        lib.base2.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
 
     size = st.st_size
 
-    msg = '{} is {}.'.format(args.FILE, lib.base.bytes2human(size))
-    perfdata = lib.base.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
-    state = lib.base.get_state(size, args.WARN, args.CRIT, 'ge')
+    msg = '{} is {}.'.format(args.FILE, lib.base2.bytes2human(size))
+    perfdata = lib.base2.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
+    state = lib.base2.get_state(size, args.WARN, args.CRIT, 'ge')
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

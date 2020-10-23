@@ -19,9 +19,9 @@ DEFAULT_CRIT = 10000
 DEFAULT_WARN = 1000
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import re
@@ -68,14 +68,14 @@ def main():
         exit(STATE_UNKNOWN)
 
     # fail2ban-client ping
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' ping'))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd + ' ping'))
     if retc:
-        lib.base.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
+        lib.base2.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
 
     # fail2ban-client status
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' status'))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd + ' status'))
     if (retc != 0):
-        lib.base.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
+        lib.base2.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
 
     # extract the jail list
     jail_list = re.search(r'Jail list:\t(.*)\n', stdout)
@@ -90,9 +90,9 @@ def main():
     #     fail2ban-client status jail_name
     for jail in jail_list:
 
-        stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd + ' status {}'.format(jail)))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd + ' status {}'.format(jail)))
         if (retc != 0):
-            lib.base.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
+            lib.base2.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
 
         f2b_filelist = re.search(r'File list:\t(.*)\n', stdout)
         if f2b_filelist:
@@ -110,14 +110,14 @@ def main():
             msg += ' (acting on {})'.format(f2b_filelist)
         msg += ', '
 
-        perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None)
+        perfdata += lib.base2.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None)
         if f2b_currently_banned >= args.CRIT:
-            state = lib.base.get_worst(state, STATE_CRIT)
+            state = lib.base2.get_worst(state, STATE_CRIT)
         elif f2b_currently_banned >= args.WARN:
-            state = lib.base.get_worst(state, STATE_WARN)
+            state = lib.base2.get_worst(state, STATE_WARN)
 
     msg = msg[:-2]
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

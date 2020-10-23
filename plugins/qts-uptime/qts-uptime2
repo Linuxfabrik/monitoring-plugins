@@ -14,7 +14,7 @@ import sys
 
 from traceback import print_exc
 
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -22,8 +22,8 @@ except ImportError as e:
     print('Python module "xmltodict" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-import lib.base
-import lib.url
+import lib.base2
+import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020070801'
@@ -105,7 +105,7 @@ def main():
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
         }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
@@ -116,7 +116,7 @@ def main():
 
     # get the values
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']["func"]["ownContent"]["root"]
 
     uptime = int(data['uptime_day']) * 60 * 60 * 24 \
@@ -125,9 +125,9 @@ def main():
             + int(data['uptime_sec'])
 
     # build the message
-    msg = 'Up {}'.format(lib.base.seconds2human(uptime))
-    perfdata = lib.base.get_perfdata('uptime', uptime, 's', None, None, 0, None)
-    lib.base.oao(msg, STATE_OK, perfdata)
+    msg = 'Up {}'.format(lib.base2.seconds2human(uptime))
+    perfdata = lib.base2.get_perfdata('uptime', uptime, 's', None, None, 0, None)
+    lib.base2.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':

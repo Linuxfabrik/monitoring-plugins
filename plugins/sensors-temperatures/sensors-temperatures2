@@ -15,9 +15,9 @@ DESCRIPTION = 'Return certain hardware temperature sensors (it may be a CPU, an 
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 try:
@@ -56,11 +56,11 @@ def main():
         exit(STATE_UNKNOWN)
 
     if not hasattr(psutil, 'sensors_temperatures'):
-        lib.base.oao('Platform not supported.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('Platform not supported.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
     temps = psutil.sensors_temperatures()
     if not temps:
-        lib.base.oao('Can\'t read any temperature.', STATE_OK, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('Can\'t read any temperature.', STATE_OK, always_ok=args.ALWAYS_OK)
 
     msg = ''
     state = STATE_OK
@@ -69,15 +69,15 @@ def main():
     for name, entries in temps.items():
         msg += '* {}: '.format(name)
         for entry in entries:
-            perfdata += lib.base.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, entry.high, entry.critical, 0, None)
-            sensor_state = lib.base.get_state(entry.current, entry.high, entry.critical, 'ge')
+            perfdata += lib.base2.get_perfdata('{}_{}'.format(name, entry.label).replace(' ', '_').lower(), entry.current, None, entry.high, entry.critical, 0, None)
+            sensor_state = lib.base2.get_state(entry.current, entry.high, entry.critical, 'ge')
             msg += '{} = {}°C '.format(entry.label or name, entry.current)
-            msg += lib.base.state2str(sensor_state)
+            msg += lib.base2.state2str(sensor_state)
             msg = msg.strip() + ', '
-            state = lib.base.get_worst(state, sensor_state)
+            state = lib.base2.get_worst(state, sensor_state)
         msg = msg[:-2] + '\n'
 
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

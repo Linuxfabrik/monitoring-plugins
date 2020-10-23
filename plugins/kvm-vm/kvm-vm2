@@ -16,9 +16,9 @@ DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 cmd = 'virsh list --all'
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 from traceback import print_exc
@@ -53,9 +53,9 @@ def main():
     state = STATE_OK
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
     if (stderr or retc != 0):
-        lib.base.oao('{}'.format(stderr), STATE_WARN)
+        lib.base2.oao('{}'.format(stderr), STATE_WARN)
     # we got a VM list and their states - strip first two header and last two empty rows
     vm_list = stdout.strip().split('\n')[2:]
 
@@ -84,30 +84,30 @@ def main():
 
         if idle:
             msg += '{} idle (WARN), '.format(idle)
-            state = lib.base.get_worst(state, STATE_WARN)
+            state = lib.base2.get_worst(state, STATE_WARN)
         if paused:
             msg += '{} paused (WARN), '.format(paused)
-            state = lib.base.get_worst(state, STATE_WARN)
+            state = lib.base2.get_worst(state, STATE_WARN)
         if pmsuspended:
             msg += '{} pmsuspended (WARN), '.format(pmsuspended)
-            state = lib.base.get_worst(state, STATE_WARN)
+            state = lib.base2.get_worst(state, STATE_WARN)
 
         if crashed:
             msg += '{} crashed (CRIT), '.format(crashed)
-            state = lib.base.get_worst(state, STATE_CRIT)
+            state = lib.base2.get_worst(state, STATE_CRIT)
         msg = msg[:-2]
     else:
         msg = 'No VMs running.'
 
-    perfdata += lib.base.get_perfdata('vm_running', running, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_idle', idle, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_paused', paused, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_in_shutdown', in_shutdown, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_shut_off', shut_off, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_running', running, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_idle', idle, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_paused', paused, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_in_shutdown', in_shutdown, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_shut_off', shut_off, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None)
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

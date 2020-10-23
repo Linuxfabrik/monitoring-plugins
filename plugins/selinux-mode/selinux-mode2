@@ -12,8 +12,8 @@ import argparse
 import sys
 from traceback import print_exc
 
-from lib.globals import STATE_UNKNOWN, STATE_OK, STATE_WARN
-import lib.base
+from lib.globals2 import STATE_UNKNOWN, STATE_OK, STATE_WARN
+import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2020051501'
@@ -64,18 +64,18 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.base.shell_exec(CMD))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
     if (stderr or retc != 0):
-        lib.base.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(
+        lib.base2.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(
             CMD, stdout, stderr), STATE_UNKNOWN)
     selinux_mode = stdout.strip().lower()
 
     # calculating the final check state
     msg_body = '\nMake SELinux Enforcing Again.' if selinux_mode != 'enforcing' else ''
     if selinux_mode == args.SELINUX_MODE.lower():
-        lib.base.oao('SELinux mode is {} (as expected).{}'.format(
+        lib.base2.oao('SELinux mode is {} (as expected).{}'.format(
             selinux_mode, msg_body), STATE_OK)
-    lib.base.oao('SELinux mode is {}, but supposed to be {}.{}'.format(
+    lib.base2.oao('SELinux mode is {}, but supposed to be {}.{}'.format(
         selinux_mode, args.SELINUX_MODE, msg_body), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 

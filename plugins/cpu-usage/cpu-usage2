@@ -19,10 +19,10 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
-import lib.db_sqlite
+import lib.base2
+import lib.db_sqlite2
 
 import argparse
 try:
@@ -73,7 +73,7 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib.base.coe(lib.db_sqlite.select(conn, 
+    result = lib.base2.coe(lib.db_sqlite2.select(conn, 
         '''
         SELECT count(*) as cnt
         FROM perfdata
@@ -109,8 +109,8 @@ def main():
                 user REAL NOT NULL,
                 cpu_usage REAL NOT NULL
         '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='cpu-usage.db'))
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+    conn = lib.base2.coe(lib.db_sqlite2.connect(filename='cpu-usage.db'))
+    lib.base2.coe(lib.db_sqlite2.create_table(conn, definition))
 
 
     # Grab CPU stats using psutil's cpu_times_percent
@@ -118,8 +118,8 @@ def main():
     try:
         cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
     except ValueError as e:
-        lib.db_sqlite.close(conn)
-        lib.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.db_sqlite2.close(conn)
+        lib.base2.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
 
     stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
@@ -135,16 +135,16 @@ def main():
     if hasattr(cpu_times_percent, 'user'):          stats['user']       = getattr(cpu_times_percent, 'user')
     
     # save trend data to local sqlite database, limited to "count" rows max.
-    lib.base.coe(lib.db_sqlite.insert(conn, stats))
-    lib.base.coe(lib.db_sqlite.cut(conn, max=args.COUNT))
-    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.base2.coe(lib.db_sqlite2.insert(conn, stats))
+    lib.base2.coe(lib.db_sqlite2.cut(conn, max=args.COUNT))
+    lib.base2.coe(lib.db_sqlite2.commit(conn))
 
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) since boot
     # interrupts: number of interrupts since boot
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
-    if lib.base.version(psutil.__version__) >= lib.base.version('4.1.0'):
+    if lib.base2.version(psutil.__version__) >= lib.base2.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
         if hasattr(cpu_stats, 'ctx_switches'):      extstats['ctx_switches']       = getattr(cpu_stats, 'ctx_switches')
         if hasattr(cpu_stats, 'interrupts'):        extstats['interrupts']         = getattr(cpu_stats, 'interrupts')
@@ -154,7 +154,7 @@ def main():
     # sort by highest value
     cpu_usage = stats['cpu_usage']
     del stats['cpu_usage']
-    stats = lib.base.sort(stats, reverse=True)
+    stats = lib.base2.sort(stats, reverse=True)
 
 
     msg = ''
@@ -170,11 +170,11 @@ def main():
         state = STATE_CRIT
     elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
-    lib.db_sqlite.close(conn)
+    lib.db_sqlite2.close(conn)
 
 
     # build the message
-    perfdata += lib.base.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
     # msg_header: values > 0%
     # msg_body: values == 0%
     msg_header, msg_body = '', ''
@@ -183,7 +183,7 @@ def main():
             msg_header += '{}: {}%, '.format(stats[i][0], stats[i][1])
         else:
             msg_body += '{}: {}%, '.format(stats[i][0], stats[i][1])
-        perfdata += lib.base.get_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata(stats[i][0], stats[i][1], '%', None, None, 0, 100)
     msg += '{}%'.format(cpu_usage)
     if msg_header:
         msg += ' - ' + msg_header[:-2]
@@ -194,10 +194,10 @@ def main():
         msg += '\n'
         for key in extstats:
             msg += '{}: {}, '.format(key, extstats[key])
-            perfdata += lib.base.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
+            perfdata += lib.base2.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2]
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

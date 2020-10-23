@@ -18,9 +18,9 @@ DEFAULT_CRIT = 60*60*24*365     # sec
 
 
 #====================
-from lib.globals import *
+from lib.globals2 import *
 
-import lib.base
+import lib.base2
 
 import argparse
 import os
@@ -77,19 +77,19 @@ def main():
     try:
         st = os.stat(args.FILE)
     except:
-        lib.base.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+        lib.base2.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
 
-    age = (lib.base.now() - st.st_mtime)
+    age = (lib.base2.now() - st.st_mtime)
 
-    msg = '{} is {} old.'.format(args.FILE, lib.base.seconds2human(age))
-    perfdata = lib.base.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
+    msg = '{} is {} old.'.format(args.FILE, lib.base2.seconds2human(age))
+    perfdata = lib.base2.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
     state = STATE_OK
     if age >= args.CRIT:
         state = STATE_CRIT
     elif age >= args.WARN:
         state = STATE_WARN
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

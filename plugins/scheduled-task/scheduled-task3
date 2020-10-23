@@ -13,9 +13,9 @@ import csv
 import sys
 from traceback import print_exc
 
-import lib3.args
-import lib3.base
-from lib3.globals import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.args3
+import lib.base3
+from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -75,19 +75,19 @@ def main():
     cmd = 'schtasks /query /fo csv /nh'
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib3.base.coe(lib3.base.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if stderr or retc != 0:
-        lib3.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     reader = csv.reader(stdout.strip().splitlines())
     for row in reader:
         task_name, next_run_time, status = row
         if task_name == args.TASK:
             if status in args.STATUS:
-                lib3.base.oao(f'{args.TASK} is {status}', STATE_OK)
-            lib3.base.oao(f'{args.TASK} is {status}, but supposed to be {args.STATUS}', problem_state)
+                lib.base3.oao(f'{args.TASK} is {status}', STATE_OK)
+            lib.base3.oao(f'{args.TASK} is {status}, but supposed to be {args.STATUS}', problem_state)
 
-    lib3.base.oao(f'Scheduled Task {args.TASK} not found', STATE_UNKNOWN)
+    lib.base3.oao(f'Scheduled Task {args.TASK} not found', STATE_UNKNOWN)
 
 if __name__ == '__main__':
     try:
