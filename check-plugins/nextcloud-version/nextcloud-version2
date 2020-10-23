@@ -1,0 +1,171 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import sys
+from traceback import print_exc
+from xml.dom import minidom
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+
+import lib.base2
+import lib.cache2
+import lib.disk2
+import lib.url2
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020060301'
+
+DESCRIPTION = 'This plugin lets you track if server updates are available.'
+
+DEFAULT_PATH = '/var/www/html/nextcloud'
+DEFAULT_CHANNEL = 'stable'
+DEFAULT_CACHE_EXPIRE = 24 # hours
+
+
+#====================
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('--cache-expire',
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+        )
+
+    parser.add_argument('--channel',
+        help='Nextcloud Update Channel. Default: %(default)s',
+        dest='CHANNEL',
+        default=DEFAULT_CHANNEL,
+        choices=['stable', 'beta', 'production'],
+        )
+
+    parser.add_argument('--path',
+        help='Local path to your Nextcloud installation, typically within your Webserver\'s Document Root. Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+        )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    # nextcloud/version.php: $OC_Version = array(18,0,2,2);
+    success, nc_version = lib.disk2.grep_file(path + '/version.php', r'array\((.*)\)')
+    if not success:
+        return (success, nc_version)
+    if nc_version:
+        # 18,0,2,2
+        return (True, nc_version.replace(',', '.'))
+    else:
+        return (True, False)
+
+
+def get_update_url(path, channel):
+    # We need to call this URL schema:
+    # https://updates.nextcloud.com/updater_server/?version=18x0x1x3x1484370109x1484370109xstablexxf6bd5afd0370ae6308529047ba6344acf8d382a3x7x2x28
+    update_url = 'https://updates.nextcloud.com/updater_server/?version='
+
+    success, nc_version = get_installed_version(path)
+    if not success:
+        return (success, nc_version)
+    if not nc_version:
+        return (False, 'Cannot parse {}/version.php'.format(path))
+
+    nc_version = nc_version.replace('.', 'x')
+    nc_installed = str(lib.base2.now() - 86400)
+    nc_updated = str(lib.base2.now() - 43200)
+    nc_updatechannel = channel
+    nc_edition = ''
+
+    success, nc_build = lib.disk2.grep_file(path + '/version.php', r"Build.* (.*)'")
+    # $OC_Build = '2020-03-11T14:54:25+00:00 93cae9d2d17112CNoeilzurfROq4VbdKGoD0YWDHigj0';
+    if not success:
+        return (success, nc_build)
+    if not nc_build:
+        return (False, 'Cannot parse {}/version.php'.format(path))
+
+    php_version = '7x4x3'       # could be anything (no need to get the installed php version for now)
+
+    update_url += nc_version + 'x' + nc_installed + 'x' + nc_updated + 'x' + nc_updatechannel + 'x' + nc_edition + 'x' + nc_build + 'x' + php_version
+    return (True, update_url)
+
+
+def get_latest_version(path, channel, expire):
+    # get version online, but first from cache
+    latest_version = lib.cache2.get('nextcloud-version')
+    if latest_version:
+        return (True, latest_version)
+
+    # nothing found in cache, get the latest version from nc update server (and not from github)
+    success, url = get_update_url(path, channel)
+    #success, url = (True, 'https://updates.nextcloud.com/updater_server/?version=18x0x1x3x1484370109x1484370109xstablexxf6bd5afd0370ae6308529047ba6344acf8d382a3x7x2x28')
+    if not success:
+        return (success, url)
+
+    success, xmlst = lib.url2.fetch(url)
+    if not success:
+        return (success, xmlst)
+    
+    if xmlst == '':
+        # no answer is a good answer, we already have the newest version
+        success, latest_version = get_installed_version(path)
+        if not success:
+            return (success, latest_version)
+        lib.cache2.set('nextcloud-version', latest_version, lib.base2.now() + expire)
+        return (True, latest_version)
+
+    # there is an upate available, so result contains xml here
+    dom = minidom.parseString(xmlst)
+    latest_version = dom.getElementsByTagName('version')[0].firstChild.nodeValue.strip()
+    lib.cache2.set('nextcloud-version', latest_version, lib.base2.now() + expire)
+    return (True, latest_version)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        sys.exit(STATE_UNKNOWN)
+
+    installed_version = lib.base2.coe(get_installed_version(args.PATH))
+    # the nextcloud update server isn't very reliable, so ignore if it is not available for any reason (we can't do anything about it,
+    # so exiting with a warning or unknown would not help)
+    success, latest_version = get_latest_version(args.PATH, args.CHANNEL, args.CACHE_EXPIRE*60*60)
+    if not success:
+        lib.base2.oao('Nextcloud v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('Nextcloud v{} is up to date'.format(installed_version), STATE_OK)
+    lib.base2.oao('Nextcloud v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+   
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

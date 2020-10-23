@@ -1,0 +1,159 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050101'
+
+DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
+
+cmd_template = 'ping -c {count} -i {interval} -w {deadline} -q {hostname}'
+
+DEFAULT_COUNT = 5           # icmp packets
+DEFAULT_INTERVAL = 0.2      # seconds
+DEFAULT_DEADLINE = 5        # seconds
+DEFAULT_HOSTNAME = '127.0.0.1'
+
+
+#====================
+from lib.globals2 import *
+
+import lib.base2
+
+import argparse
+import os
+import re
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--count', 
+        help='Stop after sending count ECHO_REQUEST packets. Default: %(default)s',
+        default=DEFAULT_COUNT, 
+        dest='COUNT',
+        type=int,
+        )
+
+    parser.add_argument('-H', '--hostname', 
+        help='The ping destination. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+        )
+
+    parser.add_argument('--interval', 
+        help='Wait interval seconds between sending each packet. Default: %(default)s',
+        default=DEFAULT_INTERVAL, 
+        dest='INTERVAL',
+        type=float,
+        )
+
+    parser.add_argument('-t', '--timeout', 
+        help='Specify a timeout, in seconds, before ping exits regardless of how many packets have been sent or received. Default: %(default)s',
+        default=DEFAULT_DEADLINE, 
+        dest='DEADLINE',
+        type=float,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    cmd = cmd_template.format(count=args.COUNT, 
+        interval=args.INTERVAL, 
+        deadline=args.DEADLINE, 
+        hostname=args.HOSTNAME
+        )
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
+    if (stderr or retc == 2):
+        lib.base2.oao(stderr, STATE_UNKNOWN)
+
+    result = stdout.splitlines()
+    if not result[0] or not result[3]:
+        lib.base2.oao('Unexpected output from ping.', STATE_UNKNOWN)
+
+    # throwing CRIT if ping exits with 1 (CRIT instead of WARN beacuse of the 
+    # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).
+    # `ping` returns 1 when: !nreceived || (deadline && nreceived < npackets));
+    state = STATE_CRIT if retc else STATE_OK
+    if state == STATE_OK:
+        msg = ''
+    else:
+        msg = 'Destination Host Unreachable. '
+
+    # we have the state, lets build the message and create some perfdata;
+
+    #['PING www.linuxfabrik.ch (185.231.52.10) 56(84) bytes of data.'
+    # ''
+    # '--- www.linuxfabrik.ch ping statistics ---'
+    # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
+    # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms']
+
+    # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
+    ping = re.search(r'G (.*?)\(', result[0])       # regex: 45 steps
+    msg += 'PING {}'.format(ping.group(1).strip()) + ': '
+
+    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
+    matches            = re.search(r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)', result[3])       # regex: 92 steps
+    transmitted        = matches.group(1)
+    received           = matches.group(2)
+    duplicates         = matches.group(4).replace('+', '') if matches.group(4) else 0
+    checksum_corrupted = matches.group(6).replace('+', '') if matches.group(6) else 0
+    errors             = matches.group(8).replace('+', '') if matches.group(8) else 0
+    packet_loss        = matches.group(9)
+    time               = matches.group(10)
+    msg += result[3] + '. '
+
+    rtt_min, rtt_avg, rtt_max, rtt_mdev = 0, 0, 0, 0
+    if result[4] and not result[4].startswith('pipe '):
+        # host is reachable
+        matches  = re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4])       # regex: 26 steps
+        rtt_min  = matches.group(1)
+        rtt_avg  = matches.group(2)
+        rtt_max  = matches.group(3)
+        rtt_mdev = matches.group(4)
+        msg += result[4]
+
+    perfdata = ''
+    perfdata += lib.base2.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('received', received, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('errors', errors, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
+    perfdata += lib.base2.get_perfdata('time', time, 'ms', None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
+
+    lib.base2.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

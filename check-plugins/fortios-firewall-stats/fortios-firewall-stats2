@@ -1,0 +1,165 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
+import lib.base2
+import lib.url2
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020050501'
+
+DESCRIPTION = """
+    Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".
+    """
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='FortiOS-based Appliance address.',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL '
+             'connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='FortiOS REST API Single Access Token.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        sys.exit(STATE_UNKNOWN)
+
+    url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
+        args.HOSTNAME, args.PASSWORD)
+    result4 = lib.base2.coe(lib.url2.fetch_json(
+        url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+
+    url = 'https://{}/api/v2/monitor/firewall/policy6/select/?access_token={}'.format(
+        args.HOSTNAME, args.PASSWORD)
+    result6 = lib.base2.coe(lib.url2.fetch_json(
+        url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+
+    policy_count = len(result4['results']) + len(result6['results'])
+    total = lib.base2.sum_dict(lib.base2.sum_lod(
+        result4['results']), lib.base2.sum_lod(result6['results']))
+    # {
+    #     u'active_sessions': 2
+    #     u'asic_bytes': 0
+    #     u'asic_packets': 0
+    #     u'bytes': 69229872
+    #     u'first_used': 3164897177
+    #     u'hit_count': 828
+    #     u'last_used': 3165744600
+    #     u'nturbo_bytes': 0
+    #     u'nturbo_packets': 0
+    #     u'packets': 1279872
+    #     u'policyid': 11
+    #     u'session_count': 2
+    #     u'session_first_used': 1588147935
+    #     u'session_last_used': 1588169820
+    #     u'software_bytes': 69229872
+    #     u'software_packets': 1279872
+    # }
+
+    msg = '{} policies, {} sessions ({} active), {} hits, {} bytes ({} software, {} asic, {} nturbo)'.format(
+        policy_count,
+        total.get('session_count', 0),
+        total.get('active_sessions', 0),
+        total.get('hit_count', 0),
+        lib.base2.bytes2human(total.get('bytes', 0)),
+        lib.base2.bytes2human(total.get('software_bytes', 0)),
+        lib.base2.bytes2human(total.get('asic_bytes', 0)),
+        lib.base2.bytes2human(total.get('nturbo_bytes', 0)),
+    )
+    state = STATE_OK
+
+    perfdata = ''
+    perfdata += lib.base2.get_perfdata('total_session_count',
+                                      total.get('session_count', 0), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_active_sessions',
+                                      total.get('active_sessions', 0), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_hit_count',
+                                      total.get('hit_count', 0), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_bytes',
+                                      total.get('bytes', 0), 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_software_bytes',
+                                      total.get('software_bytes', 0), 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_asic_bytes',
+                                      total.get('asic_bytes', 0), 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_nturbo_bytes',
+                                      total.get('nturbo_bytes', 0), 'B', None, None, 0, None)
+
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

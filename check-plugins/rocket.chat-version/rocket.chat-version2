@@ -1,0 +1,123 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020060301'
+
+DESCRIPTION = 'This plugin lets you track if server updates are available. Requires a user with strong password and "view-statistics" permission (only).'
+
+DEFAULT_URL             = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME        = 'rocket-stats'
+DEFAULT_CACHE_EXPIRE    = 24 # hours
+
+
+#====================
+from lib.globals2 import *
+
+import lib.base2
+import lib.cache2
+import lib.rocket2
+import lib.url2
+
+import argparse
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('--cache-expire',
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+        )
+
+    parser.add_argument('-p', '--password',
+        help='Rocket.Chat API password.',
+        dest='PASSWORD',
+        required=True,
+        )
+
+    parser.add_argument('--url',
+        help='Rocket.Chat API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument('--username',
+        help='Rocket.Chat API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        required=True,
+        )
+
+    return parser.parse_args()
+
+
+def get_latest_version(expire):
+    # get version online, but first from cache
+    latest_version = lib.cache2.get('rocket.chat-version')
+    if latest_version:
+        return (True, latest_version)
+
+    # nothing found in cache, get the latest version from github
+    success, latest_version = lib.url2.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
+    if not success:
+        return (success, latest_version)
+    
+    lib.cache2.set('rocket.chat-version', latest_version, lib.base2.now() + expire)
+    return (True, latest_version)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # fetch the data
+    credentials = lib.base2.coe(lib.rocket2.get_token(args.URL, args.USERNAME, args.PASSWORD))
+    authToken, userId = credentials.split(':')
+    result = lib.base2.coe(lib.rocket2.get_stats(args.URL, authToken, userId))
+
+    if result.get('statistics', None):
+        # version < 3.0.0
+        installed_version = result['statistics']['version']
+    else:
+        # version >= 3.0.0
+        installed_version = result['version']
+    latest_version = lib.base2.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
+    else:
+        lib.base2.oao('Rocket.Chat v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

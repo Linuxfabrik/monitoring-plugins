@@ -1,0 +1,220 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020061701'
+
+DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
+
+# monitoring_plugins:check_procs calls `ps laxnwww 2>/dev/null`
+cmd = 'ps -e -o stat:9,pid:9,ppid:9,comm:39,uname:32,lstart:25,command --no-headers'
+
+DEFAULT_CRIT = None
+DEFAULT_WARN = None
+
+
+#====================
+from lib.globals2 import *
+
+import lib.base2
+
+import argparse
+import datetime
+import os
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('--argument',
+        help='Only scan for processes containing ARGUMENT in the command.',
+        dest='ARGUMENT'
+        )
+
+    parser.add_argument('--command', 
+        help='Only scan for processes starting with COMMAND (without path).',
+        dest='COMMAND'
+        )
+
+    parser.add_argument('-c', '--critical', 
+        help='Set the critical threshold for the number of processes (none, range or int). Default: %(default)s',
+        default=DEFAULT_CRIT, 
+        dest='CRIT'
+        )
+
+    parser.add_argument('--no-kthreads',
+        help='Only scan for non kernel threads (works on Linux only).',
+        dest='NO_KTHREADS',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('--username',
+        help='Only scan for processes with user name.',
+        dest='USERNAME'
+        )
+
+    parser.add_argument('-w', '--warning',
+        help='Set the warning threshold for the number of processes (none, range or int). Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
+    if (stderr or retc != 0):
+        lib.base2.coe('{}'.format(stderr), STATE_UNKNOWN)
+
+    stdout = stdout.strip().split('\n')
+
+    # the counters for the different process states
+    proc_states = {
+        'D': 0,
+        'I': 0,
+        'R': 0,
+        'S': 0,
+        'T': 0,
+        't': 0,
+        'W': 0,
+        'X': 0,
+        'Z': 0,
+    }
+
+    now = lib.base2.now(as_type='datetime')
+    my_pid = str(os.getpid())
+    kthreadd_pid = 0
+
+    # parse the output
+    msg_uninterruptible, msg_running, msg_zombies = '', '', ''
+    for proc in stdout:
+        proc_state = proc[0:1].strip()
+        proc_pid   = proc[10:19].strip()
+        proc_ppid  = proc[20:29].strip()        # parent pid
+        proc_name  = proc[30:69].strip()
+        proc_uname = proc[70:102].strip()
+        proc_start = datetime.datetime.strptime(proc[103:128].strip(), '%a %b %d %H:%M:%S %Y')     # Thu Feb  6 20:39:50 2020
+        proc_cmd   = proc[129:].strip()
+        # print(proc_state, proc_pid, proc_ppid, proc_name, proc_cmd, proc_uname, proc_start)
+
+        # ignore user name (if set)
+        if args.USERNAME and proc_uname != args.USERNAME:
+            continue
+
+        # ignore command name (if set)
+        if args.COMMAND and proc_name != args.COMMAND:
+            continue
+
+        # ignore command name (if set)
+        if args.ARGUMENT and not args.ARGUMENT in proc_cmd:
+            continue
+
+        # ignore myself
+        if proc_pid == my_pid:
+            continue
+        
+        # ignore my child process "ps"
+        if proc_ppid == my_pid:
+            continue
+        
+        # filter kernel threads (childs of KTHREAD_PARENT)
+        if args.NO_KTHREADS:
+            if proc_name == 'kthreadd':
+                kthreadd_pid = proc_pid
+            else:
+                if kthreadd_pid and proc_ppid == kthreadd_pid:
+                    continue
+
+        proc_states[proc_state] += 1
+
+        if proc_state == 'D':                                   # uninterruptible
+            msg_uninterruptible += proc_name + ', '
+        if proc_state == 'R':                                   # running
+            msg_running += proc_name + ', '
+        if proc_state == 'Z':                                   # zombies
+            msg_zombies += proc_name.replace(' <defunct>', '') + ', '
+
+
+    # group some proc_states, have a look at the README for detals
+    proc_states['S'] += proc_states['I']
+    del proc_states['I']
+    proc_states['T'] += proc_states['t']
+    del proc_states['t']
+
+    # count the procs (total)
+    proc_total = sum(proc_states.values())
+
+    # build the state, check the ranges
+    if not lib.base2.coe(lib.base2.match_range(proc_total, args.CRIT)):
+        state = STATE_CRIT
+    elif not lib.base2.coe(lib.base2.match_range(proc_total, args.WARN)):
+        state = STATE_WARN
+    else:
+        state = STATE_OK
+
+    # build the message
+    msg = '{} {}, '.format(proc_total, lib.base2.pluralize('task', proc_total))
+    for proc_state, proc_cnt in lib.base2.sort(proc_states, reverse=True):
+        if proc_cnt > 0:
+            msg += '{} dead, '.format(proc_cnt)                           if proc_state == 'X' else '' 
+            msg += '{} paging, '.format(proc_cnt)                         if proc_state == 'W' else '' 
+            msg += '{} running ({}), '.format(proc_cnt, msg_running[:-2]) if proc_state == 'R' else '' 
+            msg += '{} sleeping, '.format(proc_cnt)                       if proc_state == 'S' else '' 
+            msg += '{} stopped, '.format(proc_cnt)                        if proc_state == 'T' else '' 
+            msg += '{} uninterruptible ({}), '.format(proc_cnt, msg_uninterruptible[:-2]) if proc_state == 'D' else '' 
+            if proc_state == 'Z':
+                if proc_cnt == 1:
+                    msg += '{} zombie ({}), '.format(proc_cnt, msg_zombies[:-2])
+                else:
+                    msg += '{} zombies ({}), '.format(proc_cnt, msg_zombies[:-2])
+
+    # build perfdata
+    perfdata = ''
+    perfdata += lib.base2.get_perfdata('procs', proc_total, None, args.WARN, args.CRIT, 0, None)
+
+    perfdata += lib.base2.get_perfdata('procs_sleeping', proc_states['S'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_running', proc_states['R'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_uninterruptible', proc_states['D'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_zombies', proc_states['Z'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_stopped', proc_states['T'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_paging', proc_states['W'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('procs_dead', proc_states['X'], None, None, None, 0, None)
+
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

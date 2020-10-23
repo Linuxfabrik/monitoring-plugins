@@ -1,0 +1,117 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.args2
+import lib.base2
+import lib.disk2
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020082001'
+
+DESCRIPTION = '''Warns on any read only filesystems or disk mount points.'''
+
+DEFAULT_IGNORE = ['/proc', '/snap', '/sys/fs']
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--ignore',
+        help='A comma-separated list of mount points which should be ignored. '
+        'If you provide \'/proc,/sys/fs\', all mount points starting with \'/proc\' or '
+        '\'/sys/fs\' will be ignored. '
+        'Default: %(default)s',
+        dest='IGNORE',
+        type=lib.args2.csv,
+        default=DEFAULT_IGNORE,
+        )
+
+    parser.add_argument('--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST == None:
+        # get the values the normal way
+        mounts = lib.base2.coe(lib.disk2.read_file('/proc/mounts'))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.base2.test(args.TEST)
+        mounts = stdout
+
+    ros = []
+    for mount in mounts.splitlines():
+        mnt = mount.split()
+        if len(mnt) != 6:
+            lib.base2.oao('Unexpected format of /proc/mounts.', STATE_WARN, always_ok=args.ALWAYS_OK)
+        mount_spec = mnt[0]
+        mount_point = mnt[1]
+        mount_type = mnt[2]
+        mount_options = mnt[3]
+        if mount_options.startswith('rw'):
+            # 99% are read-write, ignore them
+            continue
+        if any(mount_point.startswith(item) for item in args.IGNORE):
+            continue
+        ros.append('{} on {} type {}'.format(mount_spec, mount_point, mount_type))
+
+    if len(ros) >= 1:
+        msg = '{} read-only mount {} found: '.format(
+            len(ros),
+            lib.base2.pluralize('point', len(ros)),
+            )
+        for item in ros:
+            msg += '{}, '.format(item)
+        msg = msg[:-2]
+        state = STATE_WARN
+    else:
+        msg = 'Everything is ok.'
+        state = STATE_OK
+
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

@@ -1,0 +1,119 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import unittest
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base2
+
+        
+class TestCheck(unittest.TestCase):
+
+    check = './network-bonding2'
+
+    def test_if_check_runs_EXAMPLE_b0_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b0.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b0_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b0.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b1_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b1.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b1_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b1.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b2_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b2.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b2_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b2.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b3_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b3.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b3_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b3.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b4_ok_lacp(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b4.ok-lacp'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b4_nok_lacp(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b4.nok-lacp'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b4_ok_wo_lacp(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b4.ok-wo-lacp'))
+        self.assertRegexpMatches(stdout, r'Could not detect the MAC Address of the switch\. This could indicate that LACP is not configured properly\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b4_nok_wo_lacp(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b4.nok-wo-lacp'))
+        self.assertRegexpMatches(stdout, r'Could not detect the MAC Address of the switch\. This could indicate that LACP is not configured properly\.')
+        self.assertRegexpMatches(stdout, r'enp3s0f1 is down with 0 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b5_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b5.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b5_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b5.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 1 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE_b6_ok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b6.ok'))
+        self.assertRegexpMatches(stdout, r'Everything is ok\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE_b6_nok(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE-b6.nok'))
+        self.assertRegexpMatches(stdout, r'enp3s0f0 is down with 2 link failure')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+# todo: allow export of whole rows
+
+import argparse
+import json
+import sys
+import os
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020102201'
+
+DESCRIPTION = 'A tool to split up Grafana dashboards panels into their own dashboard.'
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        'INPUT_FILE',
+        help='Set the input file.',
+    )
+
+    parser.add_argument(
+        '--filename-postfix',
+        help='Use this together with `--auto` to set the postfix of the output filename. \'.json\' will always be added as the extension.',
+        dest='FILENAME_POSTFIX',
+        type=str,
+        default='',
+    )
+
+    parser.add_argument(
+        '--auto',
+        help='Automatically split the panels into dashboards according to the row title.',
+        dest='AUTO',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--generate-icingaweb2-ini',
+        help='Generate a template ini file for icingaweb2 if none is present.',
+        dest='GENERATE_ICINGAWEB2_INI',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+def get_panels(panels):
+    panel_list = []
+    for panel in panels:
+        if panel['type'] == 'row':
+            panel_list += get_panels(panel['panels'])
+        else:
+            # assume everything else is a panel
+            # panel_list.append((panel['id'], panel['title'] + panel['description']))
+            panel_list.append(panel)
+    return panel_list
+
+def generate_new_dashboards(data, new_panels, new_title, new_uid):
+    data['panels'][:] = new_panels
+
+    # re-number the panel ids
+    for index, panel in enumerate(data['panels']):
+        panel['id'] = index + 1
+
+    data['title'] = new_title
+    data['uid'] = new_uid
+    return data
+
+def save_dashboard_to_file(data, filename):
+    try:
+        with open(filename, 'w') as file:
+            json.dump(data, file, sort_keys=True, indent=2, separators=(',', ': '))
+    except FileNotFoundError as e:
+        print(f'{e}. Ignoring...')
+
+def generate_icingaweb_ini(filename, check_name, panel_ids=['1'], repeatable=False):
+    template = f'''[cmd-check-{check_name}]
+dashboard = "{check_name}"
+panelId = "{','.join(panel_ids)}"
+orgId = ""
+repeatable = "{'yes' if repeatable else 'no'}"
+dashboarduid = "{check_name}"'''
+
+    if repeatable:
+        template += f'\nnmetrics={len(panel_ids)}'
+
+    if not os.path.isfile(filename):
+        try:
+            with open(filename, 'w') as file:
+                file.write(template)
+        except FileNotFoundError as e:
+            print(f'{e}. Ignoring...')
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(3)
+
+    with open(args.INPUT_FILE, 'rb') as file:
+        data = json.load(file)
+
+    if args.AUTO:
+        for row in data['panels']:
+            if row['type'] == 'row':
+                row_title = row['title']
+                uid = row_title.lower().replace(' ', '-').replace('/', '')
+                out_filename = f'check-plugins/{uid}/{uid}{args.FILENAME_POSTFIX}.json'
+                new_panels = get_panels(row['panels'])
+
+                # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
+                with open(args.INPUT_FILE, 'rb') as file:
+                    orig_data = json.load(file)
+                    new_dashboard = generate_new_dashboards(orig_data, new_panels, row_title, uid)
+                save_dashboard_to_file(new_dashboard, out_filename)
+                if args.GENERATE_ICINGAWEB2_INI:
+                    panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
+                    repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
+                    generate_icingaweb_ini(f'check-plugins/{uid}/{uid}.icingaweb2-grafana.ini', uid, panel_ids, repeatable)
+        sys.exit()
+
+    all_panels = get_panels(data['panels'])
+    all_panels_desc = [(panel['id'], '{} ({})'.format(panel['title'], panel['type'])) for panel in all_panels]
+
+    print('Which panels(s) would you like to combine?')
+    print('- ' * 40)
+    all_panels_desc = sorted(all_panels_desc, key=lambda item: item[1])
+    for index, text in enumerate(all_panels_desc):
+        print('{}: {}'.format(index, text[1]))
+
+    print('- ' * 40)
+    try:
+        selection = input('Select the appropriate numbers separated by commas: ').strip(',').split(',')
+        selection = [int(item.strip()) for item in selection]
+
+        new_title = input('Choose the title for the new dashboard: ').strip()
+        new_uid = input('Choose the uid for the new dashboard: ').strip()
+        out_filename = input('Choose the filename: ').strip()
+    except KeyboardInterrupt:
+        sys.exit()
+    except ValueError:
+        print('Failed to parse selection.')
+        sys.exit(3)
+
+    new_panel_ids = [all_panels_desc[index][0] for index in selection]
+    new_panels = [panel for panel in get_panels(data['panels']) if panel['id'] in new_panel_ids]
+    new_dashboard = generate_new_dashboards(data, new_panels, new_title, new_uid)
+    save_dashboard_to_file(new_dashboard, out_filename)
+
+if __name__ == '__main__':
+    main()
