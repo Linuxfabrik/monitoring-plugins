@@ -73,11 +73,11 @@ In the following example, we will deploy everything to ``/usr/lib64/nagios/plugi
     cd monitoring-plugins
     # copy a selection of plugins to the remote server
     # for python2
-    scp about-me/about-me2 /usr/lib64/nagios/plugins/about-me
-    scp disk-smart/disk-smart2 /usr/lib64/nagios/plugins/disk-smart
+    scp check-plugins/about-me/about-me2 /usr/lib64/nagios/plugins/about-me
+    scp check-plugins/disk-smart/disk-smart2 /usr/lib64/nagios/plugins/disk-smart
     # for python3
-    scp about-me/about-me3 /usr/lib64/nagios/plugins/about-me
-    scp disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
+    scp check-plugins/about-me/about-me3 /usr/lib64/nagios/plugins/about-me
+    scp check-plugins/disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
 
 Your directory on ``icinga2-master`` should now look like this:
 
@@ -97,7 +97,7 @@ To make the deployment easier, we deploy the monitoring plugins and libraries us
 sudoers File
 ------------
 
-You can check which plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
+You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
 
 You need to place the ``sudoers``-file in ``/etc/sudoers.d/`` on the remote server. For example:
 
@@ -180,8 +180,8 @@ For now, there are two ways:
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
 
-Plugin Fact Sheet
-=================
+Check Plugin Fact Sheet
+=======================
 
 +------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
 | Plugin                       | Works on CentOS | Works on Fedora | Works on Ubuntu | Works on Windows | Python Version | Requires Python 3rd Party Libs | Needs ``sudoers`` | Default WARN                                                        | Default CRIT                   |
