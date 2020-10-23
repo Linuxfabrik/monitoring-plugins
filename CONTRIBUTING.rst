@@ -302,7 +302,7 @@ Grafana Dashboards
 
 Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage). When sensible, there should be an additional panel with min, max, mean and last columns. This can be achieved my setting the visualization to table and using the transform > reduce functions. This is preferred to using the legend options, because they change the width of the graph, making it harder to correlate events across panels. Unfortunately, it is currently impossible to set the unit per row, so you need to make on additional panel for each unit.
 
-When modifying existing panels or creating new panels, always work with the 'todo' dashboard (from ``assets/grafana/``). The title of the panels should be capitalized, the metrics should be lowercase. Be sure to create a new row named after the plugin. This field will be used for the automatic splitting into smaller dashboards later on. Therefore, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``).
+When modifying existing panels or creating new panels, always work with the 'all-panel' dashboard (from ``assets/grafana/``). The title of the panels should be capitalized, the metrics should be lowercase. Be sure to create a new row named after the plugin. This field will be used for the automatic splitting into smaller dashboards later on. Therefore, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``).
 
 As there are two options to import the Grafana dashboards (either importing via the WebGUI or provisioning, see the README for details), the Grafana dashboard also need to be exported twice.
 
@@ -314,7 +314,7 @@ Exporting for later import via the WebGUI
 - Share dashboard (Icon right of the dashboard title)
 - Export
 - Export for sharing externally: yes
-- Save to file: todo.grafana-external.json
+- Save to file: all-panels-external.json
 
 Exporting for provisioning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -322,14 +322,14 @@ Exporting for provisioning
 - Share dashboard (Icon right of the dashboard title)
 - Export
 - Export for sharing externally: no
-- Save to file: todo.grafana-provisioning.json
+- Save to file: all-panels-provisioning.json
 
 Afterwards generate the dashboards for each plugin using the
 ``grafana-tool``:
 
 .. code:: bash
 
-    ./tools/grafana-tool assets/grafana/todo-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
-    ./tools/grafana-tool assets/grafana/todo-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
+    ./tools/grafana-tool assets/grafana/all-panels-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
+    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
 
 Make sure to adjust the generated ini file if necessary.

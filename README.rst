@@ -126,8 +126,8 @@ If you want to create a custom dashboards that contains a different selection of
 .. code:: bash
 
     # interactive usage
-    ./tools/grafana-tool assets/grafana/todo-external.json
-    ./tools/grafana-tool assets/grafana/todo-provisioning.json
+    ./tools/grafana-tool assets/grafana/all-panels-external.json
+    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
 
     # for more options, see
     ./tools/grafana-tool --help
