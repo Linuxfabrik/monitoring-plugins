@@ -22,12 +22,13 @@ except ImportError as e:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020101601'
+__version__ = '2020110901'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
 DEFAULT_WARN = 90
 DEFAULT_CRIT = 95
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -79,10 +80,10 @@ def main():
 
     parts = psutil.disk_partitions(all=False)
     for part in parts:
-        print(part)
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
-        if part.fstype in ['squashfs', 'iso9660', 'UDF']:
+        if part.fstype in ['squashfs', 'iso9660', 'UDF']\
+                or part.opts in ['cdrom']:
             # ignore `/snap` and iso mountpoints and cdroms (UDF = universal disk format)
             continue
         usage = psutil.disk_usage(part.mountpoint)
@@ -108,7 +109,7 @@ def main():
         table_data,
         ['mountpoint', 'type', 'used', 'total', 'percent'],
         ['mountpoint', 'type', 'used', 'total', 'percent'],
-        'percent'
+        'percent',
     )
 
     lib.base3.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)

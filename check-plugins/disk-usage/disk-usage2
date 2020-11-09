@@ -23,7 +23,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020110901'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -83,8 +83,9 @@ def main():
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
-        if part.fstype == 'squashfs' or part.fstype == 'iso9660':
-            # ignore `/snap` and iso mountpoints, for example
+        if part.fstype in ['squashfs', 'iso9660', 'UDF']\
+                or part.opts in ['cdrom']:
+            # ignore `/snap` and iso mountpoints and cdroms (UDF = universal disk format)
             continue
         usage = psutil.disk_usage(part.mountpoint)
 
@@ -94,7 +95,7 @@ def main():
         perfdata += lib.base2.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base2.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
-        if part.mountpoint == '/':
+        if part.mountpoint in ['/', 'C:\\']:
             msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.base2.bytes2human(usage.total), lib.base2.bytes2human(usage.used), lib.base2.bytes2human(usage.free))
 
         table_data.append({
@@ -110,7 +111,7 @@ def main():
         ['mountpoint', 'type', 'used', 'total', 'percent'],
         ['mountpoint', 'type', 'used', 'total', 'percent'],
         'percent',
-        )
+    )
 
     lib.base2.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
 
