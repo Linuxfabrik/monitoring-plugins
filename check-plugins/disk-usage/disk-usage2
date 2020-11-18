@@ -8,56 +8,61 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
-
-DESCRIPTION = 'Checks the used disk space, for each partition.'
-
-DEFAULT_WARN  = 90
-DEFAULT_CRIT  = 95
-
-#====================
-from lib.globals2 import *
+import argparse
+import sys
+from traceback import print_exc
 
 import lib.base2
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
 
-import argparse
 try:
     import psutil
 except ImportError as e:
     print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
-from traceback import print_exc
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020110901'
+
+DESCRIPTION = 'Checks the used disk space, for each partition.'
+
+DEFAULT_WARN = 90
+DEFAULT_CRIT = 95
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('-c', '--critical',
+    parser.add_argument(
+        '-c', '--critical',
         help='Set the critical threshold partition usage percentage. Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
-    parser.add_argument('-w', '--warning',
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning threshold partition usage percentage. Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
@@ -66,8 +71,8 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     state = STATE_OK
     perfdata = ''
@@ -78,8 +83,9 @@ def main():
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
-        if part.fstype == 'squashfs' or part.fstype == 'iso9660':
-            # ignore `/snap` and iso mountpoints, for example
+        if part.fstype in ['squashfs', 'iso9660', 'UDF']\
+                or part.opts in ['cdrom']:
+            # ignore `/snap` and iso mountpoints and cdroms (UDF = universal disk format)
             continue
         usage = psutil.disk_usage(part.mountpoint)
 
@@ -89,7 +95,7 @@ def main():
         perfdata += lib.base2.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base2.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
-        if part.mountpoint == '/':
+        if part.mountpoint in ['/', 'C:\\']:
             msg_header = '{} {}% - total: {}, used: {}, free: {}'.format(part.mountpoint, usage.percent, lib.base2.bytes2human(usage.total), lib.base2.bytes2human(usage.used), lib.base2.bytes2human(usage.free))
 
         table_data.append({
@@ -100,11 +106,12 @@ def main():
             'percent': '{}%'.format(usage.percent),
             })
 
-    table = lib.base2.get_table(table_data, 
-        ['mountpoint', 'type', 'used', 'total', 'percent'], 
-        ['mountpoint', 'type', 'used', 'total', 'percent'], 
-        'percent'
-        )
+    table = lib.base2.get_table(
+        table_data,
+        ['mountpoint', 'type', 'used', 'total', 'percent'],
+        ['mountpoint', 'type', 'used', 'total', 'percent'],
+        'percent',
+    )
 
     lib.base2.oao(msg_header.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
 
@@ -114,4 +121,4 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)

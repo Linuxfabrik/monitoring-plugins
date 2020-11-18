@@ -1,28 +1,36 @@
-Python-based Icinga Plugins Collection
-======================================
+Python-based Monitoring Plugins Collection
+==========================================
 
-This Enterprise Class Plugin Collection provides various Python 2 based plugins for Nagios and compatible monitoring systems like Icinga, Shinken, Centreon or Sensu. All plugins are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+.
+This Enterprise Class Plugin Collection provides a bundle of more than eighty Python based plugins for Icinga, Naemon, Nagios, Shinken, Sensu, and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software runs these plugins to determine the current status of hosts and services on your network.
+
+All plugins are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+ - and some on Microsoft Windows, too.
 
 If you
 
-- are disappointed by ``nagios-plugins-all``
-- search for plugins that are all written in Python only (your system language on CentOS)
+- search for plugins that are all written in Python only (your main system language on RHEL/CentOS)
 - want to have an easy look into the source code of the plugins
 - want to use plugins that are fast, reliable and mainly focused on CentOS and Icinga2
-- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner, on Linux as well as Windows
+- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner, on Linux as well as on Windows
 - want to use plugins out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
 - are happy about plugins that provide some additional information to help you troubleshoot your system
 - want to use plugins that try to avoid 3rd party dependencies wherever possible
 
 ... then these plugins might be for you.
 
+
+Donate
+------
+
 |Donate|
 
 
-Python2
--------
+Python
+------
 
-All plugins are written in Python 2, because ...
+Python2
+~~~~~~~
+
+All plugins are first written in Python 2 (suffixed by "2"), because ...
 
 - in a datacenter environment (where these plugins are mainly used) the ``python == python2`` side is still more popular. - in CentOS 7, Python 2.7 is the default (Python3 became available in CentOS 7.8).
 - in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
@@ -30,45 +38,106 @@ All plugins are written in Python 2, because ...
 
 Our plugins call Python 2 using ``#!/usr/bin/env python2``.
 
-Python3
--------
 
-Providing a Python 3 variant of each plugin is on our roadmap. There are already some Python 3 plugins available (at the time mainly for Windows). Check out the "Plugin Fact Sheet" at the end of this document.
+Python3
+~~~~~~~
+
+There are already some Python 3 plugins available (suffixed by "3"; currently mainly for Windows). Check out the "Plugin Fact Sheet" at the end of this document.
 
 Our plugins call Python 3 using ``#!/usr/bin/env python3``.
 
+
+
 Libraries
----------
+~~~~~~~~~
 
 We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the "Plugin Fact Sheet" at the end of this document.
 
-Of course we make use of our own library, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Deployment" below or "Setting up your development environment" in the CONTRIBUTING for instructions on using it with the plugins.
+We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below or "Setting up your development environment" in :doc:`CONTRIBUTING` for instructions on using it with the plugins.
 
-Deployment
-==========
 
-Monitoring Plugins & Libraries
-------------------------------
+
+Roadmap
+-------
+
+* Every plugin is available fpr Python2 and Python3.
+* Every plugin is also tested on Windows.
+* Provide a unit test for every plugin.
+* Automate the testing pipeline.
+
+
+Installation
+------------
+
+Requirements
+~~~~~~~~~~~~
+
+CentOS 8
+    - Required: Install Python2, for example by using ``dnf install python2``
+    - After that, most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Some of those modules are found in the EPEL repo. Example:
+      ``dnf install epel-release; dnf install python2-psutil``
+
+CentOS 7
+    - Most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Some of those modules are found in the EPEL repo. Example:
+      ``yum install epel-release; yum install python2-psutil``
+
+Fedora
+    - Required: Install Python2, for example by using ``dnf install python2``
+    - After that, most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Example: ``dnf install python2-psutil``
+
+Ubuntu 20
+    - Most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Example: ``apt install python-psutil``
+
+Ubuntu 16
+    - Required: Install Python2, for example by using ``apt install python-minimal``
+    - After that, most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Example: ``apt install python-psutil``
+
+Windows
+    tbd
+
+
+
+Installation on Linux
+~~~~~~~~~~~~~~~~~~~~~
 
 As the required `lib <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ is a separate git repo, we need to make sure to deploy the plugins and the library correctly.
 
-In the following example, we will deploy everything to ``/usr/lib64/nagios/plugins/`` on the remote server ``icinga2-master``:
+In the following example, we will deploy everything to ``/usr/lib64/nagios/plugins/`` on the remote server ``monitoring-server``:
 
 .. code:: bash
 
-    # first, make sure the directory exists on the remote
-    ssh icinga2-master
+    # first, make sure the target directory exists
+    ssh monitoring-server
     mkdir -p /usr/lib64/nagios/plugins/lib
-    Ctrl^D
+    exit
 
-    # on your administrator machine
+Install the libraries:
+
+.. code:: bash
+
+    # on your local administrator machine
     git clone https://git.linuxfabrik.ch/linuxfabrik/lib
     cd lib
     # for python2
-    scp *2.py icinga2-master:/usr/lib64/nagios/plugins/lib/
+    scp *2.py monitoring-server:/usr/lib64/nagios/plugins/lib/
     # for python3
-    scp *3.py icinga2-master:/usr/lib64/nagios/plugins/lib/
+    scp *3.py monitoring-server:/usr/lib64/nagios/plugins/lib/
 
+Install some or all plugins:
+
+.. code:: bash
+
+    # on your local administrator machine
     git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
     cd monitoring-plugins
     # copy a selection of plugins to the remote server
@@ -79,7 +148,7 @@ In the following example, we will deploy everything to ``/usr/lib64/nagios/plugi
     scp check-plugins/about-me/about-me3 /usr/lib64/nagios/plugins/about-me
     scp check-plugins/disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
 
-Your directory on ``icinga2-master`` should now look like this:
+Your directory on ``monitoring-server`` should now look like this:
 
 .. code:: bash
 
@@ -94,22 +163,24 @@ Your directory on ``icinga2-master`` should now look like this:
 
 To make the deployment easier, we deploy the monitoring plugins and libraries using `ansible <https://www.ansible.com/>`_. You can take a look at our `monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
 
-sudoers File
-------------
+
+sudoers
+~~~~~~~
 
 You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
 
-You need to place the ``sudoers``-file in ``/etc/sudoers.d/`` on the remote server. For example:
+You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote server. For example:
 
 .. code:: bash
 
     cd monitoring-plugins/assets/sudoers/
-    scp CentOS7.sudoers icinga2-master:/etc/sudoers.d/monitoring-plugins
+    scp CentOS7.sudoers monitoring-server:/etc/sudoers.d/monitoring-plugins
 
-Side note: We are also using the path ``/usr/lib64/nagios/plugins/`` for other OSes, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/``. This is because when adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+Side note: We are also using the path ``/usr/lib64/nagios/plugins/`` for other OSes, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because when adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+
 
 Grafana Dashboards
-------------------
+~~~~~~~~~~~~~~~~~~
 
 There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
 
@@ -119,211 +190,196 @@ If you want to use provisioning, take a look at `Grafana Provisioning <https://g
 Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
 
 Creating Custom Grafana Dashboards
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
 
-If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
+    .. code:: bash
 
-.. code:: bash
+        # interactive usage
+        ./tools/grafana-tool assets/grafana/all-panels-external.json
+        ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
 
-    # interactive usage
-    ./tools/grafana-tool assets/grafana/all-panels-external.json
-    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
+        # for more options, see
+        ./tools/grafana-tool --help
 
-    # for more options, see
-    ./tools/grafana-tool --help
 
-Running a Plugin
-================
-
-What you need:
-
-**CentOS 8**
-
-- Required: Install Python2, for example by using ``dnf install python2``
-- After that, most of the plugins will run out of the box.
-- Optional: Install 3rd party Python modules if a plugin requires them.
-  Some of those modules are found in the EPEL repo. Example:
-  ``dnf install epel-release; dnf install python2-psutil``
-
-**CentOS 7**
-
-- Most of the plugins will run out of the box.
-- Optional: Install 3rd party Python modules if a plugin requires them.
-  Some of those modules are found in the EPEL repo. Example:
-  ``yum install epel-release; yum install python2-psutil``
-
-**Fedora**
-
-- Required: Install Python2, for example by using ``dnf install python2``
-- After that, most of the plugins will run out of the box.
-- Optional: Install 3rd party Python modules if a plugin requires them.
-  Example: ``dnf install python2-psutil``
-
-**Ubuntu 20**
-
-- Most of the plugins will run out of the box.
-- Optional: Install 3rd party Python modules if a plugin requires them.
-  Example: ``apt install python-psutil``
-
-**Ubuntu 16**
-
-- Required: Install Python2, for example by using ``apt install python-minimal``
-- After that, most of the plugins will run out of the box.
-- Optional: Install 3rd party Python modules if a plugin requires them.
-  Example: ``apt install python-psutil``
 
 Reporting Issues
-================
+----------------
 
 For now, there are two ways:
 
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
 
-Check Plugin Fact Sheet
-=======================
 
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| Plugin                       | Works on CentOS | Works on Fedora | Works on Ubuntu | Works on Windows | Python Version | Requires Python 3rd Party Libs | Needs ``sudoers`` | Default WARN                                                        | Default CRIT                   |
-+==============================+=================+=================+=================+==================+================+================================+===================+=====================================================================+================================+
-| about-me                     | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| apache-httpd-status          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | #workers >= 80%                                                     | #workers >= 95%                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| borgbackup                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | last backup >= 24h                                                  |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| countdown                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | 50 days                                                             | 30 days                        |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| cpu-usage                    | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no                | 5x >= 80%                                                           | 5x >= 90%                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| disk-io                      | 7, 8            | no              | 16, 20          | no               | 2              | psutil                         | no                | 5x >= 60 mb/sec                                                     | 5x >= 100 mb/sec               |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| disk-smart                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| disk-usage                   | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | yes               | >= 90%                                                              | >= 95%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| dmesg                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                |                                                                     | dmesg == emerg,alert,crit,err  |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| dns                          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | socket or address related errors                                    |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fah-stats                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fail2ban                     | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               | >= 1000 banned ips                                                  | >= 10000 banned ips            |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| feed                         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | 3d on new entries                                                   |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| file-age                     | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no                | >= 30d                                                              | >= 365d                        |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| file-descriptors             | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | >= 90%                                                              | >= 95%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| file-ownership               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| file-size                    | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no                | >= 25M                                                              | >= 1G                          |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-cpu-usage            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | 5x >= cpu-use-threshold/80%                                         | 5x >= 90%                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-firewall-stats       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-ha-stats             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | cluster members != expected                                         |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-memory-usage         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | > memory-use-threshold-green/82%                                    | > memory-use-threshold-red/88% |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-network-io           | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 800mbps, link changes                                            | >= 900mbps, link changes       |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-sensor               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fortios-version              | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | update avail.                                                       |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fs-file-usage                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 90%                                                              | >= 95%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fs-inodes                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 90%                                                              | >= 95%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| fs-ro                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | read-only mount points found                                        |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| getent                       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | key not found                                                       |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| hostname-fqdn                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | invalid fqdn                                                        |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| ipmi-sel                     | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               | any entries found                                                   |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| ipmi-sensor                  | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| kemp-services                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | service == "down"                                                   |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| kvm-vm                       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               | idle, paused, pmsuspended vm                                        | crashed vm                     |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| load                         | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | >= 1.15 load15                                                      | >= 5.00 load15                 |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| mailq                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 2 mails                                                          | >= 250 mails                   |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| matomo-reporting             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| matomo-version               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | server update avail.                                                |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| memory-usage                 | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no                | >= 90%                                                              | >= 95%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| mysql-stats                  | 7               | no              | 16              | no               | 2              | psutil, mysql.connector        | no                | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| needs-restarting             | 7, 8            | 30+             | no              | no               | 2              |                                | yes               | (service) reboot needed                                             |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| network-connections          | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| network-port-tcp             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | unreachable                                                         |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| nextcloud-security-scan      | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | outdated scan result, low rating                                    | lowest rating                  |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| nextcloud-stats              | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | app updates avail.                                                  |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| nextcloud-version            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | server update avail.                                                |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| ntp-offset                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 800ms or stratum >= 9                                            | >= 1001ms                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| openvpn-client-list          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes               |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| ping                         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                |                                                                     | 100% packet loss               |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| procs                        | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| rocket.chat-stats            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| rocket.chat-version          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | server update avail.                                                |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| rpm-lastactivity             | 7, 8            | 30+             | no              | no               | 2              |                                | no                | > 90d                                                               | > 365d                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| scheduled-task               | no              | no              | no              | yes              | 3              |                                |                   | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| selinux-mode                 | 7, 8            | 30+             | no              | no               | 2              |                                | no                | != enforcing                                                        |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| sensors-battery              | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | battery power <= 20%                                                | battery power <= 5%            |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| sensors-fans                 | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | fan speed >= 10000 rpm                                              | fan speed => 20000 rpm         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| sensors-temperatures         | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | sensor temp >= hardware threshold sensor temp >= hardware threshold |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| service                      | no              | no              | no              | yes              | 3              |                                |                   | *complex*                                                           | *complex*                      |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| swap-usage                   | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no                | >= 70%                                                              | >= 90%                         |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| systemd-unit                 | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | *complex*                                                           |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| systemd-units-failed         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no                | >= 1 unit in failed act/sub state                                   |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| top3-most-memory-consuming   | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes               |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| top3-processes-opening-more  | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes               |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| top3-processes-which-caused  | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes               |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| top3-processes-which-consume | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes               |                                                                     |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| updates                      | no              | no              | no              | yes              | 3              |                                |                   | >= 1                                                                | >= 50                          |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| uptime                       | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no                | >= 180d                                                             | >= 366d                        |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| users                        | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no                | >= 1 tty                                                            |                                |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
-| xca                          | 7               | no              | 16              | no               | 2              | mysql.connector                | no                | expiry date <= 14d                                                  | expiry date <= 5d              |
-+------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+-------------------+---------------------------------------------------------------------+--------------------------------+
+Check Plugin Fact Sheet
+-----------------------
+
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| Plugin                       | Works on CentOS | Works on Fedora | Works on Ubuntu | Works on Windows | Python Version | Requires Python 3rd Party Libs | Needs sudoers  | Default WARN                                                        | Default CRIT                   |
++==============================+=================+=================+=================+==================+================+================================+================+=====================================================================+================================+
+| about-me                     | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| apache-httpd-status          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | #workers >= 80%                                                     | #workers >= 95%                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| atlassian-confluence-version |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| atlassian-jira-version       |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| borgbackup                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | last backup >= 24h                                                  |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| countdown                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | 50 days                                                             | 30 days                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| cpu-usage                    | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no             | 5x >= 80%                                                           | 5x >= 90%                      |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| disk-io                      | 7, 8            | no              | 16, 20          | no               | 2              | psutil                         | no             | 5x >= 60 mb/sec                                                     | 5x >= 100 mb/sec               |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| disk-smart                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| disk-usage                   | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | yes            | >= 90%                                                              | >= 95%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| dmesg                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             |                                                                     | dmesg == emerg,alert,crit,err  |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| dns                          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | socket or address related errors                                    |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fah-stats                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fail2ban                     | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            | >= 1000 banned ips                                                  | >= 10000 banned ips            |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| feed                         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | 3d on new entries                                                   |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| file-age                     | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no             | >= 30d                                                              | >= 365d                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| file-descriptors             | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | >= 90%                                                              | >= 95%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| file-ownership               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| file-size                    | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no             | >= 25M                                                              | >= 1G                          |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-cpu-usage            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | 5x >= cpu-use-threshold/80%                                         | 5x >= 90%                      |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-firewall-stats       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-ha-stats             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | cluster members != expected                                         |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-memory-usage         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | > memory-use-threshold-green/82%                                    | > memory-use-threshold-red/88% |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-network-io           | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 800mbps, link changes                                            | >= 900mbps, link changes       |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-sensor               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fortios-version              | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | update avail.                                                       |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fs-file-usage                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 90%                                                              | >= 95%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fs-inodes                    | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 90%                                                              | >= 95%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| fs-ro                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | read-only mount points found                                        |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| getent                       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | key not found                                                       |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| hostname-fqdn                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | invalid fqdn                                                        |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| ipmi-sel                     | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            | any entries found                                                   |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| ipmi-sensor                  | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| kemp-services                | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | service == "down"                                                   |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| keycloak-version             |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| kvm-vm                       | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            | idle, paused, pmsuspended vm                                        | crashed vm                     |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| load                         | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | >= 1.15 load15                                                      | >= 5.00 load15                 |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| mailq                        | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 2 mails                                                          | >= 250 mails                   |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| matomo-reporting             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| matomo-version               | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | server update avail.                                                |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| memory-usage                 | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no             | >= 90%                                                              | >= 95%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| mysql-stats                  | 7               | no              | 16              | no               | 2              | psutil, mysql.connector        | no             | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| needs-restarting             | 7, 8            | 30+             | no              | no               | 2              |                                | yes            | (service) reboot needed                                             |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| network-bonding              |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| network-connections          | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| network-port-tcp             | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | unreachable                                                         |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| nextcloud-security-scan      | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | outdated scan result, low rating                                    | lowest rating                  |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| nextcloud-stats              | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | app updates avail.                                                  |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| nextcloud-version            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | server update avail.                                                |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| ntp-offset                   | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 800ms or stratum >= 9                                            | >= 1001ms                      |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| openvpn-client-list          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | yes            |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| ping                         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             |                                                                     | 100% packet loss               |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| pip-version                  |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| procs                        | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-cpu-usage                |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-disk-smart               |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-memory-usage             |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-temperatures             |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-uptime                   |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| qts-version                  |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| rocket.chat-stats            | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| rocket.chat-version          | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | server update avail.                                                |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| rpm-lastactivity             | 7, 8            | 30+             | no              | no               | 2              |                                | no             | > 90d                                                               | > 365d                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| scheduled-task               | no              | no              | no              | yes              | 3              |                                |                | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| selinux-mode                 | 7, 8            | 30+             | no              | no               | 2              |                                | no             | != enforcing                                                        |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| sensors-battery              | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | battery power <= 20%                                                | battery power <= 5%            |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| sensors-fans                 | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | fan speed >= 10000 rpm                                              | fan speed => 20000 rpm         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| sensors-temperatures         | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | sensor temp >= hardware threshold sensor temp >= hardware threshold |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| service                      | no              | no              | no              | yes              | 3              |                                |                | complex                                                             | complex                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| swap-usage                   | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | no             | >= 70%                                                              | >= 90%                         |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| systemd-unit                 | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | complex                                                             |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| systemd-units-failed         | 7, 8            | 30+             | 16, 20          | no               | 2              |                                | no             | >= 1 unit in failed act/sub state                                   |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| top3-most-memory-consuming   | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes            |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| top3-processes-opening-more  | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes            |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| top3-processes-which-caused  | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes            |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| top3-processes-which-consume | 7, 8            | 30+             | 16, 20          | no               | 2              | psutil                         | yes            |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| updates                      | no              | no              | no              | yes              | 3              |                                |                | >= 1                                                                | >= 50                          |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| uptime                       | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           | psutil                         | no             | >= 180d                                                             | >= 366d                        |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| users                        | 7, 8            | 30+             | 16, 20          | yes              | 2, 3           |                                | no             | >= 1 tty                                                            |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| wordpress-version            |                 |                 |                 |                  |                |                                |                |                                                                     |                                |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
+| xca                          | 7               | no              | 16              | no               | 2              | mysql.connector                | no             | expiry date <= 14d                                                  | expiry date <= 5d              |
++------------------------------+-----------------+-----------------+-----------------+------------------+----------------+--------------------------------+----------------+---------------------------------------------------------------------+--------------------------------+
 
 .. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url

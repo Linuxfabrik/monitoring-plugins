@@ -50,21 +50,21 @@ def parse_args():
         type=float,
         default=None,
         )
-    
-    parser.add_argument('-H', '--hostname', 
+
+    parser.add_argument('-H', '--hostname',
         help='The host or ip address to check. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
         )
 
-    parser.add_argument('-p', '--port', 
+    parser.add_argument('-p', '--port',
         help='The port number. Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
         )
 
-    parser.add_argument('--type', 
+    parser.add_argument('--type',
         help='Connection type. Can be optionally specified in order to narrow the list of addresses returned.',
         dest='TYPE',
         choices=['udp', 'udp6', 'tcp', 'tcp6'],
@@ -102,13 +102,13 @@ def main():
     start_time = time.time()
     try:
         if args.TYPE == 'udp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET, lib.net.SOCK_UDP, lib.net.PROTO_UDP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET, lib.net2.SOCK_UDP, lib.net2.PROTO_UDP)
         elif args.TYPE == 'udp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET6, lib.net.SOCK_UDP, lib.net.PROTO_UDP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET6, lib.net2.SOCK_UDP, lib.net2.PROTO_UDP)
         elif args.TYPE == 'tcp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET, lib.net.SOCK_TCP, lib.net.PROTO_TCP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET, lib.net2.SOCK_TCP, lib.net2.PROTO_TCP)
         elif args.TYPE == 'tcp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net.AF_INET6, lib.net.SOCK_TCP, lib.net.PROTO_TCP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET6, lib.net2.SOCK_TCP, lib.net2.PROTO_TCP)
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
     except socket.error as e:
@@ -122,7 +122,7 @@ def main():
     msg = 'Lookup for {} returns '.format(args.HOSTNAME)
     for res in result:
         af, socktype, proto, canonname, sa = res
-        msg += '{} ({}{}:{}), '.format(sa[0], lib.net.PROTOSTR[proto], lib.net.FAMILIYSTR[af], sa[1])
+        msg += '{} ({}{}:{}), '.format(sa[0], lib.net2.PROTOSTR[proto], lib.net2.FAMILIYSTR[af], sa[1])
 
     state = lib.base2.get_state(runtime, args.WARN, args.CRIT, operator='ge')
     perfdata = lib.base2.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
