@@ -9,7 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020112001'
 
 DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "sshd" is running, use "systemd-unit --substate=running --unit=sshd". Have a look at the README for more details.'
 
@@ -44,14 +44,28 @@ def parse_args():
         dest='ACTIVESTATE',
         default=DEFAULT_ACTIVESTATE,
         action='append',
-        choices=['active', 'failed', 'inactive'],
+        choices=[
+            'active',
+            'failed',
+            'inactive',
+            'activating',
+            'deactivating',
+            ],
         )
 
     parser.add_argument('--loadstate',
         help='Expected systemd LoadState. Default: %(default)s',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
-        choices=['loaded', 'masked', 'not-found'],
+        choices=[
+            'active',
+            'reloading',
+            'inactive',
+            'failed',
+            'activating',
+            'deactivating',
+            'maintenance',
+            ],
         )
 
     parser.add_argument('--severity',
@@ -66,7 +80,52 @@ def parse_args():
         dest='SUBSTATE',
         default=DEFAULT_SUBSTATE,
         action='append',
-        choices=['abandoned', 'active', 'dead', 'exited', 'failed', 'listening', 'mounted', 'plugged', 'running', 'waiting'],
+        choices=[
+            'abandoned',
+            'activating',
+            'activating-done',
+            'active',
+            'auto-restart',
+            'cleaning',
+            'condition',
+            'deactivating',
+            'deactivating-sigkill',
+            'deactivating-sigterm',
+            'dead',
+            'elapsed',
+            'exited',
+            'failed',
+            'final-sigkill',
+            'final-sigterm',
+            'final-watchdog',
+            'listening',
+            'mounted',
+            'mounting',
+            'mounting-done',
+            'plugged',
+            'reload',
+            'remounting',
+            'remounting-sigkill',
+            'remounting-sigterm',
+            'running',
+            'start',
+            'start-chown',
+            'start-post',
+            'start-pre',
+            'stop',
+            'stop-post',
+            'stop-pre',
+            'stop-pre-sigkill',
+            'stop-pre-sigterm',
+            'stop-sigkill',
+            'stop-sigterm',
+            'stop-watchdog',
+            'tentative',
+            'unmounting',
+            'unmounting-sigkill',
+            'unmounting-sigterm',
+            'waiting',
+            ],
         )
 
     parser.add_argument('--unit',

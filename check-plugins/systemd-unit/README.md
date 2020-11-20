@@ -52,13 +52,13 @@ Attention:
 `--activestate` (repeating):
 * The high-level unit activation state(s), i.e. generalization of SUB.
 * If ommited, the unit's active state will not be checked.
-* activestate=active,failed,inactive
+* activestate=active,failed,inactive,activating,deactivating
 * Default: none
 
 `--substate` (repeating):
 * The low-level unit activation state(s); values depend on unit type.
 * If ommited, the unit's substate will not be checked.
-* substate=abandoned,active,dead,exited,failed,listening,mounted,plugged,running,waiting
+* substate=abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting
 * Default: none
 
 `--unitfilestate`:
