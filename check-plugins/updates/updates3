@@ -18,7 +18,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020101601'
+__version__ = '2020120301'
 
 DESCRIPTION = 'Checks the number of pending updates.'
 
@@ -33,6 +33,14 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -83,8 +91,8 @@ def main():
 
     if count:
         state = lib.base3.get_state(count, args.WARN, args.CRIT)
-        lib.base3.oao(f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '), state, perfdata)
-    lib.base3.oao('There are no pending updates.', STATE_OK, perfdata)
+        lib.base3.oao(f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao('There are no pending updates.', STATE_OK, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
