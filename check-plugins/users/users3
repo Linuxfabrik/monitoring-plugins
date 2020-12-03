@@ -21,14 +21,18 @@ LINUX = sys.platform.startswith("linux")
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020101601'
+__version__ = '2020120201'
 
-DESCRIPTION = 'Counts how many users are currently logged in, both via tty and pts.'
+DESCRIPTION = 'Counts how many users are currently logged in, both via tty and pts. Also counts the disconnected users on Windows (closed RDP connections without logging out).'
 
 DEFAULT_WARN_PTS = 50
 DEFAULT_WARN_TTY = 1
+DEFAULT_WARN_DISC = 50
 DEFAULT_CRIT_PTS = None
 DEFAULT_CRIT_TTY = None
+DEFAULT_CRIT_DISC = None
+
+WINDOWS_NO_USER_STRING = 'No User exists for *'
 
 
 def parse_args():
@@ -42,17 +46,17 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        default=[DEFAULT_CRIT_TTY, DEFAULT_CRIT_PTS],
+        default=[DEFAULT_CRIT_TTY, DEFAULT_CRIT_PTS, DEFAULT_CRIT_DISC],
         dest='CRIT',
-        help='Set the critical threshold for logged in tty/pts users, in the format "3,10". Default: %(default)s',
+        help='Set the critical threshold for logged in tty/pts users, in the format "3,10". On Windows, you can additionally set it for disconnected users, in the format "3,10,1". Default: %(default)s',
         type=lib.args3.csv,
     )
 
     parser.add_argument(
         '-w', '--warning',
-        default=[DEFAULT_WARN_TTY, DEFAULT_WARN_PTS],
+        default=[DEFAULT_WARN_TTY, DEFAULT_WARN_PTS, DEFAULT_WARN_DISC],
         dest='WARN',
-        help='Set the warning threshold for logged in tty/pts users, in the format "1,5". Default: %(default)s',
+        help='Set the warning threshold for logged in tty/pts users, in the format "1,5". On Windows, you can additionally set it for disconnected users, in the format "1,5,10". Default: %(default)s',
         type=lib.args3.csv,
     )
 
@@ -70,6 +74,9 @@ def main():
     WARN_PTS = lib.args3.int_or_none(args.WARN[1])
     CRIT_TTY = lib.args3.int_or_none(args.CRIT[0])
     CRIT_PTS = lib.args3.int_or_none(args.CRIT[1])
+    if WINDOWS:
+        WARN_DISC = lib.args3.int_or_none(args.WARN[2])
+        CRIT_DISC = lib.args3.int_or_none(args.CRIT[2])
 
     if LINUX:
         cmd = '/usr/bin/w'
@@ -79,12 +86,11 @@ def main():
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if (LINUX and (stderr or retc != 0))\
-        or (WINDOWS and stderr):
+        or (WINDOWS and stderr and WINDOWS_NO_USER_STRING not in stderr):
         # Could not find any documentation in the return codes of 'query user'. Therefore we assume any is ok.
-        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base3.oao('Shell command failed with "{}".'.format(stderr), STATE_UNKNOWN)
     result = stdout.strip()
 
-    # calculating the final check state
     if LINUX:
         lines = result.splitlines()[2:] # ignore the first two lines
     if WINDOWS:
@@ -92,6 +98,7 @@ def main():
 
     count_pts = 0
     count_tty = 0
+    count_disc = 0
     for line in lines:
         value = line.split()[1]
         if 'tty' in value or ':' in value\
@@ -101,34 +108,32 @@ def main():
         if 'pts' in value\
             or 'rdp' in value:
             count_pts += 1
+        if WINDOWS and 'Disc' in line:
+            count_disc += 1
 
     msg = ''
     perfdata = lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
     perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
     state = STATE_OK
 
-    if count_tty == 0 and count_pts == 0:
+    if (count_tty == 0 and count_pts == 0 and count_disc == 0)\
+            or (WINDOWS and WINDOWS_NO_USER_STRING in stderr):
         msg = 'No one is logged in.'
     else:
-        if CRIT_TTY and count_tty >= CRIT_TTY:
-            msg += 'TTY: {} (CRIT)'.format(count_tty)
-            state = lib.base3.get_worst(state, STATE_CRIT)
-        elif WARN_TTY and count_tty >= WARN_TTY:
-            msg += 'TTY: {} (WARN)'.format(count_tty)
-            state = lib.base3.get_worst(state, STATE_WARN)
-        else:
-            msg += 'TTY: {}'.format(count_tty)
+        tty_state = lib.base3.get_state(count_tty, WARN_TTY, CRIT_TTY)
+        state = lib.base3.get_worst(state, tty_state)
+        msg += 'TTY: {}'.format(count_tty) + lib.base3.state2str(tty_state, prefix=' ')
 
-        if CRIT_PTS and count_pts >= CRIT_PTS:
-            msg += ', PTS: {} (CRIT)'.format(count_pts)
-            state = lib.base3.get_worst(state, STATE_CRIT)
-        elif WARN_PTS and count_pts >= WARN_PTS:
-            msg += ', PTS: {} (WARN)'.format(count_pts)
-            state = lib.base3.get_worst(state, STATE_WARN)
-        else:
-            msg += ', PTS: {}'.format(count_pts)
+        pts_state = lib.base3.get_state(count_pts, WARN_PTS, CRIT_PTS)
+        state = lib.base3.get_worst(state, pts_state)
+        msg += ', PTS: {}'.format(count_pts) + lib.base3.state2str(pts_state, prefix=' ')
 
-        msg += '\n' + '\n'.join(lines)
+        if WINDOWS:
+            disc_state = lib.base3.get_state(count_disc, WARN_DISC, CRIT_DISC)
+            state = lib.base3.get_worst(state, disc_state)
+            msg += ', DISC: {}'.format(count_disc) + lib.base3.state2str(disc_state, prefix=' ')
+
+        msg += '\n\n' + result
 
     lib.base3.oao(msg, state, perfdata)
 
