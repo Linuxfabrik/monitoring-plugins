@@ -15,8 +15,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 143,
-  "iteration": 1603462969042,
+  "id": 51,
+  "iteration": 1608072042593,
   "links": [],
   "panels": [
     {
@@ -38,7 +38,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 18
       },
       "hiddenSeries": false,
       "id": 1,
@@ -56,8 +56,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -82,7 +85,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "alias": "/var/log/messages",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -115,14 +118,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         },
@@ -160,14 +163,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         },
@@ -184,6 +187,8 @@
           "measurement": "cmd-check-file-size",
           "orderByTime": "ASC",
           "policy": "default",
+          "query": "SELECT \"crit\" FROM \"cmd-check-file-size\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'File Size - /var/log/messages' AND \"metric\" = 'file_size_/var/log/messages') AND $timeFilter GROUP BY \"metric\"",
+          "rawQuery": false,
           "refId": "B",
           "resultFormat": "time_series",
           "select": [
@@ -205,14 +210,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         }
@@ -221,249 +226,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "File Size - /var/log/messages",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "$$hashKey": "object:336",
-          "decimals": 1,
-          "format": "bytes",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "$$hashKey": "object:337",
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "InfluxDB",
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 0,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 14
-      },
-      "hiddenSeries": false,
-      "id": 2,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "percentage": false,
-      "pluginVersion": "7.1.5",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "$$hashKey": "object:356",
-          "alias": "/crit/",
-          "color": "#C4162A",
-          "dashes": true,
-          "fill": 0
-        },
-        {
-          "$$hashKey": "object:393",
-          "alias": "/warn/",
-          "color": "#FA6400",
-          "dashes": true,
-          "fill": 0
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "alias": "/var/log/secure",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "E",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        },
-        {
-          "alias": "warn",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "warn"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        },
-        {
-          "alias": "crit",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "File Size - /var/log/secure",
+      "title": "$service",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -509,7 +272,8 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": null
+            "align": null,
+            "filterable": false
           },
           "mappings": [],
           "thresholds": {
@@ -533,16 +297,16 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 26
       },
-      "id": 3,
+      "id": 2,
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "targets": [
         {
-          "alias": "/var/log/messages",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -575,14 +339,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         },
@@ -620,14 +384,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         },
@@ -665,213 +429,21 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/messages"
+              "operator": "=~",
+              "value": "/^$service$/"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/messages"
+              "operator": "=~",
+              "value": "/^file_size_.*/"
             }
           ]
         }
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "File Size - /var/log/messages",
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "reducers": [
-              "min",
-              "max",
-              "mean",
-              "last"
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": "InfluxDB",
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": null
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 22
-      },
-      "id": 4,
-      "options": {
-        "showHeader": true
-      },
-      "pluginVersion": "7.1.5",
-      "targets": [
-        {
-          "alias": "/var/log/secure",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "E",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        },
-        {
-          "alias": "warn",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "warn"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        },
-        {
-          "alias": "crit",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "cmd-check-file-size",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "File Size - /var/log/secure"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "file_size_/var/log/secure"
-            }
-          ]
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "File Size - /var/log/secure",
+      "title": "$service",
       "transformations": [
         {
           "id": "reduce",
@@ -903,6 +475,7 @@
         },
         "datasource": "icinga_director",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "error": null,
         "hide": 0,
         "includeAll": false,
         "label": "Hostname",
@@ -929,6 +502,7 @@
         },
         "datasource": "InfluxDB",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "error": null,
         "hide": 0,
         "includeAll": true,
         "label": null,
@@ -955,6 +529,7 @@
         },
         "datasource": "InfluxDB",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "error": null,
         "hide": 0,
         "includeAll": true,
         "label": null,
@@ -964,6 +539,33 @@
         "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
         "refresh": 2,
         "regex": "/^(.*)--.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "InfluxDB",
+        "definition": "",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisksWindows",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
         "skipUrlSync": false,
         "sort": 1,
         "tagValuesQuery": "",
@@ -994,5 +596,5 @@
   "timezone": "",
   "title": "File Size",
   "uid": "file-size",
-  "version": 22
+  "version": 19
 }

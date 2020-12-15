@@ -12,11 +12,11 @@
       }
     ]
   },
-  "description": "",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "iteration": 1571916310681,
+  "id": 51,
+  "iteration": 1608072042593,
   "links": [],
   "panels": [
     {
@@ -24,57 +24,68 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
-      "fill": 1,
+      "datasource": "InfluxDB",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
-        "h": 7,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 62
       },
+      "hiddenSeries": false,
       "id": 1,
       "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "max": true,
-        "min": true,
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
         "rightSide": false,
         "show": true,
         "total": false,
-        "values": true
+        "values": false
       },
       "lines": true,
       "linewidth": 1,
-      "links": [],
       "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "alertThreshold": false
       },
       "percentage": false,
-      "pointradius": 1,
+      "pluginVersion": "7.3.4",
+      "pointradius": 2,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "/Crit/",
+          "$$hashKey": "object:356",
+          "alias": "/crit/",
           "color": "#C4162A",
+          "dashes": true,
           "fill": 0
         },
         {
-          "alias": "/Warn/",
+          "$$hashKey": "object:393",
+          "alias": "/warn/",
           "color": "#FA6400",
+          "dashes": true,
           "fill": 0
         }
       ],
       "spaceLength": 10,
       "stack": false,
-      "steppedLine": true,
+      "steppedLine": false,
       "targets": [
         {
           "alias": "$tag_metric",
-          "dsType": "influxdb",
           "groupBy": [
             {
               "params": [
@@ -83,10 +94,10 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "A",
+          "refId": "E",
           "resultFormat": "time_series",
           "select": [
             [
@@ -107,14 +118,13 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Users"
             }
           ]
         },
         {
-          "alias": "Crit $tag_metric",
-          "dsType": "influxdb",
+          "alias": "crit $tag_metric",
           "groupBy": [
             {
               "params": [
@@ -123,10 +133,11 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "hide": false,
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "B",
+          "refId": "A",
           "resultFormat": "time_series",
           "select": [
             [
@@ -147,14 +158,13 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Users"
             }
           ]
         },
         {
-          "alias": "Warn $tag_metric",
-          "dsType": "influxdb",
+          "alias": "warn $tag_metric",
           "groupBy": [
             {
               "params": [
@@ -163,10 +173,11 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "hide": false,
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "C",
+          "refId": "B",
           "resultFormat": "time_series",
           "select": [
             [
@@ -187,8 +198,8 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Users"
             }
           ]
         }
@@ -197,10 +208,10 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "$service",
+      "title": "Users",
       "tooltip": {
         "shared": true,
-        "sort": 1,
+        "sort": 0,
         "value_type": "individual"
       },
       "type": "graph",
@@ -213,6 +224,7 @@
       },
       "yaxes": [
         {
+          "$$hashKey": "object:336",
           "decimals": 0,
           "format": "short",
           "label": "",
@@ -222,6 +234,7 @@
           "show": true
         },
         {
+          "$$hashKey": "object:337",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -236,73 +249,128 @@
       }
     }
   ],
-  "schemaVersion": 20,
+  "refresh": false,
+  "schemaVersion": 26,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
-        "hide": 2,
-        "label": null,
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": "icinga_director",
+        "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "error": null,
+        "hide": 0,
+        "includeAll": false,
+        "label": "Hostname",
+        "multi": false,
         "name": "hostname",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
+        "options": [],
+        "query": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "refresh": 1,
+        "regex": "",
         "skipUrlSync": false,
-        "type": "constant"
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       },
       {
+        "allValue": null,
         "current": {
-          "text": "Procs",
-          "value": "Procs"
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
-        "hide": 2,
+        "datasource": "InfluxDB",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
         "label": null,
-        "name": "service",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
+        "multi": false,
+        "name": "diskUsageDisks",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
         "skipUrlSync": false,
-        "type": "constant"
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       },
       {
+        "allValue": null,
         "current": {
-          "text": "cmd-check-procs",
-          "value": "cmd-check-procs"
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
         },
-        "hide": 2,
+        "datasource": "InfluxDB",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
         "label": null,
-        "name": "command",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
+        "multi": false,
+        "name": "diskSmartDisks",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "refresh": 2,
+        "regex": "/^(.*)--.*$/",
         "skipUrlSync": false,
-        "type": "constant"
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "InfluxDB",
+        "definition": "",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisksWindows",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       }
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
-      "5s",
       "10s",
       "30s",
       "1m",
@@ -312,21 +380,10 @@
       "1h",
       "2h",
       "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
     ]
   },
   "timezone": "",
-  "title": "Default",
-  "uid": "default",
-  "version": 4
+  "title": "Users - Windows",
+  "uid": "users-windows",
+  "version": 19
 }

@@ -22,7 +22,7 @@
       "id": "grafana",
       "name": "Grafana",
       "type": "grafana",
-      "version": "7.2.1"
+      "version": "7.3.4"
     },
     {
       "id": "graph",
@@ -66,7 +66,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1603462969043,
+  "iteration": 1608072042591,
   "links": [],
   "panels": [
     {
@@ -88,7 +88,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 29
       },
       "hiddenSeries": false,
       "id": 1,
@@ -106,8 +106,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -330,7 +333,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 29
       },
       "hiddenSeries": false,
       "id": 2,
@@ -348,8 +351,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -739,7 +745,8 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": null
+            "align": null,
+            "filterable": false
           },
           "mappings": [],
           "thresholds": {
@@ -763,13 +770,13 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 26
+        "y": 37
       },
       "id": 3,
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "targets": [
         {
           "alias": "memory usage",
@@ -931,7 +938,8 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": null
+            "align": null,
+            "filterable": false
           },
           "mappings": [],
           "thresholds": {
@@ -955,13 +963,13 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 26
+        "y": 37
       },
       "id": 4,
       "options": {
         "showHeader": true
       },
-      "pluginVersion": "7.1.5",
+      "pluginVersion": "7.3.4",
       "targets": [
         {
           "alias": "$tag_metric",
@@ -1309,6 +1317,7 @@
         "current": {},
         "datasource": "${DS_ICINGA_DIRECTOR}",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "error": null,
         "hide": 0,
         "includeAll": false,
         "label": "Hostname",
@@ -1331,6 +1340,7 @@
         "current": {},
         "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "error": null,
         "hide": 0,
         "includeAll": true,
         "label": null,
@@ -1353,6 +1363,7 @@
         "current": {},
         "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "error": null,
         "hide": 0,
         "includeAll": true,
         "label": null,
@@ -1362,6 +1373,29 @@
         "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
         "refresh": 2,
         "regex": "/^(.*)--.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
+        "definition": "",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisksWindows",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
         "skipUrlSync": false,
         "sort": 1,
         "tagValuesQuery": "",
@@ -1392,5 +1426,5 @@
   "timezone": "",
   "title": "Memory Usage",
   "uid": "memory-usage",
-  "version": 22
+  "version": 19
 }

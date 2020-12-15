@@ -12,11 +12,11 @@
       }
     ]
   },
-  "description": "",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "iteration": 1573742505247,
+  "id": 51,
+  "iteration": 1608072042593,
   "links": [],
   "panels": [
     {
@@ -24,58 +24,59 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "InfluxDB",
       "description": "",
-      "fill": 1,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
-        "h": 7,
-        "w": 6,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 46
       },
+      "hiddenSeries": false,
       "id": 1,
       "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "max": true,
-        "min": true,
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
         "rightSide": false,
         "show": true,
         "total": false,
-        "values": true
+        "values": false
       },
       "lines": true,
       "linewidth": 1,
-      "links": [],
-      "maxPerRow": 4,
       "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "alertThreshold": true
       },
       "percentage": false,
-      "pointradius": 1,
+      "pluginVersion": "7.3.4",
+      "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "repeat": "perf",
-      "repeatDirection": "h",
-      "scopedVars": {
-        "perf": {
-          "selected": false,
-          "text": "dm-0",
-          "value": "dm-0"
-        }
-      },
       "seriesOverrides": [
         {
-          "alias": "/Crit/",
+          "$$hashKey": "object:356",
+          "alias": "/crit/",
           "color": "#C4162A",
+          "dashes": true,
           "fill": 0
         },
         {
-          "alias": "/Warn/",
+          "$$hashKey": "object:393",
+          "alias": "/warn/",
           "color": "#FA6400",
+          "dashes": true,
           "fill": 0
         }
       ],
@@ -84,8 +85,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "alias": "$tag_metric",
-          "dsType": "influxdb",
+          "alias": "memory usage",
           "groupBy": [
             {
               "params": [
@@ -94,7 +94,7 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
@@ -118,20 +118,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=~",
-              "value": "/^$perf/"
+              "operator": "=",
+              "value": "usage_percent"
             }
           ]
         },
         {
-          "alias": "Crit $tag_metric",
-          "dsType": "influxdb",
+          "alias": "warn",
           "groupBy": [
             {
               "params": [
@@ -140,52 +139,10 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
-            }
-          ]
-        },
-        {
-          "alias": "Warn $tag_metric",
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": true,
-          "measurement": "/^$command$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "C",
           "resultFormat": "time_series",
           "select": [
             [
@@ -206,8 +163,59 @@
             {
               "condition": "AND",
               "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "usage_percent"
+            }
+          ]
+        },
+        {
+          "alias": "crit",
+          "groupBy": [
+            {
+              "params": [
+                "metric"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "C",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "crit"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
               "operator": "=~",
-              "value": "/^$service$/"
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "usage_percent"
             }
           ]
         }
@@ -216,10 +224,10 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "$service - $perf",
+      "title": "Memory Usage - Percentage",
       "tooltip": {
         "shared": true,
-        "sort": 1,
+        "sort": 0,
         "value_type": "individual"
       },
       "type": "graph",
@@ -232,15 +240,17 @@
       },
       "yaxes": [
         {
-          "decimals": 0,
-          "format": "Bps",
+          "$$hashKey": "object:336",
+          "decimals": 1,
+          "format": "percent",
           "label": "",
           "logBase": 1,
-          "max": null,
+          "max": "100",
           "min": "0",
           "show": true
         },
         {
+          "$$hashKey": "object:337",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -259,16 +269,23 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
+      "datasource": "InfluxDB",
       "description": "",
-      "fill": 1,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 6,
-        "y": 0
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
       },
+      "hiddenSeries": false,
       "id": 2,
       "legend": {
         "alignAsTable": false,
@@ -283,36 +300,26 @@
       },
       "lines": true,
       "linewidth": 1,
-      "links": [],
-      "maxPerRow": 4,
       "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "alertThreshold": true
       },
       "percentage": false,
-      "pointradius": 1,
+      "pluginVersion": "7.3.4",
+      "pointradius": 2,
       "points": false,
       "renderer": "flot",
-      "repeat": null,
-      "repeatDirection": "h",
-      "repeatIteration": 1573742505247,
-      "repeatPanelId": 1,
-      "scopedVars": {
-        "perf": {
-          "selected": false,
-          "text": "dm-1",
-          "value": "dm-1"
-        }
-      },
       "seriesOverrides": [
         {
-          "alias": "/Crit/",
+          "$$hashKey": "object:356",
+          "alias": "/crit/",
           "color": "#C4162A",
           "dashes": true,
           "fill": 0
         },
         {
-          "alias": "/Warn/",
+          "$$hashKey": "object:393",
+          "alias": "/warn/",
           "color": "#FA6400",
           "dashes": true,
           "fill": 0
@@ -324,7 +331,6 @@
       "targets": [
         {
           "alias": "$tag_metric",
-          "dsType": "influxdb",
           "groupBy": [
             {
               "params": [
@@ -333,7 +339,52 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "F",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "total"
+            }
+          ]
+        },
+        {
+          "alias": "$tag_metric",
+          "groupBy": [
+            {
+              "params": [
+                "metric"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
@@ -357,20 +408,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=~",
-              "value": "/^$perf/"
+              "operator": "=",
+              "value": "available"
             }
           ]
         },
         {
-          "alias": "Crit $tag_metric",
-          "dsType": "influxdb",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -379,8 +429,7 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
@@ -389,7 +438,7 @@
             [
               {
                 "params": [
-                  "crit"
+                  "value"
                 ],
                 "type": "field"
               }
@@ -404,14 +453,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "free"
             }
           ]
         },
         {
-          "alias": "Warn $tag_metric",
-          "dsType": "influxdb",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -420,17 +474,16 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "C",
+          "refId": "G",
           "resultFormat": "time_series",
           "select": [
             [
               {
                 "params": [
-                  "warn"
+                  "value"
                 ],
                 "type": "field"
               }
@@ -445,8 +498,14 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "used"
             }
           ]
         }
@@ -455,10 +514,10 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "$service - $perf",
+      "title": "Memory Usage - Values",
       "tooltip": {
         "shared": true,
-        "sort": 1,
+        "sort": 0,
         "value_type": "individual"
       },
       "type": "graph",
@@ -471,8 +530,9 @@
       },
       "yaxes": [
         {
-          "decimals": 0,
-          "format": "short",
+          "$$hashKey": "object:336",
+          "decimals": 1,
+          "format": "bytes",
           "label": "",
           "logBase": 1,
           "max": null,
@@ -480,6 +540,7 @@
           "show": true
         },
         {
+          "$$hashKey": "object:337",
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -494,76 +555,46 @@
       }
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
+      "datasource": "InfluxDB",
       "description": "",
-      "fill": 1,
-      "fillGradient": 0,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
       "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 12,
-        "y": 0
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
       },
       "id": 3,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "maxPerRow": 4,
-      "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "showHeader": true
       },
-      "percentage": false,
-      "pointradius": 1,
-      "points": false,
-      "renderer": "flot",
-      "repeat": null,
-      "repeatDirection": "h",
-      "repeatIteration": 1573742505247,
-      "repeatPanelId": 1,
-      "scopedVars": {
-        "perf": {
-          "selected": false,
-          "text": "sda1",
-          "value": "sda1"
-        }
-      },
-      "seriesOverrides": [
-        {
-          "alias": "/Crit/",
-          "color": "#C4162A",
-          "dashes": true,
-          "fill": 0
-        },
-        {
-          "alias": "/Warn/",
-          "color": "#FA6400",
-          "dashes": true,
-          "fill": 0
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
+      "pluginVersion": "7.3.4",
       "targets": [
         {
-          "alias": "$tag_metric",
-          "dsType": "influxdb",
+          "alias": "memory usage",
           "groupBy": [
             {
               "params": [
@@ -572,7 +603,7 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
@@ -596,20 +627,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=~",
-              "value": "/^$perf/"
+              "operator": "=",
+              "value": "usage_percent"
             }
           ]
         },
         {
-          "alias": "Crit $tag_metric",
-          "dsType": "influxdb",
+          "alias": "warn",
           "groupBy": [
             {
               "params": [
@@ -618,52 +648,10 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
-            }
-          ]
-        },
-        {
-          "alias": "Warn $tag_metric",
-          "dsType": "influxdb",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": true,
-          "measurement": "/^$command$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "C",
           "resultFormat": "time_series",
           "select": [
             [
@@ -684,125 +672,122 @@
             {
               "condition": "AND",
               "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "usage_percent"
+            }
+          ]
+        },
+        {
+          "alias": "crit",
+          "groupBy": [
+            {
+              "params": [
+                "metric"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "C",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "crit"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
               "operator": "=~",
-              "value": "/^$service$/"
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "usage_percent"
             }
           ]
         }
       ],
-      "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
-      "title": "$service - $perf",
-      "tooltip": {
-        "shared": true,
-        "sort": 1,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
+      "title": "Memory Usage - Percentage",
+      "transformations": [
         {
-          "decimals": 0,
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "min",
+              "max",
+              "mean",
+              "last"
+            ]
+          }
         }
       ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "type": "table"
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
+      "datasource": "InfluxDB",
       "description": "",
-      "fill": 1,
-      "fillGradient": 0,
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": null,
+            "filterable": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
       "gridPos": {
-        "h": 7,
-        "w": 6,
-        "x": 18,
-        "y": 0
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
       },
       "id": 4,
-      "legend": {
-        "alignAsTable": false,
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "rightSide": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "links": [],
-      "maxPerRow": 4,
-      "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "showHeader": true
       },
-      "percentage": false,
-      "pointradius": 1,
-      "points": false,
-      "renderer": "flot",
-      "repeat": null,
-      "repeatDirection": "h",
-      "repeatIteration": 1573742505247,
-      "repeatPanelId": 1,
-      "scopedVars": {
-        "perf": {
-          "selected": false,
-          "text": "sda2",
-          "value": "sda2"
-        }
-      },
-      "seriesOverrides": [
-        {
-          "alias": "/Crit/",
-          "color": "#C4162A",
-          "dashes": true,
-          "fill": 0
-        },
-        {
-          "alias": "/Warn/",
-          "color": "#FA6400",
-          "dashes": true,
-          "fill": 0
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
+      "pluginVersion": "7.3.4",
       "targets": [
         {
           "alias": "$tag_metric",
-          "dsType": "influxdb",
           "groupBy": [
             {
               "params": [
@@ -811,7 +796,52 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "F",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "hostname",
+              "operator": "=~",
+              "value": "/^$hostname$/"
+            },
+            {
+              "condition": "AND",
+              "key": "service",
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "total"
+            }
+          ]
+        },
+        {
+          "alias": "$tag_metric",
+          "groupBy": [
+            {
+              "params": [
+                "metric"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "A",
@@ -835,20 +865,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
             },
             {
               "condition": "AND",
               "key": "metric",
-              "operator": "=~",
-              "value": "/^$perf/"
+              "operator": "=",
+              "value": "available"
             }
           ]
         },
         {
-          "alias": "Crit $tag_metric",
-          "dsType": "influxdb",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -857,8 +886,7 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
           "refId": "B",
@@ -867,7 +895,7 @@
             [
               {
                 "params": [
-                  "crit"
+                  "value"
                 ],
                 "type": "field"
               }
@@ -882,14 +910,19 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "free"
             }
           ]
         },
         {
-          "alias": "Warn $tag_metric",
-          "dsType": "influxdb",
+          "alias": "$tag_metric",
           "groupBy": [
             {
               "params": [
@@ -898,17 +931,16 @@
               "type": "tag"
             }
           ],
-          "hide": true,
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-memory-usage-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "C",
+          "refId": "G",
           "resultFormat": "time_series",
           "select": [
             [
               {
                 "params": [
-                  "warn"
+                  "value"
                 ],
                 "type": "field"
               }
@@ -923,130 +955,143 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
+              "operator": "=",
+              "value": "Memory Usage"
+            },
+            {
+              "condition": "AND",
+              "key": "metric",
+              "operator": "=",
+              "value": "used"
             }
           ]
         }
       ],
-      "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
-      "title": "$service - $perf",
-      "tooltip": {
-        "shared": true,
-        "sort": 1,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
+      "title": "Memory Usage - Values",
+      "transformations": [
         {
-          "decimals": 0,
-          "format": "short",
-          "label": "",
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": false
+          "id": "reduce",
+          "options": {
+            "reducers": [
+              "min",
+              "max",
+              "mean",
+              "last"
+            ]
+          }
         }
       ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "type": "table"
     }
   ],
-  "schemaVersion": 20,
+  "refresh": false,
+  "schemaVersion": 26,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
-        "hide": 2,
-        "label": null,
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": "icinga_director",
+        "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "error": null,
+        "hide": 0,
+        "includeAll": false,
+        "label": "Hostname",
+        "multi": false,
         "name": "hostname",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
+        "options": [],
+        "query": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "refresh": 1,
+        "regex": "",
         "skipUrlSync": false,
-        "type": "constant"
-      },
-      {
-        "current": {
-          "text": "Disk I/O",
-          "value": "Disk I/O"
-        },
-        "hide": 2,
-        "label": null,
-        "name": "service",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
-        "skipUrlSync": false,
-        "type": "constant"
-      },
-      {
-        "current": {
-          "text": "cmd-check-disk-io",
-          "value": "cmd-check-disk-io"
-        },
-        "hide": 2,
-        "label": null,
-        "name": "command",
-        "options": [
-          {
-            "selected": false,
-            "text": "null",
-            "value": "null"
-          }
-        ],
-        "query": "null",
-        "skipUrlSync": false,
-        "type": "constant"
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       },
       {
         "allValue": null,
         "current": {
+          "selected": false,
           "text": "All",
           "value": "$__all"
         },
-        "datasource": "",
-        "definition": "SHOW TAG VALUES FROM /^$command$$/ WITH KEY = \"metric\" where hostname =~ /^$hostname$/ and service =~ /^$service$/",
-        "hide": 2,
+        "datasource": "InfluxDB",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "error": null,
+        "hide": 0,
         "includeAll": true,
-        "label": "perf",
-        "multi": true,
-        "name": "perf",
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisks",
         "options": [],
-        "query": "SHOW TAG VALUES FROM /^$command$$/ WITH KEY = \"metric\" where hostname =~ /^$hostname$/ and service =~ /^$service$/",
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
         "refresh": 1,
-        "regex": "/(.*?)_/",
+        "regex": "/^(.*)-.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "InfluxDB",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskSmartDisks",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "refresh": 2,
+        "regex": "/^(.*)--.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "InfluxDB",
+        "definition": "",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisksWindows",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
         "skipUrlSync": false,
         "sort": 1,
         "tagValuesQuery": "",
@@ -1058,12 +1103,11 @@
     ]
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
-      "5s",
       "10s",
       "30s",
       "1m",
@@ -1073,21 +1117,10 @@
       "1h",
       "2h",
       "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
     ]
   },
   "timezone": "",
-  "title": "Disk I/O",
-  "uid": "disk-io",
-  "version": 1
+  "title": "Memory Usage - Windows",
+  "uid": "memory-usage-windows",
+  "version": 19
 }
