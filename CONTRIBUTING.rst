@@ -311,6 +311,7 @@ Always make sure that there is no sensitive data in the export (eg. hostnames).
 Exporting for later import via the WebGUI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- Make sure all rows are collapsed
 - Share dashboard (Icon right of the dashboard title)
 - Export
 - Export for sharing externally: yes
@@ -319,6 +320,7 @@ Exporting for later import via the WebGUI
 Exporting for provisioning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+- Make sure all rows are collapsed
 - Share dashboard (Icon right of the dashboard title)
 - Export
 - Export for sharing externally: no
