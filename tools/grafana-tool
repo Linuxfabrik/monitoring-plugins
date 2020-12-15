@@ -39,7 +39,7 @@ def parse_args():
 
     parser.add_argument(
         '--filename-postfix',
-        help='Use this together with `--auto` to set the postfix of the output filename. \'.json\' will always be added as the extension.',
+        help='Set the postfix of the output filename. \'.json\' will always be added as the extension. Can only be used in combination with `--auto`',
         dest='FILENAME_POSTFIX',
         type=str,
         default='',
@@ -55,7 +55,7 @@ def parse_args():
 
     parser.add_argument(
         '--generate-icingaweb2-ini',
-        help='Generate a template ini file for icingaweb2 if none is present.',
+        help='Generate a template ini file for icingaweb2 if none is present. Can only be used in combination with `--auto`',
         dest='GENERATE_ICINGAWEB2_INI',
         action='store_true',
         default=False,
@@ -92,21 +92,30 @@ def save_dashboard_to_file(data, filename):
     except FileNotFoundError as e:
         print(f'{e}. Ignoring...')
 
-def generate_icingaweb_ini(filename, check_name, panel_ids=['1'], repeatable=False):
-    template = f'''[cmd-check-{check_name}]
-dashboard = "{check_name}"
+def generate_icingaweb_ini(filename, title, uid, panel_ids=['1'], repeatable=False, windows=False):
+    def get_template(check_name, title, uid, panel_ids):
+        template = f'''[{check_name}]
+dashboard = "{title}"
 panelId = "{','.join(panel_ids)}"
 orgId = ""
 repeatable = "{'yes' if repeatable else 'no'}"
-dashboarduid = "{check_name}"'''
+dashboarduid = "{uid}"'''
 
-    if repeatable:
-        template += f'\nnmetrics={len(panel_ids)}'
+        if repeatable:
+            template += f'\nnmetrics={len(panel_ids)}'
+        return template
+
+    if windows:
+        ini = get_template(f'cmd-check-{uid}-windows', title, f'{uid}-windows', panel_ids)
+        ini += '\n\n'
+        ini += get_template(f'cmd-check-{uid}-windows-python', title, f'{uid}-windows', panel_ids)
+    else:
+        ini = get_template(f'cmd-check-{uid}', title, uid, panel_ids)
 
     if not os.path.isfile(filename):
         try:
             with open(filename, 'w') as file:
-                file.write(template)
+                file.write(ini)
         except FileNotFoundError as e:
             print(f'{e}. Ignoring...')
 
@@ -124,8 +133,9 @@ def main():
         for row in data['panels']:
             if row['type'] == 'row':
                 row_title = row['title']
-                uid = row_title.lower().replace(' ', '-').replace('/', '')
-                out_filename = f'check-plugins/{uid}/{uid}{args.FILENAME_POSTFIX}.json'
+                uid = row_title.lower().replace(' ', '-').replace('/', '').replace('---', '-')
+                windows = bool('windows' in uid)
+                out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
                 new_panels = get_panels(row['panels'])
 
                 # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
@@ -136,7 +146,7 @@ def main():
                 if args.GENERATE_ICINGAWEB2_INI:
                     panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
                     repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
-                    generate_icingaweb_ini(f'check-plugins/{uid}/{uid}.icingaweb2-grafana.ini', uid, panel_ids, repeatable)
+                    generate_icingaweb_ini(f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini', row_title, uid, panel_ids, repeatable, windows)
         sys.exit()
 
     all_panels = get_panels(data['panels'])
