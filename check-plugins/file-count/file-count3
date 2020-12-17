@@ -1,0 +1,128 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+import argparse
+import sys
+from pathlib import Path
+from traceback import print_exc
+
+from lib.globals3 import *
+import lib.args3
+import lib.base3
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020121001'
+
+DESCRIPTION = 'Checks the number of matching files.'
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--filename',
+        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob. Beware of using recursive globs.',
+        dest='FILE',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--only-dirs',
+        help='Only consider directory.',
+        dest='ONLY_DIRS',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--only-files',
+        help='Only consider files.',
+        dest='ONLY_FILES',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical number of files. Supports ranges.',
+        dest='CRIT',
+        )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning number of files. Supports ranges.',
+        dest='WARN',
+        )
+
+    parser.add_argument(
+        '--timerange',
+        help='Set the timerange in which the files should be considered. Supports ranges.',
+        dest='TIMERANGE',
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch the data
+    path = Path(args.FILE)
+
+    age_state = STATE_OK 
+    now = lib.base3.now()
+    msg = ''
+    file_count = 0
+    for item in sorted(Path(path.anchor).glob(str(path.relative_to(path.anchor)))):
+        if item.is_file() and args.ONLY_DIRS:
+            continue
+        if item.is_dir() and args.ONLY_FILES:
+            continue
+        if args.TIMERANGE:
+            age = (now - item.stat().st_mtime)
+            if not lib.base3.coe(lib.base3.match_range(age, args.TIMERANGE)):
+                continue
+
+        file_count += 1
+
+    if not lib.base3.coe(lib.base3.match_range(file_count, args.CRIT)):
+        state = STATE_CRIT
+    elif not lib.base3.coe(lib.base3.match_range(file_count, args.WARN)):
+        state = STATE_WARN
+    else:
+        state = STATE_OK
+
+    msg = f'Found {file_count} matching {lib.base3.pluralize("file", file_count)} (thresholds {args.WARN}/{args.CRIT})'
+
+    perfdata = lib.base3.get_perfdata('file_count', file_count, None, args.WARN, args.CRIT, 0, None)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
