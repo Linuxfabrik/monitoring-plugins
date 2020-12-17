@@ -8,58 +8,79 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import argparse
+import glob
+import os
+import sys
+from traceback import print_exc
+
+import lib.args2
+import lib.base2
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2020121701'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
+
 
 DEFAULT_WARN = 60*60*24*30      # sec
 DEFAULT_CRIT = 60*60*24*365     # sec
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-import os
-from traceback import print_exc
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
-
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
         )
 
-    parser.add_argument('-c', '--critical', 
+    parser.add_argument(
+        '--filename',
+        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs.',
+        dest='FILE',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--only-dirs',
+        help='Only consider directory.',
+        dest='ONLY_DIRS',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--only-files',
+        help='Only consider files.',
+        dest='ONLY_FILES',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
         help='Set the critical age threshold in seconds. Default: >= %(default)ss (365d)',
         dest='CRIT',
-        type=float,
+        type=lib.args2.float_or_none,
         default=DEFAULT_CRIT,
         )
 
-    parser.add_argument('--filename',
-        help='File (or directory) name to check.',
-        dest='FILE',
-        required = True,
-        )
-
-    parser.add_argument('-w', '--warning',
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning age threshold in seconds. Default: >= %(default)ss (30d)',
         dest='WARN',
-        type=float,
+        type=lib.args2.float_or_none,
         default=DEFAULT_WARN,
         )
 
@@ -70,31 +91,49 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # fetch the data
-    try:
-        st = os.stat(args.FILE)
-    except:
-        lib.base2.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+    if os.path.exists(args.FILE):
+        file_count = 1
+        age = (lib.base2.now() - os.stat(args.FILE).st_mtime)
+        msg = '{} is {} old (thresholds {}/{}).'.format(args.FILE, lib.base2.seconds2human(age), lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT))
+        perfdata = lib.base2.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
+        state = lib.base2.get_state(age, args.WARN, args.CRIT)
+        lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
-    age = (lib.base2.now() - st.st_mtime)
-
-    msg = '{} is {} old.'.format(args.FILE, lib.base2.seconds2human(age))
-    perfdata = lib.base2.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
     state = STATE_OK
-    if age >= args.CRIT:
-        state = STATE_CRIT
-    elif age >= args.WARN:
-        state = STATE_WARN
+    now = lib.base2.now()
+    msg = ''
+    file_count = 0
+    for item in sorted(glob.iglob(args.FILE)):
+        if os.path.isfile(item) and args.ONLY_DIRS:
+            continue
+        if os.path.isdir(item) and args.ONLY_FILES:
+            continue
 
-    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+        age = (now - os.stat(item).st_mtime)
+        item_state = lib.base2.get_state(age, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(item_state, state)
+        file_count += 1
+        msg += '* {}: {}{}\n'.format(item, lib.base2.seconds2human(age), lib.base2.state2str(item_state, prefix=" "))
 
+    if file_count == 0:
+        msg = 'No files found.'
+        lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+    if state == STATE_OK:
+        msg = 'All {} files are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
+    else:
+        msg = 'Not all {} files are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
+
+    # todo: perfdata?
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
