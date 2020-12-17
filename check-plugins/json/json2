@@ -17,9 +17,14 @@ import lib.base2
 import lib.url2
 from lib.globals2 import STATE_UNKNOWN
 
+try:
+    import smbc
+except ImportError as e:
+    lib.base2.oao('Python module "smbc" is not installed.', STATE_UNKNOWN)
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020121001'
+__version__ = '2020121701'
 
 DESCRIPTION = 'This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.'
 
@@ -124,11 +129,25 @@ def main():
             result = json.load(json_file)
 
     if args.URL:
-        result = lib.base2.coe(lib.url2.fetch_json(
-            args.URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT
-            ))
+        proto = args.URL.split(':')
+        if len(proto) < 2:
+            lib.base2.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+        proto = proto[0]
 
+        if proto in ['http', 'https']:
+            result = lib.base2.coe(lib.url2.fetch_json(
+                args.URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT
+                ))
+        elif proto == 'smb':
+            ctx = smbc.Context()
+            with ctx.open(args.URL) as response:
+                try:
+                    result = json.loads(response.read().decode('utf-8'))
+                except:
+                    lib.base2.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+        else:
+            lib.base2.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
     msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
     state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
     perfdata = result.get(args.PERFDATA_KEY) if args.PERFDATA_KEY else None
