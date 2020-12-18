@@ -21,7 +21,7 @@ from lib.globals3 import STATE_UNKNOWN
 try:
     from smb.SMBHandler import SMBHandler
 except ImportError as e:
-    lib.base2.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
+    lib.base3.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -122,7 +122,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base2.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+        lib.base3.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
 
     if args.FILENAME:
         with open(args.FILENAME) as json_file:
@@ -131,7 +131,7 @@ def main():
     if args.URL:
         proto = args.URL.split(':')
         if len(proto) < 2:
-            lib.base2.oao(f'Could not parse the protocol of the url "{args.URL}".', STATE_UNKNOWN)
+            lib.base3.oao(f'Could not parse the protocol of the url "{args.URL}".', STATE_UNKNOWN)
         proto = proto[0]
 
         if proto in ['http', 'https']:
@@ -148,7 +148,7 @@ def main():
                 except:
                     lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
         else:
-            lib.base2.oao(f'The protocol "{proto}" is not supported.', STATE_UNKNOWN)
+            lib.base3.oao(f'The protocol "{proto}" is not supported.', STATE_UNKNOWN)
 
     msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
     state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
