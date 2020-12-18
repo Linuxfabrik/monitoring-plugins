@@ -95,14 +95,6 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch the data
-    if os.path.exists(args.FILE):
-        file_count = 1
-        age = (lib.base2.now() - os.stat(args.FILE).st_mtime)
-        msg = '{} is {} old (thresholds {}/{}).'.format(args.FILE, lib.base2.seconds2human(age), lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT))
-        perfdata = lib.base2.get_perfdata('file_age_{}'.format(args.FILE), age, 's', args.WARN, args.CRIT, 0, None)
-        state = lib.base2.get_state(age, args.WARN, args.CRIT)
-        lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-
     state = STATE_OK
     now = lib.base2.now()
     msg = ''
@@ -124,9 +116,9 @@ def main():
         lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
     if state == STATE_OK:
-        msg = 'All {} files are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
+        msg = 'All {} {} are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base3.pluralize("file", file_count), lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
     else:
-        msg = 'Not all {} files are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
+        msg = 'Not all {} {} are within the given time range (thresholds {}/{}).\n\n'.format(file_count, lib.base3.pluralize("file", file_count), lib.base2.seconds2human(args.WARN), lib.base2.seconds2human(args.CRIT)) + msg
 
     # todo: perfdata?
     lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
