@@ -21,7 +21,7 @@ from lib.globals3 import STATE_UNKNOWN
 try:
     from smb.SMBHandler import SMBHandler
 except ImportError as e:
-    lib.base3.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
+    missing_smb_lib = True
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -140,6 +140,8 @@ def main():
                 timeout=args.TIMEOUT
                 ))
         elif proto == 'smb':
+            if missing_smb_lib:
+                lib.base3.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
             smb_handler = urllib.request.build_opener(SMBHandler)
             urllib.request.install_opener(smb_handler)
             with urllib.request.urlopen(args.URL, timeout=args.TIMEOUT) as response:

@@ -20,11 +20,11 @@ from lib.globals2 import STATE_UNKNOWN
 try:
     import smbc
 except ImportError as e:
-    lib.base2.oao('Python module "smbc" is not installed.', STATE_UNKNOWN)
+    missing_smb_lib = True
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020121701'
+__version__ = '2020121801'
 
 DESCRIPTION = 'This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.'
 
@@ -140,6 +140,8 @@ def main():
                 timeout=args.TIMEOUT
                 ))
         elif proto == 'smb':
+            if missing_smb_lib:
+                lib.base2.oao('Python module "smbc" is not installed.', STATE_UNKNOWN)
             ctx = smbc.Context()
             with ctx.open(args.URL) as response:
                 try:
