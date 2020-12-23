@@ -1,4 +1,54 @@
 {
+  "__inputs": [
+    {
+      "description": "",
+      "label": "InfluxDB",
+      "name": "DS_INFLUXDB",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB",
+      "type": "datasource"
+    },
+    {
+      "description": "",
+      "label": "icinga_director",
+      "name": "DS_ICINGA_DIRECTOR",
+      "pluginId": "mysql",
+      "pluginName": "MySQL",
+      "type": "datasource"
+    }
+  ],
+  "__requires": [
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "type": "grafana",
+      "version": "7.3.6"
+    },
+    {
+      "id": "graph",
+      "name": "Graph",
+      "type": "panel",
+      "version": ""
+    },
+    {
+      "id": "influxdb",
+      "name": "InfluxDB",
+      "type": "datasource",
+      "version": "1.0.0"
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL",
+      "type": "datasource",
+      "version": "1.0.0"
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "type": "panel",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -15,8 +65,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 68,
-  "iteration": 1608747061510,
+  "id": null,
+  "iteration": 1608747061511,
   "links": [],
   "panels": [
     {
@@ -24,7 +74,7 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "InfluxDB",
+      "datasource": "${DS_INFLUXDB}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -38,7 +88,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 35
       },
       "hiddenSeries": false,
       "id": 1,
@@ -60,7 +110,7 @@
         "alertThreshold": true
       },
       "percentage": false,
-      "pluginVersion": "7.2.1",
+      "pluginVersion": "7.3.6",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -94,10 +144,10 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
+          "measurement": "/^cmd-check-network-connections-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "F",
+          "refId": "E",
           "resultFormat": "time_series",
           "select": [
             [
@@ -119,103 +169,7 @@
               "condition": "AND",
               "key": "service",
               "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
-            }
-          ]
-        },
-        {
-          "alias": "warn",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "warn"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
-            }
-          ]
-        },
-        {
-          "alias": "crit",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
+              "value": "Network Connections"
             }
           ]
         }
@@ -224,7 +178,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "FortiOS CPU Usage",
+      "title": "Network Connections",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -241,11 +195,11 @@
       "yaxes": [
         {
           "$$hashKey": "object:336",
-          "decimals": 1,
-          "format": "percent",
+          "decimals": 0,
+          "format": "none",
           "label": "",
           "logBase": 1,
-          "max": "100",
+          "max": null,
           "min": "0",
           "show": true
         },
@@ -265,7 +219,7 @@
       }
     },
     {
-      "datasource": "InfluxDB",
+      "datasource": "${DS_INFLUXDB}",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -287,7 +241,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -295,13 +249,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 43
       },
       "id": 2,
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last"
+          }
+        ]
       },
-      "pluginVersion": "7.2.1",
+      "pluginVersion": "7.3.6",
       "targets": [
         {
           "alias": "$tag_metric",
@@ -313,10 +273,10 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
+          "measurement": "/^cmd-check-network-connections-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "F",
+          "refId": "E",
           "resultFormat": "time_series",
           "select": [
             [
@@ -338,110 +298,14 @@
               "condition": "AND",
               "key": "service",
               "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
-            }
-          ]
-        },
-        {
-          "alias": "warn",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "warn"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
-            }
-          ]
-        },
-        {
-          "alias": "crit",
-          "groupBy": [
-            {
-              "params": [
-                "metric"
-              ],
-              "type": "tag"
-            }
-          ],
-          "measurement": "/^cmd-check-fortios-cpu-usage.*$/",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "crit"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "hostname",
-              "operator": "=~",
-              "value": "/^$hostname$/"
-            },
-            {
-              "condition": "AND",
-              "key": "service",
-              "operator": "=",
-              "value": "CPU Usage"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
-              "operator": "=",
-              "value": "cpu-usage"
+              "value": "Network Connections"
             }
           ]
         }
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "FortiOS CPU Usage",
+      "title": "Network Connections",
       "transformations": [
         {
           "id": "reduce",
@@ -466,12 +330,8 @@
     "list": [
       {
         "allValue": null,
-        "current": {
-          "selected": true,
-          "text": "",
-          "value": ""
-        },
-        "datasource": "icinga_director",
+        "current": {},
+        "datasource": "${DS_ICINGA_DIRECTOR}",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
         "error": null,
         "hide": 0,
@@ -493,12 +353,8 @@
       },
       {
         "allValue": null,
-        "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
         "error": null,
         "hide": 0,
@@ -520,12 +376,8 @@
       },
       {
         "allValue": null,
-        "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
         "error": null,
         "hide": 0,
@@ -547,12 +399,8 @@
       },
       {
         "allValue": null,
-        "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
         "definition": "",
         "error": null,
         "hide": 0,
@@ -592,7 +440,7 @@
     ]
   },
   "timezone": "",
-  "title": "FortiOS CPU Usage",
-  "uid": "fortios-cpu-usage",
+  "title": "Network Connections - Windows",
+  "uid": "network-connections-windows",
   "version": 3
 }
