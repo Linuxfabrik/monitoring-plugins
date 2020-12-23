@@ -8,57 +8,63 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+import argparse
+import glob
+import os
+import sys
+from traceback import print_exc
 
-DESCRIPTION = 'Checks the size of a file, in bytes.'
+import lib.args2
+import lib.base2
+from lib.globals2 import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2020122301'
+
+DESCRIPTION = 'Checks the size for a file or directory, in bytes.'
+
 
 DEFAULT_WARN = 1024*1024*25       # 25M (Mebibyte)
 DEFAULT_CRIT = 1024*1024*1024     # 1G (Gibibyte)
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-import os
-from traceback import print_exc
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
-
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
         )
 
-    parser.add_argument('-c', '--critical', 
+    parser.add_argument(
+        '--filename',
+        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs.',
+        dest='FILE',
+        required=True,
+        )
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
         help='Set the critical size threshold in bytes. Default: >= %(default)s (1G)',
         dest='CRIT',
-        type=float,
+        type=lib.args2.float_or_none,
         default=DEFAULT_CRIT,
         )
 
-    parser.add_argument('--filename',
-        help='File name to check.',
-        dest='FILE',
-        required = True,
-        )
-
-    parser.add_argument('-w', '--warning',
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning size threshold in bytes. Default: >= %(default)s (100M)',
         dest='WARN',
-        type=float,
+        type=lib.args2.float_or_none,
         default=DEFAULT_WARN,
         )
 
@@ -69,27 +75,39 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # fetch the data
-    try:
-        st = os.stat(args.FILE)
-    except:
-        lib.base2.oao('Error reading file or directory "{}".'.format(args.FILE), STATE_UNKNOWN)
+    state = STATE_OK
+    msg = ''
+    file_count = 0
+    for item in sorted(glob.iglob(args.FILE)):
+        # ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents
+        if os.path.isdir(item):
+            continue
 
-    size = st.st_size
+        size = os.stat(item).st_size
+        item_state = lib.base2.get_state(size, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(item_state, state)
+        file_count += 1
+        msg += '* {}: {}{}\n'.format(item, lib.base2.bytes2human(size), lib.base2.state2str(item_state, prefix=" "))
 
-    msg = '{} is {}.'.format(args.FILE, lib.base2.bytes2human(size))
-    perfdata = lib.base2.get_perfdata('file_size_{}'.format(args.FILE), size, 'B', args.WARN, args.CRIT, 0, None)
-    state = lib.base2.get_state(size, args.WARN, args.CRIT, 'ge')
+    if file_count == 0:
+        msg = 'No files found.'
+        lib.base2.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
-    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    if state == STATE_OK:
+        msg = 'All {} {} are within the given size range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.pluralize("file", file_count), lib.base2.bytes2human(args.WARN), lib.base2.bytes2human(args.CRIT)) + msg
+    else:
+        msg = 'Not all {} {} are within the given size range (thresholds {}/{}).\n\n'.format(file_count, lib.base2.pluralize("file", file_count), lib.base2.bytes2human(args.WARN), lib.base2.bytes2human(args.CRIT)) + msg
 
+    # todo: perfdata?
+    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
