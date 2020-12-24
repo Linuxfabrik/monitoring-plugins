@@ -1,4 +1,54 @@
 {
+  "__inputs": [
+    {
+      "description": "",
+      "label": "InfluxDB",
+      "name": "DS_INFLUXDB",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB",
+      "type": "datasource"
+    },
+    {
+      "description": "",
+      "label": "icinga_director",
+      "name": "DS_ICINGA_DIRECTOR",
+      "pluginId": "mysql",
+      "pluginName": "MySQL",
+      "type": "datasource"
+    }
+  ],
+  "__requires": [
+    {
+      "id": "grafana",
+      "name": "Grafana",
+      "type": "grafana",
+      "version": "7.3.6"
+    },
+    {
+      "id": "graph",
+      "name": "Graph",
+      "type": "panel",
+      "version": ""
+    },
+    {
+      "id": "influxdb",
+      "name": "InfluxDB",
+      "type": "datasource",
+      "version": "1.0.0"
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL",
+      "type": "datasource",
+      "version": "1.0.0"
+    },
+    {
+      "id": "table",
+      "name": "Table",
+      "type": "panel",
+      "version": ""
+    }
+  ],
   "annotations": {
     "list": [
       {
@@ -12,11 +62,11 @@
       }
     ]
   },
-  "description": "",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "iteration": 1578581732654,
+  "id": null,
+  "iteration": 1608747061511,
   "links": [],
   "panels": [
     {
@@ -24,48 +74,59 @@
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
-      "fill": 1,
+      "datasource": "${DS_INFLUXDB}",
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
-        "h": 7,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 0
+        "y": 62
       },
       "hiddenSeries": false,
       "id": 1,
       "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "max": true,
-        "min": true,
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
         "rightSide": false,
         "show": true,
         "total": false,
-        "values": true
+        "values": false
       },
       "lines": true,
       "linewidth": 1,
-      "links": [],
       "nullPointMode": "null",
       "options": {
-        "dataLinks": []
+        "alertThreshold": false
       },
       "percentage": false,
-      "pointradius": 1,
+      "pluginVersion": "7.3.4",
+      "pointradius": 2,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [
         {
-          "alias": "/CRIT/",
+          "$$hashKey": "object:356",
+          "alias": "/crit/",
           "color": "#C4162A",
+          "dashes": true,
           "fill": 0
         },
         {
-          "alias": "/WARN/",
+          "$$hashKey": "object:393",
+          "alias": "/warn/",
           "color": "#FA6400",
+          "dashes": true,
           "fill": 0
         }
       ],
@@ -75,7 +136,6 @@
       "targets": [
         {
           "alias": "$tag_metric",
-          "dsType": "influxdb",
           "groupBy": [
             {
               "params": [
@@ -84,10 +144,10 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "A",
+          "refId": "E",
           "resultFormat": "time_series",
           "select": [
             [
@@ -108,44 +168,13 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
               "operator": "=",
-              "value": "cpu-usage"
-            },
-            {
-              "condition": "OR",
-              "key": "metric",
-              "operator": "=",
-              "value": "iowait"
-            },
-            {
-              "condition": "OR",
-              "key": "metric",
-              "operator": "=",
-              "value": "system"
-            },
-            {
-              "condition": "OR",
-              "key": "metric",
-              "operator": "=",
-              "value": "user"
-            },
-            {
-              "condition": "OR",
-              "key": "metric",
-              "operator": "=",
-              "value": "steal"
+              "value": "Users"
             }
           ]
         },
         {
-          "alias": "CRIT",
-          "dsType": "influxdb",
+          "alias": "crit $tag_metric",
           "groupBy": [
             {
               "params": [
@@ -154,10 +183,11 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "hide": false,
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "B",
+          "refId": "A",
           "resultFormat": "time_series",
           "select": [
             [
@@ -178,20 +208,13 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
               "operator": "=",
-              "value": "cpu-usage"
+              "value": "Users"
             }
           ]
         },
         {
-          "alias": "WARN",
-          "dsType": "influxdb",
+          "alias": "warn $tag_metric",
           "groupBy": [
             {
               "params": [
@@ -200,10 +223,11 @@
               "type": "tag"
             }
           ],
-          "measurement": "/^$command$/",
+          "hide": false,
+          "measurement": "/^cmd-check-users-windows.*$/",
           "orderByTime": "ASC",
           "policy": "default",
-          "refId": "C",
+          "refId": "B",
           "resultFormat": "time_series",
           "select": [
             [
@@ -224,14 +248,8 @@
             {
               "condition": "AND",
               "key": "service",
-              "operator": "=~",
-              "value": "/^$service$/"
-            },
-            {
-              "condition": "AND",
-              "key": "metric",
               "operator": "=",
-              "value": "cpu-usage"
+              "value": "Users"
             }
           ]
         }
@@ -240,7 +258,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "$service",
+      "title": "Users",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -256,21 +274,22 @@
       },
       "yaxes": [
         {
-          "decimals": 1,
-          "format": "percent",
+          "$$hashKey": "object:336",
+          "decimals": 0,
+          "format": "short",
           "label": "",
           "logBase": 1,
-          "max": "100",
+          "max": null,
           "min": "0",
           "show": true
         },
         {
-          "decimals": 1,
-          "format": "percent",
-          "label": "",
+          "$$hashKey": "object:337",
+          "format": "short",
+          "label": null,
           "logBase": 1,
-          "max": "100",
-          "min": "0",
+          "max": null,
+          "min": null,
           "show": false
         }
       ],
@@ -280,20 +299,24 @@
       }
     }
   ],
-  "schemaVersion": 21,
+  "refresh": false,
+  "schemaVersion": 26,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": [
       {
         "allValue": null,
-        "datasource": "icinga_director",
+        "current": {},
+        "datasource": "${DS_ICINGA_DIRECTOR}",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "error": null,
         "hide": 0,
         "includeAll": false,
         "label": "Hostname",
         "multi": false,
         "name": "hostname",
+        "options": [],
         "query": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
         "refresh": 1,
         "regex": "",
@@ -306,54 +329,82 @@
         "useTags": false
       },
       {
-        "current": {
-          "selected": true,
-          "text": "CPU Usage",
-          "value": "CPU Usage"
-        },
-        "hide": 2,
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
         "label": null,
-        "name": "service",
-        "options": [
-          {
-            "selected": true,
-            "text": "CPU Usage",
-            "value": "CPU Usage"
-          }
-        ],
-        "query": "CPU Usage",
+        "multi": false,
+        "name": "diskUsageDisks",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
         "skipUrlSync": false,
-        "type": "constant"
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       },
       {
-        "current": {
-          "selected": true,
-          "text": "cmd-check-cpu-usage",
-          "value": "cmd-check-cpu-usage"
-        },
-        "hide": 2,
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
+        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
         "label": null,
-        "name": "command",
-        "options": [
-          {
-            "selected": true,
-            "text": "cmd-check-cpu-usage",
-            "value": "cmd-check-cpu-usage"
-          }
-        ],
-        "query": "cmd-check-cpu-usage",
+        "multi": false,
+        "name": "diskSmartDisks",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
+        "refresh": 2,
+        "regex": "/^(.*)--.*$/",
         "skipUrlSync": false,
-        "type": "constant"
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_INFLUXDB}",
+        "definition": "",
+        "error": null,
+        "hide": 0,
+        "includeAll": true,
+        "label": null,
+        "multi": false,
+        "name": "diskUsageDisksWindows",
+        "options": [],
+        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
+        "refresh": 1,
+        "regex": "/^(.*)-.*$/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
       }
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-2d",
     "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
-      "5s",
       "10s",
       "30s",
       "1m",
@@ -363,21 +414,10 @@
       "1h",
       "2h",
       "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
     ]
   },
   "timezone": "",
-  "title": "CPU Usage",
-  "uid": "cpu-usage",
-  "version": 41
+  "title": "Users - Windows",
+  "uid": "users-windows",
+  "version": 3
 }
