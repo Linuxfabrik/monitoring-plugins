@@ -21,7 +21,7 @@ LINUX = sys.platform.startswith("linux")
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020120201'
+__version__ = '2021010501'
 
 DESCRIPTION = 'Counts how many users are currently logged in, both via tty and pts. Also counts the disconnected users on Windows (closed RDP connections without logging out).'
 
@@ -114,6 +114,8 @@ def main():
     msg = ''
     perfdata = lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
     perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
+    if WINDOWS:
+        perfdata += lib.base3.get_perfdata('disc', count_disc, None, WARN_DISC, CRIT_DISC, 0, None)
     state = STATE_OK
 
     if (count_tty == 0 and count_pts == 0 and count_disc == 0)\
