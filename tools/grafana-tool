@@ -135,7 +135,10 @@ def main():
                 row_title = row['title']
                 uid = row_title.lower().replace(' ', '-').replace('/', '').replace('---', '-')
                 windows = bool('windows' in uid)
-                out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
+                if uid == 'default':
+                    out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                else:
+                    out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
                 new_panels = get_panels(row['panels'])
 
                 # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
@@ -146,7 +149,11 @@ def main():
                 if args.GENERATE_ICINGAWEB2_INI:
                     panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
                     repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
-                    generate_icingaweb_ini(f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini', row_title, uid, panel_ids, repeatable, windows)
+                    if uid == 'default':
+                        out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                    else:
+                        out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini'
+                    generate_icingaweb_ini(out_filename, row_title, uid, panel_ids, repeatable, windows)
         sys.exit()
 
     all_panels = get_panels(data['panels'])
