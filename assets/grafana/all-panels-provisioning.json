@@ -16,7 +16,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 70,
-  "iteration": 1609855273570,
+  "iteration": 1610030406830,
   "links": [],
   "panels": [
     {
@@ -7086,7 +7086,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/^$diskSmartDisks--12_Power_Cycle_Count$/"
+                  "value": "/^.*--12_Power_Cycle_Count$/"
                 }
               ]
             }
@@ -7216,7 +7216,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/^$diskSmartDisks--12_Power_Cycle_Count$/"
+                  "value": "/^.*--12_Power_Cycle_Count$/"
                 }
               ]
             }
@@ -7346,8 +7346,8 @@
               "measurement": "/^cmd-check-disk-usage.*$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"value\" FROM \"cmd-check-disk-usage\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /$diskUsageDisks-.*$/) AND $timeFilter GROUP BY \"metric\"",
-              "rawQuery": false,
+              "query": "SELECT \"value\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage') AND $timeFilter GROUP BY \"metric\"",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -7371,17 +7371,11 @@
                   "key": "service",
                   "operator": "=",
                   "value": "Disk Usage"
-                },
-                {
-                  "condition": "AND",
-                  "key": "metric",
-                  "operator": "=~",
-                  "value": "/$diskUsageDisks-.*$/"
                 }
               ]
             },
             {
-              "alias": "warn",
+              "alias": "$tag_metric warn",
               "groupBy": [
                 {
                   "params": [
@@ -7424,12 +7418,12 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             },
             {
-              "alias": "crit",
+              "alias": "$tag_metric crit",
               "groupBy": [
                 {
                   "params": [
@@ -7471,7 +7465,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             }
@@ -7605,7 +7599,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             }
@@ -7653,7 +7647,20 @@
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Mean"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": null
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
@@ -7663,7 +7670,8 @@
           },
           "id": 182,
           "options": {
-            "showHeader": true
+            "showHeader": true,
+            "sortBy": []
           },
           "pluginVersion": "7.3.6",
           "repeat": null,
@@ -7712,7 +7720,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-usage$/"
+                  "value": "/^.*-usage$/"
                 }
               ]
             },
@@ -7759,7 +7767,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-total$/"
+                  "value": "/^.*-total$/"
                 }
               ]
             }
@@ -7921,17 +7929,11 @@
                   "key": "service",
                   "operator": "=",
                   "value": "Disk Usage"
-                },
-                {
-                  "condition": "AND",
-                  "key": "metric",
-                  "operator": "=~",
-                  "value": "/$diskUsageDisks-.*$/"
                 }
               ]
             },
             {
-              "alias": "warn",
+              "alias": "$tag_metric warn",
               "groupBy": [
                 {
                   "params": [
@@ -7974,12 +7976,12 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             },
             {
-              "alias": "crit",
+              "alias": "$tag_metric crit",
               "groupBy": [
                 {
                   "params": [
@@ -8021,7 +8023,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             }
@@ -8102,7 +8104,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 26
+            "y": 18
           },
           "id": 274,
           "options": {
@@ -8111,13 +8113,6 @@
           "pluginVersion": "7.3.6",
           "repeat": null,
           "repeatDirection": "h",
-          "scopedVars": {
-            "diskUsageDisksWindows": {
-              "selected": false,
-              "text": "C:\\",
-              "value": "C:\\"
-            }
-          },
           "targets": [
             {
               "alias": "$tag_metric",
@@ -8162,7 +8157,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             },
@@ -8210,7 +8205,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             },
@@ -8257,7 +8252,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-percent$/"
+                  "value": "/^.*-percent$/"
                 }
               ]
             }
@@ -8311,7 +8306,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 42
+            "y": 26
           },
           "id": 275,
           "options": {
@@ -8320,13 +8315,6 @@
           "pluginVersion": "7.3.6",
           "repeat": null,
           "repeatDirection": "h",
-          "scopedVars": {
-            "diskUsageDisksWindows": {
-              "selected": false,
-              "text": "C:\\",
-              "value": "C:\\"
-            }
-          },
           "targets": [
             {
               "alias": "$tag_metric",
@@ -8371,7 +8359,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-usage$/"
+                  "value": "/^.*-usage$/"
                 }
               ]
             },
@@ -8418,7 +8406,7 @@
                   "condition": "AND",
                   "key": "metric",
                   "operator": "=~",
-                  "value": "/$diskUsageDisks-total$/"
+                  "value": "/^.*-total$/"
                 }
               ]
             }
@@ -35370,88 +35358,11 @@
         "useTags": false
       },
       {
-        "allValue": null,
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": "",
+          "value": ""
         },
-        "datasource": "InfluxDB",
-        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
-        "error": null,
-        "hide": 0,
-        "includeAll": true,
-        "label": null,
-        "multi": false,
-        "name": "diskUsageDisks",
-        "options": [],
-        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-usage\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
-        "refresh": 1,
-        "regex": "/^(.*)-.*$/",
-        "skipUrlSync": false,
-        "sort": 1,
-        "tagValuesQuery": "",
-        "tags": [],
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
-      },
-      {
-        "allValue": null,
-        "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
-        "definition": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
-        "error": null,
-        "hide": 0,
-        "includeAll": true,
-        "label": null,
-        "multi": false,
-        "name": "diskSmartDisks",
-        "options": [],
-        "query": "SHOW TAG VALUES FROM \"cmd-check-disk-smart\" WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk SMART'",
-        "refresh": 2,
-        "regex": "/^(.*)--.*$/",
-        "skipUrlSync": false,
-        "sort": 1,
-        "tagValuesQuery": "",
-        "tags": [],
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
-      },
-      {
-        "allValue": null,
-        "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": "InfluxDB",
-        "definition": "",
-        "error": null,
-        "hide": 0,
-        "includeAll": true,
-        "label": null,
-        "multi": false,
-        "name": "diskUsageDisksWindows",
-        "options": [],
-        "query": "SHOW TAG VALUES FROM /cmd-check-disk-usage-windows-.*/ WITH KEY = \"metric\" WHERE \"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage'",
-        "refresh": 1,
-        "regex": "/^(.*)-.*$/",
-        "skipUrlSync": false,
-        "sort": 1,
-        "tagValuesQuery": "",
-        "tags": [],
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
-      },
-      {
-        "current": {},
         "error": null,
         "hide": 0,
         "label": null,
@@ -35468,7 +35379,11 @@
         "type": "textbox"
       },
       {
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
         "error": null,
         "hide": 0,
         "label": null,
@@ -35487,7 +35402,7 @@
     ]
   },
   "time": {
-    "from": "now-2d",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {
@@ -35506,5 +35421,5 @@
   "timezone": "",
   "title": "All Panels",
   "uid": "all-panels",
-  "version": 3
+  "version": 5
 }
