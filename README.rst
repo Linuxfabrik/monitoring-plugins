@@ -170,7 +170,7 @@ Icinga (Icingaweb, Icinga Director)
 
 For each check, you have to create an Icinga Command, and use this within a Service Template, a Service Set and/or a Single Service.
 
-Example for creating a command for ``cpu-usage`` using Icinga Director (Icinga Director > Comamnds > Commands):
+Example for creating a command for ``cpu-usage`` using Icinga Director (Icinga Director > Commands > Commands):
 
 Tab "Command"
 
@@ -252,3 +252,5 @@ Have a look at the ``check-plugin-fact-sheet.csv``.
 
 .. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url
+
+
