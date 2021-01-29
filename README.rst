@@ -247,10 +247,7 @@ For now, there are two ways:
 Check Plugin Fact Sheet
 -----------------------
 
-.. csv-table:: 
-    :file: check-plugin-fact-sheet.csv
-    :header-rows: 1
-
+Have a look at the ``check-plugin-fact-sheet.csv``.
 
 
 .. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
