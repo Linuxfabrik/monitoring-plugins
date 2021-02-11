@@ -8,25 +8,30 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv3'):
+    activate_this = './monitoring-plugins-venv3/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV3') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import json
 import sys
-import urllib
 from traceback import print_exc
 
 import lib.base3
+import lib.smb3
 import lib.url3
 from lib.globals3 import STATE_UNKNOWN
 
-missing_smb_lib = False
-try:
-    from smb.SMBHandler import SMBHandler
-except ImportError as e:
-    missing_smb_lib = True
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021020501'
+__version__ = '2021021101'
 
 DESCRIPTION = 'This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.'
 
@@ -62,6 +67,11 @@ def parse_args():
         default=DEFAULT_MESSAGE_KEY,
         )
 
+    parser.add_argument('--password',
+        help='SMB Password.',
+        dest='PASSWORD',
+        )
+
     parser.add_argument('--perfdata-key',
         help='Name of the json array key containing the perfdata. Default: %(default)s',
         dest='PERFDATA_KEY',
@@ -85,6 +95,11 @@ def parse_args():
         help='Set the url of the json file, either starting with "http://", "https://" or "smb://". This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
+        )
+
+    parser.add_argument('--username',
+        help='SMB Username.',
+        dest='USERNAME',
         )
 
     parser.add_argument(
@@ -130,10 +145,10 @@ def main():
             result = json.load(json_file)
 
     if args.URL:
-        proto = args.URL.split(':')
-        if len(proto) < 2:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
             lib.base3.oao(f'Could not parse the protocol of the url "{args.URL}".', STATE_UNKNOWN)
-        proto = proto[0]
+        proto, url = split_url
 
         if proto in ['http', 'https']:
             result = lib.base3.coe(lib.url3.fetch_json(
@@ -141,13 +156,9 @@ def main():
                 timeout=args.TIMEOUT
                 ))
         elif proto == 'smb':
-            if missing_smb_lib:
-                lib.base3.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
-            smb_handler = urllib.request.build_opener(SMBHandler)
-            urllib.request.install_opener(smb_handler)
-            with urllib.request.urlopen(args.URL, timeout=args.TIMEOUT) as response:
+            with lib.base3.coe(lib.smb3.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
-                    result = json.loads(response.read().decode('utf-8'))
+                    result = json.loads(fd.read().decode('utf-8'))
                 except:
                     lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
         else:

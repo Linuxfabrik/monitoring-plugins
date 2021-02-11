@@ -8,24 +8,31 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import json
 import sys
 from traceback import print_exc
 
 import lib.base2
+import lib.smb2
 import lib.url2
 from lib.globals2 import STATE_UNKNOWN
 
-missing_smb_lib = False
-try:
-    import smbc
-except ImportError as e:
-    missing_smb_lib = True
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021020401'
+__version__ = '2021021101'
 
 DESCRIPTION = 'This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.'
 
@@ -61,6 +68,11 @@ def parse_args():
         default=DEFAULT_MESSAGE_KEY,
         )
 
+    parser.add_argument('--password',
+        help='SMB Password.',
+        dest='PASSWORD',
+        )
+
     parser.add_argument('--perfdata-key',
         help='Name of the json array key containing the perfdata. Default: %(default)s',
         dest='PERFDATA_KEY',
@@ -81,9 +93,14 @@ def parse_args():
         )
 
     parser.add_argument('-u', '--url',
-        help='Set the url of the json file. This is mutually exclusive with --filename.',
+        help='Set the url of the json file, either starting with "http://", "https://" or "smb://". This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
+        )
+
+    parser.add_argument('--username',
+        help='SMB Username.',
+        dest='USERNAME',
         )
 
     parser.add_argument(
@@ -122,18 +139,17 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        print('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
 
     if args.FILENAME:
         with open(args.FILENAME) as json_file:
             result = json.load(json_file)
 
     if args.URL:
-        proto = args.URL.split(':')
-        if len(proto) < 2:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
             lib.base2.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
-        proto = proto[0]
+        proto, url = split_url
 
         if proto in ['http', 'https']:
             result = lib.base2.coe(lib.url2.fetch_json(
@@ -141,16 +157,14 @@ def main():
                 timeout=args.TIMEOUT
                 ))
         elif proto == 'smb':
-            if missing_smb_lib:
-                lib.base2.oao('Python module "smbc" is not installed.', STATE_UNKNOWN)
-            ctx = smbc.Context()
-            with ctx.open(args.URL) as response:
+            with lib.base2.coe(lib.smb2.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
-                    result = json.loads(response.read().decode('utf-8'))
+                    result = json.loads(fd.read().decode('utf-8'))
                 except:
                     lib.base2.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
         else:
             lib.base2.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+
     msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
     state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
     perfdata = result.get(args.PERFDATA_KEY) if args.PERFDATA_KEY else None
