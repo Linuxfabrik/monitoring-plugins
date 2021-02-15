@@ -239,7 +239,10 @@ def main():
         msg += '{} dead, '.format(proc_states[psutil.STATUS_DEAD])
 
     if proc_states[psutil.STATUS_RUNNING]:
-        msg += '{} running ({}), '.format(proc_states[psutil.STATUS_RUNNING], msg_running[:-2])
+        if args.NO_PROCESS_NAMES:
+            msg += '{} running, '.format(proc_states[psutil.STATUS_RUNNING], msg_running[:-2])
+        else:
+            msg += '{} running ({}), '.format(proc_states[psutil.STATUS_RUNNING])
 
     if proc_states[psutil.STATUS_SLEEPING]:
         msg += '{} sleeping, '.format(proc_states[psutil.STATUS_SLEEPING])
@@ -248,10 +251,16 @@ def main():
         msg += '{} stopped, '.format(proc_states[psutil.STATUS_STOPPED])
 
     if proc_states[psutil.STATUS_DISK_SLEEP]:
-        msg += '{} uninterruptible ({}), '.format(proc_states[psutil.STATUS_DISK_SLEEP], msg_uninterruptible[:-2])
+        if args.NO_PROCESS_NAMES:
+            msg += '{} uninterruptible, '.format(proc_states[psutil.STATUS_DISK_SLEEP])
+        else:
+            msg += '{} uninterruptible ({}), '.format(proc_states[psutil.STATUS_DISK_SLEEP], msg_uninterruptible[:-2])
 
     if proc_states[psutil.STATUS_ZOMBIE]:
-        msg += '{} {} ({}), '.format(proc_states[psutil.STATUS_ZOMBIE], lib.base3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]), msg_zombies[:-2])
+        if args.NO_PROCESS_NAMES:
+            msg += '{} {}, '.format(proc_states[psutil.STATUS_ZOMBIE], lib.base3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]))
+        else:
+            msg += '{} {} ({}), '.format(proc_states[psutil.STATUS_ZOMBIE], lib.base3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]), msg_zombies[:-2])
 
     # build perfdata
     perfdata = ''
