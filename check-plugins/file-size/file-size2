@@ -8,6 +8,19 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import glob
 import os
@@ -16,16 +29,19 @@ from traceback import print_exc
 
 import lib.args2
 import lib.base2
+import lib.smb2
 from lib.globals2 import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020122301'
+__version__ = '2021021501'
 
 DESCRIPTION = 'Checks the size for a file or directory, in bytes.'
 
 
-DEFAULT_WARN = 1024*1024*25       # 25M (Mebibyte)
 DEFAULT_CRIT = 1024*1024*1024     # 1G (Gibibyte)
+DEFAULT_PATTERN = '*'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 1024*1024*25       # 25M (Mebibyte)
 
 
 def parse_args():
@@ -41,9 +57,42 @@ def parse_args():
 
     parser.add_argument(
         '--filename',
-        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs.',
-        dest='FILE',
-        required=True,
+        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs. This is mutually exclusive with -u / --url.',
+        dest='FILENAME',
+        )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Set the url of the file (or directory) to check, starting with "smb://". This is mutually exclusive with --filename.',
+        dest='URL',
+        type=str,
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--password',
+        help='SMB Password.',
+        dest='PASSWORD',
+        )
+
+    parser.add_argument(
+        '--pattern',
+        help="The search string to match against the names of directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns. Default: %(default)s.",
+        dest='PATTERN',
+        default=DEFAULT_PATTERN,
+        )
+
+    parser.add_argument(
+        '--username',
+        help='SMB Username.',
+        dest='USERNAME',
         )
 
     parser.add_argument(
@@ -78,20 +127,44 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch the data
+    if args.FILENAME and args.URL:
+        lib.base2.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+
     state = STATE_OK
     msg = ''
     file_count = 0
-    for item in sorted(glob.iglob(args.FILE)):
-        # ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents
-        if os.path.isdir(item):
-            continue
 
-        size = os.stat(item).st_size
-        item_state = lib.base2.get_state(size, args.WARN, args.CRIT)
-        state = lib.base2.get_worst(item_state, state)
-        file_count += 1
-        msg += '* {}: {}{}\n'.format(item, lib.base2.bytes2human(size), lib.base2.state2str(item_state, prefix=" "))
+    if args.FILENAME:
+        for item in sorted(glob.iglob(args.FILENAME)):
+            # ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents
+            if os.path.isdir(item):
+                continue
+
+            size = os.stat(item).st_size
+            item_state = lib.base2.get_state(size, args.WARN, args.CRIT)
+            state = lib.base2.get_worst(item_state, state)
+            file_count += 1
+            msg += '* {}: {}{}\n'.format(item, lib.base2.bytes2human(size), lib.base2.state2str(item_state, prefix=" "))
+
+    if args.URL:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base2.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+        proto, url = split_url
+
+        if proto == 'smb':
+            for item in lib.base2.coe(lib.smb2.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
+                # ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents
+                if item.is_dir():
+                    continue
+
+                size = item.stat().st_size
+                item_state = lib.base2.get_state(size, args.WARN, args.CRIT)
+                state = lib.base2.get_worst(item_state, state)
+                file_count += 1
+                msg += '* {}: {}{}\n'.format(item, lib.base2.bytes2human(size), lib.base2.state2str(item_state, prefix=" "))
+        else:
+            lib.base2.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
 
     if file_count == 0:
         msg = 'No files found.'
