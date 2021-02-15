@@ -38,14 +38,14 @@ Requirements:
 
 # Perfdata
 
-* procs: Total number of processes.
-* procs_sleeping
-* procs_running
-* procs_uninterruptible
-* procs_zombies
-* procs_stopped
-* procs_paging
-* procs_dead
+* `procs`: Total number of processes.
+* `procs_sleeping`
+* `procs_running`
+* `procs_uninterruptible`
+* `procs_zombies`
+* `procs_stopped`
+* `procs_paging`
+* `procs_dead`
 
 
 # Credits, License
