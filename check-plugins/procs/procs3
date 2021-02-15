@@ -26,7 +26,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021501'
+__version__ = '2021021502'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
@@ -123,6 +123,14 @@ def parse_args():
         dest='WARN_MEM',
     )
 
+    parser.add_argument(
+        '--no-process-names',
+        help='Do not list process names in the output.',
+        dest='NO_PROCESS_NAMES',
+        action='store_true',
+        default=False,
+    )
+
     return parser.parse_args()
 
 
@@ -178,14 +186,15 @@ def main():
         mem_sum += process_info['memory_info'].rss
         proc_states[process_info['status']] += 1
 
-        if process_info['status'] == psutil.STATUS_DISK_SLEEP:  # uninterruptible
-            msg_uninterruptible += process_info['name'] + ', '
+        if not NO_PROCESS_NAMES:
+            if process_info['status'] == psutil.STATUS_DISK_SLEEP:  # uninterruptible
+                msg_uninterruptible += process_info['name'] + ', '
 
-        if process_info['status'] == psutil.STATUS_RUNNING:
-            msg_running += process_info['name'] + ', '
+            if process_info['status'] == psutil.STATUS_RUNNING:
+                msg_running += process_info['name'] + ', '
 
-        if process_info['status'] == psutil.STATUS_ZOMBIE:
-            msg_zombies += process_info['name'].replace(' <defunct>', '') + ', '
+            if process_info['status'] == psutil.STATUS_ZOMBIE:
+                msg_zombies += process_info['name'].replace(' <defunct>', '') + ', '
 
     # group some proc_states, have a look at the README for detals
     proc_states[psutil.STATUS_SLEEPING] += proc_states[psutil.STATUS_IDLE]
