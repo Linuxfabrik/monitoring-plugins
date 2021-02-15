@@ -245,6 +245,10 @@ If you want to use a virtual environment for python, you can create one in the s
 
 If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence to the virtual environment above.
 
+.. caution::
+
+    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using sudo).
+
 
 Reporting Issues
 ----------------
