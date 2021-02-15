@@ -29,17 +29,10 @@ from traceback import print_exc
 from lib.globals2 import *
 import lib.args2
 import lib.base2
-
-import warnings
-# from cryptography (https://github.com/pyca/cryptography/blob/13e7e56c6094639cce1293f88a633270dfbe037c/src/cryptography/utils.py#L13):
-# We use a UserWarning subclass, instead of DeprecationWarning, because CPython
-# decided deprecation warnings should be invisble by default.
-warnings.filterwarnings("ignore", category=UserWarning, module='smbprotocol')
-
-import smbclient
+import lib.smb2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021101'
+__version__ = '2021021201'
 
 DESCRIPTION = 'Checks the number of matching files.'
 
@@ -173,21 +166,13 @@ def main():
         proto, url = split_url
 
         if proto == 'smb':
-            for file_info in smbclient.scandir(
-                    url,
-                    mode='rb',
-                    username=args.USERNAME,
-                    password=args.PASSWORD,
-                    connection_timeout=args.TIMEOUT,
-                    search_pattern=args.PATTERN,
-                    encrypt=True
-                ):
-                if file_info.is_file() and args.ONLY_DIRS:
+            for item in lib.base2.coe(lib.smb2.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
+                if item.is_file() and args.ONLY_DIRS:
                     continue
-                if file_info.is_dir() and args.ONLY_FILES:
+                if item.is_dir() and args.ONLY_FILES:
                     continue
                 if args.TIMERANGE:
-                    age = (now - file_info.stat().st_mtime)
+                    age = (now - item.stat().st_mtime)
                     if not lib.base2.coe(lib.base2.match_range(age, args.TIMERANGE)):
                         continue
 
