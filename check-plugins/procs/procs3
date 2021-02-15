@@ -83,7 +83,7 @@ def parse_args():
 
     parser.add_argument(
         '--critical-mem',
-        help='Set the critical threshold MEM Usage Percentage. Default: %(default)s',
+        help='Set the critical threshold Memory Usage in bytes. Default: %(default)s',
         default=DEFAULT_CRIT_MEM,
         dest='CRIT_MEM',
     )
@@ -118,7 +118,7 @@ def parse_args():
 
     parser.add_argument(
         '--warning-mem',
-        help='Set the warning threshold MEM Usage Percentage. Default: %(default)s',
+        help='Set the warning threshold Memory Usage in bytes. Default: %(default)s',
         default=DEFAULT_WARN_MEM,
         dest='WARN_MEM',
     )
@@ -230,19 +230,19 @@ def main():
     msg = '{} {}, '.format(procs_count, lib.base3.pluralize('task', procs_count))
 
     if args.CRIT_CPU or args.WARN_CPU:
-        msg += '{.2f} cpu, '.format(cpu_sum)
+        msg += '{:.1f} cpu, '.format(cpu_sum)
 
     if args.CRIT_MEM or args.WARN_MEM:
-        msg += '{.2f} mem, '.format(lib.base3.bytes2human(mem_sum))
+        msg += '{} mem, '.format(lib.base2.bytes2human(mem_sum))
 
     if proc_states[psutil.STATUS_DEAD]:
         msg += '{} dead, '.format(proc_states[psutil.STATUS_DEAD])
 
     if proc_states[psutil.STATUS_RUNNING]:
         if args.NO_PROCESS_NAMES:
-            msg += '{} running, '.format(proc_states[psutil.STATUS_RUNNING], msg_running[:-2])
+            msg += '{} running, '.format(proc_states[psutil.STATUS_RUNNING])
         else:
-            msg += '{} running ({}), '.format(proc_states[psutil.STATUS_RUNNING])
+            msg += '{} running ({}), '.format(proc_states[psutil.STATUS_RUNNING], msg_running[:-2])
 
     if proc_states[psutil.STATUS_SLEEPING]:
         msg += '{} sleeping, '.format(proc_states[psutil.STATUS_SLEEPING])
