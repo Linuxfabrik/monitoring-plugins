@@ -335,3 +335,22 @@ Afterwards generate the dashboards for each plugin using the
     ./tools/grafana-tool assets/grafana/all-panels-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
 
 Make sure to adjust the generated ini file if necessary.
+
+Virtual Environment
+-------------------
+
+To allow the check plugins to activate a virtual environment as described in the README, place this at the top of the check plugin (do not forget to adjust it to the python version):
+
+.. code-block:: python
+
+    import os
+
+    activate_this = False
+    if os.path.exists('./monitoring-plugins-venv3'):
+        activate_this = './monitoring-plugins-venv3/bin/activate_this.py'
+
+    if os.getenv('MONITORING_PLUGINS_VENV3'):
+        activate_this = os.getenv('MONITORING_PLUGINS_VENV3') + '/bin/activate_this.py'
+
+    if activate_this and os.path.isfile(activate_this):
+        exec(open(activate_this).read(), {'__file__': activate_this})

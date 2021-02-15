@@ -8,6 +8,19 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv3'):
+    activate_this = './monitoring-plugins-venv3/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV3') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import sys
 import socket
@@ -23,7 +36,7 @@ except ImportError as e:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020050101'
+__version__ = '2021021501'
 
 DESCRIPTION = 'Counts tcp, tcp6, udp and udp6 connections.'
 

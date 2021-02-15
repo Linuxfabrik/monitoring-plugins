@@ -233,6 +233,17 @@ Creating Custom Grafana Dashboards
         # for more options, see
         ./tools/grafana-tool --help
 
+Virtual Environment
+~~~~~~~~~~~~~~~~~~~
+
+If you want to use a virtual environment for python, you can create one in the same directory as the check-plugins.
+
+.. code-block:: bash
+
+    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
+    python3 -m venv --system-site-packages monitoring-plugins-venv3
+
+If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence to the virtual environment above.
 
 
 Reporting Issues
@@ -252,5 +263,3 @@ Have a look at the ``check-plugin-fact-sheet.csv``.
 
 .. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
    :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url
-
-

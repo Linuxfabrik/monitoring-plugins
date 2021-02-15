@@ -8,8 +8,20 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-import argparse
 import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv3'):
+    activate_this = './monitoring-plugins-venv3/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV3') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
 import sys
 import time
 from traceback import print_exc
@@ -26,7 +38,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021502'
+__version__ = '2021021503'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
