@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python2
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,24 +8,31 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import json
 import sys
-import urllib
 from traceback import print_exc
 
-import lib.base3
-import lib.url3
-from lib.globals3 import STATE_UNKNOWN
-
-try:
-    from smb.SMBHandler import SMBHandler
-except ImportError as e:
-    missing_smb_lib = True
-
+import lib.base2
+import lib.smb2
+import lib.url2
+from lib.globals2 import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020121801'
+__version__ = '2021021101'
 
 DESCRIPTION = 'This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.'
 
@@ -61,6 +68,11 @@ def parse_args():
         default=DEFAULT_MESSAGE_KEY,
         )
 
+    parser.add_argument('--password',
+        help='SMB Password.',
+        dest='PASSWORD',
+        )
+
     parser.add_argument('--perfdata-key',
         help='Name of the json array key containing the perfdata. Default: %(default)s',
         dest='PERFDATA_KEY',
@@ -84,6 +96,11 @@ def parse_args():
         help='Set the url of the json file, either starting with "http://", "https://" or "smb://". This is mutually exclusive with --filename.',
         dest='URL',
         type=str,
+        )
+
+    parser.add_argument('--username',
+        help='SMB Username.',
+        dest='USERNAME',
         )
 
     parser.add_argument(
@@ -122,41 +139,37 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base3.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+        lib.base2.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
 
     if args.FILENAME:
         with open(args.FILENAME) as json_file:
             result = json.load(json_file)
 
     if args.URL:
-        proto = args.URL.split(':')
-        if len(proto) < 2:
-            lib.base3.oao(f'Could not parse the protocol of the url "{args.URL}".', STATE_UNKNOWN)
-        proto = proto[0]
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base2.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+        proto, url = split_url
 
         if proto in ['http', 'https']:
-            result = lib.base3.coe(lib.url3.fetch_json(
+            result = lib.base2.coe(lib.url2.fetch_json(
                 args.URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT
                 ))
         elif proto == 'smb':
-            if missing_smb_lib:
-                lib.base3.oao('Python module "pysmb" is not installed.', STATE_UNKNOWN)
-            smb_handler = urllib.request.build_opener(SMBHandler)
-            urllib.request.install_opener(smb_handler)
-            with urllib.request.urlopen(args.URL, timeout=args.TIMEOUT) as response:
+            with lib.base2.coe(lib.smb2.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
-                    result = json.loads(response.read().decode('utf-8'))
+                    result = json.loads(fd.read().decode('utf-8'))
                 except:
-                    lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+                    lib.base2.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
         else:
-            lib.base3.oao(f'The protocol "{proto}" is not supported.', STATE_UNKNOWN)
+            lib.base2.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
 
     msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
     state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN
     perfdata = result.get(args.PERFDATA_KEY) if args.PERFDATA_KEY else None
 
-    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

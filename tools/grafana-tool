@@ -88,7 +88,7 @@ def generate_new_dashboards(data, new_panels, new_title, new_uid):
 def save_dashboard_to_file(data, filename):
     try:
         with open(filename, 'w') as file:
-            json.dump(data, file, sort_keys=True, indent=2, separators=(',', ': '))
+            json.dump(data, file, sort_keys=True, indent=4, separators=(',', ': '))
     except FileNotFoundError as e:
         print(f'{e}. Ignoring...')
 
@@ -106,11 +106,13 @@ dashboarduid = "{uid}"'''
         return template
 
     if windows:
-        ini = get_template(f'cmd-check-{uid}', title, f'{uid}', panel_ids)
+        ini = get_template(f'cmd-check-{uid}', title, uid, panel_ids)
         ini += '\n\n'
-        ini += get_template(f'cmd-check-{uid}-python', title, f'{uid}', panel_ids)
+        ini += get_template(f'cmd-check-{uid}-python', title, uid, panel_ids)
     else:
         ini = get_template(f'cmd-check-{uid}', title, uid, panel_ids)
+        ini += '\n\n'
+        ini += get_template(f'cmd-check-{uid}-sudo', title, uid, panel_ids)
 
     if not os.path.isfile(filename):
         try:
@@ -135,7 +137,10 @@ def main():
                 row_title = row['title']
                 uid = row_title.lower().replace(' ', '-').replace('/', '').replace('---', '-')
                 windows = bool('windows' in uid)
-                out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
+                if uid == 'default':
+                    out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                else:
+                    out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
                 new_panels = get_panels(row['panels'])
 
                 # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
@@ -146,7 +151,11 @@ def main():
                 if args.GENERATE_ICINGAWEB2_INI:
                     panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
                     repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
-                    generate_icingaweb_ini(f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini', row_title, uid, panel_ids, repeatable, windows)
+                    if uid == 'default':
+                        out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                    else:
+                        out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini'
+                    generate_icingaweb_ini(out_filename, row_title, uid, panel_ids, repeatable, windows)
         sys.exit()
 
     all_panels = get_panels(data['panels'])

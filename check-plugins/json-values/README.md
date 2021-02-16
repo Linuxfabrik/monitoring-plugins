@@ -1,13 +1,13 @@
-# Check "json" - Overview
+# Check "json-values" - Overview
 This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.
 
 
 # Installation and Usage
 
 ```bash
-./json --url http://example.com/json.out
-./json --filename /tmp/json.out
-./json --help
+./json-values --url http://example.com/json.out
+./json-values --filename /tmp/json.out
+./json-values --help
 ```
 
 

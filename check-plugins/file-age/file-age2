@@ -8,24 +8,39 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import glob
-import os
 import sys
 from traceback import print_exc
 
 import lib.args2
 import lib.base2
+import lib.smb2
 from lib.globals2 import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020122302'
+__version__ = '2021021501'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
 
-DEFAULT_WARN = 60*60*24*30      # sec
 DEFAULT_CRIT = 60*60*24*365     # sec
+DEFAULT_PATTERN = '*'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 60*60*24*30      # sec
 
 
 def parse_args():
@@ -41,9 +56,42 @@ def parse_args():
 
     parser.add_argument(
         '--filename',
-        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs.',
-        dest='FILE',
-        required=True,
+        help='File (or directory) name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Beware of using recursive globs. This is mutually exclusive with -u / --url.',
+        dest='FILENAME',
+        )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Set the url of the file (or directory) to check, starting with "smb://". This is mutually exclusive with --filename.',
+        dest='URL',
+        type=str,
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--password',
+        help='SMB Password.',
+        dest='PASSWORD',
+        )
+
+    parser.add_argument(
+        '--pattern',
+        help="The search string to match against the names of directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns. Default: %(default)s.",
+        dest='PATTERN',
+        default=DEFAULT_PATTERN,
+        )
+
+    parser.add_argument(
+        '--username',
+        help='SMB Username.',
+        dest='USERNAME',
         )
 
     parser.add_argument(
@@ -94,22 +142,48 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch the data
+    if args.FILENAME and args.URL:
+        lib.base2.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+
     state = STATE_OK
     now = lib.base2.now()
     msg = ''
     file_count = 0
-    for item in sorted(glob.iglob(args.FILE)):
-        if os.path.isfile(item) and args.ONLY_DIRS:
-            continue
-        if os.path.isdir(item) and args.ONLY_FILES:
-            continue
 
-        age = (now - os.stat(item).st_mtime)
-        item_state = lib.base2.get_state(age, args.WARN, args.CRIT)
-        state = lib.base2.get_worst(item_state, state)
-        file_count += 1
-        msg += '* {}: {}{}\n'.format(item, lib.base2.seconds2human(age), lib.base2.state2str(item_state, prefix=" "))
+    if args.FILENAME:
+        for item in sorted(glob.iglob(args.FILENAME)):
+            if os.path.isfile(item) and args.ONLY_DIRS:
+                continue
+            if os.path.isdir(item) and args.ONLY_FILES:
+                continue
+
+            age = (now - os.stat(item).st_mtime)
+            item_state = lib.base2.get_state(age, args.WARN, args.CRIT)
+            state = lib.base2.get_worst(item_state, state)
+            file_count += 1
+            msg += '* {}: {}{}\n'.format(item, lib.base2.seconds2human(age), lib.base2.state2str(item_state, prefix=" "))
+
+    if args.URL:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base2.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+        proto, url = split_url
+
+        if proto == 'smb':
+            for item in lib.base2.coe(lib.smb2.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
+                if item.is_file() and args.ONLY_DIRS:
+                    continue
+                if item.is_dir() and args.ONLY_FILES:
+                    continue
+
+                age = (now - item.stat().st_mtime)
+                item_state = lib.base2.get_state(age, args.WARN, args.CRIT)
+                state = lib.base2.get_worst(item_state, state)
+                file_count += 1
+                msg += '* {}: {}{}\n'.format(item.name, lib.base2.seconds2human(age), lib.base2.state2str(item_state, prefix=" "))
+
+        else:
+            lib.base3.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
 
     if file_count == 0:
         msg = 'No files found.'

@@ -15,7 +15,7 @@ We recommend to run this check every 5 minutes.
 
 # States
 
-* WARN or CRIT if system uptime is above a given threshold.
+* Always returns OK.
 
 
 # Perfdata

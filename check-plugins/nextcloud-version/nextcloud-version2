@@ -8,6 +8,19 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import sys
 from traceback import print_exc
@@ -21,7 +34,7 @@ import lib.disk2
 import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020060301'
+__version__ = '2021021501'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -96,8 +109,8 @@ def get_update_url(path, channel):
         return (False, 'Cannot parse {}/version.php'.format(path))
 
     nc_version = nc_version.replace('.', 'x')
-    nc_installed = str(lib.base2.now() - 86400)
-    nc_updated = str(lib.base2.now() - 43200)
+    nc_installed = str(lib.base2.now() - 864000)
+    nc_updated = str(lib.base2.now() - 432000)
     nc_updatechannel = channel
     nc_edition = ''
 
@@ -108,7 +121,7 @@ def get_update_url(path, channel):
     if not nc_build:
         return (False, 'Cannot parse {}/version.php'.format(path))
 
-    php_version = '7x4x3'       # could be anything (no need to get the installed php version for now)
+    php_version = '7x4x14'       # could be anything (no need to get the installed php version for now)
 
     update_url += nc_version + 'x' + nc_installed + 'x' + nc_updated + 'x' + nc_updatechannel + 'x' + nc_edition + 'x' + nc_build + 'x' + php_version
     return (True, update_url)
@@ -126,7 +139,7 @@ def get_latest_version(path, channel, expire):
     if not success:
         return (success, url)
 
-    success, xmlst = lib.url2.fetch(url)
+    success, xmlst = lib.url2.fetch(url, timeout=8)
     if not success:
         return (success, xmlst)
     
@@ -157,7 +170,7 @@ def main():
     # so exiting with a warning or unknown would not help)
     success, latest_version = get_latest_version(args.PATH, args.CHANNEL, args.CACHE_EXPIRE*60*60)
     if not success:
-        lib.base2.oao('Nextcloud v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+        lib.base2.oao('Nextcloud v{} may be up to date, but we don\'t know for sure (updates.nextcloud.com seems to be unavailable).'.format(installed_version), STATE_UNKNOWN)
     if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
         lib.base2.oao('Nextcloud v{} is up to date'.format(installed_version), STATE_OK)
     lib.base2.oao('Nextcloud v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)

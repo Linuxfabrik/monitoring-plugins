@@ -8,9 +8,21 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+import os
+
+activate_this = False
+if os.path.exists('./monitoring-plugins-venv2'):
+    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
 import argparse
 import json
-import os
 import sys
 
 from traceback import print_exc
@@ -21,7 +33,7 @@ import lib.args2
 import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020081701'
+__version__ = '2021021501'
 
 DESCRIPTION = 'Checks if there is an update for a python package installed via `pip`.'
 
@@ -96,7 +108,7 @@ def main():
 
     for package in result:
         if package['name'] == args.PACKAGE:
-            lib.base2.oao('{} {} is available (installed: {}).'.format(args.PACKAGE, package['version'], package['latest_version']), STATE_WARN)
+            lib.base2.oao('{} {} is available (installed: {}).'.format(args.PACKAGE, package['latest_version'], package['version']), STATE_WARN)
 
     if args.TEST is None:
     # execute the shell command and return its result and exit code
