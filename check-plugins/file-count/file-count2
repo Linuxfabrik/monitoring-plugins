@@ -11,11 +11,12 @@
 import os
 
 activate_this = False
-if os.path.exists('./monitoring-plugins-venv2'):
-    activate_this = './monitoring-plugins-venv2/bin/activate_this.py'
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.getenv('MONITORING_PLUGINS_VENV2') + '/bin/activate_this.py'
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
 if activate_this and os.path.isfile(activate_this):
     exec(open(activate_this).read(), {'__file__': activate_this})
@@ -32,7 +33,7 @@ import lib.base2
 import lib.smb2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021201'
+__version__ = '2021021701'
 
 DESCRIPTION = 'Checks the number of matching files.'
 
@@ -80,7 +81,7 @@ def parse_args():
 
     parser.add_argument(
         '--pattern',
-        help="The search string to match against the names of directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns. Default: %(default)s.",
+        help="The search string to match against the names of SMB directories or files. This pattern can use '*' as a wildcard for multiple chars and '?' as a wildcard for a single char. Does not support regex patterns. Default: %(default)s.",
         dest='PATTERN',
         default=DEFAULT_PATTERN,
         )
