@@ -39,7 +39,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021021801'
 
 DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
 
@@ -284,6 +284,12 @@ def main():
     perfdata += lib.base2.get_perfdata('procs_zombies', proc_states[psutil.STATUS_ZOMBIE], None, None, None, 0, None)
     perfdata += lib.base2.get_perfdata('procs_stopped', proc_states[psutil.STATUS_STOPPED], None, None, None, 0, None)
     perfdata += lib.base2.get_perfdata('procs_dead', proc_states[psutil.STATUS_DEAD], None, None, None, 0, None)
+
+    if args.CRIT_CPU or args.WARN_CPU:
+        perfdata += lib.base2.get_perfdata('procs_cpu', cpu_sum, '%', None, None, 0, 100)
+
+    if args.CRIT_MEM or args.WARN_MEM:
+        perfdata += lib.base2.get_perfdata('procs_mem', mem_sum, None, None, None, 0, None)
 
     lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
