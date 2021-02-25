@@ -1,0 +1,272 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import re
+import sys
+from traceback import print_exc
+
+import lib.base3
+import lib.db_sqlite3
+from lib.globals3 import STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021022501'
+
+DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
+
+DEFAULT_WARN = 1
+DEFAULT_CRIT = 1
+DEFAULT_INSECURE = False
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_NO_PROXY = False
+DEFAULT_NO_SUMMARY = False
+DEFAULT_TIMEOUT = 5
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--suppress-lines',
+        help='Suppress the found lines in the output, only report the number of findings.',
+        dest='SUPPRESS_OUTPUT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--filename',
+        help='Set the path of the logfile.',
+        dest='FILENAME',
+        required=True,
+        type=str,
+    )
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for the number of found critical matches. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-pattern',
+        help='Any line containing this pattern will count as a critical.',
+        action='append',
+        default=[],
+        dest='CRIT_PATTERN',
+    )
+
+    parser.add_argument(
+        '--critical-regex',
+        help='Any line matching this python regex will count as a critical.',
+        action='append',
+        dest='CRIT_REGEX',
+        default=[],
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line containing this pattern will count as a warning.',
+        action='append',
+        default=[],
+        dest='WARN_PATTERN',
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex will count as a warning.',
+        action='append',
+        dest='WARN_REGEX',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--ignore-pattern',
+        help='Any line containing this pattern will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='Any line matching this python regex will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not any((args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)):
+        lib.base3.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
+
+    # create the db table
+    definition = '''
+        filename TEXT NOT NULL PRIMARY KEY,
+        offset INTEGER NOT NULL,
+        inode INTEGER NOT NULL
+    '''
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='logfile.db'))
+    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition))
+
+    file_stat = os.stat(args.FILENAME)
+    current_inode = file_stat.st_ino
+    current_size = file_stat.st_size
+
+    old_file_stats = lib.base3.coe(lib.db_sqlite3.select(
+        conn,
+        '''
+        SELECT *
+        FROM perfdata
+        WHERE filename = :filename
+        ''',
+        {'filename': args.FILENAME,},
+        fetchone=True,
+    ))
+
+    if old_file_stats:
+        # this is not the first time we are scanning this logfile, try to continue where we left off
+        offset = old_file_stats.get('offset', 0)
+
+        if (current_inode != old_file_stats.get('inode')
+        or current_size < offset):
+            # this means the file has been rotated
+            offset = 0
+    else:
+        offset = 0
+
+    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
+    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+
+    warn_matches = []
+    crit_matches = []
+    line_counter = 0
+    try:
+        with open(args.FILENAME) as logfile:
+            logfile.seek(offset)
+            for line in logfile:
+                line_counter += 1
+                # due to lazy evaluation, the regex will only be executed if the pattern does not match
+                # see https://docs.python.org/3/reference/expressions.html#boolean-operations
+                if any(warn_pattern in line for warn_pattern in args.WARN_PATTERN)\
+                or any(item.search(line) for item in compiled_warn_regex):
+                    if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
+                    and not any(item.search(line) for item in compiled_ignore_regex):
+                        warn_matches.append(line)
+
+                if any(crit_pattern in line for crit_pattern in args.CRIT_PATTERN)\
+                or any(item.search(line) for item in compiled_crit_regex):
+                    if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
+                    and not any(item.search(line) for item in compiled_ignore_regex):
+                        crit_matches.append(line)
+
+            offset = logfile.tell()
+    except FileNotFoundError:
+        lib.base3.oao(f"Could not find logfile '{args.FILENAME}'.", STATE_UNKNOWN)
+        # make sure conn is always closed
+        lib.db_sqlite3.close(conn)
+    except PermissionError:
+        lib.base3.oao(f"Permission denied opening '{args.FILENAME}'.", STATE_UNKNOWN)
+        # make sure conn is always closed
+        lib.db_sqlite3.close(conn)
+
+    new_file_stats = {
+            'filename': args.FILENAME,
+            'offset': offset,
+            'inode': current_inode,
+    }
+    lib.base3.coe(lib.db_sqlite3.replace(conn, new_file_stats))
+    lib.base3.coe(lib.db_sqlite3.commit(conn))
+    lib.db_sqlite3.close(conn)
+
+    state = lib.base3.get_worst(
+            lib.base3.get_state(len(warn_matches), args.WARN, None),
+            lib.base3.get_state(len(crit_matches), None, args.CRIT),
+    )
+
+    msg = f'Scanned {line_counter} lines'
+
+    if warn_matches:
+        msg += ', {} warning {}'.format(
+                len(warn_matches),
+                lib.base3.pluralize('match', len(warn_matches)),
+            )
+
+    if crit_matches:
+        msg += ', {} critical {}'.format(
+                len(crit_matches),
+                lib.base3.pluralize('match', len(crit_matches)),
+            )
+
+    if not args.SUPPRESS_OUTPUT:
+        if warn_matches:
+            msg += f"\n\nWarning matches:\n* {'* '.join(warn_matches)}"
+
+        if crit_matches:
+            msg += f"\n\nCritical matches:\n* {'* '.join(crit_matches)}"
+
+    perfdata = lib.base3.get_perfdata('scanned_lines', line_counter, None, None, None, None, None)
+    perfdata += lib.base3.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
+    perfdata += lib.base3.get_perfdata('crit_matches', len(crit_matches), None, args.WARN, None, None, None)
+
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
