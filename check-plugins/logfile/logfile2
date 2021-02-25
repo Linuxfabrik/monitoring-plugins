@@ -156,7 +156,7 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-url',
-        help='Icinga API URL, for example https://icinga-server:5665',
+        help='Icinga API URL, for example https://icinga-server:5665.',
         dest='ICINGA_URL',
     )
 
@@ -259,13 +259,13 @@ def main():
                 or any(item.search(line) for item in compiled_warn_regex):
                     if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
                     and not any(item.search(line) for item in compiled_ignore_regex):
-                        warn_matches.append(line)
+                        warn_matches.append(line.strip())
 
                 if any(crit_pattern in line for crit_pattern in args.CRIT_PATTERN)\
                 or any(item.search(line) for item in compiled_crit_regex):
                     if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
                     and not any(item.search(line) for item in compiled_ignore_regex):
-                        crit_matches.append(line)
+                        crit_matches.append(line.strip())
 
             offset = logfile.tell()
     except FileNotFoundError:
@@ -396,12 +396,30 @@ def main():
             lib.base2.pluralize('match', len(crit_matches)),
         )
 
+    if old_warn_matches:
+        msg += ', {} old warning {}'.format(
+            len(old_warn_matches),
+            lib.base2.pluralize('match', len(old_warn_matches)),
+        )
+
+    if old_crit_matches:
+        msg += ', {} old critical {}'.format(
+            len(old_crit_matches),
+            lib.base2.pluralize('match', len(old_crit_matches)),
+        )
+
     if not args.SUPPRESS_OUTPUT:
         if warn_matches:
-            msg += "\nWarning matches:\n* {}".format('* '.join(warn_matches))
+            msg += '\n\nWarning matches:\n* ' + '\n* '.join(warn_matches)
 
         if crit_matches:
-            msg += "\nCritical matches:\n* {}".format('* '.join(crit_matches))
+            msg += '\n\nCritical matches:\n* ' + '\n* '.join(crit_matches)
+
+        if old_warn_matches:
+            msg += '\n\nOld warning matches:\n* ' + '\n* '.join([match['line'] for match in old_warn_matches])
+
+        if old_crit_matches:
+            msg += '\n\nOld critical matches:\n* ' + '\n* '.join([match['line'] for match in old_crit_matches])
 
     perfdata = lib.base2.get_perfdata('scanned_lines', line_counter, None, None, None, None, None)
     perfdata += lib.base2.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
