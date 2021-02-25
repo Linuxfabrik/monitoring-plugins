@@ -351,6 +351,8 @@ def main():
                         ''',
                         {'filename': args.FILENAME},
                     ))
+                    old_warn_matches = []
+                    old_crit_matches = []
                 else:
                     msg_addendum += 'Note: Acknowledge this service to reset the state to OK.'
             except IndexError:
@@ -425,7 +427,7 @@ def main():
     perfdata += lib.base3.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
     perfdata += lib.base3.get_perfdata('crit_matches', len(crit_matches), None, args.WARN, None, None, None)
 
-    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg + '\n\n' + msg_addendum, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
