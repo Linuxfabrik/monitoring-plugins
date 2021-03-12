@@ -247,7 +247,7 @@ If you prefer to place the virtual environment somewhere else, you can point the
 
 .. caution::
 
-    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using sudo).
+    Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using sudo).
 
 
 Reporting Issues

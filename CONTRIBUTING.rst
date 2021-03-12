@@ -29,7 +29,7 @@ Rules of Thumb
 --------------
 
 - The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
-- Develop with CentOS 7/8 Minimal in mind.
+- Develop with a minimal Linux in mind.
 - Develop with Icinga2 in mind.
 - Avoid complicated or fancy (and therefore unreadable) Python statements.
 - Comments and output should be in English only.
@@ -78,9 +78,11 @@ For all other options, use long parameters only. We recommend using some of thos
     --count
     --database
     --depth
+    --device
     --filename
     --filter
     --full
+    --hide-ok
     --ignore
     --input
     --insecure
@@ -106,6 +108,20 @@ For all other options, use long parameters only. We recommend using some of thos
     --type
     --unit
     --unitfilestate
+    --username
+
+`Parameter types <https://docs.python.org/3/library/argparse.html>`_ are usually:
+
+* type=float
+* type=int
+* type=lib.args3.csv
+* type=lib.args3.float_or_none
+* type=lib.args3.int_or_none
+* type=str (the default)
+* choices=['udp', 'udp6', 'tcp', 'tcp6']
+* action='store_true', action='store_false' for switches
+
+Hints:
 
 - For complex parameter tupels, use the ``csv`` type.
   ``--input='Name, Value, Warn, Crit'`` results in ``[ 'Name', 'Value', 'Warn', 'Crit' ]``
@@ -214,20 +230,19 @@ Plugin Output
 - Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
 - Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
 
-Plugin Perfdata
----------------
+Plugin Performance Data, Perfdata
+---------------------------------
 
-UOM = Unit of Measurement
+"UOM" means "Unit of Measurement".
 
-Sample:
-
-::
+Sample::
 
     'label'=value[UOM];[warn];[crit];[min];[max];
 
-Perfdata value-suffixes:
+``label``  doesn't need to be machine friendly, so ``Pages scanned=100;;;;;`` is as valuable as ``pages-scanned=100;;;;;``.
 
-::
+
+Suffixes::
 
     no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
     s - seconds (also us, ms)
@@ -236,6 +251,7 @@ Perfdata value-suffixes:
     c - a continous counter (such as bytes transmitted on an interface)
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
+
 
 PEP8 Style Guide for Python Code
 --------------------------------
