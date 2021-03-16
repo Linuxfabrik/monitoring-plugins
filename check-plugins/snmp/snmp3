@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021031202'
+__version__ = '2021031601'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -69,7 +69,7 @@ def parse_args():
         '--device',
         help='The name of a device file containing the SNMP-OIDs, located under `./snmp-devices`, for example `switch_fs_s3900` or `printer_brother_mfcj5720dw`.',
         dest='DEVICE',
-        required=True,
+        default='any-any-any',
         )
 
     parser.add_argument(
@@ -212,12 +212,13 @@ def main():
     count = 0
     tmp = ''
     for snmp_object in snmp_objects[1:]:        # ignore the header row in csv
-        tmp += '{} '.format(snmp_object[CSV_COL_OID])
-        count += 1
-        if count == 128:
-            oids.append(tmp)
-            count = 0
-            tmp = ''
+        if snmp_object:
+            tmp += '{} '.format(snmp_object[CSV_COL_OID])
+            count += 1
+            if count == 128:
+                oids.append(tmp)
+                count = 0
+                tmp = ''
     if tmp:
         oids.append(tmp)
 
