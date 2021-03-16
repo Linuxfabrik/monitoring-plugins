@@ -150,5 +150,5 @@ All numeric values are automatically returned.
 Credits, License
 ----------------
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
 * License: The Unlicense, see LICENSE file.
