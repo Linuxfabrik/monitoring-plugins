@@ -62,9 +62,7 @@ Other examples:
 Defining a Device
 -----------------
 
-You have to define a list of OIDs that has to be fetched, including any calculations, warning and critical thresholds in a CSV file located at ``snmp-devices``. An example for nearly any device (``snmp-devices/devicetype-vendor-model``):
-
-::
+You have to define a list of OIDs that has to be fetched, including any calculations, warning and critical thresholds in a CSV file located at ``snmp-devices``. An example for nearly any device (``snmp-devices/devicetype-vendor-model``)::
 
     OID,                                Name       ,Re-Calc         ,Unit Label,WARN                 ,CRIT                 ,Show in 1st Line,Report Change as
     SNMPv2-MIB::sysName.0,              Name       ,                ,          ,                     ,                     ,                ,
