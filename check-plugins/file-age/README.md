@@ -21,6 +21,16 @@ We recommend to run this check every minute.
 # same thresholds, but recursive (might use a lot of memory)
 ./file-age --filename '/path/to/files/**/*' --warning 5 --critical 10
 
+# Check if an application creates at least 2 files every 10s, else throw a warning.
+# If it is missing for more than 20s, throw a critical.
+./file-age --filename '/path/to/files/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'
+
+# Check if an application removes files fast enough.
+# If there are more than 2 files in the last 10s, throw a warning.
+# If there are more than 3 files in the last 15s, throw a critical.
+# No files are ok.
+./file-age --filename '/path/to/files/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3
+
 ./file-age --help
 ```
 

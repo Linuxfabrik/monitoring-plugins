@@ -30,19 +30,26 @@ from traceback import print_exc
 import lib.args3
 import lib.base3
 import lib.smb3
-from lib.globals3 import STATE_OK, STATE_UNKNOWN
+from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+
+missing_smb_lib = False
+try:
+    import smbprotocol.exceptions
+except ImportError as e:
+    missing_smb_lib = 'smbclient'
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021031301'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
 
 DEFAULT_CRIT = 60*60*24*365     # sec
+DEFAULT_WARN = 60*60*24*30      # sec
+DEFAULT_CRIT_COUNT = 0
+DEFAULT_WARN_COUNT = 0
 DEFAULT_PATTERN = '*'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = 60*60*24*30      # sec
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -119,18 +126,30 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical age threshold in seconds. Default: >= %(default)ss (365d)',
+        help='Set the critical age threshold in seconds. Supports ranges. Default: >= %(default)ss (365d)',
         dest='CRIT',
-        type=lib.args3.float_or_none,
         default=DEFAULT_CRIT,
         )
 
     parser.add_argument(
+        '--critical-count',
+        help='Set the critical threshold for the number of critical matches found. Supports ranges. Default: > %(default)s',
+        dest='CRIT_COUNT',
+        default=DEFAULT_CRIT_COUNT,
+        )
+
+    parser.add_argument(
         '-w', '--warning',
-        help='Set the warning age threshold in seconds. Default: >= %(default)ss (30d)',
+        help='Set the warning age threshold in seconds. Supports ranges. Default: >= %(default)ss (30d)',
         dest='WARN',
-        type=lib.args3.float_or_none,
         default=DEFAULT_WARN,
+        )
+
+    parser.add_argument(
+        '--warning-count',
+        help='Set the warning threshold for the number of critical matches found. Supports ranges. Default: > %(default)s',
+        dest='WARN_COUNT',
+        default=DEFAULT_WARN_COUNT,
         )
 
     return parser.parse_args()
@@ -146,10 +165,11 @@ def main():
     if args.FILENAME and args.URL:
         lib.base3.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
 
-    state = STATE_OK
     now = lib.base3.now()
     msg = ''
     file_count = 0
+    crit_count = 0
+    warn_count = 0
 
     if args.FILENAME:
         path = Path(args.FILENAME)
@@ -160,8 +180,15 @@ def main():
                 continue
 
             age = (now - item.stat().st_mtime)
-            item_state = lib.base3.get_state(age, args.WARN, args.CRIT)
-            state = lib.base3.get_worst(item_state, state)
+            item_state = STATE_OK
+            # not using elif, as the item could contribute to both the warn_count and crit_count
+            if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):
+                item_state = STATE_WARN
+                warn_count += 1
+            if not lib.base3.coe(lib.base3.match_range(age, args.CRIT)):
+                item_state = STATE_CRIT
+                crit_count += 1
+
             file_count += 1
             msg += f'* {item}: {lib.base3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
 
@@ -173,28 +200,69 @@ def main():
 
         if proto == 'smb':
             for item in lib.base3.coe(lib.smb3.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
-                if item.is_file() and args.ONLY_DIRS:
-                    continue
-                if item.is_dir() and args.ONLY_FILES:
-                    continue
+                try:
+                    if item.is_file() and args.ONLY_DIRS:
+                        continue
+                    if item.is_dir() and args.ONLY_FILES:
+                        continue
 
-                age = (now - item.stat().st_mtime)
-                item_state = lib.base3.get_state(age, args.WARN, args.CRIT)
-                state = lib.base3.get_worst(item_state, state)
-                file_count += 1
-                msg += f'* {item.name}: {lib.base3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+                    age = (now - item.stat().st_mtime)
+                    item_state = STATE_OK
+                    # not using elif, as the item could contribute to both the warn_count and crit_count
+                    if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):
+                        item_state = STATE_WARN
+                        warn_count += 1
+                    if not lib.base3.coe(lib.base3.match_range(age, args.CRIT)):
+                        item_state = STATE_CRIT
+                        crit_count += 1
 
+                    file_count += 1
+                    msg += f'* {item.name}: {lib.base3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+                except smbprotocol.exceptions.SMBOSError:
+                    # it is normal that files disappear while reading
+                    pass
         else:
             lib.base3.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
 
-    if file_count == 0:
-        msg = 'No files found.'
-        lib.base3.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+    if not lib.base3.coe(lib.base3.match_range(crit_count, args.CRIT_COUNT)):
+        state = STATE_CRIT
+    elif not lib.base3.coe(lib.base3.match_range(warn_count, args.WARN_COUNT)):
+        state = STATE_WARN
+    else:
+        state = STATE_OK
 
     if state == STATE_OK:
-        msg = f'All {file_count} {lib.base3.pluralize("file", file_count)} are within the given time range (thresholds {lib.base3.seconds2human(args.WARN)}/{lib.base3.seconds2human(args.CRIT)}).\n\n' + msg
+        if warn_count == 0 and crit_count == 0:
+            msg = 'All {} {} are inside the timerange ({}/{}) and inside the allowed count ({}/{}).\n\n'.format(
+                file_count,
+                lib.base3.pluralize("file", file_count),
+                args.WARN,
+                args.CRIT,
+                args.WARN_COUNT,
+                args.CRIT_COUNT,
+            ) + msg
+        else:
+            msg = 'There are {}/{} out of {} {} outside the timerange ({}/{}) but inside the allowed count ({}/{})'.format(
+                warn_count,
+                crit_count,
+                file_count,
+                lib.base3.pluralize("file", file_count),
+                args.WARN,
+                args.CRIT,
+                args.WARN_COUNT,
+                args.CRIT_COUNT,
+            ) + msg
     else:
-        msg = f'Not all {file_count} {lib.base3.pluralize("file", file_count)} are within the given time range (thresholds {lib.base3.seconds2human(args.WARN)}/{lib.base3.seconds2human(args.CRIT)}).\n\n' + msg
+        msg = 'There are {}/{} out of {} {} outside the timerange ({}/{}) and outside the allowed count ({}/{})'.format(
+            warn_count,
+            crit_count,
+            file_count,
+            lib.base3.pluralize("file", file_count),
+            args.WARN,
+            args.CRIT,
+            args.WARN_COUNT,
+            args.CRIT_COUNT,
+        ) + msg
 
     # todo: perfdata?
     lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
