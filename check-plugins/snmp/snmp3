@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021031701'
+__version__ = '2021031702'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -37,8 +37,6 @@ import lib.disk3
 
 import argparse
 from traceback import print_exc
-
-from pprint import pprint
 
 
 CSV_COL_OID = 0
@@ -226,7 +224,6 @@ def main():
     # fetch the data: execute the shell command and return its result and exit code
     stdout = ''
     for oid in oids:
-        print(cmd.replace('_OIDS_', oid))
         tmp, stderr, retc = lib.base3.coe(
             lib.base3.shell_exec(cmd.replace('_OIDS_', oid)))
         if (stderr or retc != 0):
