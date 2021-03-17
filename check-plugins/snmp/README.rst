@@ -80,7 +80,17 @@ The columns in detail:
 * | Re-Calc
   | Feel free to use any Python Code based on the variable ``value``, which contains the result of the SNMPGET operation on the given OID.
 * | Unit
-  | The units ``s`` (seconds) and ``b`` (bytes) will be converted to a human-friendly format.
+  | This is the "Unit of Measurement", case-insensitiv.
+  |  * s - seconds (also us, ms)
+  |  * % - percentage
+  |  * B - bytes (also KB, MB, TB, ...)
+  |  * bps - bits per second (also Kbps, Mbps, ...)
+  |  * c - a continous counter (such as bytes transmitted on an interface)  
+  | If you provide two comma-separated units, for example "b,c", the first one will be used to display a human-readable format ("Bytes"), and the second one is used to suffix the perfdata ("continous counter").
+  | For output, the following units will always be converted to a human-friendly format:
+  | * s - seconds
+  | * b - bytes
+  | * bps - bits per second
 * | WARN
   | The warning threshold for the re-calculated or raw ``value``.
 * | CRIT
