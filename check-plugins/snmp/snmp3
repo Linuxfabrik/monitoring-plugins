@@ -38,6 +38,8 @@ import lib.disk3
 import argparse
 from traceback import print_exc
 
+from pprint import pprint
+
 
 CSV_COL_OID = 0
 CSV_COL_NAME = 1
@@ -175,7 +177,7 @@ def main():
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
     snmp_objects = lib.base3.coe(
-        lib.disk3.read_csv(os.path.join(plugin_path, 'snmp-devices/{}'.format(args.DEVICE)), as_dict=False)
+        lib.disk3.read_csv(os.path.join(plugin_path, 'snmp-devices/{}'.format(args.DEVICE)), as_dict=False, skip_empty_rows=True)
     )
     
     # build parameters for snmpget
@@ -212,19 +214,19 @@ def main():
     count = 0
     tmp = ''
     for snmp_object in snmp_objects[1:]:        # ignore the header row in csv
-        if snmp_object:
-            tmp += '{} '.format(snmp_object[CSV_COL_OID])
-            count += 1
-            if count == 128:
-                oids.append(tmp)
-                count = 0
-                tmp = ''
+        tmp += '{} '.format(snmp_object[CSV_COL_OID])
+        count += 1
+        if count == 128:
+            oids.append(tmp)
+            count = 0
+            tmp = ''
     if tmp:
         oids.append(tmp)
 
     # fetch the data: execute the shell command and return its result and exit code
     stdout = ''
     for oid in oids:
+        print(cmd.replace('_OIDS_', oid))
         tmp, stderr, retc = lib.base3.coe(
             lib.base3.shell_exec(cmd.replace('_OIDS_', oid)))
         if (stderr or retc != 0):
@@ -249,14 +251,20 @@ def main():
     # evaluate results
     for snmp_object in snmp_objects[1:]:
 
+        name = snmp_object[CSV_COL_NAME] if snmp_object[CSV_COL_NAME] else snmp_object[CSV_COL_OID]
+        oid = snmp_object[CSV_COL_OID]
         value = snmp_object[CSV_COL_VALUE]
         if value.lower().startswith('no such '):
             # No Such Instance currently exists at this OID
             # No Such Object available on this agent at this OID
+            table_values.append({
+                'name': oid,
+                'value': value,
+                'state': lib.base3.state2str(STATE_UNKNOWN),
+                })
+            state = lib.base3.get_worst(state, STATE_UNKNOWN)
             continue
 
-        oid = snmp_object[CSV_COL_OID]
-        name = snmp_object[CSV_COL_NAME] if snmp_object[CSV_COL_NAME] else snmp_object[CSV_COL_OID]
         recalc = snmp_object[CSV_COL_RECALC]
         unit = snmp_object[CSV_COL_UNIT]
         warn = snmp_object[CSV_COL_WARN]
@@ -283,7 +291,6 @@ def main():
                 check_state = False
         if check_state and report_change:
             cache_key = '{}::{}'.format(args.DEVICE, oid)
-            #cache_key = 'printer_brother_mfcj5720dw.csv::{}'.format(oid)
             cache_value = lib.cache3.get(cache_key)
             if cache_value:                 # there is a previous value
                 if cache_value != value:    # that is different from the current one
@@ -301,8 +308,13 @@ def main():
         if show_in_first_line:
             msg_header += '{}: {}{}, '.format(name, value if unit != 's' else lib.base3.seconds2human(value), unit if unit != 's' else '', lib.base3.state2str(value_state, empty_ok=False))
 
-        # create message body (a table)
+        # create message body (the table)
         if not args.HIDEOK or value_state:
+            if ',' in unit:
+                # b,c - convert the first part to human readable bytes, but suffix the perfdata as a continous counter
+                unit, perfdata_unit = unit.split(',')
+            else:
+                perfdata_unit = unit
             if unit == 's':
                 table_values.append({
                     'name': name,
@@ -315,6 +327,12 @@ def main():
                     'value': '{}{}'.format(lib.base3.bytes2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
+            elif unit.lower() == 'bps':
+                table_values.append({
+                    'name': name,
+                    'value': '{}{}'.format(lib.base3.bps2human(value), ''),
+                    'state': lib.base3.state2str(value_state, empty_ok=False),
+                    })
             else:
                 table_values.append({
                     'name': name,
@@ -325,11 +343,14 @@ def main():
         # create perfdata for numeric values
         value_type = lib.base3.guess_type(value)
         if isinstance(value_type, int) or isinstance(value_type, float):
-            if unit == '%':
+            if perfdata_unit == '%':
                 perfdata += lib.base3.get_perfdata(name, value, '%', None, None, 0, 100)
-            elif unit.lower() in ['c', 's', 'ms', 'us', 'b', 'kb', 'mb', 'gb', 'tb', 'pb', 'eb']:
-                perfdata += lib.base3.get_perfdata(name, value, unit, None, None, 0, None)
+            elif perfdata_unit.upper() in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
+                perfdata += lib.base3.get_perfdata(name, value, perfdata_unit.upper(), None, None, 0, None)
+            elif perfdata_unit.lower() in ['c', 's', 'ms', 'us',]:
+                perfdata += lib.base3.get_perfdata(name, value, perfdata_unit.lower(), None, None, 0, None)
             else:
+                # unknown perfdata suffixes, so do not use them
                 perfdata += lib.base3.get_perfdata(name, value, None, None, None, 0, None)
 
 
