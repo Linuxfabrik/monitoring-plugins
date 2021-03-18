@@ -26,9 +26,9 @@ Install ``snmpget``:
     # on CentOS:
     yum -y install net-snmp-utils
 
-If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs``, ``/usr/share/snmp/mibs`` or ``/usr/lib64/nagios/plugins/device-mibs/...``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``), and reference special ones using the ``--mib`` parameter (same syntax as the ``-M`` parameter of ``snmpget``).
+If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/share/snmp/mibs``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``). The checks comes with some predefined, device-dependend MIBs located at ``/usr/lib64/nagios/plugins/device-mibs/``.
 
-Create an OID list in ``/usr/lib64/nagios/plugins/device-oids`` using CSV format. For details, have a look at "Defining a Device" within this document.
+Create an OID list in ``/usr/lib64/nagios/plugins/device-oids/...`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
 
 Usage
@@ -40,19 +40,18 @@ A minimal command call:
 
     ./snmp --hostname 10.80.32.109
 
-The check then
+Calling this the check...
 
+#. fetches a set of most common SNMP OIDs like *Contact* or *Uptime*, defined in ``device-oids/any-any-any.csv``,
 #. calls ``snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs 10.80.32.109 OID1 OID2 ...``,
 #. parses the output,
-#. interprets the result and calculates the state.
+#. interprets the result and calculates the return state.
 
-Without further arguments, the check just parses some most common OIDs like *Contact* or *Uptime*, defined in ``device-oids/any-any-any.csv``.
-
-Other example using an additional MIB directory:
+Other example using a more specific OID list and an additional MIB directory:
 
 .. code-block:: bash
 
-    /usr/lib64/nagios/plugins/snmp3 \
+    /usr/lib64/nagios/plugins/snmp \
         --device switch-fs-s3900.csv \
         --mibdir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
         --hide-ok \
@@ -62,7 +61,7 @@ Other example using an additional MIB directory:
 Defining a Device
 -----------------
 
-You have to define a list of OIDs that should be fetched, including any calculations, warning and critical thresholds, in a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. An minimal example for nearly any device:
+You want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
 
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
 OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as
@@ -73,6 +72,8 @@ SNMPv2-MIB::sysContact.0  Contact
 SNMPv2-MIB::sysDescr.0    Description                                                                                          
 SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True             
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
+
+If more than 128 OIDs are used, the check automatically splits them into chunks of 128 OIDs per SNMPGET request.
 
 
 The columns in detail:
@@ -85,16 +86,20 @@ The columns in detail:
   | Feel free to use any Python Code based on the variable ``value``, which contains the result of the SNMPGET operation on the given OID.
 * | Unit
   | This is the "Unit of Measurement", case-insensitiv.
-  |  * s - seconds (also us, ms)
-  |  * % - percentage
-  |  * B - bytes (also KB, MB, TB, ...)
-  |  * bps - bits per second (also Kbps, Mbps, ...)
-  |  * c - a continous counter (such as bytes transmitted on an interface)  
+
+     * s - seconds (also us, ms)
+     * % - percentage
+     * B - bytes (also KB, MB, TB, ...)
+     * bps - bits per second (also Kbps, Mbps, ...)
+     * c - a continous counter (such as bytes transmitted on an interface)  
+
   | If you provide two comma-separated units, for example "b,c", the first one will be used to display a human-readable format ("Bytes"), and the second one is used to suffix the perfdata ("continous counter").
   | For output, the following units will always be converted to a human-friendly format:
-  | * s - seconds
-  | * b - bytes
-  | * bps - bits per second
+
+    * s - seconds
+    * b - bytes
+    * bps - bits per second
+
 * | WARN
   | The warning threshold for the re-calculated or raw ``value``.
 * | CRIT
@@ -118,7 +123,6 @@ The output would be something like this::
     Description Brother NC-350w [OK]  
     Uptime      5m 1w           [OK]|Uptime=13762718.93s;;;0;;
 
-Good to know: If more than 128 OIDs are used, the check automatically splits them into chunks of 128 OIDs per SNMPGET request max.
 
 
 Parameter Mapping
@@ -167,7 +171,7 @@ I get ``Too many object identifiers specified. Only 128 allowed in one request.`
     Probably your SNMP v3 parameters are incomplete or incorrect.
 
 I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``
-    There seems to be a malformed or duplicated MIB file in one of your MIB directories.
+    There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
 
 Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
     If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``TMPDIR/linuxfabrik-plugin-cache.db``. On the next run of the plugin, it will recreate the inventory.
