@@ -1,0 +1,1360 @@
+IEEE8021-PSFP-MIB DEFINITIONS ::= BEGIN
+
+-- =============================================================
+-- MIB for support of the Per-Stream Filtering and Policing
+-- Enhancements for IEEE 802.1Q Bridges.
+-- =============================================================
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Integer32,
+    Counter64
+        FROM SNMPv2-SMI
+    TruthValue, RowStatus
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    ieee802dot1mibs
+        FROM IEEE8021-TC-MIB
+    ieee8021BridgeBaseComponentId
+        FROM IEEE8021-BRIDGE-MIB
+    IEEE8021STPTPtimeValue
+        FROM IEEE8021-ST-MIB
+    ;
+
+ieee8021PSFPMib MODULE-IDENTITY
+    LAST-UPDATED "201806280000Z" -- June 28, 2018
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+        "  WG-URL: http://www.ieee802.org/1/
+         WG-EMail: stds-802-1-L@ieee.org
+
+          Contact: IEEE 802.1 Working Group Chair
+           Postal: C/O IEEE 802.1 Working Group
+                   IEEE Standards Association
+                   445 Hoes Lane
+                   Piscataway
+                   NJ 08854
+                   USA
+           E-mail: stds-802-1-L@ieee.org"
+    DESCRIPTION
+        "The Bridge MIB module for managing devices that support
+        the Per-Stream Filtering and Policing enhancements
+        for IEEE 802.1Q Bridges.
+
+        Unless otherwise indicated, the references in this MIB
+        module are to IEEE Std 802.1Q.
+
+        Copyright (C) IEEE (2018).
+        This version of this MIB module is part of IEEE Std 802.1Q;
+        see the draft itself for full legal notices."
+
+    REVISION "201806280000Z" -- June 28, 2018
+
+    DESCRIPTION
+            "Published as part of IEEE Std 802.1Q 2017 revision.
+            Cross references updated and corrected."
+
+     REVISION "201709080000Z" -- September 29, 2017
+    DESCRIPTION
+            "Initial version published as part of IEEE Std 802.1Qci."
+            
+       ::= { ieee802dot1mibs 31 } 
+
+
+-- =============================================================
+-- subtrees in the PSFP MIB
+-- =============================================================
+
+ieee8021PSFPNotifications
+    OBJECT IDENTIFIER ::= { ieee8021PSFPMib 0 }
+
+ieee8021PSFPObjects
+    OBJECT IDENTIFIER ::= { ieee8021PSFPMib 1 }
+
+ieee8021PSFPConformance
+    OBJECT IDENTIFIER ::= { ieee8021PSFPMib 2 }
+
+ieee8021PSFPStreamFilterParameters
+    OBJECT IDENTIFIER ::= { ieee8021PSFPObjects 1 }
+
+ieee8021PSFPStreamGateParameters
+    OBJECT IDENTIFIER ::= { ieee8021PSFPObjects 2 }
+
+ieee8021PSFPFlowMeterParameters
+    OBJECT IDENTIFIER ::= { ieee8021PSFPObjects 3 }
+
+ieee8021PSFPStreamParameters
+    OBJECT IDENTIFIER ::= { ieee8021PSFPObjects 4 }
+
+
+-- =============================================================
+-- The ieee8021PSFPStreamFilterParameters subtree
+-- This subtree defines the objects necessary for the management
+-- of the stream filters for IEEE Std 802.1Q.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021PSFPStreamFilterTable
+-- =============================================================
+
+ieee8021PSFPStreamFilterTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021PSFPStreamFilterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that contains the per-filter instance
+        manageable parameters for stream filters.
+
+        A row in the table exists for each stream filter instance.
+        associated with a Bridge component.
+
+        All writable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.5, 8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterParameters 1 }
+
+ieee8021PSFPStreamFilterEntry OBJECT-TYPE
+    SYNTAX      Ieee8021PSFPStreamFilterEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects that contains the manageable parameters for 
+        stream filters for a Bridge component."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021PSFPStreamFilterInstance
+           }
+    ::= { ieee8021PSFPStreamFilterTable 1 }
+
+Ieee8021PSFPStreamFilterEntry ::=
+    SEQUENCE {
+        ieee8021PSFPStreamFilterInstance
+            Unsigned32,
+        ieee8021PSFPStreamHandleSpec
+            Integer32,
+        ieee8021PSFPPrioritySpec
+            Integer32,
+        ieee8021PSFPStreamGateInstanceID
+            Unsigned32,
+        ieee8021PSFPFilterSpecificationList
+            OCTET STRING,
+        ieee8021PSFPMatchingFramesCount
+            Counter64,
+        ieee8021PSFPPassingFramesCount
+            Counter64,
+        ieee8021PSFPNotPassingFramesCount
+            Counter64,
+        ieee8021PSFPPassingSDUCount
+            Counter64,
+        ieee8021PSFPNotPassingSDUCount
+            Counter64,
+        ieee8021PSFPREDFramesCount
+            Counter64,
+        ieee8021PSFPStreamBlockedDueToOversizeFrameEnable
+            TruthValue,
+        ieee8021PSFPStreamBlockedDueToOversizeFrame
+            TruthValue,
+        ieee8021PSFPStreamFilterEntryRowStatus
+            RowStatus
+             }
+
+ieee8021PSFPStreamFilterInstance OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The StreamFilterInstance parameter is an index into the 
+        StreamFilterTable.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 1}
+
+ieee8021PSFPStreamHandleSpec OBJECT-TYPE
+    SYNTAX      Integer32 (-1..2147483647)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The StreamHandleSpec parameter contains a stream identifier 
+        specification value. A value of -1 denotes the wild card value;
+        all positive values denote stream identifier values.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 2}
+
+ieee8021PSFPPrioritySpec OBJECT-TYPE
+    SYNTAX      Integer32 (-1..2147483647)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The PrioritySpec parameter contains a priority 
+        specification value. A value of -1 denotes the wild card value;
+        zero or positive values denote priority values.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 3}
+
+ieee8021PSFPStreamGateInstanceID OBJECT-TYPE
+    SYNTAX      Unsigned32 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The StreamGateInstance parameter contains the index of an  
+        entry in the Stream Gate Table.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 4}
+
+ieee8021PSFPFilterSpecificationList OBJECT-TYPE
+    SYNTAX      OCTET STRING 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FilterSpecificationList parameter contains a list of  
+        filter specifications associated with this stream filter.
+
+        The octet string value represents the contents of the list as
+        an ordered list of entries, each encoded as a TLV, as follows.
+
+        The first octet  of each TLV is interpreted as an
+        unsigned integer representing a filter specification type:
+            0: Maximum SDU Size.
+            1: Flow meter instance identifier.
+            2-255: Reserved for future gate operations
+            
+        The second and third octets of the TLV are the length field, 
+        interpreted as an unsigned integer, indicating the number of
+        octets of the value that follows the length. A length of
+        zero indicates that there is no value 
+        (i.e., the filter specification has no parameters).
+        
+        The fourth through (4 + length -1)th octets encode the 
+        parameters of the filter specification, as defined for each
+        filter specification type.
+        
+        - Maximum SDU Size:
+            A single SDU size parameter is encoded in four octets, and
+            is interpreted as an unsigned integer value.
+            
+        - Flow meter instance identifier:
+            A single flow meter instance identifier is encoded in
+            four octets, and is interpreted as an unsigned integer value.
+             
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 5}
+
+ieee8021PSFPMatchingFramesCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The MatchingFramesCount counter counts received frames that
+        match this stream filter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 6}
+
+ieee8021PSFPPassingFramesCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PassingFramesCount counter counts received frames that
+        pass the gate associated with this stream filter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 7}
+
+ieee8021PSFPNotPassingFramesCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The NotPassingFramesCount counter counts received frames that
+        do not pass the gate associated
+        with this stream filter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 8}
+
+ieee8021PSFPPassingSDUCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The  PassingSDUCount counter counts received frames that
+        pass the SDU size filter specification associated
+        with this stream filter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 9}
+
+ieee8021PSFPNotPassingSDUCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The  NotPassingSDUCount counter counts received frames that
+        do not pass the SDU size filter specification associated
+        with this stream filter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 10}
+
+ieee8021PSFPREDFramesCount OBJECT-TYPE
+    SYNTAX      Counter64 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The REDFramesCount counter counts received
+         frames that were discarded as a result of the
+         operation of the flow meter.
+        "
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamFilterEntry 11}
+
+ieee8021PSFPStreamBlockedDueToOversizeFrameEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The ieee8021PSFPStreamBlockedDueToOversizeFrameEnable object 
+        contains a Boolean value that indicates whether the 
+        ieee8021PSFPStreamBlockedDueToOversizeFrame function is
+        enabled (TRUE) or disabled (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.1, 12.31.2"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamFilterEntry 12 }
+
+ieee8021PSFPStreamBlockedDueToOversizeFrame OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The ieee8021PSFPStreamBlockedDueToOversizeFrame object 
+        contains a Boolean value that indicates whether, if the
+        ieee8021PSFPStreamBlockedDueToOversizeFrame function is 
+        enabled, all frames are to be discarded (TRUE) 
+        or not (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.1, 12.31.2"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamFilterEntry 13 }
+
+ieee8021PSFPStreamFilterEntryRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of the row.
+
+         The writable columns in a row cannot be changed if the row
+         is active. All columns MUST have a valid value before a row
+         can be activated.
+        "
+    ::= { ieee8021PSFPStreamFilterEntry 14 }
+
+
+-- =============================================================
+-- The ieee8021PSFPStreamGateParameters subtree
+-- This subtree defines the objects necessary for the management
+-- of the stream gate scheduling mechanism for IEEE Std 802.1Q.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021PSFPStreamGateTable
+-- =============================================================
+
+ieee8021PSFPStreamGateTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021PSFPStreamGateEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that contains the per-gate instance
+        manageable parameters for stream gate scheduling.
+
+        For a given Bridge component, a row in the table exists for
+        each stream gate instance.
+
+        All writable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateParameters 1 }
+
+ieee8021PSFPStreamGateEntry OBJECT-TYPE
+    SYNTAX      Ieee8021PSFPStreamGateEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects that contains the manageable parameters for 
+        stream gate scheduling for a Bridge component."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021PSFPStreamGateInstance
+           }
+    ::= { ieee8021PSFPStreamGateTable 1 }
+
+Ieee8021PSFPStreamGateEntry ::=
+    SEQUENCE {
+        ieee8021PSFPStreamGateInstance
+            Unsigned32,
+        ieee8021PSFPGateEnabled
+            TruthValue,
+        ieee8021PSFPAdminGateStates
+            INTEGER,
+        ieee8021PSFPOperGateStates
+            INTEGER,
+        ieee8021PSFPAdminControlListLength
+            Unsigned32,
+        ieee8021PSFPOperControlListLength
+            Unsigned32,
+        ieee8021PSFPAdminControlList
+            OCTET STRING,
+        ieee8021PSFPOperControlList
+            OCTET STRING,
+        ieee8021PSFPAdminCycleTimeNumerator
+            Unsigned32,
+        ieee8021PSFPAdminCycleTimeDenominator
+            Unsigned32,
+        ieee8021PSFPOperCycleTimeNumerator
+            Unsigned32,
+        ieee8021PSFPOperCycleTimeDenominator
+            Unsigned32,
+        ieee8021PSFPAdminCycleTimeExtension
+            Unsigned32,
+        ieee8021PSFPOperCycleTimeExtension
+            Unsigned32,
+        ieee8021PSFPAdminBaseTime
+            IEEE8021STPTPtimeValue,
+        ieee8021PSFPOperBaseTime
+            IEEE8021STPTPtimeValue,
+        ieee8021PSFPConfigChange
+            TruthValue,
+        ieee8021PSFPConfigChangeTime
+            IEEE8021STPTPtimeValue,
+        ieee8021PSFPTickGranularity
+            Unsigned32,
+        ieee8021PSFPCurrentTime
+            IEEE8021STPTPtimeValue,
+        ieee8021PSFPConfigPending
+            TruthValue,
+        ieee8021PSFPConfigChangeError
+            Counter64,
+        ieee8021PSFPAdminIPV
+            Integer32,
+        ieee8021PSFPOperIPV
+            Integer32,
+        ieee8021PSFPGateClosedDueToInvalidRxEnable
+            TruthValue,
+        ieee8021PSFPGateClosedDueToInvalidRx
+            TruthValue,
+        ieee8021PSFPGateClosedDueToOctetsExceededEnable
+            TruthValue,
+        ieee8021PSFPGateClosedDueToOctetsExceeded
+            TruthValue,
+ieee8021PSFPStreamGateEntryRowStatus
+            RowStatus
+            }
+
+ieee8021PSFPStreamGateInstance OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The StreamGateInstance parameter is an index into the 
+        StreamGateTable.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.2, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 1}
+
+ieee8021PSFPGateEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The GateEnabled parameter determines whether the stream gate
+        is active (true) or inactive (false).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamGateEntry 2}
+
+ieee8021PSFPAdminGateStates OBJECT-TYPE
+    SYNTAX      INTEGER { open(1), closed(2) }
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the GateStates parameter for the
+        stream gate.
+        The open value indicates that the gate is open, 
+        the closed value indicates that the gate is closed.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 3 }
+
+ieee8021PSFPOperGateStates OBJECT-TYPE
+    SYNTAX      INTEGER { open(1), closed(2) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the GateStates parameter for the
+        stream gate.
+        The open value indicates that the gate is open, 
+        the closed value indicates that the gate is closed.
+"
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 4 }
+
+ieee8021PSFPAdminControlListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the ListMax parameter for the gate.
+        The integer value indicates the number of entries (TLVs) in the
+        AdminControlList.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 5 }
+
+ieee8021PSFPOperControlListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the ListMax parameter for the gate.
+        The integer value indicates the number of entries (TLVs) in the
+        OperControlList."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 6 }
+
+ieee8021PSFPAdminControlList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the ControlList parameter for the gate.
+        The octet string value represents the contents of the control list as
+        an ordered list of entries, each encoded as a TLV, as follows.
+        The first octet  of each TLV is interpreted as an
+        unsigned integer representing a gate operation name:
+            0: SetGateAndIPV
+            1-255: Reserved for future gate operations
+            
+        The second octet of the TLV is the length field, 
+        interpreted as an unsigned integer, indicating the number of
+        octets of the value that follows the length. A length of
+        zero indicates that there is no value 
+        (i.e., the gate operation has no parameters).
+        
+        The third through (3 + length -1)th octets encode the 
+        parameters of the gate operation, in the order that they 
+        appear in the definition of the operation
+        in Table 8-4. Three parameter types are defined:
+        
+        - StreamGateState:
+            A GateState parameter is encoded in a single octet, and
+            is interpreted as an integer value.
+            The value 1 indicates open; the value 2 indicates closed.
+            
+        - IPV:
+            An IPV is encoded in four octets as a 32-bit 
+            signed integer. A negative denotes the null value;
+            zero or positive values denote internal priority values.
+            
+        - TimeInterval: 
+            A TimeInterval is encoded in 4 octets as a 32-bit 
+            unsigned integer, representing a number of nanoseconds.
+            The first octet encodes the most significant 8 bits of the 
+            integer, and the fourth octet encodes the least 
+            significant 8 bits.
+        - IntervalOctetMax:
+            An integer representing the maximum number of MSDU octets 
+            that are permitted to pas the gate during the specified
+            TimeInterval. If this parameter is omitted, there is
+            no maximum.
+        
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 7 }
+
+ieee8021PSFPOperControlList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the ControlList parameter for the gate.
+        The octet string value represents the contents of the control list as
+        an ordered list of entries, each encoded as a TLV, as follows.
+        The first octet  of each TLV is interpreted as an
+        unsigned integer representing a gate operation name:
+            0: SetGateAndIPV
+            1-255: Reserved for future gate operations
+            
+        The second octet of the TLV is the length field, 
+        interpreted as an unsigned integer, indicating the number of
+        octets of the value that follows the length. A length of
+        zero indicates that there is no value 
+        (i.e., the gate operation has no parameters).
+        
+        The third through (3 + length -1)th octets encode the 
+        parameters of the gate operation, in the order that they 
+        appear in the definition of the operation
+        in Table 8-4. Three parameter types are defined:
+        
+        - StreamGateState:
+            A GateState parameter is encoded in a single octet, and
+            is interpreted as an integer value.
+            The value 1 indicates open; the value 2 indicates closed.
+            
+        - IPV:
+            An IPV is encoded in four octets as a 32-bit 
+            signed integer. A negative value denotes the null value;
+            zero and positive values denote internal priority values.
+            
+        - TimeInterval: 
+            A TimeInterval is encoded in 4 octets as a 32-bit 
+            unsigned integer, representing
+            a number of nanoseconds. The first octet encodes the
+            most significant 8 bits of the integer, and the fourth
+            octet encodes the least significant 8 bits.
+        - IntervalOctetMax:
+            An integer representing the maximum number of MSDU octets 
+            that are permitted to pas the gate during the specified
+            TimeInterval. If this parameter is omitted, there is
+            no maximum.
+        "
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 8 }
+
+ieee8021PSFPAdminCycleTimeNumerator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the numerator of the CycleTime
+        parameter for the gate.
+        The numerator and denominator together represent the cycle time as
+        a rational number of seconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 9 }
+
+ieee8021PSFPAdminCycleTimeDenominator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the denominator of the 
+        CycleTime parameter for the gate.
+        The numerator and denominator together represent the cycle time as
+        a rational number of seconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 10 }
+
+ieee8021PSFPOperCycleTimeNumerator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the numerator of the 
+        CycleTime parameter for the gate.
+        The numerator and denominator together represent the cycle
+        time as a rational number of seconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 11 }
+
+ieee8021PSFPOperCycleTimeDenominator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the denominator of the 
+        CycleTime parameter for the gate.
+        The numerator and denominator together represent the 
+        cycle time as a rational number of seconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 12 }
+
+ieee8021PSFPAdminCycleTimeExtension OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "nanoseconds"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the CycleTimeExtension 
+        parameter for the gate. 
+        The value is an unsigned integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 13 }
+
+ieee8021PSFPOperCycleTimeExtension OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "nanoseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the CycleTimeExtension
+        parameter for the gate.
+        The value is an unsigned integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 14 }
+
+ieee8021PSFPAdminBaseTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the BaseTime parameter for the gate.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 15 }
+
+ieee8021PSFPOperBaseTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operationsl value of the BaseTime parameter for the gate.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 16 }
+    
+ieee8021PSFPConfigChange OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The ConfigChange parameter signals the start of a 
+        configuration change for the gate
+        when it is set to TRUE. This should only be done
+        when the various administrative parameters
+        are all set to appropriate values."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 17 }
+
+ieee8021PSFPConfigChangeTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PTPtime at which the next config change is scheduled to occur.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 18 }
+
+    ieee8021PSFPTickGranularity OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The granularity of the cycle time clock, represented as an
+        unsigned number of tenths of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 19 }
+
+ ieee8021PSFPCurrentTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The current time, in PTPtime, as maintained by the local system.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 20 }
+
+ ieee8021PSFPConfigPending OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the ConfigPending state machine variable.
+        The value is TRUE if a configuration change is in progress
+        but has not yet completed."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 21 }
+
+ ieee8021PSFPConfigChangeError OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter of the number of times that a re-configuration
+        of the traffic schedule has been requested with the old
+        schedule still running and the requested base time was
+        in the past."
+    REFERENCE   "8.6.8.4, 8.6.9.3, 8.6.9.1.1, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 23 }
+
+ieee8021PSFPAdminIPV OBJECT-TYPE
+    SYNTAX      Integer32 (-1..2147483647)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the IPV parameter for the gate.
+        A value of -1 denotes the null value.
+        "
+    REFERENCE   "8.6.5.1.2, 8.6.10, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 24 }
+
+ieee8021PSFPOperIPV OBJECT-TYPE
+    SYNTAX      Integer32 (-1..2147483647)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the IPV parameter for the gate.
+        A value of -1 denotes the null value.
+        "
+    REFERENCE   "8.6.5.1.2, 8.6.10, 12.31.3"
+    ::= { ieee8021PSFPStreamGateEntry 25 }
+
+ieee8021PSFPGateClosedDueToInvalidRxEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The PSFPGateClosedDueToInvalidRxEnable object contains
+        a Boolean value that indicates whether the 
+        PSFPGateClosedDueToInvalidRx function is enabled (TRUE) or
+        disabled (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.2, 12.31.3"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamGateEntry 26}
+
+ieee8021PSFPGateClosedDueToInvalidRx OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The PSFPGateClosedDueToInvalidRx object contains
+        a Boolean value that indicates whether, if the
+        PSFPGateClosedDueToInvalidRx function is enabled, 
+        all frames are to be discarded (TRUE) or not (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.2, 12.31.3"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamGateEntry 27}
+
+ieee8021PSFPGateClosedDueToOctetsExceededEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The PSFPGateClosedDueToOctetsExceededEnable object contains
+        a Boolean value that indicates whether the
+        PSFPGateClosedDueToOctetsExceeded function is enabled (TRUE)
+        or disabled (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.2, 12.31.3"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamGateEntry 28}
+
+ieee8021PSFPGateClosedDueToOctetsExceeded OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The PSFPGateClosedDueToOctetsExceeded parameter contains
+        a Boolean value that indicates whether, if the 
+        PSFPGateClosedDueToOctetsExceeded function is enabled, all 
+        frames are to be discarded (TRUE) or not (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.2, 12.31.3"
+    DEFVAL { false }
+    ::= { ieee8021PSFPStreamGateEntry 29}
+
+
+ieee8021PSFPStreamGateEntryRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of the row.
+
+         The writable columns in a row cannot be changed if the row
+         is active. All columns MUST have a valid value before a row
+         can be activated.
+        "
+    ::= { ieee8021PSFPStreamGateEntry 30 }
+
+
+    
+-- =============================================================
+-- The ieee8021PSFPFlowMeterParameters subtree
+-- This subtree defines the objects necessary for the management
+-- of the flow meters for IEEE Std 802.1Q.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021PSFPFlowMeterTable
+-- =============================================================
+
+ieee8021PSFPFlowMeterTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021PSFPFlowMeterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that contains the per-meter instance
+        manageable parameters for flow meters.
+
+        For a given Bridge component, a row in the table exists for
+        each flow meter instance.
+
+        All writable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.5, 8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterParameters 1 }
+
+ieee8021PSFPFlowMeterEntry OBJECT-TYPE
+    SYNTAX      Ieee8021PSFPFlowMeterEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects that contains the manageable parameters for 
+        flow meters for a Bridge component."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021PSFPFlowMeterInstance
+           }
+    ::= { ieee8021PSFPFlowMeterTable 1 }
+
+Ieee8021PSFPFlowMeterEntry ::=
+    SEQUENCE {
+        ieee8021PSFPFlowMeterInstance
+            Unsigned32,
+        ieee8021PSFPFlowMeterCIR
+            Unsigned32,
+        ieee8021PSFPFlowMeterCBS
+            Unsigned32,
+        ieee8021PSFPFlowMeterEIR
+            Unsigned32,
+        ieee8021PSFPFlowMeterEBS
+            Unsigned32,
+        ieee8021PSFPFlowMeterCF
+            Integer32,
+        ieee8021PSFPFlowMeterCM
+            INTEGER,
+        ieee8021PSFPFlowMeterDropOnYellow
+            TruthValue,
+        ieee8021PSFPFlowMeterMarkAllFramesRedEnable
+            TruthValue,
+        ieee8021PSFPFlowMeterMarkAllFramesRed
+            TruthValue,
+        ieee8021PSFPFlowMeterEntryRowStatus
+            RowStatus
+             }
+
+ieee8021PSFPFlowMeterInstance OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterInstance parameter is an index into the 
+        FlowMeterTable.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 1}
+
+ieee8021PSFPFlowMeterCIR OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterCIR parameter contains an integer value that
+        represents the CIR value for the flow meter, in bit/second.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 2}
+
+ieee8021PSFPFlowMeterCBS OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterCBS parameter contains an integer value that
+        represents the CBS value for the flow meter, in octets.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 3}
+
+ieee8021PSFPFlowMeterEIR OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterEIR parameter contains an integer value that
+        represents the EIR value for the flow meter, in bit/second.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 4}
+
+ieee8021PSFPFlowMeterEBS OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterEBS parameter contains an integer value that
+        represents the EBS value for the flow meter, in octets.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 5}
+
+ieee8021PSFPFlowMeterCF OBJECT-TYPE
+    SYNTAX      Integer32 (0..1)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterCF parameter contains an integer value that
+        represents the CF value for the flow meter, as an integer
+        value 0 or 1.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 6}
+
+ieee8021PSFPFlowMeterCM OBJECT-TYPE
+    SYNTAX      INTEGER  {colorBlind(1), colorAware(2)}
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterCM parameter contains an integer value that
+        represents the CM value for the flow meter, as an enumerated
+        value indicating colorBlind(1) or colorAware(2).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 7}
+
+ieee8021PSFPFlowMeterDropOnYellow OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterDropOnYellow parameter contains a Boolean value that
+        indicates whether yellow frames are dropped (TRUE) or
+        have drop_eligible set to TRUE (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPFlowMeterEntry 8}
+
+ieee8021PSFPFlowMeterMarkAllFramesRedEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterMarkAllFramesRedEnable parameter contains
+        a Boolean value that indicates whether the MarkAllFramesRed
+        function is enabled (TRUE) or disabled (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.3, 12.31.4"
+    DEFVAL { false }
+    ::= { ieee8021PSFPFlowMeterEntry 9}
+
+ieee8021PSFPFlowMeterMarkAllFramesRed OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The FlowMeterMarkAllFramesRed parameter contains
+        a Boolean value that indicates whether, if the 
+        MarkAllFramesRed function is enabled, all frames are to
+        be discarded (TRUE) or not (FALSE).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.5.1, 8.6.5.1.3, 12.31.4"
+    DEFVAL { false }
+    ::= { ieee8021PSFPFlowMeterEntry 10}
+
+ieee8021PSFPFlowMeterEntryRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus 
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The status of the row.
+
+         The writable columns in a row cannot be changed if the row
+         is active. All columns MUST have a valid value before a row
+         can be activated.
+        "
+    ::= { ieee8021PSFPFlowMeterEntry 11 }
+
+
+
+    
+-- =============================================================
+-- The ieee8021PSFPStreamParameters subtree
+-- This subtree defines the objects necessary for the management
+-- of the flow meters for IEEE Std 802.1Q.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021PSFPStreamParameterTable
+-- =============================================================
+
+ieee8021PSFPStreamParameterTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021PSFPStreamParameterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that contains per-Bridge component
+        manageable parameters for PSFP.
+
+        A row in the table exists for each Bridge component.
+
+        All writable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.5, 8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPStreamParameters 1 }
+
+ieee8021PSFPStreamParameterEntry OBJECT-TYPE
+    SYNTAX      Ieee8021PSFPStreamParameterEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects that contains the manageable parameters for 
+        flow meters for a Bridge component."
+    INDEX  { ieee8021BridgeBaseComponentId
+           }
+    ::= { ieee8021PSFPStreamParameterTable 1 }
+
+Ieee8021PSFPStreamParameterEntry ::=
+    SEQUENCE {
+        ieee8021PSFPMaxStreamFilterInstances
+            Unsigned32,
+        ieee8021PSFPMaxStreamGateInstances
+            Unsigned32,
+        ieee8021PSFPMaxFlowMeterInstances
+            Unsigned32,
+        ieee8021PSFPSupportedListMax
+            Unsigned32
+             }
+
+ieee8021PSFPMaxStreamFilterInstances OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The MaxStreamFilterInstances parameter defines the 
+        maximum number of stream filter instances that are
+        supported by this Bridge component."
+    REFERENCE   "8.6.5.1, 12.31.2"
+    ::= { ieee8021PSFPStreamParameterEntry 1}
+
+ieee8021PSFPMaxStreamGateInstances OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The MaxStreamGateInstances parameter defines the 
+        maximum number of stream gate instances that are
+        supported by this Bridge component."
+    REFERENCE   "8.6.5.1, 12.31.3"
+    ::= { ieee8021PSFPStreamParameterEntry 2}
+
+ieee8021PSFPMaxFlowMeterInstances OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The MaxFlowMeterInstances parameter defines the 
+        maximum number of flow meter instances that are
+        supported by this Bridge component."
+    REFERENCE   "8.6.5.1, 12.31.4"
+    ::= { ieee8021PSFPStreamParameterEntry 3}
+
+ieee8021PSFPSupportedListMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The SupportedListMax parameter defines the 
+        The maximum value supported by this Bridge component of
+        the AdminControlListLength and
+        OperControlListLength parameters."
+    REFERENCE   "8.6.5.1, 12.31.3"
+    ::= { ieee8021PSFPStreamParameterEntry 4}
+
+
+-- =============================================================
+-- IEEE8021 PSFP MIB - Conformance Information
+-- =============================================================
+
+ieee8021PSFPCompliances
+    OBJECT IDENTIFIER ::= { ieee8021PSFPConformance 1 }
+ieee8021PSFPGroups
+    OBJECT IDENTIFIER ::= { ieee8021PSFPConformance 2 }
+
+-- =============================================================
+-- units of conformance
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021PSFPObjectsGroup group
+-- =============================================================
+
+ieee8021PSFPObjectsGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021PSFPStreamHandleSpec,
+        ieee8021PSFPPrioritySpec,
+        ieee8021PSFPStreamGateInstanceID,
+        ieee8021PSFPFilterSpecificationList,
+        ieee8021PSFPMatchingFramesCount,
+        ieee8021PSFPPassingFramesCount,
+        ieee8021PSFPNotPassingFramesCount,
+        ieee8021PSFPPassingSDUCount,
+        ieee8021PSFPNotPassingSDUCount,
+        ieee8021PSFPREDFramesCount,
+        ieee8021PSFPStreamBlockedDueToOversizeFrameEnable,
+        ieee8021PSFPStreamBlockedDueToOversizeFrame,
+        ieee8021PSFPStreamFilterEntryRowStatus,
+        ieee8021PSFPGateEnabled,
+        ieee8021PSFPAdminGateStates,
+        ieee8021PSFPOperGateStates,
+        ieee8021PSFPAdminControlListLength,
+        ieee8021PSFPOperControlListLength,
+        ieee8021PSFPAdminControlList,
+        ieee8021PSFPOperControlList,
+        ieee8021PSFPAdminCycleTimeNumerator,
+        ieee8021PSFPAdminCycleTimeDenominator,
+        ieee8021PSFPOperCycleTimeNumerator,
+        ieee8021PSFPOperCycleTimeDenominator,
+        ieee8021PSFPAdminCycleTimeExtension,
+        ieee8021PSFPOperCycleTimeExtension,
+        ieee8021PSFPAdminBaseTime,
+        ieee8021PSFPOperBaseTime,
+        ieee8021PSFPConfigChange,
+        ieee8021PSFPConfigChangeTime,
+        ieee8021PSFPTickGranularity,
+        ieee8021PSFPCurrentTime,
+        ieee8021PSFPConfigPending,
+        ieee8021PSFPConfigChangeError,
+        ieee8021PSFPAdminIPV,
+        ieee8021PSFPOperIPV,
+        ieee8021PSFPGateClosedDueToInvalidRxEnable,
+        ieee8021PSFPGateClosedDueToInvalidRx,
+        ieee8021PSFPGateClosedDueToOctetsExceededEnable,
+        ieee8021PSFPGateClosedDueToOctetsExceeded,
+        ieee8021PSFPStreamGateEntryRowStatus,
+        ieee8021PSFPFlowMeterCIR,
+        ieee8021PSFPFlowMeterCBS,
+        ieee8021PSFPFlowMeterEIR,
+        ieee8021PSFPFlowMeterEBS,
+        ieee8021PSFPFlowMeterCF,
+        ieee8021PSFPFlowMeterCM,
+        ieee8021PSFPFlowMeterDropOnYellow,
+        ieee8021PSFPFlowMeterMarkAllFramesRedEnable,
+        ieee8021PSFPFlowMeterMarkAllFramesRed,
+        ieee8021PSFPFlowMeterEntryRowStatus,
+        ieee8021PSFPMaxStreamFilterInstances,
+        ieee8021PSFPMaxStreamGateInstances,
+        ieee8021PSFPMaxFlowMeterInstances,
+        ieee8021PSFPSupportedListMax
+        }
+
+    STATUS      current
+    DESCRIPTION
+        "Objects that allow management of PSFP."
+    ::= { ieee8021PSFPGroups 1 }
+
+
+-- =============================================================
+-- compliance statements
+-- =============================================================
+
+ieee8021PSFPCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for devices supporting 
+        PSFP. 
+
+        Support of the objects defined in this MIB module
+        also requires support of the IEEE8021-BRIDGE-MIB; the
+        provisions of 17.3.2 apply to implementations claiming
+        support of this MIB. "
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+            ieee8021PSFPObjectsGroup
+        }
+
+    ::= { ieee8021PSFPCompliances 1 }
+
+END

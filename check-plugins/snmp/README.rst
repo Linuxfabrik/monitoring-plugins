@@ -12,7 +12,7 @@ This check utilizes ``snmpget`` to query for information on a network entity, so
 
     * If you can use an agent of your monitoring software for monitoring, for example the Icinga agent, do it.
     * If you can't install an agent, but there is a good (REST-)API available, use that.
-    * If you can't install an agent on a device and there is no good API, then use SNMP.
+    * If you can't install an agent on a device and there is no (good) API, then use SNMP.
     * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low.
 
 
@@ -25,9 +25,9 @@ Install ``snmpget``. On CentOS:
 
     yum -y install net-snmp-utils
 
-If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs``, ``/usr/share/snmp/mibs`` or ``/usr/lib64/nagios/plugins/snmp-mibs``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``).
+If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs``, ``/usr/share/snmp/mibs`` or ``/usr/lib64/nagios/plugins/snmp-mibs``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``), and reference special ones using the ``--mib`` parameter (same syntax as the ``-M`` parameter of ``snmpget``).
 
-Create an OID list in ``/usr/lib64/nagios/plugins/snmp-devices`` using CSV format. For details, have a look at "Defining a Device" within this document.
+Create an OID list in ``/usr/lib64/nagios/plugins/device-oids`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
 
 Usage
@@ -39,37 +39,37 @@ A minimal command call:
 
     ./snmp --hostname 10.80.32.109
 
-This just parses some most common attributes like *Contact* or *Uptime*, defined in ``snmp-devices/any-any-any``.
+The check then
 
-.. code-block:: bash
-
-    ./snmp --device switch-fs-s3900 --hostname 10.80.32.109 --mib +FS-MIB
-
-With this, the check
-
-#. calls ``snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs -m +FS-MIB 10.80.32.109 OID1 OID2 ...``,
+#. calls ``snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs 10.80.32.109 OID1 OID2 ...``,
 #. parses the output,
 #. interprets the result and calculates the state.
 
-Other examples:
+Without further arguments, the check just parses some most common OIDs like *Contact* or *Uptime*, defined in ``device-oids/any-any-any.csv``.
+
+Other example using an additional MIB directory:
 
 .. code-block:: bash
 
-    # snmp v2
-    ./snmp --device switch-fs-s3900 --snmpversion 2c --community public --hostname 10.80.32.109 --mib +FS-MIB
+    /usr/lib64/nagios/plugins/snmp3 \
+        --device switch-fs-s3900.csv \
+        --mibdir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
+        --hide-ok \
+        --hostname 10.80.32.109
 
 
 Defining a Device
 -----------------
 
-You have to define a list of OIDs that has to be fetched, including any calculations, warning and critical thresholds in a CSV file located at ``snmp-devices``. An example for nearly any device (``snmp-devices/devicetype-vendor-model``)::
+You have to define a list of OIDs that should be fetched, including any calculations, warning and critical thresholds, in a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. An minimal example for nearly any device in a human readable format::
 
-    OID,                                Name       ,Re-Calc         ,Unit Label,WARN                 ,CRIT                 ,Show in 1st Line,Report Change as
-    SNMPv2-MIB::sysName.0,              Name       ,                ,          ,                     ,                     ,                ,
-    SNMPv2-MIB::sysLocation.0,          Location   ,                ,          ,                     ,                     ,                ,WARN
-    SNMPv2-MIB::sysContact.0,           Contact    ,                ,          ,                     ,                     ,                ,
-    SNMPv2-MIB::sysDescr.0,             Description,                ,          ,                     ,                     ,                ,
-    DISMAN-EVENT-MIB::sysUpTimeInstance,Uptime     ,int(value) / 100,s         ,value > 4*365*24*3600,value > 5*365*24*3600,True            ,
+    OID                       | Name        | Re-Calc          | Unit Label | WARN                  | CRIT                  | Show in 1st Line | Report Change as
+    --------------------------+-------------+------------------+------------+-----------------------+-----------------------+------------------+-----------------
+    SNMPv2-MIB::sysName.0     | Name        |                  |            |                       |                       |                  | 
+    SNMPv2-MIB::sysLocation.0 | Location    |                  |            |                       |                       |                  | WARN
+    SNMPv2-MIB::sysContact.0  | Contact     |                  |            |                       |                       |                  | 
+    SNMPv2-MIB::sysDescr.0    | Description |                  |            |                       |                       |                  | 
+    SNMPv2-MIB::sysUpTime.0   | Uptime      | int(value) / 100 | s          | value > 4*365*24*3600 | value > 5*365*24*3600 | True             | 
 
 The columns in detail:
 
@@ -98,9 +98,9 @@ The columns in detail:
 * | Show in first line
   | Should ``value`` be printed in the first line of the check output?
 * | Report Change as
-  | Should a change of ``value`` be reported as WARN or CRIT? The check stores the initial values in ``TMPDIR/linuxfabrik-plugin-cache.db``.
+  | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``TMPDIR/linuxfabrik-plugin-cache.db``.
 
-The ``value`` returned by ``snmpget`` for a given *OID* is always a string. If you want to use it as an Integer, re-calculate it by specifying ``int(value)`` in column.
+The ``value`` returned by ``snmpget`` for a given *OID* is always a string. If you want to use it as an Integer, re-calculate it by specifying ``int(value)`` in column (SNMP knows nothing about floats).
 
 The output would be something like this::
 
@@ -117,6 +117,31 @@ The output would be something like this::
 Good to know: If more than 128 OIDs are used, the check automatically splits them into chunks of 128 OIDs per SNMPGET request max.
 
 
+Parameter Mapping
+-----------------
+
+=================  ========================================================
+``snmpget``        This check
+=================  ========================================================
+``-v 1|2c|3``      ``--snmpversion {1,2c,3}``
+``-c COMMUNITY``   ``--community COMMUNITY``
+``-a PROTOCOL``    ``--v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}``
+``-A PASSPHRASE``  ``--v3authprotpassword V3AUTHPROTPASSWORD``
+``-e ENGINE-ID``   ``--v3securityengineid V3SECURITYENGINEID``
+``-E ENGINE-ID``   ``--v3contextengineid V3CONTEXTENGINEID``
+``-l LEVEL``       ``--v3level {noAuthNoPriv,authNoPriv,authPriv}``
+``-n CONTEXT``     ``--v3context V3CONTEXT``
+``-u USER-NAME``   ``--v3username V3USERNAME``
+``-x PROTOCOL``    ``--v3privprot {DES,AES,AES-192,AES-256}``
+``-X PASSPHRASE``  ``--v3privprotpassword V3PRIVPROTPASSWORD``
+``-Z BOOTS,TIME``  ``--v3bootstime V3BOOTSTIME``
+``-r RETRIES``     hard-coded to ``0``
+``-t TIMEOUT``     ``-t TIMEOUT``, ``--timeout TIMEOUT``
+``-m MIB[:...]``   ``--mib MIB``
+``-M DIR[:...]``   ``--mibdir MIBDIR``
+=================  ========================================================
+
+
 Get a list of OIDs
 ------------------
 
@@ -126,7 +151,7 @@ How to get a list of OIDs:
 
     snmpbulkwalk -v2c -c public -OSt -M $HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs 10.80.32.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
     
-    # load also the MIB "FS-MIB", and start walking
+    # also (``+``) load the MIB "FS-MIB", and start walking
     snmpbulkwalk -v2c -c public -OSt -M $HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs -m +FS-MIB 10.80.32.109
 
 
@@ -135,6 +160,9 @@ Q & A
 
 I get ``Too many object identifiers specified. Only 128 allowed in one request.``
     Probably your SNMP v3 parameters are incomplete or incorrect.
+
+I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``
+    There seems to be a malformed or duplicated MIB file in one of your MIB directories.
 
 Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
     If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``TMPDIR/linuxfabrik-plugin-cache.db``. On the next run of the plugin, it will recreate the inventory.

@@ -1,0 +1,729 @@
+IEEE8021-ST-MIB DEFINITIONS ::= BEGIN
+
+-- =============================================================
+-- MIB for support of the Scheduled Traffic Enhancements
+-- for IEEE 802.1Q Bridges.
+-- =============================================================
+
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Counter64
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION,
+    TruthValue
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    ieee802dot1mibs
+        FROM IEEE8021-TC-MIB
+    ieee8021BridgeBaseComponentId,
+    ieee8021BridgeBasePort
+        FROM IEEE8021-BRIDGE-MIB
+    ;
+
+ieee8021STMib MODULE-IDENTITY
+    LAST-UPDATED "201806210000Z" -- June 21, 2018
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+        "  WG-URL: http://www.ieee802.org/1/
+         WG-EMail: stds-802-1-L@ieee.org
+
+          Contact: IEEE 802.1 Working Group Chair
+           Postal: C/O IEEE 802.1 Working Group
+                   IEEE Standards Association
+                   445 Hoes Lane
+                   Piscataway
+                   NJ 08854
+                   USA
+           E-mail: stds-802-1-L@ieee.org"
+    DESCRIPTION
+        "The Bridge MIB module for managing devices that support
+        the Scheduled Traffic Enhancements
+        for IEEE 802.1Q Bridges.
+
+        Unless otherwise indicated, the references in this MIB
+        module are to IEEE Std 802.1Q.
+
+        Copyright (C) IEEE (2018).
+        This version of this MIB module is part of IEEE Std 802.1Q;
+        see the draft itself for full legal notices."
+
+    REVISION "201806210000Z" -- June 21, 2018
+    DESCRIPTION
+        "Published as part of IEEE Std 802.1Q 2017 revision.
+        Cross references updated and corrected."
+
+    REVISION "201608150000Z" -- August 15, 2016
+    DESCRIPTION
+        "Revised to include Set-And-Hold-MAC and
+        Set-And-Release-MAC in the description of
+        ieee8021STAdminControlList and
+        ieee8021STOperControlList.
+        Published as part of IEEE Std 802.1Qbu."
+
+REVISION "201602190000Z" -- February 19, 2016
+    DESCRIPTION
+            "Initial version published as part of IEEE Std 802.1Qbv."
+            
+       ::= { ieee802dot1mibs 30 } 
+
+-- =============================================================
+-- Textual Conventions
+-- =============================================================
+
+IEEE8021STTrafficClassValue ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS      current
+    DESCRIPTION
+        "A traffic class value.
+        This is the numerical value associated with a traffic
+        class in a Bridge. Larger values are associated with
+        higher priority traffic classes."
+    REFERENCE   "12.29.1"
+    SYNTAX      Unsigned32 (0..7)
+
+IEEE8021STPTPtimeValue ::= TEXTUAL-CONVENTION
+    STATUS      current
+    DESCRIPTION
+        "A PTPtime value, represented as a 48-bit unsigned integer 
+        number of seconds and a 32-bit unsigned integer number of
+        nanoseconds.
+        The first 6 octets represent the number of seconds: the 
+        first octet is the most significant
+        octet of the 48-bit seconds value and the sixth octet
+        is the least significant octet of the seconds value.
+        The remaining octets, 7 through 10,  represent the 
+        number of nanoseconds: the seventh octet 
+        is the most significant octet of the 32-bit nanoseconds
+        value and the tenth octet is the 
+        least significant octet of the nanoseconds value."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    SYNTAX      OCTET STRING (SIZE(10))
+
+
+-- =============================================================
+-- subtrees in the ST MIB
+-- =============================================================
+
+ieee8021STNotifications
+    OBJECT IDENTIFIER ::= { ieee8021STMib 0 }
+
+ieee8021STObjects
+    OBJECT IDENTIFIER ::= { ieee8021STMib 1 }
+
+ieee8021STConformance
+    OBJECT IDENTIFIER ::= { ieee8021STMib 2 }
+
+ieee8021STMaxSDUSubtree
+    OBJECT IDENTIFIER ::= { ieee8021STObjects 1 }
+
+ieee8021STParameters
+    OBJECT IDENTIFIER ::= { ieee8021STObjects 2 }
+
+-- =============================================================
+-- The ieee8021STMaxSDUSubtree subtree
+-- This subtree defines the objects necessary for the management
+-- of the max SDU size parameters for each traffic class on a Port.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021STMaxSDUTable
+-- =============================================================
+
+ieee8021STMaxSDUTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021STMaxSDUEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing a set of max SDU 
+        parameters, one for each traffic class.
+        All writeable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STMaxSDUSubtree 1 }
+
+ieee8021STMaxSDUEntry OBJECT-TYPE
+    SYNTAX      Ieee8021STMaxSDUEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects containing Max SDU size 
+        for each traffic class supported by the Port."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021BridgeBasePort,
+             ieee8021STTrafficClass  }
+    ::= { ieee8021STMaxSDUTable 1 }
+
+Ieee8021STMaxSDUEntry ::=
+    SEQUENCE {
+        ieee8021STTrafficClass
+            IEEE8021STTrafficClassValue,
+        ieee8021STMaxSDU
+            Unsigned32,
+        ieee8021TransmissionOverrun
+            Counter64
+        }
+
+ieee8021STTrafficClass OBJECT-TYPE
+    SYNTAX      IEEE8021STTrafficClassValue
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The traffic class number associated with the row of
+        the table.
+
+        A row in this table is created for each traffic class
+        that is supported by the Port"
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STMaxSDUEntry 1 }
+
+
+ieee8021STMaxSDU OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "octets"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value of the MaxSDU parameter for the traffic class.
+        This value is represented as an unsigned integer. A value
+        of 0 is interpreted as the max SDU size supported by
+        the underlying MAC.
+
+        The default value of the MaxSDU parameter is 0.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    DEFVAL { 0 }
+    ::= { ieee8021STMaxSDUEntry 2}
+
+
+ieee8021TransmissionOverrun OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter of transmission overrun events, where
+        a PDU is still being transmitted by a MAC at the
+        time when the transmission gate for the queue closed."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1, 12.29.1.1.2"
+    DEFVAL { 0 }
+    ::= { ieee8021STMaxSDUEntry 3}
+
+
+-- =============================================================
+-- The ieee8021STParameters subtree
+-- This subtree defines the objects necessary for the management
+-- of the traffic scheduling mechanism for IEEE Std 802.1Q.
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021STParametersTable
+-- =============================================================
+
+ieee8021STParametersTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021STParametersEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table that contains the per-port manageable parameters for 
+        traffic scheduling.
+
+        For a given Port, a row in the table exists.
+
+        All writable objects in this table must be
+        persistent over power up restart/reboot."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParameters 1 }
+
+ieee8021STParametersEntry OBJECT-TYPE
+    SYNTAX      Ieee8021STParametersEntry 
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects that contains the manageable parameters for 
+        traffic scheduling for a port."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021BridgeBasePort
+           }
+    ::= { ieee8021STParametersTable 1 }
+
+Ieee8021STParametersEntry ::=
+    SEQUENCE {
+        ieee8021STGateEnabled
+            TruthValue,
+        ieee8021STAdminGateStates
+            OCTET STRING,
+        ieee8021STOperGateStates
+            OCTET STRING,
+        ieee8021STAdminControlListLength
+            Unsigned32,
+        ieee8021STOperControlListLength
+            Unsigned32,
+        ieee8021STAdminControlList
+            OCTET STRING,
+        ieee8021STOperControlList
+            OCTET STRING,
+        ieee8021STAdminCycleTimeNumerator
+            Unsigned32,
+        ieee8021STAdminCycleTimeDenominator
+            Unsigned32,
+        ieee8021STOperCycleTimeNumerator
+            Unsigned32,
+        ieee8021STOperCycleTimeDenominator
+            Unsigned32,
+        ieee8021STAdminCycleTimeExtension
+            Unsigned32,
+        ieee8021STOperCycleTimeExtension
+            Unsigned32,
+        ieee8021STAdminBaseTime
+            IEEE8021STPTPtimeValue,
+        ieee8021STOperBaseTime
+            IEEE8021STPTPtimeValue,
+        ieee8021STConfigChange
+            TruthValue,
+        ieee8021STConfigChangeTime
+            IEEE8021STPTPtimeValue,
+        ieee8021STTickGranularity
+            Unsigned32,
+        ieee8021STCurrentTime
+            IEEE8021STPTPtimeValue,
+        ieee8021STConfigPending
+            TruthValue,
+        ieee8021STConfigChangeError
+            Counter64,
+        ieee8021STSupportedListMax
+            Unsigned32
+            }
+
+ieee8021STGateEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The GateEnabled parameter determines whether traffic scheduling
+        is active (true) or inactive (false).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    DEFVAL { false }
+    ::= { ieee8021STParametersEntry 1 }
+
+ieee8021STAdminGateStates OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(1))
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the GateStates parameter for the Port.
+        The bits of the octet represent the gate states for the 
+        corresponding traffic classes; the MS bit corresponds to traffic class 7,
+        the LS bit to traffic class 0. A bit value of 0 indicates closed; a 
+        bit value of 1 indicates open.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 2 }
+
+ieee8021STOperGateStates OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(1))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the GateStates parameter for the Port.
+        The bits of the octet represent the gate states for the 
+        corresponding traffic classes; the MS bit corresponds to traffic class 7,
+        the LS bit to traffic class 0. A bit value of 0 indicates closed; a 
+        bit value of 1 indicates open."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 3 }
+
+ieee8021STAdminControlListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the ListMax parameter for the Port.
+        The integer value indicates the number of entries (TLVs) in the
+        AdminControlList.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 4 }
+
+ieee8021STOperControlListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the ListMax parameter for the Port.
+        The integer value indicates the number of entries (TLVs) in the
+        OperControlList."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 5 }
+
+ieee8021STAdminControlList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the ControlList parameter for the Port.
+        The octet string value represents the contents of the control list as
+        an ordered list of entries, each encoded as a TLV, as follows.
+        The first octet  of each TLV is interpreted as an
+        unsigned integer representing a gate operation name:
+            0: SetGateStates
+            1: Set-And-Hold-MAC
+            2: Set-And-Release-MAC
+            3-255: Reserved for future gate operations
+            
+        The second octet of the TLV is the length field, 
+        interpreted as an unsigned integer, indicating the number of
+        octets of the value that follows the length. A length of
+        zero indicates that there is no value 
+        (i.e., the gate operation has no parameters).
+        
+        The third through (3 + length -1)th octets encode the 
+        parameters of the gate operation, in the order that they 
+        appear in the definition of the operation
+        in Table 8-6. Two parameter types are currently defined:
+        
+        - GateState:
+            A GateState parameter is encoded in a single octet.
+            The bits of the octet represent the gate states for the 
+            corresponding traffic classes; the MS bit corresponds
+            to traffic class 7,
+            the LS bit to traffic class 0. A bit value of 0 indicates
+            closed; a bit value of 1 indicates open.
+            
+        - TimeInterval: 
+            A TimeInterval is encoded in 4 octets as a 32-bit 
+            unsigned integer, representing a number of nanoseconds.
+            The first octet encodes the most significant 8 bits of the 
+            integer, and the fourth octet encodes the least 
+            significant 8 bits.
+        
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 6 }
+
+ieee8021STOperControlList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the ListMax parameter for the Port.
+        The octet string value represents the contents of the control list as
+        an ordered list of TLVs, as follows.
+        The first octet  of each TLV is interpreted as a gate operation name:
+            0: SetGateStates
+            1: Set-And-Hold-MAC
+            2: Set-And-Release-MAC
+            3-255: Reserved for future gate operations
+            
+        The second octet of the TLV is the length field, 
+        interpreted as an unsigned integer,
+        indicating the number of octets of the value that follows
+        the length. A length of zero indicates that there is no value 
+        (i.e., the gate operation has no parameters).
+        
+        The third through (3 + length -1)th octets encode the 
+        parameters of the gate operation, in the order that they 
+        appear in the definition of the operation
+        in Table 8-6. Two parameter types are currently defined:
+        
+        - GateState:
+            A GateState parameter is encoded in a single octet.
+            The bits of the octet represent the gate states for the 
+            corresponding traffic classes; the MS bit corresponds to
+            traffic class 7, the LS bit to traffic class 0. 
+            A bit value of 0 indicates closed; a 
+            bit value of 1 indicates open.
+            
+        - TimeInterval: 
+            A TimeInterval is encoded in 4 octets as a 32-bit 
+            unsigned integer, representing
+            a number of nanoseconds. The first octet encodes the
+            most significant 8 bits of the integer, and the fourth
+            octet encodes the least significant 8 bits."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 7 }
+
+ieee8021STAdminCycleTimeNumerator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the numerator of the CycleTime
+        parameter for the Port.
+        The numerator and denominator together represent the cycle time as
+        a rational number of seconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 8 }
+
+ieee8021STAdminCycleTimeDenominator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the denominator of the 
+        CycleTime parameter for the Port.
+        The numerator and denominator together represent the cycle time as
+        a rational number of seconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 9 }
+
+ieee8021STOperCycleTimeNumerator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the numerator of the 
+        CycleTime parameter for the Port.
+        The numerator and denominator together represent the cycle
+        time as a rational number of seconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 10 }
+
+ieee8021STOperCycleTimeDenominator OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the denominator of the 
+        CycleTime parameter for the Port.
+        The numerator and denominator together represent the 
+        cycle time as a rational number of seconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 11 }
+
+ieee8021STAdminCycleTimeExtension OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "nanoseconds"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the CycleTimeExtension 
+        parameter for the Port. 
+        The value is an unsigned integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 12 }
+
+ieee8021STOperCycleTimeExtension OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "nanoseconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operational value of the CycleTimeExtension parameter for the Port.
+        The value is an unsigned integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 13 }
+
+ieee8021STAdminBaseTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The administrative value of the BaseTime parameter for the Port.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 14 }
+
+ieee8021STOperBaseTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The operationsl value of the BaseTime parameter for the Port.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 15 }
+    
+ieee8021STConfigChange OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The ConfigChange parameter signals the start of a 
+        configuration change
+        when it is set to TRUE. This should only be done
+        when the various administrative parameters
+        are all set to appropriate values."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 16 }
+
+ieee8021STConfigChangeTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    UNITS       "PTP time"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The PTPtime at which the next config change is scheduled to occur.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 17 }
+
+    ieee8021STTickGranularity OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The granularity of the cycle time clock, represented as an
+        unsigned number of tenths of nanoseconds.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 18 }
+
+ ieee8021STCurrentTime OBJECT-TYPE
+    SYNTAX      IEEE8021STPTPtimeValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The current time, in PTPtime, as maintained by the local system.
+        The value is a representation of a PTPtime value, 
+        consisting of a 48-bit integer
+        number of seconds and a 32-bit integer number of nanoseconds."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 19 }
+
+ ieee8021STConfigPending OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value of the ConfigPending state machine variable.
+        The value is TRUE if a configuration change is in progress
+        but has not yet completed."
+    REFERENCE   "8.6.8.4, 8.6.9.4, 12.29.1"
+    ::= { ieee8021STParametersEntry 20 }
+
+ ieee8021STConfigChangeError OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter of the number of times that a re-configuration
+        of the traffic schedule has been requested with the old
+        schedule still running and the requested base time was
+        in the past."
+    REFERENCE   "8.6.8.4, 8.6.9.3, 8.6.9.1.1, 12.29.1"
+    ::= { ieee8021STParametersEntry 21 }
+
+ieee8021STSupportedListMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The maximum value supported by this Port of the 
+        AdminControlListLength and OperControlListLength
+        parameters."
+    REFERENCE   "12.29.1.5"
+    ::= { ieee8021STParametersEntry 22 }
+
+    
+-- =============================================================
+-- IEEE8021 FQTSS MIB - Conformance Information
+-- =============================================================
+
+ieee8021STCompliances
+    OBJECT IDENTIFIER ::= { ieee8021STConformance 1 }
+ieee8021STGroups
+    OBJECT IDENTIFIER ::= { ieee8021STConformance 2 }
+
+-- =============================================================
+-- units of conformance
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021STObjectsGroup group
+-- =============================================================
+
+ieee8021STObjectsGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021STMaxSDU,
+        ieee8021TransmissionOverrun,
+        ieee8021STGateEnabled,
+        ieee8021STAdminGateStates,
+        ieee8021STOperGateStates,
+        ieee8021STAdminControlListLength,
+        ieee8021STOperControlListLength,
+        ieee8021STAdminControlList,
+        ieee8021STOperControlList,
+        ieee8021STAdminCycleTimeNumerator,
+        ieee8021STAdminCycleTimeDenominator,
+        ieee8021STOperCycleTimeNumerator,
+        ieee8021STOperCycleTimeDenominator,
+        ieee8021STAdminCycleTimeExtension,
+        ieee8021STOperCycleTimeExtension,
+        ieee8021STAdminBaseTime,
+        ieee8021STOperBaseTime,
+        ieee8021STConfigChange,
+        ieee8021STConfigChangeTime,
+        ieee8021STTickGranularity,
+        ieee8021STCurrentTime,
+        ieee8021STConfigPending,
+        ieee8021STConfigChangeError,
+        ieee8021STSupportedListMax
+    }
+    STATUS      current
+    DESCRIPTION
+        "Objects that allow management of scheduled traffic."
+    ::= { ieee8021STGroups 1 }
+
+
+-- =============================================================
+-- compliance statements
+-- =============================================================
+
+ieee8021STCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for devices supporting 
+        scheduled traffic. 
+
+        Support of the objects defined in this MIB module
+        also requires support of the IEEE8021-BRIDGE-MIB; the
+        provisions of 17.3.2 apply to implementations claiming
+        support of this MIB. "
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+            ieee8021STObjectsGroup
+        }
+
+    ::= { ieee8021STCompliances 1 }
+
+END

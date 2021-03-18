@@ -1,0 +1,542 @@
+-- ***********************************************************************
+-- IEEE8021-DEVID-MIB
+--   
+-- Definitions of managed objects supporting IEEE 802.1AR Secure Device ID.
+--   
+--   
+-- ************************************************************************
+
+IEEE8021-DEVID-MIB 
+DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Counter32
+        FROM SNMPv2-SMI
+    TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    SnmpAdminString
+        FROM SNMP-FRAMEWORK-MIB
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    PhysicalIndex, entPhysicalIndex
+        FROM ENTITY-MIB;
+
+ieee8021DevIDMIB MODULE-IDENTITY
+    LAST-UPDATED    "200906250000Z"
+    ORGANIZATION    "IEEE 802.1 Working Group"
+    CONTACT-INFO
+            "http:/grouper.ieee.org/groups/8021/index.html"
+    DESCRIPTION
+        "This is the management module of the Secure Device Identifier
+        (DevID) for managing IEEE 802.1AR. As specified in the current
+        IEEE 802.1AR draft document.
+        This is the management module of the Secure Device Identifier
+        (DevID) for managing IEEE 802.1AR. A DevID is cryptographically
+        bound to a device, and supports authentication of the device's
+        identity. Locally significant identities can be securely
+        associated with an initial manufacturer-provisioned DevID and
+        used in provisioning and authentication protocols to allow a
+        network administrator to establish the trustworthiness of a 
+        device and select appropriate policies for transmission and 
+        reception of data and control protocols to and from the device. 
+        A device indicates any entity in an IEEE 802 LAN that seeks to 
+        obtain services from the network.
+        The use of a Secure Device Identifier (DevID) in a DevID module
+        allows network entities to associate a DevID credential with
+        devices that participate or wish to participate in authenticated
+        access to one or more networks.
+        A device with DevID capability incorporates a globally unique
+        manufacturer provided Initial SecureDevice Identifier (IDevID),
+        stored in a way that ensures it will remain unmodified in the
+        absence of both unrestricted access to the device and
+        extraordinary efforts by an attacker.
+        The device may support the creation of Locally Signification
+        Device Identifiers (LDevIDs) by network administrator. Each
+        LDevID is bound to the device in a way that makes it impossible
+        for it to be forged or transferred to a device with a different
+        IDevID without knowledge of the private key used to effect the
+        crytographic binding. LDevID can incorporate, and fully protect,
+        additional information specified by the network administrator to
+        support local authorization conventions. LDevIDs may also be 
+        used to entirely replace IDevIDs in such a way as to assure the 
+        privacy of the user of a LDevID and the equipment in which it is
+        installed.
+        Every device has exactly one (IDevID) and zero or more LDevIDs.
+        The number of LDevIDs depends upon the capabilities of the DevID
+        module and on the administrative policy of the network(s) in 
+        which the device is used"
+    REVISION        "200906250000Z"
+    DESCRIPTION
+        "Published as part of IEEE standard 802.1AR"
+
+     ::= { iso (1) iso-identified-organization (3) ieee (111) standards-association-numbered-series-standards (2) lan-man-stds (802) ieee802dot1(1) ieee802dot1mibs(1) 17 }
+
+devIDMIBNotifications  OBJECT IDENTIFIER   ::= { ieee8021DevIDMIB 0 }
+
+devIDMIBObjects  OBJECT IDENTIFIER         ::= { ieee8021DevIDMIB 1 }
+
+devIDMIBConformance  OBJECT IDENTIFIER     ::= { ieee8021DevIDMIB 2 }
+
+--
+-- Textual Convention
+--
+DevIDErrorStatus ::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION
+        "This textual convention is used to define the error state
+        of a devID operation.
+
+        The value none(1) which means no error, indicating a successful 
+        operation. The value internalError(2) is used to display an system error."
+    SYNTAX          INTEGER  {
+                        none(1),
+                        internalError(2)
+                    }
+
+DevIDAlgorithmIdentifier::= TEXTUAL-CONVENTION
+    STATUS          current
+    DESCRIPTION
+        "This textual convention is used to define the algorithm type for the public key."
+    SYNTAX          INTEGER  {
+                        rsaEncryption(1),
+                        idecPublicKey(2)
+                    }
+                    
+--                    
+-- Management Objects for DevID
+--
+devIDGlobalMIBObjects  OBJECT IDENTIFIER  ::= { devIDMIBObjects 1 }
+
+devIDMgmtMIBObjects    OBJECT IDENTIFIER  ::= { devIDMIBObjects 2 }
+
+devIDStatsMIBObjects  OBJECT IDENTIFIER   ::= { devIDMIBObjects 3 }
+
+
+--
+-- DevID global objects
+--   
+
+  
+--
+-- DevID Mgmt Objects
+--
+devIDPublicKeyCount OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of DevID
+        public keys installed in the DevID module."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2" 
+    ::= { devIDMgmtMIBObjects 1 }
+    
+--
+-- DevID public key Table
+--
+devIDPublicKeyTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF DevIDPublicKeyEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table containing the public key, the keys
+        keyIndex, a value indicating if the key is 
+        enabled. This allows the administrator to 
+        determine the DevID keys installed in the 
+        DevID module. The maximum number of entries 
+        in this table is limited by the value of 
+        devIDPublicKeyCount."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2"
+    ::= { devIDMgmtMIBObjects 2 }
+
+devIDPublicKeyEntry OBJECT-TYPE
+    SYNTAX          DevIDPublicKeyEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing DevID public key,
+        the keys keyIndex, a value indicating 
+        if the key is enabled"
+    INDEX           { entPhysicalIndex } 
+    ::= { devIDPublicKeyTable 1 }
+
+DevIDPublicKeyEntry ::= SEQUENCE {
+        devIDPublicKeyIndex				Unsigned32,
+        devIDPublicKeyEnabled			TruthValue,
+        devIDPublicKeyAlgorithm			DevIDAlgorithmIdentifier,
+        devIDPublicKeyPubkeySHA1Hash    SnmpAdminString,
+        devIDPublicKeyErrStatus			DevIDErrorStatus
+}
+
+devIDPublicKeyIndex OBJECT-TYPE
+    SYNTAX          Unsigned32 (0..4294967295 )
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "All keys are indexed internally with this
+        object. The value of this object is within 
+        0..devIDPublicKeyCount. 
+        This is the keyIndex and operations on 
+        keys will use the keyIndex to address a 
+        specific key. The IDevID key shall only be 
+        at index 0.
+        Any error in retrieving a key will be displayed
+        in the devIDPublicKeyErrStatus object."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2" 
+    ::= { devIDPublicKeyEntry 1 }
+
+devIDPublicKeyEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "The enable/disable state of this public key. This setting
+		persists across restarts."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2" 
+    ::= { devIDPublicKeyEntry 2 }
+
+devIDPublicKeyAlgorithm OBJECT-TYPE
+    SYNTAX          DevIDAlgorithmIdentifier                        
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The DevID PublicKey Algorithm field shall indicate
+        the public key algorithm identifier. This object
+        identifies the public key algorithm as either 
+		rsaEncryption or idecPublicKey"
+    REFERENCE
+        "IEEE 802.1AR 6.4, 6.3.2 and 7.2.9" 
+    ::= { devIDPublicKeyEntry 3 }
+
+devIDPublicKeyPubkeySHA1Hash OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The SHA1 Hash of this DevID public key."
+    REFERENCE
+        "IEEE 802.1AR 6.4, 6.3.2 and 7.2.9" 
+    ::= { devIDPublicKeyEntry 4 }
+
+devIDPublicKeyErrStatus OBJECT-TYPE
+    SYNTAX          DevIDErrorStatus
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The displays the status of an operation on
+        the public key. The default value is none 
+        which means no error, indicating a successful 
+        operation."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2"
+    DEFVAL          { none } 
+    ::= { devIDPublicKeyEntry 5 }
+ 
+
+devIDCredentialCount OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of DevID
+        credentials installed in the DevID module."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2" 
+    ::= { devIDMgmtMIBObjects 3 }
+
+--
+-- DevID Management Table
+--
+devIDCredentialTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF DevIDCredentialEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table of current DevID credentials, where
+        for each certificate the following are indicated:
+        sha1 hash of the certificate, section7 defined 
+        fields of cert serial number, issuer, subject,
+        HardwareModuleName, and pubkey."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.3"
+    ::= { devIDMgmtMIBObjects 4 }
+
+devIDCredentialEntry OBJECT-TYPE
+    SYNTAX          DevIDCredentialEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing DevID Credential information"
+    INDEX           { devIDCredentialIndex } 
+    ::= { devIDCredentialTable 1 }
+
+DevIDCredentialEntry ::= SEQUENCE {
+        devIDCredentialIndex                  Unsigned32,
+        devIDCredentialEnabled                TruthValue,
+        devIDCredentialSHA1Hash               SnmpAdminString,    
+        devIDCredentialSerialNumber           SnmpAdminString,
+        devIDCredentialIssuer                 SnmpAdminString,
+        devIDCredentialSubject                SnmpAdminString,
+        devIDCredentialSubjectAltName         SnmpAdminString,		
+        devIDCredentialEntityIndex            PhysicalIndex,
+        devIDCredentialPubkeyIndex            Unsigned32,
+        devIDCredentialErrStatus              DevIDErrorStatus
+}
+
+devIDCredentialIndex OBJECT-TYPE
+    SYNTAX          Unsigned32 (0..4294967295 )
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "All credentials are indexed internally with
+        this object. The value of this object is within 
+        [0..devIDCredentialCount]. 
+        This is the credentialIndex and operations on 
+        credentials will use the credentialIndex to address 
+        a specific crdential. The IDevID credential shall 
+        only be at index 0. Additional operations on credentials 
+        use the credentialIndex to address a specific 
+        credential."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2" 
+    ::= { devIDCredentialEntry 1 }
+
+devIDCredentialEnabled OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "The enable/disable state of this credential. This setting
+		persists across restarts."
+    REFERENCE       "IEEE 802.1AR 6.3.6" 
+    ::= { devIDCredentialEntry 2 }
+    
+devIDCredentialSHA1Hash     OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The SHA1 Hash of this DevID credential."
+    REFERENCE       "IEEE 802.1AR 7.2.2" 
+    ::= { devIDCredentialEntry 3 }
+
+devIDCredentialSerialNumber OBJECT-TYPE
+    SYNTAX          SnmpAdminString (SIZE  (0..20))
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The serial number of the credential."
+    REFERENCE       "IEEE 802.1AR 7.2.2" 
+    ::= { devIDCredentialEntry 4 }
+
+devIDCredentialIssuer OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The issuer field of the credential."
+    REFERENCE       "IEEE 802.1AR 7.2.4" 
+    ::= { devIDCredentialEntry 5 }
+
+devIDCredentialSubject OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The subject field of the credential."
+    REFERENCE       "IEEE 802.1AR 7.2.8" 
+    ::= { devIDCredentialEntry 6 }
+    
+devIDCredentialSubjectAltName OBJECT-TYPE
+    SYNTAX          SnmpAdminString
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The subjectaltname field of the credential"
+    REFERENCE       "IEEE 802.1AR 7.2.8" 
+    ::= { devIDCredentialEntry 7 }	
+	
+devIDCredentialEntityIndex    OBJECT-TYPE
+    SYNTAX          PhysicalIndex
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+            "This refers to the entPhysicalIndex in
+            entPhysicalTable to identify the associated
+            physical entity."
+     REFERENCE       "IEEE 802.1AR 6.4" 
+    ::= { devIDCredentialEntry 8 }
+    
+devIDCredentialPubkeyIndex OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Has the appropriate devIDPublicKeyIndex
+        value from devIDPublicKeyTable to identify 
+        the public key information."
+    REFERENCE       "IEEE 802.1AR 7.2.9" 
+    ::= { devIDCredentialEntry 9 }
+
+devIDCredentialErrStatus OBJECT-TYPE
+    SYNTAX          DevIDErrorStatus
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The displays the status of an operation on
+        the credential. The default value is none 
+        which means no error, indicating a successful 
+        operation."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.2"
+    DEFVAL          { none } 
+    ::= { devIDCredentialEntry 10 }
+ 
+
+--
+-- DevID statistics table
+--
+devIDStatisticsTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF DevIDStatisticsEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table containing statistics information."
+    ::= { devIDMgmtMIBObjects 5 }
+
+devIDStatisticsEntry OBJECT-TYPE
+    SYNTAX          DevIDStatisticsEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "An entry containing DevID statistics."
+    INDEX           { entPhysicalIndex } 
+    ::= { devIDStatisticsTable 1 }
+
+DevIDStatisticsEntry ::= SEQUENCE {
+        devIDStatisticKeyGenerationCount         Counter32,
+        devIDStatisticKeyInsertionCount          Counter32,
+        devIDStatisticKeyDeletionCount           Counter32,
+        devIDStatisticCSRGenerationCount         Counter32,
+        devIDStatisticCredentialInsertionCount   Counter32,
+        devIDStatisticCredentialDeletionCount    Counter32
+}
+
+devIDStatisticKeyGenerationCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of additional
+        LDevID key material generation within the 
+        DevID module. 
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.8" 
+    ::= { devIDStatisticsEntry 1 }
+
+devIDStatisticKeyInsertionCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of additional
+        LDevID key material generation followed by
+        an insertion within the DevID module. 
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.9" 
+    ::= { devIDStatisticsEntry 2 }
+
+devIDStatisticKeyDeletionCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of LDevID keypair
+        deletions within the DevID module. 
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.10" 
+    ::= { devIDStatisticsEntry 3 }
+
+devIDStatisticCSRGenerationCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of
+        Certificate Signing Request (CSR) 
+        generation as defined in RFC2986.  
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.11" 
+    ::= { devIDStatisticsEntry 4 }
+
+devIDStatisticCredentialInsertionCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of LDevID
+        credentials installed into the DevID module. 
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.12" 
+    ::= { devIDStatisticsEntry 5 }
+
+devIDStatisticCredentialDeletionCount OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "This gives the total number of LDevID
+        credentials deletions into the DevID module. 
+		Discontinuities occur at system restart and counter rollover."
+    REFERENCE       "IEEE 802.1AR 6.4, and 6.3.14" 
+    ::= { devIDStatisticsEntry 6 }
+    
+--
+-- Conformance Information Definition
+--
+devIDMIBCompliances  OBJECT IDENTIFIER
+    ::= { devIDMIBConformance 1 }
+
+devIDMIBGroups  OBJECT IDENTIFIER
+    ::= { devIDMIBConformance 2 }
+
+devIDMIBModuleCompliance MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "Module Compliance for this mib."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        devIDMIBObjectGroup
+                    }
+    ::= { devIDMIBCompliances 1 }
+
+devIDMIBObjectGroup OBJECT-GROUP
+    OBJECTS         {
+                        devIDPublicKeyCount,
+                        devIDPublicKeyEnabled,
+                        devIDPublicKeyAlgorithm,
+                        devIDPublicKeyPubkeySHA1Hash,
+                        devIDPublicKeyErrStatus,
+                        devIDCredentialCount,
+                        devIDCredentialEnabled,
+                        devIDCredentialSHA1Hash,
+                        devIDCredentialSerialNumber,
+                        devIDCredentialIssuer,
+                        devIDCredentialSubject,
+                        devIDCredentialSubjectAltName,
+                        devIDCredentialEntityIndex,
+                        devIDCredentialPubkeyIndex,
+                        devIDCredentialErrStatus,                        
+                        devIDStatisticKeyGenerationCount,
+                        devIDStatisticKeyInsertionCount,
+                        devIDStatisticKeyDeletionCount,
+                        devIDStatisticCSRGenerationCount,
+                        devIDStatisticCredentialInsertionCount,
+                        devIDStatisticCredentialDeletionCount
+}
+    STATUS          current
+    DESCRIPTION
+        "A collection of objects providing public key 
+        manageability, credential manageability and stats."
+    ::= { devIDMIBGroups 1 }
+
+END

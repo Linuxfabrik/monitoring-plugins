@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021031702'
+__version__ = '2021031801'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -67,14 +67,14 @@ def parse_args():
 
     parser.add_argument(
         '--device',
-        help='The name of a device file containing the SNMP-OIDs, located under `./snmp-devices`, for example `switch_fs_s3900` or `printer_brother_mfcj5720dw`.',
+        help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`.',
         dest='DEVICE',
-        default='any-any-any',
+        default='any-any-any.csv',
         )
 
     parser.add_argument(
         '--hide-ok',
-        help='Don\'t print OIDs in OK state in table, shorten the output.',
+        help='Don\'t print OIDs with OK state.',
         dest='HIDEOK',
         action='store_true',
         default=False,
@@ -90,15 +90,15 @@ def parse_args():
 
     parser.add_argument(
         '--mib',
-        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Compatible to the `-m` option of `snmpget`.',
+        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves like the `-m` option of `snmpget`.',
         dest='MIB',
         )
 
     parser.add_argument(
         '--mibdir',
-        help='Look in given list of directories for MIBs. Compatible to the `-M` option of `snmpget`. Defaults to `$HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs`.',
+        help='Look in given list of directories for MIBs. Behaves like the `-M` option of `snmpget`. Defaults to `$HOME/.snmp/mibs:/usr/share/snmp/mibs`.',
         dest='MIBDIR',
-        default='$HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs',
+        default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
         )
 
     parser.add_argument(
@@ -175,7 +175,7 @@ def main():
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
     snmp_objects = lib.base3.coe(
-        lib.disk3.read_csv(os.path.join(plugin_path, 'snmp-devices/{}'.format(args.DEVICE)), as_dict=False, skip_empty_rows=True)
+        lib.disk3.read_csv(os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)), as_dict=False, skip_empty_rows=True)
     )
     
     # build parameters for snmpget
@@ -186,7 +186,7 @@ def main():
     #     t:  print timeticks unparsed as numeric integers
     #     U:  don't print units
     if args.SNMPVERSION in ['1', '2c']:
-        cmd = 'snmpget -v {} '.format(args.SNMPVERSION) if args.SNMPVERSION else ''
+        cmd = 'snmpget -v {} '.format(args.SNMPVERSION)
         cmd += '-c {} '.format(args.COMMUNITY) if args.COMMUNITY else ''
     else:
         cmd = 'snmpget -v 3 '
@@ -301,36 +301,43 @@ def main():
                 lib.cache3.set(cache_key, value)
         state = lib.base3.get_worst(state, value_state)
 
-        # build message header
-        if show_in_first_line:
-            msg_header += '{}: {}{}, '.format(name, value if unit != 's' else lib.base3.seconds2human(value), unit if unit != 's' else '', lib.base3.state2str(value_state, empty_ok=False))
-
         # create message body (the table)
-        if not args.HIDEOK or value_state:
-            if ',' in unit:
-                # b,c - convert the first part to human readable bytes, but suffix the perfdata as a continous counter
-                unit, perfdata_unit = unit.split(',')
-            else:
-                perfdata_unit = unit
-            if unit == 's':
+        if ',' in unit:
+            # example: "b,c" - convert the first part to human readable bytes, but suffix the perfdata as a continous counter
+            unit, perfdata_unit = unit.split(',')
+        else:
+            perfdata_unit = unit
+        if unit == 's':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.base3.seconds2human(value), lib.base3.state2str(value_state))
+            if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.base3.seconds2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
-            elif unit.lower() == 'b':
+        elif unit.lower() == 'b':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.base3.bytes2human(value), lib.base3.state2str(value_state))
+            if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.base3.bytes2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
-            elif unit.lower() == 'bps':
+        elif unit.lower() == 'bps':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.base3.bps2human(value), lib.base3.state2str(value_state))
+            if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.base3.bps2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
-            else:
+        else:
+            if show_in_first_line:
+                msg_header += '{}: {}{}{}, '.format(name, value, unit, lib.base3.state2str(value_state))
+            if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(value, unit),

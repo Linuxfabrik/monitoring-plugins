@@ -1,0 +1,589 @@
+IEEE8021-PE-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Counter64
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    MacAddress,
+    TEXTUAL-CONVENTION,
+    TimeStamp,
+    TruthValue
+        FROM SNMPv2-TC
+    ieee802dot1mibs,
+    IEEE8021PbbComponentIdentifier,
+    IEEE8021BridgePortNumber,
+    IEEE8021BridgePortNumberOrZero
+        FROM IEEE8021-TC-MIB
+    PortList
+        FROM Q-BRIDGE-MIB;
+
+ieee8021BridgePEMib MODULE-IDENTITY
+    LAST-UPDATED    "201201220000Z" -- January 22, 2012, 0000Z
+    ORGANIZATION    "IEEE 802.1 Working Group"
+    CONTACT-INFO
+            "WG-URL: http:////www.ieee802.org/1/
+            WG-EMail: stds-802-1-L@IEEE.ORG
+
+             Contact: Tony Jeffree
+              Postal: C/O IEEE 802.1 Working Group
+                      IEEE Standards Association
+                      445 Hoes Lane
+                      Piscataway
+                      NJ 08854
+                      USA
+              E-mail: stds-802-1-L@IEEE.ORG"
+    DESCRIPTION
+        "The PE MIB module for managing devices that support
+        Bridge Port Extension.
+
+        Unless otherwise indicated, the references in this MIB
+        module are to IEEE Std 802.1BR-2012.
+
+        Copyright (C) IEEE.
+        This version of this MIB module is part of 
+        IEEE 802.1BR-2012; see the specification itself
+        for full legal notices."
+    
+    REVISION         "201201220000Z" -- January 22, 2012, 0000Z
+    DESCRIPTION
+        "Initial version published as part of IEEE Std. 802.1BR-2012"
+
+    ::= { ieee802dot1mibs 25 }
+
+
+-- =============================================================
+-- subtrees in the PE MIB
+-- =============================================================
+
+ieee8021BridgePENotifications  OBJECT IDENTIFIER
+    ::= { ieee8021BridgePEMib 1 }
+
+ieee8021BridgePEObjects  OBJECT IDENTIFIER
+    ::= { ieee8021BridgePEMib 2 }
+
+ieee8021BridgePEConformance  OBJECT IDENTIFIER
+    ::= { ieee8021BridgePEMib 3 }
+
+
+-- Textual Conventions
+
+IEEE802BridgePEEChannelIDTC ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT    "d"
+    STATUS          current
+    DESCRIPTION
+        "Textual convention of an E-Channel Identifier."
+    SYNTAX          Unsigned32 (1..4194302)
+
+IEEE802BridgePETrafficClassValueTC ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS current
+    DESCRIPTION
+        "Indicates a traffic class. Values 0-7 correspond to
+        traffic classes."
+    SYNTAX Unsigned32 (0..7)
+
+IEEE802BridgePETrafficSelectionAlgorithmTC ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "Indicates the Traffic Selection Algorithm
+        0: Strict Priority
+        1: Credit-based shaper
+        2: Enhanced transmission selection
+        3-254: Reserved for furture standardization
+        255: Vendor specific"
+    SYNTAX INTEGER {
+        tsaStrictPriority(0),
+        tsaCreditBasedShaper(1),
+        tsaEnhancedTransmission(2),
+        tsaVendorSpecific(255)
+        }
+
+IEEE802BridgePETrafficClassBandwidthValue ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "d"
+    STATUS current
+    DESCRIPTION
+        "Indicates the bandwidth in percent assigned to a
+        traffic class."
+      SYNTAX Unsigned32 (0..100)
+
+-- PE port table entry managed object
+
+ieee8021BridgePEPortTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF Ieee8021BridgePEPortEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table that contains per port information
+        related to Port Extension.  A row is created in this
+        table for any port on a Controlling Bridge that is
+        extended using Port Extension, including those ports
+        that provide communication to the Port Extenders
+        themselves."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEObjects 1 }
+
+ieee8021BridgePEPortEntry OBJECT-TYPE
+    SYNTAX          Ieee8021BridgePEPortEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A list of per port Port Extension objects."
+    INDEX           {
+                        ieee8021BridgePEPortComponentId,
+                        ieee8021BridgePEPort,
+                        ieee8021BridgePEPortType
+                    } 
+    ::= { ieee8021BridgePEPortTable 1 }
+
+Ieee8021BridgePEPortEntry ::= SEQUENCE {
+        ieee8021BridgePEPortComponentId          
+            IEEE8021PbbComponentIdentifier,
+        ieee8021BridgePEPort                     
+            IEEE8021BridgePortNumber,
+        ieee8021BridgePEPortType                 
+            INTEGER,
+        ieee8021BridgePEPortUpstreamCSPAddress   
+            MacAddress,
+        ieee8021BridgePEPortEcid                 
+            IEEE802BridgePEEChannelIDTC,
+        ieee8021BridgePEPortNumber               
+            IEEE8021BridgePortNumberOrZero,
+        ieee8021BridgePECounterDiscontinuityTime 
+            TimeStamp,
+        ieee8021BridgePEPortRxrqErrorsBridge     
+            Counter64,
+        ieee8021BridgePEPortRxrspErrorsBridge    
+            Counter64,
+        ieee8021BridgePEPortRxrqErrorsPE         
+            Counter64,
+        ieee8021BridgePEPortRxrspErrorsPE        
+            Counter64,
+        ieee8021BridgePEPCP
+            TruthValue,
+        ieee8021BridgePEROW
+            TruthValue,
+        ieee8021BridgePEDEI
+            TruthValue,
+        ieee8021BridgePECN
+            TruthValue,
+        ieee8021BridgePEPFC
+            TruthValue,
+        ieee8021BridgePEExtPortEChannelsSupported
+            Unsigned32,
+        ieee8021BridgePERemoteRepEChannelsSupported
+            Unsigned32,
+        ieee8021BridgePETCsSupported
+            Unsigned32,
+        ieee8021BridgePEUtVLANsSupported
+            Unsigned32
+}
+
+ieee8021BridgePEPortComponentId OBJECT-TYPE
+    SYNTAX          IEEE8021PbbComponentIdentifier
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The component identifier is used to distinguish between the
+        multiple virtual bridge instances within a PBB. In simple
+        situations where there is only a single component the default
+        value is 1." 
+    ::= { ieee8021BridgePEPortEntry 1 }
+
+ieee8021BridgePEPort OBJECT-TYPE
+    SYNTAX          IEEE8021BridgePortNumber
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The port number of the port for which this entry
+        contains bridge management information." 
+    ::= { ieee8021BridgePEPortEntry 2 }
+
+ieee8021BridgePEPortType OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        pepCascade(1),
+                        pepUpstream(2),
+                        pepExtended(3)
+                    }
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The operational mode of a port participating in
+        Port Exension.  The enumerated values are:
+        pepCascade - the port is operating as a Cascade port
+        pepUpstream - the port is operating as an Upstream port
+        pepExtended - the port is operating as an Extended port"
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 3 }
+
+ieee8021BridgePEPortUpstreamCSPAddress OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The MAC address used for communication of the PE CSP
+        protocol of the device connected to the upstream port
+        of the Port Extender (which may be the Controlling 
+        Bridge or an upstream Port Extender).  This provides
+        the hierarchal relationship in a cascade of Port
+        Extenders"
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 4 }
+
+ieee8021BridgePEPortEcid OBJECT-TYPE
+    SYNTAX          IEEE802BridgePEEChannelIDTC
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The default ECID assigend to this port and the port
+        on the Port Extender to which this port corresponds."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 5 }
+
+ieee8021BridgePEPortNumber OBJECT-TYPE
+    SYNTAX          IEEE8021BridgePortNumberOrZero
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The Port number on the of the Port on the Port Extender,
+        or zero for the Upstream Port."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 6 }
+
+ieee8021BridgePECounterDiscontinuityTime OBJECT-TYPE
+    SYNTAX          TimeStamp
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The value of sysUpTime on the most recent occasion at which
+        any one or more of the counters in this conceptaul row
+        suffered a discontinuity.  The relevant counters are the
+        specific instances associated with this conceptual row of 
+        any Counter32 or Counter64 object. If no such discontinuities
+        have occurred since the last re-initialization of the local 
+        management subsystem, then this object contains a zero value." 
+    ::= { ieee8021BridgePEPortEntry 7 }
+
+ieee8021BridgePEPortRxrqErrorsBridge OBJECT-TYPE
+    SYNTAX          Counter64
+    UNITS           "frames"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of PE CSP flow control overflow errors
+        that have occured for requests on the Bridge."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 8 }
+
+ieee8021BridgePEPortRxrspErrorsBridge OBJECT-TYPE
+    SYNTAX          Counter64
+    UNITS           "octets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of PE CSP flow control overflow errors
+        that have occured for responses on the Bridge."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 9 }
+
+ieee8021BridgePEPortRxrqErrorsPE OBJECT-TYPE
+    SYNTAX          Counter64
+    UNITS           "frames"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of PE CSP flow control overflow errors
+        that have occured for requests on the Port Extender."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 10 }
+
+ieee8021BridgePEPortRxrspErrorsPE OBJECT-TYPE
+    SYNTAX          Counter64
+    UNITS           "octets"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The number of PE CSP flow control overflow errors
+        that have occured for responses on the Port Extender."
+    REFERENCE       "10.2.1" 
+    ::= { ieee8021BridgePEPortEntry 11 }
+
+ieee8021BridgePEPCP OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the Port Exender supports
+        modification of the priority code point
+        table (true) or not (false)."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 12 }
+
+ieee8021BridgePEROW OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the Port Extender supports
+        rows in the PCP table in addition to the 8P0D
+        row (true)or not (false)."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 13 }
+
+ieee8021BridgePEDEI OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the Port Extender supports
+        encoding of the Drop Eligible Indicatior (true)
+        or not (false)."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 14 }
+
+ieee8021BridgePECN  OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the Port Extender supports
+        Congestion Notification (true) or not (false)."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 15 }
+
+ieee8021BridgePEPFC OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Indicates whether the Port Extender supports
+        Priority-based flow control(true) or
+        not (false)."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 16 }
+
+ieee8021BridgePEExtPortEChannelsSupported OBJECT-TYPE
+    SYNTAX	       Unsigned32 (1..1048575)
+    UNITS          "E-channels"
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION
+        "Indicates the number of Extended Port
+        E-channels supported by the Port Extender."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 17 }
+
+ieee8021BridgePERemoteRepEChannelsSupported  OBJECT-TYPE
+    SYNTAX	       Unsigned32 (1..3145727)
+    UNITS          "E-channels"
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION
+        "Indicates the number of Remote Replication
+        E-channels supported by the Port Extender."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 18 }
+
+ieee8021BridgePETCsSupported OBJECT-TYPE
+    SYNTAX	       Unsigned32 (1..8)
+    UNITS          "traffic classes"
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION
+        "Indicates the number of traffic clasees
+        supported by the Port Extender."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 19 }
+
+ieee8021BridgePEUtVLANsSupported OBJECT-TYPE
+    SYNTAX	       Unsigned32 (1..4094)
+    UNITS          "VLANs"
+    MAX-ACCESS     read-only
+    STATUS         current
+    DESCRIPTION
+        "Indicates the number of untagged VLANs
+        supported by the Port Extender."
+    REFERENCE       "10.2.1"
+    ::= { ieee8021BridgePEPortEntry 20 }
+
+-- PE Remote Replication entry table managed object
+
+ieee8021BridgePERemoteReplicationTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF Ieee8021BridgePERemoteReplicationEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table that contains one row for each Remote Replication
+        entry in the filtering database."
+    REFERENCE       "10.3.1"
+    ::= { ieee8021BridgePEObjects 2 }
+
+ieee8021BridgePERemoteReplicationEntry OBJECT-TYPE
+    SYNTAX          Ieee8021BridgePERemoteReplicationEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A list of Remote Replication objects."
+    INDEX           {
+                        ieee8021BridgePEPortComponentId,
+                        ieee8021BridgePERREcid
+                    } 
+    ::= { ieee8021BridgePERemoteReplicationTable 1 }
+
+Ieee8021BridgePERemoteReplicationEntry ::= SEQUENCE {
+        ieee8021BridgePERREcid    IEEE802BridgePEEChannelIDTC,
+        ieee8021BridgePERRPortMap PortList
+}
+
+ieee8021BridgePERREcid OBJECT-TYPE
+    SYNTAX          IEEE802BridgePEEChannelIDTC
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The ECID assigend to this Remote Replication
+        filtering entry."
+    REFERENCE       "10.3.1" 
+    ::= { ieee8021BridgePERemoteReplicationEntry 1 }
+
+ieee8021BridgePERRPortMap OBJECT-TYPE
+    SYNTAX          PortList
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "The list of ports to which a frame is to be
+        replicated."
+    REFERENCE       "10.3.1" 
+    ::= { ieee8021BridgePERemoteReplicationEntry 2 }
+
+--PE Enhanced Transmission Selection table managed object
+
+ieee8021BridgePEETSTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF Ieee8021BridgePEETSEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A table that contains per port information
+        related to Enhanced Transmission Selection.
+        A row is created in this table for any port on a
+        Controlling Bridge that corresponds to a Cascade
+        Port. These objects refer to the ETS configuration 
+        of the attached Upstream Port"
+    REFERENCE       "10.2.2"
+    ::= { ieee8021BridgePEObjects 3 }
+
+ieee8021BridgePEETSEntry OBJECT-TYPE
+    SYNTAX          Ieee8021BridgePEETSEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "A list of per Cascade Port ETS objects."
+    INDEX           {
+                        ieee8021BridgePEPortComponentId,
+                        ieee8021BridgePEPort,
+                        ieee8021BridgePEETSTrafficClass
+                    } 
+    ::= { ieee8021BridgePEETSTable 1 }
+
+Ieee8021BridgePEETSEntry ::= SEQUENCE {
+        ieee8021BridgePEETSTrafficClass
+            IEEE802BridgePETrafficClassValueTC,
+        ieee8021BridgePEETSTrafficSelectionAlgorthm          
+            IEEE802BridgePETrafficSelectionAlgorithmTC,
+        ieee8021BridgePEETSBandwidth                     
+            IEEE802BridgePETrafficClassBandwidthValue 
+}
+
+ieee8021BridgePEETSTrafficClass OBJECT-TYPE
+    SYNTAX IEEE802BridgePETrafficClassValueTC
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "Indicates the traffic class to
+        which this bandwidth applies"
+    REFERENCE
+        "10.2.3"
+    ::= { ieee8021BridgePEETSEntry 1 }
+
+ieee8021BridgePEETSTrafficSelectionAlgorthm OBJECT-TYPE
+    SYNTAX IEEE802BridgePETrafficSelectionAlgorithmTC
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Inticates the Traffic Selection Algorthm 
+        assigned to this traffic class"
+    REFERENCE
+        "10.2.3"
+::= { ieee8021BridgePEETSEntry 2 }
+
+ieee8021BridgePEETSBandwidth OBJECT-TYPE
+    SYNTAX IEEE802BridgePETrafficClassBandwidthValue 
+    MAX-ACCESS read-write
+    STATUS current
+    DESCRIPTION
+        "Indicates the bandwidth assigned to this traffic class."
+    REFERENCE
+        "10.2.3"
+::= { ieee8021BridgePEETSEntry 3 }
+
+-- =============================================================
+-- Conformance Information
+-- =============================================================
+
+ieee8021BridgePEGroups  OBJECT IDENTIFIER
+    ::= { ieee8021BridgePEConformance 1 }
+
+ieee8021BridgePECompliances  OBJECT IDENTIFIER
+    ::= { ieee8021BridgePEConformance 2 }
+
+
+-- =============================================================
+-- Units of conformance
+-- =============================================================
+
+ieee8021BridgePEGroup OBJECT-GROUP
+    OBJECTS         {
+                        ieee8021BridgePEPortUpstreamCSPAddress,
+                        ieee8021BridgePEPortEcid,
+                        ieee8021BridgePEPortNumber,
+                        ieee8021BridgePECounterDiscontinuityTime,
+                        ieee8021BridgePEPortRxrqErrorsBridge,
+                        ieee8021BridgePEPortRxrspErrorsBridge,
+                        ieee8021BridgePEPortRxrqErrorsPE,
+                        ieee8021BridgePEPortRxrspErrorsPE,
+                        ieee8021BridgePEPCP,
+                        ieee8021BridgePEROW,
+                        ieee8021BridgePEDEI,
+                        ieee8021BridgePECN,
+                        ieee8021BridgePEPFC,
+                        ieee8021BridgePEExtPortEChannelsSupported,
+                        ieee8021BridgePERemoteRepEChannelsSupported,
+                        ieee8021BridgePETCsSupported,
+                        ieee8021BridgePEUtVLANsSupported,
+                        ieee8021BridgePERRPortMap,
+                        ieee8021BridgePEETSTrafficSelectionAlgorthm,
+                        ieee8021BridgePEETSBandwidth
+                    }
+    STATUS          current
+    DESCRIPTION
+        "The collection of objects used to represent
+        Port Extension management objects."
+    ::= { ieee8021BridgePEGroups 1 }
+
+-- =============================================================
+-- compliance statements
+-- =============================================================
+
+ieee8021BridgePECompliance MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for devices supporting PE
+        as defined in IEEE 802.1BR."
+    MODULE          -- this module
+    MANDATORY-GROUPS { ieee8021BridgePEGroup }
+    ::= { ieee8021BridgePECompliances 1 }
+
+END

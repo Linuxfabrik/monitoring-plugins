@@ -1,0 +1,600 @@
+IEEE8021-TSN-REMOTE-MANAGEMENT-MIB DEFINITIONS ::= BEGIN
+
+-- =============================================================
+-- MIB for support of 802.1Qcc Stream Reservation Protocol
+-- (SRP) Enhancements and Performance Improvements in
+-- 802.1Q Bridges.
+-- =============================================================
+
+IMPORTS
+	OBJECT-GROUP,
+	MODULE-COMPLIANCE
+		FROM SNMPv2-CONF
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Counter64,
+    Unsigned32
+        FROM SNMPv2-SMI
+    TEXTUAL-CONVENTION,
+    TruthValue,
+    RowStatus
+        FROM SNMPv2-TC
+    IEEE8021BridgePortNumber,
+    ieee802dot1mibs
+        FROM IEEE8021-TC-MIB
+    ieee8021BridgeBasePort,
+    ieee8021BridgeBaseComponentId,
+    ieee8021BridgeTrafficClass
+        FROM IEEE8021-BRIDGE-MIB
+    ieee8021QBridgeVlanIndex
+        FROM IEEE8021-Q-BRIDGE-MIB
+    ;
+
+ieee8021TsnRemoteMgmtMib MODULE-IDENTITY
+    LAST-UPDATED "201810040000Z" -- October 4, 2018
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+        "  WG-URL: http://ieee802.org/1/
+         WG-EMail: STDS-802-1-L@IEEE.ORG
+
+          Contact: IEEE 802.1 Working Group Chair
+           Postal: C/O IEEE 802.1 Working Group
+                   IEEE Standards Association
+                   445 Hoes Lane
+                   Piscataway
+                   NJ 08854
+                   USA
+           E-mail: STDS-802-1-L@IEEE.ORG"
+    DESCRIPTION
+        "The Bridge MIB module for managing devices that support
+        the IEEE Std 802.1Q Stream Reservation Protocol Enhancements
+        and Performance Improvements.
+
+        Unless otherwise indicated, the references in this MIB
+        module are to IEEE Std 802.1Q.
+
+        Copyright (C) IEEE (2018).
+        This version of this MIB module is part of IEEE802.1Q;
+        see the draft itself for full legal notices."
+
+    REVISION "201810040000Z" -- October 4, 2018
+    DESCRIPTION
+        "Initial revision, included in IEEE 802.1Qcc-2018"
+    ::= { ieee802dot1mibs 32 }
+
+-- =============================================================
+-- subtrees in the TSN Remote Management MIB
+-- =============================================================
+
+ieee8021TsnRemoteMgmtNotifications
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtMib 0 }
+
+ieee8021TsnRemoteMgmtObjects
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtMib 1 }
+
+ieee8021TsnRemoteMgmtConformance
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtMib 2 }
+
+ieee8021TsnRemoteMgmtBridgeDelay
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtObjects 1 }
+
+ieee8021TsnRemoteMgmtPropagationDelay
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtObjects 2 }
+
+ieee8021TsnRemoteMgmtStaticTrees
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtObjects 3 }
+
+ieee8021TsnRemoteMgmtMrpExternalControl
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtObjects 4 }
+
+-- =============================================================
+-- the ieee8021TsnRemoteBridgeDelayTable
+-- =============================================================
+
+ieee8021TsnRemoteMgmtBridgeDelayTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021TsnRemoteMgmtBridgeDelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing a set of parameters necessary to
+        determine the delay of frames as they pass through the
+        Bridge's relay.
+        There is one Bridge Delay managed object per Port pair of
+        a Bridge component. The Port pair consists of three indices,
+        an ingress Port followed by an egress Port and a traffic
+        class associated with the Port pair."
+    REFERENCE   "12.32.1"
+    ::= { ieee8021TsnRemoteMgmtBridgeDelay 1 }
+
+ieee8021TsnRemoteMgmtBridgeDelayEntry OBJECT-TYPE
+    SYNTAX      Ieee8021TsnRemoteMgmtBridgeDelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects containing information necessary to
+        determine the delay of frames as they pass through the
+        Bridge's relay."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021BridgeTrafficClass,
+             ieee8021TsnRemoteMgmtBridgeIngressPort,
+             ieee8021TsnRemoteMgmtBridgeEgressPort
+           }
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayTable 1 }
+
+Ieee8021TsnRemoteMgmtBridgeDelayEntry ::=
+    SEQUENCE {
+        ieee8021TsnRemoteMgmtBridgeIngressPort
+            IEEE8021BridgePortNumber,
+        ieee8021TsnRemoteMgmtBridgeEgressPort
+            IEEE8021BridgePortNumber,
+        ieee8021TsnRemoteMgmtIndependentDelayMin
+            Unsigned32,
+        ieee8021TsnRemoteMgmtIndependentDelayMax
+            Unsigned32,
+       ieee8021TsnRemoteMgmtDependentDelayMin
+            Unsigned32,
+        ieee8021TsnRemoteMgmtDependentDelayMax
+            Unsigned32
+    }
+
+ieee8021TsnRemoteMgmtBridgeIngressPort OBJECT-TYPE
+    SYNTAX      IEEE8021BridgePortNumber
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "..."
+    REFERENCE   "..."
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 1 }
+
+ieee8021TsnRemoteMgmtBridgeEgressPort OBJECT-TYPE
+    SYNTAX      IEEE8021BridgePortNumber
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "..."
+    REFERENCE   "..."
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 2 }
+
+ieee8021TsnRemoteMgmtIndependentDelayMin OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the minimum delay independent
+        from frame length for a frame to forward from ingress
+        port to egress port.
+
+        The delay begins when the message timestamp point of the
+        ingress frame passes the reference plane marking the
+        boundary between the network media and PHY. The delay
+        ends when the message timestamp point of the egress
+        frame passes the reference plane marking the boundary
+        between the network media and PHY. The message timestamp
+        point is specified by IEEE Std 802.1AS for various media,
+        near the start of the frame.
+
+        Note: This delay includes all aspects of length-independent
+        delay for a frame that is forwarded, including handling of
+        error conditions."
+    REFERENCE   "12.32.1.1"
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 3 }
+
+ieee8021TsnRemoteMgmtIndependentDelayMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the maximum delay independent
+        from frame length for a frame to forward from ingress
+        port to egress port.
+
+        The delay begins when the message timestamp point of
+        the ingress frame passes the reference plane marking
+        the boundary between the network media and PHY. The delay
+        ends when the message timestamp point of the egress frame
+        passes the reference plane marking the boundary between
+        the network media and PHY. The message timestamp point is
+        specified by IEEE Std 802.1AS for various media, near the
+        start of the frame."
+    REFERENCE   "12.32.1.1"
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 4 }
+
+ieee8021TsnRemoteMgmtDependentDelayMin OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the minimum length-dependent
+        delay from ingress port to egress port.
+
+        It provides the portion of delay that is dependent on
+        frame length, where frame length is the number of octets
+        that transfer across the MAC Service interfaces. Each
+        length-dependent delay attribute specifies the time for
+        a single octet of the frame to transfer from ingress
+        to egress."
+    REFERENCE   "12.32.1.2"
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 5 }
+
+ieee8021TsnRemoteMgmtDependentDelayMax OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the maximum length-dependent
+        delay from ingress port to egress port.
+
+        It provides the portion of delay that is dependent on
+        frame length, where frame length is the number of octets
+        that transfer across the MAC Service interfaces. Each
+        length-dependent delay attribute specifies the time for
+        a single octet of the frame to transfer from ingress
+        to egress."
+    REFERENCE   "12.32.1.2"
+    ::= { ieee8021TsnRemoteMgmtBridgeDelayEntry 6 }
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtPropagationDelayTable
+-- =============================================================
+
+ieee8021TsnRemoteMgmtPropagationDelayTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021TsnRemoteMgmtPropagationDelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing a set of parameters necessary to
+        determine the delay along the network media (e.g. cable)
+        for a frame transmitted from the specifed Port of this
+        Bridge to the neighboring Port on a different Bridge.
+        There is one Propagation Delay managed object per
+        egress Port of a Bridge."
+    REFERENCE   "12.32.2"
+    ::= { ieee8021TsnRemoteMgmtPropagationDelay 1 }
+
+ieee8021TsnRemoteMgmtPropagationDelayEntry OBJECT-TYPE
+    SYNTAX      Ieee8021TsnRemoteMgmtPropagationDelayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects containing information necessary to
+            determine the delay along the network media (e.g. cable)
+            for a frame transmitted from the specifed Port of this
+            Bridge to the neighboring Port on a different Bridge."
+    INDEX  { ieee8021BridgeBasePort }
+    ::= { ieee8021TsnRemoteMgmtPropagationDelayTable 1 }
+
+Ieee8021TsnRemoteMgmtPropagationDelayEntry ::=
+    SEQUENCE {
+        ieee8021TsnRemoteMgmtTxPropagationDelay
+            Unsigned32
+        }
+
+ieee8021TsnRemoteMgmtTxPropagationDelay OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute provides the transmission propagation delay.
+
+        The propagation delay begins when the message timestamp
+        point of an egress frame passes the reference plane marking
+        the boundary between the network media and PHY. It ends
+        when the message timestamp point of an ingress frame on the
+        neighboring Bridge's Port passes the reference plane marking
+        the boundary between the network media and PHY. The message
+        timestamp point is specified by IEEE Std 802.1AS for
+        various media."
+    REFERENCE   "12.32.2.1"
+    ::= { ieee8021TsnRemoteMgmtPropagationDelayEntry 1 }
+
+
+-- =============================================================
+-- The Static Tree subtree
+-- This subtree defines the objects necessary to determine if
+-- the static trees feature is supported by the Bridge.
+-- =============================================================
+
+ieee8021TsnRemoteMgmtStaticTreesSupported OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used by the TSN CNC to determine that
+        TE-MSTID is supported by the Bridge."
+    REFERENCE   "12.32.3.1"
+    ::= { ieee8021TsnRemoteMgmtStaticTrees 1 }
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtMsrpMrpExternalControlTable
+-- =============================================================
+
+ieee8021TsnRemoteMgmtMsrpMrpExternalControlTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing a set of parameters necessary for
+        a network manager to 1) disable MRP attribute propagation (MAP)
+        for the MRP Participant of a bridge port, 2) read MRP attribute
+        registrations that the MRP Participant receives, and 3) write
+        MRP attribute values for the MRP Participant to declare."
+    REFERENCE   "12.32.4"
+    ::= { ieee8021TsnRemoteMgmtMrpExternalControl 1 }
+
+ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry OBJECT-TYPE
+    SYNTAX      Ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects necessary for a network manager to
+        1) disable MRP attribute propagation (MAP) for the
+        MRP Participant of a bridge port, 2) read MRP attribute
+        registrations that the MRP Participant receives, and 3) write
+        MRP attribute values for the MRP Participant to declare."
+    INDEX  { ieee8021BridgeBaseComponentId,
+             ieee8021BridgeBasePort,
+             ieee8021QBridgeVlanIndex }
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlTable 1 }
+
+Ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry ::=
+    SEQUENCE {
+        ieee8021TsnRemoteMgmtMsrpMrpExternalControl
+            TruthValue,
+        ieee8021TsnRemoteMgmtMrpIndicationList
+            OCTET STRING,
+        ieee8021TsnRemoteMgmtMrpIndicationListLength
+            Unsigned32,
+        ieee8021TsnRemoteMgmtMrpIndicationChangeCounter
+            Counter64,
+        ieee8021TsnRemoteMgmtMrpAdminRequestList
+            OCTET STRING,
+        ieee8021TsnRemoteMgmtMrpAdminRequestListLength
+            Unsigned32,
+        ieee8021TsnRemoteMgmtMrpOperRequestList
+            OCTET STRING,
+        ieee8021TsnRemoteMgmtMrpOperRequestListLength
+            Unsigned32
+        }
+
+ieee8021TsnRemoteMgmtMsrpMrpExternalControl OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to indicate, whether MRP
+        attributes are propagated on the MRP Participant,
+        according to the specifications for MRP Attribute
+        Propagation (MAP) and specifications of the
+        MRP Application. When true(1), the MRP Participant is
+        removed from the MRP Application's MAP Context. The
+        MRP Participant performs all other aspects of MRP,
+        including MRP operation, MRP specifications, and
+        MRPDU encodings. The application component stores MAD
+        indications for registration received on the Port,
+        and invokes MAD requests for declarations on the Port.
+        When false(2), MRP attributes propagate on the
+        MRP Participant according to the specifications for
+        MRP Attribute Propagation (MAP) and specifications of
+        the MRP Application. Ports with the externalControl
+        attribute false(2) are considered as candidates for
+        the MRP Application's MAP Context. The remaining
+        attributes of this subtree are ignored by Ports with
+        the externalControl attribute false(2).
+        This managed object applies to the MSRP application.
+        A table is provided for each MAP Context (VLAN ID)."
+    REFERENCE   "12.32.4.1"
+    DEFVAL { false }
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 1 }
+
+ieee8021TsnRemoteMgmtMrpIndicationList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to store the list of all joined
+        MRP attributes for the MRP Participant when the
+        ieee8021TsnRemoteMgmtMrpExternalControl attribute is
+        true(1). When the ieee8021TsnRemoteMgmtMrpExternalControl
+        attribute is false(2), this attribute is ignored by the
+        MRP Participant, and returns the empty octet string."
+    REFERENCE   "12.32.4.2"
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 2 }
+
+ieee8021TsnRemoteMgmtMrpIndicationListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to provide the number of octets
+        in the ieee8021TsnRemoteMgmtMrpIndicationListLength
+        attribute. When the ieee8021TsnRemoteMgmtMrpExternalControl
+        attribute is false(2), this attribute returns zero."
+    REFERENCE   "12.32.4.3"
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 3 }
+
+ieee8021TsnRemoteMgmtMrpIndicationChangeCounter OBJECT-TYPE
+    SYNTAX      Counter64
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to provide the number of changes
+        done to the ieee8021TsnRemoteMgmtMrpIndicationList. When
+        the ieee8021TsnRemoteMgmtMrpExternalControl attribute is
+        false(2), this attribute returns zero."
+    REFERENCE   "12.34.4.4"
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 4 }
+
+ieee8021TsnRemoteMgmtMrpAdminRequestList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to provide the administrative
+        value of the current list of MAD requests for the
+        MRP Participant (operRequestList). Each entry in this
+        attribute is encoded as the attribute_type parameter as
+        a single octet, followed by the length of the
+        attribute_value parameter as a single octet, followed
+        by a sequence of octets for the attribute_value parameter.
+        When the ieee8021TsnRemoteMgmtMrpExternalControl attribute
+        is true(1), this attribute is copied to the
+        ieee8021TsnRemoteMgmtMrpOperRequestList attribute as soon
+        as possible according to the implementation. When the
+        ieee8021TsnRemoteMgmtMrpExternalControl attribute is
+        false(2), this attribute is ignored by the MRP Participant,
+        but it retains its value."
+    REFERENCE   "12.32.4.5"
+    DEFVAL { "" }
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 5 }
+
+ieee8021TsnRemoteMgmtMrpAdminRequestListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to provide the administrative
+        value for the number of octets in the
+        ieee8021TsnRemoteMgmtMrpAdminRequestList attribute.
+        When the ieee8021TsnRemoteMgmtMrpExternalControl attribute
+        is true(1), this attribute is copied to the
+        ieee8021TsnRemoteMgmtMrpOperRequestListLength attribute at
+        the same time that the ieee8021TsnRemoteMgmtMrpAdminRequestList
+        attribute is copied to the ieee8021TsnRemoteMgmtMrpOperRequestList
+        attribute. When the ieee8021TsnRemoteMgmtMrpExternalControl
+        attribute is false(2), this attribute is ignored by the
+        MRP Participant, but it retains its value."
+    REFERENCE   "12.32.4.6"
+    DEFVAL { 0 }
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 6 }
+
+ieee8021TsnRemoteMgmtMrpOperRequestList OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to proivde the operational value
+        of the current list of MAD requests for the MRP Participant."
+    REFERENCE   "12.32.4.7"
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 7 }
+
+ieee8021TsnRemoteMgmtMrpOperRequestListLength OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This attribute is used to provide the operational value
+        of the ieee8021TsnRemoteMgmtMrpAdminRequestListLength
+        attribute, and it is copied at the same time that
+        ieee8021TsnRemoteMgmtMrpAdminRequestList attribute is
+        copied to ieee8021TsnRemoteMgmtMrpOperRequestList."
+    REFERENCE   "12.32.4.8"
+    ::= { ieee8021TsnRemoteMgmtMsrpMrpExternalControlEntry 8 }
+
+
+-- =============================================================
+-- IEEE802 TSN REMOTE MANAGEMENT MIB - Conformance Information
+-- =============================================================
+
+ieee8021TsnRemoteMgmtCompliances
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtConformance 1 }
+ieee8021TsnRemoteMgmtGroups
+    OBJECT IDENTIFIER ::= { ieee8021TsnRemoteMgmtConformance 2 }
+
+-- =============================================================
+-- units of conformance
+-- =============================================================
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtBridgeDelay group
+-- =============================================================
+
+ieee8021TsnRemoteMgmtBridgeDelayGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021TsnRemoteMgmtIndependentDelayMin,
+        ieee8021TsnRemoteMgmtIndependentDelayMax,
+        ieee8021TsnRemoteMgmtDependentDelayMin,
+        ieee8021TsnRemoteMgmtDependentDelayMax
+    }
+    STATUS      current
+    DESCRIPTION
+        "Objects that define the delay of frames as they pass
+        through the Bridge's relay."
+    ::= { ieee8021TsnRemoteMgmtGroups 1 }
+
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtPropagationDelay group
+-- =============================================================
+
+ieee8021TsnRemoteMgmtPropagationDelayGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021TsnRemoteMgmtTxPropagationDelay
+    }
+    STATUS      current
+    DESCRIPTION
+        "Objects that define delay of frames along the network
+        media (e.g. cable)."
+    ::= { ieee8021TsnRemoteMgmtGroups 2 }
+
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtStaticTrees group
+-- =============================================================
+
+ieee8021TsnRemoteMgmtStaticTreesGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021TsnRemoteMgmtStaticTreesSupported
+    }
+    STATUS      current
+    DESCRIPTION
+        "Objects that define static tree support."
+    ::= { ieee8021TsnRemoteMgmtGroups 3 }
+
+
+-- =============================================================
+-- the ieee8021TsnRemoteMgmtMrpExternalControl group
+-- =============================================================
+
+ieee8021TsnRemoteMgmtMrpExternalControlGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021TsnRemoteMgmtMsrpMrpExternalControl,
+        ieee8021TsnRemoteMgmtMrpIndicationList,
+        ieee8021TsnRemoteMgmtMrpIndicationListLength,
+        ieee8021TsnRemoteMgmtMrpIndicationChangeCounter,
+        ieee8021TsnRemoteMgmtMrpAdminRequestList,
+        ieee8021TsnRemoteMgmtMrpAdminRequestListLength,
+        ieee8021TsnRemoteMgmtMrpOperRequestList,
+        ieee8021TsnRemoteMgmtMrpOperRequestListLength
+    }
+    STATUS      current
+    DESCRIPTION
+        "Objects that define configuration of MRP External control."
+    ::= { ieee8021TsnRemoteMgmtGroups 4 }
+
+
+-- =============================================================
+-- compliance statements
+-- =============================================================
+
+ieee8021TsnRemoteMgmtCompliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for devices supporting
+        TSN Remote management.
+
+        Support of the objects defined in the IEEE8021-TSN REMOTE
+        MANAGEMENT MIB also requires support of the IEEE8021-BRIDGE-MIB;
+        the provisions of 17.3.2 apply to implementations claiming
+        support of the IEEE8021-TSN REMOTE  MANAGEMENT MIB."
+
+    MODULE -- this module
+        MANDATORY-GROUPS {
+            ieee8021TsnRemoteMgmtBridgeDelayGroup,
+            ieee8021TsnRemoteMgmtPropagationDelayGroup,
+            ieee8021TsnRemoteMgmtStaticTreesGroup,
+            ieee8021TsnRemoteMgmtMrpExternalControlGroup
+        }
+
+    ::= { ieee8021TsnRemoteMgmtCompliances 1 }
+
+END

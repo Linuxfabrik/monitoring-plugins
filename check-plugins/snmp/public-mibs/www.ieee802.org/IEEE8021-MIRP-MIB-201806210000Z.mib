@@ -1,0 +1,325 @@
+IEEE8021-MIRP-MIB
+ DEFINITIONS ::= BEGIN
+
+-- ******************************************************************
+-- IEEE P802.1Q(TM) Multiple I-SID Registration Protocol MIB
+-- ******************************************************************
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE
+              FROM SNMPv2-SMI    -- [RFC2578]
+    TruthValue
+               FROM SNMPv2-TC     -- [RFC2579]
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP             FROM SNMPv2-CONF   -- [RFC2580]
+    systemGroup
+              FROM SNMPv2-MIB    -- [RFC3418]
+    VlanIdOrNone
+             FROM Q-BRIDGE-MIB  -- [RFC4363]
+    IEEE8021BridgePortNumberOrZero
+
+                             FROM IEEE8021-TC-MIB  -- IEEE Std 802.1ap
+    ieee8021PbbBackboneEdgeBridgeObjects
+
+                             FROM IEEE8021-PBB-MIB -- IEEE Std 802.1ap
+    ieee8021BridgeBasePortEntry
+
+                         FROM IEEE8021-BRIDGE-MIB -- IEEE Std 802.1ap
+   ;
+
+ieee8021MirpMib
+ MODULE-IDENTITY
+    LAST-UPDATED "201806280000Z" -- June 28, 2018
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+       "WG-URL:   http://www.ieee802.org/1/
+        WG-EMail: stds-802-1-L@ieee.org 
+        Contact:  IEEE 802.1 Working Group Chair
+        Postal:   IEEE Standards Board
+                  445 Hoes Lane
+                  Piscataway, NJ 08854
+                  USA
+        E-mail:   stds-802-1-L@ieee.org
+       "
+   DESCRIPTION 
+       "Multiple I-SID Registration Protocol module for managing
+        IEEE 802.1Qbe
+
+        Unless otherwise indicated, the references in this MIB
+        module are to IEEE Std 802.1Q.
+
+        Copyright (C) IEEE (2018).
+        This version of this MIB module is part of IEEE Std 802.1Q;
+        see the draft itself for full legal notices.
+       "
+
+
+    REVISION "201806280000Z" -- June 28, 2018
+    DESCRIPTION
+            "Published as part of IEEE Std 802.1Q-2018.
+            Cross references updated and corrected."
+            
+    REVISION "201412150000Z" -- December 15, 2014
+    DESCRIPTION
+            "Published as part of IEEE Std 802.1Q 2014 revision.
+            Cross references updated and corrected.
+            Objects renamed and attached to the proper MIB arc.
+            NOTE THAT the original MIB version incorrectly
+            attached new objects to the CN MIB arc. The old objects
+            and object names SHOULD NOT be used. The old names/objects 
+            concerned are:
+            ieee8021MirpMIBObjects
+            ieee8021MirpConformance
+            ieee8021MirpPortTable
+            ieee8021MirpCompliances
+            ieee8021MirpGroups"
+
+   REVISION       "201104050000Z"    -- (YYYYMMDDHHMM Zulu=GMT)
+   DESCRIPTION 
+      "Included in IEEE Std 802.1Qbe-2011
+
+        Copyright (C) IEEE Std 802.1."
+    ::= { iso(1) org(3) ieee(111)
+         standards-association-numbers-series-standards (2)
+         lan-man-stds (802) ieee802dot1 (1) ieee802dot1mibs (1) 23 }
+
+ieee8021MirpV2MIBObjects
+    OBJECT IDENTIFIER ::= { ieee8021MirpMib 1 }
+ieee8021MirpV2Conformance
+   OBJECT IDENTIFIER ::= { ieee8021MirpMib 2 }
+
+
+-- =============================================================
+-- MIRP augmentation of the Generic Bridge Port Table
+-- =============================================================
+
+ieee8021MirpV2PortTable
+ OBJECT-TYPE
+    SYNTAX SEQUENCE OF Ieee8021MirpV2PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A table that contains controls for the Multiple I-SID
+        Registration Protocol (MIRP) state machines for all of the Ports
+        of a Bridge."
+    REFERENCE   "12.9.2"
+    ::= { ieee8021MirpV2MIBObjects 1 }
+
+ieee8021MirpV2PortEntry
+ OBJECT-TYPE
+    SYNTAX Ieee8021MirpV2PortEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "Each entry contains the MIRP Participant controls for one Port."
+AUGMENTS { ieee8021BridgeBasePortEntry }
+    ::= { ieee8021MirpV2PortTable 1 }
+
+Ieee8021MirpV2PortEntry
+ ::= SEQUENCE {
+        ieee8021MirpV2PortEnabledStatus           TruthValue
+    }
+
+ieee8021MirpV2PortEnabledStatus
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "The state of MIRP operation on this port. The value
+        true(1) indicates that MIRP is enabled on this port,
+        as long as ieee8021PbbMirpEnableStatus is also enabled
+        for this component. When false(2) but
+        ieee8021PbbMirpEnableStatus is still
+        enabled for the device, MIRP is disabled on this port.
+
+        If MIRP is enabled on a VIP, then the MIRP Participant is
+        enabled on that VIP's PIP.  If MIRP is enabled on none of the
+        VIPs on a PIP, then the MIRP Participant on the PIP is
+        diabled; any MIRP packets received will be silently discarded,
+        and no MIRP registrations will be propagated from the PIP. A
+        transition from all VIPs on a PIP false(2) to at least one VIP
+        on the PIP true(1) will cause a reset of all MIRP state
+        machines on this PIP.
+
+        If MIRP is enabled on any port not a VIP, then the MIRP
+        Participant is enabled on that port.  If MIRP is
+        disabled on a non-VIP port, then MIRP packets received will be
+        silently discarded, and no MIRP registrations will be
+        propagated from the port.  A transition from false(2) to
+        true(1) will cause a reset of all  MIRP state machines on a
+        non-VIP port.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "12.7.7.1, 12.7.7.2, 39.2.1.11"
+    DEFVAL      { true }
+    ::= { ieee8021MirpV2PortEntry 1 }
+
+
+
+-- =============================================================
+-- MIRP augmentation of BEB subtree
+-- =============================================================
+
+
+ieee8021PbbMirpEnableStatus
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The administrative status requested by management for
+        MIRP. The value true(1) indicates that MIRP should be enabled
+        on this component, on all ports for which it has not been
+        specifically disabled. When false(2), MIRP is disabled on all
+        ports. This object affects all MIRP Applicant and Registrar
+        state machines. A transition from false(2) to true(1) will
+        cause a reset of all MIRP state machines on all ports.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "12.16.1.1.3:i, 12.16.1.2.2:b"
+    DEFVAL      { false }
+    ::= { ieee8021PbbBackboneEdgeBridgeObjects 7 }
+
+ieee8021PbbMirpBvid
+ OBJECT-TYPE
+    SYNTAX      VlanIdOrNone
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "The B-VID to which received MIRPDUs are to be assigned, or 0,
+        if they are to be sent on the CBP PVID."
+    REFERENCE   "12.14.7.7.2 j), 12.14.7.7.2 c)"
+    DEFVAL      { 0 }
+    ::= { ieee8021PbbBackboneEdgeBridgeObjects 8 }
+
+ieee8021PbbMirpDestSelector
+ OBJECT-TYPE
+    SYNTAX      INTEGER {
+                    cbpMirpGroup (1),
+                    cbpMirpVlan  (2),
+                    cbpMirpTable (3)
+                }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "An enumerated value specifying what destination_address and
+        vlan_identifier are to be used when the MIRP Participant
+        transmits an MIRPDU towards the MAC relay entity:
+
+            cbpMirpGroup (1) Use the Nearest Customer Bridge group
+                             address from Table 8-1 with the MIRP B-VID.
+            cbpMirpVlan  (2) Use the Nearest Customer Bridge group
+                             address from Table 8-1 with the Backbone
+                             VLAN Identifier field from the Backbone
+                             Service Instance table.
+            cbpMirpTable (3) Use the Default Backbone Destination and
+                             Backbone VLAN Identifier fields from the
+                             Backbone Service Instance table.
+
+        The value of this object MUST be retained across
+        reinitializations of the management system."
+    REFERENCE   "Table 8-1, 12.14.7.7.2 k), 12.14.7.7.2 d)"
+    DEFVAL      { cbpMirpGroup }
+    ::= { ieee8021PbbBackboneEdgeBridgeObjects 9 }
+
+ieee8021PbbMirpPnpEnable
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+       "A Boolean value specifying the administrative status requested
+        by management for attaching a MIRP Participant to a PNP if
+        and only if this system is a Backbone Edge Bridge (BEB):
+
+        true(1)  The BEB is to attach a MIRP Participant to exactly one
+                 Port, either a management Port with no LAN connection
+                 external to the BEB, or a PNP.
+        false(2) No MIRP Participant is to be present on any PNP (or
+                 on the MAC Relay-facing side of a CBP).
+
+        The value of this object MUST be retained across
+        reinitializations of the management system.
+       "
+    REFERENCE   "12.14.7.7.2 j), 12.14.7.7.2 c)"
+    DEFVAL      { true }
+    ::= { ieee8021PbbBackboneEdgeBridgeObjects 10 }
+
+ieee8021PbbMirpPnpPortNumber
+ OBJECT-TYPE
+    SYNTAX      IEEE8021BridgePortNumberOrZero
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+       "The Bridge Port Number of the Provider Network Port (PNP) that
+        has an associated MIRP Participant, or 0, if no Bridge Port has
+        an associated MIRP Participant. This object indexes an entry in
+        the Bridge Port Table.  The system SHALL ensure that either
+        ieee8021PbbMirpPnpPortNumber contains 0, or that the indexed
+        ieee8021BridgeBasePortType object contains the value
+        providerNetworkPort(3)."
+    REFERENCE   "12.14.7.7.2 j), 12.14.7.7.2 c)"
+    DEFVAL      { 0 }
+    ::= { ieee8021PbbBackboneEdgeBridgeObjects 11 }
+
+
+
+
+-- ******************************************************************
+-- IEEE 802.1Qbe MIB Module - Conformance Information
+-- ******************************************************************
+
+ieee8021MirpV2Compliances
+     OBJECT IDENTIFIER
+    ::= { ieee8021MirpV2Conformance 1 }
+ieee8021MirpV2Groups
+          OBJECT IDENTIFIER
+    ::= { ieee8021MirpV2Conformance 2 }
+
+-- ******************************************************************
+-- Units of conformance
+-- ******************************************************************
+
+ieee8021MirpV2ReqdGroup
+ OBJECT-GROUP
+    OBJECTS {
+        ieee8021MirpV2PortEnabledStatus,
+        ieee8021PbbMirpEnableStatus,
+        ieee8021PbbMirpBvid,
+        ieee8021PbbMirpDestSelector,
+        ieee8021PbbMirpPnpEnable,
+        ieee8021PbbMirpPnpPortNumber
+    }
+    STATUS current
+    DESCRIPTION
+       "Objects in the MIRP augmentation required group."
+    ::= { ieee8021MirpV2Groups 1 }
+
+-- ******************************************************************
+-- MIB Module Compliance statements
+-- ******************************************************************
+
+ieee8021MirpV2BridgeCompliance
+ MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+       "The compliance statement for support by a Bridge of
+        the IEEE8021-MIRP-MIB module."
+
+    MODULE SNMPv2-MIB -- The SNMPv2-MIB, RFC 3418
+        MANDATORY-GROUPS {
+            systemGroup
+        }
+
+    MODULE
+        MANDATORY-GROUPS {
+            ieee8021MirpV2ReqdGroup
+        }
+
+    ::= { ieee8021MirpV2Compliances 1 }
+
+END

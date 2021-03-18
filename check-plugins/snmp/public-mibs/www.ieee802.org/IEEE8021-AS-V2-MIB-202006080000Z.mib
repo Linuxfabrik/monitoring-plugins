@@ -1,0 +1,4093 @@
+IEEE8021-AS-V2-MIB DEFINITIONS ::= BEGIN
+-- =============================================================
+-- MIB for support of 802.1AS Timing and Synchronization in
+-- IEEE 802.1Q Bridged Local Area Networks
+-- =============================================================
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Unsigned32, Integer32, Counter32
+        FROM SNMPv2-SMI              -- [RFC2578]
+    TEXTUAL-CONVENTION, TruthValue, RowStatus, TimeStamp
+        FROM SNMPv2-TC               -- [RFC2579]
+    MODULE-COMPLIANCE, OBJECT-GROUP  -- [RFC2580]
+        FROM SNMPv2-CONF
+	SnmpAdminString
+		FROM SNMP-FRAMEWORK-MIB      -- [RFC3411]
+    InterfaceIndexOrZero
+        FROM IF-MIB                  -- [RFC2863]
+    Float64TC
+        FROM FLOAT-TC-MIB            -- [RFC6340]
+    IEEE8021BridgePortNumber
+        FROM IEEE8021-TC-MIB
+    ;
+
+ieee8021AsV2TimeSyncMib MODULE-IDENTITY
+    LAST-UPDATED "202006080000Z" -- June 8, 2020
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO
+                "WG-URL: http://ieee802.org/1/
+                WG-EMail: stds-802-1-l@ieee.org
+
+    Contact: IEEE 802.1 Working Group Chair
+    Postal: C/O IEEE 802.1 Working Group
+            IEEE Standards Association
+            445 Hoes Lane
+            Piscataway, NJ 08854
+            USA
+
+    E-mail: stds-802-1-chairs@ieee.org"
+
+    DESCRIPTION
+        "The Management Information Base module for
+         IEEE 802.1AS time-synchronization protocol."
+
+    REVISION    "202006080000Z" -- June 8, 2020
+    DESCRIPTION
+        "Published as part of IEEE Std 802.1AS-2020, a revision.
+         This MIB module 1) adds support for multiple domains through
+         hierarchical instances of datasets, and 2) adds common
+         service datasets that are common to all PTP Instances.
+
+         Unless otherwise indicated, the references in this MIB
+         module are to IEEE Std 802.1AS-2020.
+
+         This MIB Structure comprises (see 14.1.1):
+         a) instanceList[], per PTP Instance in a system
+             1) defaultDS
+             2) currentDS
+             3) parentDS
+             4) timePropertiesDS
+             5) pathTraceDS
+             6) acceptableMasterTableDS
+             7) portList[], per PTP Port (per PTP Instance)
+                    i) portDS
+                    ii) descriptionPortDS
+                    iii) portStatisticsDS
+                    iv) acceptableMasterPortDS
+                    v) externalPortConfigurationPortDS
+                    vi) asymmetryMeasurementModeDS
+                    vii) commonServicesPortDS
+         b) commonServices, per PTP Port.
+             1) commonMeanLinkDelayService
+                    i) cmldsDefaultDS
+                    ii) cmldsLinkPortList[] per PTP Port.
+                         - cmldsLinkPortDS
+                         - cmldsLinkPortStatisticsDS
+                         - cmldsAsymmetryMeasurementModeDS
+             2) <future common services can follow>
+
+         Published as part of IEEE Std 802.1AS-2020
+         Copyright (C) IEEE (2020).
+         This version of this MIB module is part of IEEE Std
+         802.1AS-2020; see the standard itself for full legal
+         notices."
+
+  ::= { iso(1) org(3) ieee(111)
+         standards-association-numbers-series-standards (2)
+         lan-man-stds (802) ieee802dot1 (1) ieee802dot1mibs (1) 33 }
+
+ieee8021AsV2MIBObjects    OBJECT IDENTIFIER ::= {ieee8021AsV2TimeSyncMib 1}
+ieee8021AsV2Conformance   OBJECT IDENTIFIER ::= {ieee8021AsV2TimeSyncMib 2}
+
+-- =============================================================
+-- Textual Conventions
+-- =============================================================
+
+Ieee8021AsV2ClockIdentity ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT
+        "1x:"
+    STATUS current
+    DESCRIPTION
+        "The Ieee8021AsV2ClockIdentity type identifies a PTP Instance.
+         The clockIdentity attribute shall be as specified in
+         IEEE Std 1588-2019."
+    REFERENCE    "6.4.3.6, 8.5.2.2 and IEEE Std 1588-2019 7.5.2.2"
+    SYNTAX OCTET STRING (SIZE (8))
+
+Ieee8021AsV2GPtpProfileIdentifier ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT
+        "1x:"
+    STATUS current
+    DESCRIPTION
+        "The Ieee8021AsV2GPtpProfileIdentifier attribute is the
+         profileIdentifier for this PTP profile."
+    REFERENCE    "14.9.2, F.1 "
+    SYNTAX OCTET STRING (SIZE (6))
+
+Ieee8021AsV2ClockClassValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The Ieee8021AsV2ClockClassValue attribute denotes the traceability
+         of the synchronized time distributed by a ClockMaster when it is
+         the Grandmaster PTP Instance.
+         A more detailed description of clockClass can be found in
+         IEEE Std 1588-2019."
+    REFERENCE    "8.6.2.2 and IEEE Std 1588-2019 7.6.2.5"
+    SYNTAX     INTEGER {
+        primarySync(6),
+        primarySyncLost(7),
+        applicationSpecificSync(13),
+        applicationSpecficSyncLost(14),
+        primarySyncAlternativeA(52),
+        applicationSpecificAlternativeA(58),
+        primarySyncAlternativeB(187),
+        applicationSpecficAlternativeB(193),
+        defaultClock(248),
+        slaveOnlyClock(255)
+        }
+
+Ieee8021AsV2ClockAccuracyValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The Ieee8021AsV2ClockAccuracyValue attribute indicates the
+         expected time accuracy of a ClockMaster.
+         A more detailed description of clockAccuracy can be found in
+         IEEE Std 1588-2019."
+    REFERENCE    "8.6.2.3 and IEEE Std 1588-2019 7.6.2.6"
+    SYNTAX     INTEGER {
+        timeAccurateTo25ns(32),
+        timeAccurateTo100ns(33),
+        timeAccurateTo250ns(34),
+        timeAccurateTo1us(35),
+        timeAccurateTo2dot5us(36),
+        timeAccurateTo10us(37),
+        timeAccurateTo25us(38),
+        timeAccurateTo100us(39),
+        timeAccurateTo250us(40),
+        timeAccurateTo1ms(41),
+        timeAccurateTo2dot5ms(42),
+        timeAccurateTo10ms(43),
+        timeAccurateTo25ms(44),
+        timeAccurateTo100ms(45),
+        timeAccurateTo250ms(46),
+        timeAccurateTo1s(47),
+        timeAccurateTo10s(48),
+        timeAccurateToGT10s(49),
+        timeAccurateToUnknown(254)
+        }
+
+Ieee8021AsV2TimeSourceValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The Ieee8021AsV2TimeSourceValue is an information only
+         attribute indicating the type of source of time used by a
+         ClockMaster. The value is not used in the selection of the
+         Grandmaster PTP Instance. The values of TimeSource are
+         given below and are specified in Table 8-2. These represent
+         categories. For example, the GPS entry includes not only the
+         GPS system of the U.S. Department of Defense but the European
+         Galileo system and other present and future GNSSs.
+
+         In the absence of a default value set by a user of this standard,
+         the default value of timeSource shall be INTERNAL_OSCILLATOR.
+
+         A more detailed description of timeSource can be found in
+         IEEE Std 1588-2019.
+
+         The following interpretation is placed on the value:
+            0x10:  Atomic Clock,
+            0x20:  GPS,
+            0x30:  Terrestrial Radio,
+            0x40:  PTP,
+            0x50:  NTP,
+            0x60:  Hand Set,
+            0x90:  Other,
+            0xA0:  Internal Oscillator "
+    REFERENCE  "8.6.2.7, 8-2 and IEEE Std 1588-2019 7.6.2.8"
+    SYNTAX      INTEGER {
+            atomicClock(16),
+            gps(32),
+            terrestrialRadio(48),
+            ptp(64),
+            ntp(80),
+            handSet(96),
+            other(144),
+            internalOscillator(160)
+           }
+
+Ieee8021ASV2PtpTimeInterval ::= TEXTUAL-CONVENTION
+    STATUS current
+    DESCRIPTION
+        "The Ieee8021ASV2PtpTimeInterval type represents time intervals
+         in units of 2^-16 ns. Positive or negative time
+         intervals outside the maximum range of this data type shall
+         be encoded as the largest positive and negative values of
+         the data type respectively.
+         For example: 2.5 ns is expressed as:
+         (hex) 0x0000 0000 0002 8000"
+    REFERENCE "6.4.3.3"
+SYNTAX OCTET STRING (SIZE (8))
+
+Ieee8021ASV2PtpPortIdentity ::= TEXTUAL-CONVENTION
+STATUS current
+DESCRIPTION
+        "The Ieee8021ASV2PtpPortIdentity type identifies a port of a
+         PTP Instance.
+         The first 8 octets within this value specifies the
+         ClockIdentity.
+         The last 2 octets within this value specifies the port number."
+    REFERENCE   "6.4.3.7"
+SYNTAX OCTET STRING (SIZE (10))
+
+Ieee8021ASV2ScaledNs ::= TEXTUAL-CONVENTION
+STATUS current
+DESCRIPTION
+        "The Ieee8021ASV2ScaledNs type represents signed values of
+         time and time interval in units of 2^-16 ns.
+         Positive or negative values of time or time interval outside the
+         maximum range of this data type are encoded as the largest
+         positive or negative value of the data type, respectively.
+         For example: -2.5 ns is expressed as:
+         (hex) 0xFFFF FFFF FFFF FFFF FFFD 8000"
+    REFERENCE   "6.4.3.1"
+SYNTAX OCTET STRING (SIZE (12))
+
+Ieee8021ASV2UScaledNs ::= TEXTUAL-CONVENTION
+STATUS current
+DESCRIPTION
+        "The Ieee8021ASV2UScaledNs type represents unsigned values of
+         time and time interval in units of 2^-16 ns.
+         Positive or negative values of time or time interval outside
+         the maximum range of this data type are encoded as the largest
+         positive or negative value of the data type, respectively.
+         For example: 2.5 ns is expressed as:
+         (hex) 0x0000 0000 0000 0000 0002 8000"
+    REFERENCE   "6.4.3.2"
+SYNTAX OCTET STRING (SIZE (12))
+
+Ieee8021ASV2PTPInstanceIdentifier ::= TEXTUAL-CONVENTION
+DISPLAY-HINT "d"
+STATUS current
+DESCRIPTION
+        "The entity of a single time-aware system that executes gPTP in
+         one gPTP domain is called a PTP Instance. A time-aware system
+         can contain multiple PTP Instances, which are each associated
+         with a different gPTP domain. There are two types of
+         PTP Instances, a PTP End Instance and a PTP Relay Instance."
+    REFERENCE   "7.2.1"
+SYNTAX Unsigned32
+
+Ieee8021ASV2Timestamp ::= TEXTUAL-CONVENTION
+STATUS current
+DESCRIPTION
+        "The value of Ieee8021ASV2Timestamp is equal to the remainder
+         obtained upon dividing the respective timestamp, expressed
+         in units of 2^-16 ns, by 2^48)."
+    REFERENCE   "14.8.53, 14.16.25 and Table 14-9"
+SYNTAX OCTET STRING (SIZE (6))
+
+-- =================================================================
+-- subtrees in the IEEE8021-AS-MIB
+--
+-- System Time-Aware Parameters/Capabilities for each instance of
+-- gPTP domain. ieee8021AsV2InstanceListIndex that is of
+-- ieee8021AsV2DomainIdentificationNumber object-type is used as Index.
+--
+-- =================================================================
+
+-- =================================================================
+-- The PTP Instance set is used to allow for dynamic creation and
+-- deletion of PTP Instances and logical ports implementations that
+-- support dynamic create/delete of devices.
+-- =================================================================
+
+ieee8021AsV2PtpInstanceTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2PtpInstanceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table is used to allow for dynamic creation and deletion
+         of PTP Instances and logical ports implementations that support
+         dynamic create/delete of devices."
+    REFERENCE   "14.1"
+    ::= { ieee8021AsV2MIBObjects 1 }
+
+ieee8021AsV2PtpInstanceEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2PtpInstanceEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An entry that specifies a PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2PtpInstanceTable 1 }
+
+Ieee8021AsV2PtpInstanceEntry ::=
+  SEQUENCE {
+    ieee8021AsV2PtpInstance            Ieee8021ASV2PTPInstanceIdentifier,
+    ieee8021AsV2PtpInstanceName        SnmpAdminString,
+    ieee8021AsV2PtpInstanceRowStatus   RowStatus
+  }
+
+ieee8021AsV2PtpInstance OBJECT-TYPE
+    SYNTAX Ieee8021ASV2PTPInstanceIdentifier
+    MAX-ACCESS not-accessible
+    STATUS current
+    DESCRIPTION
+        "The entity of a single time-aware system that executes gPTP in
+         one gPTP domain is called a PTP Instance. A time-aware system can
+         contain multiple PTP Instances, which are each associated with
+         a different gPTP domain. There are two types of PTP Instances,
+         a PTP End Instance and a PTP Relay Instance."
+    REFERENCE "7.2.1"
+    ::= { ieee8021AsV2PtpInstanceEntry 1 }
+
+ieee8021AsV2PtpInstanceName OBJECT-TYPE
+    SYNTAX SnmpAdminString
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+    "Name for identification of a PTP Instance."
+    DEFVAL { "" }
+    ::= { ieee8021AsV2PtpInstanceEntry 2 }
+
+ieee8021AsV2PtpInstanceRowStatus OBJECT-TYPE
+    SYNTAX RowStatus
+    MAX-ACCESS read-create
+    STATUS current
+    DESCRIPTION
+        "This attribute is used to create and delete PTP Instances."
+    REFERENCE "14.1"
+    ::= { ieee8021AsV2PtpInstanceEntry 3 }
+
+-- =================================================================
+-- The Default data set represents native time capability of a time-
+-- aware system and is consistent with respective IEEE 1588 data set.
+-- =================================================================
+
+ieee8021AsV2DefaultDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2DefaultDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Default Parameter Data Set represents the native capabilities
+         of a PTP Instance, i.e., a PTP Relay Instance or a
+         PTP End Instance."
+    REFERENCE   "14.2"
+    ::= { ieee8021AsV2MIBObjects 2 }
+
+ieee8021AsV2DefaultDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2DefaultDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Default Data Set contains the profile Identifier for
+         this instance of gPTP domain."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2DefaultDSTable 1 }
+
+Ieee8021AsV2DefaultDSEntry ::=
+  SEQUENCE {
+    ieee8021AsV2DefaultDSClockIdentity          Ieee8021AsV2ClockIdentity,
+    ieee8021AsV2DefaultDSNumberPorts            Unsigned32,
+    ieee8021AsV2DefaultDSClockQualityClockClass Ieee8021AsV2ClockClassValue,
+    ieee8021AsV2DefaultDSClockQualityClockAccuracy Ieee8021AsV2ClockAccuracyValue,
+    ieee8021AsV2DefaultDSClockQualityOffsetScaledLogVariance Unsigned32,
+    ieee8021AsV2DefaultDSPriority1              Unsigned32,
+    ieee8021AsV2DefaultDSPriority2              Unsigned32,
+    ieee8021AsV2DefaultDSGmCapable              TruthValue,
+    ieee8021AsV2DefaultDSCurrentUtcOffset       Integer32,
+    ieee8021AsV2DefaultDSCurrentUtcOffsetValid  TruthValue,
+    ieee8021AsV2DefaultDSLeap59                 TruthValue,
+    ieee8021AsV2DefaultDSLeap61                 TruthValue,
+    ieee8021AsV2DefaultDSTimeTraceable          TruthValue,
+    ieee8021AsV2DefaultDSFrequencyTraceable     TruthValue,
+    ieee8021AsV2DefaultDSPtpTimescale           TruthValue,
+    ieee8021AsV2DefaultDSTimeSource             Ieee8021AsV2TimeSourceValue,
+    ieee8021AsV2DefaultDSDomainNumber           Unsigned32,
+    ieee8021AsV2DefaultDSSdoId                  Unsigned32,
+    ieee8021AsV2DefaultDSExternalPortConfigurationEnabled TruthValue,
+    ieee8021AsV2DefaultDSInstanceEnable         TruthValue
+    }
+
+ieee8021AsV2DefaultDSClockIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockIdentity of the PTP Instance.
+         The clockIdentity attribute shall be as specified in
+         IEEE Std 1588-2019."
+    REFERENCE   "14.2.2 and IEEE Std 1588-2019 7.5.2.2"
+    ::= { ieee8021AsV2DefaultDSEntry 1 }
+
+
+ieee8021AsV2DefaultDSNumberPorts OBJECT-TYPE
+    SYNTAX      Unsigned32(1..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The number of ports of the PTP Instance. For an end
+         station the value is 1."
+    REFERENCE   "14.2.3"
+    ::= { ieee8021AsV2DefaultDSEntry 2 }
+
+
+ieee8021AsV2DefaultDSClockQualityClockClass OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockClassValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockClass of the PTP Instance, which
+         implements the clockClass specifications of 8.6.2.2."
+    REFERENCE   "14.2.4.2"
+    ::= { ieee8021AsV2DefaultDSEntry 3 }
+
+
+ieee8021AsV2DefaultDSClockQualityClockAccuracy OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockAccuracyValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockAccuracy of the PTP Instance, which
+         implements the clockAccuracy specifications of 8.6.2.3."
+    REFERENCE   "14.2.4.3"
+    ::= { ieee8021AsV2DefaultDSEntry 4 }
+
+
+ieee8021AsV2DefaultDSClockQualityOffsetScaledLogVariance OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the offsetScaledLogVariance of the PTP Instance,
+         which implements the offsetScaledLogVariance specifications
+         of 8.6.2.4."
+    REFERENCE   "14.2.4.4"
+    ::= { ieee8021AsV2DefaultDSEntry 5 }
+
+ieee8021AsV2DefaultDSPriority1 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the priority1 attribute of the PTP Instance."
+    REFERENCE   "14.2.5"
+    ::= { ieee8021AsV2DefaultDSEntry 6 }
+
+
+ieee8021AsV2DefaultDSPriority2 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the priority2 attribute of the PTP Instance."
+    REFERENCE   "14.2.5"
+    DEFVAL { 248 }
+    ::= { ieee8021AsV2DefaultDSEntry 7 }
+
+
+ieee8021AsV2DefaultDSGmCapable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is TRUE (1) if the PTP Instance is capable of being a
+         Grandmaster PTP Instance, and FALSE (2) if the PTP Instance is
+         not capable of being a Grandmaster PTP Instance."
+    REFERENCE   "14.2.7"
+    ::= { ieee8021AsV2DefaultDSEntry 8 }
+
+
+ieee8021AsV2DefaultDSCurrentUtcOffset OBJECT-TYPE
+    SYNTAX      Integer32(-32768..32767)
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the offset between TAI and UTC, relative to
+         the ClockMaster entity of this PTP Instance. It is equal
+         to the global variable sysCurrentUtcOffset.
+         The value is in units of seconds.
+
+         The default value is selected as follows:
+             a)The value is the value obtained from a primary
+               reference if the value is known at the time of
+               initialization, else
+             b)The value is the current IERS defined value of
+               TAI - UTC (see IERS Bulletin C) when the PTP Instance
+               is designed.currentUtcOffsetValid"
+    REFERENCE   "14.2.8"
+    ::= { ieee8021AsV2DefaultDSEntry 9 }
+
+
+ieee8021AsV2DefaultDSCurrentUtcOffsetValid OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The default value is TRUE (1) if the value of
+         ieee8021AsV2DefaultDSCurrentUtcOffset is known to be
+         correct, otherwise it is set to FALSE (2)."
+    REFERENCE   "14.2.9"
+    ::= { ieee8021AsV2DefaultDSEntry 10 }
+
+
+ieee8021AsV2DefaultDSLeap59 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A TRUE (1) value indicates that the last minute of the
+         current UTC day, relative to the ClockMaster entity of
+         this PTP Instance, will contain 59 s. It is equal to the
+         global variable sysLeap59.
+
+         The value is selected as follows:
+            a)The value is obtained from a primary reference if
+              known at the time of initialization, else
+            b)The value is set to FALSE (2)."
+    REFERENCE   "14.2.10"
+    ::= { ieee8021AsV2DefaultDSEntry 11 }
+
+
+ieee8021AsV2DefaultDSLeap61 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A TRUE (1) value indicates that the last minute of the
+         current UTC day, relative to the ClockMaster entity of
+         this PTP Instance, will contain 61 s. It is equal to the global
+         variable sysLeap61.
+
+         The value is selected as follows:
+             a)The value is obtained from a primary reference if
+               known at the time of initialization, else
+             b)The value is set to FALSE (2)."
+    REFERENCE   "14.2.11"
+    ::= { ieee8021AsV2DefaultDSEntry 12 }
+
+
+ieee8021AsV2DefaultDSTimeTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is set to TRUE (1) if the timescale and the value
+         of currentUtcOffset, relative to the ClockMaster entity of
+         this PTP Instance, are traceable to a primary reference
+         standard; otherwise the value is set to FALSE (2).
+         It is equal to the global variable sysTimeTraceable.
+
+         The value is selected as follows:
+            a)If the time and the value of currentUtcOffset are 
+              traceable to a primary reference standard at the time of
+              initialization, the value is set to TRUE (1), else
+            b)The value is set to FALSE (2)."
+    REFERENCE   "14.2.12"
+    ::= { ieee8021AsV2DefaultDSEntry 13 }
+
+
+ieee8021AsV2DefaultDSFrequencyTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is set to TRUE (1) if the frequency determining the
+         timescale of the ClockMaster Entity of this PTP Instance is
+         traceable to a primary standard; otherwise the value is set
+         to FALSE (2). It is equal to the global variable
+         sysFrequencyTraceable.
+
+         The value is selected as follows:
+            a)If the frequency is traceable to a primary reference
+              standard at the time of initialization the value is set
+              to TRUE (1), else
+            b)The value is set to FALSE (2)."
+    REFERENCE   "14.2.13"
+    ::= { ieee8021AsV2DefaultDSEntry 14 }
+
+ieee8021AsV2DefaultDSPtpTimescale OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is set to TRUE (1) if the clock timescale of the
+         ClockMaster Entity of this PTP Instance is PTP and
+         FALSE (2) otherwise."
+    REFERENCE   "14.2.14"
+    ::= { ieee8021AsV2DefaultDSEntry 15 }
+
+ieee8021AsV2DefaultDSTimeSource OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2TimeSourceValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the source of time used by the
+         Grandmaster PTP Instance clock."
+    REFERENCE   "14.2.15"
+    ::= { ieee8021AsV2DefaultDSEntry 16 }
+
+ieee8021AsV2DefaultDSDomainNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the domain number of the gPTP domain for this
+         instance of gPTP supported by the time-aware system."
+    REFERENCE   "14.2.16"
+    ::= { ieee8021AsV2DefaultDSEntry 17 }
+
+ieee8021AsV2DefaultDSSdoId OBJECT-TYPE
+    SYNTAX      Unsigned32(0..4095)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the sdoId of the gPTP domain for this instance
+         of gPTP supported by the time-aware system.
+         For compatibility with IEEE Std 1588, the range of the
+         managed object is limited to 12 bits; in addition, only the
+         single value 0x100 is specified in this standard for the
+         gPTP domain of a PTP Instance."
+    REFERENCE   "14.2.17"
+    ::= { ieee8021AsV2DefaultDSEntry 18 }
+
+ieee8021AsV2DefaultDSExternalPortConfigurationEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the externalPortConfigurationEnabled attribute
+         of the PTP Instance."
+    REFERENCE   "14.2.18"
+    ::= { ieee8021AsV2DefaultDSEntry 19 }
+
+ieee8021AsV2DefaultDSInstanceEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the instanceEnable attribute of the PTP Instance."
+    REFERENCE   "14.2.19"
+    ::= { ieee8021AsV2DefaultDSEntry 20 }
+
+-- =================================================================
+-- The Current data set represents this system's topological location
+-- relative to the known Grandmaster PTP Instance.
+-- This data set is consistent with respective IEEE 1588 data set.
+-- =================================================================
+
+ieee8021AsV2CurrentDSTable      OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CurrentDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Current Parameter Data Set represents the position of a local
+        system and other information, relative to the
+        Grandmaster PTP Instance."
+    REFERENCE   "14.3"
+    ::= { ieee8021AsV2MIBObjects 3 }
+
+ieee8021AsV2CurrentDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CurrentDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Current Data Set for a specific PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2CurrentDSTable 1 }
+
+Ieee8021AsV2CurrentDSEntry ::=
+  SEQUENCE {
+    ieee8021AsV2CurrentDSStepsRemoved                   Unsigned32,
+    ieee8021AsV2CurrentDSOffsetFromMaster               Ieee8021ASV2PtpTimeInterval,
+    ieee8021AsV2CurrentDSLastGmPhaseChange              Ieee8021ASV2ScaledNs,
+    ieee8021AsV2CurrentDSLastGmFreqChange               Float64TC,
+    ieee8021AsV2CurrentDSGmTimebaseIndicator            Unsigned32,
+    ieee8021AsV2CurrentDSGmChangeCount                  Counter32,
+    ieee8021AsV2CurrentDSTimeOfLastGmChangeEvent        TimeStamp,
+    ieee8021AsV2CurrentDSTimeOfLastGmPhaseChangeEvent   TimeStamp,
+    ieee8021AsV2CurrentDSTimeOfLastGmFreqChangeEvent    TimeStamp
+    }
+
+ieee8021AsV2CurrentDSStepsRemoved OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the number of gPTP communication paths
+         traversed between this PTP Instance and the
+         Grandmaster PTP Instance, as specified in 10.3.3."
+    REFERENCE   "14.3.2"
+    ::= { ieee8021AsV2CurrentDSEntry 1 }
+
+
+ieee8021AsV2CurrentDSOffsetFromMaster OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is an implementation-specific representation of
+         the current value of the time difference between a slave
+         and the Grandmaster Clock, as computed by the slave, and
+         as specified in 10.2.10."
+    REFERENCE   "14.3.3"
+    ::= { ieee8021AsV2CurrentDSEntry 2 }
+
+ieee8021AsV2CurrentDSLastGmPhaseChange OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2ScaledNs
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the phase change that occurred on the most
+         recent change in either Grandmaster PTP Instance or
+         gmTimeBaseIndicator."
+    REFERENCE   "14.3.4"
+    ::= { ieee8021AsV2CurrentDSEntry 3 }
+
+ieee8021AsV2CurrentDSLastGmFreqChange OBJECT-TYPE
+    SYNTAX      Float64TC
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the frequency change that occurred on the most
+         recent change in either Grandmaster PTP Instance or
+         gmTimeBaseIndicator."
+    REFERENCE   "14.3.5"
+    ::= { ieee8021AsV2CurrentDSEntry 4 }
+
+ieee8021AsV2CurrentDSGmTimebaseIndicator OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the value of timeBaseIndicator of the
+         current Grandmaster PTP Instance."
+    REFERENCE   "14.3.6"
+    ::= { ieee8021AsV2CurrentDSEntry 5 }
+
+ieee8021AsV2CurrentDSGmChangeCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This statistics counter tracks the number of times the
+         Grandmaster PTP Instance has changed in a gPTP domain.
+         This counter increments when the PortAnnounceInformation
+         state machine enters the SUPERIOR_MASTER_PORT state or
+         the INFERIOR_MASTER_OR_OTHER_PORT state."
+    REFERENCE   "14.3.7"
+    ::= { ieee8021AsV2CurrentDSEntry 6 }
+
+ieee8021AsV2CurrentDSTimeOfLastGmChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This timestamp takes the value of sysUpTime (see RFC3418) when
+         the most recent Grandmaster PTP Instance change occurred in
+         a gPTP domain.
+         This timestamp is updated when the PortAnnounceInformation
+         state machine enters the SUPERIOR_MASTER_PORT state or the
+         INFERIOR_MASTER_OR_OTHER_PORT state."
+    REFERENCE   "14.3.8"
+    ::= { ieee8021AsV2CurrentDSEntry 7 }
+
+
+ieee8021AsV2CurrentDSTimeOfLastGmPhaseChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This timestamp takes the value of sysUpTime (see RFC3418)
+         when the most recent change in Grandmaster Clock phase
+         occurred, due to a change of either the
+         Grandmaster PTP Instance or the Grandmaster Clock
+         time base. This timestamp is updated when one of the
+         following occurs:
+            a)The PortAnnounceInformation state machine enters the
+              SUPERIOR_MASTER_PORT state or the
+              INFERIOR_MASTER_OR_OTHER_PORT state, or
+            b)The gmTimebaseIndicator managed object changes and the
+              lastGmPhaseChange field of the most recently received
+              Follow_Up information TLV is nonzero."
+    REFERENCE   "14.3.9"
+    ::= { ieee8021AsV2CurrentDSEntry 8 }
+
+ieee8021AsV2CurrentDSTimeOfLastGmFreqChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This timestamp takes the value of sysUpTime (see RFC3418)
+         when the most recent change in Grandmaster Clock frequency
+         occurred, due to a change of either the Grandmaster PTP
+         Instance or the Grandmaster Clock time base. This timestamp
+         is updated when one of the following occurs:
+            a)The PortAnnounceInformation state machine enters the
+              SUPERIOR_MASTER_PORT state or the
+              INFERIOR_MASTER_OR_OTHER_PORT state, or
+            b)The gmTimebaseIndicator managed object changes and the
+              lastGmFreqChange field of the most recently received
+              Follow_Up information TLV is nonzero."
+    REFERENCE   "14.3.10"
+    ::= { ieee8021AsV2CurrentDSEntry 9 }
+
+-- =================================================================
+-- The Parent data set represents the upstream (toward
+-- Grandmaster PTP Instance) system's timing parameters as measured
+-- at this system.
+-- This data set is consistent with the respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsV2ParentDSTable     OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2ParentDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Parent Parameter Data Set represents capabilities of the
+         upstream system, toward the Grandmaster PTP Instance, as
+         measured at a local system."
+    REFERENCE   "14.4"
+    ::= { ieee8021AsV2MIBObjects 4 }
+
+ieee8021AsV2ParentDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ParentDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Parent Data Set for a specific PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2ParentDSTable 1 }
+
+Ieee8021AsV2ParentDSEntry ::=
+  SEQUENCE {
+    ieee8021AsV2ParentDSParentClockIdentity     Ieee8021AsV2ClockIdentity,
+    ieee8021AsV2ParentDSParentPortNumber        Unsigned32,
+    ieee8021AsV2ParentDSCumulativeRateRatio      Integer32,
+    ieee8021AsV2ParentDSGrandmasterIdentity     Ieee8021AsV2ClockIdentity,
+    ieee8021AsV2ParentDSGrandmasterClockQualityclockClass
+                                                Ieee8021AsV2ClockClassValue,
+    ieee8021AsV2ParentDSGrandmasterClockQualityclockAccuracy
+                                                Ieee8021AsV2ClockAccuracyValue,
+    ieee8021AsV2ParentDSGrandmasterClockQualityoffsetScaledLogVar
+                                                Unsigned32,
+    ieee8021AsV2ParentDSGrandmasterPriority1    Unsigned32,
+    ieee8021AsV2ParentDSGrandmasterPriority2    Unsigned32
+    }
+
+ieee8021AsV2ParentDSParentClockIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the first of the parentPortIdentity attribute
+         for this instance of gPTP domain, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.4.2"
+    ::= { ieee8021AsV2ParentDSEntry 1 }
+
+ieee8021AsV2ParentDSParentPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the second of the parentPortIdentity attribute
+         for this instance of gPTP domain, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.4.2"
+    ::= { ieee8021AsV2ParentDSEntry 2 }
+
+ieee8021AsV2ParentDSCumulativeRateRatio OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is an estimate of the ratio of the frequency of
+         the Grandmaster Clock to the frequency of the LocalClock
+         entity of this PTP Instance.
+         CumulativeRateRatio is expressed as the fractional
+         frequency offset multiplied by 2^41, i.e., the quantity
+         (rateRatio - 1.0)(2^41), where rateRatio is computed by
+         the PortSyncSyncReceive state machine."
+    REFERENCE   "14.4.3"
+   ::= { ieee8021AsV2ParentDSEntry 3 }
+
+ieee8021AsV2ParentDSGrandmasterIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockIdentity attribute of the
+         Grandmaster PTP Instance."
+    REFERENCE   "14.4.4"
+    ::= { ieee8021AsV2ParentDSEntry 4 }
+
+ieee8021AsV2ParentDSGrandmasterClockQualityclockClass OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockClassValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockClass of the Grandmaster PTP Instance."
+    REFERENCE   "14.4.5.2"
+    ::= { ieee8021AsV2ParentDSEntry 5 }
+
+ieee8021AsV2ParentDSGrandmasterClockQualityclockAccuracy OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockAccuracyValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockAccuracy of the Grandmaster PTP Instance."
+    REFERENCE   "14.4.5.3"
+    ::= { ieee8021AsV2ParentDSEntry 6 }
+
+ieee8021AsV2ParentDSGrandmasterClockQualityoffsetScaledLogVar
+                OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the offsetScaledLogVariance of the
+         Grandmaster PTP Instance."
+    REFERENCE   "14.4.5.4"
+    ::= { ieee8021AsV2ParentDSEntry 7 }
+
+ieee8021AsV2ParentDSGrandmasterPriority1 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the priority1 attribute of the
+         Grandmaster PTP Instance."
+    REFERENCE   "14.4.6"
+    ::= { ieee8021AsV2ParentDSEntry 8 }
+
+ieee8021AsV2ParentDSGrandmasterPriority2 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the priority2 attribute of the
+         Grandmaster PTP Instance."
+    REFERENCE   "14.4.7"
+    ::= { ieee8021AsV2ParentDSEntry 9 }
+
+-- =================================================================
+-- TimePropertiesDS represents the Grandmaster PTP Instance's
+-- parameters, as measured at this system and are derived from
+-- IEEE 802.1AS protocol.
+-- This data set is consistent with respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsV2TimePropertiesDSTable    OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2TimePropertiesDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Time Properties Parameter Data Set represents capabilities of
+         the Grandmaster PTP Instance, as measured at a local system"
+    REFERENCE   "14.5"
+	::= { ieee8021AsV2MIBObjects 5 }
+
+ieee8021AsV2TimePropertiesDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2TimePropertiesDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Time Properties Data Set contains the profile Identifier for
+         this instance of gPTP domain."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2TimePropertiesDSTable 1 }
+
+Ieee8021AsV2TimePropertiesDSEntry ::=
+  SEQUENCE {
+    ieee8021AsV2TimePropertiesDSCurrentUtcOffset      Integer32,
+    ieee8021AsV2TimePropertiesDSCurrentUtcOffsetValid TruthValue,
+    ieee8021AsV2TimePropertiesDSLeap59                TruthValue,
+    ieee8021AsV2TimePropertiesDSLeap61                TruthValue,
+    ieee8021AsV2TimePropertiesDSTimeTraceable         TruthValue,
+    ieee8021AsV2TimePropertiesDSFrequencyTraceable    TruthValue,
+    ieee8021AsV2TimePropertiesDSPtpTimescale          TruthValue,
+    ieee8021AsV2TimePropertiesDSTimeSource            Ieee8021AsV2TimeSourceValue
+    }
+
+ieee8021AsV2TimePropertiesDSCurrentUtcOffset OBJECT-TYPE
+    SYNTAX      Integer32(-32768..32767)
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is currentUtcOffset for the current
+         Grandmaster PTP Instance. It is equal to the value  of
+         the global variable currentUtcOffset. The value is in
+         units of seconds."
+    REFERENCE   "14.5.2"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 1 }
+
+ieee8021AsV2TimePropertiesDSCurrentUtcOffsetValid OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is currentUtcOffsetValid for the current
+         Grandmaster PTP Instance. It is equal to the global
+         variable currentUtcOffsetValid."
+    REFERENCE   "14.5.3"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 2 }
+
+ieee8021AsV2TimePropertiesDSLeap59 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is leap59 for the current Grandmaster PTP Instance.
+         It is equal to the global variable leap59."
+    REFERENCE   "14.5.4"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 3 }
+
+ieee8021AsV2TimePropertiesDSLeap61 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is leap61 for the current Grandmaster PTP Instance.
+         It is equal to the global variable leap61."
+    REFERENCE   "14.5.5"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 4 }
+
+ieee8021AsV2TimePropertiesDSTimeTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is timeTraceable for the current
+         Grandmaster PTP Instance. It is equal to the global
+         variable timeTraceable."
+    REFERENCE   "14.5.6"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 5 }
+
+ieee8021AsV2TimePropertiesDSFrequencyTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is frequencyTraceable for the current
+         Grandmaster PTP Instance. It is equal to the global
+         variable frequencyTraceable."
+    REFERENCE   "14.5.7"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 6 }
+
+ieee8021AsV2TimePropertiesDSPtpTimescale OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is ptpTimescale for the current
+         Grandmaster PTP Instance."
+    REFERENCE   "14.5.8"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 7 }
+
+ieee8021AsV2TimePropertiesDSTimeSource OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2TimeSourceValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is timeSource for the current
+         Grandmaster PTP Instance. It is equal to the global
+         variable timeSource"
+    REFERENCE   "14.5.9"
+    ::= { ieee8021AsV2TimePropertiesDSEntry 8 }
+
+-- =============================================================
+-- The Path Trace Parameter Data set represents the current path
+-- trace information available at the PTP Instance.
+-- =============================================================
+
+ieee8021AsV2PathTraceDSTable    OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2PathTraceDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The pathTraceDS represents the current path trace information
+         available at the PTP Instance."
+    REFERENCE   "14.6"
+    ::= { ieee8021AsV2MIBObjects 6 }
+
+ieee8021AsV2PathTraceDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2PathTraceDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Path Trace Data Set for a specific PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2PathTraceDSTable 1 }
+
+Ieee8021AsV2PathTraceDSEntry ::=
+SEQUENCE {
+    ieee8021AsV2PathTraceDSEnable                     TruthValue
+    }
+
+ieee8021AsV2PathTraceDSEnable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is TRUE.
+         NOTE: This member is included for compatibility with
+         IEEE Std 1588. In IEEE Std 1588, the path trace mechanism
+         is optional, and the pathTraceDS.enable member is
+         configurable (its value in IEEE Std 1588 is TRUE (1) or
+         FALSE (2), depending on whether the path trace mechanism is
+         operational or not operational, respectively. However, the
+         pathTrace mechanism is mandatory in this standard, and the
+         value of enable is always TRUE (1)."
+    REFERENCE   "14.6.3"
+    ::= { ieee8021AsV2PathTraceDSEntry 2 }
+
+ieee8021AsV2PathTraceDSArrayTable    OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2PathTraceDSArrayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object contains an array of ClockIdentity values contained
+         in the pathTrace array, which represents the current path trace
+         information, and which is carried in the path trace TLV per
+         PTP Instance."
+    REFERENCE   "14.6.2"
+    ::= { ieee8021AsV2MIBObjects 7 }
+
+ieee8021AsV2PathTraceDSArrayEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2PathTraceDSArrayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Path Trace Data Set Table Array for a specific PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance, ieee8021AsV2PathTraceDSArrayIndex }
+    ::= { ieee8021AsV2PathTraceDSArrayTable 1 }
+
+Ieee8021AsV2PathTraceDSArrayEntry ::=
+  SEQUENCE {
+    ieee8021AsV2PathTraceDSArrayIndex	  Unsigned32,
+    ieee8021AsV2PathTraceDSArrayList      Ieee8021AsV2ClockIdentity
+    }
+
+ieee8021AsV2PathTraceDSArrayIndex OBJECT-TYPE
+    SYNTAX      Unsigned32 (1..179)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Index of the Path Trace Data Set Array."
+    REFERENCE   "10.3.9.23"
+    ::= { ieee8021AsV2PathTraceDSArrayEntry 1 }
+
+ieee8021AsV2PathTraceDSArrayList OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the array of ClockIdentity values contained
+         in the pathTrace array, which represents the current
+         path trace information, and which is carried in the path
+         trace TLV."
+    REFERENCE   "14.6.2"
+    ::= { ieee8021AsV2PathTraceDSArrayEntry 2 }
+
+
+-- ******************************************************************
+-- The Acceptable Master Table Parameter Data Set represents the
+-- acceptable master table used when an EPON port is used by a PTP
+-- Instance of a time-aware system.
+-- ******************************************************************
+
+ieee8021AsV2AcceptableMasterTableDSTable    OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2AcceptableMasterTableDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The acceptableMasterTableDS represents the acceptable master
+         table used when an EPON port is used by a PTP Instance of a
+         time-aware system."
+    REFERENCE   "14.7"
+::= { ieee8021AsV2MIBObjects 8 }
+
+ieee8021AsV2AcceptableMasterTableDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2AcceptableMasterTableDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Acceptable Master Table Data Set represents the acceptable master
+         table used when an EPON port is used by a PTP Instance of a
+         time-aware system."
+    INDEX { ieee8021AsV2PtpInstance }
+    ::= { ieee8021AsV2AcceptableMasterTableDSTable 1 }
+
+Ieee8021AsV2AcceptableMasterTableDSEntry ::=
+  SEQUENCE {
+                ieee8021AsV2AcceptableMasterTableDSMaxTableSize       Unsigned32,
+                ieee8021AsV2AcceptableMasterTableDSActualTableSize    Unsigned32
+    }
+
+ieee8021AsV2AcceptableMasterTableDSMaxTableSize  OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the maximum size of the AcceptableMasterTable.
+         It is equal to the maxTableSize member of the
+         AcceptableMasterTable structure."
+    REFERENCE   "14.7.2"
+    ::= { ieee8021AsV2AcceptableMasterTableDSEntry 1 }
+
+ieee8021AsV2AcceptableMasterTableDSActualTableSize  OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the actual size of the AcceptableMasterTable.
+         It is equal to the actualTableSize member of the
+         AcceptableMasterTable structure, i.e., the current number
+         of elements in the acceptable master array. The actual
+         table size is less than or equal to the max table size."
+    REFERENCE   "14.7.3"
+    ::= { ieee8021AsV2AcceptableMasterTableDSEntry 2 }
+
+ieee8021AsV2AcceptableMasterTableDSArrayTable    OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2AcceptableMasterTableDSArrayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The acceptableMasterTableDS represents the acceptable master table
+         used when an EPON port is used by a PTP Instance of a time-aware
+         system."
+    REFERENCE   "14.7"
+::= { ieee8021AsV2MIBObjects 9 }
+
+ieee8021AsV2AcceptableMasterTableDSArrayEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2AcceptableMasterTableDSArrayEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Each element of this array is an AcceptableMaster structure per
+         PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance, ieee8021AsV2AcceptableMasterTableDSArrayIndex }
+    ::= { ieee8021AsV2AcceptableMasterTableDSArrayTable 1 }
+
+Ieee8021AsV2AcceptableMasterTableDSArrayEntry ::=
+  SEQUENCE {
+    ieee8021AsV2AcceptableMasterTableDSArrayIndex               Unsigned32,
+    ieee8021AsV2AcceptableMasterTableDSArrayPortIdentity   Ieee8021ASV2PtpPortIdentity,
+    ieee8021AsV2AcceptableMasterTableDSArrayAlternatePriority1       Unsigned32
+    }
+
+ieee8021AsV2AcceptableMasterTableDSArrayIndex  OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Index of the Acceptable Master Table Data Set Array."
+    REFERENCE   "14.7.4"
+    ::= { ieee8021AsV2AcceptableMasterTableDSArrayEntry 1 }
+
+ieee8021AsV2AcceptableMasterTableDSArrayPortIdentity  OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpPortIdentity
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The acceptablePortIdentity member is the PortIdentity of
+         an acceptable master port."
+    REFERENCE   "14.7.4"
+    ::= { ieee8021AsV2AcceptableMasterTableDSArrayEntry 2 }
+
+ieee8021AsV2AcceptableMasterTableDSArrayAlternatePriority1  OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The alternatePriority1 member contains an alternate value
+         for the priority1 attribute of the acceptable master port."
+    REFERENCE   "14.7.4"
+    ::= { ieee8021AsV2AcceptableMasterTableDSArrayEntry 3 }
+
+-- =============================================================
+-- The Port Parameter Data Set (portDS) represents PTP Port
+-- time-aware capabilities for a PTP Instance of a time-aware
+-- system.
+-- =============================================================
+ieee8021AsV2PortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2PortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For the single PTP Port of a PTP End Instance and for each
+         PTP Port of a PTP Relay Instance , the portDS is maintained
+         as the basis for making protocol decisions and providing
+         values for message fields.
+         The number of such data sets is the same as the value of
+         defaultDS.numberPorts."
+    REFERENCE   "14.8"
+    ::= { ieee8021AsV2MIBObjects 10 }
+
+ieee8021AsV2PortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2PortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A list of objects pertaining to a PTP Port of a PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2PortDSIndex }
+    ::= { ieee8021AsV2PortDSTable 1 }
+
+Ieee8021AsV2PortDSEntry ::=
+     SEQUENCE {
+         ieee8021AsV2BridgeBasePort          IEEE8021BridgePortNumber,
+         ieee8021AsV2PortDSIndex         InterfaceIndexOrZero,
+         ieee8021AsV2PortDSClockIdentity               Ieee8021AsV2ClockIdentity,
+         ieee8021AsV2PortDSPortNumber                  Unsigned32,
+         ieee8021AsV2PortDSPortState                    INTEGER,
+         ieee8021AsV2PortDSPtpPortEnabled              TruthValue,
+         ieee8021AsV2PortDSDelayMechanism              INTEGER,
+         ieee8021AsV2PortDSIsMeasuringDelay             TruthValue,
+         ieee8021AsV2PortDSAsCapable                    TruthValue,
+         ieee8021AsV2PortDSMeanLinkDelay           Ieee8021ASV2PtpTimeInterval,
+         ieee8021AsV2PortDSMeanLinkDelayThresh     Ieee8021ASV2PtpTimeInterval,
+         ieee8021AsV2PortDSDelayAsym               Ieee8021ASV2PtpTimeInterval,
+         ieee8021AsV2PortDSNbrRateRatio            Integer32,
+         ieee8021AsV2PortDSInitialLogAnnounceInterval   Integer32,
+         ieee8021AsV2PortDSCurrentLogAnnounceInterval   Integer32,
+         ieee8021AsV2PortDSUseMgtSettableLogAnnounceInterval    TruthValue,
+         ieee8021AsV2PortDSMgtSettableLogAnnounceInterval       Integer32,
+         ieee8021AsV2PortDSAnnounceReceiptTimeout       Unsigned32,
+         ieee8021AsV2PortDSInitialLogSyncInterval       Integer32,
+         ieee8021AsV2PortDSCurrentLogSyncInterval       Integer32,
+         ieee8021AsV2PortDSUseMgtSettableLogSyncInterval        TruthValue,
+         ieee8021AsV2PortDSMgtSettableLogSyncInterval           Integer32,
+         ieee8021AsV2PortDSSyncReceiptTimeout           Unsigned32,
+         ieee8021AsV2PortDSSyncReceiptTimeoutTimeInterval Ieee8021ASV2UScaledNs,
+         ieee8021AsV2PortDSInitialLogPdelayReqInterval Integer32,
+         ieee8021AsV2PortDSCurrentLogPdelayReqInterval Integer32,
+         ieee8021AsV2PortDSUseMgtSettableLogPdelayReqInterval    TruthValue,
+         ieee8021AsV2PortDSMgtSettableLogPdelayReqInterval       Integer32,
+         ieee8021AsV2PortDSInitialLogGptpCapableMessageInterval     Integer32,
+         ieee8021AsV2PortDSCurrentLogGptpCapableMessageInterval     Integer32,
+         ieee8021AsV2PortDSUseMgtSettableLogGptpCapableMessageInterval  TruthValue,
+         ieee8021AsV2PortDSMgtSettableLogGptpCapableMessageInterval     Integer32,
+         ieee8021AsV2PortDSInitialComputeNbrRateRatio     TruthValue,
+         ieee8021AsV2PortDSCurrentComputeNbrRateRatio     TruthValue,
+         ieee8021AsV2PortDSUseMgtSettableComputeNbrRateRatio     TruthValue,
+         ieee8021AsV2PortDSMgtSettableComputeNbrRateRatio     TruthValue,
+         ieee8021AsV2PortDSInitialComputeMeanLinkDelay     TruthValue,
+         ieee8021AsV2PortDSCurrentComputeMeanLinkDelay     TruthValue,
+         ieee8021AsV2PortDSUseMgtSettableComputeMeanLinkDelay     TruthValue,
+         ieee8021AsV2PortDSMgtSettableComputeMeanLinkDelay     TruthValue,
+         ieee8021AsV2PortDSAllowedLostRsp        Unsigned32,
+         ieee8021AsV2PortDSAllowedFaults               Unsigned32,
+         ieee8021AsV2PortDSGPtpCapableReceiptTimeout     Unsigned32,
+         ieee8021AsV2PortDSVersionNumber               Unsigned32,
+         ieee8021AsV2PortDSNup                       Float64TC,
+         ieee8021AsV2PortDSNdown                     Float64TC,
+         ieee8021AsV2PortDSOneStepTxOper               TruthValue,
+         ieee8021AsV2PortDSOneStepReceive              TruthValue,
+         ieee8021AsV2PortDSOneStepTransmit             TruthValue,
+         ieee8021AsV2PortDSInitialOneStepTxOper        TruthValue,
+         ieee8021AsV2PortDSCurrentOneStepTxOper        TruthValue,
+         ieee8021AsV2PortDSUseMgtSettableOneStepTxOper         TruthValue,
+         ieee8021AsV2PortDSMgtSettableOneStepTxOper            TruthValue,
+         ieee8021AsV2PortDSSyncLocked                  TruthValue,
+         ieee8021AsV2PortDSPdelayTruncTST1           Ieee8021ASV2Timestamp,
+         ieee8021AsV2PortDSPdelayTruncTST2           Ieee8021ASV2Timestamp,
+         ieee8021AsV2PortDSPdelayTruncTST3           Ieee8021ASV2Timestamp,
+         ieee8021AsV2PortDSPdelayTruncTST4           Ieee8021ASV2Timestamp,
+         ieee8021AsV2PortDSMinorVersionNumber          Unsigned32
+      }
+
+ieee8021AsV2BridgeBasePort OBJECT-TYPE
+    SYNTAX      IEEE8021BridgePortNumber
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object identifies the bridge port number of the port for
+         which this entry contains bridge management information.
+         For end stations, this port number shall be (1)."
+    ::= { ieee8021AsV2PortDSEntry 1 }
+
+ieee8021AsV2PortDSIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object identifies the gPTP interface group within
+         the system for which this entry contains information. It
+         is the value of the instance of the IfIndex object,
+         defined in the IF-MIB, for the gPTP interface group
+         corresponding to this port, or the value 0 if the port
+         has not been bound to an underlying frame source and
+         sink.
+
+         For a given media port of a Bridge or an end station,
+         there can be one or more PTP Port, and depends whether
+         a media port supports point to point link (e.g. IEEE
+         802.3 Ethernet) or point to multi-point (e.g. CSN, IEEE
+         802.3 EPON) links on the media port."
+    ::= { ieee8021AsV2PortDSEntry 2 }
+
+ieee8021AsV2PortDSClockIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the first of the portIdentity attribute
+         of the local port, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.8.2"
+    ::= { ieee8021AsV2PortDSEntry 3 }
+
+
+ieee8021AsV2PortDSPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the second of the portIdentity attribute
+         of the local port, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.8.2"
+    ::= { ieee8021AsV2PortDSEntry 4 }
+
+ieee8021AsV2PortDSPortState OBJECT-TYPE
+    SYNTAX      INTEGER {
+            disabledPort(3),
+            masterPort(6),
+            passivePort(7),
+            slavePort(9)
+           }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the value of the PTP Port state of this
+         PTP Port (see Table 10-2) and is taken from the enumeration
+         in Table 14-7. It is equal to the value of the global
+         variable selectedState."
+    REFERENCE   "14.8.3"
+    ::= { ieee8021AsV2PortDSEntry 5 }
+
+ieee8021AsV2PortDSPtpPortEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean ptpPortEnabled.
+         Setting this managed object causes the Boolean ptpPortEnabled
+         to have the same value."
+    REFERENCE   "14.8.4"
+    ::= { ieee8021AsV2PortDSEntry 6 }
+
+ieee8021AsV2PortDSDelayMechanism OBJECT-TYPE
+    SYNTAX      INTEGER {
+            p2p(2),
+            commonp2p(3),
+            special(4)
+           }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value indicates the mechanism for measuring mean
+         propagation delay and neighbor rate ratio on the link
+         attached to this PTP Port, and is taken from the enumeration
+         in Table 14-8. If the domain number is not 0, portDS.delay
+         mechanism must not be P2P."
+    REFERENCE   "14.8.5"
+    ::= { ieee8021AsV2PortDSEntry 7 }
+
+ieee8021AsV2PortDSIsMeasuringDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean isMeasuringDelay."
+    REFERENCE   "14.8.6"
+    ::= { ieee8021AsV2PortDSEntry 8 }
+
+
+ieee8021AsV2PortDSAsCapable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean asCapable."
+    REFERENCE   "14.8.7"
+    ::= { ieee8021AsV2PortDSEntry 9 }
+
+ieee8021AsV2PortDSMeanLinkDelay OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable meanLinkDelay. It is an estimate of the current
+         one-way propagation time on the link attached to this
+         PTP Port, measured as specified for the respective medium.
+         The value is zero for PTP Port attached to IEEE 802.3
+         EPON links and for the master port of an IEEE 802.11 link,
+         because one-way propagation delay is not measured on the
+         latter and not directly measured on the former.
+         NOTE: The underlying per-PTP Port, global variable
+         meanLinkDelay is of type UScaledNS, which is a 96-Bit value.
+         meanLinkDelay values that are larger than the maximum value
+         that can be represented by the TimeInterval data type, i.e.,
+         0xFFFF FFFF FFFF FFFF (where the units are 2 sup -16 ns), used
+         for this managed object are set to this largest value."
+    REFERENCE   "14.8.8"
+    ::= { ieee8021AsV2PortDSEntry 10 }
+
+
+ieee8021AsV2PortDSMeanLinkDelayThresh OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable meanLinkDelayThresh. It is the propagation time
+         threshold above which a PTP Port is considered not capable of
+         participating in the IEEE 802.1AS protocol.
+         Setting this managed object causes the per PTP Port global
+         variable meanLinkDelayThresh to have the same value.
+         NOTE: The underlying per-PTP Port, global variable
+         meanLinkDelayThresh is of type UScaledNS, which is a 96-Bit
+         value. meanLinkDelayThresh values that are larger than the
+         maximum value that can be represented by the TimeInterval
+         data type, i.e., 0xFFFF FFFF FFFF FFFF (where the units are
+         2 sup -16 ns), used for this managed object are set to this
+         largest value."
+    REFERENCE   "14.8.9"
+    ::= { ieee8021AsV2PortDSEntry 11 }
+
+ieee8021AsV2PortDSDelayAsym OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the asymmetry in the propagation delay on
+         the link attached to this PTP Port relative to the
+         Grandmaster Clock time base, as defined in 10.2.5.9 and
+         8.3. If propagation delay asymmetry is not modeled, then
+         delayAsymmetry is 0.
+         NOTE: The underlying per-port global variable delayAsymmetry
+         is of type ScaledNS, which is a 96-Bit value.
+         delayAsymmetry values that are larger than the maximum value
+         that can be represented by the TimeInterval data type, i.e.,
+         0x7FFF FFFF FFFF FFFF, (where the units are 2 sup -16 ns),
+         used for this managed object are set to this largest value.
+         delayAsymmetry values that are less than the minimum value
+         that can be represented by the TimeInterval data type, i.e.,
+         0x8000 0000 0000 0001 written in twos complement form (where
+        the units are 2 sup -16 ns), used for this managed object are
+        set to this smallest value."
+    REFERENCE   "14.8.10 and 8.3"
+    ::= { ieee8021AsV2PortDSEntry 12 }
+
+ieee8021AsV2PortDSNbrRateRatio OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is an estimate of the ratio of the frequency of
+         the LocalClock entity of the PTP Instance at the other end
+         of the link attached to this PTP Port, to the frequency of
+         the LocalClock entity of this PTP Instance. neighborRateRatio
+         is expressed as the fractional frequency offset multiplied
+         by 2^41, i.e., the quantity (neighborRateRatio -1.0)(2^41)."
+    REFERENCE   "14.8.11"
+    ::= { ieee8021AsV2PortDSEntry 13 }
+
+
+ieee8021AsV2PortDSInitialLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableLogAnnounceInterval is FALSE (2), the
+         value is the logarithm to base 2 of the announce interval
+         used when (a) the PTP Port is initialized, or (b) a message
+         interval request TLV is received with the logAnnounceInterval
+         field set to 126."
+    REFERENCE   "14.8.12"
+    DEFVAL { 0 }
+    ::= { ieee8021AsV2PortDSEntry 14 }
+
+ieee8021AsV2PortDSCurrentLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to the base 2 of the
+         current announce interval."
+    REFERENCE   "14.8.13"
+    ::= { ieee8021AsV2PortDSEntry 15 }
+
+ieee8021AsV2PortDSUseMgtSettableLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the
+         source of the announce interval. If the value is TRUE (1),
+         the value of currentLogAnnounceInterval is set equal to the
+         value of mgtSettableLogAnnounceInterval. If the value is
+         FALSE (2), the value of currentLogAnnounceInterval is
+         determined by the AnnounceIntervalSetting state machine. The
+         default value of useMgtSettableLogAnnounceInterval is
+         FALSE (2) for domain 0 and TRUE (1) for domains other than
+         domain 0."
+    REFERENCE   "14.8.14"
+    ::= { ieee8021AsV2PortDSEntry 16 }
+
+ieee8021AsV2PortDSMgtSettableLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the announce interval
+         used if useMgtSettableLogAnnounceInterval is TRUE (1).
+         The value is not used if useMgtSettableLogAnnounceInterval is
+         FALSE (2)."
+    REFERENCE   "14.8.15"
+    ::= { ieee8021AsV2PortDSEntry 17 }
+
+ieee8021AsV2PortDSAnnounceReceiptTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the number of Announce message transmission
+         intervals that a slave port waits without receiving an
+         Announce message, before assuming that the master is no
+         longer transmitting Announce messages and the BMCA needs
+         to be run, if appropriate."
+    REFERENCE   "14.8.16"
+    DEFVAL { 3 }
+    ::= { ieee8021AsV2PortDSEntry 18 }
+
+
+ieee8021AsV2PortDSInitialLogSyncInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableLogSyncInterval is FALSE (2), the
+         value is the logarithm to base 2 of the sync interval used
+         when (a) the PTP Port is initialized, or (b) a message
+         interval request TLV is received with the logTimeSyncInterval
+         field set to 126."
+    REFERENCE   "14.8.17"
+    ::= { ieee8021AsV2PortDSEntry 19 }
+
+ieee8021AsV2PortDSCurrentLogSyncInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to the base 2 of the current
+         time-synchronization transmission interval."
+    REFERENCE   "14.8.18"
+    ::= { ieee8021AsV2PortDSEntry 20 }
+
+ieee8021AsV2PortDSUseMgtSettableLogSyncInterval OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the sync interval. If the value is TRUE (1), the value
+         of currentLogSyncInterval is set equal to the value of
+         mgtSettableLogSyncInterval. If the value of the managed
+         object is FALSE (2), the value of currentLogSyncInterval is
+         determined by the SyncIntervalSetting state machine. The
+         default value of useMgtSettableLogSyncInterval is FALSE (2)
+         for domain 0 and TRUE (1) for domains other than domain 0."
+    REFERENCE   "14.8.19"
+    ::= { ieee8021AsV2PortDSEntry 21 }
+
+ieee8021AsV2PortDSMgtSettableLogSyncInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the sync interval
+         if useMgtSettableLogSyncInterval is TRUE (1). The value is
+         not used if useMgtSettableLogSyncInterval is FALSE (2)."
+    REFERENCE   "14.8.20"
+    ::= { ieee8021AsV2PortDSEntry 22 }
+
+ieee8021AsV2PortDSSyncReceiptTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the number of time-synchronization transmission
+         intervals that a slave port waits without receiving
+         synchronization information, before assuming that the master
+         is no longer transmitting synchronization information and
+         that the BMCA needs to be run, if appropriate."
+    REFERENCE   "14.8.21"
+    DEFVAL { 3 }
+    ::= { ieee8021AsV2PortDSEntry 23 }
+
+
+ieee8021AsV2PortDSSyncReceiptTimeoutTimeInterval OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2UScaledNs
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable syncReceiptTimeoutTimeInterval. It is the time
+         interval after which sync receipt timeout occurs if
+         time-synchronization information has not been received during
+         the interval."
+    REFERENCE   "14.8.22"
+    ::= { ieee8021AsV2PortDSEntry 24 }
+
+ieee8021AsV2PortDSInitialLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the logarithm to base 2 of the Pdelay_Req
+         message transmission interval used when (a) the PTP Port is
+         initialized, or (b) a message interval request TLV is
+         received with the logLinkDelayInterval field set to 126.
+         For all other media, the value is 127."
+    REFERENCE   "14.8.23"
+    ::= { ieee8021AsV2PortDSEntry 25 }
+
+ieee8021AsV2PortDSCurrentLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the logarithm to the base 2 of the current
+         Pdelay_Req message transmission interval.
+         For all other media, the value is 127."
+    REFERENCE   "14.8.24"
+    ::= { ieee8021AsV2PortDSEntry 26 }
+
+ieee8021AsV2PortDSUseMgtSettableLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the mean time interval between successive Pdelay_Req
+         messages. If the value is TRUE (1), the value of
+         currentLogPdelayReqInterval is set equal to the value of
+         mgtSettableLogPdelayReqInterval. If the value of the managed
+         object is FALSE (2), the value of currentLogPdelayReqInterval
+         is determined by the LinkDelayIntervalSetting state machine.
+         The default value of useMgtSettableLogPdelayReqInterval is
+         FALSE (2)."
+    REFERENCE   "14.8.25"
+    DEFVAL { false }
+    ::= { ieee8021AsV2PortDSEntry 27 }
+
+ieee8021AsV2PortDSMgtSettableLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32 (-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the mean time
+         interval between successive Pdelay_Req messages if
+         useMgtSettableLogPdelayReqInterval is TRUE (1). The
+         value is not used if useMgtSettableLogPdelayReqInterval
+         is FALSE (2)."
+    REFERENCE   "14.8.26"
+    ::= { ieee8021AsV2PortDSEntry 28 }
+
+ieee8021AsV2PortDSInitialLogGptpCapableMessageInterval OBJECT-TYPE
+    SYNTAX      Integer32 (-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the gPTP capable
+         message interval used when (a) the PTP Port is initialized,
+         or (b) a gPtpCapableMessage interval request TLV is received
+         with the logGptpCapableMessageInterval field set to 126."
+    REFERENCE   "14.8.27"
+    ::= { ieee8021AsV2PortDSEntry 29 }
+
+ieee8021AsV2PortDSCurrentLogGptpCapableMessageInterval OBJECT-TYPE
+    SYNTAX      Integer32 (-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to the base 2 of the current
+         gPTP capable message interval."
+    REFERENCE   "14.8.28"
+    ::= { ieee8021AsV2PortDSEntry 30 }
+
+ieee8021AsV2PortDSUseMgtSettableLogGptpCapableMessageInterval OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the gPTP capable message interval. If the value is
+         TRUE (1), the value of currentLogGptpCapableMessageInterval
+         is set equal to the value of
+         mgtSettableLogGptpCapableMessageInterval. If the value of
+         the managed object is FALSE (2), the value of
+         currentLogGptpCapableMessageInterval is determined by the
+         GptpCapableMessageIntervalSetting state machine.
+         The default value of
+         useMgtSettableLogGptpCapableMessageInterval is FALSE (2)."
+    REFERENCE   "14.8.29"
+    DEFVAL { false }
+    ::= { ieee8021AsV2PortDSEntry 31 }
+
+ieee8021AsV2PortDSMgtSettableLogGptpCapableMessageInterval OBJECT-TYPE
+    SYNTAX      Integer32 (-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the
+         gPtpCapableMessageInterval if
+         useMgtSettableLogGptpCapableMessageInterval is TRUE (1).
+         The value is not used if
+         useMgtSettableLogGptpCapableMessageInterval is FALSE (2)."
+    REFERENCE   "14.8.30"
+    ::= { ieee8021AsV2PortDSEntry 32 }
+
+ieee8021AsV2PortDSInitialComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableComputeNeighborRateRatio is FALSE (2),
+         then for full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the initial value of computeNeighborRateRatio."
+    REFERENCE   "14.8.31"
+    ::= { ieee8021AsV2PortDSEntry 33 }
+
+ieee8021AsV2PortDSCurrentComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the current value of computeNeighborRateRatio."
+    REFERENCE   "14.8.32"
+    ::= { ieee8021AsV2PortDSEntry 34 }
+
+ieee8021AsV2PortDSUseMgtSettableComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the value of computeNeighborRateRatio. If the value is
+         TRUE (1), the value of computeNeighborRateRatio is set equal
+         to the value of mgtSettableComputeNeighborRateRatio. If the
+         value of the managed object is FALSE (2), the value of
+         currentComputeNeighborRateRatio is determined by the
+         LinkDelayIntervalSetting state machine.
+         The default value of useMgtSettableComputeNbrRateRatio is
+         FALSE (2)."
+    REFERENCE   "14.8.33"
+    DEFVAL { false }
+    ::= { ieee8021AsV2PortDSEntry 35 }
+
+ieee8021AsV2PortDSMgtSettableComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "ComputeNeighborRateRatio is configured to this value if
+         useMgtSettableComputeNeighborRateRatio is TRUE (1). The
+         value is not used if useMgtSettableComputeNeighborRateRatio
+         is FALSE (2)."
+    REFERENCE   "14.8.34"
+    ::= { ieee8021AsV2PortDSEntry 36 }
+
+ieee8021AsV2PortDSInitialComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableComputeMeanLinkDelay is FALSE (2) then,
+         for full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay,
+         the value is the initial value of computeMeanLinkDelay."
+    REFERENCE   "14.8.35"
+    ::= { ieee8021AsV2PortDSEntry 37 }
+
+ieee8021AsV2PortDSCurrentComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the current value of computeMeanLinkDelay."
+    REFERENCE   "14.8.36"
+    ::= { ieee8021AsV2PortDSEntry 38 }
+
+ieee8021AsV2PortDSUseMgtSettableComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the value of computeMeanLinkDelay. If the value is
+         TRUE (1), the value of computeMeanLinkDelay is set equal to
+         the value of mgtSettableComputeMeanLinkDelay. If the value
+         of the managed object is FALSE (2), the value of
+         currentComputeMeanLinkDelay is determined by the
+         LinkDelayIntervalSetting state machine.
+         The default value of useMgtSettableComputeMeanLinkDelay
+         is FALSE (2)."
+    REFERENCE   "14.8.37"
+    DEFVAL { false }
+    ::= { ieee8021AsV2PortDSEntry 39 }
+
+ieee8021AsV2PortDSMgtSettableComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "ComputeMeanLinkDelay is configured to this value if
+         useMgtSettableComputeMeanLinkDelay is TRUE (1). The
+         value is not used if useMgtSettableComputeMeanLinkDelay
+         is FALSE (2)."
+    REFERENCE   "14.8.38"
+    ::= { ieee8021AsV2PortDSEntry 40 }
+
+ieee8021AsV2PortDSAllowedLostRsp OBJECT-TYPE
+    SYNTAX      Unsigned32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable allowedLostResponses. It is the number of Pdelay_Req
+         messages without valid responses above which a PTP Port
+         is considered to be not exchanging peer delay messages with
+         its neighbor.
+         Setting this managed object causes the  per-PTP Port global
+         variable allowedLostResponses to have the same value."
+    REFERENCE   "14.8.39 and 11.5.3"
+    DEFVAL { 9 }
+    ::= { ieee8021AsV2PortDSEntry 41 }
+
+ieee8021AsV2PortDSAllowedFaults OBJECT-TYPE
+    SYNTAX      Unsigned32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP-Port global
+         variable allowedFaults. It is the number of faults above
+         which asCapable is set to FALSE (1), i.e., a PTP Port is
+         considered not capable of interoperating with its
+         neighbor via the IEEE 802.1AS protocol.
+         Setting this managed object causes the per-PTP Port global
+         variable allowedFaults to have the same value."
+    REFERENCE   "14.8.40"
+    DEFVAL { 9 }
+    ::= { ieee8021AsV2PortDSEntry 42 }
+
+ieee8021AsV2PortDSGPtpCapableReceiptTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the number of transmission intervals that a
+         PTP Port waits without receiving the gPTP capable TLV, before
+         assuming that the neighbor PTP Port is no longer invoking
+         the gPTP protocol."
+    REFERENCE   "14.8.41"
+    DEFVAL { 9 }
+    ::= { ieee8021AsV2PortDSEntry 43 }
+
+ieee8021AsV2PortDSVersionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..16)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This value is set to versionPTP as specified in 10.6.2.2.4."
+    REFERENCE   "14.8.42"
+    ::= { ieee8021AsV2PortDSEntry 44 }
+
+ieee8021AsV2PortDSNup OBJECT-TYPE
+    SYNTAX      Float64TC
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "For an OLT port of an IEEE 802.3 EPON link, the value is
+         the effective index of refraction for the EPON upstream
+         wavelength light of the optical path. The default value is
+         1.46770 for 1 Gb/s upstream links, and 1.46773 for
+         10 Gb/s upstream links.
+         For all other PTP Ports, the value is 0."
+    REFERENCE   "14.8.43"
+    ::= { ieee8021AsV2PortDSEntry 45 }
+
+ieee8021AsV2PortDSNdown OBJECT-TYPE
+    SYNTAX      Float64TC
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "For an OLT port of an IEEE 802.3 EPON link, the value is
+         the effective index of refraction for the EPON downstream
+         wavelength light of the optical path. The default value is
+         1.46805 for 1 Gb/s downstream links, and 1.46851 for
+         10 Gb/s downstream links.
+         For all other PTP Ports, the value is 0."
+    REFERENCE   "14.8.44"
+    ::= { ieee8021AsV2PortDSEntry 46 }
+
+ieee8021AsV2PortDSOneStepTxOper OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable oneStepTxOper. Its value is TRUE (1) if the
+         PTP Port is sending one-step Sync messages, and FALSE (2)
+         if the PTP Port is sending two-step Sync and Follow-Up
+         messages."
+    REFERENCE   "14.8.45"
+    ::= { ieee8021AsV2PortDSEntry 47 }
+
+ieee8021AsV2PortDSOneStepReceive OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable oneStepReceive. Its value is TRUE (1) if the
+         PTP Port is capable of receiving and processing one-step
+         Sync messages."
+    REFERENCE   "14.8.46"
+    ::= { ieee8021AsV2PortDSEntry 48 }
+
+ieee8021AsV2PortDSOneStepTransmit OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable oneStepTransmit. Its value is TRUE (1) if the
+         PTP Port is capable of transmitting one-step Sync messages."
+    REFERENCE   "14.8.47"
+    ::= { ieee8021AsV2PortDSEntry 49 }
+
+ieee8021AsV2PortDSInitialOneStepTxOper OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableOneStepTxOper is FALSE (2), the value is
+         used to initialize currentOneStepTxOper when the PTP Port is
+         initialized. If useMgtSettableOneStepTxOper is TRUE (1),
+         the value of initialOneStepTxOper is not used."
+    REFERENCE   "14.8.48"
+    DEFVAL { false }
+    ::= { ieee8021AsV2PortDSEntry 50 }
+
+ieee8021AsV2PortDSCurrentOneStepTxOper OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is TRUE (1) if it is desired, either via
+         management or via a received Signaling message, that the
+         PTP Port transmit one-step Sync messages. The value is
+         FALSE (2) if it is not desired, either via management or via
+         a received Signaling message, that the PTP Port transmit
+         one-step  Sync messages.
+         NOTE: The PTP Port will send one-step Sync messages only if
+         currentOneStepTxOper and oneStepTransmit are both TRUE (1)."
+    REFERENCE   "14.8.49"
+    ::= { ieee8021AsV2PortDSEntry 51 }
+
+ieee8021AsV2PortDSUseMgtSettableOneStepTxOper OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of currentOneStepTxOper. If the value is TRUE (1), the
+         value of currentOneStepTxOper is set equal to the value of
+         mgtSettableOneStepTxOper. If the value is FALSE (2), the
+         value of currentOneStepTxOper is determined by the
+         OneStepTxOperSetting state machine.
+         The default value of useMgtSettableOneStepTxOper is TRUE (1)."
+    REFERENCE   "14.8.50"
+    DEFVAL     { true }
+    ::= { ieee8021AsV2PortDSEntry 52 }
+
+ieee8021AsV2PortDSMgtSettableOneStepTxOper OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableOneStepTxOper is TRUE (1),
+         currentOneStepTxOper is set equal to the value of
+         mgtSettableOneStepTxOper. The value of mgtSettableOneStepTxOper
+         is not used if useMgtSettableOneStepTxOper is FALSE (2).
+         The default value of mgtSettableOneStepTxOper is FALSE (2)
+         for domains other than domain 0."
+    REFERENCE   "14.8.51"
+    ::= { ieee8021AsV2PortDSEntry 53 }
+
+ieee8021AsV2PortDSSyncLocked OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-PTP Port global
+         variable syncLocked. Its value is TRUE (1) if the PTP Port
+         will transmit a Sync as soon as possible after the slave
+         PTP Port receives a Sync."
+    REFERENCE   "14.8.52"
+    ::= { ieee8021AsV2PortDSEntry 54 }
+
+ieee8021AsV2PortDSPdelayTruncTST1 OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         first value, T1, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t1 in
+         Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp , expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange."
+    REFERENCE   "14.8.53"
+    ::= { ieee8021AsV2PortDSEntry 55 }
+
+ieee8021AsV2PortDSPdelayTruncTST2 OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         second value, T2, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t2 in
+         Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp , expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange."
+    REFERENCE   "14.8.53"
+    ::= { ieee8021AsV2PortDSEntry 56 }
+
+ieee8021AsV2PortDSPdelayTruncTST3 OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         third value, T3, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t3 in
+         Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp , expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange."
+    REFERENCE   "14.8.53"
+    ::= { ieee8021AsV2PortDSEntry 57 }
+
+ieee8021AsV2PortDSPdelayTruncTST4 OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         fourth value, T4, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t4 in
+         Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp , expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange."
+    REFERENCE   "14.8.53"
+    ::= { ieee8021AsV2PortDSEntry 58 }
+
+ieee8021AsV2PortDSMinorVersionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..15)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This value is set to minorVersionPTP as specified in 10.6.2.2.3."
+    REFERENCE   "14.8.54"
+    ::= { ieee8021AsV2PortDSEntry 59 }
+
+-- =============================================================
+-- The Description Port Parameter Data Set contains the
+-- profileIdentifier for this PTP profile, as specified in
+-- Annex F.1.
+-- =============================================================
+
+ieee8021AsV2DescriptionPortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2DescriptionPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The descriptionPortDS contains the profileIdentifier for
+         this PTP profile, as specified in Annex F.1."
+    REFERENCE   "14.9"
+    ::= { ieee8021AsV2MIBObjects 11 }
+
+ieee8021AsV2DescriptionPortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2DescriptionPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The descriptionPortDS contains the profileIdentifier for
+         this PTP profile"
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2DescriptionPortDSAsIndex }
+    ::= { ieee8021AsV2DescriptionPortDSTable 1 }
+
+Ieee8021AsV2DescriptionPortDSEntry ::=
+     SEQUENCE {
+         ieee8021AsV2DescriptionPortDSAsIndex
+                                            InterfaceIndexOrZero,
+         ieee8021AsV2DescriptionPortDSProfileIdentifier
+                                            Ieee8021AsV2GPtpProfileIdentifier }
+
+ieee8021AsV2DescriptionPortDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object identifies the gPTP interface group within
+         the system for which this entry contains information. It
+         is the value of the instance of the IfIndex object,
+         defined in the IF-MIB, for the gPTP interface group
+         corresponding to this port, or the value 0 if the port
+         has not been bound to an underlying frame source and
+         sink.
+
+         For a given media port of a Bridge or an end station,
+         there can be one or more PTP Port, and depends whether
+         a media port supports point to point link (e.g. IEEE
+         802.3 Ethernet) or point to multi-point (e.g. CSN, IEEE
+         802.3 EPON) links on the media port."
+    REFERENCE   "IEEE Std 802.1AS Description Port Parameter DS Group
+                 PTP Port Index"
+    ::= { ieee8021AsV2DescriptionPortDSEntry 1 }
+
+ieee8021AsV2DescriptionPortDSProfileIdentifier OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2GPtpProfileIdentifier
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the profileIdentifier for this PTP profile."
+    REFERENCE   "14.9.2 and F.1"
+    ::= { ieee8021AsV2DescriptionPortDSEntry 2 }
+
+-- =============================================================
+-- The Port Parameter Statistics Data Set provides counters
+-- associated with PTP Port capabilities at a given PTP Instance.
+-- =============================================================
+
+ieee8021AsV2PortStatDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2PortStatDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The portStatisticsDS provides counters associated with PTP Port
+         capabilities at a given PTP Instance."
+    REFERENCE   "14.10"
+    ::= { ieee8021AsV2MIBObjects 12 }
+
+ieee8021AsV2PortStatDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2PortStatDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Port Statistics Data Set provides counters associated with
+         PTP Port capabilities at a given PTP Instance."
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2PortDSIndex }
+    ::= { ieee8021AsV2PortStatDSTable 1 }
+
+Ieee8021AsV2PortStatDSEntry ::=
+     SEQUENCE {
+         ieee8021AsV2PortStatRxSyncCount               Counter32,
+         ieee8021AsV2PortStatRxOneStepSyncCount        Counter32,
+         ieee8021AsV2PortStatRxFollowUpCount           Counter32,
+         ieee8021AsV2PortStatRxPdelayRequestCount      Counter32,
+         ieee8021AsV2PortStatRxPdelayRspCount     Counter32,
+         ieee8021AsV2PortStatRxPdelayRspFollowUpCount  Counter32,
+         ieee8021AsV2PortStatRxAnnounceCount           Counter32,
+         ieee8021AsV2PortStatRxPtpPacketDiscardCount   Counter32,
+         ieee8021AsV2PortStatSyncReceiptTimeoutCount    Counter32,
+         ieee8021AsV2PortStatAnnounceReceiptTimeoutCount   Counter32,
+         ieee8021AsV2PortStatPdelayAllowedLostRspExceededCount Counter32,
+         ieee8021AsV2PortStatTxSyncCount               Counter32,
+         ieee8021AsV2PortStatTxOneStepSyncCount        Counter32,
+         ieee8021AsV2PortStatTxFollowUpCount           Counter32,
+         ieee8021AsV2PortStatTxPdelayRequestCount      Counter32,
+         ieee8021AsV2PortStatTxPdelayRspCount     Counter32,
+         ieee8021AsV2PortStatTxPdelayRspFollowUpCount Counter32,
+         ieee8021AsV2PortStatTxAnnounceCount           Counter32
+      }
+
+ieee8021AsV2PortStatRxSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time synchronization
+         information is received."
+    REFERENCE   "14.10.2"
+    ::= { ieee8021AsV2PortStatDSEntry 1 }
+
+ieee8021AsV2PortStatRxOneStepSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a one-step Sync
+         message is received."
+    REFERENCE   "14.10.3"
+    ::= { ieee8021AsV2PortStatDSEntry 2 }
+
+ieee8021AsV2PortStatRxFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Follow_Up message
+         is received."
+    REFERENCE   "14.10.4"
+    ::= { ieee8021AsV2PortStatDSEntry 3 }
+
+ieee8021AsV2PortStatRxPdelayRequestCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Req message
+         is received."
+    REFERENCE   "14.10.5"
+    ::= { ieee8021AsV2PortStatDSEntry 4 }
+
+ieee8021AsV2PortStatRxPdelayRspCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp message
+         is received."
+    REFERENCE   "14.10.6"
+    ::= { ieee8021AsV2PortStatDSEntry 5 }
+
+ieee8021AsV2PortStatRxPdelayRspFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp_Follow_Up
+         message is received."
+    REFERENCE   "14.10.7"
+    ::= { ieee8021AsV2PortStatDSEntry 6 }
+
+ieee8021AsV2PortStatRxAnnounceCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time an Announce message
+         is received."
+    REFERENCE   "14.10.8"
+    ::= { ieee8021AsV2PortStatDSEntry 7 }
+
+ieee8021AsV2PortStatRxPtpPacketDiscardCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a PTP message of the
+         respective PTP Instance is discarded."
+    REFERENCE   "14.10.9"
+    ::= { ieee8021AsV2PortStatDSEntry 8 }
+
+ieee8021AsV2PortStatSyncReceiptTimeoutCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time sync receipt timeout
+         occurs."
+    REFERENCE   "14.10.10"
+    ::= { ieee8021AsV2PortStatDSEntry 9 }
+
+ieee8021AsV2PortStatAnnounceReceiptTimeoutCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time announce receipt timeout
+         occurs."
+    REFERENCE   "14.10.11"
+    ::= { ieee8021AsV2PortStatDSEntry 10 }
+
+ieee8021AsV2PortStatPdelayAllowedLostRspExceededCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time the value of the
+         variable lostResponses exceeds the value of the variable
+         allowedLostResponses."
+    REFERENCE   "14.10.12"
+    ::= { ieee8021AsV2PortStatDSEntry 11 }
+
+ieee8021AsV2PortStatTxSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time synchronization
+         information is transmitted."
+    REFERENCE   "14.10.13"
+    ::= { ieee8021AsV2PortStatDSEntry 12 }
+
+ieee8021AsV2PortStatTxOneStepSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a one-step Sync
+         message is transmitted."
+    REFERENCE   "14.10.14"
+    ::= { ieee8021AsV2PortStatDSEntry 13 }
+
+ieee8021AsV2PortStatTxFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Follow_Up message
+         is transmitted."
+    REFERENCE   "14.10.15"
+    ::= { ieee8021AsV2PortStatDSEntry 14 }
+
+ieee8021AsV2PortStatTxPdelayRequestCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Req message
+         is transmitted."
+    REFERENCE   "14.10.16"
+    ::= { ieee8021AsV2PortStatDSEntry 15 }
+
+ieee8021AsV2PortStatTxPdelayRspCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp message
+         is transmitted."
+    REFERENCE   "14.10.17"
+    ::= { ieee8021AsV2PortStatDSEntry 16 }
+
+ieee8021AsV2PortStatTxPdelayRspFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a
+         Pdelay_Resp_Follow_Up message is transmitted."
+    REFERENCE   "14.10.18"
+    ::= { ieee8021AsV2PortStatDSEntry 17 }
+
+ieee8021AsV2PortStatTxAnnounceCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time an Announce message is
+         transmitted."
+    REFERENCE   "14.10.19"
+    ::= { ieee8021AsV2PortStatDSEntry 18 }
+
+-- =============================================================
+-- The Acceptable Master Port Parameter Data Ser represents the
+-- capability to enable/disable the acceptable master table
+-- feature on a PTP Port.
+-- =============================================================
+
+ieee8021AsV2AcceptableMasterPortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2AcceptableMasterPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For the single PTP Port of a PTP End Instance and for each
+         PTP Port of a PTP Relay Instance, the acceptableMasterPortDS
+         contains the single member acceptableMasterTableEnabled, which
+         is used to enable/disable the Acceptable Master Table Feature.
+         The number of such data sets is the same as the value of
+         defaultDS.numberPorts."
+    REFERENCE   "14.11"
+    ::= { ieee8021AsV2MIBObjects 13 }
+
+ieee8021AsV2AcceptableMasterPortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2AcceptableMasterPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Acceptable Master Port Data Set represents the capability
+         to enable/disable the acceptable master table feature on a
+         PTP Port.
+         For the single PTP Port of a PTP End Instance and for each
+         PTP Port of a PTP Relay Instance, the acceptableMasterPortDS
+         contains the single member acceptableMasterTableEnabled, which
+         is used to enable/disable the Acceptable Master Table Feature.
+         The number of such data sets is the same as the value of
+         defaultDS.numberPorts."
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2AcceptableMasterPortDSAsIndex }
+    ::= { ieee8021AsV2AcceptableMasterPortDSTable 1 }
+
+Ieee8021AsV2AcceptableMasterPortDSEntry ::=
+  SEQUENCE {
+      ieee8021AsV2AcceptableMasterPortDSAsIndex    InterfaceIndexOrZero,
+      ieee8021AsV2AcceptableMasterPortDSAcceptableMasterTableEnabled         TruthValue
+      }
+
+ieee8021AsV2AcceptableMasterPortDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Acceptable Master
+         Port Table Data Set."
+    REFERENCE   "14.11"
+    ::= { ieee8021AsV2AcceptableMasterPortDSEntry 1 }
+
+ieee8021AsV2AcceptableMasterPortDSAcceptableMasterTableEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         acceptableMasterTableEnabled."
+    REFERENCE   "14.11.2"
+    ::= { ieee8021AsV2AcceptableMasterPortDSEntry 2 }
+
+-- =============================================================
+-- The External Port Configuration Port Data Set is used with
+-- the external port configuration option to indicate the
+-- desired state for the PTP Port.
+-- =============================================================
+ieee8021AsV2ExternalPortConfigurationPortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2ExternalPortConfigurationPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The externalPortConfigurationPortDS contains the single member
+         desiredState, which indicates the desired state for the PTP Port.
+         The number of such data sets is the same as the value of
+         defaultDS.numberPorts."
+    REFERENCE   "14.12"
+    ::= { ieee8021AsV2MIBObjects 14 }
+
+ieee8021AsV2ExternalPortConfigurationPortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ExternalPortConfigurationPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The externalPortConfigurationPortDS contains the single member
+         desiredState, which indicates the desired state for the PTP Port.
+         The number of such data sets is the same as the value of
+         defaultDS.numberPorts."
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2ExternalPortConfigurationPortDSAsIndex }
+    ::= { ieee8021AsV2ExternalPortConfigurationPortDSTable 1 }
+
+Ieee8021AsV2ExternalPortConfigurationPortDSEntry ::=
+  SEQUENCE {
+      ieee8021AsV2ExternalPortConfigurationPortDSAsIndex    InterfaceIndexOrZero,
+      ieee8021AsV2ExternalPortConfigurationPortDSDesiredState         INTEGER
+      }
+
+ieee8021AsV2ExternalPortConfigurationPortDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the External Port
+         Configuration Port Table Data Set."
+    REFERENCE   "14.12"
+    ::= { ieee8021AsV2ExternalPortConfigurationPortDSEntry 1 }
+
+ieee8021AsV2ExternalPortConfigurationPortDSDesiredState OBJECT-TYPE
+    SYNTAX           INTEGER {
+            disabledPort(3),
+            masterPort(6),
+            passivePort(7),
+            slavePort(9)
+           }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "When the value of defaultDS.externalPortConfigurationEnabled
+         is TRUE (1), the value of
+         externalPortConfigurationPortDS.desiredState is the desired
+         state of the PTP Port. This member sets the value of the
+         variable portStateInd. When a new value is written to the
+         member by management, the variable rcvdPortStateInd is set
+         to TRUE (1)."
+    REFERENCE   "14.12.2"
+    ::= { ieee8021AsV2ExternalPortConfigurationPortDSEntry 2 }
+
+-- =============================================================
+-- Asymmetry Measurement Mode Parameter Data Set
+-- to enable/disable the feature on a PTP Port.
+-- =============================================================
+
+ieee8021AsV2AsymMeasurementModeDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2AsymMeasurementModeDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The asymmetryMeasurementModeDS represents the capability to
+         enable/disable the Asymmetry Compensation Measurement Procedure
+         on a PTP Port (see Annex G). This data set is used instead of
+         the cmldsAsymmetryMeasurementModeDS, when only domain 0 is
+         present and CMLDS is not used."
+    REFERENCE   "14.13"
+    ::= { ieee8021AsV2MIBObjects 15 }
+
+ieee8021AsV2AsymMeasurementModeDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2AsymMeasurementModeDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The asymmetryMeasurementModeDS represents the capability to
+         enable/disable the Asymmetry Compensation Measurement Procedure
+         on a PTP Port (see Annex G). This data set is used instead of
+         the cmldsAsymmetryMeasurementModeDS, when only domain 0 is
+         present and CMLDS is not used. "
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2AsymMeasurementModeDSAsIndex }
+    ::= { ieee8021AsV2AsymMeasurementModeDSTable 1 }
+
+Ieee8021AsV2AsymMeasurementModeDSEntry ::=
+     SEQUENCE {
+         ieee8021AsV2AsymMeasurementModeDSAsIndex      InterfaceIndexOrZero,
+         ieee8021AsV2AsymMeasurementModeDSAsymMeasurementMode            TruthValue
+      }
+
+ieee8021AsV2AsymMeasurementModeDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Asymmetry Measurement
+         Mode Data Set."
+    REFERENCE   "14.13"
+    ::= { ieee8021AsV2AsymMeasurementModeDSEntry 1 }
+
+ieee8021AsV2AsymMeasurementModeDSAsymMeasurementMode OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         asymmetryMeasurementMode. For full-duplex IEEE 802.3
+         media, the value is TRUE (1) if an asymmetry measurement
+         is being performed for the link attached to this PTP Port,
+         and FALSE (2) otherwise. For all other media, the value
+         shall be FALSE (2). Setting this managed object causes the
+         Boolean  asymmetryMeasurementMode to have the same value.
+         NOTE: If an asymmetry measurement is being performed for a
+         link, asymmetryMeasurementMode must be TRUE (1) for the
+         PTP Ports at each end of the link."
+    REFERENCE   "14.13.2"
+    ::= { ieee8021AsV2AsymMeasurementModeDSEntry 2 }
+
+-- =============================================================
+-- The Common Services Port Parameter Data Set enables a
+-- PTP Port of a PTP Instance to determine which port of the
+-- respective common service corresponds to that PTP Port.
+-- =============================================================
+ieee8021AsV2CommonServicesPortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CommonServicesPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "At present, the only common service specified is the CMLDS, and
+         the only member of the commonServicesPortDS is the
+         cmldsLinkPortPortNumber. This member contains the port number
+         of the CMLDS Link Port that corresponds to this PTP Port."
+    REFERENCE   "14.14"
+    ::= { ieee8021AsV2MIBObjects 16 }
+
+ieee8021AsV2CommonServicesPortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CommonServicesPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "At present, the only common service specified is the CMLDS, and
+        the only member of the commonServicesPortDS is the
+        cmldsLinkPortPortNumber. This member contains the port number
+        of the CMLDS Link Port that
+         corresponds to this PTP Port."
+    INDEX { ieee8021AsV2PtpInstance,
+            ieee8021AsV2CommonServicesPortDSAsIndex }
+    ::= { ieee8021AsV2CommonServicesPortDSTable 1 }
+
+Ieee8021AsV2CommonServicesPortDSEntry ::=
+  SEQUENCE {
+      ieee8021AsV2CommonServicesPortDSAsIndex    InterfaceIndexOrZero,
+      ieee8021AsV2CommonServicesPortDSCmldsLinkPortPortNumber         Unsigned32
+      }
+
+ieee8021AsV2CommonServicesPortDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Common Services Port
+         Data Set."
+    REFERENCE   "14.14"
+    ::= { ieee8021AsV2CommonServicesPortDSEntry 1 }
+
+ieee8021AsV2CommonServicesPortDSCmldsLinkPortPortNumber OBJECT-TYPE
+    SYNTAX           Unsigned32 (0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the portNumber attribute of the
+         cmldsLinkPortDS.portIdentity of the Link Port that
+         corresponds to this PTP Port."
+    REFERENCE   "14.14.2"
+    ::= { ieee8021AsV2CommonServicesPortDSEntry 2 }
+
+-- =============================================================
+-- The Common Mean Link Delay Service Default Parameter Data Set
+-- describes the per-time-aware-system attributes of the Common
+-- Mean Link Delay Service.
+-- =============================================================
+
+ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The cmldsDefaultDS describes the per-time-aware-system attributes
+         of the Common Mean Link Delay Service."
+    REFERENCE   "14.15"
+    ::= { ieee8021AsV2MIBObjects 17 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The cmldsDefaultDS describes the per-time-aware-system attributes
+         of the Common Mean Link Delay Service."
+    INDEX { ieee8021AsV2CmldsDefaultDSAsIndex }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSTable 1 }
+
+Ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry ::=
+   SEQUENCE {
+      ieee8021AsV2CmldsDefaultDSAsIndex  InterfaceIndexOrZero,
+      ieee8021AsV2CmldsDefaultDSClockIdentity   Ieee8021AsV2ClockIdentity,
+      ieee8021AsV2CmldsDefaultDSNumberLinkPorts Unsigned32
+      }
+
+
+ieee8021AsV2CmldsDefaultDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Common Mean Link
+         Delay Default Data Set."
+    REFERENCE   "14.15"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry 1 }
+
+ieee8021AsV2CmldsDefaultDSClockIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the clockIdentity that will be used to
+         identify the Common Mean Link Delay Service."
+    REFERENCE   "14.15.2"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry 2 }
+
+ieee8021AsV2CmldsDefaultDSNumberLinkPorts OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the number of Link Ports of the time-aware
+         system on which the Common Mean Link Delay Service is
+         implemented. For an end station the value is 1."
+    REFERENCE   "14.15.3"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSEntry 3 }
+
+-- =============================================================
+-- The Common Mean Link Delay Service Link Port Parameter Data Set
+-- represents time-aware Link Port capabilities for the Common Mean
+-- Link Delay Service of a Link Port of a time-aware system.
+-- =============================================================
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For every Link Port of the Common Mean Link Delay Service of a
+         time-aware system, the cmldsLinkPortDS is maintained as the
+         basis for making protocol decisions and providing values for
+         message fields. The number of such data sets is the same as
+         the value of cmldsDefaultDS.numberLinkPorts."
+    REFERENCE   "14.16"
+    ::= { ieee8021AsV2MIBObjects 18 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For every Link Port of the Common Mean Link Delay Service of a
+         time-aware system, the cmldsLinkPortDS is maintained as the
+         basis for making protocol decisions and providing values for
+         message fields. The number of such data sets is the same as
+         the value of cmldsDefaultDS.numberLinkPorts."
+    INDEX { ieee8021AsV2BridgeBasePort,
+            ieee8021AsV2CmldsLinkPortDSAsIndex }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSTable 1 }
+
+Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry ::=
+   SEQUENCE {
+     ieee8021AsV2CmldsLinkPortDSAsIndex     InterfaceIndexOrZero,
+     ieee8021AsV2CmldsLinkPortDSClockIdentity       Ieee8021AsV2ClockIdentity,
+     ieee8021AsV2CmldsLinkPortDSPortNumber             Unsigned32,
+     ieee8021AsV2CmldsLinkPortDSCmldsLinkPortEnabled   TruthValue,
+     ieee8021AsV2CmldsLinkPortDSIsMeasuringDelay       TruthValue,
+     ieee8021AsV2CmldsLinkPortDSAsCapableAcrossDomains TruthValue,
+     ieee8021AsV2CmldsLinkPortDSMeanLinkDelay       Ieee8021ASV2PtpTimeInterval,
+     ieee8021AsV2CmldsLinkPortDSMeanLinkDelayThresh Ieee8021ASV2PtpTimeInterval,
+     ieee8021AsV2CmldsLinkPortDSDelayAsym           Ieee8021ASV2PtpTimeInterval,
+     ieee8021AsV2CmldsLinkPortDSNbrRateRatio      Integer32,
+     ieee8021AsV2CmldsLinkPortDSInitialLogPdelayReqInterval Integer32,
+     ieee8021AsV2CmldsLinkPortDSCurrentLogPdelayReqInterval Integer32,
+     ieee8021AsV2CmldsLinkPortDSUseMgtSettableLogPdelayReqInterval  TruthValue,
+     ieee8021AsV2CmldsLinkPortDSMgtSettableLogPdelayReqInterval     Integer32,
+     ieee8021AsV2CmldsLinkPortDSInitialComputeNbrRateRatio     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSCurrentComputeNbrRateRatio     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeNbrRateRatio     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSMgtSettableComputeNbrRateRatio     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSInitialComputeMeanLinkDelay     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSCurrentComputeMeanLinkDelay     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeMeanLinkDelay     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSMgtSettableComputeMeanLinkDelay     TruthValue,
+     ieee8021AsV2CmldsLinkPortDSAllowedLostRsp   Unsigned32,
+     ieee8021AsV2CmldsLinkPortDSAllowedFaults          Unsigned32,
+     ieee8021AsV2CmldsLinkPortDSVersionNumber          Unsigned32,
+     ieee8021AsV2CmldsLinkPortDSPdelayTruncTST1 Ieee8021ASV2Timestamp,
+     ieee8021AsV2CmldsLinkPortDSPdelayTruncTST2 Ieee8021ASV2Timestamp,
+     ieee8021AsV2CmldsLinkPortDSPdelayTruncTST3 Ieee8021ASV2Timestamp,
+     ieee8021AsV2CmldsLinkPortDSPdelayTruncTST4 Ieee8021ASV2Timestamp,
+     ieee8021AsV2CmldsLinkPortDSMinorVersionNumber     Unsigned32
+      }
+
+ieee8021AsV2CmldsLinkPortDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Comon Mean Link
+         Delay Link Port Data Set."
+    REFERENCE   "14.16"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 1 }
+
+ieee8021AsV2CmldsLinkPortDSClockIdentity OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the first of the portIdentity attribute
+         of the local port, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.16.2"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 2 }
+
+ieee8021AsV2CmldsLinkPortDSPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is the second of the portIdentity attribute
+         of the local port, which is a set made of
+         Ieee8021AsV2ClockIdentity and portNumber."
+    REFERENCE   "14.16.2"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 3 }
+
+ieee8021AsV2CmldsLinkPortDSCmldsLinkPortEnabled
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         cmldsLinkPortEnabled."
+    REFERENCE   "14.16.3"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 4 }
+
+ieee8021AsV2CmldsLinkPortDSIsMeasuringDelay
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         isMeasuringDelay."
+    REFERENCE   "14.16.4"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 5 }
+
+ieee8021AsV2CmldsLinkPortDSAsCapableAcrossDomains
+ OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         asCapableAcrossDomains."
+    REFERENCE   "14.16.5"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 6 }
+
+ieee8021AsV2CmldsLinkPortDSMeanLinkDelay
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-port global
+         variable meanLinkDelay. It is an estimate of the current
+         one-way propagation time on the link attached to this Link
+         Port, measured as specified for the respective medium. The
+         value is zero for Link Ports attached to IEEE 802.3 EPON
+         links and for the master port of an IEEE 802.11 link,
+         because one-way propagation delay is not measured on the
+         latter and not directly measured on the former.
+         NOTE: The underlying per-port global variable meanLinkDelay is
+         of type UScaledNS, which is a 96-Bit value. meanLinkDelay
+         values that are larger than the maximum value that can be
+         represented by the TimeInterval data type, i.e.,
+         0xFFFF FFFF FFFF FFFF (where the units are 2 sup -16 ns), used
+         for this managed object are set to this largest value."
+    REFERENCE   "14.16.6"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 7 }
+
+ieee8021AsV2CmldsLinkPortDSMeanLinkDelayThresh
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-Link-Port global
+         variable meanLinkDelayThresh. It is the propagation time
+         threshold above which a Link Port (and therefore any PTP Ports
+         that use the CMLDS on this Link Port) is considered not
+         capable of participating in the IEEE 802.1AS protocol.
+         Setting this managed object causes the per-Link-Port global
+         variable meanLinkDelayThresh to have the same value.
+         NOTE: The underlying per-port global variable
+         meanLinkDelayThresh is of type UScaledNS, which is a 96-Bit
+         value. meanLinkDelayThresh values that are larger than the
+         maximum value that can be represented by the TimeInterval
+         data type, i.e., 0xFFFF FFFF FFFF FFFF (where the units are 
+         2 sup -16 ns), used for this managed object are set to this
+         largest value."
+    REFERENCE   "14.16.7"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 8 }
+
+ieee8021AsV2CmldsLinkPortDSDelayAsym
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2PtpTimeInterval
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the asymmetry in the propagation delay on the
+         link attached to this Link Port relative to the local clock.
+         If propagation delay asymmetry is not modeled, then
+         delayAsymmetry is 0.
+         NOTE: The underlying per-port global variable delayAsymmetry
+         is of type ScaledNS, which is a 96-Bit value.
+         delayAsymmetry values that are larger than the maximum value
+         that can be represented by the TimeInterval data type, i.e.,
+         0x7FFF FFFF FFFF FFFF, (where the units are 2 sup -16 ns),
+         used for this managed object are set to this largest value.
+         delayAsymmetry values that are less than the minimum value
+         that can be represented by the TimeInterval data type, i.e.,
+         0x8000 0000 0000 0001 written in twos complement form (where
+        the units are 2 sup -16 ns), used for this managed object are
+        set to this smallest value."
+    REFERENCE   "14.16.8"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 9 }
+
+ieee8021AsV2CmldsLinkPortDSNbrRateRatio
+ OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "The value is an estimate of the ratio of the frequency of the
+         LocalClock entity of the time-aware system at the other end
+         of the link attached to this Link Port, to the frequency of
+         the LocalClock entity of this time-aware system.
+         neighborRateRatio is expressed as the fractional frequency
+         offset multiplied by 2^41, i.e., the quantity
+         (neighborRateRatio -1.0)(2^41)."
+    REFERENCE   "14.16.9"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 10 }
+
+ieee8021AsV2CmldsLinkPortDSInitialLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableLogPdelayReqInterval is FALSE (2) then,
+         for full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         value is the logarithm to base 2 of the Pdelay_Req message
+         transmission interval used when (a) the Link Port is
+         initialized, or (b) a message interval request TLV is
+         received with the logLinkDelayInterval field set to 126.
+         For all other media, the value is 127."
+    REFERENCE   "14.16.10"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 11 }
+
+ieee8021AsV2CmldsLinkPortDSCurrentLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay,
+         the value is the logarithm to the base 2 of the current
+         Pdelay_Req message transmission interval.
+         For all other media, the value is 127."
+    REFERENCE   "14.16.11"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 12 }
+
+ieee8021AsV2CmldsLinkPortDSUseMgtSettableLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the sync interval and mean time interval between
+         successive Pdelay_Req messages. If the value is TRUE (1),
+         the value of currentLogPdelayReqInterval is set equal to
+         the value of mgtSettableLogPdelayReqInterval. If the value
+         of the managed object is FALSE (2), the value of
+         currentLogPdelayReqInterval is determined by the
+         LinkDelayIntervalSetting state machine."
+    REFERENCE   "14.16.12"
+    DEFVAL { false }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 13 }
+
+ieee8021AsV2CmldsLinkPortDSMgtSettableLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32 (-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is the logarithm to base 2 of the mean time
+         interval between successive Pdelay_Req messages if
+         useMgtSettableLogPdelayReqInterval is TRUE (1). The
+         value is not used if useMgtSettableLogPdelayReqInterval
+         is FALSE (2)."
+    REFERENCE   "14.16.13"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 14 }
+
+ieee8021AsV2CmldsLinkPortDSInitialComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableComputeNeighborRateRatio is FALSE (2),
+         then for full-duplex IEEE 802.3 media and for CSN media
+         that use the peer-to-peer delay mechanism to measure path
+         delay, the value is the initial value of
+         computeNeighborRateRatio.
+         For all other media, the value is TRUE."
+    REFERENCE   "14.16.14"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 15 }
+
+ieee8021AsV2CmldsLinkPortDSCurrentComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay,
+         the value is the current value of computeNeighborRateRatio.
+         For all other media, the value is TRUE (1)."
+    REFERENCE   "14.16.15"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 16 }
+
+ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the value of computeNeighborRateRatio. If the value is
+         TRUE (1), the value of computeNeighborRateRatio is set equal
+         to the value of mgtSettablecomputeNeighborRateRatio. If
+         the value of the managed object is FALSE (2), the
+         value of currentComputeNeighborRateRatio is determined by
+         the LinkDelayIntervalSetting state machine."
+    REFERENCE   "14.16.16"
+    DEFVAL { false }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 17 }
+
+ieee8021AsV2CmldsLinkPortDSMgtSettableComputeNbrRateRatio OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "computeNeighborRateRatio is configured to this value if
+         useMgtSettableComputeNeighborRateRatio is TRUE (1). The
+         value is not used if useMgtSettableComputeNeighborRateRatio
+         is FALSE (2)."
+    REFERENCE   "14.16.17"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 18 }
+
+ieee8021AsV2CmldsLinkPortDSInitialComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "If useMgtSettableComputeMeanLinkDelay is FALSE (2) then,
+         for full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay,
+         the value is the initial value of computeMeanLinkDelay.
+         For all other media, the value is TRUE (1)."
+    REFERENCE   "14.16.18"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 19 }
+
+ieee8021AsV2CmldsLinkPortDSCurrentComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that
+         use the peer-to-peer delay mechanism to measure path delay,
+         the value is the current value of computeMeanLinkDelay.
+         For all other media, the value is TRUE."
+    REFERENCE   "14.16.19"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 20 }
+
+ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The managed object is a Boolean that determines the source
+         of the value of computeMeanLinkDelay. If the value is
+         TRUE (1), the value of computeMeanLinkDelay is set equal
+         to the value of mgtSettableComputeMeanLinkDelay. If the
+         value of the managed object is FALSE (2), the value of
+         currentComputeMeanLinkDelay is determined by the
+         LinkDelayIntervalSetting state machine."
+    REFERENCE   "14.16.20"
+    DEFVAL { false }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 21 }
+
+ieee8021AsV2CmldsLinkPortDSMgtSettableComputeMeanLinkDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "computeMeanLinkDelay is configured to this value if
+         useMgtSettableComputeMeanLinkDelay is TRUE (1). The value
+         is not used if useMgtSettableComputeMeanLinkDelay is
+         FALSE (2)."
+    REFERENCE   "14.16.21"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 22 }
+
+ieee8021AsV2CmldsLinkPortDSAllowedLostRsp
+ OBJECT-TYPE
+    SYNTAX      Unsigned32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-Link-Port
+         global variable allowedLostResponses. It is the number
+         of Pdelay_Req messages without valid responses
+         above which a Link Port is considered to be not
+         exchanging peer delay messages with its neighbor.
+         Setting this managed object causes the per-Link-Port global
+         variable allowedLostResponses to have the same value."
+    REFERENCE   "14.16.22"
+    DEFVAL { 9 }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 23 }
+
+
+ieee8021AsV2CmldsLinkPortDSAllowedFaults OBJECT-TYPE
+    SYNTAX      Unsigned32(1..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the per-Link-Port global
+         variable allowedFaults. It is the number of faults above
+         which asCapableAcrossDomains is set to FALSE (2), i.e., a
+         Link Port is considered not capable of interoperating
+         with its neighbor via the IEEE 802.1AS protocol.
+         Setting this managed object causes the per-Link-Port global
+         variable allowedFaults to have the same value."
+    REFERENCE   "14.16.23"
+    DEFVAL { 9 }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 24 }
+
+ieee8021AsV2CmldsLinkPortDSVersionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..15)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This value is set to versionPTP as specified in 10.6.2.2.4."
+    REFERENCE   "14.16.24"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 25 }
+
+ieee8021AsV2CmldsLinkPortDSPdelayTruncTST1
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         first value, T1, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t1 modulo 2^32
+         in Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp, expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange.
+         NOTE: This managed object is used with the asymmetry
+         measurement compensation procedure, which is based on
+         line-swapping."
+    REFERENCE   "14.16.25"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 26 }
+
+ieee8021AsV2CmldsLinkPortDSPdelayTruncTST2
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         second value, T2, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t1 modulo 2^32
+         in Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp, expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange.
+         NOTE: This managed object is used with the asymmetry
+         measurement compensation procedure, which is based on
+         line-swapping."
+    REFERENCE   "14.16.25"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 27 }
+
+ieee8021AsV2CmldsLinkPortDSPdelayTruncTST3
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         third value, T3, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t1 modulo 2^32
+         in Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp, expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange.
+         NOTE: This managed object is used with the asymmetry
+         measurement compensation procedure, which is based on
+         line-swapping."
+    REFERENCE   "14.16.25"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 28 }
+
+ieee8021AsV2CmldsLinkPortDSPdelayTruncTST4
+ OBJECT-TYPE
+    SYNTAX      Ieee8021ASV2Timestamp
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "For full-duplex IEEE 802.3 media and for CSN media that use
+         the peer-to-peer delay mechanism to measure path delay, the
+         fourth value, T4, of the four elements of this array is as
+         described in Table 14-9. For all other media, the values are
+         zero. This object corresponds to the timestamp t1 modulo 2^32
+         in Figure 11-1, and expressed in units of 2^-16 ns (i.e., the
+         value of this array element is equal to the remainder obtained
+         upon dividing the respective timestamp, expressed in units
+         of 2^-16 ns, by 2^48).
+         At any given time, the timestamp values stored in the T1, T2,
+         T3, T4 PdelayTruncTS are for the same, and most recently
+         completed, peer delay message exchange.
+         NOTE: This managed object is used with the asymmetry
+         measurement compensation procedure, which is based on
+         line-swapping."
+    REFERENCE   "14.16.25"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 29 }
+
+ieee8021AsV2CmldsLinkPortDSMinorVersionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32 (0..15)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "This value is set to minorVersionPTP as specified in
+         10.6.2.2.3."
+    REFERENCE   "14.16.26"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSEntry 30 }
+
+-- =============================================================
+-- The Common Mean Link Delay Service Link Port Parameter
+-- Statistics Data Set provides counters associated with Link
+-- Port capabilities at a given time-aware system.
+-- =============================================================
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSTable  OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For every Link Port of the Common Mean Link Delay Service of a
+         time-aware system, the following cmldsLinkPortStatisticsDS
+         provides counters. The number of such statistics sets is the
+         same as the value of cmldsDefaultDS.numberLinkPorts."
+    REFERENCE   "14.17"
+    ::= { ieee8021AsV2MIBObjects 19 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "For every Link Port of the Common Mean Link Delay Service of a
+         time-aware system, the following cmldsLinkPortStatisticsDS
+         provides counters. The number of such statistics sets is the
+         same as the value of cmldsDefaultDS.numberLinkPorts."
+    INDEX { ieee8021AsV2BridgeBasePort,
+            ieee8021AsV2CmldsLinkPortStatDSIndex }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSTable 1 }
+
+Ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry ::=
+  SEQUENCE {
+    ieee8021AsV2CmldsLinkPortStatDSIndex           InterfaceIndexOrZero,
+    ieee8021AsV2CmldsLinkPortStatDSRxPdelayRequestCount            Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspCount           Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspFollowUpCount   Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSRxPtpPacketDiscardCount         Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSPdelayAllowedLostRspExceededCount  Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSTxPdelayRequestCount            Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspCount           Counter32,
+    ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspFollowUpCount   Counter32
+      }
+
+ieee8021AsV2CmldsLinkPortStatDSIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "An index to identify an entry in the Common Mean Link
+         Port Statistics Data Set."
+    REFERENCE   "14.17"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 1 }
+
+ieee8021AsV2CmldsLinkPortStatDSRxPdelayRequestCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Req message is
+         received."
+    REFERENCE   "14.17.2"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 2 }
+
+ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp message is
+         received."
+    REFERENCE   "14.17.3"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 3 }
+
+ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp_Follow_Up
+         message is received."
+    REFERENCE   "14.17.4"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 4 }
+
+ieee8021AsV2CmldsLinkPortStatDSRxPtpPacketDiscardCount
+ OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a PTP message of the
+         Common Mean Link Delay Service is discarded, caused by the
+         occurrence of any of the conditions given in 14.17.5."
+    REFERENCE   "14.17.5"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 5 }
+
+ieee8021AsV2CmldsLinkPortStatDSPdelayAllowedLostRspExceededCount
+ OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time the value of the variable
+         lostResponses exceeds the value of the variable
+         allowedLostResponses, in the RESET state of the
+         MDPdelayReq state machine."
+    REFERENCE   "14.17.6"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 6 }
+
+ieee8021AsV2CmldsLinkPortStatDSTxPdelayRequestCount
+ OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Req message is
+         transmitted."
+    REFERENCE   "14.17.7"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 7 }
+
+ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspCount
+ OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp message is
+         transmitted."
+    REFERENCE   "14.17.8"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 8 }
+
+ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspFollowUpCount
+ OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+        "A counter that increments every time a Pdelay_Resp_Follow_Up
+         message is transmitted."
+    REFERENCE   "14.17.9"
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSEntry 9 }
+
+-- =============================================================
+-- The Common Mean Link Delay Service Asymmetry Measurement Mode
+-- Parameter Data Set represents the capability to enable/disable
+-- the Asymmetry Compensation Measurement Procedure on a Link Port
+-- (see Annex G).
+-- =============================================================
+
+ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The Common Mean Link Delay Service Asymmetry Measurement Mode
+         Parameter Data Set represents the capability to enable/disable
+         the Asymmetry Compensation Measurement Procedure on a Link Port
+         (see Annex G)."
+    REFERENCE   "14.18"
+    ::= { ieee8021AsV2MIBObjects 20 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This table uses
+         ieee8021AsV2CmldsAsymmetryMeasurementModeDSAsIndex,
+         and corresponds to
+         ieee8021AsV2CommonMeanLinkDelayServiceAsymmetryMeasurementModeDSTable
+         entry."
+    INDEX { ieee8021AsV2BridgeBasePort,
+            ieee8021AsV2CmldsAsymMeasurementModeDSAsIndex }
+    ::= { ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSTable 1 }
+
+Ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry ::=
+     SEQUENCE {
+ ieee8021AsV2CmldsAsymMeasurementModeDSAsIndex InterfaceIndexOrZero,
+ ieee8021AsV2CmldsAsymMeasurementModeDSAsymMeasurementMode    TruthValue
+      }
+
+ieee8021AsV2CmldsAsymMeasurementModeDSAsIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "This object identifies the gPTP interface group within
+         the system for which this entry contains information. It
+         is the value of the instance of the IfIndex object,
+         defined in the IF-MIB, for the gPTP interface group
+         corresponding to this port, or the value 0 if the port
+         has not been bound to an underlying frame source and
+         sink.
+
+         For a given media port of a Bridge or an end station,
+         there can be one or more PTP Port, and depends whether
+         a media port supports point to point link (e.g. IEEE
+         802.3 Ethernet) or point to multi-point (e.g. CSN, IEEE
+         802.3 EPON) links on the media port."
+    REFERENCE   "IEEE Std 802.1AS CommonMeanLinkDelaySvcAsymMeasurementModeParamDS Group PTP Port Index"
+  ::= { ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry 1 }
+
+ieee8021AsV2CmldsAsymMeasurementModeDSAsymMeasurementMode
+    OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+        "The value is equal to the value of the Boolean
+         asymmetryMeasurementMode(see G.3). For full-duplex
+         IEEE 802.3 media, the value is TRUE (1) if an asymmetry
+          measurement is being performed for the link attached to
+         this Link Port, and FALSE (2) otherwise. For all other
+         media, the value shall be FALSE (2) (see 10.2.4.2).
+         Setting this managed object causes the Boolean
+         allowedFaults to have the same value.
+         NOTE: If an asymmetry measurement is being performed
+         for a link, asymmetryMeasurementMode must be TRUE (1)
+         for the Link Ports at each end of the link.
+         There is one Common Mean Link Delay Service Asymmetry
+         Measurement Mode Parameter Data Set Table for all PTP
+         Instances, per Link Port."
+    REFERENCE   "14.18.2"
+  ::= { ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSEntry 2 }
+
+-- ******************************************************************
+-- IEEE 802.1ASV2 MIB - Conformance Information
+-- ******************************************************************
+ieee8021AsV2Groups          OBJECT IDENTIFIER ::= { ieee8021AsV2Conformance 1 }
+ieee8021AsV2Compliances     OBJECT IDENTIFIER ::= { ieee8021AsV2Conformance 2 }
+
+-- =============================================================
+-- units of conformance
+-- =============================================================
+
+ieee8021AsV2PtpInstanceGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2PtpInstanceName,
+        ieee8021AsV2PtpInstanceRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information for dynamic
+         creation and deletion of PTP Instances and logical ports."
+    ::= { ieee8021AsV2Groups 1 }
+
+ieee8021AsV2DefaultDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2DefaultDSClockIdentity,
+        ieee8021AsV2DefaultDSNumberPorts,
+        ieee8021AsV2DefaultDSClockQualityClockClass,
+        ieee8021AsV2DefaultDSClockQualityClockAccuracy,
+        ieee8021AsV2DefaultDSClockQualityOffsetScaledLogVariance,
+        ieee8021AsV2DefaultDSPriority1,
+        ieee8021AsV2DefaultDSPriority2,
+        ieee8021AsV2DefaultDSGmCapable,
+        ieee8021AsV2DefaultDSCurrentUtcOffset,
+        ieee8021AsV2DefaultDSCurrentUtcOffsetValid,
+        ieee8021AsV2DefaultDSLeap59,
+        ieee8021AsV2DefaultDSLeap61,
+        ieee8021AsV2DefaultDSTimeTraceable,
+        ieee8021AsV2DefaultDSFrequencyTraceable,
+        ieee8021AsV2DefaultDSPtpTimescale,
+        ieee8021AsV2DefaultDSTimeSource,
+        ieee8021AsV2DefaultDSDomainNumber,
+        ieee8021AsV2DefaultDSSdoId,
+        ieee8021AsV2DefaultDSExternalPortConfigurationEnabled,
+        ieee8021AsV2DefaultDSInstanceEnable
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Default
+         Parameter Data Set representing the native capabilities of a
+         PTP Instance, i.e., a PTP Relay Instance or a PTP End Instance."
+    ::= { ieee8021AsV2Groups 2 }
+
+ieee8021AsV2CurrentDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CurrentDSStepsRemoved,
+        ieee8021AsV2CurrentDSOffsetFromMaster,
+        ieee8021AsV2CurrentDSLastGmPhaseChange,
+        ieee8021AsV2CurrentDSLastGmFreqChange,
+        ieee8021AsV2CurrentDSGmTimebaseIndicator,
+        ieee8021AsV2CurrentDSGmChangeCount,
+        ieee8021AsV2CurrentDSTimeOfLastGmChangeEvent,
+        ieee8021AsV2CurrentDSTimeOfLastGmPhaseChangeEvent,
+        ieee8021AsV2CurrentDSTimeOfLastGmFreqChangeEvent
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Current
+         Parameter Data Set representing the position of a local system
+         and other information, relative to the Grandmaster PTP Instance."
+    ::= { ieee8021AsV2Groups 3 }
+
+ieee8021AsV2ParentDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2ParentDSParentClockIdentity,
+        ieee8021AsV2ParentDSParentPortNumber,
+        ieee8021AsV2ParentDSCumulativeRateRatio,
+        ieee8021AsV2ParentDSGrandmasterIdentity,
+        ieee8021AsV2ParentDSGrandmasterClockQualityclockClass,
+        ieee8021AsV2ParentDSGrandmasterClockQualityclockAccuracy,
+        ieee8021AsV2ParentDSGrandmasterClockQualityoffsetScaledLogVar,
+        ieee8021AsV2ParentDSGrandmasterPriority1,
+        ieee8021AsV2ParentDSGrandmasterPriority2
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Parent
+         Parameter Data Set representing capabilities of the upstream
+         system, toward the Grandmaster PTP Instance, as measured at
+         a local system."
+    ::= { ieee8021AsV2Groups 4 }
+
+ieee8021AsV2TimePropertiesDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2TimePropertiesDSCurrentUtcOffset,
+        ieee8021AsV2TimePropertiesDSCurrentUtcOffsetValid,
+        ieee8021AsV2TimePropertiesDSLeap59,
+        ieee8021AsV2TimePropertiesDSLeap61,
+        ieee8021AsV2TimePropertiesDSTimeTraceable,
+        ieee8021AsV2TimePropertiesDSFrequencyTraceable,
+        ieee8021AsV2TimePropertiesDSPtpTimescale,
+        ieee8021AsV2TimePropertiesDSTimeSource
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Time
+         Properties Parameter Data Set representing capabilities of
+         the Grandmaster PTP Instance, as measured at a local system."
+    ::= { ieee8021AsV2Groups 5 }
+
+ieee8021AsV2PathTraceDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2PathTraceDSEnable
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Path Trace
+         Data Set representing the current path trace information
+         available at the PTP Instance."
+    ::= { ieee8021AsV2Groups 6 }
+
+ieee8021AsV2PathTraceDSArrayTableGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2PathTraceDSArrayList
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information of an array of
+         ClockIdentity values contained in the pathTrace array,
+         representing the current path trace information, and which is
+         carried in the path trace TLV per PTP Instance."
+    ::= { ieee8021AsV2Groups 7 }
+
+ieee8021AsV2AcceptableMasterTableDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2AcceptableMasterTableDSMaxTableSize,
+        ieee8021AsV2AcceptableMasterTableDSActualTableSize
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Acceptable Master Table Data Set representing the acceptable
+         master table used when an EPON port is used by a PTP Instance
+         of a time-aware system."
+    ::= { ieee8021AsV2Groups 8 }
+
+ieee8021AsV2AcceptableMasterTableDSArrayGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2AcceptableMasterTableDSArrayPortIdentity,
+        ieee8021AsV2AcceptableMasterTableDSArrayAlternatePriority1
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Acceptable Master Table Array Data Set representing the
+         acceptable master table used when an EPON port is used by a
+         PTP Instance of a time-aware system."
+    ::= { ieee8021AsV2Groups 9 }
+
+ieee8021AsV2PortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2PortDSClockIdentity,
+        ieee8021AsV2PortDSPortNumber,
+        ieee8021AsV2PortDSPortState,
+        ieee8021AsV2PortDSPtpPortEnabled,
+        ieee8021AsV2PortDSDelayMechanism,
+        ieee8021AsV2PortDSIsMeasuringDelay,
+        ieee8021AsV2PortDSAsCapable,
+        ieee8021AsV2PortDSMeanLinkDelay,
+        ieee8021AsV2PortDSMeanLinkDelayThresh,
+        ieee8021AsV2PortDSDelayAsym,
+        ieee8021AsV2PortDSNbrRateRatio,
+        ieee8021AsV2PortDSInitialLogAnnounceInterval,
+        ieee8021AsV2PortDSCurrentLogAnnounceInterval,
+        ieee8021AsV2PortDSUseMgtSettableLogAnnounceInterval,
+        ieee8021AsV2PortDSMgtSettableLogAnnounceInterval,
+        ieee8021AsV2PortDSAnnounceReceiptTimeout,
+        ieee8021AsV2PortDSInitialLogSyncInterval,
+        ieee8021AsV2PortDSCurrentLogSyncInterval,
+        ieee8021AsV2PortDSUseMgtSettableLogSyncInterval,
+        ieee8021AsV2PortDSMgtSettableLogSyncInterval,
+        ieee8021AsV2PortDSSyncReceiptTimeout,
+        ieee8021AsV2PortDSSyncReceiptTimeoutTimeInterval,
+        ieee8021AsV2PortDSInitialLogPdelayReqInterval,
+        ieee8021AsV2PortDSCurrentLogPdelayReqInterval,
+        ieee8021AsV2PortDSUseMgtSettableLogPdelayReqInterval,
+        ieee8021AsV2PortDSMgtSettableLogPdelayReqInterval,
+        ieee8021AsV2PortDSInitialLogGptpCapableMessageInterval,
+        ieee8021AsV2PortDSCurrentLogGptpCapableMessageInterval,
+        ieee8021AsV2PortDSUseMgtSettableLogGptpCapableMessageInterval,
+        ieee8021AsV2PortDSMgtSettableLogGptpCapableMessageInterval,
+        ieee8021AsV2PortDSInitialComputeNbrRateRatio,
+        ieee8021AsV2PortDSCurrentComputeNbrRateRatio,
+        ieee8021AsV2PortDSUseMgtSettableComputeNbrRateRatio,
+        ieee8021AsV2PortDSMgtSettableComputeNbrRateRatio,
+        ieee8021AsV2PortDSInitialComputeMeanLinkDelay,
+        ieee8021AsV2PortDSCurrentComputeMeanLinkDelay,
+        ieee8021AsV2PortDSUseMgtSettableComputeMeanLinkDelay,
+        ieee8021AsV2PortDSMgtSettableComputeMeanLinkDelay,
+        ieee8021AsV2PortDSAllowedLostRsp,
+        ieee8021AsV2PortDSAllowedFaults,
+        ieee8021AsV2PortDSGPtpCapableReceiptTimeout,
+        ieee8021AsV2PortDSVersionNumber,
+        ieee8021AsV2PortDSNup,
+        ieee8021AsV2PortDSNdown,
+        ieee8021AsV2PortDSOneStepTxOper,
+        ieee8021AsV2PortDSOneStepReceive,
+        ieee8021AsV2PortDSOneStepTransmit,
+        ieee8021AsV2PortDSInitialOneStepTxOper,
+        ieee8021AsV2PortDSCurrentOneStepTxOper,
+        ieee8021AsV2PortDSUseMgtSettableOneStepTxOper,
+        ieee8021AsV2PortDSMgtSettableOneStepTxOper,
+        ieee8021AsV2PortDSSyncLocked,
+        ieee8021AsV2PortDSPdelayTruncTST1,
+        ieee8021AsV2PortDSPdelayTruncTST2,
+        ieee8021AsV2PortDSPdelayTruncTST3,
+        ieee8021AsV2PortDSPdelayTruncTST4,
+        ieee8021AsV2PortDSMinorVersionNumber
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on PTP Port
+         related variables in a time-aware Bridge or for a time-aware
+         end station."
+    ::= { ieee8021AsV2Groups 10 }
+
+ieee8021AsV2DescriptionPortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2DescriptionPortDSProfileIdentifier
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Description Port Data Set containing the profileIdentifier for
+         this PTP profile, as specified in Annex F.1."
+    ::= { ieee8021AsV2Groups 11 }
+
+ieee8021AsV2PortStatIfGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2PortStatRxSyncCount,
+        ieee8021AsV2PortStatRxOneStepSyncCount,
+        ieee8021AsV2PortStatRxFollowUpCount,
+        ieee8021AsV2PortStatRxPdelayRequestCount,
+        ieee8021AsV2PortStatRxPdelayRspCount,
+        ieee8021AsV2PortStatRxPdelayRspFollowUpCount,
+        ieee8021AsV2PortStatRxAnnounceCount,
+        ieee8021AsV2PortStatRxPtpPacketDiscardCount,
+        ieee8021AsV2PortStatSyncReceiptTimeoutCount,
+        ieee8021AsV2PortStatAnnounceReceiptTimeoutCount,
+        ieee8021AsV2PortStatPdelayAllowedLostRspExceededCount,
+        ieee8021AsV2PortStatTxSyncCount,
+        ieee8021AsV2PortStatTxOneStepSyncCount,
+        ieee8021AsV2PortStatTxFollowUpCount,
+        ieee8021AsV2PortStatTxPdelayRequestCount,
+        ieee8021AsV2PortStatTxPdelayRspCount,
+        ieee8021AsV2PortStatTxPdelayRspFollowUpCount,
+        ieee8021AsV2PortStatTxAnnounceCount
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the Port
+         Statistics Data Set provideing counters associated with PTP Port
+         capabilities at a given PTP Instance."
+    ::= { ieee8021AsV2Groups 12 }
+
+ieee8021AsV2AcceptableMasterPortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2AcceptableMasterPortDSAcceptableMasterTableEnabled
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information for the single
+         PTP Port of a PTP End Instance and for each PTP Port of a
+         PTP Relay Instance."
+    ::= { ieee8021AsV2Groups 13 }
+
+ieee8021AsV2ExternalPortConfigurationPortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2ExternalPortConfigurationPortDSDesiredState
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         External Port Configuration Port Data Set containing the
+         single member desiredState, which indicates the desired state
+         for the PTP Port."
+    ::= { ieee8021AsV2Groups 14 }
+
+ieee8021AsV2AsymMeasurementModeDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2AsymMeasurementModeDSAsymMeasurementMode
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Asymmetry Measurement Mode Data Set representing the capability
+         to enable/disable the Asymmetry Compensation Measurement
+         Procedure on a Link Port (see Annex G)."
+    ::= { ieee8021AsV2Groups 15 }
+
+ieee8021AsV2CommonServicesPortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CommonServicesPortDSCmldsLinkPortPortNumber
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Common Services Port Data Set."
+    ::= { ieee8021AsV2Groups 16 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CmldsDefaultDSClockIdentity,
+        ieee8021AsV2CmldsDefaultDSNumberLinkPorts
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         CMLDs Default Data Set describing the per-time-aware-system
+         attributes of the Common Mean Link Delay Service."
+    ::= { ieee8021AsV2Groups 17 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CmldsLinkPortDSClockIdentity,
+        ieee8021AsV2CmldsLinkPortDSPortNumber,
+        ieee8021AsV2CmldsLinkPortDSCmldsLinkPortEnabled,
+        ieee8021AsV2CmldsLinkPortDSIsMeasuringDelay,
+        ieee8021AsV2CmldsLinkPortDSAsCapableAcrossDomains,
+        ieee8021AsV2CmldsLinkPortDSMeanLinkDelay,
+        ieee8021AsV2CmldsLinkPortDSMeanLinkDelayThresh,
+        ieee8021AsV2CmldsLinkPortDSDelayAsym,
+        ieee8021AsV2CmldsLinkPortDSNbrRateRatio,
+        ieee8021AsV2CmldsLinkPortDSInitialLogPdelayReqInterval,
+        ieee8021AsV2CmldsLinkPortDSCurrentLogPdelayReqInterval,
+        ieee8021AsV2CmldsLinkPortDSUseMgtSettableLogPdelayReqInterval,
+        ieee8021AsV2CmldsLinkPortDSMgtSettableLogPdelayReqInterval,
+        ieee8021AsV2CmldsLinkPortDSInitialComputeNbrRateRatio,
+        ieee8021AsV2CmldsLinkPortDSCurrentComputeNbrRateRatio,
+        ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeNbrRateRatio,
+        ieee8021AsV2CmldsLinkPortDSMgtSettableComputeNbrRateRatio,
+        ieee8021AsV2CmldsLinkPortDSInitialComputeMeanLinkDelay,
+        ieee8021AsV2CmldsLinkPortDSCurrentComputeMeanLinkDelay,
+        ieee8021AsV2CmldsLinkPortDSUseMgtSettableComputeMeanLinkDelay,
+        ieee8021AsV2CmldsLinkPortDSMgtSettableComputeMeanLinkDelay,
+        ieee8021AsV2CmldsLinkPortDSAllowedLostRsp,
+        ieee8021AsV2CmldsLinkPortDSAllowedFaults,
+        ieee8021AsV2CmldsLinkPortDSVersionNumber,
+        ieee8021AsV2CmldsLinkPortDSPdelayTruncTST1,
+        ieee8021AsV2CmldsLinkPortDSPdelayTruncTST2,
+        ieee8021AsV2CmldsLinkPortDSPdelayTruncTST3,
+        ieee8021AsV2CmldsLinkPortDSPdelayTruncTST4,
+        ieee8021AsV2CmldsLinkPortDSMinorVersionNumber
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information for every
+         Link Port of the Common Mean Link Delay Service of a
+         time-aware system."
+    ::= { ieee8021AsV2Groups 18 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CmldsLinkPortStatDSRxPdelayRequestCount,
+        ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspCount,
+        ieee8021AsV2CmldsLinkPortStatDSRxPdelayRspFollowUpCount,
+        ieee8021AsV2CmldsLinkPortStatDSRxPtpPacketDiscardCount,
+        ieee8021AsV2CmldsLinkPortStatDSPdelayAllowedLostRspExceededCount,
+        ieee8021AsV2CmldsLinkPortStatDSTxPdelayRequestCount,
+        ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspCount,
+        ieee8021AsV2CmldsLinkPortStatDSTxPdelayRspFollowUpCount
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information for every 
+         Link Port Statistics of the Common Mean Link Delay Service of a
+         time-aware system."
+    ::= { ieee8021AsV2Groups 19 }
+
+ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsV2CmldsAsymMeasurementModeDSAsymMeasurementMode
+    }
+    STATUS      current
+    DESCRIPTION
+        "A collection of objects providing information on the
+         Common Mean Link Delay Service Asymmetry Measurement Mode
+         Parameter Data Set representing the capability to enable/disable
+         the Asymmetry Compensation Measurement Procedure on a Link Port
+         (see Annex G)."
+    ::= { ieee8021AsV2Groups 20 }
+
+-- =============================================================
+-- compliance statements
+-- =============================================================
+
+ieee8021AsV2Compliance MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+        "The compliance statement for devices supporting
+         IEEE Std 802.1AS-2020."
+
+    MODULE -- this module
+
+    GROUP ieee8021AsV2PtpInstanceGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2DefaultDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CurrentDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2ParentDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2TimePropertiesDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2PathTraceDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2PathTraceDSArrayTableGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2AcceptableMasterTableDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2AcceptableMasterTableDSArrayGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2PortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2DescriptionPortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2PortStatIfGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2AcceptableMasterPortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2ExternalPortConfigurationPortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2AsymMeasurementModeDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CommonServicesPortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CommonMeanLinkDelayServiceDefaultDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CommonMeanLinkDelayServiceLinkPortDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CommonMeanLinkDelayServiceLinkPortStatDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    GROUP ieee8021AsV2CommonMeanLinkDelayServiceAsymMeasurementModeDSGroup
+    DESCRIPTION
+        "Implementation of this group is optional."
+
+    ::= { ieee8021AsV2Compliances 1 }
+
+END

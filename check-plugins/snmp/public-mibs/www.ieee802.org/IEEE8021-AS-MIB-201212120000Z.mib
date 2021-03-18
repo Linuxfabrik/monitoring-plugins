@@ -1,0 +1,2693 @@
+IEEE8021-AS-MIB DEFINITIONS ::= BEGIN
+-- =============================================================
+-- MIB for support of 802.1AS Timing and Synchronization in 
+-- IEEE 802.1Q Bridged Local Area Networks
+-- =============================================================
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, Unsigned32, Integer32, Counter32
+        FROM SNMPv2-SMI              -- [RFC2578]
+    TEXTUAL-CONVENTION, TruthValue, RowStatus, TimeStamp
+        FROM SNMPv2-TC               -- [RFC2579]
+    MODULE-COMPLIANCE, OBJECT-GROUP  -- [RFC2580]
+        FROM SNMPv2-CONF
+    ifGeneralInformationGroup, InterfaceIndexOrZero
+        FROM IF-MIB                  -- [RFC2863]
+    IEEE8021BridgePortNumber
+        FROM IEEE8021-TC-MIB
+    ;
+
+ieee8021AsTimeSyncMib MODULE-IDENTITY
+    LAST-UPDATED "201212120000Z" -- December 12, 2012
+    ORGANIZATION "IEEE 802.1 Working Group"
+    CONTACT-INFO 
+            "WG-URL: http://www.ieee802.org/1/index.html
+            WG-EMail: STDS-802-1@IEEE.ORG
+
+            Contact: Geoffrey M. Garner
+            Postal:  196 Ambassador Drive
+                     Red Bank, NJ 07701
+                     USA
+            E-mail:  gmgarner@alum.mit.edu"
+
+    DESCRIPTION
+            "The Management Information Base module for 
+            IEEE 802.1AS time synchronization protocol."
+
+    REVISION "201212120000Z" -- December 12, 2012
+    DESCRIPTION "Published as part of IEEE Std 802.1AS Cor-1
+          ieee8021AsPortDSAsIfIndex SYNTAX corrected to
+              InterfaceIndexOrZero, from Integer32.
+          ieee8021AsPortDSAnnounceReceiptTimeout DESCRIPTION and 
+              default value corrected. 
+          ieee8021AsPortDSSyncReceiptTimeout DESCRIPTION corrected,
+          ieee8021AsDefaultDSOffsetScaledLogVariance and 
+              ieee8021AsParentDSGrandmasterOffsetScaledLogVariance
+              SYNTAX corrected to Unsigned32 (from Integer32),
+              and corresponding range to reflect unsigned integer 16.
+          ieee8021AsComplianceCor1 added.
+          Other editorial and corrections made."
+
+    REVISION "201011110000Z" -- November 11, 2010
+    DESCRIPTION
+            "Published as part of IEEE Std 802.1AS
+
+             Copyright (C) IEEE (2012)."  
+
+  ::= { iso(1) org(3) ieee(111)
+         standards-association-numbers-series-standards (2)
+         lan-man-stds (802) ieee802dot1 (1) ieee802dot1mibs (1) 20 } 
+
+ieee8021AsMIBObjects    OBJECT IDENTIFIER ::= {ieee8021AsTimeSyncMib 1}
+ieee8021AsConformance   OBJECT IDENTIFIER ::= {ieee8021AsTimeSyncMib 2}
+
+-- =============================================================
+-- Textual Conventions
+-- =============================================================
+
+ClockIdentity ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT 
+        "1x:"
+    STATUS current
+    DESCRIPTION
+        "Represents an IEEE 802 MAC address represented in the
+         `canonical' order defined by IEEE 802.1a, EUI-64.  EUI-48 
+         converts to EUI-64 as specified by IEEE.  The conversion 
+         assigns values 255 and 254 to octets 3 and 4 respectively,
+         where octet 0 is the most significant and octet 7 the least.
+         For example, EUI-48 of AC:DE:48:23:45:67 would extend to 
+         AC:DE:48:FF:FE:23:45:67."
+    REFERENCE    "6.3.3.6 and 8.5.2.2.1"
+    SYNTAX OCTET STRING (SIZE (8))
+
+
+IEEE8021ASClockClassValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "Clock Class Value from IEEE Std 1588-2008 7.6.2.4,
+         with the following interpretation placed on the value:
+
+         6: A clock that is synchronized to a primary reference 
+            time source,
+         7: A clock that has previously been designated as clockClass
+            6  but that has lost the ability to synchronize to a 
+            primary reference time source and is in holdover mode and 
+            within holdover specifications,
+        13: A clock that is synchronized to an application-specific
+            source of time,
+        14: A clock that has previously been designated as clockClass 
+            13 but that has lost the ability to synchronize to an
+            application-specific source of time and is in holdover mode
+            and within holdover specifications,
+        52: Degradation alternative A for a clock of clockClass 7 that
+            is not within holdover specification,
+        58: Degradation alternative A for a clock of clockClass 14 that
+            is not within holdover specification,
+        68..122: For use by alternate PTP profiles (68..122),
+       133..170: For use by alternate PTP profiles (133..170),
+       187: Degradation alternative B for a clock of clockClass 7 that
+            is not within holdover specification,
+       193: Degradation alternative B for a clock of clockClass 14 that
+            is not within holdover specification,
+       216..232: For use by alternate PTP profiles,
+       248:  Default none of the other clockClass definitions apply,
+       255:  A slave-only clock(255)."
+    REFERENCE    "14.2.3 and IEEE Std 1588-2008 7.6.2.4"
+    SYNTAX     INTEGER {
+        primarySync(6),
+        primarySyncLost(7),
+        applicationSpecificSync(13),
+        applicationSpecficSyncLost(14),
+        primarySyncAlternativeA(52),
+        applicationSpecificAlternativeA(58),
+        primarySyncAlternativeB(187),
+        applicationSpecficAlternativeB(193),
+        defaultClock(248),
+        slaveOnlyClock(255)
+        }
+
+IEEE8021ASClockAccuracyValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "Clock Accuracy Value from 8.6.2.3, with the following
+         interpretation placed on the value:
+
+         32: The time is accurate to within 25 ns,
+         33: The time is accurate to within 100 ns,
+         34: The time is accurate to within 250 ns,
+         35: The time is accurate to within 1 us,
+         36: The time is accurate to within 2.5 us,
+         37: The time is accurate to within 10 us,
+         38: The time is accurate to within 25 us,
+         39: The time is accurate to within 100 us,
+         40: The time is accurate to within 250 us,
+         41: The time is accurate to within 1 ms,
+         42: The time is accurate to within 2.5 ms,
+         43: The time is accurate to within 10 ms,
+         44: The time is accurate to within 25 ms,
+         45: The time is accurate to within 100 ms,
+         46: The time is accurate to within 250 ms,
+         47: The time is accurate to within 1 s,
+         48: The time is accurate to within 10 s,
+         49: The time is accurate to within > 10 s,
+        254: Default indicating unknown"
+    REFERENCE    "8.6.2.3"
+    SYNTAX     INTEGER {
+        timeAccurateTo25ns(32),
+        timeAccurateTo100ns(33),
+        timeAccurateTo250ns(34),
+        timeAccurateTo1us(35),
+        timeAccurateTo2dot5us(36),
+        timeAccurateTo10us(37),
+        timeAccurateTo25us(38),
+        timeAccurateTo100us(39),
+        timeAccurateTo250us(40),
+        timeAccurateTo1ms(41),
+        timeAccurateTo2dot5ms(42),
+        timeAccurateTo10ms(43),
+        timeAccurateTo25ms(44),
+        timeAccurateTo100ms(45),
+        timeAccurateTo250ms(46),
+        timeAccurateTo1s(47),
+        timeAccurateTo10s(48),
+        timeAccurateToGT10s(49),
+        timeAccurateToUnknown(254)
+        }
+
+IEEE8021ASTimeSourceValue ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The timeSource is an information only attribute indicating 
+         the type of source of time used by a ClockMaster, 
+         representing categories.  For example, the GPS entry would 
+         include not only the GPS system of the U.S. Department of 
+         Defense but the European Galileo system and other present and 
+         future satellite-based timing systems.
+
+         In the absence of a default value set by a user of this 
+         standard, the default value of timeSource shall be OTHER. See 
+          7.6.2.6 of IEEE Std 1588 - 2008 for more detailed description of 
+         timeSourceIndicates the source of time used by the grandmaster
+         clock.  
+
+         The following interpretation placed on the value:
+            16:  Atomic Clock,
+            32:  GPS,
+            48:  Terrestrial Radio,
+            64:  PTP,
+            80:  NTP,
+            96:  Hand Set,
+           144:  Other,
+           160:  Internal Oscillator "
+    REFERENCE  "8.6.2.7 and Table 8-3"
+    SYNTAX      INTEGER {
+            atomicClock(16),
+            gps(32),
+            terrestrialRadio(48),
+            ptp(64),
+            ntp(80),
+            handSet(96),
+            other(144),
+            internalOscillator(160)
+           } 
+
+
+-- =================================================================
+-- subtrees in the IEEE8021-AS-MIB
+-- System Time-Aware Parameters/Capability 
+-- =================================================================
+
+
+-- =================================================================
+-- The Default data set represent native time capability of a time- 
+-- aware system and is consistent with respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsDefaultDS   
+    OBJECT IDENTIFIER ::= { ieee8021AsMIBObjects 1 }
+
+ieee8021AsDefaultDSClockIdentity OBJECT-TYPE
+    SYNTAX      ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+              "Globally unique manufacturer-assigned clock identifier
+               for the local clock. The identifier is based on an 
+               EUI-64."
+    REFERENCE   "14.2.1"
+    ::= { ieee8021AsDefaultDS 1 }
+
+
+ieee8021AsDefaultDSNumberPorts OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The number of PTP ports on the device. 
+                For an end station the value is 1."
+    REFERENCE   "14.2.2"
+    ::= { ieee8021AsDefaultDS 2 }
+
+
+ieee8021AsDefaultDSClockClass OBJECT-TYPE
+    SYNTAX      IEEE8021ASClockClassValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Denotes the traceability of the time or frequency of the
+                local clock.  The value shall be selected as follows:
+                  a) If the Default Parameter Data Set member gmCapable is 
+                   TRUE, then clockClass is set to the value that
+                   reflects the combination of the LocalClock and
+                   ClockSource entities; else if the value that reflects
+                   the LocalClock and ClockSource entities is not 
+                   specified or not known,clockClass is set to 248;
+                b) If the Default Parameter Data Set member gmCapable is 
+                   FALSE (see 8.6.2.1), clockClass is set to 255.
+                "
+    REFERENCE   "14.2.3"
+    DEFVAL { defaultClock }
+    ::= { ieee8021AsDefaultDS 3 }
+
+
+ieee8021AsDefaultDSClockAccuracy OBJECT-TYPE
+    SYNTAX      IEEE8021ASClockAccuracyValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Characterizes local clock for the purpose of the best 
+                  master clock algorithm.  The value shall be selected as 
+                 follows:
+                 a) clockAccuracy is set to the value that reflects the 
+                    combination of the LocalClock and ClockSource 
+                    entities if specified or known;  
+                 b) if the value that reflects the LocalClock and 
+                     ClockSource entities is not specified or unknown, 
+                     clockAccuracy is set to 254.
+                 "
+    REFERENCE   "14.2.4"
+    ::= { ieee8021AsDefaultDS 4 }
+
+
+ieee8021AsDefaultDSOffsetScaledLogVariance OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+             "The offsetScaledLogVariance is scaled, offset 
+              representation of an estimate of the PTP variance. The
+              PTP variance characterizes the precision and frequency
+              stability of the ClockMaster. The PTP variance is the
+              square of PTPDEV (see B.1.3.2).  The value shall be
+              selected as follows:
+              a) offsetScaledLogVariance is set to the value that
+                 reflects the combination of the LocalClock and
+                 ClockSource entities; else
+              b) if the value that reflects these entities is not
+                 specified or not known, offsetScaledLogVariance is
+                 set to 16640 (0x4100). This value corresponds to the 
+                 value of PTPDEV for observation interval equal to the 
+                 default Sync message transmission interval (i.e.,
+                 observation interval of 0.125 s, see 11.5.2.3 and
+                 B.1.3.2).
+
+
+               A value of 65535 (0xFFFF) indicates value is too 
+               large to be represented or has not been computed.
+                "
+    REFERENCE   "14.2.5"
+    ::= { ieee8021AsDefaultDS 5 }
+
+ieee8021AsDefaultDSPriority1 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "Most-significant priority declaration in the execution of 
+               the best master clock algorithm. Lower values take
+               precedence. The value of priority1 shall be 255 for a
+               time-aware system that is not grandmaster-capable. 
+               The value of priority1 shall be less than 255 for a 
+               time-aware system that is grandmaster-capable. The value
+               0 shall be reserved for future management use, i.e., the  
+               valueof priority1 shall be set to 0 only via management
+               action, and shall not be specified as a default value by 
+               a user of this standard.  In the absence of a default
+               value set by a user of this standard, the default value 
+               shall be set as below:  
+                a) system type of network infrastructure time-aware 
+                   system to value 246;
+                b) portable time-aware system, 250; 
+                c) other time-aware systems, 248."
+    REFERENCE   "14.2.6"
+    ::= { ieee8021AsDefaultDS 6 }
+
+
+ieee8021AsDefaultDSPriority2 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "Least-significant priority declaration in the execution
+                of the best master clock algorithm. Lower values take
+                precedence.  The default value is 248"
+    REFERENCE   "14.2.7"
+    DEFVAL { 248 }
+    ::= { ieee8021AsDefaultDS 7 }
+
+
+ieee8021AsDefaultDSGmCapable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "True (1) if master clock capable; false (2)
+                otherwise."
+    REFERENCE   "14.2.8"
+    ::= { ieee8021AsDefaultDS 8 }
+
+
+ieee8021AsDefaultDSCurrentUTCOffset OBJECT-TYPE
+    SYNTAX      Integer32(-32768..32767)
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is the offset between TAI and UTC, relative to 
+                the ClockMaster entity of this time-aware system. It is 
+                equal to the global variable sysCurrentUtcOffset (see 
+                10.3.8.16). The value is in units of seconds.
+                The initialization default value is selected as 
+                follows:
+                a) the value is the value obtained from a primary 
+                    reference if the value is known at the at the time of 
+                   initialization,  
+                 b) else the value is the current number ofleap seconds, 
+                    see 8.2.3, when the time-aware system is designed."
+    REFERENCE   "14.2.9"
+    ::= { ieee8021AsDefaultDS 9 }
+
+
+ieee8021AsDefaultDSCurrentUTCOffsetValid OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "True (1) if ieee8021AsDefaultDSCurrentUTCOffset is known 
+               to be correct; false (2) otherwise."
+    REFERENCE   "14.2.10"
+    ::= { ieee8021AsDefaultDS 10 }
+
+
+ieee8021AsDefaultDSLeap59 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A true (1) value indicates that the last minute of the 
+                 current UTC day, relative to the ClockMaster entity of 
+                 this time-aware system, will contain 59 seconds. It is 
+                   equal to the global variable sysLeap59 (see 10.3.8.12). 
+
+                 The initialization value is selected as follows: 
+                 a) Set to true (1) if the value is obtained from a 
+                    primary reference if known at the at the time of 
+                    initialization, else
+                  b) The value is set to false (2)."
+    REFERENCE   "14.2.11"
+    ::= { ieee8021AsDefaultDS 11 }
+
+
+ieee8021AsDefaultDSLeap61 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A true (1) value indicates that the last minute of the 
+                 current UTC day, relative to the ClockMaster entity of 
+                 this time-aware system, will contain 59 seconds. It is 
+                   equal to the global variable sysLeap61 (see 10.3.8.11). 
+
+                 The initialization value is selected as follows: 
+                 a) Set to true (1) if the value is obtained from a 
+                    primary reference if known at the at the time of 
+                    initialization, else
+                  b) The value is set to false (2)."    
+    REFERENCE   "14.2.12"
+    ::= { ieee8021AsDefaultDS 12 }
+
+
+ieee8021AsDefaultDSTimeTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is set to true (1) if the timescale and the
+                 value of Ieee8021AsCurrentUtcOffset, relative to the 
+                 ClockMaster entity of this time-aware system, are 
+                 traceable to a primary reference standard; otherwise  
+                   the value is set to false (2). It is equal to the global 
+                 variable sysTimeTraceable (see 10.3.8.14).
+
+                 The initialization value is selected as follows:
+                 a) If the time and the value of currentUtcOffset are 
+                    traceable to a primary reference standard at the 
+                    time of initialization, the value is set to true 
+                    (1), else
+                  b) The value is set to false (2)."
+    REFERENCE   "14.2.13"
+    ::= { ieee8021AsDefaultDS 13 }
+
+
+ieee8021AsDefaultDSFrequencyTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is set to true (1) if the frequency determining 
+               the timescale of the ClockMaster Entity of this time-
+               aware system is traceable to a primary reference 
+               standard; otherwise the value is set to false (2). It is 
+               equal to the global variable sysFrequencyTraceable (see 
+               10.3.8.15).
+
+               The initialization value is selected as follows:
+               a) If the frequency is traceable to a primary reference 
+                  standard at the time of initialization, the value is 
+                  set to true (1), else
+                b) The value is set to false (2).."
+    REFERENCE   "14.2.14"
+    ::= { ieee8021AsDefaultDS 14 }
+
+
+ieee8021AsDefaultDSTimeSource OBJECT-TYPE
+    SYNTAX      IEEE8021ASTimeSourceValue 
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The timeSource is an information-only attribute 
+                 indicating the type of source of time used by a 
+                  ClockMaster. The value is not used in the selection of 
+                 the grandmaster. The values shall be as specified in 
+                   Table 8-3. These represent categories. For example, the 
+                 GPS entry would include not only the GPS system of the 
+                 U.S. Department of Defense but the European Galileo 
+                 system and other present and future satellite-based 
+                 timing systems.  All unused values in Table 8-3 are 
+                 reserved.
+
+                 The initialization value is selected as follows:
+                 a) If the timeSource (8.6.2.7 and Table 8-3), is known
+                    at the time of initialization, the value is derived
+                    from the table, else
+                 b) The value is set to INTERNAL_OSCILLATOR (160).
+"
+    REFERENCE   "14.2.15"
+    ::= { ieee8021AsDefaultDS 15 }
+
+
+-- =================================================================
+-- The Current data set represent this system's topological location 
+-- relative to the known grandmaster system. 
+-- This data set is consistent with respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsCurrentDS   
+    OBJECT IDENTIFIER ::= { ieee8021AsMIBObjects 2 }
+
+ieee8021AsCurrentDSStepsRemoved OBJECT-TYPE
+    SYNTAX      Integer32(-32768..32767)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+              "The number of communication paths traversed between the
+                 local clock and the grandmaster clock (see Table 10.3.3).  
+
+               For example, stepsRemoved for a slave clock on the same
+                 PTP communication path as the grandmaster clock will have 
+               a value of 1, indicating that a single path was traversed.
+"
+    REFERENCE   "14.3.1"
+    DEFVAL { 0 }
+    ::= { ieee8021AsCurrentDS 1 }
+
+
+ieee8021AsCurrentDSOffsetFromMasterHs OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "2**-16 ns * 2**64"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The most significant 32 bits of the offset, signed  
+                96 bit number in 2**-16 ns, an implementation-specific 
+                computation of the current value of the time difference 
+                between a master and a slave as computed by the slave. 
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSOffsetFromMasterMs, and                 
+                ieee8021AsCurrentDSOffsetFromMasterLs, which 
+                represents middle and least significant 32 bits of 
+                values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.3.2"
+    ::= { ieee8021AsCurrentDS 2 }
+
+ieee8021AsCurrentDSOffsetFromMasterMs OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "2**-16 ns * 2**32"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The middle significant 32 bits of the offset, signed  
+                96 bit number in 2**-16 ns, an implementation-specific 
+                computation of the current value of the time difference 
+                between a master and a slave as computed by the slave. 
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSOffsetFromMasterHs, and                 
+                ieee8021AsCurrentDSOffsetFromMasterLs, which 
+                represents most (highest) and least significant 32 bits 
+                of values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.3.2"
+    ::= { ieee8021AsCurrentDS 3 }
+
+ieee8021AsCurrentDSOffsetFromMasterLs OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The least significant 32 bits of the offset, signed  
+                96 bit number in 2**-16 ns, an implementation-specific 
+                computation of the current value of the time difference 
+                between a master and a slave as computed by the slave. 
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSOffsetFromMasterHs, and                 
+                ieee8021AsCurrentDSOffsetFromMasterMs, which 
+                represents most (highest) and middle significant 32 bits
+                of values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.3.2"
+    ::= { ieee8021AsCurrentDS 4 }
+
+ieee8021AsCurrentDSLastGmPhaseChangeHs OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The value (see 10.2.3.16) is the phase change that
+                occurred on the most recent change in either 
+                grandmaster or gmTimeBaseIndicator (see 9.2.2.2).
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSLastGmPhaseChangeMs, and                 
+                ieee8021AsCurrentDSLastGmPhaseChangeLs, which 
+                represents middle and least significant 32 bits of 
+                values, respectively, in order for the read operation
+                to succeed.
+
+                "
+    REFERENCE   "14.3.3"
+    ::= { ieee8021AsCurrentDS 5}
+
+ieee8021AsCurrentDSLastGmPhaseChangeMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The value (see 10.2.3.16) is the phase change that
+                occurred on the most recent change in either 
+                grandmaster or gmTimeBaseIndicator (see 9.2.2.2).
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSLastGmPhaseChangeHs, and                 
+                ieee8021AsCurrentDSLastGmPhaseChangeLs, which 
+                represents most and least significant 32 bits of 
+                values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.3.3"
+    ::= { ieee8021AsCurrentDS 6}
+
+ieee8021AsCurrentDSLastGmPhaseChangeLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The value (see 10.2.3.16) is the phase change that
+                occurred on the most recent change in either 
+                grandmaster or gmTimeBaseIndicator (see 9.2.2.2).
+
+                This object MUST be read at the same time as 
+                   ieee8021AsCurrentDSLastGmPhaseChangeMs, and                 
+                ieee8021AsCurrentDSLastGmPhaseChangeLs, which 
+                represents middle and least significant 32 bits of 
+                values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.3.3"
+    ::= { ieee8021AsCurrentDS 7}
+
+ieee8021AsCurrentDSLastGmFreqChangeMs OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The value (see 10.2.3.17) is the frequency change that 
+                  occurred on the most recent change in either grandmaster 
+                or gmTimeBaseIndicator (see 9.2.2.2).
+
+                This object MUST be read at the same time as 
+                ieee8021AsCurrentDSLastGmFreqChangeLs, which 
+                represents least significant 32 bits of the value
+                in order for the read operation to succeed.
+                "
+    REFERENCE   "14.3.4"
+    ::= { ieee8021AsCurrentDS 8 }
+
+ieee8021AsCurrentDSLastGmFreqChangeLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The value (see 10.2.3.17) is the frequency change that 
+                  occurred on the most recent change in either grandmaster 
+                or gmTimeBaseIndicator (see 9.2.2.2).
+
+                This object MUST be read at the same time as 
+                ieee8021AsCurrentDSLastGmFreqChangeMs, which 
+                represents most significant 32 bits of the value
+                in order for the read operation to succeed.
+                "
+    REFERENCE   "14.3.4"
+    ::= { ieee8021AsCurrentDS 9 }
+
+ieee8021AsCurrentDSGmTimebaseIndicator OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "This reports the grandmaster's time base change value  
+                conveyed in the Sync message.  The value is the value of 
+                 timeBaseIndicator of the current grandmaster (see 9.2.2.2 
+               and 9.6.2.2)
+                "
+    REFERENCE   "14.3.5"
+    ::= { ieee8021AsCurrentDS 10 }
+
+ieee8021AsCurrentDSGmChangeCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "This statistics counter tracks the number of times the 
+                 grandmaster has changed in a gPTP domain. This counter 
+                  increments when the PortAnnounceInformation state 
+                 machine enters the SUPERIOR_MASTER_PORT state or the 
+                 INFERIOR_MASTER_OR_OTHER_PORT state (see 10.3.11 and 
+                 Figure 10-13). 
+                "
+    REFERENCE   "14.3.6"
+    ::= { ieee8021AsCurrentDS 11 }
+
+ieee8021AsCurrentDSTimeOfLastGmChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "This timestamp denotes the system time when the most 
+                recent grandmaster change occurred in a gPTP domain. 
+                This timestamp is updated when the 
+                PortAnnounceInformation state machine enters the 
+                SUPERIOR_MASTER_PORT state or the 
+                INFERIOR_MASTER_OR_OTHER_PORT state (see 10.3.11 and 
+                Figure 10-13).
+                "
+    REFERENCE   "14.3.7"
+    ::= { ieee8021AsCurrentDS 12 }
+
+ieee8021AsCurrentDSTimeOfLastGmFreqChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "This timestamp denotes the system time when the most 
+                 recent change in grandmaster phase occured, due to a 
+                 change of either the grandmaster or the grandmaster 
+                 time base. This timestamp is updated when the 
+                 PortAnnounceInformation state machine enters the 
+                 SUPERIOR_MASTER_PORT state or the 
+                 INFERIOR_MASTER_OR_OTHER_PORT state (see 10.3.11 and 
+                 Figure 10-13), and when the 
+                 ieee802AsCurrentDSGmTimebaseIndicator managed object
+                 (see 14.3.5) changes.
+                "
+    REFERENCE   "14.3.8"
+    ::= { ieee8021AsCurrentDS 13 }
+
+ieee8021AsCurrentDSTimeOfLastGmPhaseChangeEvent OBJECT-TYPE
+    SYNTAX      TimeStamp
+    UNITS       "0.01 seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "This timestamp denotes the system time when the most 
+                  recent change in grandmaster frequency occured, due to 
+                 a change of either the grandmaster or the grandmaster 
+                 time base. This timestamp is updated when the 
+                 PortAnnounceInformation state machine enters the 
+                 SUPERIOR_MASTER_PORT state or the 
+                 INFERIOR_MASTER_OR_OTHER_PORT state (see 10.3.11 and 
+                 Figure 10-13), and when the 
+                 ieee802AsCurrentDSGmTimebaseIndicator managed object
+                 (see 14.3.5) changes.
+                "
+    REFERENCE   "14.3.9"
+    ::= { ieee8021AsCurrentDS 14 }
+
+
+-- =================================================================
+-- The Parent data set represent timing upstream (toward grandmaster) 
+-- system's parameters as measured at this system. 
+-- This data set is consistent with respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsParentDS    
+    OBJECT IDENTIFIER ::= { ieee8021AsMIBObjects 3 }
+
+ieee8021AsParentDSParentClockIdentity OBJECT-TYPE
+    SYNTAX      ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Clock identifier (clockIdentity) of the local clock's 
+                 parent clock.  The default value is set to 
+                 ieee8021AsDefaultDSClockIdentity.
+
+                  If this time-aware system is the grandmaster, the value 
+                 is the clockIdentity of this time-aware system. 
+                 If this time-aware system is not the grandmaster, the 
+                 value is the clockIdentity of the MasterPort (see  
+                 Table 10-1) of the gPTP communication path attached to 
+                 the single slave port of this time-aware system.
+                 "
+    REFERENCE   "14.4.1"
+    ::= { ieee8021AsParentDS 1 }
+
+ieee8021AsParentDSParentPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Port number (portNumber) of the local clock's parent gPTP 
+               port number.
+
+                If this time-aware system is the grandmaster, the value 
+                is the gPTP portNumber of this time-aware system. 
+                If this time-aware system is not the grandmaster, the 
+                value is the portNumber of the MasterPort (see  
+                Table 10-1) of the gPTP communication path attached to 
+                the single gPTP slave port of this time-aware system.
+                "
+    REFERENCE   "14.4.1"
+    DEFVAL { 0 }
+    ::= { ieee8021AsParentDS 2 }
+
+ieee8021AsParentDSCumlativeRateRatio OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is an estimate of the ratio of the frequency 
+                 of the grandmaster to the frequency of the LocalClock 
+                 entity of this time-aware system.
+
+                 Cumulative rate ratio is expressed as the fractional 
+                 frequency offset multiplied by 2**41, i.e., the 
+                 quantity (rateRatio - 1.0)(2**41), where rateRatio is 
+                  computed by the PortSyncSyncReceive state machine (see 
+                 10.2.7.1.4).
+"
+    REFERENCE   "14.4.2"
+   ::= { ieee8021AsParentDS 3 }
+
+ieee8021AsParentDSGrandmasterIdentity OBJECT-TYPE
+    SYNTAX      ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Clock identifier (clockIdentity) of the grandmaster.
+                 The default value is set to 
+                 ieee8021AsDefaultDSClockIdentity."
+    REFERENCE   "14.4.3"
+    ::= { ieee8021AsParentDS 4 }
+
+ieee8021AsParentDSGrandmasterClockClass OBJECT-TYPE
+    SYNTAX      IEEE8021ASClockClassValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Denotes the traceability of the time or frequency of the
+                 grandmaster.  The default value is set to 
+                 ieee8021AsDefaultDSClockClass."
+    REFERENCE   "14.4.4"
+    ::= { ieee8021AsParentDS 5 }
+
+ieee8021AsParentDSGrandmasterClockAccuracy OBJECT-TYPE
+    SYNTAX      IEEE8021ASClockAccuracyValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Characterizes the grandmaster clock for the purpose of 
+                 the best master clock algorithm.  The default value is 
+                 set to ieee8021AsDefaultDSClockAccuracy."
+    REFERENCE   "14.4.5"
+    ::= { ieee8021AsParentDS 6 }
+
+ieee8021AsParentDSGrandmasterOffsetScaledLogVariance OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Clock Allan variance of the local clock expressed as a 
+                 base-2 logarithm multiplied by a scale factor of 256.
+                 Hysteresis is applied requiring the underlying computed
+                 variance to move by at least 128 before a change is
+                  reported. A value of 65535 (0xFFFF) indicates value 
+                 is too large to be represented or has not been computed.   
+                 The default value is set to 
+                 ieee8021AsDefaultDSOffsetScaledLogVariance."
+    REFERENCE   "14.4.6"
+    ::= { ieee8021AsParentDS 7 }
+
+ieee8021AsParentDSGrandmasterPriority1 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "Grandmaster's most-significant priority declaration in 
+                 the execution of the best master clock algorithm. 
+                 Lower values take precedence.  
+                 
+                 The default value is set                  to ieee8021AsDefaultDSPriority1."
+    REFERENCE   "14.4.7"
+    ::= { ieee8021AsParentDS 8 }
+
+ieee8021AsParentDSGrandmasterPriority2 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "Grandmaster's least-significant priority declaration in 
+               the execution of the best master clock algorithm. 
+                Lower values take precedence.  
+                 
+               The default value is set to                ieee8021AsDefaultDSDSPriority2."
+    REFERENCE   "14.4.8"
+    ::= { ieee8021AsParentDS 9 }
+
+-- =================================================================
+-- TimePropertiesDS represents the grandmaster's parameters, as 
+-- measured at this system and are derived from 802.1AS protocol.
+-- This data set is consistent with respective IEEE 1588 data set.
+-- =================================================================
+ieee8021AsTimePropertiesDS
+    OBJECT IDENTIFIER ::= { ieee8021AsMIBObjects 4 }
+
+ieee8021AsTimePropertiesDSCurrentUtcOffset OBJECT-TYPE
+    SYNTAX      Integer32(-32768..32767)
+    UNITS       "seconds"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is currentUtcOffset for the current grandmaster 
+                (see Table 14.2.9). It is equal to the value of the global
+                 variable currentUtcOffset (see 10.3.8.9). The value is in 
+               units of seconds. The default value is set to 
+               ieee8021AsDefaultDSCurrentUTCOffset."
+    REFERENCE   "14.5.1"
+    ::= { ieee8021AsTimePropertiesDS 1 }
+
+ieee8021AsTimePropertiesDSCurrentUtcOffsetValid OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "True (1) if ieee8021AsTimePropertiesDSCurrentUTCOffset 
+                is known to be correct; false (2) otherwise.  The default 
+               value is set to ieee8021AsDefaultDSCurrentUTCOffsetValid.
+                  
+"
+    REFERENCE   "14.5.2"
+    ::= { ieee8021AsTimePropertiesDS 2 }
+
+ieee8021AsTimePropertiesDSLeap59 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is leap59 for the current grandmaster (see 
+                 14.2.11). It is equal to the global variable leap59 
+                 (see 10.3.8.5).  
+
+                 A true (1) value indicates that the last minute of the 
+                 current UTC day, relative to the ClockMaster entity of 
+                 this time-aware system, will contain 59 seconds.
+
+                The default value is set to                 ieee8021AsDefaultDSLeap59."
+    REFERENCE   "14.5.3"
+    ::= { ieee8021AsTimePropertiesDS 3 }
+
+ieee8021AsTimePropertiesDSLeap61 OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is leap61 for the current grandmaster (see 
+                 14.2.12). It is equal to the global variable leap59 
+                 (see 10.3.8.4).  
+
+                 A true (1) value indicates that the last minute of the 
+                 current UTC day, relative to the ClockMaster entity of 
+                 this time-aware system, will contain 61 seconds.The default value is set to 
+                ieee8021AsDefaultDSLeap61."
+    REFERENCE   "14.5.4"
+    ::= { ieee8021AsTimePropertiesDS 4 }
+
+ieee8021AsTimePropertiesDSTimeTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is timeTraceable for the current grandmaster 
+                 (see 14.2.13). It is equal to the global variable 
+                 timeTraceable (see 10.3.8.7). 
+
+                 True (1) if the timescale and the value of 
+                 timePropertiesDSCurrentUTCOffset are traceable to a
+                 primary reference; false (2) otherwise.  The default 
+                 value is set to ieee8021AsDefaultDSTimeTraceable."
+
+    REFERENCE   "14.5.5"
+    ::= { ieee8021AsTimePropertiesDS 5 }
+
+ieee8021AsTimePropertiesDSFrequencyTraceable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is frequencyTraceable for the current 
+                 grandmaster (see 14.2.14). It is equal to the global 
+                 variable frequencyTraceable (see 10.3.8.8). 
+
+                 True (1) if the frequency determining the timescale is
+                  traceable to a primary reference; false (2) otherwise.  
+                 The default value is set to 
+                 ieee8021AsDefaultDSFrequencyTraceable."
+
+    REFERENCE   "14.5.6"
+    ::= { ieee8021AsTimePropertiesDS 6 }
+
+ieee8021AsTimePropertiesDSTimeSource OBJECT-TYPE
+    SYNTAX      IEEE8021ASTimeSourceValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is timeSource for the current grandmaster 
+                 (see 14.2.15). It is equal to the global variable 
+                 timeTraceable (see 10.3.8.10). 
+
+                 Indicates the source of time used by the grandmaster
+                 clock.
+                 The default value is set to 
+                 ieee8021AsDefaultDSTimeSource."
+
+    REFERENCE   "14.5.7"
+    ::= { ieee8021AsTimePropertiesDS 7 }
+
+-- =============================================================
+-- The Time-Sync parameters for each .1AS capable (gPTP) port. 
+-- One Table per Bridge Component or a end station.
+-- One entry per gPTP port.
+-- =============================================================
+
+ieee8021AsPortDSIfTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsPortDSIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A table of gPTP port related variables in a time-aware 
+        Bridge or for a time-aware end station.  A value of 1 is used in 
+        a bridge or an end station that does not have multiple 
+        components.
+        
+        For a given media port of a Bridge or an end station, there may 
+        be one or more gPTP port, and depends whether a media port 
+        supports point to point link (e.g. IEEE 802.3 Ethernet) or point 
+        to multi-point (e.g. CSN, IEEE 802.3 EPON, etc) links on the 
+        media port.
+       "
+    REFERENCE
+       "IEEE 802.1AS clause 14.6"
+    ::= { ieee8021AsMIBObjects 5 }
+
+ieee8021AsPortDSIfEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsPortDSIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A list of objects pertaining to a gPTP port of a time-aware  
+        bridge component or a time-aware end station.
+       "
+    INDEX { ieee8021AsBridgeBasePort,
+            ieee8021AsPortDSAsIfIndex }
+    ::= { ieee8021AsPortDSIfTable 1 }
+
+Ieee8021AsPortDSIfEntry ::=
+     SEQUENCE {
+         ieee8021AsBridgeBasePort          IEEE8021BridgePortNumber,
+         ieee8021AsPortDSAsIfIndex         InterfaceIndexOrZero,
+         ieee8021AsPortDSClockIdentity               ClockIdentity,
+         ieee8021AsPortDSPortNumber                  Unsigned32,
+         ieee8021AsPortDSPortRole                    INTEGER,
+         ieee8021AsPortDSPttPortEnabled              TruthValue,
+         ieee8021AsPortDSIsMeasuringDelay            TruthValue,
+         ieee8021AsPortDSAsCapable                   TruthValue,
+         ieee8021AsPortDSNeighborPropDelayHs         Unsigned32,
+         ieee8021AsPortDSNeighborPropDelayMs         Unsigned32,
+         ieee8021AsPortDSNeighborPropDelayLs         Unsigned32,
+         ieee8021AsPortDSNeighborPropDelayThreshHs   Unsigned32,
+         ieee8021AsPortDSNeighborPropDelayThreshMs   Unsigned32,
+         ieee8021AsPortDSNeighborPropDelayThreshLs   Unsigned32,
+         ieee8021AsPortDSDelayAsymmetryHs            Integer32,
+         ieee8021AsPortDSDelayAsymmetryMs            Unsigned32,
+         ieee8021AsPortDSDelayAsymmetryLs            Unsigned32,
+         ieee8021AsPortDSNeighborRateRatio           Integer32,
+         ieee8021AsPortDSInitialLogAnnounceInterval  Integer32,
+         ieee8021AsPortDSCurrentLogAnnounceInterval  Integer32,
+         ieee8021AsPortDSAnnounceReceiptTimeout      Unsigned32,
+         ieee8021AsPortDSInitialLogSyncInterval      Integer32,
+         ieee8021AsPortDSCurrentLogSyncInterval      Integer32,
+         ieee8021AsPortDSSyncReceiptTimeout          Unsigned32,
+         ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalHs Unsigned32,
+         ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalMs Unsigned32,
+         ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalLs Unsigned32,
+         ieee8021AsPortDSInitialLogPdelayReqInterval Integer32,
+         ieee8021AsPortDSCurrentLogPdelayReqInterval Integer32,
+         ieee8021AsPortDSAllowedLostResponses        Unsigned32,
+         ieee8021AsPortDSVersionNumber               Unsigned32,
+         ieee8021AsPortDSNupMs                       Unsigned32,
+         ieee8021AsPortDSNupLs                       Unsigned32,
+         ieee8021AsPortDSNdownMs                     Unsigned32,
+         ieee8021AsPortDSNdownLs                     Unsigned32,
+         ieee8021AsPortDSAcceptableMasterTableEnabled TruthValue
+      }
+
+ieee8021AsBridgeBasePort OBJECT-TYPE
+    SYNTAX      IEEE8021BridgePortNumber
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+               "This object identifies the bridge port number of 
+                  the port for which this entry contains bridge management 
+                information.  For end stations, this port number shall 
+                be (1)."
+    REFERENCE   "IEEE Std 802.1AS PortDS Group gPTP Port Index"
+    ::= { ieee8021AsPortDSIfEntry 1 }
+
+ieee8021AsPortDSAsIfIndex OBJECT-TYPE
+    SYNTAX      InterfaceIndexOrZero
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+               "This object identifies the gPTP interface group within 
+                the system for which this entry contains information. It
+                is the value of the instance of the IfIndex object,
+                defined in the IF-MIB, for the gPTP interface group
+                corresponding to this port, or the value 0 if the port
+                has not been bound to an underlying frame source and
+                sink.
+
+                For a given media port of a Bridge or an end station, 
+                there may be one or more gPTP port, and depends whether 
+                a media port supports point to point link (e.g. IEEE 
+                802.3 Ethernet) or point to multi-point (e.g. CSN, IEEE 
+                802.3 EPON, etc) links on the media port."
+    REFERENCE   "IEEE Std 802.1AS PortDS Group gPTP Port Index"
+    ::= { ieee8021AsPortDSIfEntry 2 }
+
+ieee8021AsPortDSClockIdentity OBJECT-TYPE
+    SYNTAX      ClockIdentity
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The clockIdentity is an 8 octet array formed by 
+                  mapping an IEEE EUI-48 assigned to the time-aware system 
+                 to IEEE EUI-64 format (i.e., to an array of 8 octets).  
+                  The EUI-48 shall be an Ethernet MAC address owned by the 
+                organization creating the instance of a clockIdentity  
+                under the terms of this subclause. The organization 
+                owning the MAC address shall ensure that the 
+                  MAC address is used in generating only a single instance 
+                of a clockIdentity, for example by requiring that the 
+                MAC address be a MAC address embedded in the device 
+                identified by the clockIdentity. The mapping rules for 
+                constructing the EUI-64 from the EUI-48 shall be those 
+                specified by the IEEE [B2]. The 8 octets of the created 
+                IEEE EUI-64 shall be assigned in order to the 8 octet 
+                array clockIdentity with most significant octet of the 
+                IEEE EUI-64 assigned to the clockIdentity octet array 
+                member with index 0.(see 8.5.2.2)."
+    REFERENCE   "14.6.2"
+    ::= { ieee8021AsPortDSIfEntry 3 }
+
+
+ieee8021AsPortDSPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The portNumber value for a port on a time-aware end 
+                 station (i.e., a time-aware system supporting a single 
+                 gPTP port) shall be 1. The portNumber values for the 
+                 gPTP ports on a time-aware bridgeBridge supporting N 
+                 ports shall be 1, 2, ?, N, respectively (see 8.5.2.3)  ."
+    REFERENCE   "14.6.2"
+    ::= { ieee8021AsPortDSIfEntry 4 }
+
+ieee8021AsPortDSPortRole OBJECT-TYPE
+    SYNTAX      INTEGER {
+            disabledPort(3),
+            masterPort(6),
+            passivePort(7),
+            slavePort(9)
+           }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is the value of the port role of this port 
+                 (see Table 10-1), and is taken from the enumeration in
+                 Table 14-5. All other values reserved.  The enumeration
+                 values are consistent with IEEE Std 1588TM-2008, 
+                 Table 8. The default value is 3 (DisabledPort)."
+    REFERENCE   "14.6.3"
+    DEFVAL { 3 }
+    ::= { ieee8021AsPortDSIfEntry 5 }
+
+
+ieee8021AsPortDSPttPortEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "802.1AS function enable for a given port.  True (1) if 
+                 the time-synchronization and best master selection
+                 functions of the port are enabled;
+                 False (2) otherwise (see 10.2.4.12).
+
+                  The contents of this table SHALL be maintained across a 
+                 restart         of the system.
+       "
+    REFERENCE   "14.6.4"
+    DEFVAL { 1 }
+    ::= { ieee8021AsPortDSIfEntry 6 }
+
+
+ieee8021AsPortDSIsMeasuringDelay OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "True (1) if the port is measuring link propagation delay;
+                The value is equal to the value of the Boolean 
+                isMeasuringPdDelay (see 11.2.12.5 and E.4.3.2)
+                False (2) otherwise."
+    REFERENCE   "14.6.5"
+    DEFVAL { 2 }
+    ::= { ieee8021AsPortDSIfEntry 7 }
+
+
+ieee8021AsPortDSAsCapable OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "True (1) if and only if it is determined that this 
+                 time-aware system and the time-aware system at the 
+                 other ends of the link attached to this port can
+                 interoperate with each other via the IEEE 802.1AS 
+                 protocol; False (2) otherwise."
+    REFERENCE   "14.6.6"
+    ::= { ieee8021AsPortDSIfEntry 8 }
+
+ieee8021AsPortDSNeighborPropDelayHs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2**64"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The most (highest) significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns, the value is equal to the 
+                value of the per-port global variable
+                neighborPropDelay (see 10.2.4.6).  It is an
+                estimate of the current one-way propagation time on the
+                link attached to this port, measured as specified for
+                the respective medium (see 11.2.15, 12.5, and E.4).
+                The value is zero for ports attached to IEEE 802.3 EPON
+                links and for the master port of an IEEE 802.11 link,
+                because one-way propagation delay is not measured on
+                the latter and not directly measured on the former. It
+                is recommended that the data type be scaled in ns. The
+                initialization value is zero.
+
+                This object MUST be read at the same time as 
+                 ieee8021AsPortDSNeighborPropDelayMs, and                 
+                ieee8021AsPortDSNeighborPropDelayLs, which 
+                represents middle and least significant 32 bits
+                of values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.6.7"
+    DEFVAL { 0 }
+    ::= { ieee8021AsPortDSIfEntry 9 }
+
+ieee8021AsPortDSNeighborPropDelayMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2**32"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The second most (middle) significant 32 bits, unsigned 
+                 96 bit number in 2**-16 ns, the value is equal to the 
+                 value of the per-port global variable
+                 neighborPropDelay (see 10.2.4.6).  It is an
+                 estimate of the current one-way propagation time on the
+                 link attached to this port, measured as specified for
+                 the respective medium (see 11.2.15, 12.5, and E.4).
+                 The value is zero for ports attached to IEEE 802.3 EPON
+                 links and for the master port of an IEEE 802.11 link,
+                 because one-way propagation delay is not measured on
+                 the latter and not directly measured on the former. It
+                 is recommended that the data type be scaled in ns. The
+                 initialization value is zero.
+
+                This object MUST be read at the same time as 
+                 ieee8021AsPortDSNeighborPropDelayHs, and                 
+                ieee8021AsPortDSNeighborPropDelayLs, which 
+                represents most (highest) and least significant 32 bits
+                of values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.6.7"
+    DEFVAL { 0 }
+    ::= { ieee8021AsPortDSIfEntry 10 }
+
+ieee8021AsPortDSNeighborPropDelayLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The least significant 32 bits, unsigned  
+                 96 bit number in 2**-16 ns, the value is equal to the 
+                 value of the per-port global variable
+                 neighborPropDelay (see 10.2.4.6).  It is an
+                 estimate of the current one-way propagation time on the
+                 link attached to this port, measured as specified for
+                 the respective medium (see 11.2.15, 12.5, and E.4).
+                 The value is zero for ports attached to IEEE 802.3 EPON
+                 links and for the master port of an IEEE 802.11 link,
+                 because one-way propagation delay is not measured on
+                 the latter and not directly measured on the former. It
+                 is recommended that the data type be scaled in ns. The
+                 initialization value is zero.
+
+                This object MUST be read at the same time as 
+                 ieee8021AsPortDSNeighborPropDelayHs, and                 
+                ieee8021AsPortDSNeighborPropDelayMs, which 
+                represents most (highest) and middle significant 32 bits
+                of values, respectively, in order for the read operation
+                to succeed.
+                "
+    REFERENCE   "14.6.7"
+    DEFVAL { 0 }
+    ::= { ieee8021AsPortDSIfEntry 11 }
+
+
+ieee8021AsPortDSNeighborPropDelayThreshHs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2 ** 64"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The most (highest) significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns, the value is equal to the 
+                value of the per-port global variable 
+                neighborPropDelayThresh (see 11.2.12.5). It 
+                is the propagation time threshold, above which a port
+                is not considered capable of participating in the
+                802.1AS protocol
+
+                This object MUST be read or written at the same time as 
+                         ieee8021AsPortDSNeighborPropDelayThreshMs, and                 
+                ieee8021AsPortDSNeighborPropDelayThreshLs, which 
+                represents middle and least significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.8"
+    ::= { ieee8021AsPortDSIfEntry 12 }
+
+ieee8021AsPortDSNeighborPropDelayThreshMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2 ** 32"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The middle significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns, the value is equal to the 
+                value of the per-port global variable 
+                neighborPropDelayThresh (see 11.2.12.5). It 
+                is the propagation time threshold, above which a port
+                is not considered capable of participating in the
+                802.1AS protocol
+
+                This object MUST be read or written at the same time as 
+                         ieee8021AsPortDSNeighborPropDelayThreshHs, and                 
+                ieee8021AsPortDSNeighborPropDelayThreshLs, which 
+                represents most (highest) and least significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+     "
+     REFERENCE   "14.6.8"
+    ::= { ieee8021AsPortDSIfEntry 13 }
+
+ieee8021AsPortDSNeighborPropDelayThreshLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The least significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns, the value is equal to the 
+                value of the per-port global variable 
+                neighborPropDelayThresh (see 11.2.12.5). It 
+                is the propagation time threshold, above which a port
+                is not considered capable of participating in the
+                802.1AS protocol
+
+                This object MUST be read at the same time as 
+                         ieee8021AsPortDSNeighborPropDelayThreshHs, and                 
+                ieee8021AsPortDSNeighborPropDelayThreshMs, which 
+                represents most (highest) and middle significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+      "
+     REFERENCE   "14.6.8"
+    ::= { ieee8021AsPortDSIfEntry 14 }
+
+ieee8021AsPortDSDelayAsymmetryHs OBJECT-TYPE
+    SYNTAX      Integer32
+    UNITS       "2**-16 ns * 2**64"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The most (highest) significant 32 bits, signed  
+                 96 bit number in 2**-16 ns.  
+                 The value is the asymmetry in the propagation delay on 
+                 the link attached to this port relative to the 
+                 grandmaster time base, as defined in 8.3. If 
+                 propagation delay asymmetry is not modeled, then 
+                   delayAsymmetry is 0. 
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSDelayAsymmetryMs, and 
+                ieee8021AsPortDSDelayAsymmetryLs, which 
+                represents middle and least significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.9 and 8.3"
+    ::= { ieee8021AsPortDSIfEntry 15 }
+
+ieee8021AsPortDSDelayAsymmetryMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2**32"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The middle significant 32 bits, signed  
+                 96 bit number in 2**-16 ns.  
+                 The value is the asymmetry in the propagation delay on 
+                 the link attached to this port relative to the 
+                 grandmaster time base, as defined in 8.3. If 
+                 propagation delay asymmetry is not modeled, then 
+                   delayAsymmetry is 0. 
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSDelayAsymmetryHs, and 
+                ieee8021AsPortDSDelayAsymmetryLs, which 
+                represents middle and least significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.9 and 8.3"
+    ::= { ieee8021AsPortDSIfEntry 16 }
+
+ieee8021AsPortDSDelayAsymmetryLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The least significant 32 bits, signed  
+                 96 bit number in 2**-16 ns.  
+                 The value is the asymmetry in the propagation delay on 
+                 the link attached to this port relative to the 
+                 grandmaster time base, as defined in 8.3. If 
+                 propagation delay asymmetry is not modeled, then 
+                   delayAsymmetry is 0. 
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSDelayAsymmetryHs, and 
+                ieee8021AsPortDSDelayAsymmetryLs, which 
+                represents most (highest) and least significant 32 bits
+                of values, respectively, in order for the read or write 
+                operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.9 and 8.3"
+    ::= { ieee8021AsPortDSIfEntry 17 }
+
+
+ieee8021AsPortDSNeighborRateRatio OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is an estimate of the ratio of the frequency of 
+                the LocalClock entity of the time-aware system at the 
+                other end of the link attached to this port, to the 
+                frequency of the LocalClock entity of this time-aware 
+                system (see 10.2.4.6). Neighbor rate ratio is expressed 
+                 as the fractional frequency offset multiplied by 2**41, 
+                i.e., the quantity (neighborRateRatio - 1.0)(2**41)."
+    REFERENCE   "14.6.10"
+    ::= { ieee8021AsPortDSIfEntry 18 }
+
+
+ieee8021AsPortDSInitialLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The value is the logarithm to the base 2 of the of the
+                 announce  interval used when 
+                (a) the port is initialized, or
+                (b) a message interval request TLV is received with 
+                    announceInterval field set to 126 (see 10.6.2.2 and 
+                    and the AnnounceIntervalSetting state machine 
+                    10.3.14)
+                 The default value is 0.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.11"
+    DEFVAL { 0 }
+    ::= { ieee8021AsPortDSIfEntry 19 }
+
+ieee8021AsPortDSCurrentLogAnnounceInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is the logarithm to the base 2 of the of the
+                 current announce transmission interval.
+
+                 The currentLogAnnounceInterval specifies the current  
+                 value of the announce interval.
+                 Every port supports the value 127; the port does not 
+                 send Announce messages when currentLogAnnounceInterval 
+                 has this value (see 10.3.14). A port may support other 
+                 values, except for the reserved values -128 through -
+                 125, inclusive, and 124 through 126, inclusive. A port 
+                 ignores requests (see 10.3.14) for unsupported values. 
+       "
+    REFERENCE   "14.6.12"
+    ::= { ieee8021AsPortDSIfEntry 20 }
+
+
+ieee8021AsPortDSAnnounceReceiptTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The value is the number of Announce message 
+                transmission intervals that a slave port waits without
+                receiving an Announce message, before assuming that
+                the master is no longer transmitting Announce 
+                messages, and that the BMC algorithm needs to be run,
+                if appropriate.  The condition of the slave port not
+                receiving an Announce message for 
+                announceReceiptTimeout announce intervals is referred
+                to as 'announce receipt timeout'.
+
+                 The default value is 3 (see 10.6.3.2).
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.13"
+    DEFVAL { 2 }
+    ::= { ieee8021AsPortDSIfEntry 21 }
+
+
+ieee8021AsPortDSInitialLogSyncInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The value is the logarithm to the base 2 of the
+                 sync interval used when, 
+                 (a) the port is initialized, or
+                 (b) a message interval request TLV is received with the
+                    timeSyncInterval field set to 126 (see 10.6.2.3,
+                    11.5.2.3, 12.6.2, 13.9.2, and the 
+                    LinkDelaySyncIntervalSetting state machine, 11.2.17).
+
+                 The initialization value is -3 (see 10.6.2.3).
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.14"
+    DEFVAL { -3 }
+    ::= { ieee8021AsPortDSIfEntry 22 }
+
+ieee8021AsPortDSCurrentLogSyncInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is the logarithm to the base 2 of the
+                 current time-synchronization transmission interval, see
+                 10.6.2.3. 
+
+                The initialization value is -3.
+       "
+    REFERENCE   "14.6.15"
+    DEFVAL { -3 }
+    ::= { ieee8021AsPortDSIfEntry 23 }
+
+
+ieee8021AsPortDSSyncReceiptTimeout OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The value of this attribute tells a slave port the
+                 number of sync intervals to wait without receiving
+                 synchronization information, before assuming that the
+                 master is no longer transmitting synchronization
+                 information, and that the BMC algorithm needs to be
+                 run, if appropriate.  The condition of the slave port
+                 not receiving synchronization information for
+                 syncReceiptTimeout sync intervals is referred to as
+                 'sync receipt timeout'.
+
+                The initialization value is 3 (see 10.6.3.1).
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.16"
+    DEFVAL { 3 }
+    ::= { ieee8021AsPortDSIfEntry 24 }
+
+
+ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalHs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The most (highest) significant 32 bits, of unsigned  
+                96 bit number in 2**-16 ns.  
+                The value is equal to the value of the per port global
+                variable syncReceiptTimeoutTimeInterval (see 10.2.4.2).
+                It is the time interval after which sync receipt
+                timeout occurs if time-synchronization information has
+                not been received during the interval.
+
+                This object MUST be read  at the same time as 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalMs, and 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalLs, which 
+                represents middle and least significant 32 bits
+                of values, respectively, in order for the read 
+                operation to succeed.
+
+                Default value is calculated per 10.2.4.2, or 
+                '0000 0000 0000 165A 0BC0 0000'h. 
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+               "
+    REFERENCE   "14.6.17"
+    DEFVAL { '00000000'h }
+    ::= { ieee8021AsPortDSIfEntry 25 }
+
+ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns * 2**32"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The middle significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns.  
+                The value is equal to the value of the per port global
+                variable syncReceiptTimeoutTimeInterval (see 10.2.4.2).
+                It is the time interval after which sync receipt
+                timeout occurs if time-synchronization information has
+                not been received during the interval.
+
+                This object MUST be read  at the same time as 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalHs, and 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalLs, which 
+                represents most (highest) and least significant 32 bits
+                of values, respectively, in order for the read 
+                operation to succeed.
+
+                Default value is calculated per 10.2.4.2, or 
+                '0000 0000 0000 165A 0BC0 0000'h. 
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+               "
+    REFERENCE   "14.6.17"
+    DEFVAL { '0000165A'h }
+    ::= { ieee8021AsPortDSIfEntry 26 }
+
+ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    UNITS       "2**-16 ns"
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+               "The least significant 32 bits, unsigned  
+                96 bit number in 2**-16 ns.  
+                The value is equal to the value of the per port global
+                variable syncReceiptTimeoutTimeInterval (see 10.2.4.2).
+                It is the time interval after which sync receipt
+                timeout occurs if time-synchronization information has
+                not been received during the interval.
+
+                This object MUST be read  at the same time as 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalHs, and 
+                ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalMs, which 
+                represents most (highest) and middle significant 32 bits
+                of values, respectively, in order for the read 
+                operation to succeed.
+
+                Default value is calculated per 10.2.4.2, or 
+                '0000 0000 0000 165A 0BC0 0000'h. 
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+               "
+    REFERENCE   "14.6.17"
+    DEFVAL { '0BC00000'h }
+    ::= { ieee8021AsPortDSIfEntry 27 }
+
+
+ieee8021AsPortDSInitialLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "For full-duplex, IEEE 802.3 media and CSN media that use
+                the peer delay mechanism to measure path delay (see
+                 E.4.3.1), the value is the logarithm to the base 2 of the
+                Pdelay_Req message transmission interval used when,
+                (a) the port is initialized, or
+                (b) a message interval request TLV is received with the 
+                    linkDelayInterval field set to 126 (see 11.5.2.2 and
+                    the LinkDelaySyncIntervalSetting state machine, 
+                    11.2.17).
+
+                For these media, the initialization value is 0. 
+                For all other media, the value is 127.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.18"
+    ::= { ieee8021AsPortDSIfEntry 28 }
+
+ieee8021AsPortDSCurrentLogPdelayReqInterval OBJECT-TYPE
+    SYNTAX      Integer32(-128..127)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "For full-duplex, IEEE 802.3 media and CSN media that use
+                the peer delay mechanism to measure path delay (see
+                 E.4.3.1), the value is the logarithm to the base 2 of the
+                current Pdelay_Req message transmission interval,
+                see 11.5.2.2.
+
+                For all other media, the value is 127.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.19"
+    ::= { ieee8021AsPortDSIfEntry 29 }
+
+
+ieee8021AsPortDSAllowedLostResponses OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The value is equal to the value of the per-port global
+                 variable allowedLostResponses (see 11.2.12.4). It is
+                 the number of Pdelay_Req messages for which a valid
+                 response is not received, above which a port is
+                 considered to not be exchanging peer delay messages
+                 with its neighbor.
+
+       "
+    REFERENCE   "14.6.20 and 11.5.3"
+    DEFVAL { 3 }
+    ::= { ieee8021AsPortDSIfEntry 30 }
+
+
+ieee8021AsPortDSVersionNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..63)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "Indicates the PTP version in use on the port.
+                 The version number for this standard is set to  
+                 the value 2 (see 10.5.2.2.3).
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.21"
+    DEFVAL { 2 }
+    ::= { ieee8021AsPortDSIfEntry 31 }
+
+
+ieee8021AsPortDSNupMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The most significant 32 bits, of unsigned  
+                64 bit fixed point number between 0 and less than 2. 
+                For an OLT port of an IEEE 802.3 EPON link, the value is
+                the effective index of refraction for the EPON upstream
+                wavelength light of the optical path (see 13.1.4 and
+                13.8.1.2). The default value is 
+                1.46770 for 1 Gb/s upstream links, and
+                1.46773 for 10 Gb/s upstream links.
+                For all other ports, the value is 0.
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSNupLs, which represents least
+                significant 32 bits of the value in order for the read 
+                or write operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+                "
+    REFERENCE   "14.6.22"
+    ::= { ieee8021AsPortDSIfEntry 32 }
+
+ieee8021AsPortDSNupLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The least significant 32 bits, of unsigned  
+                64 bit fixed point number between 0 and less than 2. 
+                For an OLT port of an IEEE 802.3 EPON link, the value is
+                the effective index of refraction for the EPON upstream
+                wavelength light of the optical path (see 13.1.4 and
+                13.8.1.2). The default value is
+                1.46770 for 1 Gb/s upstream links, and
+                1.46773 for 10 Gb/s upstream links.
+
+                For all other ports, the value is 0.
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSNupMs, which represents the most
+                significant 32 bits of the value in order for the read 
+                or write operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+                "
+    REFERENCE   "14.6.22"
+    ::= { ieee8021AsPortDSIfEntry 33 }
+
+ieee8021AsPortDSNdownMs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The least significant 32 bits, of unsigned  
+                64 bit fixed point number between 0 and less than 2. 
+                 For an OLT port of an IEEE 802.3 EPON link, the value is
+                the effective index of refraction for the EPON
+                downstream wavelength light of the optical path (see
+                13.1.4 and 13.8.1.2.2). The default value is
+                1.46805 for 1 Gb/s downstream links, and
+                1.46851 for 10 Gb/s downstream links.
+
+                For all other ports, the value is 0.
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSNdownLs, which represents the least
+                significant 32 bits of the value in order for the read 
+                or write operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+                "
+    REFERENCE   "14.6.23"
+    ::= { ieee8021AsPortDSIfEntry 34 }
+
+ieee8021AsPortDSNdownLs OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+               "The least significant 32 bits, of unsigned  
+                64 bit fixed point number between 0 and less than 2. 
+                 For an OLT port of an IEEE 802.3 EPON link, the value is
+                the effective index of refraction for the EPON
+                downstream wavelength light of the optical path (see
+                13.1.4 and 13.8.1.2.1). The default value is 
+                1.46805 for 1 Gb/s downstream links, and
+                1.46851 for 10 Gb/s downstream links.
+
+                For all other ports, the value is 0.
+
+                This object MUST be read or written at the same time as 
+                ieee8021AsPortDSNdownMs, which represents the most
+                significant 32 bits of the value in order for the read 
+                or write operation to succeed.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+                "
+    REFERENCE   "14.6.23"
+    ::= { ieee8021AsPortDSIfEntry 35 }
+
+ieee8021AsPortDSAcceptableMasterTableEnabled OBJECT-TYPE
+    SYNTAX      TruthValue
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "True (1) if acceptableMasterTableEnabled (see 13.1.3.1) 
+                  and 13.1.3.5) is true and an ONU port attached to an  
+                 IEEE 802.3 EPON link in a time-aware system.
+
+ 
+                False (2), otherwise.
+               The default value               is FALSE.
+
+                The contents of this variable SHALL be maintained  
+                across a restart of the system.
+       "
+    REFERENCE   "14.6.24"
+    DEFVAL { false }
+    ::= { ieee8021AsPortDSIfEntry 36 }
+
+-- =============================================================
+-- The Statistics for each .1AS capable port. 
+-- One Table per Bridge Component or a end station.
+-- One entry per port.
+-- =============================================================
+
+ieee8021AsPortStatIfTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsPortStatIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A table of time-aware port related counters in a gPTP domain.
+        A value of 1 is used in a bridge or an end station that does not 
+        have multiple components.
+       "
+    REFERENCE
+       "IEEE 802.1AS clause 14.7"
+    ::= { ieee8021AsMIBObjects 6 }
+
+ieee8021AsPortStatIfEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsPortStatIfEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A list of statistics pertaining to a port of a gPTP domain. 
+        This statistics table uses ieee8021AsPortDSAsIfIndex, and 
+        corresponds to ieee8021ASPortDSTable entries.
+       "
+    INDEX { ieee8021AsBridgeBasePort, 
+            ieee8021AsPortDSAsIfIndex }
+    ::= { ieee8021AsPortStatIfTable 1 }
+
+Ieee8021AsPortStatIfEntry ::=
+     SEQUENCE {
+         ieee8021AsPortStatRxSyncCount               Counter32,
+         ieee8021AsPortStatRxFollowUpCount           Counter32,
+         ieee8021AsPortStatRxPdelayRequest           Counter32,
+         ieee8021AsPortStatRxPdelayResponse          Counter32,
+         ieee8021AsPortStatRxPdelayResponseFollowUp  Counter32,
+         ieee8021AsPortStatRxAnnounce                Counter32,
+         ieee8021AsPortStatRxPTPPacketDiscard        Counter32,
+         ieee8021AsPortStatRxSyncReceiptTimeouts     Counter32,
+         ieee8021AsPortStatAnnounceReceiptTimeouts   Counter32,
+         ieee8021AsPortStatPdelayAllowedLostResponsesExceeded
+                                                     Counter32,
+         ieee8021AsPortStatTxSyncCount               Counter32,
+         ieee8021AsPortStatTxFollowUpCount           Counter32,
+         ieee8021AsPortStatTxPdelayRequest           Counter32,
+         ieee8021AsPortStatTxPdelayResponse          Counter32,
+         ieee8021AsPortStatTxPdelayResponseFollowUp  Counter32,
+         ieee8021AsPortStatTxAnnounce                Counter32
+      }
+
+ieee8021AsPortStatRxSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time synchronization 
+                 information is received, denoted by a transition to 
+                 TRUE from FALSE of the rcvdSync variable of the 
+                 MDSyncReceiveSM state machine (see 11.2.13.1.2 and 
+                 Figure 11-6), when in the DISCARD or WAITING_FOR_SYNC 
+                 states; or rcvdIndication transitions to TRUE (see
+                 Figure 12-3).
+                "
+    REFERENCE   "14.7.2"
+    ::= { ieee8021AsPortStatIfEntry 1 }
+
+ieee8021AsPortStatRxFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Follow_Up message 
+                is received, denoted by a transition to TRUE from FALSE 
+                of the rcvdFollowUp variable of the MDSyncReceiveSM 
+                 state machine (see 11.2.13.1.3 and Figure 11-6) when in 
+                the WAITING_FOR_FOLLOW_UP state. 
+                "
+    REFERENCE   "14.7.3"
+    ::= { ieee8021AsPortStatIfEntry 2 }
+
+ieee8021AsPortStatRxPdelayRequest OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Pdelay_Req message 
+               is received, denoted by a transition to TRUE from FALSE 
+               of the rcvdPdelayReq variable of the MDPdelayResp state 
+               machine (see 11.2.16.1.1 and Figure 11-9) when in the 
+                  WAITING_FOR_PDELAY_REQ or INITIAL_WAITING_FOR_PDELAY_REQ 
+               states.
+                "
+    REFERENCE   "14.7.4"
+    ::= { ieee8021AsPortStatIfEntry 3 }
+
+ieee8021AsPortStatRxPdelayResponse OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Pdelay_Resp 
+                 message is received, denoted by a transition to TRUE 
+                 from FALSE of the rcvdPdelayResp variable of the 
+                 MDPdelayReq state machine (see 11.2.15.1.2 and Figure 
+                 11-8) when in the WAITING_FOR_PDELAY_RESP state.
+                "
+    REFERENCE   "14.7.5"
+    ::= { ieee8021AsPortStatIfEntry 4 }
+
+ieee8021AsPortStatRxPdelayResponseFollowUp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a 
+                  Pdelay_Resp_Follow_Up message is received, denoted by a 
+                 transition to TRUE from FALSE of the 
+                 rcvdPdelayRespFollowUp variable of the MDPdelayReq 
+                  state machine (see 11.2.15.1.4 and Figure 11-8) when in 
+                 the WAITING_FOR_PDELAY_RESP_FOLLOW_UP state.
+                "
+    REFERENCE   "14.7.6"
+    ::= { ieee8021AsPortStatIfEntry 5 }
+
+ieee8021AsPortStatRxAnnounce OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time an Announce message 
+                is received, denoted by a transition to TRUE from FALSE 
+                of the rcvdAnnounce variable of the PortAnnounceReceive 
+                  state machine (see 10.3.10 and Figure 10-12) when in the 
+                DISCARD or RECEIVE states.
+                "
+    REFERENCE   "14.7.7"
+    ::= { ieee8021AsPortStatIfEntry 6 }
+
+ieee8021AsPortStatRxPTPPacketDiscard OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a PTP message is
+                 discarded, caused by the occurrence of any of the
+                 following conditions:
+
+                 a) A received Announce message is not qualified,
+                    denoted by the function qualifyAnnounce (see 
+                      10.3.10.2.1 and 13.1.3.4) of the PortAnnounceReceive 
+                    state machine (see 10.3.10 and Figure 10-12)
+                    returning FALSE;
+                   b) A Follow_Up message corresponding to a received Sync 
+                     message is not received, denoted by a transition of 
+                    the condition (currentTime greater or equal to
+                    followUpReceiptTimeoutTime) to TRUE from FALSE when 
+                    in the WAITING_FOR_FOLLOW_UP state of the 
+                    MDSyncReceiveSM state machine (see 11.2.13 and 
+                    Figure 11-6);
+                  c) A Pdelay_Resp message corresponding to a 
+                     transmitted Pdelay_Req message is not received, 
+                     denoted by a transition from the 
+                       WAITING_FOR_PDELAY_RESP state to the RESET state of 
+                     the MDPdelayReq state machine (see 11.2.15 and 
+                     Figure 11-8);
+                  d) A Pdelay_Resp_Follow_Up message corresponding to a 
+                     transmitted Pdelay_Req message is not received, 
+                     denoted by a transition from the 
+                     WAITING_FOR_PDELAY_RESP_FOLLOW_UP state to the 
+                     RESET state of the MDPdelayReq state machine (see 
+                     11.2.15 and Figure 11-8).
+                "
+    REFERENCE   "14.7.8"
+    ::= { ieee8021AsPortStatIfEntry 7 }
+
+ieee8021AsPortStatRxSyncReceiptTimeouts OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time sync receipt timeout 
+               occurs, denoted by entering the AGED state of the 
+               PortAnnounceInformation state machine (see 10.3.11 and 
+                Figure 10-13), with the condition (currentTime greater or 
+               equual to announceReceiptTimeoutTime) TRUE
+                "
+    REFERENCE   "14.7.9"
+    ::= { ieee8021AsPortStatIfEntry 8 }
+
+ieee8021AsPortStatAnnounceReceiptTimeouts OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time announce receipt 
+                 timeout occurs, denoted by entering the AGED state of 
+                  the PortAnnounceInformation state machine (see 10.3.11 
+                 and Figure 10-13), with the condition ((currentTime 
+                 greater than or equal to syncReceiptTimeoutTime) AND
+                 gmPresent)) TRUE.
+                "
+    REFERENCE   "14.7.10"
+    ::= { ieee8021AsPortStatIfEntry 9 }
+
+ieee8021AsPortStatPdelayAllowedLostResponsesExceeded OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments everytime the value of the 
+                 variable lostResponses (see, 11.2.15.1.10) exceeds the 
+                 value of the variable allowedLostResponses (see 
+                  11.2.12.4), in the RESET state of the MDPdelayReq state 
+                 machine (see 11.2.15 and Figure 11-8)
+                "
+    REFERENCE   "14.7.11"
+    ::= { ieee8021AsPortStatIfEntry 10 }
+
+ieee8021AsPortStatTxSyncCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time synchronization
+                 information is transmitted, denoted by a transition to
+                 TRUE from FALSE of the rcvdMDSync variable of the
+                 MDSyncSendSM state machine (see 11.2.14.1.1 and
+                 Figure 11-7), when in the INITIALIZING or
+                 SEND_FOLLOW_UP states; or the
+                 INITIATE_REQUEST_WAIT_CONFIRM state is entered
+                 in Figure 12-3.
+                "
+    REFERENCE   "14.7.12"
+    ::= { ieee8021AsPortStatIfEntry 11 }
+
+ieee8021AsPortStatTxFollowUpCount OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Follow_Up message 
+                is transmitted, denoted by a transition to TRUE from 
+                FALSE of the rcvdMDTimestampReceive variable of the 
+                MDSyncSendSM state machine (see 11.2.14.1.3 and Figure 
+                 11-7), when in the SEND_SYNC state increments every time 
+                a Follow_Up packet is transmitted.
+                "
+    REFERENCE   "14.7.13"
+    ::= { ieee8021AsPortStatIfEntry 12 }
+
+ieee8021AsPortStatTxPdelayRequest OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Pdelay_Req message 
+               is transmitted, denoted by entering the 
+               INITIAL_SEND_PDELAY_REQ or SEND_PDELAY_REQ states of the 
+               MDPdelayReq state machine (see 11.2.15 and Figure 11-8).
+               "
+    REFERENCE   "14.7.14"
+    ::= { ieee8021AsPortStatIfEntry 13 }
+
+ieee8021AsPortStatTxPdelayResponse OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a Pdelay_Resp 
+                   message is transmitted, denoted by a transition to TRUE 
+                 from FALSE of the rcvdPdelayReq variable of the 
+                 MDPdelayResp state machine (see 11.2.16.1.1 and  
+                 Figure 11-9) when in the WAITING_FOR_PDELAY_REQ or 
+                 INITIAL_WAITING_FOR_PDELAY_REQ states, and resulting 
+                 entry to the SENT_PDELAY_RESP_WAITING_FOR_TIMESTAMP 
+                 state.
+                "
+    REFERENCE   "14.7.15"
+    ::= { ieee8021AsPortStatIfEntry 14 }
+
+ieee8021AsPortStatTxPdelayResponseFollowUp OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time a 
+                 Pdelay_Resp_Follow_Up message is transmitted, denoted 
+                 by a transition to TRUE from FALSE of the 
+                 rcvdMDTimestampReceive variable of the MDPdelayResp 
+                  state machine (see 11.2.16.1.2 and Figure 11-9) when in 
+                 the SENT_PDELAY_RESP_WAITING_FOR_TIMESTAMP state, and 
+                 resulting entry to the WAITING_FOR_PDELAY_REQ state.
+                "
+    REFERENCE   "14.7.16"
+    ::= { ieee8021AsPortStatIfEntry 15 }
+
+ieee8021AsPortStatTxAnnounce OBJECT-TYPE
+    SYNTAX      Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "A counter that increments every time an Announce message 
+                is transmitted, denoted by entering the 
+                  TRANSMIT_ANNOUNCE state of the PortAnnounceReceive state 
+                machine (see 10.3.13 and Figure 10-15).
+                "
+    REFERENCE   "14.7.17"
+    ::= { ieee8021AsPortStatIfEntry 16 }
+
+
+-- ******************************************************************
+-- Acceptable Master Table derived from IEEE 1588-2008. 
+-- One Table per time-aware system, and used when any of the system 
+-- is of type IEEE 802.3 EPON, i.e. if any of port in a corresponding   
+-- system has ieee8021AsPortDSAcceptableMasterTableEnabled set to true.
+-- Not used otherwise (Table exists without an entry).   
+-- ******************************************************************
+
+
+ieee8021AsAcceptableMasterTableDS
+    OBJECT IDENTIFIER ::= { ieee8021AsMIBObjects 7 }
+
+ieee8021AsAcceptableMasterTableDSBase
+    OBJECT IDENTIFIER ::= { ieee8021AsAcceptableMasterTableDS 1 }
+
+ieee8021AsAcceptableMasterTableDSMaster
+    OBJECT IDENTIFIER ::= { ieee8021AsAcceptableMasterTableDS 2 }
+
+ieee8021AsAcceptableMasterTableDSMaxTableSize OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+                "The value is the maximum size of the
+                 AcceptableMasterTable. It is equal to the maxTableSize
+                 member of the AcceptableMasterTable structure (see
+                 13.1.3.2)"
+    REFERENCE   "14.8.1 and 13.1.3.2"
+    ::= { ieee8021AsAcceptableMasterTableDSBase 1 }
+
+ieee8021AsAcceptableMasterTableDSActualTableSize OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+                "The value is the actual size of the
+                 AcceptableMasterTable. It is equal to the
+                 actualTableSize member of the AcceptableMasterTable
+                   structure (see 13.1.3.2 and 13.1.3.5), 
+                 i.e., the current number of 
+                 elements in the acceptable master array. The actual
+                 table size is less than or equal to the max table size.
+
+                 This value SHOULD  be reflect the number of entries in 
+                 the ieee8021AsAcceptableMasterTableDSMasterTable.
+
+                 For a time-aware system that contains an ONU attached
+                 to an IEEE 802.3 EPON link, the initialization value
+                 is 1. For a time-aware system that does not contain an
+                 ONU attached to an IEEE 802.3 EPON link, the
+                  initialization value is 0."
+    REFERENCE   "14.8.2 and 13.1.3.2"
+    ::= { ieee8021AsAcceptableMasterTableDSBase 2 }
+
+
+ieee8021AsAcceptableMasterTableDSMasterTable   OBJECT-TYPE
+    SYNTAX      SEQUENCE OF Ieee8021AsAcceptableMasterTableDSMasterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A table of time-aware port related variables in a time-aware 
+        bridge or for a time-aware end station.  A value of 1 is used in 
+       a bridge or an end station that does not have multiple 
+       components.
+
+        The contents of this table SHALL be maintained across a restart
+        of the system.
+       "
+    REFERENCE
+       "IEEE 802.1AS clause 14.8"
+    ::= { ieee8021AsAcceptableMasterTableDSMaster 1 }
+
+
+ieee8021AsAcceptableMasterTableDSMasterEntry   OBJECT-TYPE
+    SYNTAX      Ieee8021AsAcceptableMasterTableDSMasterEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "A list of objects pertaining to a port of a time-aware bridge 
+        component or a time-aware end station.
+       "
+    INDEX { ieee8021AsAcceptableMasterTableDSMasterId }
+    ::= { ieee8021AsAcceptableMasterTableDSMasterTable 1 }
+
+
+Ieee8021AsAcceptableMasterTableDSMasterEntry ::=
+    SEQUENCE {
+      ieee8021AsAcceptableMasterTableDSMasterId         Unsigned32,
+      ieee8021AsAcceptableMasterClockIdentity           ClockIdentity,
+      ieee8021AsAcceptableMasterPortNumber              Unsigned32,
+      ieee8021AsAcceptableMasterAlternatePriority1      Unsigned32,
+      ieee8021AsAcceptableMasterRowStatus               RowStatus
+      } 
+
+ieee8021AsAcceptableMasterTableDSMasterId   OBJECT-TYPE
+    SYNTAX      Unsigned32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+       "Acceptable Master row entry index in this 
+        ieee8021AsAcceptableMasterTabdDSMaster Entry applies. 
+        If the does not contain Media type of EPON, this variable
+        (index) MUST be equal to 0."
+    ::= { ieee8021AsAcceptableMasterTableDSMasterEntry 1 }
+
+ieee8021AsAcceptableMasterClockIdentity OBJECT-TYPE
+    SYNTAX      ClockIdentity
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+                "Globally unique manufacturer-assigned clock identifier
+                for the local clock port. The identifier is based on an
+                EUI-64."
+    REFERENCE   "14.8.3"
+    ::= { ieee8021AsAcceptableMasterTableDSMasterEntry 2 }
+
+ieee8021AsAcceptableMasterPortNumber OBJECT-TYPE
+    SYNTAX      Unsigned32(0..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+                "This object represents a Port or aggregated port
+                 on a bridge component or end-station.   
+                 This object and ieee8021AsAcceptableMasterClockIdentity
+                 together forms AcceptableMasterDS Port Identity."
+    REFERENCE   "14.8.3"
+    ::= { ieee8021AsAcceptableMasterTableDSMasterEntry 3 }
+
+ieee8021AsAcceptableMasterAlternatePriority1 OBJECT-TYPE
+    SYNTAX      Unsigned32(0..255)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+                "If the alternatePriority1 member of the AcceptableMaster 
+                  array element that corresponds to the sourcePortIdentity 
+                of a received Announce message is greater than 0, the 
+                value of the grandmasterPriority1 field of the Announce 
+                message is replaced by the value of alternatePriority1 
+                of this AcceptableMaster array element for use in the 
+                invocation of BMCA"
+    REFERENCE   "14.8.3 and 13.1.3.4"
+    DEFVAL { 244 }
+    ::= { ieee8021AsAcceptableMasterTableDSMasterEntry 4 }
+
+ieee8021AsAcceptableMasterRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+       "This object indicates the status of an entry, and is used
+        to create/delete entries.
+       "
+    REFERENCE  "14.8.3"
+    ::= { ieee8021AsAcceptableMasterTableDSMasterEntry 5 }
+
+
+
+-- ******************************************************************
+-- IEEE 802.1AS MIB Module - Conformance Information
+-- ******************************************************************
+
+ieee8021AsCompliances OBJECT IDENTIFIER ::= { ieee8021AsConformance 1 }
+ieee8021AsGroups      OBJECT IDENTIFIER ::= { ieee8021AsConformance 2 }
+ieee8021AsCompliancesCor1  OBJECT IDENTIFIER ::= { ieee8021AsConformance 3 }
+
+-- ******************************************************************
+-- Units of conformance
+-- ******************************************************************
+
+ieee8021ASSystemDefaultReqdGroup OBJECT-GROUP
+    OBJECTS {
+       ieee8021AsDefaultDSClockIdentity,
+       ieee8021AsDefaultDSNumberPorts,
+       ieee8021AsDefaultDSClockClass,
+       ieee8021AsDefaultDSClockAccuracy,
+       ieee8021AsDefaultDSOffsetScaledLogVariance,
+       ieee8021AsDefaultDSPriority1,
+       ieee8021AsDefaultDSPriority2,
+       ieee8021AsDefaultDSGmCapable,
+       ieee8021AsDefaultDSCurrentUTCOffset,
+       ieee8021AsDefaultDSCurrentUTCOffsetValid,
+       ieee8021AsDefaultDSLeap59,
+       ieee8021AsDefaultDSLeap61,
+       ieee8021AsDefaultDSTimeTraceable,
+       ieee8021AsDefaultDSFrequencyTraceable,
+       ieee8021AsDefaultDSTimeSource
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects in the System Default required global group."
+    ::= { ieee8021AsGroups 1 }
+
+ieee8021ASSystemCurrentGroup OBJECT-GROUP
+    OBJECTS {
+          ieee8021AsCurrentDSStepsRemoved,
+          ieee8021AsCurrentDSOffsetFromMasterHs,
+          ieee8021AsCurrentDSOffsetFromMasterMs,
+          ieee8021AsCurrentDSOffsetFromMasterLs,
+          ieee8021AsCurrentDSLastGmPhaseChangeHs,
+          ieee8021AsCurrentDSLastGmPhaseChangeMs,
+          ieee8021AsCurrentDSLastGmPhaseChangeLs,
+          ieee8021AsCurrentDSLastGmFreqChangeMs,
+          ieee8021AsCurrentDSLastGmFreqChangeLs,
+          ieee8021AsCurrentDSGmTimebaseIndicator,
+          ieee8021AsCurrentDSGmChangeCount,
+          ieee8021AsCurrentDSTimeOfLastGmChangeEvent,
+          ieee8021AsCurrentDSTimeOfLastGmPhaseChangeEvent,
+          ieee8021AsCurrentDSTimeOfLastGmFreqChangeEvent
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects in the System Current global group."
+    ::= { ieee8021AsGroups 2 }
+
+ieee8021AsSystemClockParentGroup OBJECT-GROUP
+    OBJECTS {
+        ieee8021AsParentDSParentClockIdentity,
+        ieee8021AsParentDSParentPortNumber,
+        ieee8021AsParentDSCumlativeRateRatio,
+        ieee8021AsParentDSGrandmasterIdentity,
+        ieee8021AsParentDSGrandmasterClockClass,
+        ieee8021AsParentDSGrandmasterClockAccuracy,
+        ieee8021AsParentDSGrandmasterOffsetScaledLogVariance,
+        ieee8021AsParentDSGrandmasterPriority1,
+        ieee8021AsParentDSGrandmasterPriority2
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects in the Clock Parent global group."
+    ::= { ieee8021AsGroups 3 }
+
+ieee8021AsSystemTimePropertiesGroup OBJECT-GROUP
+    OBJECTS {
+         ieee8021AsTimePropertiesDSCurrentUtcOffset,
+         ieee8021AsTimePropertiesDSCurrentUtcOffsetValid,
+         ieee8021AsTimePropertiesDSLeap59,
+         ieee8021AsTimePropertiesDSLeap61,
+         ieee8021AsTimePropertiesDSTimeTraceable,
+         ieee8021AsTimePropertiesDSFrequencyTraceable,
+         ieee8021AsTimePropertiesDSTimeSource
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects for the Time Properties Global group."
+    ::= { ieee8021AsGroups 4 }
+
+ieee8021AsPortDataSetGlobalGroup OBJECT-GROUP
+    OBJECTS {
+           ieee8021AsPortDSClockIdentity,
+           ieee8021AsPortDSPortNumber,
+           ieee8021AsPortDSPortRole,
+           ieee8021AsPortDSPttPortEnabled,
+           ieee8021AsPortDSIsMeasuringDelay,
+           ieee8021AsPortDSAsCapable,
+           ieee8021AsPortDSNeighborPropDelayHs,
+           ieee8021AsPortDSNeighborPropDelayMs,
+           ieee8021AsPortDSNeighborPropDelayLs,
+           ieee8021AsPortDSNeighborPropDelayThreshHs,
+           ieee8021AsPortDSNeighborPropDelayThreshMs,
+           ieee8021AsPortDSNeighborPropDelayThreshLs,
+           ieee8021AsPortDSDelayAsymmetryHs,
+           ieee8021AsPortDSDelayAsymmetryMs,
+           ieee8021AsPortDSDelayAsymmetryLs,
+           ieee8021AsPortDSNeighborRateRatio,
+           ieee8021AsPortDSInitialLogAnnounceInterval,
+           ieee8021AsPortDSCurrentLogAnnounceInterval,
+           ieee8021AsPortDSAnnounceReceiptTimeout,
+           ieee8021AsPortDSInitialLogSyncInterval,
+           ieee8021AsPortDSCurrentLogSyncInterval,
+           ieee8021AsPortDSSyncReceiptTimeout,
+           ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalHs,
+           ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalMs,
+           ieee8021AsPortDSSyncReceiptTimeoutTimeIntervalLs,
+           ieee8021AsPortDSInitialLogPdelayReqInterval,
+           ieee8021AsPortDSCurrentLogPdelayReqInterval,
+           ieee8021AsPortDSAllowedLostResponses,
+           ieee8021AsPortDSVersionNumber,
+           ieee8021AsPortDSNupMs,
+           ieee8021AsPortDSNupLs,
+           ieee8021AsPortDSNdownMs,
+           ieee8021AsPortDSNdownLs,
+           ieee8021AsPortDSAcceptableMasterTableEnabled
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects for the port dataset  global group."
+    ::= { ieee8021AsGroups 5 }
+ieee8021ASPortStatisticsGlobalGroup OBJECT-GROUP
+    OBJECTS {
+         ieee8021AsPortStatRxSyncCount,
+         ieee8021AsPortStatRxFollowUpCount,
+         ieee8021AsPortStatRxPdelayRequest,
+         ieee8021AsPortStatRxPdelayResponse,
+         ieee8021AsPortStatRxPdelayResponseFollowUp,
+         ieee8021AsPortStatRxAnnounce,
+         ieee8021AsPortStatRxPTPPacketDiscard,
+         ieee8021AsPortStatRxSyncReceiptTimeouts,
+         ieee8021AsPortStatAnnounceReceiptTimeouts,
+         ieee8021AsPortStatPdelayAllowedLostResponsesExceeded,
+         ieee8021AsPortStatTxSyncCount,
+         ieee8021AsPortStatTxFollowUpCount,
+         ieee8021AsPortStatTxPdelayRequest,
+         ieee8021AsPortStatTxPdelayResponse,
+         ieee8021AsPortStatTxPdelayResponseFollowUp,
+         ieee8021AsPortStatTxAnnounce
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects in the Port statistics global group."
+    ::= { ieee8021AsGroups 6 }
+
+
+ieee8021AsAcceptableMasterBaseGroup OBJECT-GROUP
+    OBJECTS {
+      ieee8021AsAcceptableMasterTableDSMaxTableSize,
+      ieee8021AsAcceptableMasterTableDSActualTableSize
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects for the Acceptable Master group."
+    ::= { ieee8021AsGroups 7 }
+
+ieee8021AsAcceptableMasterTableGroup OBJECT-GROUP
+    OBJECTS {
+      ieee8021AsAcceptableMasterClockIdentity,
+      ieee8021AsAcceptableMasterPortNumber,
+      ieee8021AsAcceptableMasterAlternatePriority1,
+      ieee8021AsAcceptableMasterRowStatus
+    }
+    STATUS      current
+    DESCRIPTION
+       "Objects for the Acceptable Master group."
+    ::= { ieee8021AsGroups 8 }
+
+
+-- ******************************************************************
+-- MIB Module Compliance statements
+-- ******************************************************************
+
+ieee8021AsCompliance MODULE-COMPLIANCE
+    STATUS      deprecated
+    DESCRIPTION
+       "The compliance statement for support of
+        the IEEE8021-AS-MIB module."
+
+    MODULE SNMPv2-MIB -- The SNMPv2-MIB, RFC 3418
+        MANDATORY-GROUPS {
+            systemGroup
+        }
+
+    MODULE IF-MIB -- The interfaces MIB, RFC 2863
+        MANDATORY-GROUPS {
+            ifGeneralInformationGroup
+        }
+
+    MODULE
+        MANDATORY-GROUPS {
+            ieee8021ASSystemDefaultReqdGroup,
+            ieee8021ASSystemCurrentGroup,
+            ieee8021AsSystemClockParentGroup,
+            ieee8021AsSystemTimePropertiesGroup,
+            ieee8021AsPortDataSetGlobalGroup,
+            ieee8021AsAcceptableMasterBaseGroup,
+            ieee8021AsAcceptableMasterTableGroup
+         }
+
+    OBJECT ieee8021AsAcceptableMasterRowStatus
+      SYNTAX       RowStatus { active(1), notInService(2) }
+      WRITE-SYNTAX RowStatus { notInService(2), createAndGo(4),
+                               destroy(6) }
+      DESCRIPTION "Support for createAndWait is not required."
+
+    GROUP ieee8021ASPortStatisticsGlobalGroup
+        DESCRIPTION
+           "This group is optional and provides time-aware Bridges and  
+            end stations that choose to implement gPTP port statistics."
+
+    ::= { ieee8021AsCompliances 1 }
+
+
+ieee8021AsComplianceCor1 MODULE-COMPLIANCE
+    STATUS      current
+    DESCRIPTION
+       "The compliance statement for support of
+        the IEEE8021-AS-MIB module."
+
+    MODULE SNMPv2-MIB -- The SNMPv2-MIB, RFC 3418
+        MANDATORY-GROUPS {
+            systemGroup
+        }
+
+    MODULE IF-MIB -- The interfaces MIB, RFC 2863
+        MANDATORY-GROUPS {
+            ifGeneralInformationGroup
+        }
+
+    MODULE
+        MANDATORY-GROUPS {
+            ieee8021ASSystemDefaultReqdGroup,
+            ieee8021ASSystemCurrentGroup,
+            ieee8021AsSystemClockParentGroup,
+            ieee8021AsSystemTimePropertiesGroup,
+            ieee8021AsPortDataSetGlobalGroup,
+            ieee8021AsAcceptableMasterBaseGroup,
+            ieee8021AsAcceptableMasterTableGroup
+         }
+
+    OBJECT ieee8021AsParentDSGrandmasterPriority1
+      MIN-ACCESS read-only
+      DESCRIPTION "Support for write is not required and deprecated."
+
+    OBJECT ieee8021AsParentDSGrandmasterPriority2
+      MIN-ACCESS read-only
+      DESCRIPTION "Support for write is not required and deprecated."
+
+    OBJECT ieee8021AsAcceptableMasterRowStatus
+      SYNTAX       RowStatus { active(1), notInService(2) }
+      WRITE-SYNTAX RowStatus { notInService(2), createAndGo(4),
+                               destroy(6) }
+      DESCRIPTION "Support for createAndWait is not required."
+
+    GROUP ieee8021ASPortStatisticsGlobalGroup
+        DESCRIPTION
+           "This group is optional and provides time-aware Bridges and  
+            end stations that choose to implement gPTP port statistics."
+
+    ::= { ieee8021AsCompliances 2 }
+
+
+END
+
