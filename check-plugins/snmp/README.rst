@@ -19,13 +19,14 @@ This check utilizes ``snmpget`` to query for information on a network entity, so
 Installation
 ------------
 
-Install ``snmpget``. On CentOS:
+Install ``snmpget``:
 
 .. code-block:: bash
 
+    # on CentOS:
     yum -y install net-snmp-utils
 
-If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs``, ``/usr/share/snmp/mibs`` or ``/usr/lib64/nagios/plugins/snmp-mibs``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``), and reference special ones using the ``--mib`` parameter (same syntax as the ``-M`` parameter of ``snmpget``).
+If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs``, ``/usr/share/snmp/mibs`` or ``/usr/lib64/nagios/plugins/device-mibs/...``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``), and reference special ones using the ``--mib`` parameter (same syntax as the ``-M`` parameter of ``snmpget``).
 
 Create an OID list in ``/usr/lib64/nagios/plugins/device-oids`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
@@ -61,15 +62,18 @@ Other example using an additional MIB directory:
 Defining a Device
 -----------------
 
-You have to define a list of OIDs that should be fetched, including any calculations, warning and critical thresholds, in a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. An minimal example for nearly any device in a human readable format::
+You have to define a list of OIDs that should be fetched, including any calculations, warning and critical thresholds, in a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. An minimal example for nearly any device:
 
-    OID                       | Name        | Re-Calc          | Unit Label | WARN                  | CRIT                  | Show in 1st Line | Report Change as
-    --------------------------+-------------+------------------+------------+-----------------------+-----------------------+------------------+-----------------
-    SNMPv2-MIB::sysName.0     | Name        |                  |            |                       |                       |                  | 
-    SNMPv2-MIB::sysLocation.0 | Location    |                  |            |                       |                       |                  | WARN
-    SNMPv2-MIB::sysContact.0  | Contact     |                  |            |                       |                       |                  | 
-    SNMPv2-MIB::sysDescr.0    | Description |                  |            |                       |                       |                  | 
-    SNMPv2-MIB::sysUpTime.0   | Uptime      | int(value) / 100 | s          | value > 4*365*24*3600 | value > 5*365*24*3600 | True             | 
+========================= ============= ================== ============ ======================= ======================= ================== ==================
+OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as
+========================= ============= ================== ============ ======================= ======================= ================== ==================
+SNMPv2-MIB::sysName.0     Name                                                                                                 
+SNMPv2-MIB::sysLocation.0 Location                                                                                                         WARN
+SNMPv2-MIB::sysContact.0  Contact                                                                                              
+SNMPv2-MIB::sysDescr.0    Description                                                                                          
+SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True             
+========================= ============= ================== ============ ======================= ======================= ================== ==================
+
 
 The columns in detail:
 
@@ -142,17 +146,18 @@ Parameter Mapping
 =================  ========================================================
 
 
-Get a list of OIDs
-------------------
+How to fetch a list of OIDs
+---------------------------
 
-How to get a list of OIDs:
+Example:
 
 .. code-block:: bash
 
-    snmpbulkwalk -v2c -c public -OSt -M $HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs 10.80.32.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
-    
-    # also (``+``) load the MIB "FS-MIB", and start walking
-    snmpbulkwalk -v2c -c public -OSt -M $HOME/.snmp/mibs:/usr/share/snmp/mibs:./snmp-mibs -m +FS-MIB 10.80.32.109
+    snmpbulkwalk -v2c \
+        -c public \
+        -OSt \
+        -M +/usr/lib64/nagios/plugins/device-mibs/switch-netgear-xs716t \
+        10.80.32.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
 
 
 Q & A
