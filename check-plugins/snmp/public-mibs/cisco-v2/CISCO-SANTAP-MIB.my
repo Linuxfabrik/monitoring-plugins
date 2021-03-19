@@ -1,0 +1,562 @@
+-- *********************************************************************
+-- CISCO-SANTAP-MIB.my: For SanTap service Configuration
+--
+-- February 2005, Arul Mozhi
+--
+-- Copyright (c) 2005 by Cisco Systems, Inc.
+-- All rights reserved.
+--
+-- *********************************************************************
+CISCO-SANTAP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+   MODULE-IDENTITY, 
+   OBJECT-TYPE,
+   Unsigned32
+       FROM SNMPv2-SMI
+   RowStatus,
+   TruthValue
+       FROM SNMPv2-TC
+   MODULE-COMPLIANCE, 
+   OBJECT-GROUP
+       FROM SNMPv2-CONF
+   ciscoMgmt                                 
+       FROM CISCO-SMI
+   PhysicalIndex 
+       FROM ENTITY-MIB
+   vsanIndex  
+       FROM CISCO-VSAN-MIB
+   SnmpAdminString                   
+       FROM SNMP-FRAMEWORK-MIB
+   InterfaceIndex                    
+       FROM IF-MIB
+   VsanIndex,
+   FcNameIdOrZero,
+   FcNameId
+       FROM CISCO-ST-TC;
+
+
+ciscoSanTapMIB MODULE-IDENTITY
+   LAST-UPDATED "200603160000Z"
+   ORGANIZATION "Cisco Systems Inc."
+   CONTACT-INFO
+                "     Cisco Systems
+                      Customer Service
+                Postal: 170 W Tasman Drive
+                      San Jose, CA  95134
+                      USA
+                Tel: +1 800 553 -NETS
+                E-mail: cs-san@cisco.com"
+   DESCRIPTION 
+           "MIB module to provide information about the SanTap 
+            service configuration.             
+
+            SanTap is a fibre channel switch based capability that 
+            provides a reliable copy of the data flowing between 
+            a set of one or more initiators and a set of one or 
+            more targets connected to the fabric.
+
+            Adminstrator must configure the switch to create the 
+            Control Virtual Target (CVT) for the SanTap service. 
+            CVTs are used to implement the control path which process 
+            all SanTap service requests sent out by an appliance. 
+
+            Prior to requesting for SanTap service the appliance 
+            contacts the CVT, specifies the initiator and the target 
+            for replicating the data flowing between them.
+                 
+            This MIB provides an interface to configure the CVT for 
+            the SanTap service on the fibre channel switch modules.
+
+            Glossary of terms used in this MIB:
+
+            Fabric - The set of physically connected fibre channel
+                     switches.
+
+            VSAN - Virtual Storage Area Network, similar to a 
+                   Virtual Fabric as defined by T11. 
+
+            WWN  - World Wide Name. Mechanism of uniquely 
+                   identifying the devices in Fibre Channel 
+                   Networks. 
+
+            Appliance - It is a storage target, which can  
+                   requests the SanTap service for the reliable 
+                   copy of the data flowing between a specific 
+                   host initiator and a target. 
+
+            CVT  - Control Virtual Target. It is a logical target 
+                   port that resides on the switch and is used 
+                   for the purpose of communicating control traffic 
+                   from an appliance.
+    
+            DVT  - Data Virtual Target.  It is a logical target port
+                   that resides on the switch and is used to intercept 
+                   traffic meant for a real target."
+
+       REVISION     "200603160000Z"
+       DESCRIPTION  "Added 'cstDVTLunSizeHandling' and 'cstDVTIOTimeout' 
+                     columnar objects to 'cstDVTConfigTable'." 
+       REVISION     "200510270000Z"
+       DESCRIPTION  "Added the 'cstDVTConfigTable'.  Added 'cstCVTName' 
+                     columnar object to 'cstServiceConfigTable'." 
+       REVISION     "200502020000Z"
+       DESCRIPTION  "Initial version of this MIB."
+       ::= { ciscoMgmt 463 }
+
+
+ciscoSanTapMIBObjects     OBJECT IDENTIFIER ::= { ciscoSanTapMIB 1 }
+ciscoSanTapMIBConformance OBJECT IDENTIFIER
+                           ::= { ciscoSanTapMIB 2 }
+ciscoSanTapNotifications   OBJECT IDENTIFIER
+                           ::= { ciscoSanTapMIB 3 }
+
+
+--
+-- San Tap Module Table
+--
+
+cstModuleTable  OBJECT-TYPE
+       SYNTAX     SEQUENCE OF CstModuleEntry
+       MAX-ACCESS not-accessible
+       STATUS     current
+       DESCRIPTION
+           "A table listing the modules on which SanTap service can 
+            be configured and CVT can be created by the user.
+
+            The entry in the cstServiceConfigTable can only be 
+            created on a module present in the cstModuleTable."
+       ::= { ciscoSanTapMIBObjects 1 }
+
+cstModuleEntry  OBJECT-TYPE
+       SYNTAX     CstModuleEntry
+       MAX-ACCESS not-accessible
+       STATUS     current
+       DESCRIPTION
+           "An entry in this table.
+            The cstModuleId denotes the entPhysicalIndex of the
+            module on which SanTap service can be configured."
+       INDEX { cstModuleId }
+       ::= { cstModuleTable 1 }
+
+CstModuleEntry ::= SEQUENCE {
+       cstModuleId    PhysicalIndex
+}
+
+cstModuleId OBJECT-TYPE
+       SYNTAX     PhysicalIndex
+       MAX-ACCESS read-only
+       STATUS     current
+       DESCRIPTION
+           "This object specifies the physical index of the entity  
+            with entPhysicalClass as 'module' on which SanTap service 
+            can be configured by the user.
+            This is same as the entPhysicalIndex of the module."
+       ::= { cstModuleEntry 1 }
+
+--
+-- Configuring the SAN TAP Service  
+--
+
+cstServiceConfigTable OBJECT-TYPE
+       SYNTAX         SEQUENCE OF CstServiceConfigEntry
+       MAX-ACCESS     not-accessible
+       STATUS         current
+       DESCRIPTION
+           "This table provides information about the list of 
+            all CVTs created and configured in the system. 
+
+            A new entry creation in this table, creates a CVT on the 
+            module specified by the corresponding instance index 
+            'cstModuleId' and configures the CVT on the VSAN 
+            specified by the corresponding instance index 'vsanIndex'.
+
+            A row creation in this table, with an existing 
+            module physical index  but different 'vsanIndex' 
+            configures the already created CVT on the module into
+            VSAN specified by the 'vsanIndex'.
+
+            Deleting an entry from this table, unconfigures the
+            CVT created on the module specified by the corresponding 
+            instance index 'cstModuleId' on the VSAN represented 
+            by the corresponding instance index 'vsanIndex'. If there 
+            are no more entries in this table for this module then
+            the CVT will be deleted from the corresponding module.
+
+            For example, If there is no entry in this table for a
+            module pysical Index '22', then a new entry creation 
+            with cstModuleId '22' vsanIndex 'n1' creates a
+            CVT on this module and configures the CVT on VSAN 'n1'.
+            And a new row is created in this table.
+
+            Any subsequent entry creation with cstModuleId '22'
+            vsanIndex 'n2' only configures the previously created 
+            CVT on vsan 'n2' and a new row is created in this table.
+
+            Similarly for any delete request with cstModuleId '22'
+            vsanIndex 'n1'/'n2' unconfigures the CVT created on the 
+            vsan 'n1'/'n2' and the corresponding row is deleted from 
+            the table. 
+
+            If there is only one entry with cstModuleId '22' 
+            and vsan 'n' exists in the table, then any delete request  
+            with cstModuleId '22' vsan 'n' unconfigures the CVT on 
+            vsan 'n' and deletes the CVT. The corresponding row is 
+            deleted from the table."
+       ::= { ciscoSanTapMIBObjects 2 }
+
+cstServiceConfigEntry OBJECT-TYPE
+       SYNTAX         CstServiceConfigEntry
+       MAX-ACCESS     not-accessible
+       STATUS         current
+       DESCRIPTION
+           "An entry containing information about a CVT configuration
+            for the SanTap service.
+
+            The 'cstModuleId' denotes the module on which the user 
+            wants the SanTap service to be configured and the CVT to be
+            created.  
+
+            The index 'vsanIndex' represents the VSAN on which the
+            CVT needs to be configured. It represents the VSAN on 
+            which CVT and the appliance communicate to establish the 
+            control path for processing the SanTap service requests." 
+       INDEX   { cstModuleId , vsanIndex }
+       ::= { cstServiceConfigTable 1 }
+
+CstServiceConfigEntry ::= SEQUENCE {
+       cstCVTNodeWwn                FcNameIdOrZero, 
+       cstCVTPortWwn                FcNameIdOrZero, 
+       cstServiceConfigRowStatus    RowStatus,
+       cstCVTName                   SnmpAdminString
+}
+
+cstCVTNodeWwn OBJECT-TYPE
+       SYNTAX       FcNameIdOrZero 
+       MAX-ACCESS   read-only 
+       STATUS       current
+       DESCRIPTION
+           "This object represents the Node World-Wide Name of the 
+            CVT created on the module represented by the corresponding 
+            entity index 'cstModuleId'."
+       ::= { cstServiceConfigEntry 1 }
+
+cstCVTPortWwn OBJECT-TYPE
+       SYNTAX       FcNameIdOrZero 
+       MAX-ACCESS   read-only 
+       STATUS       current
+       DESCRIPTION
+           "This object represents the Port World-Wide Name of the 
+            CVT created on the module represented by the corresponding 
+            entity index 'cstModuleId'."
+       ::= { cstServiceConfigEntry 2 }
+
+cstServiceConfigRowStatus OBJECT-TYPE
+       SYNTAX      RowStatus
+       MAX-ACCESS  read-create
+       STATUS      current
+       DESCRIPTION
+           "The status of this conceptual row." 
+       ::= { cstServiceConfigEntry 3 }
+
+cstCVTName OBJECT-TYPE
+       SYNTAX         SnmpAdminString (SIZE (0..255))
+       MAX-ACCESS     read-create
+       STATUS         current
+       DESCRIPTION
+           "The administratively assigned name for this CVT."
+       DEFVAL {""}
+       ::= { cstServiceConfigEntry 4 }
+
+
+--
+-- SANTAP DVT Configuration Table
+--
+
+cstDVTConfigTable OBJECT-TYPE
+       SYNTAX         SEQUENCE OF CstDVTConfigEntry
+       MAX-ACCESS     not-accessible
+       STATUS         current
+       DESCRIPTION
+           "This table provides information about the list of 
+            all DVTs created and configured in the system.
+
+            A new entry creation in this table, creates a DVT 
+            corresponding to the target PWWN 'cstDVTPortWwn' on
+            the VSAN 'vsanIndex'.
+
+            Deleting an entry from this table, unconfigures the
+            DVT corresponding to 'cstDVTPortWwn' from the VSAN
+            'vsanIndex'.
+
+            The index 'vsanIndex' represents the VSAN on which the
+            DVT needs to be created.  The index 'vsanIndex' should 
+            be a known VSAN on the switch. 
+
+            The index 'cstDVTPortWWN' represents the Port WWN of the 
+            real target for which a corresponding DVT is to be created.
+            The DVT will have the same Port WWN as the target. The
+            index 'cstDVTPortWWN' should correspond to a known target 
+            on the switch.  
+         
+            By default no entries exist in the table."
+       ::= { ciscoSanTapMIBObjects 3 }
+
+cstDVTConfigEntry OBJECT-TYPE
+       SYNTAX         CstDVTConfigEntry
+       MAX-ACCESS     not-accessible
+       STATUS         current
+       DESCRIPTION
+           "An entry containing information about a DVT configuration
+            for the SanTap service."
+       INDEX   { vsanIndex, cstDVTPortWwn }
+       ::= { cstDVTConfigTable 1 }
+
+CstDVTConfigEntry ::= SEQUENCE {
+       cstDVTPortWwn                FcNameId,
+       cstDVTTargetVsan             VsanIndex,
+       cstDVTPort                   InterfaceIndex,
+       cstDVTName                   SnmpAdminString,
+       cstDVTRowStatus              RowStatus,
+       cstDVTLunSizeHandling        TruthValue,
+       cstDVTIOTimeout              Unsigned32       
+}
+
+cstDVTPortWwn OBJECT-TYPE
+       SYNTAX       FcNameId
+       MAX-ACCESS   not-accessible
+       STATUS       current
+       DESCRIPTION
+           "This object represents the port world-wide name of the 
+            created DVT.  It will be the same as the port world-wide
+            name of the real target for which data is to be replicated."
+       ::= { cstDVTConfigEntry 1 }
+
+cstDVTTargetVsan OBJECT-TYPE
+       SYNTAX       VsanIndex
+       MAX-ACCESS   read-create
+       STATUS       current
+       DESCRIPTION
+           "This object represents the VSAN of the real target for
+            which this DVT is being created.
+
+            This object MUST be set to a valid value concurrently 
+            with setting the corresponding instance of cstDVTRowStatus
+            to 'active'. This object cannot be modified while the value
+            of the corresponding instance of cstDVTRowStatus is 
+            'active'."
+       ::= { cstDVTConfigEntry 2 }
+
+cstDVTPort OBJECT-TYPE
+       SYNTAX       InterfaceIndex 
+       MAX-ACCESS   read-create 
+       STATUS       current
+       DESCRIPTION
+           "This object represents the port on the module where the
+            DVT will be created.
+
+            This object MUST be set to a valid value concurrently 
+            with setting the corresponding instance of cstDVTRowStatus
+            to 'active'. This object cannot be modified while the value
+            of the corresponding instance of cstDVTRowStatus is 
+            'active'."
+       ::= { cstDVTConfigEntry 3 }
+
+cstDVTName OBJECT-TYPE
+       SYNTAX       SnmpAdminString (SIZE (0..255))
+       MAX-ACCESS   read-create
+       STATUS       current
+       DESCRIPTION
+           "The administratively assigned name for this DVT."
+       DEFVAL {""}
+       ::= { cstDVTConfigEntry 4 }
+
+cstDVTRowStatus OBJECT-TYPE
+       SYNTAX      RowStatus
+       MAX-ACCESS  read-create
+       STATUS      current
+       DESCRIPTION
+           "The status of this conceptual row."
+       ::= { cstDVTConfigEntry 5 }
+
+cstDVTLunSizeHandling OBJECT-TYPE
+        SYNTAX         TruthValue
+        MAX-ACCESS     read-create
+        STATUS         current
+        DESCRIPTION
+                "This object indicates if the DVT should use the 
+                 real target LUN size for the virtual LUN or the 
+                 max LUN size supported which is 2TB.
+
+                 A value of false for this object indicates the 
+                 real target LUN size should be used. This object
+                 should be set during the DVT creation time and
+                 cannot be modified later."
+        DEFVAL { true }
+        ::= { cstDVTConfigEntry 6 }
+
+cstDVTIOTimeout OBJECT-TYPE
+        SYNTAX         Unsigned32 (10..200)
+        UNITS          "seconds"
+        MAX-ACCESS     read-create
+        STATUS         current
+        DESCRIPTION
+                "This object represents the IO timeout value 
+                 associated with the DVT. This object should 
+                 be set during the DVT creation time and cannot 
+                 be modified later."
+        DEFVAL { 10 }
+        ::= { cstDVTConfigEntry 7 }
+
+
+
+--
+-- Compliance Section
+--
+
+ciscoSanTapMIBCompliances
+       OBJECT IDENTIFIER ::= { ciscoSanTapMIBConformance 1 }
+
+
+ciscoSanTapMIBCompliance MODULE-COMPLIANCE
+     STATUS deprecated
+     DESCRIPTION
+           "Compliance statement for entites which implement 
+            the CISCO SANTAP MIB."
+     MODULE       -- this module
+     MANDATORY-GROUPS {
+         ciscoSanTapServiceConfigGroup
+     }
+     OBJECT  cstServiceConfigRowStatus
+        SYNTAX     INTEGER {
+                     active(1),
+                     createAndGo(4),
+                     destroy(6)}
+        DESCRIPTION
+                   "Only values 'createAndGo', 'destroy' and
+                   'active' need to be supported."
+     ::= { ciscoSanTapMIBCompliances 1 }
+
+
+ciscoSanTapMIBComplianceRev1 MODULE-COMPLIANCE
+     STATUS deprecated
+     DESCRIPTION
+           "Compliance statement for entites which implement 
+            the CISCO SANTAP MIB."
+     MODULE       -- this module
+     MANDATORY-GROUPS {
+         ciscoSanTapServiceConfigGroupRev1,
+         ciscoSanTapDVTConfigGroup
+     }
+     OBJECT  cstServiceConfigRowStatus
+        SYNTAX     INTEGER {
+                     active(1),
+                     createAndGo(4),
+                     destroy(6)}
+        DESCRIPTION
+                   "Only values 'createAndGo', 'destroy' and
+                   'active' need to be supported."
+     OBJECT  cstDVTRowStatus
+        SYNTAX     INTEGER {
+                     active(1),
+                     createAndGo(4),
+                     destroy(6)}
+        DESCRIPTION
+                   "Only values 'createAndGo', 'destroy' and
+                   'active' need to be supported."
+     ::= { ciscoSanTapMIBCompliances 2 }
+
+
+ciscoSanTapMIBComplianceRev2 MODULE-COMPLIANCE
+     STATUS current
+     DESCRIPTION
+           "Compliance statement for entites which implement 
+            the CISCO SANTAP MIB."
+     MODULE       -- this module
+     MANDATORY-GROUPS {
+         ciscoSanTapServiceConfigGroupRev1,
+         ciscoSanTapDVTConfigGroup1
+     }
+     OBJECT  cstServiceConfigRowStatus
+        SYNTAX     INTEGER {
+                     active(1),
+                     createAndGo(4),
+                     destroy(6)}
+        DESCRIPTION
+                   "Only values 'createAndGo', 'destroy' and
+                   'active' need to be supported."
+     OBJECT  cstDVTRowStatus
+        SYNTAX     INTEGER {
+                     active(1),
+                     createAndGo(4),
+                     destroy(6)}
+        DESCRIPTION
+                   "Only values 'createAndGo', 'destroy' and
+                   'active' need to be supported."
+     ::= { ciscoSanTapMIBCompliances 3 }
+
+--
+-- Units of Conformance
+--
+
+ciscoSanTapMIBGroups
+       OBJECT IDENTIFIER ::= { ciscoSanTapMIBConformance 2 }
+
+ciscoSanTapServiceConfigGroup OBJECT-GROUP
+       OBJECTS {
+           cstModuleId,
+           cstCVTNodeWwn,
+           cstCVTPortWwn,
+           cstServiceConfigRowStatus
+       }
+       STATUS       deprecated
+       DESCRIPTION
+           "A Collection of objects to configure the CVT for SanTap
+            service."
+       ::= { ciscoSanTapMIBGroups 1 }
+
+ciscoSanTapServiceConfigGroupRev1 OBJECT-GROUP
+       OBJECTS {
+           cstModuleId,
+           cstCVTNodeWwn,
+           cstCVTPortWwn,
+           cstServiceConfigRowStatus,
+           cstCVTName
+       }
+       STATUS       current
+       DESCRIPTION
+           "A Collection of objects to configure the CVT for SanTap
+            service."
+       ::= { ciscoSanTapMIBGroups 2 }
+
+
+ciscoSanTapDVTConfigGroup OBJECT-GROUP
+       OBJECTS {
+           cstDVTTargetVsan,
+           cstDVTPort,
+           cstDVTName,
+           cstDVTRowStatus
+       }
+       STATUS       deprecated
+       DESCRIPTION
+           "A Collection of objects to configure the DVT for SanTap
+            service."
+       ::= { ciscoSanTapMIBGroups 3 }
+
+ciscoSanTapDVTConfigGroup1 OBJECT-GROUP
+       OBJECTS {
+           cstDVTTargetVsan,
+           cstDVTPort,
+           cstDVTName,
+           cstDVTRowStatus,
+           cstDVTLunSizeHandling,
+           cstDVTIOTimeout
+       }
+       STATUS       current
+       DESCRIPTION
+           "A Collection of objects to configure the DVT for SanTap
+            service."
+       ::= { ciscoSanTapMIBGroups 4 }
+
+END
+

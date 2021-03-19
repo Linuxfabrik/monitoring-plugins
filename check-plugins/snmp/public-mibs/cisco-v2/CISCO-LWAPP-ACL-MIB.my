@@ -1,0 +1,423 @@
+-- *******************************************************************
+-- CISCO-LWAPP-ACL-MIB.my
+-- August 2006, Sheeba Kamra
+--   
+-- Copyright (c) 2005-2006, 2009-2010 by Cisco Systems Inc.
+-- All rights reserved.
+-- *******************************************************************
+
+CISCO-LWAPP-ACL-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Unsigned32,
+    Counter32
+        FROM SNMPv2-SMI
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF
+    DisplayString,
+    TruthValue
+        FROM SNMPv2-TC
+    ciscoMgmt
+        FROM CISCO-SMI;
+
+
+-- ********************************************************************
+-- *  MODULE IDENTITY
+-- ********************************************************************
+
+ciscoLwappAclMIB MODULE-IDENTITY
+    LAST-UPDATED    "201003040000Z"
+    ORGANIZATION    "Cisco Systems Inc."
+    CONTACT-INFO
+            "Cisco Systems,
+            Customer Service
+
+            Postal: 170 West Tasman Drive
+            San Jose, CA  95134
+            USA
+
+            Tel: +1 800 553-NETS
+
+            Email: cs-wnbu-snmp@cisco.com"
+    DESCRIPTION
+        "This MIB is intended to be implemented on all those
+        devices operating as Central Controllers (CC) that
+        terminate the Light Weight Access Point Protocol
+        tunnel from Light-weight LWAPP Access Points.
+
+        This MIB provides configuration and status information
+        about the ACLs on the controller.
+
+        Particularly this mib covers the CPU ACLs for the wireless
+        controllers.
+
+        Traffic to the controller CPU comes from the NPU (Network
+        Processing Unit).
+
+        Using CPU ACLs, the user can place restrictions on type of
+        traffic reaching the CPU of the controller from the NPU.      
+
+
+
+        CPU ACLs introduce an ACL for the traffic to the CPU of
+        controller. With this ACL the type of packets reaching the
+        CPU can be controlled. The mode of operation is as follows.
+
+        The administrator designates one ACL for the traffic to the
+        CPU. The ACL kicks in for packets from the NPU to the CPU.
+        Each ACL is an ordered set of rules. If a rule matches then
+        action for that rule is applied to the packet. The decision
+        to send or drop the packet is taken based on the action
+        parameter of the ACL.
+
+        There will be no ACL for the packets from the CPU to the
+        NPU.
+
+
+
+                                GLOSSARY                              
+
+
+        Access Control List ( ACL )
+
+        A list of rules used to restrict the traffic reaching an
+        interface or the CPU.  Each ACL is an ordered set of rules
+        and actions.  If a rule matches then the action for that 
+        rule is applied to the packet.
+
+
+
+        Access Point ( AP )
+
+        An entity that contains an 802.11 medium access control 
+        ( MAC ) and physical layer ( PHY ) interface and provides
+        acess to the distribution services via the wireless medium
+        for associated clients.
+
+
+        CPU ACL ( CPU ACL )
+
+        The ACL applied to the CPU.  This controls the type of 
+        traffic reaching the CPU of the controller.
+
+
+
+        Network Processing Unit ( NPU )
+
+        This entity is responsible for forwarding traffic to the
+        CPU. The only exceptions are data coming thorugh the 
+        console port and the Service port i.e. these communicate
+        directly with the CPU and not via the NPU.
+
+
+        Light Weight Access Point Protocol ( LWAPP )
+
+        This is a generic protocol that defines the communciation
+        between the Access Points and the Central Controller.
+
+
+
+        REFERENCE
+
+        [1] Part 11 Wireless LAN Medium Access Control ( MAC ) and
+        Physical Layer ( PHY ) Specifications."
+    REVISION        "201003040000Z"
+    DESCRIPTION
+        "Added claAclTable and claAclRuleTable."
+    REVISION        "200608290000Z"
+    DESCRIPTION
+        "Moved scalar attributes to claCpuAclTable."
+    REVISION        "200607190000Z"
+    DESCRIPTION
+        "Initial version of this MIB module."
+    ::= { ciscoMgmt 577 }
+
+
+ciscoLwappAclMIBNotifs  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIB 0 }
+
+ciscoLwappAclMIBObjects  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIB 1 }
+
+ciscoLwappAclMIBConform  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIB 2 }
+
+ciscoLwappCpuAcl  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIBObjects 1 }
+
+ciscoLwappControllerAcl  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIBObjects 2 }
+
+ciscoLwappControllerAclGeneral  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIBObjects 3 }
+
+
+claAclCounterEnable OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object represents the ACL Counters status
+        of the controller. Set this to 'true', if user 
+        wants to see if packets are hitting any 
+        of the ACLs that are configured on the controller"
+    DEFVAL          { false } 
+    ::= { ciscoLwappControllerAclGeneral 1 }
+
+claCpuAclTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClaCpuAclEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This table represents the ACL related parameters on the
+        CPU of the controller."
+    ::= { ciscoLwappCpuAcl 1 }
+
+claCpuAclEntry OBJECT-TYPE
+    SYNTAX          ClaCpuAclEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Each entry represents a conceptual row in this table.
+        For each CPU of the controller, there will be a row."
+    INDEX           { claCpuAclIndex } 
+    ::= { claCpuAclTable 1 }
+
+ClaCpuAclEntry ::= SEQUENCE {
+        claCpuAclIndex               Unsigned32,
+        claCpuAclName                DisplayString,
+        claCpuAclPacketApplicability INTEGER
+}
+
+claCpuAclIndex OBJECT-TYPE
+    SYNTAX          Unsigned32
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "This object uniquely identifies one instance of
+        a CPU on the controller." 
+    ::= { claCpuAclEntry 1 }
+
+claCpuAclName OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE  (0..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Name of the Access Control List applied to the CPU.
+        The access list to be applied should already exist
+
+        on the controller.  
+
+        If it is required to remove the ACL for the CPU,
+
+        this field should be set to an empty string." 
+    ::= { claCpuAclEntry 2 }
+
+claCpuAclPacketApplicability OBJECT-TYPE
+    SYNTAX          INTEGER  {
+                        none(1),
+                        wired(2),
+                        wireless(3),
+                        both(4)
+                    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This indicates whether the CPU ACL applies for only
+        wired(2) packets, only the wireless(3) packets
+
+        or both(4) types of packets.   
+
+        If there is no ACL applied to the CPU, then
+
+        this field will be set to none(1) .
+
+        If earlier there was no ACL applied to the CPU and the
+
+        user just sets the claCpuAclName attribute, then
+
+        this field will be set to both(4)." 
+    ::= { claCpuAclEntry 3 }
+ 
+
+
+claAclTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClaAclEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table listing ACLs (Access Control Lists)
+        and counter status on the Switch."
+    ::= { ciscoLwappControllerAcl 1 }
+
+claAclEntry OBJECT-TYPE
+    SYNTAX          ClaAclEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Each entry represents a conceptual row in this table.
+        For each ACL on the controller, there will be a row."
+    INDEX           { claAclName } 
+    ::= { claAclTable 1 }
+
+ClaAclEntry ::= SEQUENCE {
+        claAclName         OCTET STRING,
+        claAclCounterClear TruthValue
+}
+
+claAclName OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE  (1..32))
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Name of the Access Control List." 
+    ::= { claAclEntry 1 }
+
+claAclCounterClear OBJECT-TYPE
+    SYNTAX          TruthValue
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "This object when set to 'true', will clear the
+        counter of the ACL represented by the
+        unique ACL name." 
+    ::= { claAclEntry 2 }
+ 
+
+
+claAclRuleTable OBJECT-TYPE
+    SYNTAX          SEQUENCE OF ClaAclRuleEntry 
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "The table listing rules and number of hits under ACL on the
+        Switch."
+    ::= { ciscoLwappControllerAcl 2 }
+
+claAclRuleEntry OBJECT-TYPE
+    SYNTAX          ClaAclRuleEntry
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Each entry represents a conceptual row in this table.
+        For each ACL rule  of the controller, there will be a row."
+    INDEX           {
+                        claAclName,
+                        claAclRuleIndex
+                    } 
+    ::= { claAclRuleTable 1 }
+
+ClaAclRuleEntry ::= SEQUENCE {
+        claAclRuleIndex Unsigned32,
+        claAclRuleHits  Counter32
+}
+
+claAclRuleIndex OBJECT-TYPE
+    SYNTAX          Unsigned32 (1..64)
+    MAX-ACCESS      not-accessible
+    STATUS          current
+    DESCRIPTION
+        "Index of the ACL rule. This can be updated to reset the
+        sequence of the rules of an ACL." 
+    ::= { claAclRuleEntry 2 }
+
+claAclRuleHits OBJECT-TYPE
+    SYNTAX          Counter32
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Number of hits in the particular rule under the ACL.This object
+        is cleared by setting the claAclCounterClear object." 
+    ::= { claAclRuleEntry 3 }
+ 
+
+-- ********************************************************************
+-- *    Compliance statements
+-- ********************************************************************
+
+ciscoLwappAclMIBCompliances  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIBConform 1 }
+
+ciscoLwappAclMIBGroups  OBJECT IDENTIFIER
+    ::= { ciscoLwappAclMIBConform 2 }
+
+
+ciscoLwappAclMIBCompliance MODULE-COMPLIANCE
+    STATUS          deprecated
+    DESCRIPTION
+        "The compliance statement for the SNMP entities that
+        implement the ciscoLwappAclMIB module."
+    MODULE          -- this module
+    MANDATORY-GROUPS { ciscoLwappCpuAclGroup }
+    ::= { ciscoLwappAclMIBCompliances 1 }
+
+ciscoLwappAclMIBComplianceRev1 MODULE-COMPLIANCE
+    STATUS          current
+    DESCRIPTION
+        "The compliance statement for the SNMP entities that
+        implement the ciscoLwappAclMIB module."
+    MODULE          -- this module
+    MANDATORY-GROUPS {
+                        ciscoLwappCpuAclGroup,
+                        ciscoLwappAclGroup
+                    }
+    ::= { ciscoLwappAclMIBCompliances 2 }
+
+-- ********************************************************************
+-- *    Units of conformance
+-- ********************************************************************
+
+ciscoLwappCpuAclGroup OBJECT-GROUP
+    OBJECTS         {
+                        claCpuAclName,
+                        claCpuAclPacketApplicability
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represents the information
+        about the general attributes of CPU ACL."
+    ::= { ciscoLwappAclMIBGroups 1 }
+
+ciscoLwappAclGroup OBJECT-GROUP
+    OBJECTS         {
+                        claAclCounterEnable,
+                        claAclCounterClear,
+                        claAclRuleHits
+                    }
+    STATUS          current
+    DESCRIPTION
+        "This collection of objects represents the information
+        about the general attributes of controller ACL."
+    ::= { ciscoLwappAclMIBGroups 2 }
+
+END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
