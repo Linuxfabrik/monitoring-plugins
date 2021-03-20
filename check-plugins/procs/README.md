@@ -50,7 +50,7 @@ Requirements:
 
 # Example Output
 
-    352 tasks, 3 zombies (1x virt-manager, 1x firefox, 1x Privileged Cont), 349 sleeping|'procs'=352;;;0; 'procs_sleeping'=349;;;0; 'procs_running'=3;;;0; 'procs_uninterruptible'=0;;;0; 'procs_zombies'=0;;;0; 'procs_stopped'=0;;;0; 'procs_dead'=0;;;0;
+    349 tasks, 348 sleeping, 1 uninterruptible (1x glances)|'procs'=349;;;0; 'procs_sleeping'=348;;;0; 'procs_running'=0;;;0; 'procs_uninterruptible'=1;;;0; 'procs_zombies'=0;;;0; 'procs_stopped'=0;;;0; 'procs_dead'=0;;;0;
 
 
 # Credits, License
