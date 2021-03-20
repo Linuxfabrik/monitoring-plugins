@@ -1,21 +1,22 @@
 Python-based Monitoring Plugins Collection
 ==========================================
 
-This Enterprise Class Plugin Collection provides a bundle of more than eighty Python based plugins for Icinga, Naemon, Nagios, Shinken, Sensu, and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software runs these plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Plugin Collection provides a bundle of more than eighty Python based check plugins for Icinga, Naemon, Nagios, Shinken, Sensu, and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software runs these plugins to determine the current status of hosts and services on your network.
 
-All plugins are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+ - and some on Microsoft Windows, too.
+If you're looking for monitoring plugins that ...
 
-If you
+* are only written in Python (your main system language under RHEL / CentOS)
+* ensure easy access to the source code
+* are fast, reliable and use few system resources
+* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both under Linux and under Windows
+* use out of the box some sort of automatic detection using useful default settings
+* trigger WARNs and CRITs only where absolutely necessary
+* provide additional information on troubleshooting where possible
+* avoid dependencies on additional system libraries where possible
 
-- search for plugins that are all written in Python only (your main system language on RHEL/CentOS)
-- want to have an easy look into the source code of the plugins
-- want to use plugins that are fast, reliable and mainly focused on CentOS and Icinga2
-- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner, on Linux as well as on Windows
-- want to use plugins out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
-- are happy about plugins that provide some additional information to help you troubleshoot your system
-- want to use plugins that try to avoid 3rd party dependencies wherever possible
+... then these plugins could be for you. 
 
-... then these plugins might be for you.
+All plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows. Check out the ``check-plugin-fact-sheet.csv`` for further details.
 
 
 Donate
@@ -24,34 +25,22 @@ Donate
 |Donate|
 
 
-Python
-------
+Python 2 vs Python 3
+--------------------
 
-Python2
-~~~~~~~
+2021-03-20:
 
-All plugins are first written in Python 2 (suffixed by "2"), because ...
+* All checks are currently available for Python 2.
+* We are migrating them step by step to Python 3, currently around 30% of the checks are also available for Python 3.
+* We will stop maintaining the Python 2-based checks on December 31, 2021, focusing on Python 3 only.
 
-- in a datacenter environment (where these plugins are mainly used) the ``python == python2`` side is still more popular. - in CentOS 7, Python 2.7 is the default (Python3 became available in CentOS 7.8).
-- in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
-- support for Python 2 has ended, but not in CentOS 8 (Python 2 remains available in CentOS 8 until the late 2020's decade - for further details have a look at `https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/ <https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/>`_).
-
-Our plugins call Python 2 using ``#!/usr/bin/env python2``.
-
-
-Python3
-~~~~~~~
-
-There are already some Python 3 plugins available (suffixed by "3"; currently mainly for Windows). Check out the "Plugin Fact Sheet" at the end of this document.
-
-Our plugins call Python 3 using ``#!/usr/bin/env python3``.
-
+The Python 2-based plugins use ``#!/usr/bin/env python2``, whereas the Python 3-based plugins use ``#!/usr/bin/env python3``. 
 
 
 Libraries
-~~~~~~~~~
+---------
 
-We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the "Plugin Fact Sheet" at the end of this document.
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
 
 We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below or "Setting up your development environment" in :doc:`CONTRIBUTING` for instructions on using it with the plugins.
 
@@ -60,9 +49,9 @@ We make use of our own libraries, which you can find `here <https://git.linuxfab
 Roadmap
 -------
 
-* Every plugin is available fpr Python2 and Python3.
-* Every plugin is also tested on Windows.
-* Provide a unit test for every plugin.
+* Migrate every Plugin to Python 3.
+* Compile plugins for Windows (where it makes sense).
+* Provide a (unit) test for the majority of the plugins.
 * Automate the testing pipeline.
 
 
@@ -161,9 +150,11 @@ Your directory on ``monitoring-server`` should now look like this:
    |   |-- ...
    |-- ...
 
-To make the deployment easier, we deploy the monitoring plugins and libraries using `ansible <https://www.ansible.com/>`_. You can take a look at our `monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
+To make the deployment easier, we provide an `ansible  monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
 
 
+Configuration
+-------------
 
 Icinga (Icingaweb, Icinga Director)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -199,7 +190,7 @@ Tab "Fields"
 sudoers
 ~~~~~~~
 
-You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
+You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet" CSV.
 
 You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote server. For example:
 
