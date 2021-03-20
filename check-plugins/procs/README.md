@@ -48,6 +48,11 @@ Requirements:
 * `procs_dead`
 
 
+# Example Output
+
+    352 tasks, 3 zombies (1x virt-manager, 1x firefox, 1x Privileged Cont), 349 sleeping|'procs'=352;;;0; 'procs_sleeping'=349;;;0; 'procs_running'=3;;;0; 'procs_uninterruptible'=0;;;0; 'procs_zombies'=0;;;0; 'procs_stopped'=0;;;0; 'procs_dead'=0;;;0;
+
+
 # Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
