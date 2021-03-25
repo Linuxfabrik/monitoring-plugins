@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021031801'
+__version__ = '2021032501'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -31,6 +31,7 @@ DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request t
 #====================
 from lib.globals2 import *
 
+import lib.args2
 import lib.base2
 import lib.cache2
 import lib.disk2
@@ -162,6 +163,12 @@ def parse_args():
         dest='V3USERNAME',
         )
 
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+        )
     return parser.parse_args()
 
 
@@ -223,21 +230,53 @@ def main():
 
     # fetch the data: execute the shell command and return its result and exit code
     stdout = ''
-    for oid in oids:
-        tmp, stderr, retc = lib.base2.coe(
-            lib.base2.shell_exec(cmd.replace('_OIDS_', oid)))
-        if (stderr or retc != 0):
-            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
-        stdout += tmp
+    if args.TEST is None:
+        for oid in oids:
+            tmp, stderr, retc = lib.base2.coe(
+                lib.base2.shell_exec(cmd.replace('_OIDS_', oid)))
+            if (stderr or retc != 0):
+                lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
+            stdout += tmp
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r')
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r')
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+
+
+
+    def index_of_oid(snmp_objects, oid, start=0):
+        """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
+        idx = start
+        for snmp_object in snmp_objects[start:]:
+            if snmp_object[0] == oid:
+                return idx
+            idx += 1
+        return None
 
     # enrich snmp_objects with results from snmpget run
-    oid_index = 1   # first row in CSV is a header row, so start counting at 1
+    value = ''
+    oid_index = 0
     for row in stdout.splitlines():
         space_index = row.find(' ') # find first space char (the delimiter used by snmpget)
         oid = row[0:space_index]
-        value = row[space_index+1:].replace('Wrong Type (should be Timeticks): ', '').strip()
-        snmp_objects[oid_index].append(value)
-        oid_index += 1
+        oid_index = index_of_oid(snmp_objects, oid, oid_index + 1)
+        if oid_index is None:
+            # nothing found, oid_index is None
+            oid_index = 0
+        else:
+            value = row[space_index+1:].replace('Wrong Type (should be Timeticks): ', '').strip()
+            snmp_objects[oid_index].append(value)
 
     # init some vars
     msg, msg_header = '', ''
@@ -247,7 +286,10 @@ def main():
 
     # evaluate results
     for snmp_object in snmp_objects[1:]:
-
+        try: 
+            snmp_object[CSV_COL_VALUE]
+        except:
+            continue
         name = snmp_object[CSV_COL_NAME] if snmp_object[CSV_COL_NAME] else snmp_object[CSV_COL_OID]
         oid = snmp_object[CSV_COL_OID]
         value = snmp_object[CSV_COL_VALUE]
