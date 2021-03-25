@@ -4,6 +4,11 @@ The check calls `ipmitool sensor list` to fetch detailed sensor information. Run
 
 We recommend to run this check every 15 minutes.
 
+Tested against:
+
+* Supermicro
+* HPE iLO
+
 
 # Installation and Usage
 

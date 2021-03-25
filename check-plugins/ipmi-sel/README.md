@@ -4,6 +4,11 @@ The check calls `ipmitool sel elist` to fetch the IPMI System Event Log (SEL). I
 
 We recommend to run this check every 15 minutes.
 
+Tested against:
+
+* Supermicro
+* HPE iLO
+
 
 # Installation and Usage
 
