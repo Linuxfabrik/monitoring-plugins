@@ -12,6 +12,7 @@ Requirements:
 
 ```bash
 ./ipmi-sel
+./ipmi-sel --privlevel USER --interface lanplus --hostname 10.100.184.29 --username 'user' --password 'pa$$word'
 ./ipmi-sel --help
 ```
 
@@ -29,7 +30,7 @@ There is no perfdata.
 
 # Known Issues and Limitations
 
-* The check has to run locally and can't login remotely into an IPMI interface.
+* None.
 
 
 # Credits, License
