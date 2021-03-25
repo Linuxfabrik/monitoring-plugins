@@ -12,6 +12,7 @@ Requirements:
 
 ```bash
 ./ipmi-sensor
+./ipmi-sensor --privlevel USER --interface lanplus --hostname 10.100.184.29 --username 'user' --password 'pa$$word'
 ./ipmi-sensor --help
 ```
 
@@ -63,7 +64,6 @@ Depends on your hardware - as an example:
 
 # Known Issues and Limitations
 
-* The check has to run locally and can't login remotely into an IPMI interface.
 * "Discrete" sensors support is not implemented.
 
 
