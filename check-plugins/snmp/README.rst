@@ -140,7 +140,7 @@ IF-MIB::ifSpeed.1         NIC.1 Speed   int(value)                              
 IF-MIB::ifOperStatus.1    NIC.1 Status
 IF-MIB::ifOutOctets.1     NIC.1 tx      int(value)                               b,c
 IF-MIB::ifInOctets.1      NIC.1 rx      int(value)                               b,c
-                          NIC.1 Traffic values['NIC.1 tx'] + values['NIC.1 rx']  b,c
+<leave this empty>        NIC.1 Traffic values['NIC.1 tx'] + values['NIC.1 rx']  b,c
 ========================= ============= ======================================== ============ ===================== ===
 
 
