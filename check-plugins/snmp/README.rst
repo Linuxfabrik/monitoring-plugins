@@ -68,12 +68,10 @@ OID                       Name          Re-Calc            Unit Label   WARN    
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
 SNMPv2-MIB::sysName.0     Name                                                                                                 
 SNMPv2-MIB::sysLocation.0 Location                                                                                                         WARN
-SNMPv2-MIB::sysContact.0  Contact                                                                                              
-SNMPv2-MIB::sysDescr.0    Description                                                                                          
 SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True             
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
 
-If more than 128 OIDs are used, the check automatically splits them into chunks of 128 OIDs per SNMPGET request.
+The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request. 
 
 
 The columns in detail:
@@ -83,7 +81,7 @@ The columns in detail:
 * | Name
   | If provided, the check prints this instead of the OID.
 * | Re-Calc
-  | Feel free to use any Python Code based on the variable ``value``, which contains the result of the SNMPGET operation on the given OID.
+  | Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result of the SNMPGET operation on the given OID.
 * | Unit
   | This is the "Unit of Measurement", case-insensitiv.
 
@@ -109,8 +107,6 @@ The columns in detail:
 * | Report Change as
   | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``TMPDIR/linuxfabrik-plugin-cache.db``.
 
-The ``value`` returned by ``snmpget`` for a given *OID* is always a string. If you want to use it as an Integer, re-calculate it by specifying ``int(value)`` in column (SNMP knows nothing about floats).
-
 The output would be something like this::
 
     Uptime: 5m 1w
@@ -122,6 +118,30 @@ The output would be something like this::
     Contact     The Printer Man [OK]  
     Description Brother NC-350w [OK]  
     Uptime      5m 1w           [OK]|Uptime=13762718.93s;;;0;;
+
+
+
+Calculating and Comparing using ``value`` and ``values``
+--------------------------------------------------------
+
+``value`` contains the value of the *current* OID, simply and always as a Python string. ``values`` is a Python dictionary containing all *re-calculated* (or raw) values, up to this point. The dictionary keys are based on the "Name". If "Name" is not set, the dictionary keys are based on the "OID".
+
+The ``value`` returned by ``snmpget`` for a given *OID* is always a string. If you want to use it for calculations or integer-based comparisons, re-calculate it by specifying ``int(value)`` in column (SNMP knows nothing about floats).
+
+Both variables are allowed to be used in Python code in the columns "Re-Calc", "WARN" and "CRIT". This enables you to even warn in the current OID depending on previous values, for example.
+
+In the last three lines of this example we simply calculate "NIC.1 Traffic" as a sum of "NIC.1 rx" and "NIC.1 tx", for which there is no SNMP OID:
+
+========================= ============= ======================================== ============ ===================== ===
+OID                       Name          Re-Calc                                  Unit Label   WARN                  ...
+========================= ============= ======================================== ============ ===================== ===
+SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100                         s            value > 4*365*24*3600
+IF-MIB::ifSpeed.1         NIC.1 Speed   int(value)                               bps
+IF-MIB::ifOperStatus.1    NIC.1 Status
+IF-MIB::ifOutOctets.1     NIC.1 tx      int(value)                               b,c
+IF-MIB::ifInOctets.1      NIC.1 rx      int(value)                               b,c
+                          NIC.1 Traffic values['NIC.1 tx'] + values['NIC.1 rx']  b,c
+========================= ============= ======================================== ============ ===================== ===
 
 
 
@@ -172,6 +192,9 @@ I get ``Too many object identifiers specified. Only 128 allowed in one request.`
 
 I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``
     There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
+
+I get ``Error in packet. Reason: (tooBig) Response message would have been too large.``
+    A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
 
 Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
     If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``TMPDIR/linuxfabrik-plugin-cache.db``. On the next run of the plugin, it will recreate the inventory.
