@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021032501'
+__version__ = '2021032901'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -49,6 +49,8 @@ CSV_COL_CRIT = 5
 CSV_COL_SIFL = 6
 CSV_COL_RCA = 7
 CSV_COL_VALUE = 8
+
+MAX_OIDS_PER_REQUEST = 25
 
 
 def parse_args():
@@ -214,14 +216,16 @@ def main():
     cmd += '{} '.format(args.HOSTNAME) if args.HOSTNAME else ''
     cmd += '_OIDS_'
 
-    # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks
+    # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
+    # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
+    # only ask for 25 OIDs per request.
     oids = []
     count = 0
     tmp = ''
     for snmp_object in snmp_objects[1:]:        # ignore the header row in csv
         tmp += '{} '.format(snmp_object[CSV_COL_OID])
         count += 1
-        if count == 128:
+        if count == MAX_OIDS_PER_REQUEST:
             oids.append(tmp)
             count = 0
             tmp = ''
@@ -282,18 +286,22 @@ def main():
     msg, msg_header = '', ''
     state = STATE_OK
     perfdata = ''
+    values = {}     # all values in a single dict, for re-calc column
     table_values = []
 
     # evaluate results
     for snmp_object in snmp_objects[1:]:
         try: 
-            snmp_object[CSV_COL_VALUE]
+            value = snmp_object[CSV_COL_VALUE]
         except:
-            continue
+            # we got no value from snmpget
+            value = None
+
         name = snmp_object[CSV_COL_NAME] if snmp_object[CSV_COL_NAME] else snmp_object[CSV_COL_OID]
         oid = snmp_object[CSV_COL_OID]
-        value = snmp_object[CSV_COL_VALUE]
-        if value.lower().startswith('no such '):
+
+        # snmpget error handling
+        if not value is None and value.lower().startswith('no such '):
             # No Such Instance currently exists at this OID
             # No Such Object available on this agent at this OID
             table_values.append({
@@ -312,19 +320,20 @@ def main():
         show_in_first_line = snmp_object[CSV_COL_SIFL]
         report_change = snmp_object[CSV_COL_RCA]
 
-        if value and recalc:
-            value = eval(recalc, {}, {'value': value})
+        if recalc:
+            value = eval(recalc, {}, {'value': value, 'values': values})
+        values[name] = value
 
         # check the state
         check_state = True
         value_state = STATE_OK
         if check_state and crit:
-            if eval(crit, {}, {'value': value}):
+            if eval(crit, {}, {'value': value, 'values': values}):
                 value_state = STATE_CRIT
                 msg_header += '{}: {}{} (CRIT), '.format(name, value, unit)
                 check_state = False   # no more checks for this value necessary
         if check_state and warn:
-            if eval(warn, {}, {'value': value}):
+            if eval(warn, {}, {'value': value, 'values': values}):
                 value_state = STATE_WARN
                 msg_header += '{}: {}{} (WARN), '.format(name, value, unit)
                 check_state = False
