@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021032901'
+__version__ = '2021033102'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -321,7 +321,16 @@ def main():
         report_change = snmp_object[CSV_COL_RCA]
 
         if recalc:
-            value = eval(recalc, {}, {'value': value, 'values': values})
+            try:
+                value = eval(recalc, {}, {'value': value, 'values': values})
+            except Exception as e:
+                table_values.append({
+                    'name': name,
+                    'value': "The recalc in {} failed with {}: '{}'.".format(args.DEVICE, type(e).__name__, e.message),
+                    'state': lib.base2.state2str(STATE_UNKNOWN),
+                    })
+                state = lib.base2.get_worst(state, STATE_UNKNOWN)
+                continue
         values[name] = value
 
         # check the state
