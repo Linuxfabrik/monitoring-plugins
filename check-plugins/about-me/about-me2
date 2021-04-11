@@ -114,6 +114,8 @@ def get_apps():
     apps += 'Brother Printer SW, '              if os.path.isdir('/opt/brother') else ''
     apps += 'Collabora Office 5.3, '            if os.path.isdir('/opt/collaboraoffice5.3') else ''
     apps += 'Collabora Office 6.0, '            if os.path.isdir('/opt/collaboraoffice6.0') else ''
+    apps += 'Collabora Office 6.2, '            if os.path.isdir('/opt/collaboraoffice6.2') else ''
+    apps += 'Collabora Office 6.4, '            if os.path.isdir('/opt/collaboraoffice6.4') else ''
     apps += 'DCM4CHEE, '                        if os.path.isdir('/opt/dcm4chee') else ''
     apps += 'F5 VPN SW, '                       if os.path.isdir('/opt/f5/vpn') else ''
     apps += 'GitLab, '                          if os.path.isdir('/opt/gitlab') else ''
@@ -126,10 +128,12 @@ def get_apps():
     apps += 'Medidata (eFaktura), '             if os.path.isdir('/opt/MPCommunicator') else ''
     apps += 'Metabase, '                        if os.path.isdir('/opt/metabase') else ''
     apps += 'NodeBB, '                          if os.path.isdir('/opt/nodebb') else ''
+    apps += 'PHP 7.0 (RH), '                    if os.path.isdir('/opt/rh/rh-php70') else ''
     apps += 'PHP 7.1 (RH), '                    if os.path.isdir('/opt/rh/rh-php71') else ''
     apps += 'PHP 7.2 (RH), '                    if os.path.isdir('/opt/rh/rh-php72') else ''
     apps += 'PHP 7.3 (RH), '                    if os.path.isdir('/opt/rh/rh-php73') else ''
     apps += 'PHP 7.4 (RH), '                    if os.path.isdir('/opt/rh/rh-php74') else ''
+    apps += 'PHP 8.0 (RH), '                    if os.path.isdir('/opt/rh/rh-php80') else ''
     apps += 'PostgreSQL 9.0 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql90') else ''
     apps += 'PostgreSQL 9.1 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql91') else ''
     apps += 'PostgreSQL 9.2 (RH), '             if os.path.isdir('/opt/rh/rh-postgresql92') else ''
@@ -200,14 +204,16 @@ def get_sw():
     sw = ''
 
     sw += find_command('Apache httpd',              'httpd -v',                  version_regex=r'Apache/(.*) ')
+    sw += find_command('Apache Tomcat',             'tomcat version',            version_regex=r'Server Version: Apache Tomcat/(.*) ')
     sw += find_command('BIND',                      'named -v',                  version_regex=r'^BIND (.*?)-')
     sw += find_command('Borg',                      'borg --version',            version_regex=r' (.*)')
-    sw += find_command('ClamAV',                    'clamd --version',           version_regex=r' (.*)/')
-    sw += find_command('Containerd',                'containerd --version',      version_regex=r' (.*) ')
-    sw += find_command('Docker',                    'docker --version',          version_regex=r' version (.*?),')
+    sw += find_command('ClamAV',                    'clamd --version',           version_regex=r' (.*) ')
+    sw += find_command('Containerd',                'containerd --version',      version_regex=r'\.io (.*) ')
+    sw += find_command('Docker/Podman',             'docker --version',          version_regex=r' (\d+\d?\.\d+\d?.\d+\d?)')
     sw += find_command('Docker Compose',            'docker-compose --version',  version_regex=r' version (.*?),')
     sw += find_command('Erlang', 'erl -h')
     sw += find_command('Fail2ban Server',           'fail2ban-server --version', version_regex=r' v(.*)')
+    sw += find_command('Firefox',                   'firefox --version',         version_regex=r' Firefox (.*)')
     sw += find_command('FreeIPA',                   'ipa --version',             version_regex=r' (.*?),')
     sw += find_command('Git',                       'git --version',             version_regex=r'git version (.*)')
     sw += find_command('Glances',                   'glances --version',         version_regex=r'Glances v(.*?) ')
@@ -217,17 +223,20 @@ def get_sw():
     sw += find_command('Java',                      'java -version',             version_regex=r'(.*)').replace('version ', '').replace('"', '')
     sw += find_command('LibreOffice',               'libreoffice --version',     version_regex=r' (.*?) ')
     sw += find_command('LibreOffice Online (LOOL)', 'loolwsd -h')
+    sw += find_command('Lighttpd',                  'lighttpd -v',               version_regex=r'lighttpd/(.*) -')
     tmp = find_command('MySQL',                     'mysqld --version',          version_regex=r'Ver (.*?) ')
     if 'MariaDB' in tmp:
         tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
     sw += tmp
     sw += find_command('MongoDB',                   'mongod --version',          version_regex=r'db version v(.*?)\n')
+    sw += find_command('Nginx',                     'nginx -v',                  version_regex=r'nginx version: nginx/(.*)')
     sw += find_command('Node',                      'node --version',            version_regex=r'v(.*)')
     sw += find_command('NodeJS',                    'nodejs --version',          version_regex=r'v(.*)')
     sw += find_command('npm',                       'npm --version',             version_regex=r'(.*)')
     sw += find_command('OpenSSL',                   'openssl version',           version_regex=r' (.*?) ')
     sw += find_command('Perl',                      'perl --version',            version_regex=r' \(v(.*?)\) ')
     sw += find_command('PHP',                       'php --version',             version_regex=r'PHP (.*?) \(.*')
+    sw += find_command('pip',                       'pip --version',             version_regex=r'pip (.*) from')
     sw += find_command('PostgreSQL',                'psql --version',            version_regex=r'\(PostgreSQL\) (.*)')
     sw += find_command('Python mapped to',          'python --version',          version_regex=r' (.*)')
     sw += find_command('Python2',                   'python2 --version',         version_regex=r' (.*)')
@@ -309,6 +318,7 @@ def main():
     perfdata += lib.base2.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
     perfdata += lib.base2.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += lib.base2.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('osversion', platform.linux_distribution()[1].replace('.', ''), None, None, None, None, None)
 
     lib.base2.oao(msg, STATE_OK, perfdata)
 
