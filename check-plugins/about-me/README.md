@@ -32,6 +32,7 @@ Requirements:
 * cpu: Number of CPUs
 * ram: Size of memory
 * disks: Number of disks
+* osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened.
 
 
 # Credits, License
