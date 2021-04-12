@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021040901'
+__version__ = '2021041202'
 
 DESCRIPTION = 'This check prints various statistics for all running Docker containers, in much the same way as the Unix application top, using the "docker stats" command.'
 
@@ -254,13 +254,8 @@ def main():
             msg += '"{}" memory {}% {}, '.format(name, mem_usage, lib.base2.state2str(mem_state))
         state = lib.base2.get_worst(mem_state, state)
 
-        # alert when docker consumes too much host ram
+        # for alerting when docker consumes too much host ram
         host_mem_usage += mem_usage
-        perfdata += lib.base2.get_perfdata('host_mem_usage', host_mem_usage, '%', args.WARN_MEM, args.CRIT_MEM, 0, 100)
-        host_mem_state = lib.base2.get_state(host_mem_usage, args.WARN_MEM, args.CRIT_MEM)
-        if host_mem_state != STATE_OK:
-            msg += 'Host memory {}% {}, '.format(host_mem_usage, lib.base2.state2str(host_mem_state))
-        state = lib.base2.get_worst(host_mem_state, state)
 
         # net rx, tx
         # since we do not know the bandwidth, we cannot issue a warning here
@@ -315,6 +310,12 @@ def main():
     # we don't need the database any more: save data and close connection
     lib.db_sqlite2.commit(conn)
     lib.db_sqlite2.close(conn)
+
+    perfdata += lib.base2.get_perfdata('host_mem_usage', host_mem_usage, '%', args.WARN_MEM, args.CRIT_MEM, 0, 100)
+    host_mem_state = lib.base2.get_state(host_mem_usage, args.WARN_MEM, args.CRIT_MEM)
+    if host_mem_state != STATE_OK:
+        msg += 'Host memory {}% {}, '.format(host_mem_usage, lib.base2.state2str(host_mem_state))
+    state = lib.base2.get_worst(host_mem_state, state)
 
 
     # create output
