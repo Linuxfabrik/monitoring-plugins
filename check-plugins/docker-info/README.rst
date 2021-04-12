@@ -4,7 +4,7 @@ Check "docker-info"
 Overview
 --------
 
-Displays system-wide docker or podman information. We recommend to run this check every 5 minutes.
+Displays system-wide docker or podman information. We recommend to run this once a day.
 
 
 Installation and Usage
@@ -19,7 +19,7 @@ Requirements:
     ./docker-info
     ./docker-info --always-ok
     ./docker-info --help
-```
+
 
 States
 ------
@@ -37,9 +37,9 @@ Perfdata
     * containers_running
     * containers_stopped
 
-* cpus: Number of Host CPUs
+* cpu: Number of Host CPUs
 * images: Number of images
-* memory: Total Host Memory
+* ram: Total Host Memory
 
 
 Troubleshooting
