@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041001'
+__version__ = '2021041202'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -122,12 +122,12 @@ def main():
         containers_stopped = result['store']['containerStore']['stopped']
         perfdata += lib.base2.get_perfdata('containers_stopped', containers_stopped, None, None, None, 0, None)
         cpus = result['host']['cpus']
-        perfdata += lib.base2.get_perfdata('cpus', cpus, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('cpu', cpus, None, None, None, 0, None)
         images = result['store']['imageStore']['number']
         perfdata += lib.base2.get_perfdata('images', images, None, None, None, 0, None)
         logging_driver = result['host']['eventLogger']
         memory = result['host']['memTotal']
-        perfdata += lib.base2.get_perfdata('memory', memory, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('ram', memory, None, None, None, 0, None)
         registry = len(result['registries']['search'])
         storage_driver = result['store']['graphDriverName']
         ver = result['version']['Version']
@@ -148,7 +148,7 @@ def main():
                 perfdata += lib.base2.get_perfdata('containers_stopped', containers_stopped, None, None, None, 0, None)
             if ' cpus: ' in lcrow:
                 cpus = lcrow.replace('cpus: ', '').strip()
-                perfdata += lib.base2.get_perfdata('cpus', cpus, None, None, None, 0, None)
+                perfdata += lib.base2.get_perfdata('cpu', cpus, None, None, None, 0, None)
             if ' images: ' in lcrow:
                 images = lcrow.replace('images: ', '').strip()
                 perfdata += lib.base2.get_perfdata('images', images, None, None, None, 0, None)
@@ -156,7 +156,7 @@ def main():
                 logging_driver = lcrow.replace('logging driver: ', '').strip()
             if ' total memory: ' in lcrow:
                 memory = row.replace('Total Memory: ', '').strip()
-                perfdata += lib.base2.get_perfdata('memory', lib.base2.human2bytes(memory), 'b', None, None, 0, None)
+                perfdata += lib.base2.get_perfdata('ram', lib.base2.human2bytes(memory), 'b', None, None, 0, None)
             if ' registry: ' in lcrow:
                 registry = lcrow.replace('registry: ', '').strip()
             if ' storage driver: ' in lcrow:
@@ -168,12 +168,10 @@ def main():
             lcrow = row.lower()
             if 'warning: ' in lcrow:
                 warn += '{}, '.format(row)
-                if not args.ALWAYS_OK:
-                    state = lib.base2.get_worst(state, STATE_WARN)
+                state = lib.base2.get_worst(state, STATE_WARN)
             if 'error: ' in lcrow:
                 crit += '{}, '.format(row)
-                if not args.ALWAYS_OK:
-                    state = lib.base2.get_worst(state, STATE_CRIT)
+                state = lib.base2.get_worst(state, STATE_CRIT)
 
     # create output
     if crit:
@@ -207,7 +205,7 @@ def main():
         msg += ', {} Memory'.format(memory)
 
     # over and out
-    lib.base2.oao(msg, state, perfdata)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
