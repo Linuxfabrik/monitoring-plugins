@@ -1,4 +1,4 @@
-Check "wildfly-state"
+Check "wildfly-stats"
 =====================
 
 Overview
