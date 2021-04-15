@@ -1,0 +1,623 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+# inspired by
+# * https://github.com/aparnachaudhary/nagios-plugin-jbossas7/blob/82c9aaeaa336cafc86816408ed1d47dd0d83eb15/check_jbossas7.py#L121
+# * https://github.com/gtudan/nagios-plugin-wildlfy/blob/master/check_wildfly.py
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021041501'
+
+DESCRIPTION = 'Checks the health of a Wildfly/JBossAS over HTTP.'
+
+DEFAULT_CRIT = 90
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:9990'
+DEFAULT_USERNAME = 'wildfly-admin'
+DEFAULT_WARN = 80
+
+
+#====================
+from lib.globals2 import *
+
+import lib.args2
+import lib.base2
+import lib.url2
+
+import argparse
+import json
+from pprint import pprint
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--action',
+        help='The action you want to take.',
+        choices=[
+            'deployment-status',
+            'garbage-collector',
+            'heap-usage',
+            'memory-pool-usage',
+            'non-heap-usage',
+            'non-xa-datasource',
+            'server-status',
+            'threading',
+            'uptime',
+            'xa-datasource',
+        ],
+        default = 'server-status',
+        dest='ACTION',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--critical',
+        help='Set the critical threshold.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--datasource',
+        help='The datasource name for which you want to retrieve statistics',
+        dest='DATASOURCE_NAME',
+    )
+
+    parser.add_argument(
+        '--instance',
+        help='The instance (server-config) to check if running in domain mode.',
+        dest='INSTANCE',
+    )
+
+    parser.add_argument(
+        '--mode',
+        help='The mode the server is running.',
+        dest='MODE',
+        choices=['standalone', 'domain'],
+        default='standalone',
+    )
+
+    parser.add_argument(
+        '--node',
+        help='The node (host) if running in domain mode.',
+        dest='NODE',
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='WildFly API password.',
+        dest='PASSWORD',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--url',
+        help='WildFly API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument(
+        '--username',
+        help='WildFly API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        required=True,
+        )
+
+    parser.add_argument(
+        '--warning',
+        help='Set the warning threshold.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+
+    return parser.parse_args()
+
+
+def get_data(args, data, url=''):
+    url = args.URL + '/management' + url
+    if args.MODE == 'domain':
+        url = '/host/{}/server/{}'.format(args.NODE, args.INSTANCE) + url
+    header = {'Content-Type': 'application/json'}
+    result = lib.base2.coe(lib.url2.fetch_json(
+        url, timeout=args.TIMEOUT,
+        header=header, data=data,
+        digest_auth_user=args.USERNAME, digest_auth_password=args.PASSWORD,
+        encoding='serialized-json'
+        ))
+    if result['outcome'] != 'success':
+        lib.base2.oao('Error fetching data: "{}"'.format(res), STATE_UNKNOWN, perfdata, always_ok=args.ALWAYS_OK)
+    return result['result']
+
+
+
+def check_deployment_status(args):
+    data = {
+        'operation': 'read-attribute',
+        # /deployment/*
+        'address': [{'deployment': '*'}],
+        'name': 'status',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    
+    msg = '\n\n'
+    perfdata = ''
+    state = STATE_OK
+    deployments = 0
+
+    for result in res:
+        deployment = { k: v for d in result.get('address') for k, v in d.items() }.get('deployment')
+        deployments += 1
+        if result.get('result') in ['OK', 'RUNNING']:
+            local_state = STATE_OK
+            perfdata += lib.base2.get_perfdata('deployment-state-{}'.format(deployment), 0, None, None, None, 0, 2)
+        elif result.get('result') in ['STOPPED']:
+            local_state = STATE_WARN
+            perfdata += lib.base2.get_perfdata('deployment-state-{}'.format(deployment), 1, None, None, None, 0, 2)
+        else:
+            local_state = STATE_CRIT
+            perfdata += lib.base2.get_perfdata('deployment-state-{}'.format(deployment), 2, None, None, None, 0, 2)
+        state = lib.base2.get_worst(state, local_state)
+        msg += '* {} is {}{}\n'.format(deployment, result.get('result'), lib.base2.state2str(local_state, prefix=' '))
+
+    if state == STATE_OK:
+        msg = '{} {} checked, everything is ok.'.format(deployments, lib.base2.pluralize('Deployment', deployments)) + msg
+    else:
+        msg = '{} {} checked, there are errors.'.format(deployments, lib.base2.pluralize('Deployment', deployments)) + msg
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_garbage_collector(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /core-service/platform-mbean/type/garbage-collector
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'garbage-collector'}],
+        'json': 1,    }
+    res = get_data(args, data)
+
+    msg = 'GC Statistics (time/count/avg). '
+    perfdata = ''
+    state = STATE_OK
+
+    for name, value in res['name'].items():
+        gc_time = value['collection-time']
+        gc_count = value['collection-count']
+        avg_gc_time = 0
+        if gc_count > 0:
+            avg_gc_time = float(gc_time / gc_count)
+        perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-time'.format(name), gc_time, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-count'.format(name), gc_count, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-avgtime'.format(name), avg_gc_time, None, None, None, 0, None)
+        local_state = lib.base2.get_state(avg_gc_time, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{}: {}/{}/{}{}, '.format(name, gc_time, gc_count, avg_gc_time, lib.base2.state2str(local_state, prefix=' '))
+
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_heap_usage(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        # /core-service/platform-mbean/type/memory
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+    
+    mem_used = res['heap-memory-usage']['used']
+    mem_committed = res['heap-memory-usage']['committed']
+    mem_max = res['heap-memory-usage']['max']
+
+    used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
+    used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+    committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
+    committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
+
+    msg = 'Heap used: {}% ({} of {}){}, Heap committed: {}% ({} of {}){}, '.format(
+        used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+        committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max), lib.base2.state2str(committed_state, prefix=' '),
+    )
+    state = lib.base2.get_worst(used_state, committed_state)
+    perfdata = lib.base2.get_perfdata('heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base2.get_perfdata('heap-committed-percent', committed_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('heap-used', mem_used, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('heap-max', mem_max, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('heap-committed', mem_committed, 'b', None, None, 0, mem_max)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_non_heap_usage(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        # /core-service/platform-mbean/type/memory
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+    
+    mem_used = res['non-heap-memory-usage']['used']
+    mem_committed = res['non-heap-memory-usage']['committed']
+    mem_max = res['non-heap-memory-usage']['max']
+
+    used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
+    used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+    committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
+    committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
+
+    msg = 'Non-Heap used: {}% ({} of {}){}, Non-Heap committed: {}% ({} of {}){}, '.format(
+        used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+        committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max), lib.base2.state2str(committed_state, prefix=' '),
+    )
+    state = lib.base2.get_worst(used_state, committed_state)
+    perfdata = lib.base2.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base2.get_perfdata('non-heap-committed-percent', committed_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('non-heap-used', mem_used, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('non-heap-max', mem_max, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('non-heap-committed', mem_committed, 'b', None, None, 0, mem_max)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_memory_pool_usage(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /core-service/platform-mbean/type/memory-pool
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory-pool'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+
+    msg = '\n\n'
+    perfdata = ''
+    state = STATE_OK
+    pools = 0
+
+    for name, value in res['name'].items():
+        pools += 1
+
+        mem_used = value['usage']['used']
+        mem_committed = value['usage']['committed']
+        mem_max = value['usage']['max']
+
+        used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
+        used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+        committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
+        committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
+        #state = lib.base2.get_worst(state, lib.base2.get_worst(used_state, committed_state))
+        state = lib.base2.get_worst(state, used_state)
+        
+        if value['collection-usage-threshold-exceeded'] is None or value['collection-usage-threshold-exceeded'] == False:
+            threshold_state = STATE_OK
+        else:
+            threshold_state = STATE_WARN
+        state = lib.base2.get_worst(state, threshold_state)        
+
+        msg += '* {} - Memory used: {}% ({} of {}){}, Memory committed: {}% ({} of {})'.format(
+            name,
+            used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+            committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max))
+        if threshold_state != STATE_OK:
+            msg += ', Collection Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
+        msg += '\n'
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed-percent'.format(name), committed_percent, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-used'.format(name), mem_used, 'b', None, None, 0, mem_max)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-max'.format(name), mem_max, 'b', None, None, 0, mem_max)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed'.format(name), mem_committed, 'b', None, None, 0, mem_max)
+
+    if state == STATE_OK:
+        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base2.pluralize('Pool', pools)) + msg
+    else:
+        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base2.pluralize('Pool', pools)) + msg
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_non_xa_datasource(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /subsystem/datasources/data-source/" + ds_name + "/statistics/pool/
+        'address': [{'subsystem': 'datasources'}, {'data-source': '*'}, {'statistics': 'pool'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+
+    ds_stat_types = [
+        'ActiveCount',
+        'AvailableCount',
+        'AverageBlockingTime',
+        'AverageCreationTime',
+        'AverageGetTime',
+        'AveragePoolTime',
+        'AverageUsageTime',
+        'BlockingFailureCount',
+        'CreatedCount',
+        'DestroyedCount',
+        'IdleCount',
+        'InUseCount',
+        'MaxUsedCount',
+        'MaxWaitTime',
+        'TimedOut',
+        'WaitCount',
+    ]
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    for ds in res:
+        name = ''
+        # get the datasource name
+        for v in ds['address']:
+            if 'data-source' in v:
+                name = v['data-source']
+                break
+        msg += '{} - '.format(name)
+        tmp = ''
+        for metric in ds_stat_types:
+            if metric in ds['result']:
+                if ds['result'][metric] > 0:
+                    tmp += '{}: {}, '.format(metric, ds['result'][metric])
+                perfdata += lib.base2.get_perfdata('non-xa-datasource-{}-{}'.format(name, metric), ds['result'][metric], None, None, None, 0, None)
+        msg += '"{}, '.format(tmp) if tmp != '' else 'no interesting data, '
+    
+    if msg:
+        lib.base2.oao('Non-XA Datasources Statistics. {}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base2.oao('Non-XA Datasources Statistics - none.', state)
+
+
+def check_server_status(args):
+    data = {
+        'operation': 'read-attribute',
+        'name': 'server-state',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    
+    if res == 'running':
+        state = STATE_OK
+        retc = 0
+    elif res in ['reload-required', 'restart-required']:
+        state = STATE_WARN
+        retc = 1
+    else:
+        state = STATE_CRIT
+        retc = 2
+    msg = 'Server status "{}"{}, '.format(res, lib.base2.state2str(state, prefix=' '))
+    perfdata = lib.base2.get_perfdata('server-state', retc, None, None, None, 0, 2)
+
+    data = {
+        'operation': 'read-attribute',
+        'name': 'launch-type',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    msg += 'Launch Type {}, '.format(res)
+
+    data = {
+        'operation': 'read-attribute',
+        'name': 'running-mode',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    msg += 'Running Mode {}, '.format(res)
+
+    data = {
+        'operation': 'read-attribute',
+        'name': 'product-version',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    if res is None:
+        data = {
+            'operation': 'read-attribute',
+            'name': 'release-version',
+            'json': 1,
+        }
+        res = get_data(args, data)
+    msg += 'v{}'.format(res)
+
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_threading(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        # /core-service/platform-mbean/type/threading
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'threading'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+
+    thread_stat_types = [
+        'daemon-thread-count',
+        'thread-count',
+    ]
+
+    msg = 'Threading Statistics. '
+    perfdata = ''
+    state = STATE_OK
+
+    tmp = ''
+    for metric in thread_stat_types:
+        if metric in res:
+            local_state = lib.base2.get_state(res[metric], args.WARN, args.CRIT)
+            state = lib.base2.get_worst(local_state, state)
+            msg += '{}: {}{}, '.format(metric, res[metric], lib.base2.state2str(local_state, prefix=' '))
+            perfdata += lib.base2.get_perfdata('threading-{}'.format(metric), res[metric], None, None, None, 0, None)
+
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_uptime(args):
+    # /core-service/platform-mbean/type/memory
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'runtime'}],
+        'name': 'status',
+        'json': 1,
+    }
+    res = get_data(args, data)
+    
+    CRIT = int(args.CRIT)*24*60*60
+    WARN = int(args.WARN)*24*60*60
+    uptime = res['uptime'] / 1000
+
+    msg = 'Up {}'.format(lib.base2.seconds2human(uptime))
+    perfdata = lib.base2.get_perfdata('uptime', uptime, 's', WARN, CRIT, 0, None)
+    state = lib.base2.get_state(uptime, WARN, CRIT)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_xa_datasource(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /subsystem/datasources/xa-data-source/" + ds_name + "/statistics/pool/
+        'address': [{'subsystem': 'datasources'}, {'xa-data-source': '*'}, {'statistics': 'pool'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+
+    ds_stat_types = [
+        'ActiveCount',
+        'AvailableCount',
+        'AverageBlockingTime',
+        'AverageCreationTime',
+        'AverageGetTime',
+        'AveragePoolTime',
+        'AverageUsageTime',
+        'BlockingFailureCount',
+        'CreatedCount',
+        'DestroyedCount',
+        'IdleCount',
+        'InUseCount',
+        'MaxUsedCount',
+        'MaxWaitTime',
+        'TimedOut',
+        'WaitCount',
+    ]
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    for ds in res:
+        name = ''
+        # get the datasource name
+        for v in ds['address']:
+            if 'xa-data-source' in v:
+                name = v['xa-data-source']
+                break
+        msg += '{} - '.format(name)
+        tmp = ''
+        for metric in ds_stat_types:
+            if metric in ds['result']:
+                if ds['result'][metric] > 0:
+                    tmp += '{}: {}, '.format(metric, ds['result'][metric])
+                perfdata += lib.base2.get_perfdata('xa-datasource-{}-{}'.format(name, metric), ds['result'][metric], None, None, None, 0, None)
+        msg += '{} ,'.format(tmp) if tmp != '' else 'no interesting data, '
+        
+    if msg:
+        lib.base2.oao('XA Datasources Statistics. {}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base2.oao('XA Datasources Statistics - none.', state)
+
+        
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # fetch and analyze data
+    # https://docs.wildfly.org/23/Admin_Guide.html
+
+    if args.ACTION == 'deployment-status':
+        return check_deployment_status(args)
+    if args.ACTION == 'garbage-collector':
+        return check_garbage_collector(args)
+    if args.ACTION == 'heap-usage':
+        return check_heap_usage(args)
+    if args.ACTION == 'memory-pool-usage':
+        return check_memory_pool_usage(args)
+    if args.ACTION == 'non-heap-usage':
+        return check_non_heap_usage(args)
+    if args.ACTION == 'non-xa-datasource':
+        return check_non_xa_datasource(args)
+    if args.ACTION == 'server-status':
+        return check_server_status(args)
+    if args.ACTION == 'threading':
+        return check_threading(args)
+    if args.ACTION == 'uptime':
+        return check_uptime(args)
+    if args.ACTION == 'xa-datasource':
+        return check_xa_datasource(args)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)
