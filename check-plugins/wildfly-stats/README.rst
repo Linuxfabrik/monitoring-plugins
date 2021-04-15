@@ -36,8 +36,8 @@ Perfdata:
 * deployment-state-<name>: 0 (STATE_OK), 1 (STATE_WARN), 2 (STATE_CRIT)
 
 
-Garbage Collector
------------------
+Garbage Collector Status
+------------------------
 
 Triggers an alarm on absolute values.
 
