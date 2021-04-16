@@ -27,7 +27,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041601'
+__version__ = '2021041602'
 
 DESCRIPTION = 'Checks the health of a Wildfly/JBossAS over HTTP.'
 
@@ -92,12 +92,6 @@ def parse_args():
         help='Set the critical threshold.',
         dest='CRIT',
         default=DEFAULT_CRIT,
-    )
-
-    parser.add_argument(
-        '--datasource',
-        help='The datasource name for which you want to retrieve statistics',
-        dest='DATASOURCE_NAME',
     )
 
     parser.add_argument(
@@ -277,38 +271,6 @@ def check_heap_usage(args):
     lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
-def check_non_heap_usage(args):
-    data = {
-        'operation': 'read-resource',
-        'include-runtime': 'true',
-        # /core-service/platform-mbean/type/memory
-        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory'}],
-        'json': 1,
-    }
-    res = get_data(args, data)
-    
-    mem_used = res['non-heap-memory-usage']['used']
-    mem_committed = res['non-heap-memory-usage']['committed']
-    mem_max = res['non-heap-memory-usage']['max']
-
-    used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
-    used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-    committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
-    committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
-
-    msg = 'Non-Heap used: {}% ({} of {}){}, Non-Heap committed: {}% ({} of {}){}, '.format(
-        used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
-        committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max), lib.base2.state2str(committed_state, prefix=' '),
-    )
-    state = lib.base2.get_worst(used_state, committed_state)
-    perfdata = lib.base2.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata = lib.base2.get_perfdata('non-heap-committed-percent', committed_percent, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base2.get_perfdata('non-heap-used', mem_used, 'b', None, None, 0, mem_max)
-    perfdata += lib.base2.get_perfdata('non-heap-max', mem_max, 'b', None, None, 0, mem_max)
-    perfdata += lib.base2.get_perfdata('non-heap-committed', mem_committed, 'b', None, None, 0, mem_max)
-    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
-
-
 def check_memory_pool_usage(args):
     data = {
         'operation': 'read-resource',
@@ -363,6 +325,38 @@ def check_memory_pool_usage(args):
     else:
         msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base2.pluralize('Pool', pools)) + msg
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def check_non_heap_usage(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        # /core-service/platform-mbean/type/memory
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory'}],
+        'json': 1,
+    }
+    res = get_data(args, data)
+
+    mem_used = res['non-heap-memory-usage']['used']
+    mem_committed = res['non-heap-memory-usage']['committed']
+    mem_max = res['non-heap-memory-usage']['max']
+
+    used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
+    used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+    committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
+    committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
+
+    msg = 'Non-Heap used: {}% ({} of {}){}, Non-Heap committed: {}% ({} of {}){}, '.format(
+        used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+        committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max), lib.base2.state2str(committed_state, prefix=' '),
+    )
+    state = lib.base2.get_worst(used_state, committed_state)
+    perfdata = lib.base2.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base2.get_perfdata('non-heap-committed-percent', committed_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('non-heap-used', mem_used, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('non-heap-max', mem_max, 'b', None, None, 0, mem_max)
+    perfdata += lib.base2.get_perfdata('non-heap-committed', mem_committed, 'b', None, None, 0, mem_max)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 def check_non_xa_datasource(args):
