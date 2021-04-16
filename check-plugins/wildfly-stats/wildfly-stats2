@@ -27,7 +27,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041501'
+__version__ = '2021041601'
 
 DESCRIPTION = 'Checks the health of a Wildfly/JBossAS over HTTP.'
 
@@ -225,22 +225,22 @@ def check_garbage_collector(args):
         'json': 1,    }
     res = get_data(args, data)
 
-    msg = 'GC Statistics (time/count/avg). '
+    msg = 'GC Statistics (time/count/avr). '
     perfdata = ''
     state = STATE_OK
 
     for name, value in res['name'].items():
         gc_time = value['collection-time']
         gc_count = value['collection-count']
-        avg_gc_time = 0
+        avr_gc_time = 0
         if gc_count > 0:
-            avg_gc_time = float(gc_time / gc_count)
+            avr_gc_time = float(gc_time / gc_count)
         perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-time'.format(name), gc_time, None, None, None, 0, None)
         perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-count'.format(name), gc_count, None, None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-avgtime'.format(name), avg_gc_time, None, None, None, 0, None)
-        local_state = lib.base2.get_state(avg_gc_time, args.WARN, args.CRIT)
+        perfdata += lib.base2.get_perfdata('garbage-collector-{}-collection-avrtime'.format(name), avr_gc_time, None, None, None, 0, None)
+        local_state = lib.base2.get_state(avr_gc_time, args.WARN, args.CRIT)
         state = lib.base2.get_worst(state, local_state)
-        msg += '{}: {}/{}/{}{}, '.format(name, gc_time, gc_count, avg_gc_time, lib.base2.state2str(local_state, prefix=' '))
+        msg += '{}: {}/{}/{}{}, '.format(name, gc_time, gc_count, avr_gc_time, lib.base2.state2str(local_state, prefix=' '))
 
     lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
