@@ -9,6 +9,25 @@ This check plugin monitors a WildFly server, using its HTTP-JSON based API (JBos
 Tested with WildFly 11 and WildFly 23.
 
 
+Meaningful Thresholds for Actions
+---------------------------------
+
+==================  ===============================================
+--action            Meaningful values for --warning and --critical
+==================  ===============================================
+deployment-status   not supported
+garbage-collector   --warning 500 --critical 1000
+heap-usage          --warning 80 --critical 90
+memory-pool-usage   --warning 80 --critical 90
+non-heap-usage      --warning 80 --critical 90
+non-xa-datasource   not supported
+server-status       not supported
+threading           --warning 100 --critical 200
+uptime              --warning 180 --critical 366
+xa-datasource       not supported
+==================  ===============================================
+
+
 Deployment Status
 -----------------
 
@@ -43,7 +62,7 @@ Triggers an alarm on absolute values.
 
 .. code-block:: bash
 
-    ./wildfly-stats2 --username wildfly-admin --password password --url http://wildfly:9990 --warning 500 --critical 1000 --action garbage-collector
+    ./wildfly-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 500 --critical 1000 --action garbage-collector
 
 Output::
 
@@ -93,7 +112,7 @@ Triggers an alarm on usage in percent.
 
 .. code-block:: bash
 
-    ./wildfly-stats2 --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90 --action memory-pool-usage
+    ./wildfly-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90 --action memory-pool-usage
 
 Output::
 
@@ -153,7 +172,7 @@ Never triggers an alarm.
 
 .. code-block:: bash
 
-    ./wildfly-stats2 --username wildfly-admin --password password --url http://wildfly:9990 --action non-xa-datasource
+    ./wildfly-stats --username wildfly-admin --password password --url http://wildfly:9990 --action non-xa-datasource
 
 Output::
 
@@ -214,7 +233,7 @@ Triggers an alarm on absolute values.
 
 .. code-block:: bash
 
-    ./wildfly-stats2 --username wildfly-admin --password password --url http://wildfly:9990 --warning 100 --critical 200  --action threading
+    ./wildfly-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 100 --critical 200  --action threading
 
 Output::
 
@@ -254,11 +273,11 @@ Never triggers an alarm.
 
 .. code-block:: bash
 
-    ./wildfly-stats2 --username wildfly-admin --password password --url http://wildfly:9990 --action non-xa-datasource
+    ./wildfly-stats --username wildfly-admin --password password --url http://wildfly:9990 --action xa-datasource
 
 Output::
 
-    Non-XA Datasources Statistics. H2DS - no interesting data, H2DSAA - no interesting data, H2DSxxx - no interesting data
+    XA Datasources Statistics. H2DS - no interesting data, H2DSAA - no interesting data, H2DSxxx - no interesting data
 
 States:
 
