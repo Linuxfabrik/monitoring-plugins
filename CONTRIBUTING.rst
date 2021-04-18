@@ -1,5 +1,23 @@
-Linuxfabrik's Icinga Plugin Developer Guidelines
-================================================
+Linuxfabrik's Check Plugin Developer Guidelines
+===============================================
+
+Monitoring of an Application 
+----------------------------
+
+Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check.
+
+Avoid:
+
+* ``myapp --action threading --warning 1500 --critical 2000``
+* ``myapp --action memory-usage --warning 80 --critical 90``
+* ``myapp --action deployment-status`` (warning and critical command line options not supported)
+
+Better write three separate checks:
+
+* ``myapp-threading --warning 1500 --critical 2000``
+* ``myapp-memory-usage --warning 80 --critical 90`` 
+* ``myapp-deployment-status``
+
 
 Setting up your development environment
 ---------------------------------------
@@ -71,6 +89,7 @@ For all other options, use long parameters only. We recommend using some of thos
 ::
 
     --activestate
+    --action
     --always-ok
     --cache-expire
     --channel
@@ -96,6 +115,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --no-kthreads
     --no-proxy
     --no-summary
+    --node
     --path
     --portname
     --prefix
