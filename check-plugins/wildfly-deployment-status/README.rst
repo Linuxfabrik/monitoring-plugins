@@ -8,6 +8,8 @@ This check plugin monitors the deployment status of a WildFly server, using its 
 
 Tested with WildFly 11 and WildFly 23.
 
+We recommend running this check every minute.
+
 
 Installation and Usage
 ----------------------

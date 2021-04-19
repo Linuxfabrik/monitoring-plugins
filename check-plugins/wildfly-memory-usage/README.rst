@@ -8,6 +8,8 @@ This check plugin monitors the heap and non-heap memory usage of a WildFly serve
 
 Tested with WildFly 11 and WildFly 23.
 
+We recommend running this check every minute.
+
 
 Installation and Usage
 ----------------------
