@@ -1,0 +1,177 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021041901'
+
+DESCRIPTION = 'This plugin checks for PHP startup errors, missing modules and misconfigured php.ini directives.'
+
+DEFAULT_CONFIG = [ 'date.timezone=Europe' ]
+DEFAULT_MODULES = [
+    'bz2', 'calendar', 'Core', 'ctype', 'curl', 'date', 'exif',
+    'fileinfo', 'filter', 'ftp', 'gettext', 'hash', 'iconv',
+    'json', 'libxml', 'openssl', 'pcntl', 'pcre', 'Phar',
+    'readline', 'Reflection', 'session', 'shmop', 'SimpleXML',
+    'sockets', 'SPL', 'standard', 'tokenizer', 'xml', 'zip', 'zlib', 
+]
+
+
+#====================
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.base2
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('--config',
+        help='"key=value" pairs to check (startswith), for example `--config "memory_limit=128M"` (repeating)',
+        dest='CONFIG',
+        action='append',
+        default=DEFAULT_CONFIG,
+        )
+
+    parser.add_argument('--module',
+        help='"modulename" to check (startswith), for example `--module json --module mbstring` (repeating)',
+        dest='MODULES',
+        action='append',
+        default=DEFAULT_MODULES,
+        )
+
+    return parser.parse_args()
+
+
+def get_startup_errors():
+    success, result = lib.base2.shell_exec('php --version 1> /dev/null')
+    if not success:
+        lib.base2.oao('PHP not found', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    return stderr
+
+
+def get_config(args):
+    success, result = lib.base2.shell_exec('php --info 2> /dev/null')
+    if not success:
+        lib.base2.oao('PHP not found', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    php_config = stdout.lower()
+    result = ''
+    for config in args.CONFIG:
+        try:
+            key, value = config.split('=')
+            key = key.strip()
+            value = value.strip()
+        except:
+            continue
+        if '{} => {}'.format(key.lower(), value.lower()) not in php_config:
+            result += '{} = {}, '.format(key, value)
+    return result
+
+
+def get_module(args):
+    success, result = lib.base2.shell_exec('php --modules 2> /dev/null')
+    if not success:
+        lib.base2.oao('PHP not found', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    php_modules = stdout.lower()
+    result = ''
+    for module in args.MODULES:
+        if module.lower() not in php_modules:
+            result += '{}, '.format(module)
+    return result
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    startup_errors = get_startup_errors()
+    if startup_errors:
+        msg += startup_errors
+        state = lib.base2.get_worst(state, STATE_WARN)
+        perfdata += lib.base2.get_perfdata('php-startup-errors', 1, None, 1, 2, 0, 3)
+    else:
+        perfdata += lib.base2.get_perfdata('php-startup-errors', 0, None, 1, 2, 0, 3)
+    
+    config_errors = get_config(args)
+    if config_errors:
+        if msg:
+            msg += '; '
+        msg += 'Config errors: {}'.format(config_errors[:-2])
+        state = lib.base2.get_worst(state, STATE_WARN)
+        perfdata += lib.base2.get_perfdata('php-config-errors', 1, None, 1, 2, 0, 3)
+    else:
+        perfdata += lib.base2.get_perfdata('php-config-errors', 0, None, 1, 2, 0, 3)
+
+    module_errors = get_module(args)
+    if module_errors:
+        if msg:
+            msg += '; '
+        msg += 'Module errors: {}'.format(module_errors[:-2])
+        state = lib.base2.get_worst(state, STATE_WARN)
+        perfdata += lib.base2.get_perfdata('php-module-errors', 1, None, 1, 2, 0, 3)
+    else:
+        perfdata += lib.base2.get_perfdata('php-module-errors', 0, None, 1, 2, 0, 3)
+
+    # get the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
