@@ -12,6 +12,21 @@ We recommend to run this check every minute.
 Installation and Usage
 ----------------------
 
+Enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
+
+.. code-block::
+    :caption: /etc/nginx/nginx.conf
+
+    server {
+        location /server-status {
+            stub_status;
+            allow 127.0.0.1;    # only allow requests from localhost
+            deny all;           # deny all other hosts   
+         }
+    }
+
+Fetch the status data:
+
 .. code-block:: bash
 
     ./nginx-status --url http://nginx/server-status --warning 460 --critical 486
@@ -24,8 +39,8 @@ Output::
 States
 ------
 
-* WARN if total handled connections is not equal to the number of handled requests.
-* WARN or CRIT if active connections are above a given threshold
+* WARN if the number of total handled connections is not equal to the number of total handled requests.
+* WARN or CRIT if the active connections are above the specified thresholds.
 
 
 Perfdata
