@@ -8,7 +8,7 @@ This check plugin returns metrics of XA datasources of a WildFly server, using i
 
 Tested with WildFly 11 and WildFly 23.
 
-We recommend running this check every minute.
+The check recognizes if a datasource does not support statistics. We recommend running this check every minute.
 
 
 Installation and Usage
