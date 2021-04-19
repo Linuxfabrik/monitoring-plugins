@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041601'
+__version__ = '2021041801'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -127,7 +127,7 @@ def main():
         perfdata += lib.base3.get_perfdata('images', images, None, None, None, 0, None)
         logging_driver = result['host']['eventLogger']
         memory = result['host']['memTotal']
-        perfdata += lib.base3.get_perfdata('ram', memory, 'b', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('ram', memory, 'B', None, None, 0, None)
         registry = len(result['registries']['search'])
         storage_driver = result['store']['graphDriverName']
         ver = result['version']['Version']
@@ -156,7 +156,7 @@ def main():
                 logging_driver = lcrow.replace('logging driver: ', '').strip()
             if ' total memory: ' in lcrow:
                 memory = row.replace('Total Memory: ', '').strip()
-                perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(memory), 'b', None, None, 0, None)
+                perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(memory), 'B', None, None, 0, None)
             if ' registry: ' in lcrow:
                 registry = lcrow.replace('registry: ', '').strip()
             if ' storage driver: ' in lcrow:
