@@ -14,8 +14,8 @@ Installation and Usage
 
 .. code-block:: bash
 
-    ./php-status2
-    ./php-status2 --config date.timezone=Europe/Zurich --config memory_limit=256M --module mbstring --module GD
+    ./php-status
+    ./php-status --config date.timezone=Europe/Zurich --config memory_limit=256M --module mbstring --module GD
 
 
 States
