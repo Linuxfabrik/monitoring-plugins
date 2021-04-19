@@ -27,13 +27,15 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041901'
+__version__ = '2021041902'
 
 DESCRIPTION = 'Returns metrics about Non-XA Datasources of a Wildfly/JBossAS over HTTP.'
 
+DEFAULT_CRIT = 90
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-admin'
+DEFAULT_WARN = 80
 
 
 #====================
@@ -62,6 +64,13 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+        )
+
+    parser.add_argument(
+        '--critical',
+        help='Set the critical threshold.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
         )
 
     parser.add_argument(
@@ -114,6 +123,13 @@ def parse_args():
         required=True,
         )
 
+    parser.add_argument(
+        '--warning',
+        help='Set the warning threshold.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+        )
+
     return parser.parse_args()
 
 
@@ -128,28 +144,26 @@ def check_non_xa_datasource(args):
     }
     res = lib.wildfly2.get_data(args, data)
 
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
     ds_stat_types = [
-        'ActiveCount',
-        'AvailableCount',
-        'AverageBlockingTime',
-        'AverageCreationTime',
-        'AverageGetTime',
-        'AveragePoolTime',
-        'AverageUsageTime',
         'BlockingFailureCount',
         'CreatedCount',
         'DestroyedCount',
         'IdleCount',
         'InUseCount',
-        'MaxUsedCount',
-        'MaxWaitTime',
-        'TimedOut',
+        'MaxWaitCount',
         'WaitCount',
+        'XACommitCount',
+        'XAEndCount',
+        'XAForgetCount',
+        'XAPrepareCount',
+        'XARecoverCount',
+        'XARollbackCount',
+        'XAStartCount',
     ]
-
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
 
     for ds in res:
         name = ''
@@ -158,19 +172,47 @@ def check_non_xa_datasource(args):
             if 'data-source' in v:
                 name = v['data-source']
                 break
-        msg += '{} - '.format(name)
-        tmp = ''
+
+        available = int(ds['result']['AvailableCount'])
+        if available == 0:
+            msg += 'Statistics are not enabled for data source {}; '.format(name)
+            continue
+
+        msg += '{}: '.format(name)
+
+        active = int(ds['result']['ActiveCount'])
+        max_used = int(ds['result']['MaxUsedCount'])
+        if available != 0:
+            active_pct = round(float(active) / float(available) * 100, 1)
+            max_used_pct = round(float(max_used) / float(available) * 100, 1)
+        else:
+            active_pct = 0
+            max_used_pct = 0
+
+        local_state = lib.base2.get_state(active_pct, args.WARN, args.CRIT)
+        msg += '{}% active used ({}/{}){}, '.format(active_pct, active, available, lib.base2.state2str(local_state, prefix=' '))
+        state = lib.base2.get_worst(local_state, state)
+
+        local_state = lib.base2.get_state(active_pct, args.WARN, args.CRIT)
+        msg += '{}% max used ({}/{}){}, '.format(max_used_pct, max_used, available, lib.base2.state2str(local_state, prefix=' '))
+        state = lib.base2.get_worst(local_state, state)
+
+        perfdata += lib.base2.get_perfdata('non-xa-ds-{}-active-pct'.format(name), active_pct, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('non-xa-ds-{}-active'.format(name), active, None, None, None, 0, available)
+        perfdata += lib.base2.get_perfdata('non-xa-ds-{}-maxused-pct'.format(name), max_used_pct, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('non-xa-ds-{}-maxused'.format(name), max_used, None, None, None, 0, available)
+
         for metric in ds_stat_types:
             if metric in ds['result']:
                 if ds['result'][metric] > 0:
-                    tmp += '{}: {}, '.format(metric, ds['result'][metric])
-                perfdata += lib.base2.get_perfdata('non-xa-datasource-{}-{}'.format(name, metric), ds['result'][metric], None, None, None, 0, None)
-        msg += '{}, '.format(tmp) if tmp != '' else 'no interesting data, '
+                    msg += '{}={}, '.format(metric, ds['result'][metric])
+                perfdata += lib.base2.get_perfdata('non-xa-ds-{}-{}'.format(name, metric.lower()), ds['result'][metric], None, None, None, 0, None)
+        msg = msg[:-2] + '; '
 
     if msg:
-        lib.base2.oao('Non-XA Datasources Statistics. {}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base2.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
     else:
-        lib.base2.oao('Non-XA Datasources Statistics - none.', state)
+        lib.base2.oao('No datasources found.', state)
 
 
 def main():

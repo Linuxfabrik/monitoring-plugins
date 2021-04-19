@@ -8,46 +8,50 @@ This check plugin returns metrics of Non-XA datasources of a WildFly server, usi
 
 Tested with WildFly 11 and WildFly 23.
 
+We recommend running this check every minute.
+
 
 Installation and Usage
 ----------------------
 
 .. code-block:: bash
 
-    ./wildfly-non-xa-datasource-stats --username wildfly-admin --password password --url http://wildfly:9990
+    ./wildfly-non-xa-datasource-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90
 
 Output::
 
-    Non-XA Datasources Statistics. H2DS - no interesting data, H2DSAA - no interesting data, H2DSxxx - no interesting data
+    MyFirstDS: 0.0% active used (0/20), 0.0% max used (0/20); Statistics are not enabled for data source MySecondDS
 
 
 States
 ------
 
-Never triggers an alarm.
+Triggers an alarm on usage in percent.
 
-* Always returns OK
+* WARN or CRIT if active or max used datapool connections are above certain thresholds (default 80/90%).
 
 
 Perfdata
 --------
 
-* non-xa-datasource-<name>-ActiveCount
-* non-xa-datasource-<name>-AvailableCount
-* non-xa-datasource-<name>-AverageBlockingTime
-* non-xa-datasource-<name>-AverageCreationTime
-* non-xa-datasource-<name>-AverageGetTime
-* non-xa-datasource-<name>-AveragePoolTime
-* non-xa-datasource-<name>-AverageUsageTime
-* non-xa-datasource-<name>-BlockingFailureCount
-* non-xa-datasource-<name>-CreatedCount
-* non-xa-datasource-<name>-DestroyedCount
-* non-xa-datasource-<name>-IdleCount
-* non-xa-datasource-<name>-InUseCount
-* non-xa-datasource-<name>-MaxUsedCount
-* non-xa-datasource-<name>-MaxWaitTime
-* non-xa-datasource-<name>-TimedOut
-* non-xa-datasource-<name>-WaitCount
+* non-xa-ds-<name>-active
+* non-xa-ds-<name>-active-pct: Usage in Percent
+* non-xa-ds-<name>-blockingfailurecount
+* non-xa-ds-<name>-createdcount
+* non-xa-ds-<name>-destroyedcount
+* non-xa-ds-<name>-idlecount
+* non-xa-ds-<name>-inusecount
+* non-xa-ds-<name>-maxused
+* non-xa-ds-<name>-maxused-pct: Usage in Percent
+* non-xa-ds-<name>-maxwaitcount
+* non-xa-ds-<name>-waitcount
+* non-xa-ds-<name>-xacommitcount
+* non-xa-ds-<name>-xaendcount
+* non-xa-ds-<name>-xaforgetcount
+* non-xa-ds-<name>-xapreparecount
+* non-xa-ds-<name>-xarecovercount
+* non-xa-ds-<name>-xarollbackcount
+* non-xa-ds-<name>-xastartcount
 
 
 Credits, License
