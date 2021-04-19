@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041202'
+__version__ = '2021041801'
 
 DESCRIPTION = 'This check prints various statistics for all running Docker containers, in much the same way as the Unix application top, using the "docker stats" command.'
 
@@ -213,7 +213,7 @@ def main():
 
     # evaluate results
     perfdata += lib.base2.get_perfdata('cpu', host_cpus, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('ram', lib.base2.human2bytes(host_mem), 'b', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ram', lib.base2.human2bytes(host_mem), 'B', None, None, 0, None)
 
     now = lib.base2.now()
     host_mem_usage, rx_bps, tx_bps, block_in_bytespersec, block_out_bytespersec = 0, 0, 0, 0, 0
@@ -261,9 +261,9 @@ def main():
         # since we do not know the bandwidth, we cannot issue a warning here
         # but we can calculate the bps
         rx = lib.base2.human2bytes(net_in)
-        perfdata += lib.base2.get_perfdata('{}_rx'.format(name), rx, 'b', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_rx'.format(name), rx, 'B', None, None, 0, None)
         tx = lib.base2.human2bytes(net_out)
-        perfdata += lib.base2.get_perfdata('{}_tx'.format(name), tx, 'b', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_tx'.format(name), tx, 'B', None, None, 0, None)
 
         rx *= 8
         tx *= 8
@@ -280,9 +280,9 @@ def main():
         # since we do not know the bandwidth, we cannot issue a warning here
         # but we can calculate bytes per second
         block_in = lib.base2.human2bytes(block_in)
-        perfdata += lib.base2.get_perfdata('{}_block_in'.format(name), block_in, 'b', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_block_in'.format(name), block_in, 'B', None, None, 0, None)
         block_out = lib.base2.human2bytes(block_out)
-        perfdata += lib.base2.get_perfdata('{}_block_out'.format(name), block_out, 'b', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_block_out'.format(name), block_out, 'B', None, None, 0, None)
 
         prev_block = get_block_from_db(conn, name)
         if prev_block:
