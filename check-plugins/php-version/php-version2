@@ -1,0 +1,129 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import re
+import sys
+from traceback import print_exc
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+import lib.base2
+import lib.cache2
+import lib.url2 
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021041901'
+
+DESCRIPTION = 'This plugin lets you track if php updates are available.'
+
+DEFAULT_CACHE_EXPIRE = 24 # hours
+
+
+#====================
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+        )
+
+    return parser.parse_args()
+
+
+def get_installed_version():
+    success, result = lib.base2.shell_exec('php --version')
+    if not success:
+        return ''
+    stdout, stderr, retc = result
+    stdout = stdout.strip()
+    # where to find the version number in output?
+    version_regex = r'PHP (.*?) \(.*'
+    try:
+        stdout = re.search(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def get_latest_version(major, minor, expire):
+    # get version online, but first from cache
+    latest_version = lib.cache2.get('php-{}.{}-version'.format(major, minor))
+    if latest_version:
+        return latest_version
+
+    # nothing found in cache, get the latest version
+    jsonst = lib.base2.coe(lib.url2.fetch_json('https://www.php.net/releases/index.php?json&version={}.{}'.format(major, minor)))
+    try:
+        latest_version = jsonst['version']
+        lib.cache2.set('php-{}.{}-version'.format(major, minor), latest_version, lib.base2.now() + expire)
+        return latest_version
+    except:
+        lib.base2.oao('Unknown PHP version', STATE_UNKNOWN)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    installed_version = get_installed_version()
+    if not installed_version:
+        lib.base2.oao('PHP not found', STATE_UNKNOWN)
+    major, minor, patch = installed_version.split('.')
+    perfdata = lib.base2.get_perfdata('php-version', float('{}.{}{}'.format(major, minor, patch)), None, None, None, 0, None)
+    latest_version = get_latest_version(major, minor, args.CACHE_EXPIRE*60*60)
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
+        lib.base2.oao('PHP v{} is up to date'.format(installed_version), STATE_OK, perfdata)
+    lib.base2.oao('PHP v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
