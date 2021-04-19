@@ -31,11 +31,11 @@ __version__ = '2021041901'
 
 DESCRIPTION = 'Checks the thread utilization of a Wildfly/JBossAS over HTTP.'
 
-DEFAULT_CRIT = 200
+DEFAULT_CRIT = 90
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-admin'
-DEFAULT_WARN = 100
+DEFAULT_WARN = 80
 
 
 #====================
@@ -143,24 +143,19 @@ def check_threading(args):
     }
     res = lib.wildfly2.get_data(args, data)
 
-    thread_stat_types = [
-        'daemon-thread-count',
-        'thread-count',
-    ]
+    daemon_thread_count = int(res['daemon-thread-count'])
+    thread_count = int(res['thread-count'])
+    if daemon_thread_count != 0:
+        thread_pct = round(float(daemon_thread_count) / float(thread_count) * 100, 1)
+    else:
+        thread_pct = 0
 
-    msg = 'Threading Statistics. '
-    perfdata = ''
-    state = STATE_OK
+    msg = '{}% used ({}/{} threads)'.format(thread_pct, daemon_thread_count, thread_count)
+    perfdata = lib.base2.get_perfdata('thread-pct', thread_pct, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('thread-count', daemon_thread_count, None, None, None, 0, thread_count)
+    state = lib.base2.get_state(thread_pct, args.WARN, args.CRIT)
 
-    tmp = ''
-    for metric in thread_stat_types:
-        if metric in res:
-            local_state = lib.base2.get_state(res[metric], args.WARN, args.CRIT)
-            state = lib.base2.get_worst(local_state, state)
-            msg += '{}: {}{}, '.format(metric, res[metric], lib.base2.state2str(local_state, prefix=' '))
-            perfdata += lib.base2.get_perfdata('threading-{}'.format(metric), res[metric], None, None, None, 0, None)
-
-    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 def main():

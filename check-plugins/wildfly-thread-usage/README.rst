@@ -1,5 +1,5 @@
-Check "wildfly-threading-stats"
-===============================
+Check "wildfly-thread-usage"
+============================
 
 Overview
 --------
@@ -14,26 +14,26 @@ Installation and Usage
 
 .. code-block:: bash
 
-    ./wildfly-threading-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 100 --critical 200
+    ./wildfly-thread-usage --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90
 
 Output::
 
-    Threading Statistics. daemon-thread-count: 18, thread-count: 56
+    32.1% used (18/56 threads)
 
 
 States
 ------
 
-Triggers an alarm on absolute values.
+Triggers an alarm on usage in percent.
 
-* WARN or CRIT if thread counts are above certain thresholds (default 100/200).
+* WARN or CRIT if thread counts are above certain thresholds (default 80/90%).
 
 
 Perfdata
 --------
 
-* threading-daemon-thread-count
-* threading-thread-count
+* thread-pct
+* thread-count
 
 
 Credits, License
