@@ -8,46 +8,50 @@ This check plugin returns metrics of XA datasources of a WildFly server, using i
 
 Tested with WildFly 11 and WildFly 23.
 
+We recommend running this check every minute.
+
 
 Installation and Usage
 ----------------------
 
 .. code-block:: bash
 
-    ./wildfly-xa-datasource-stats --username wildfly-admin --password password --url http://wildfly:9990
+    ./wildfly-xa-datasource-stats --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90
 
 Output::
 
-    XA Datasources Statistics. H2DS - no interesting data, H2DSAA - no interesting data, H2DSxxx - no interesting data
+    MyFirstDS: 0.0% active used (0/20), 0.0% max used (0/20); Statistics are not enabled for data source MySecondDS
 
 
 States
 ------
 
-Never triggers an alarm.
+Triggers an alarm on usage in percent.
 
-* Always returns OK
+* WARN or CRIT if active or max used datapool connections are above certain thresholds (default 80/90%).
 
 
 Perfdata
 --------
 
-* xa-datasource-<name>-ActiveCount
-* xa-datasource-<name>-AvailableCount
-* xa-datasource-<name>-AverageBlockingTime
-* xa-datasource-<name>-AverageCreationTime
-* xa-datasource-<name>-AverageGetTime
-* xa-datasource-<name>-AveragePoolTime
-* xa-datasource-<name>-AverageUsageTime
-* xa-datasource-<name>-BlockingFailureCount
-* xa-datasource-<name>-CreatedCount
-* xa-datasource-<name>-DestroyedCount
-* xa-datasource-<name>-IdleCount
-* xa-datasource-<name>-InUseCount
-* xa-datasource-<name>-MaxUsedCount
-* xa-datasource-<name>-MaxWaitTime
-* xa-datasource-<name>-TimedOut
-* xa-datasource-<name>-WaitCount
+* xa-ds-<name>-active
+* xa-ds-<name>-active-pct: Usage in Percent
+* xa-ds-<name>-blockingfailurecount
+* xa-ds-<name>-createdcount
+* xa-ds-<name>-destroyedcount
+* xa-ds-<name>-idlecount
+* xa-ds-<name>-inusecount
+* xa-ds-<name>-maxused
+* xa-ds-<name>-maxused-pct: Usage in Percent
+* xa-ds-<name>-maxwaitcount
+* xa-ds-<name>-waitcount
+* xa-ds-<name>-xacommitcount
+* xa-ds-<name>-xaendcount
+* xa-ds-<name>-xaforgetcount
+* xa-ds-<name>-xapreparecount
+* xa-ds-<name>-xarecovercount
+* xa-ds-<name>-xarollbackcount
+* xa-ds-<name>-xastartcount
 
 
 Credits, License
