@@ -1,0 +1,178 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021041901'
+
+DESCRIPTION = 'This check provides NGINX basic status information.'
+
+DEFAULT_URL = 'http://localhost/server-status'
+DEFAULT_WARN = 460       # active connections
+DEFAULT_CRIT = 486       # active connections
+
+
+#====================
+from lib.globals3 import *
+
+import lib.args3
+import lib.base3
+import lib.url3
+
+import argparse
+import json
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('-c', '--critical', 
+        help='Set the CRIT threshold for the number of active connections. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument('-u', '--url',
+        help='NGINX Server Status URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument('-w', '--warning',
+        help='Set the WARN threshold for the number of active connections. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    parser.add_argument('--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+
+    # fetch data, get docker or podman info
+    if args.TEST is None:
+        URL = args.URL
+        if URL[0:4] != 'http':
+            lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+
+        # fetch the URL
+        result = lib.base3.coe(lib.url3.fetch(URL)).decode()
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r')
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r')
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+        result = stdout
+
+    result = result.strip().split('\n')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    #   Active connections: 2 
+    #   server accepts handled requests
+    #    2 2 3 
+    #   Reading: 0 Writing: 1 Waiting: 1     
+    tmp, active_connections = result[0].strip().split(':')
+    total_connections_accepted, total_connections_handled, total_requests = result[2].strip().split(' ')
+    requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
+    tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
+
+    # identify any alerts
+    if total_connections_handled != total_connections_accepted:
+        state = STATE_WARN
+        msg += 'Some resource limits have been reached (for example, the worker_connections limit). '
+    conn_state = lib.base3.get_state(active_connections, args.WARN, args.CRIT, operator='ge')
+    state = lib.base3.get_worst(conn_state, state)
+
+    # build the message
+    msg += '{} active concurrent {}{}; {} accepted {}, {} handled {}, {} {}; {} req per conn; currently {} receiving {}, {} sending {}, {} keep-alive {}'.format(
+        active_connections, lib.base3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
+        total_connections_accepted, lib.base3.pluralize('conn', total_connections_accepted),
+        total_connections_handled, lib.base3.pluralize('conn', total_connections_handled),
+        total_requests, lib.base3.pluralize('req', total_requests),
+        requests_per_connection,
+        connections_reading, lib.base3.pluralize('req', connections_reading),
+        connections_writing, lib.base3.pluralize('response', connections_writing),
+        connections_waiting, lib.base3.pluralize('conn', connections_waiting),
+        )
+    perfdata += lib.base3.get_perfdata('connections_active', active_connections, None, None, None, 0, args.CRIT)
+    perfdata += lib.base3.get_perfdata('total_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('total_connections_handled', total_connections_handled, 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('total_requests', total_requests, 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('requests_per_connection', requests_per_connection, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('connections_reading', connections_reading, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('connections_writing', connections_writing, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('connections_waiting', connections_waiting, None, None, None, 0, None)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)
