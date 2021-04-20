@@ -27,7 +27,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041901'
+__version__ = '2021042002'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -144,48 +144,65 @@ def check_memory_pool_usage(args):
     }
     res = lib.wildfly2.get_data(args, data)
 
-    msg = '\n\n'
+    msg_heap = '\n\nHeap:\n'
+    msg_non_heap = '\nNon-Heap:\n'
     perfdata = ''
     state = STATE_OK
     pools = 0
 
     for name, value in res['name'].items():
+        name = name.replace("'", '').replace('"', '')
         pools += 1
 
         mem_used = value['usage']['used']
         mem_committed = value['usage']['committed']
         mem_max = value['usage']['max']
-
-        used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
-        used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-        committed_percent = round((float(mem_committed) / float(mem_max) * 100), 2)
-        committed_state = lib.base2.get_state(committed_percent, args.WARN, args.CRIT, 'ge')
-        #state = lib.base2.get_worst(state, lib.base2.get_worst(used_state, committed_state))
-        state = lib.base2.get_worst(state, used_state)
-        
-        if value['collection-usage-threshold-exceeded'] is None or value['collection-usage-threshold-exceeded'] == False:
-            threshold_state = STATE_OK
+        if mem_max != -1:
+            used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
         else:
-            threshold_state = STATE_WARN
-        state = lib.base2.get_worst(state, threshold_state)        
+            used_percent = 0.0
 
-        msg += '* {} - Memory used: {}% ({} of {}){}, Memory committed: {}% ({} of {})'.format(
-            name,
-            used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
-            committed_percent, lib.base2.bytes2human(mem_committed), lib.base2.bytes2human(mem_max))
-        if threshold_state != STATE_OK:
-            msg += ', Collection Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
-        msg += '\n'
+        if mem_max != -1:
+            used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+            state = lib.base2.get_worst(state, used_state)
+        else:
+            used_state = STATE_OK
+
+        if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] == True:
+            threshold_state = STATE_WARN
+        else:
+            threshold_state = STATE_OK
+        state = lib.base2.get_worst(state, threshold_state)
+
+        if value['type'] == 'HEAP':
+            msg_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
+                name, used_percent,
+                lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base2.state2str(used_state, prefix=' '),
+                lib.base2.bytes2human(mem_committed),
+                )
+            if threshold_state != STATE_OK:
+                msg_heap += ', Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
+            msg_heap += '\n'
+        else:
+            msg_non_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
+                name, used_percent,
+                lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base2.state2str(used_state, prefix=' '),
+                lib.base2.bytes2human(mem_committed),
+                )
+            if threshold_state != STATE_OK:
+                msg_non_heap += ', Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
+            msg_non_heap += '\n'
+
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed'.format(name), mem_committed, 'B', None, None, 0, mem_max if mem_max != -1 else None)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-max'.format(name), mem_max, 'B', None, None, 0, mem_max if mem_max != -1 else None)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-used'.format(name), mem_used, 'B', None, None, 0, mem_max if mem_max != -1 else None)
         perfdata += lib.base2.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed-percent'.format(name), committed_percent, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib.base2.get_perfdata('memory-pool-{}-used'.format(name), mem_used, 'B', None, None, 0, mem_max)
-        perfdata += lib.base2.get_perfdata('memory-pool-{}-max'.format(name), mem_max, 'B', None, None, 0, mem_max)
-        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed'.format(name), mem_committed, 'B', None, None, 0, mem_max)
 
     if state == STATE_OK:
-        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base2.pluralize('Pool', pools)) + msg
+        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base2.pluralize('Pool', pools))
     else:
-        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base2.pluralize('Pool', pools)) + msg
+        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base2.pluralize('Pool', pools))
+    msg += msg_heap + msg_non_heap
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

@@ -20,14 +20,19 @@ Installation and Usage
 
 Output::
 
-    6 Memory Pools checked, there are errors.
+    8 Memory Pools checked, everything is ok.
 
-    * PS_Old_Gen - Memory used: 12.48% (42.6MiB of 341.5MiB), Memory committed: 21.08% (72.0MiB of 341.5MiB)
-    * PS_Survivor_Space - Memory used: 30.54% (7.8MiB of 25.5MiB), Memory committed: 100.0% (25.5MiB of 25.5MiB)
-    * Compressed_Class_Space - Memory used: 2.99% (7.4MiB of 248.0MiB), Memory committed: 3.83% (9.5MiB of 248.0MiB)
-    * Code_Cache - Memory used: 6.69% (16.1MiB of 240.0MiB), Memory committed: 6.82% (16.4MiB of 240.0MiB)
-    * PS_Eden_Space - Memory used: 91.91% (110.8MiB of 120.5MiB) [CRITICAL], Memory committed: 100.0% (120.5MiB of 120.5MiB)
-    * Metaspace - Memory used: 23.43% (60.0MiB of 256.0MiB), Memory committed: 26.27% (67.2MiB of 256.0MiB)
+    Heap:
+    * G1_Eden_Space - Memory used: 0.0% (39.0MiB of unlimited), 45.0MiB committed
+    * G1_Old_Gen - Memory used: 4.01% (20.5MiB of 512.0MiB max.), 29.0MiB committed
+    * G1_Survivor_Space - Memory used: 0.0% (2.7MiB of unlimited), 3.0MiB committed
+
+    Non-Heap:
+    * CodeHeap_non-nmethods - Memory used: 23.53% (1.3MiB of 5.6MiB max.), 2.4MiB committed
+    * Compressed_Class_Space - Memory used: 2.45% (5.1MiB of 208.0MiB max.), 5.6MiB committed
+    * CodeHeap_profiled_nmethods - Memory used: 9.45% (11.1MiB of 117.2MiB max.), 12.2MiB committed
+    * CodeHeap_non-profiled_nmethods - Memory used: 3.54% (4.2MiB of 117.2MiB max.), 4.2MiB committed
+    * Metaspace - Memory used: 16.95% (43.4MiB of 256.0MiB max.), 44.6MiB committed
 
 
 States
@@ -36,16 +41,15 @@ States
 Triggers an alarm on usage in percent.
 
 * WARN or CRIT if memory usage (used) is above certain thresholds (default 80/90 %)
-* WARN if WildFly reports 'collection-usage-threshold-exceeded' == TRUE
+* WARN if WildFly reports 'usage-threshold-exceeded' == TRUE
 
 
 Perfdata
 --------
 
-* memory-pool-<name>-committed: in bytes
-* memory-pool-<name>-committed-percent: in percent
-* memory-pool-<name>-max: in bytes
-* memory-pool-<name>-used: in bytes
+* memory-pool-<name>-committed: Returns the amount of memory in bytes that is committed for the Java virtual machine to use. This amount of memory is guaranteed for the Java virtual machine to use.
+* memory-pool-<name>-max: Returns the maximum amount of memory in bytes that can be used for memory management. This method returns -1 if the maximum memory size is undefined. This amount of memory is not guaranteed to be available for memory management if it is greater than the amount of committed memory. The Java virtual machine may fail to allocate memory even if the amount of used memory does not exceed this maximum size.
+* memory-pool-<name>-used: The amount of used memory in bytes.
 * memory-pool-<name>-used-percent: in percent
 
 
