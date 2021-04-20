@@ -4,7 +4,7 @@ Check "axenita-stats"
 Overview
 --------
 
-With this plugin you can track some values of the Axenita application, currently focusing on "Achilles". Axenita Praxissoftware is powered by Axonlab | Axon Lab AG.
+With this plugin you can track some values of the Axenita application, currently focusing on "Achilles". Axenita Praxissoftware is powered by Axonlab / Axon Lab AG.
 
 
 Installation and Usage
@@ -31,6 +31,7 @@ Alerts if
 Perfdata
 --------
 
+* axenita-version: 14.0.8 is reported as "1408"
 * currentActiveSessions
 * currentInitRmStep
 * loggedInUsers

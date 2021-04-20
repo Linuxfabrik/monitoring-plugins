@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041301'
+__version__ = '2021042001'
 
 DESCRIPTION = 'With this plugin you can track some values of the Aexnita application.'
 
@@ -184,9 +184,10 @@ def main():
             state = lib.base2.get_worst(STATE_WARN, state)
             msg = '{}/api/build-info, state: {}{}'.format(args.URL, achilles_buildinfo['state'], lib.base2.state2str(state))
             lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-        msg += '{} (timestamp {}), '.format(achilles_buildinfo['data']['version'], achilles_buildinfo['data']['timestamp'])
-
-
+        axenita_ver = achilles_buildinfo['data']['version']
+        msg += '{} (timestamp {}), '.format(axenita_ver, achilles_buildinfo['data']['timestamp'])
+        axenita_ver = axenita_ver[8:8+axenita_ver.find('-')-1].replace('.', '')
+        perfdata += lib.base2.get_perfdata('axenita-version', axenita_ver, None, None, None, 0, None)
 
     # over and out
     lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
