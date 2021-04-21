@@ -43,6 +43,7 @@ import lib.db_sqlite2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -138,7 +139,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     # Resource to get interface data from
-    url = 'https://{}/api/v2/monitor/system/interface/select?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/interface/select?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     conn = lib.base2.coe(lib.db_sqlite2.connect(filename='fortios-network-io.db'))

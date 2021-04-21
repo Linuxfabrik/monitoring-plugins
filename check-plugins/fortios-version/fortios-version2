@@ -39,6 +39,7 @@ import lib.base2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -100,7 +101,7 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    url = 'https://{}/api/v2/monitor/system/firmware/?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/firmware/?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     installed_version = result['results']['current']['version'].replace('v', '')

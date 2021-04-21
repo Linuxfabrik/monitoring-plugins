@@ -43,6 +43,7 @@ import lib.db_sqlite2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -139,7 +140,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
-    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
@@ -159,7 +160,7 @@ def main():
 
     # try to get the global configured cpu warning threshold from Forti OS
     # if success, use it, otherwise our from args.WARN etc.
-    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     thresholds = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('cpu-use-threshold', args.WARN)
 
