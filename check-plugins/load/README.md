@@ -1,6 +1,10 @@
 # Check "load" - Overview
 
-Return the average system load _per cpu_ over the last 1, 5 and 15 minutes. Therefore a value of "1" means that the overall system has a load of 100%. Warns on load15 only.
+On the *No Sheep* blog, Zachary Tirrell defines the [load average](http://nosheep.net/story/defining-unix-load-average/) on GNU/Linux operating system:
+
+> In short it is the average sum of the number of processes waiting in the run-queue plus the numbercurrently executing over 1, 5, and 15 minutes time periods.
+
+Alerts on load average are only set on 15 minutes time period. For this, the check gets the number of CPU cores to *normalize* load values automatically. Loads are computed by dividing the 15 minutes average load per CPU(s) count. For example, if you have 3 CPUs and the 15 minutes load is 6.0, then you get a warning because of (6 / 3) >= 1.15, where 1.15 is the default warning threshold. Main advantage of this method is to make machines comparable and making the design of Grafana panels easier.
 
 We recommend to run this check every minute.
 
