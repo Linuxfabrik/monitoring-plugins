@@ -1,7 +1,7 @@
 Python-based Monitoring Plugins Collection
 ==========================================
 
-This Enterprise Class Plugin Collection provides a bundle of more than eighty Python based check plugins for Icinga, Naemon, Nagios, Shinken, Sensu, and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software runs these plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these plugins to determine the current status of hosts and services on your network.
 
 If you're looking for monitoring plugins that ...
 
@@ -14,7 +14,7 @@ If you're looking for monitoring plugins that ...
 * provide additional information on troubleshooting where possible
 * avoid dependencies on additional system libraries where possible
 
-... then these plugins could be for you. 
+... then these plugins could be something for you. 
 
 All plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows. Check out the ``check-plugin-fact-sheet.csv`` for further details.
 
@@ -28,11 +28,15 @@ Donate
 Python 2 vs Python 3
 --------------------
 
+2021-12-31:
+
+* We will stop maintaining the Python 2-based checks on December 31, 2021, focusing on Python 3 only.
+
+
 2021-03-20:
 
 * All checks are currently available for Python 2.
 * We are migrating them step by step to Python 3, currently around 30% of the checks are also available for Python 3.
-* We will stop maintaining the Python 2-based checks on December 31, 2021, focusing on Python 3 only.
 
 The Python 2-based plugins use ``#!/usr/bin/env python2``, whereas the Python 3-based plugins use ``#!/usr/bin/env python3``. 
 
@@ -40,16 +44,16 @@ The Python 2-based plugins use ``#!/usr/bin/env python2``, whereas the Python 3-
 Libraries
 ---------
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
-
 We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below or "Setting up your development environment" in :doc:`CONTRIBUTING` for instructions on using it with the plugins.
 
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
 
 
 Roadmap
 -------
 
 * Migrate every Plugin to Python 3.
+* Provide a meaningful Grafana-Panel (where it makes sense).
 * Compile plugins for Windows (where it makes sense).
 * Provide a (unit) test for the majority of the plugins.
 * Automate the testing pipeline.
@@ -60,6 +64,12 @@ Installation
 
 Requirements
 ~~~~~~~~~~~~
+
+Fedora
+    - Required: Install Python2, for example by using ``dnf install python2``
+    - After that, most of the plugins will run out of the box.
+    - Optional: Install 3rd party Python modules if a plugin requires them.
+      Example: ``dnf install python2-psutil``
 
 CentOS 8
     - Required: Install Python2, for example by using ``dnf install python2``
@@ -73,12 +83,6 @@ CentOS 7
     - Optional: Install 3rd party Python modules if a plugin requires them.
       Some of those modules are found in the EPEL repo. Example:
       ``yum install epel-release; yum install python2-psutil``
-
-Fedora
-    - Required: Install Python2, for example by using ``dnf install python2``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``dnf install python2-psutil``
 
 Ubuntu 20
     - Most of the plugins will run out of the box.
@@ -99,7 +103,7 @@ Windows
 Installation on Linux
 ~~~~~~~~~~~~~~~~~~~~~
 
-As the required `lib <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ is a separate git repo, we need to make sure to deploy the plugins and the library correctly.
+As the required `lib <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ is a separate git repo, we need to make sure to deploy the plugins and the libraries correctly.
 
 In the following example, we will deploy everything to ``/usr/lib64/nagios/plugins/`` on the remote server ``monitoring-server``:
 
@@ -144,6 +148,7 @@ Your directory on ``monitoring-server`` should now look like this:
    /usr/lib64/nagios/plugins/
    |-- about-me
    |-- disk-smart
+   |-- ...
    |-- lib
    |   |-- base2.py
    |   |-- globals2.py
