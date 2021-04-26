@@ -5,10 +5,10 @@ This Enterprise Class Plugin Collection offers a package of more than a hundred 
 
 If you're looking for monitoring plugins that ...
 
-* are only written in Python (your main system language under RHEL / CentOS)
+* are only written in Python (your main system language on RHEL / CentOS)
 * ensure easy access to the source code
 * are fast, reliable and use few system resources
-* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both under Linux and under Windows
+* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
 * use out of the box some sort of automatic detection using useful default settings
 * trigger WARNs and CRITs only where absolutely necessary
 * provide additional information on troubleshooting where possible
@@ -25,8 +25,29 @@ Donate
 |Donate|
 
 
+Libraries
+---------
+
+We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below for instructions on using it with the plugins.
+
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
+
+
+Roadmaps
+--------
+
+Monitoring-Plugins
+~~~~~~~~~~~~~~~~~~
+
+* Migrate every Plugin to Python 3.
+* Provide a meaningful Grafana-Panel (where it makes sense).
+* Compile plugins for Windows (where it makes sense).
+* Provide a (unit) test for the majority of the plugins.
+* Automate the testing pipeline.
+
+
 Python 2 vs Python 3
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 2021-12-31:
 
@@ -40,23 +61,6 @@ Python 2 vs Python 3
 
 The Python 2-based plugins use ``#!/usr/bin/env python2``, whereas the Python 3-based plugins use ``#!/usr/bin/env python3``. 
 
-
-Libraries
----------
-
-We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below or "Setting up your development environment" in :doc:`CONTRIBUTING` for instructions on using it with the plugins.
-
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
-
-
-Roadmap
--------
-
-* Migrate every Plugin to Python 3.
-* Provide a meaningful Grafana-Panel (where it makes sense).
-* Compile plugins for Windows (where it makes sense).
-* Provide a (unit) test for the majority of the plugins.
-* Automate the testing pipeline.
 
 
 Installation
