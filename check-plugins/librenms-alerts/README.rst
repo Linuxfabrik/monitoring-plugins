@@ -4,7 +4,7 @@ Check "librenms-alerts"
 Overview
 --------
 
-Warn about unacknowledged alerts in LibreNMS.
+Warn about unacknowledged alerts in LibreNMS. Reports the latest of the most critical alerts.
 
 We recommend to run this check every minute.
 
@@ -25,7 +25,7 @@ Output::
     Hostname     SysName         Alerts Worst State Latest & Worst Msg                    
     --------     -------         ------ ----------- ------------------                    
     10.80.32.109 S3900-48T4S     1      [CRITICAL]  Device Down! Due to no ICMP response. 
-    10.80.32.141 d0-switch99     1      [CRITICAL]  Device Down! Due to no ICMP response. 
+    10.80.32.141 d0-switch99     3      [CRITICAL]  Port status up/down
     10.80.32.12  brw38b1db3b30f4 0      [OK]                                              
     10.80.32.1   d0-router01     0      [OK]                                              
     10.80.32.50                  0      [OK]                                              
