@@ -1,0 +1,229 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021042902'
+
+DESCRIPTION = 'This check fetches information from a LibreNMS instance, using its API.'
+
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost'
+
+
+#====================
+from lib.globals2 import *
+
+import lib.args2
+import lib.base2
+import lib.librenms2
+
+import argparse
+from pprint import pprint
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL '
+             'connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+        )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--token',
+        help='LibreNMS API token',
+        dest='TOKEN',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--url',
+        help='LibreNMS API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    return parser.parse_args()
+
+
+def get_sensor_data(args, devices, hgraph='health'):
+    for device in devices.values():
+        device_id = lib.librenms2.get_prop(device, 'device_id', 'int')
+        graphs = lib.librenms2.get_data(args, '/api/v0/devices/{}/{}'.format(device['device_id'], hgraph))
+        if graphs['count'] == 0:
+            continue
+        for graph in graphs['graphs']:
+            sensors = lib.librenms2.get_data(args, '/api/v0/devices/{}/{}/{}'.format(device['device_id'], hgraph, graph['name']))
+            if sensors['count'] == 0:
+                continue
+            for sensor in sensors['graphs']:
+                values = lib.librenms2.get_data(args, '/api/v0/devices/{}/{}/{}/{}'.format(device['device_id'], hgraph, graph['name'], sensor['sensor_id']))
+                if values['count'] == 0:
+                    continue
+                for value in values['graphs']:
+                    devices[device_id]['sensors'].append({
+                        'sensor_current': value['sensor_current'],
+                        'sensor_descr': value['sensor_descr'],
+                        'sensor_lastupdate': value['lastupdate'],
+                        'sensor_limit': value['sensor_limit'],
+                        'sensor_limit_low': value['sensor_limit_low'],
+                        'sensor_prev': value['sensor_prev'],
+                        })
+    return devices
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+
+    devices = {}
+    
+    # return a list of devices from LibreNMS
+    result = lib.librenms2.get_data(args, '/api/v0/devices')
+
+    # build an internal device list with some valuable properties
+    device_count = result['count']
+    for device in result['devices']:
+        if device['disabled']:
+            continue
+        if device['disable_notify']:
+            continue
+
+        device_id = lib.librenms2.get_prop(device, 'device_id', 'int')
+        devtype = lib.librenms2.get_prop(device, 'type')
+        hardware = lib.librenms2.get_prop(device, 'hardware')
+        hostname = lib.librenms2.get_prop(device, 'hostname')
+        location = lib.librenms2.get_prop(device, 'location')
+        os = lib.librenms2.get_prop(device, 'os')
+        sys = lib.librenms2.get_prop(device, 'sysName')
+        if not sys:
+            sys = lib.librenms2.get_prop(device, 'sysDescr')
+
+        devices[device_id] = {}
+        devices[device_id]['device_id'] = device_id
+        devices[device_id]['devtype'] = devtype
+        devices[device_id]['hardware'] = hardware
+        devices[device_id]['hostname'] = hostname
+        devices[device_id]['location'] = location
+        devices[device_id]['os'] = os
+        devices[device_id]['sys'] = sys
+
+        devices[device_id]['sensors'] = []
+
+
+    # enrich devices by sensor data
+    devices = get_sensor_data(args, devices, 'health')
+    devices = get_sensor_data(args, devices, 'wireless')
+
+
+    # create output
+    table_values = []
+    for device in devices.values():
+        for sensor in device['sensors']:
+            table_values.append({
+                'devtype': device['devtype'],
+                'hardware': device['hardware'],
+                'hostname': device['hostname'],
+                'location': device['location'],
+                'os': device['os'],
+                'sensor_descr': sensor['sensor_descr'],
+                'sensor_lastupdate': sensor['sensor_lastupdate'],
+                'sensor_limit': '{}/{}'.format(sensor['sensor_limit_low'], sensor['sensor_limit']),
+                'sensor_value': '{} ({})'.format(sensor['sensor_current'], sensor['sensor_prev']),
+                'sys': device['sys'],
+                })
+
+
+    if len(table_values) > 0:
+        msg = 'Everything is ok.\n\n'
+        if not args.LENGTHY:
+            msg += lib.base2.get_table(
+                table_values,
+                ['hostname', 'sys', 'sensor_descr', 'sensor_value', 'sensor_limit'],
+                header=['Hostname', 'SysName', 'Sensor', 'Val (prev)', 'Limit low/high'],
+                )
+        else:
+            msg += lib.base2.get_table(
+                table_values,
+                ['hostname', 'sys', 'hardware', 'devtype', 'os', 'location', 'sensor_descr', 'sensor_value', 'sensor_limit', 'sensor_lastupdate'],
+                header=['Hostname', 'SysName', 'Hardware', 'Type', 'OS', 'Location', 'Sensor', 'Val (prev)', 'Limit low/high', 'Last Update'],
+                )
+    else:
+        msg = 'Everything is ok (no health data).'
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)
