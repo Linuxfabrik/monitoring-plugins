@@ -94,6 +94,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --activestate
     --action
     --always-ok
+    --brief
     --cache-expire
     --channel
     --command
@@ -111,6 +112,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --interface
     --interval
     --key
+    --lengthy
     --loadstate
     --metric
     --mode
