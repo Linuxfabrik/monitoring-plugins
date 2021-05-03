@@ -59,6 +59,7 @@ Perfdata
 * httpd_total_traffic
 * workers: Maximum number of workers possible
 * workers_free
+* uptime: The time the server has been running for
 
 The number of idle workers:
 
@@ -75,8 +76,6 @@ The number of workers serving requests:
 * workers_reading
 * workers_replying
 * workers_starting
-
-* uptime: The time the server has been running for
 
 The lines marked "(\*)" are only available if ``ExtendedStatus`` is ``On``.
 
