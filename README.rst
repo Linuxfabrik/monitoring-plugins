@@ -240,6 +240,7 @@ If you want to use a virtual environment for python, you can create one in the s
 
 .. code-block:: bash
 
+    cd /usr/lib64/nagios/plugins
     python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
     python3 -m venv --system-site-packages monitoring-plugins-venv3
 
