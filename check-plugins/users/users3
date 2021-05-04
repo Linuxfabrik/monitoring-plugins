@@ -8,18 +8,22 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS})
 
 
 import argparse
@@ -30,21 +34,20 @@ import lib.args3
 import lib.base3
 from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
-WINDOWS = os.name == "nt"
-LINUX = sys.platform.startswith("linux")
-
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021050401'
 
-DESCRIPTION = 'Counts how many users are currently logged in, both via tty and pts. Also counts the disconnected users on Windows (closed RDP connections without logging out).'
+DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
+                and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
+                users on Windows (closed connections without logging out)."""
 
-DEFAULT_WARN_PTS = 50
+DEFAULT_WARN_PTS = 20
+DEFAULT_WARN_DISC = 1
 DEFAULT_WARN_TTY = 1
-DEFAULT_WARN_DISC = 50
 DEFAULT_CRIT_PTS = None
-DEFAULT_CRIT_TTY = None
 DEFAULT_CRIT_DISC = None
+DEFAULT_CRIT_TTY = None
 
 WINDOWS_NO_USER_STRING = 'No User exists for *'
 
@@ -84,56 +87,61 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    WARN_TTY = lib.args3.int_or_none(args.WARN[0])
-    WARN_PTS = lib.args3.int_or_none(args.WARN[1])
-    CRIT_TTY = lib.args3.int_or_none(args.CRIT[0])
-    CRIT_PTS = lib.args3.int_or_none(args.CRIT[1])
-    if WINDOWS:
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    count_tty = 0
+    count_pts = 0
+    count_disc = 0
+
+    try:
+        WARN_TTY = lib.args3.int_or_none(args.WARN[0])
+        WARN_PTS = lib.args3.int_or_none(args.WARN[1])
+        CRIT_TTY = lib.args3.int_or_none(args.CRIT[0])
+        CRIT_PTS = lib.args3.int_or_none(args.CRIT[1])
+    except:
+        lib.base3.oao('Unexpected parameter values for --warning and/or --critical.', STATE_UNKNOWN)
+
+    # execute the shell command and return its result and exit code
+    if lib.base3.LINUX:
+        cmd = '/usr/bin/w'
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        if stderr or retc != 0:
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+        result = stdout.strip()
+
+        lines = result.splitlines()[1:] # ignore the first line
+        for line in lines:
+            value = line.split()[1]
+            if 'tty' in value or ':' in value:
+                # for example, ":0", the 0. host display (https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean)
+                count_tty += 1
+            if 'pts' in value:
+                count_pts += 1
+
+    # execute the shell command and return its result and exit code
+    if lib.base3.WINDOWS:
         WARN_DISC = lib.args3.int_or_none(args.WARN[2])
         CRIT_DISC = lib.args3.int_or_none(args.CRIT[2])
 
-    if LINUX:
-        cmd = '/usr/bin/w'
-    elif WINDOWS:
         cmd = 'query user'
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        # Could not find any documentation in the return codes of 'query user' (%ERRORLEVEL% is always 1).
+        result = stdout.strip()
+        lines = result.splitlines()
+        for line in lines:
+            value = line.split()[1]
+            if value == 'console':
+                count_tty += 1
+            if 'rdp-' in value:
+                count_pts += 1
+            if value == '':     # independent of display language 
+                count_disc += 1
 
-    # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
-    if (LINUX and (stderr or retc != 0))\
-        or (WINDOWS and stderr and WINDOWS_NO_USER_STRING not in stderr):
-        # Could not find any documentation in the return codes of 'query user'. Therefore we assume any is ok.
-        lib.base3.oao('Shell command failed with "{}".'.format(stderr), STATE_UNKNOWN)
-    result = stdout.strip()
-
-    if LINUX:
-        lines = result.splitlines()[2:] # ignore the first two lines
-    if WINDOWS:
-        lines = result.splitlines()[1:] # ignore the first line
-
-    count_pts = 0
-    count_tty = 0
-    count_disc = 0
-    for line in lines:
-        value = line.split()[1]
-        if 'tty' in value or ':' in value\
-            or 'console' in value:
-            # for example, ":0", the 0. host display (https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean)
-            count_tty += 1
-        if 'pts' in value\
-            or 'rdp' in value:
-            count_pts += 1
-        if WINDOWS and 'Disc' in line:
-            count_disc += 1
-
-    msg = ''
-    perfdata = lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
-    perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
-    if WINDOWS:
-        perfdata += lib.base3.get_perfdata('disc', count_disc, None, WARN_DISC, CRIT_DISC, 0, None)
-    state = STATE_OK
-
-    if (count_tty == 0 and count_pts == 0 and count_disc == 0)\
-            or (WINDOWS and WINDOWS_NO_USER_STRING in stderr):
+    # calculating the final check state
+    if count_tty == 0 and count_pts == 0:
         msg = 'No one is logged in.'
     else:
         tty_state = lib.base3.get_state(count_tty, WARN_TTY, CRIT_TTY)
@@ -144,13 +152,19 @@ def main():
         state = lib.base3.get_worst(state, pts_state)
         msg += ', PTS: {}'.format(count_pts) + lib.base3.state2str(pts_state, prefix=' ')
 
-        if WINDOWS:
+        if lib.base3.WINDOWS:
             disc_state = lib.base3.get_state(count_disc, WARN_DISC, CRIT_DISC)
             state = lib.base3.get_worst(state, disc_state)
-            msg += ', DISC: {}'.format(count_disc) + lib.base3.state2str(disc_state, prefix=' ')
+            msg += ', Disconnected: {}'.format(count_disc) + lib.base3.state2str(disc_state, prefix=' ')
+            perfdata += lib.base3.get_perfdata('disc', count_disc, None, WARN_DISC, CRIT_DISC, 0, None)
 
-        msg += '\n\n' + result
+        msg += '\n\n' + '\n'.join(lines)
 
+    perfdata += lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
+    perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
+
+
+    # over and out
     lib.base3.oao(msg, state, perfdata)
 
 
