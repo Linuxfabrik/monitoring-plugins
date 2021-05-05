@@ -358,7 +358,7 @@ For this, you need a Windows Machine with python3 and nutika installed (see the 
 
 To manually compile a check on the Windows Machine, deploy the python3 variant, then:
 
-.. code-block:: bash
+.. code-block:: batch
 
     cd C:\ProgramData\icinga2\usr\lib64\nagios\plugins\
     py -3 -m nuitka --mingw64 --follow-imports --recurse-all --output-dir C:\nuitka-compile-temp --remove-output --standalone about-me.py
