@@ -4,7 +4,7 @@ Check "librenms-version"
 Overview
 --------
 
-Displays LibreNMS instance information. This is not a "is there a new version out there" check as LibreNMS updates itself.
+Displays LibreNMS instance information. This is not a "is there a new version out there" check as LibreNMS is capable of updating itself (if running the Git version).
 
 We recommend to run this check once a day.
 
