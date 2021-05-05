@@ -1,0 +1,190 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021050501'
+
+DESCRIPTION = """mod_qos for Apache httpd features a handler showing the current connection and
+                request status. This check fetches the machine-readable version of the status
+                information."""
+
+DEFAULT_URL = 'http://localhost/qos-status'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='mod_qos Status URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        url = args.URL
+        if url[0:4] != 'http':
+            lib.base2.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        url = url + '?auto'
+
+        # fetch the url
+        result = lib.base2.coe(lib.url2.fetch(url))
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r') # pylint: disable=C0103
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r') # pylint: disable=C0103
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+        result = stdout
+
+    result = result.strip().split('\n')
+
+    # init some vars
+    msg = 'Everything is ok.\n\n'
+    state = STATE_OK
+    perfdata = ''
+    table_values = []
+
+    # analyze data
+    for line in result:
+        # ignore the optional line containing "b;system.load: 0.12"
+        if 'system.load: ' in line:
+            continue
+        items = line.split(';')
+        # Len 4: ['b', 'h1-proxy01.linuxfabrik.it', '0', 'QS_AllConn: 283']
+        # Len 5: ['v', 'www.example.com', '443', 'QS_LocKBytesPerSecLimitMatch', '1250[^.*$]: 14']
+        htype = 'virt' if items[0] == 'v' else 'base'
+        try:
+            host = items[1]
+            port = items[2]
+            if len(items) == 4:
+                values = items[3].split(': ')
+                key = values[0]
+                pattern = 'Global' 
+                configured_value = None
+                current_value = values[1]
+            else:
+                values = items[4].split(': ')
+                key = items[3]
+                configured = values[0]
+                pattern = configured[configured.find('['):]
+                configured_value = configured[0:configured.find('[')]
+                current_value = values[1]
+        except:
+            lib.base2.oao('Malformed mod_qos status info.', STATE_UNKNOWN)
+
+
+        perfdata += lib.base2.get_perfdata('{}_{}'.format(key, pattern),
+            current_value,
+            'KB' if 'KBytes' in key else None,
+            None, None, 0, 
+            configured_value if configured_value is not None else None)
+
+        table_values.append({
+            'htype': htype,
+            'host': host,
+            'port': port,
+            'key': key,
+            'pattern': pattern,
+            'configured_value': configured_value,
+            'current_value': current_value,
+            })
+
+    # build the message
+    msg += lib.base2.get_table(
+        table_values,
+        ['htype', 'host', 'port', 'key', 'pattern', 'configured_value', 'current_value'],
+        header=['Type', 'Host', 'Port', 'Key', 'ReqPttrn', 'Configured', 'Current'],
+        )
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
