@@ -23,22 +23,22 @@ if os.getenv('MONITORING_PLUGINS_VENV3'):
     ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS})
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-import lib.args3
-import lib.base3
-from lib.globals3 import STATE_OK, STATE_UNKNOWN
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050301'
+__version__ = '2021050501'
 
-DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
+DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 2, as a basis for
                 further development, and much more text to help admins get this check up and
                 running."""
 
@@ -55,7 +55,7 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -63,22 +63,22 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold  as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args3.csv,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -86,7 +86,7 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
@@ -104,19 +104,19 @@ def main():
     # fetch data
     if args.TEST is None:
         cmd = 'cat /etc/os-release'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
         if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r')
+            f = open(args.TEST[0], 'r') # pylint: disable=C0103
             stdout = f.read()
             f.close()
         else:
             stdout = args.TEST[0]
         if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r')
+            f = open(args.TEST[1], 'r') # pylint: disable=C0103
             stderr = f.read()
             f.close()
         else:
@@ -129,16 +129,13 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-
     # analyze data
     value = str(lib.base3.now())[-2:]
-
 
     # build the message
     state = lib.base3.get_state(value, args.WARN, args.CRIT)
     msg += '{}% used{}'.format(value, lib.base3.state2str(state, prefix=' '))
     perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
-
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -147,6 +144,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)
