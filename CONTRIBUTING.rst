@@ -362,7 +362,7 @@ To manually compile a check on the Windows Machine, deploy the python3 variant, 
 
     cd C:\ProgramData\icinga2\usr\lib64\nagios\plugins\
     py -3 -m nuitka --mingw64 --follow-imports --recurse-all --output-dir C:\nuitka-compile-temp --remove-output --standalone about-me.py
-    cmd.exe /c "rename about-me.dist about-me
+    rename about-me.dist about-me
 
 Alternatively, use the ``monitoring-plugins-nuitka-compile``-Ansible-Tag:
 
