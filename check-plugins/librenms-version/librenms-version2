@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021042901'
+__version__ = '2021050501'
 
 DESCRIPTION = 'This check displays LibreNMS instance information, using its API.'
 
@@ -41,6 +41,7 @@ import lib.base2
 import lib.librenms2
 
 import argparse
+import sys
 from traceback import print_exc
 
 
@@ -99,8 +100,8 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # init some vars
     msg = ''
@@ -111,7 +112,10 @@ def main():
     result = lib.librenms2.get_data(args, '/api/v0/system')
     result = result['system'][0]
 
-    msg += 'LibreNMS {} ({}), '.format(result['local_ver'], result['local_branch'])
+    msg += 'LibreNMS {}'.format(result['local_ver'])
+    if 'local_branch' in result:
+        msg += ' (Git: {})'.format(result['local_branch'])
+    msg += ', '
     msg += 'DB-Schema {}, '.format(result['db_schema'])
     msg += 'MariaDB {}, '.format(result['mysql_ver'])
     msg += '{}, '.format(result['netsnmp_ver'])
@@ -128,6 +132,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
