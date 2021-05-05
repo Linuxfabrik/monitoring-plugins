@@ -1,0 +1,293 @@
+#!/usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import argparse
+import importlib
+import json
+import re
+import sys
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021050501'
+
+skip_params = [
+    '--test'
+]
+
+# always use lowercase, the regex has the ignorecase option
+capitalized_words = [
+    'ok',
+    'url',
+    'xa',
+    'gc',
+]
+
+
+def save_json_to_file(data, filename):
+    try:
+        with open(filename, 'w') as file:
+            json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
+    except FileNotFoundError as e:
+        print(f'{e}. Ignoring...')
+
+
+def find_long_param(params):
+    for param in params:
+        if param.startswith('--'):
+            return param
+
+
+def get_varname(check, param):
+    param = param.lstrip("-")
+    return f'{check}_{param}'.replace('-', '_')
+
+
+def help2description(help_text):
+    return re.sub(r' Default: %\(default\)s.*$', '', help_text)
+
+
+def lf_title(string):
+    string = string.title()
+    for item in capitalized_words:
+        string = re.sub(rf'\b{item}\b', item.upper(), string, flags=re.IGNORECASE)
+    return string
+
+
+def get_caption(check, long_param):
+    return lf_title(f'{check.replace("-", " ")}: {long_param.lstrip("-").replace("-", " ")}')
+
+
+def get_visibility(varname):
+    hide_if_present = [
+        'password',
+    ]
+    if any(hide_if_present_string in varname for hide_if_present_string in hide_if_present):
+        return 'hidden'
+    return 'visible'
+
+
+def _return_parser(self):
+    return self
+
+
+def main():
+    try:
+        check = sys.argv[1]
+        output_file = sys.argv[2]
+    except IndexError:
+        print('usage: check2basket.py [check_name] [output_file]')
+        sys.exit(1)
+
+    # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
+    argparse.ArgumentParser.parse_args = _return_parser
+
+    spec = importlib.util.spec_from_loader(f'{check}3', importlib.machinery.SourceFileLoader(f'{check}3', f"./check-plugins/{check}/{check}3"))
+    check_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(check_module)
+
+    args = check_module.parse_args()
+
+    data = {
+        "Command": {
+            f"cmd-check-{check}": {
+                "arguments": {
+                },
+                "command": f"/usr/lib64/nagios/plugins/{check}",
+                "disabled": False,
+                "fields": [
+                ],
+                "imports": [],
+                "is_string": None,
+                "methods_execute": "PluginCheck",
+                "object_name": f"cmd-check-{check}",
+                "object_type": "object",
+                "timeout": "10",
+                "vars": {},
+                "zone": None
+            }
+        },
+        "ServiceTemplate": {
+            f"tpl-service-{check}": {
+                "action_url": None,
+                "apply_for": None,
+                "assign_filter": None,
+                "check_command": f"cmd-check-{check}",
+                "check_interval": None,
+                "check_period": None,
+                "check_timeout": None,
+                "command_endpoint": None,
+                "disabled": False,
+                "display_name": None,
+                "enable_active_checks": None,
+                "enable_event_handler": None,
+                "enable_flapping": None,
+                "enable_notifications": None,
+                "enable_passive_checks": None,
+                "enable_perfdata": None,
+                "event_command": None,
+                "fields": [],
+                "flapping_threshold_high": None,
+                "flapping_threshold_low": None,
+                "groups": [],
+                "host": None,
+                "icon_image": f"{check}.png",
+                "icon_image_alt": None,
+                "imports": [
+                    "tpl-service-generic"
+                ],
+                "max_check_attempts": None,
+                "notes": None,
+                "notes_url": None,
+                "object_name": f"tpl-service-{check}",
+                "object_type": "template",
+                "retry_interval": None,
+                "service_set": None,
+                "template_choice": None,
+                "use_agent": None,
+                "use_var_overrides": None,
+                "vars": {
+                    # "snmp_community": "public",
+                    # "snmp_device": "any-any-any.csv",
+                    # "snmp_hide_ok": false,
+                    # "snmp_mibdir": "$$HOME\/.snmp\/mibs:\/usr\/share\/snmp\/mibs",
+                    # "snmp_snmpversion": "2c",
+                    # "snmp_timeout": "7"
+                },
+                "volatile": None,
+                "zone": None
+            }
+        },
+        "DataList": {
+        },
+        "Datafield": {
+        },
+    }
+
+
+    # argparse action classes
+    # class BooleanOptionalAction(Action):
+    # class _StoreAction(Action):
+    # class _StoreConstAction(Action):
+    # class _AppendAction(Action):
+    # class _AppendConstAction(Action):
+    # class _CountAction(Action):
+    # class _HelpAction(Action):
+    # class _VersionAction(Action):
+    # class _SubParsersAction(Action):
+    #     class _ChoicesPseudoAction(Action):
+
+    command_field_id = 1
+    for action in args._actions:
+        long_param = find_long_param(action.option_strings)
+        if not long_param:
+            print(f'Could not find a long parameter for:\n{action}')
+            continue
+        if long_param in skip_params:
+            continue
+        varname = get_varname(check, long_param)
+
+        if isinstance(action, argparse._VersionAction):
+            continue
+
+        if isinstance(action, argparse._HelpAction):
+            continue
+
+        if isinstance(action, argparse._StoreAction):
+
+            data['Command'][f"cmd-check-{check}"]['arguments'][long_param] = {
+                "value": f"${varname}$"
+            }
+
+            data['Command'][f"cmd-check-{check}"]['fields'].append({
+                "datafield_id": command_field_id,
+                "is_required": 'y' if action.required else 'n',
+                "var_filter": None
+            })
+
+            if action.choices is not None:
+                datalist_name = f'{varname}_list'
+                data['Datafield'][command_field_id] = {
+                    "varname": varname,
+                    "caption": get_caption(check, long_param),
+                    "description": help2description(action.help),
+                    "datatype": r"Icinga\Module\Director\DataType\DataTypeDatalist",
+                    "format": None,
+                    "settings": {
+                        "behavior": "strict",
+                        "data_type": "string",
+                        "datalist": datalist_name
+                    }
+                }
+
+                data['DataList'][datalist_name] = {
+                    "list_name": datalist_name,
+                    "owner": "icinga-admin",
+                    "entries": [
+                    ]
+                }
+                for choice in action.choices:
+                    data['DataList'][datalist_name]['entries'].append(
+                        {
+                            "entry_name": choice,
+                            "entry_value": lf_title(choice.replace("-", " ")),
+                            "format": "string",
+                            "allowed_roles": None
+                        }
+                    )
+            else:
+                data['Datafield'][command_field_id] = {
+                    "varname": varname,
+                    "caption": get_caption(check, long_param),
+                    "description": help2description(action.help),
+                    "datatype": r"Icinga\Module\Director\DataType\DataTypeString",
+                    "format": None,
+                    "settings": {
+                        "visibility": get_visibility(varname)
+                    }
+                }
+
+            if action.default is not None:
+                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] =  str(action.default).replace('$', '$$')
+
+            command_field_id += 1
+            continue
+
+        if isinstance(action, argparse._StoreTrueAction):
+            data['Command'][f"cmd-check-{check}"]['arguments'][f'{long_param}'] = {
+                "set_if": f"${get_varname(check, long_param)}$"
+            }
+
+            data['Command'][f"cmd-check-{check}"]['fields'].append({
+                "datafield_id": command_field_id,
+                "is_required": "n",
+                "var_filter": None
+            })
+
+            data['Datafield'][command_field_id] = {
+                "varname": varname,
+                "caption": get_caption(check, long_param) + '?',
+                "description": help2description(action.help),
+                "datatype": r"Icinga\Module\Director\DataType\DataTypeBoolean",
+                "format": None,
+                "settings": {}
+            }
+
+            if action.default is not None:
+                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] = action.default
+
+            command_field_id += 1
+            continue
+
+        print(f'Unhandled action class: "{action.__class__.__name__}".')
+
+    save_json_to_file(data, output_file)
+
+if __name__ == '__main__':
+    main()
