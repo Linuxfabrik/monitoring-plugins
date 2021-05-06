@@ -7,6 +7,8 @@ Overview
 A working Linuxfabrik monitoring plugin, written in Python 2 and Python 3, as a basis / showcase for
 further development.
 
+We recommend running this check every minute.
+
 
 Installation and Usage
 ----------------------
@@ -25,12 +27,16 @@ Output::
 States
 ------
 
+Always returns OK.
+
 * WARN on usage > 80%
 * CRIT on usage > 90%
 
 
 Perfdata
 --------
+
+There is no perfdata.
 
 * usage_percent: Usage in percent
 
