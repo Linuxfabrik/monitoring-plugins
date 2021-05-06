@@ -8,41 +8,46 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
-
-import lib.base2
-import lib.cache2
-import lib.feedparser2
-import lib.icinga2
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.cache2 # pylint: disable=C0413
+import lib.feedparser2 # pylint: disable=C0413
+import lib.icinga2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021050602'
 
-DESCRIPTION = '''Warns on the newest feed item of an RSS or Atom feed. Does not warn any longer
-    if you acknowledge it in Icingaweb2, and/or if a given amount of time is over.'''
+DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
+    if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
 
 DEFAULT_FEED_URL = 'https://www.heise.de/security/rss/alert-news-atom.xml'
-DEFAULT_INSECURE = False
 DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = False
+DEFAULT_LATEST = False
 DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
@@ -56,7 +61,7 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -64,31 +69,31 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--icinga-service-name',
         help='Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-server!my-service-name`.',
         dest='ICINGA_SERVICE_NAME',
-        )
+    )
 
     parser.add_argument(
         '--icinga-password',
         help='Icinga API password.',
         dest='ICINGA_PASSWORD',
-        )
+    )
 
     parser.add_argument(
         '--icinga-url',
         help='Icinga API URL, for example https://icinga-server:5665',
         dest='ICINGA_URL',
-        )
+    )
 
     parser.add_argument(
         '--icinga-username',
         help='Icinga API username.',
         dest='ICINGA_USERNAME',
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -96,7 +101,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--icinga-callback',
@@ -104,7 +109,15 @@ def parse_args():
         dest='ICINGA_CALLBACK',
         action='store_true',
         default=DEFAULT_ICINGA_CALLBACK,   # False
-        )
+    )
+
+    parser.add_argument(
+        '--latest',
+        help='Return the newest/latest feed item (may be in the future).',
+        dest='LATEST',
+        action='store_true',
+        default=False,
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -112,7 +125,7 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
+    )
 
     parser.add_argument(
         '--no-summary',
@@ -120,7 +133,7 @@ def parse_args():
         dest='NO_SUMMARY',
         action='store_true',
         default=DEFAULT_NO_SUMMARY,   # False
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -128,14 +141,14 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
         '--url',
         help='The Feed URL. Default: %(default)s',
         dest='FEED_URL',
         default=DEFAULT_FEED_URL,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -143,12 +156,12 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
 
-def fetch_feed_last_item(feed_url, insecure=False, no_proxy=False, timeout=5):
+def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     success, myfeed = lib.feedparser2.parse(
         feed_url, insecure=insecure, no_proxy=no_proxy, timeout=timeout)
     if not success:
@@ -158,9 +171,29 @@ def fetch_feed_last_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     return (True, myfeed['entries'][0])
 
 
-def get_feed_state(feed_id, delta, args):
+def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
+    """Fetch the newest feed item starting from now/today, or older.
     """
-    age of feed-item within warning period?
+    success, myfeed = lib.feedparser2.parse(
+        feed_url, insecure=insecure, no_proxy=no_proxy, timeout=timeout)
+    if not success:
+        return (False, myfeed)
+    if len(myfeed['entries']) == 0:
+        return (True, [])
+    prev_delta = None
+    idx = 0
+    for i, item in enumerate(myfeed['entries']):
+        delta = lib.base2.now(as_type='datetime') - item.get('updated_parsed', lib.base2.now(as_type='datetime'))
+        if delta.total_seconds() < 0:
+            continue
+        if prev_delta is None or delta < prev_delta:
+            prev_delta = delta
+            idx = i
+    return (True, myfeed['entries'][idx])
+
+
+def get_feed_state(feed_id, delta, args):
+    """age of feed-item within warning period?
     yes:
         is item in cache (is it the same as from the last fetch)?
         yes:
@@ -211,15 +244,18 @@ def main():
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
     if args.ICINGA_CALLBACK and (not args.ICINGA_URL or not args.ICINGA_PASSWORD or not args.ICINGA_USERNAME or not args.ICINGA_SERVICE_NAME):
-        print('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name')
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name', STATE_UNKNOWN)
 
-    # get the newest/latest feed item
-    feed_item = lib.base2.coe(fetch_feed_last_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
+    if args.LATEST:
+        # get the newest/latest feed item, even if it is in the future
+        feed_item = lib.base2.coe(fetch_feed_latest_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
+    else:
+        # get the latest feed item starting from today
+        feed_item = lib.base2.coe(fetch_feed_todays_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
 
     # feed with 0 entries
     if not feed_item:
@@ -248,6 +284,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:
         print_exc()
         sys.exit(STATE_UNKNOWN)
