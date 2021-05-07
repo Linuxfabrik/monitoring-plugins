@@ -22,7 +22,7 @@ Installation and Usage
 
 Output::
 
-    MyCube on Metabase v0.39.1; 8 users, 1 DB analyzed, 55 Questions (GUI), 0 alerts, 0 pulses, 13 collections; 6 CPUs, 5462 MiB RAM
+    MyCube on Metabase v0.39.1; 8 users, 1 DB analyzed, 55 questions (GUI), 0 alerts, 0 pulses, 13 collections; 6 CPUs, 5462 MiB RAM
     Last activity: "card-create/My Card" by John Doe (3D 16h ago)
 
 
