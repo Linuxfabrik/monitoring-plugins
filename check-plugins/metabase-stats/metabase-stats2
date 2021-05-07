@@ -1,0 +1,216 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.cache2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021050601'
+
+DESCRIPTION = """This check gets some recent activity from Metabase."""
+
+DEFAULT_CACHE_EXPIRE = 13*24 + 23 # hours; in Metabase, by default, sessions are good for 14 days
+DEFAULT_CRIT = 90
+DEFAULT_URL = 'http://localhost:3000'
+DEFAULT_USERNAME = 'metabase-admin'
+DEFAULT_WARN = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument('--cache-expire',
+        help='The amount of time after which the credential cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument('-p', '--password',
+        help='Metabase API password.',
+        dest='PASSWORD',
+        required=True,
+        )
+
+    parser.add_argument('--url',
+        help='Metabase API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument('--username',
+        help='Metabase API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def get_token(metabase_url, user, password, expire):
+    """Gets an API token from Metabase, using your credentials.
+    Equivalent to:
+
+    $ curl -X POST \
+    $     -H "Content-Type: application/json" \
+    $     -d '{"username": "person@metabase.com", "password": "fakepassword"}' \
+    $     http://localhost:3000/api/session
+    """
+
+    # we cache credentials to reuse them until they expire, because logins are rate-limited for security
+    token = lib.cache2.get('metabase-token')
+    if token:
+        return (True, token)
+
+    metabase_url += '/api/session'
+    header = {
+        'Content-Type': 'application/json',
+        }
+    data = {
+        'username': user,
+        'password': password,
+        }
+    success, result = lib.url2.fetch_json(metabase_url, header=header, data=data, encoding='serialized-json')
+    if not success:
+        return (success, result)
+    if not result:
+        return (False, 'There was no result from {}.'.format(metabase_url))
+    if not 'id' in result:
+        return (False, 'Something went wrong, maybe wrong username/password.')
+    token = result['id']
+    lib.cache2.set('metabase-token', token, lib.base2.now() + expire)
+    return (True, token)
+
+
+def get_data(metabase_url, token, data={}):
+    header = {
+        'Content-Type': 'application/json',
+        'X-Metabase-Session': token,
+        }
+    return lib.url2.fetch(metabase_url, header=header, data=data, encoding='serialized-json')
+
+
+def get_json(metabase_url, token, data={}):
+    header = {
+        'Content-Type': 'application/json',
+        'X-Metabase-Session': token,
+        }
+    return lib.url2.fetch_json(metabase_url, header=header, data=data, encoding='serialized-json')
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    token = lib.base2.coe(get_token(args.URL, args.USERNAME, args.PASSWORD, args.CACHE_EXPIRE*60*60))
+    
+    # fetch data
+    activity = lib.base2.coe(get_json(args.URL + '/api/activity', token))[0]
+    settings = lib.base2.coe(get_data(args.URL + '/api/setting/site-name', token))  # /api/setting/:key returns plain text, not json
+    stats = lib.base2.coe(get_json(args.URL + '/api/util/stats', token))
+
+    # build the message
+    msg += '{} on '.format(settings)
+    msg += 'Metabase {}; '.format(stats['version'])
+
+    msg += '{} {}, '.format(stats['stats']['user']['users']['total'], lib.base2.pluralize('user', stats['stats']['user']['users']['total']))
+    msg += '{} {} analyzed, '.format(stats['stats']['database']['databases']['analyzed'], lib.base2.pluralize('DB', stats['stats']['database']['databases']['analyzed']))
+    msg += '{} {} (GUI), '.format(stats['stats']['question']['questions']['gui'], lib.base2.pluralize('Question', stats['stats']['question']['questions']['gui']))
+    msg += '{} {}, '.format(stats['stats']['alert']['alerts'], lib.base2.pluralize('alert', stats['stats']['alert']['alerts']))
+    msg += '{} {}, '.format(stats['stats']['pulse']['pulses'], lib.base2.pluralize('pulse', stats['stats']['pulse']['pulses']))
+    msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.base2.pluralize('collection', stats['stats']['collection']['collections']))
+    msg += '{} CPUs, {} MiB RAM'.format(stats['stats']['system']['processors'], stats['stats']['system']['max_memory'])
+
+    msg += '\nLast activity: "{}{}" by {} ({} ago)'.format(
+        activity['topic'],
+        '/' + activity['details']['name'] if 'name' in activity['details'] else '',
+        activity['user']['common_name'],
+        lib.base2.seconds2human(lib.base2.timestrdiff(lib.base2.now(as_type='iso'), activity['timestamp'].replace('T', ' '))),
+        )
+
+    perfdata += lib.base2.get_perfdata('alerts', stats['stats']['alert']['alerts'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('collections', stats['stats']['collection']['collections'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('cpu', stats['stats']['system']['processors'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('dbs_analyzed', stats['stats']['database']['databases']['total'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('pulses', stats['stats']['pulse']['pulses'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('questions_gui', stats['stats']['question']['questions']['gui'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ram', stats['stats']['system']['max_memory'], 'MB', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('users', stats['stats']['user']['users']['total'], None, None, None, 0, None)
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
