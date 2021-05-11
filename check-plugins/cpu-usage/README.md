@@ -31,19 +31,19 @@ Requirements:
 
 # Perfdata
 
-* `cpu-usage`: The overall cpu usage. This is (100 - `idle`).
-* `ctx_switches`: Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer’s CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict.
-* `guest`: Linux 2.6.24+; Time spent running a virtual CPU.
-* `guest_nice`: Linux 3.2.0+
-* `idle`: If the CPU has completed all tasks it is idle.
-* `interrupts`: Number of interrupts since boot.
-* `iowait`: Time spent waiting for I/O to complete. This is not accounted in idle time counter.
-* `irq`: Time spent for servicing hardware interrupts.
-* `nice`: Time spent by niced (prioritized) processes executing in user mode; this also includes guest_nice time.
-* `soft_interrupts`: Number of software interrupts since boot.
-* `steal`: Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor.
-* `system`: Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel.
-* `user`: Percent time spent in user space. User CPU time is the time spent on the processor running your program’s code (or code in libraries).
+* `cpu-usage`: %. The overall cpu usage. This is (100 - `idle`).
+* `ctx_switches`: Continous counter. Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer’s CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict.
+* `guest`: %. Linux 2.6.24+: Time spent running a virtual CPU.
+* `guest_nice`: %. Linux 3.2.0+
+* `idle`: %. If the CPU has completed all tasks it is idle.
+* `interrupts`: Continous counter. Number of interrupts since boot.
+* `iowait`: %. Time spent waiting for I/O to complete. This is not accounted in idle time counter.
+* `irq`: %. Time spent for servicing hardware interrupts.
+* `nice`: %. Time spent by niced (prioritized) processes executing in user mode; this also includes guest_nice time.
+* `soft_interrupts`: Continous counter. Number of software interrupts since boot.
+* `steal`: %. Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor.
+* `system`: %. Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel.
+* `user`: %. Percent time spent in user space. User CPU time is the time spent on the processor running your program’s code (or code in libraries).
 
 
 # Credits, License
