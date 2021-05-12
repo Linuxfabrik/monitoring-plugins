@@ -29,8 +29,8 @@ Output::
 
     Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129k connections, 10.3 req/s, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)
 
-    PID     Reqs ReqDur Request URI           ContLen AuthUser         
-    ---     ---- ------ -----------           ------- --------         
+    PID     Reqs ReqDur Request URI           POST    AuthUser
+    ---     ---- ------ -----------           ----    --------
     1818627 5785 6h 23m /nextcloud/remote.php -       user@example.org 
     1821973 5062 5h 14m /nextcloud/remote.php -       user@example.org 
     1823283 5092 3m 40s /nextcloud/index.php  252.0B  -
@@ -41,7 +41,7 @@ The columns mean:
 * Requests: the number of requests the process has served
 * ReqDur: the duration of the requests
 * Request URI: the request URI with the query string
-* ContLen: the content length of the request (or '-' if not POST)
+* POST: the content length of the POST request (or '-' if not POST)
 * AuthUser: the user (PHP_AUTH_USER) (or '-' if not set);
 
 

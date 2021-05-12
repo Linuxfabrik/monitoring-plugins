@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050801'
+__version__ = '2021051201'
 
 DESCRIPTION = """This check collects information from the PHP-FPM status page and alerts on certain
                 overuse. In addition, a table is printed which contains each pool process in the
@@ -238,7 +238,7 @@ def main():
             'start time': value['start time'],
             'start since': value['start since'],
             'requests': value['requests'],
-            'request duration': lib.base3.seconds2human(int(value['request duration']) / 1000),
+            'request duration': lib.base3.seconds2human(int(value['request duration']) / 1000000),  # microseconds
             'request method': value['request method'],
             'request uri': value['request uri'],
             'content length': lib.base3.bytes2human(value['content length']) if value['content length'] else '-',
@@ -253,7 +253,7 @@ def main():
         msg += lib.base3.get_table(
             table_values,
             ['pid', 'requests', 'request duration', 'request uri', 'content length', 'user'],
-            header=['PID', 'Reqs', 'ReqDur', 'Request URI', 'ContLen', 'AuthUser'],
+            header=['PID', 'Reqs', 'ReqDur', 'Request URI', 'POST', 'AuthUser'],
             )
 
     perfdata += lib.base3.get_perfdata('accepted conn', result['accepted conn'], 'c', None, None, 0, None)
