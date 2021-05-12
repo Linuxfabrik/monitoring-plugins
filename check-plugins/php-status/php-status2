@@ -8,24 +8,39 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041901'
+__version__ = '2021051201'
 
-DESCRIPTION = 'This plugin checks for PHP startup errors, missing modules and misconfigured php.ini directives.'
+DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
+                php.ini directives."""
 
 DEFAULT_CONFIG = [ 'date.timezone=Europe' ]
 DEFAULT_MODULES = [
@@ -35,15 +50,8 @@ DEFAULT_MODULES = [
     'readline', 'Reflection', 'session', 'shmop', 'SimpleXML',
     'sockets', 'SPL', 'standard', 'tokenizer', 'xml', 'zip', 'zlib', 
 ]
-
-
-#====================
-import argparse
-import sys
-from traceback import print_exc
-
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
-import lib.base2
+DEFAULT_WARN = 80
+DEFAULT_CRIT = 90
 
 
 def parse_args():
@@ -53,7 +61,7 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -61,21 +69,44 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('--config',
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold for Opcache usage as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--config',
         help='"key=value" pairs to check (startswith), for example `--config "memory_limit=128M"` (repeating)',
         dest='CONFIG',
         action='append',
         default=DEFAULT_CONFIG,
-        )
+    )
 
-    parser.add_argument('--module',
+    parser.add_argument(
+        '--module',
         help='"modulename" to check (startswith), for example `--module json --module mbstring` (repeating)',
         dest='MODULES',
         action='append',
         default=DEFAULT_MODULES,
-        )
+    )
+
+    parser.add_argument('--url',
+        help='URL to PHP monitoring script.',
+        dest='URL',
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold for Opcache usage as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
 
     return parser.parse_args()
 
@@ -131,11 +162,156 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    php = {}
+    table_values = []
 
     # analyze data
+    if args.URL:
+        php = lib.base2.coe(lib.url2.fetch_json(args.URL))
+
+    if php.get('php.conf', ''):
+        msg += 'PHP v{} ({}), '.format(
+            php['php.conf']['php.version'],
+            php['php.conf']['php.ini'],
+            )
+
+    if php.get('php.ini', ''):
+        table_values.append({'key': 'date.timezone', 'val': php['php.ini']['date.timezone']})
+        table_values.append({'key': 'display_errors', 'val': 'On' if php['php.ini']['display_errors'] else 'Off'})
+        table_values.append({'key': 'error_reporting', 'val': php['php.ini']['error_reporting']})
+        table_values.append({'key': 'expose_php', 'val': 'On' if php['php.ini']['expose_php'] else 'Off'})
+        table_values.append({'key': 'max_execution_time', 'val': php['php.ini']['max_execution_time']})
+        table_values.append({'key': 'memory_limit', 'val': php['php.ini']['memory_limit']})
+        table_values.append({'key': 'post_max_size', 'val': php['php.ini']['post_max_size']})
+        table_values.append({'key': 'upload_max_filesize', 'val': php['php.ini']['upload_max_filesize']})
+
+    # checking PHP Opcache module
+    if php.get('opcache_enabled', False):
+        if php.get('cache_full', ''):
+            opcache_state = STATE_WARN
+            state = lib.base2.get_worst(state, opcache_state)
+            msg += 'Opcache is full{}, '.format(lib.base2.state2str(opcache_state, prefix=' '))
+        if php.get('restart_pending', ''):
+            opcache_state = STATE_WARN
+            state = lib.base2.get_worst(state, opcache_state)
+            msg += 'Opcache pending restart{}, '.format(lib.base2.state2str(opcache_state, prefix=' '))
+        if php.get('restart_in_progress', ''):
+            opcache_state = STATE_WARN
+            state = lib.base2.get_worst(state, opcache_state)
+            msg += 'Opcache restarting{}, '.format(lib.base2.state2str(opcache_state, prefix=' '))
+
+        # Opcache Memory Usage (opcache.memory_consumption)
+        mem_used = php['memory_usage']['used_memory']
+        mem_free = php['memory_usage']['free_memory']
+        mem_total = mem_used + mem_free
+        mem_used_percentage = round(float(mem_used) / float(mem_total) * 100, 1)
+        opcache_state = lib.base2.get_state(mem_used_percentage, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(opcache_state, state)
+        msg += 'OpCache Mem {}% used ({}/{}){}, '.format(
+            mem_used_percentage,
+            lib.base2.bytes2human(mem_used),
+            lib.base2.bytes2human(mem_total),
+            lib.base2.state2str(opcache_state, prefix=''),
+            )
+
+        wmem_used = php['memory_usage']['wasted_memory']
+        wmem_used_percentage = round(php['memory_usage']['current_wasted_percentage'], 1)
+        wmem_total_percentage = php['directives']['opcache.max_wasted_percentage'] * 100    # Default: 5%
+        msg += 'Wasted {}% ({}, max. {}%), '.format(
+            wmem_used_percentage,
+            lib.base2.bytes2human(wmem_used),
+            wmem_total_percentage,
+            )
+
+        # Opcache Key Usage (opcache.max_accelerated_files)
+        keys_cached = php['opcache_statistics']['num_cached_keys']
+        keys_total = php['opcache_statistics']['max_cached_keys']  #  number out of a set of prime numbers "ge" to opcache.max_accelerated_files
+        keys_free = keys_total - keys_cached
+        keys_cached_percentage = round(float(keys_cached) / float(keys_total) * 100, 1)
+        opcache_state = lib.base2.get_state(keys_cached_percentage, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(opcache_state, state)
+        msg += 'Keys {}% used ({}/{}){}, '.format(
+            keys_cached_percentage,
+            keys_cached,
+            keys_total,
+            lib.base2.state2str(opcache_state, prefix=''),
+            )
+
+        # Opcache Hit Rate
+        cache_hits = php['opcache_statistics']['hits']
+        cache_misses = php['opcache_statistics']['misses']
+        cache_hit_rate = round(php['opcache_statistics']['opcache_hit_rate'], 1)
+        opcache_state = lib.base2.get_state(cache_hit_rate, args.CRIT, args.WARN, operator='le')
+        state = lib.base2.get_worst(opcache_state, state)
+        msg += 'Hit Rate {}% ({} hits, {} misses){}, '.format(
+            cache_hit_rate,
+            lib.base2.number2human(cache_hits),
+            lib.base2.number2human(cache_misses),
+            lib.base2.state2str(opcache_state, prefix=''),
+            )
+
+        # Opcache Interned String Buffer (opcache.interned_strings_buffer)
+        string_total = php['interned_strings_usage']['buffer_size']
+        string_used = php['interned_strings_usage']['used_memory']
+        string_free = php['interned_strings_usage']['free_memory']
+        string_number = php['interned_strings_usage']['number_of_strings']
+        string_percentage = round(float(string_used) / float(string_total) * 100, 1)
+        opcache_state = lib.base2.get_state(string_percentage, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(opcache_state, state)
+        msg += 'Interned Strings {}% used ({}/{}, {} Strings){}, '.format(
+            string_percentage,
+            lib.base2.bytes2human(string_used),
+            lib.base2.bytes2human(string_total),
+            string_number,
+            lib.base2.state2str(opcache_state, prefix=''),
+            )
+
+        # Opcache Restarts
+        restarts_oom = php['opcache_statistics']['oom_restarts']
+        restarts_manual = php['opcache_statistics']['manual_restarts']
+        restarts_keys = php['opcache_statistics']['hash_restarts']
+        opcache_state = lib.base2.get_state(restarts_oom, 1, None)
+        state = lib.base2.get_worst(opcache_state, state)
+        msg += '{} OOM{} / {} manual / {} key restarts, '.format(
+            restarts_oom,
+            lib.base2.state2str(opcache_state, prefix=''),
+            restarts_manual,
+            restarts_keys,
+            )
+
+        perfdata += lib.base2.get_perfdata('php-opcache-memory_usage-percentage', mem_used_percentage, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('php-opcache-memory_usage-used_memory', int(mem_used), 'B', None, None, 0, mem_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-memory_usage-free_memory', int(mem_free), 'B', None, None, 0, mem_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-memory_usage-wasted_memory', wmem_used, 'B', None, None, 0, mem_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-memory_usage-current_wasted_percentage', wmem_used_percentage, '%', None, None, 0, wmem_total_percentage)
+
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-num_cached_scripts', php['opcache_statistics']['num_cached_scripts'], None, None, None, 0, keys_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-num_cached_keys', keys_cached, None, None, None, 0, keys_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-num_free_keys', keys_free, None, None, None, 0, keys_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-num_cached_keys-percentage', keys_cached_percentage, '%', args.WARN, args.CRIT, 0, 100)
+
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-hits', cache_hits, 'c', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-misses', cache_misses, 'c', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-opcache_hit_rate', cache_hit_rate, '%', args.CRIT, args.WARN, 0, 100)
+
+        perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-percentage', string_percentage, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-used_memory', string_used, 'B', None, None, 0, string_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-free_memory', string_free, 'B', None, None, 0, string_total)
+        perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-number_of_strings', string_number, None, None, None, 0, None)
+
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-oom_restarts', restarts_oom, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-hash_restarts', restarts_keys, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-manual_restarts', restarts_manual, None, None, None, 0, None)
+
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-blacklist_misses', php['opcache_statistics']['blacklist_misses'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-blacklist_miss_ratio', php['opcache_statistics']['blacklist_miss_ratio'], '%', args.WARN, args.CRIT, 0, 100)
+
+        table_values.append({'key': 'opcache.validate_timestamps', 'val': 'True' if php['directives']['opcache.validate_timestamps'] else 'False'})
+        table_values.append({'key': 'opcache.revalidate_freq', 'val': php['directives']['opcache.revalidate_freq']})
+
     startup_errors = get_startup_errors()
     if startup_errors:
-        msg += startup_errors
+        msg += 'Startup errors: {}, '.format(startup_errors)
         state = lib.base2.get_worst(state, STATE_WARN)
         perfdata += lib.base2.get_perfdata('php-startup-errors', 1, None, 1, 2, 0, 3)
     else:
@@ -143,9 +319,7 @@ def main():
     
     config_errors = get_config(args)
     if config_errors:
-        if msg:
-            msg += '; '
-        msg += 'Config errors: {}'.format(config_errors[:-2])
+        msg += 'Config errors: {}, '.format(config_errors[:-2])
         state = lib.base2.get_worst(state, STATE_WARN)
         perfdata += lib.base2.get_perfdata('php-config-errors', 1, None, 1, 2, 0, 3)
     else:
@@ -153,17 +327,23 @@ def main():
 
     module_errors = get_module(args)
     if module_errors:
-        if msg:
-            msg += '; '
-        msg += 'Module errors: {}'.format(module_errors[:-2])
+        msg += 'Module errors: {}, '.format(module_errors[:-2])
         state = lib.base2.get_worst(state, STATE_WARN)
         perfdata += lib.base2.get_perfdata('php-module-errors', 1, None, 1, 2, 0, 3)
     else:
         perfdata += lib.base2.get_perfdata('php-module-errors', 0, None, 1, 2, 0, 3)
 
     # get the message
-    if state == STATE_OK:
-        msg = 'Everything is ok.'
+    if msg == '':
+        msg = 'Everything is ok.\n\n'
+    else:
+        msg = msg[:-2] + '\n\n'
+    if len(table_values) > 0:
+        msg += lib.base2.get_table(
+            table_values,
+            ['key', 'val'],
+            header=['Key', 'Value'],
+            )
 
     # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
