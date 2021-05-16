@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -35,10 +35,10 @@ except ImportError as e:
     print('Python module "psutil" is not installed.')
     exit(STATE_UNKNOWN)
 
-import lib.base2 # pylint: disable=C0413
-import lib.cache2 # pylint: disable=C0413
-import lib.db_sqlite2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.cache3 # pylint: disable=C0413
+import lib.db_sqlite3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021051602'
@@ -120,7 +120,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    conn = lib.base2.coe(lib.db_sqlite2.connect(filename='disk-io.db'))
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='disk-io.db'))
 
     # create the perfdata table
     definition = '''
@@ -134,16 +134,16 @@ def main():
             write_time          INT NOT NULL,
             timestamp           INT NOT NULL
         '''
-    lib.base2.coe(lib.db_sqlite2.create_table(conn, definition, drop_table_first=False))
-    lib.base2.coe(lib.db_sqlite2.create_index(conn, 'name'))
+    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition, drop_table_first=False))
+    lib.base3.coe(lib.db_sqlite3.create_index(conn, 'name'))
 
     # get disk data and store it to database
     try:
         disk_io_counters = psutil.disk_io_counters(perdisk=True)
     except ValueError as e:
-        lib.base2.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
-    now = lib.base2.now()
+    now = lib.base3.now()
 
     disks = []
     for disk, values in disk_io_counters.items():
@@ -163,10 +163,10 @@ def main():
         data['write_time'] = getattr(values, 'write_time', 0)
         data['timestamp'] = now
         disks.append(disk)
-        lib.base2.coe(lib.db_sqlite2.insert(conn, data))
+        lib.base3.coe(lib.db_sqlite3.insert(conn, data))
 
-    lib.base2.coe(lib.db_sqlite2.cut(conn, max=args.COUNT*len(disks)))
-    lib.base2.coe(lib.db_sqlite2.commit(conn))
+    lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(disks)))
+    lib.base3.coe(lib.db_sqlite3.commit(conn))
 
     # init some vars
     msg = 'No I/O.'
@@ -178,13 +178,13 @@ def main():
     # we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
     for disk in sorted(disks):
         # get all historical data rows for a specific disk, newest item first
-        diskdata = lib.base2.coe(lib.db_sqlite2.select(conn, 
+        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn, 
             'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
             {'name': disk}
         ))
         if len(diskdata) < 2:
-            lib.db_sqlite2.close(conn)
-            lib.base2.oao('Waiting for more data.', state)
+            lib.db_sqlite3.close(conn)
+            lib.base3.oao('Waiting for more data.', state)
 
         # calculate current rates
         timestamp_diff = diskdata[0]['timestamp'] - diskdata[1]['timestamp'] # in seconds
@@ -195,34 +195,34 @@ def main():
         throughput1 = read_bytes_per_second1 + write_bytes_per_second1
 
         # store the max. measured throughput in cache
-        throughput_db = lib.cache2.get('disk-io-{}-throughput-max'.format(disk))
+        throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk))
         if throughput_db == False:
             # unknown disk, no value
             throughput_max = 10 * 1024 * 1024      # Disk should be capable of 10 MB/sec
-            lib.cache2.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
+            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
         elif throughput1 > int(throughput_db):
             throughput_max = throughput1
-            lib.cache2.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
+            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
         else:
             throughput_max = int(throughput_db)
 
         # perfdata
-        perfdata += lib.base2.get_perfdata('{}_busy_time'.format(disk), diskdata[0]['busy_time'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_read_bytes'.format(disk), diskdata[0]['read_bytes'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_read_merged_count'.format(disk), diskdata[0]['read_merged_count'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_read_time'.format(disk), diskdata[0]['read_time'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_write_bytes'.format(disk), diskdata[0]['write_bytes'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_write_merged_count'.format(disk), diskdata[0]['write_merged_count'], 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_write_time'.format(disk), diskdata[0]['write_time'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_busy_time'.format(disk), diskdata[0]['busy_time'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_read_bytes'.format(disk), diskdata[0]['read_bytes'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_read_merged_count'.format(disk), diskdata[0]['read_merged_count'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_read_time'.format(disk), diskdata[0]['read_time'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_write_bytes'.format(disk), diskdata[0]['write_bytes'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_write_merged_count'.format(disk), diskdata[0]['write_merged_count'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_write_time'.format(disk), diskdata[0]['write_time'], 'c', None, None, 0, None)
 
-        perfdata += lib.base2.get_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base2.get_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max)
 
         if throughput1 > max_rw:
             msg = '{}: {}/s read, {}/s write (current)'.format(
                 disk,
-                lib.base2.bytes2human(read_bytes_per_second1),
-                lib.base2.bytes2human(write_bytes_per_second1),
+                lib.base3.bytes2human(read_bytes_per_second1),
+                lib.base3.bytes2human(write_bytes_per_second1),
                 )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
@@ -238,32 +238,32 @@ def main():
         throughput15 = read_bytes_per_second15 + write_bytes_per_second15   # let's just call it like in cpu-usage
 
         # get state based on max measured I/O values
-        disk_state = lib.base2.get_state(throughput15, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100)
-        state = lib.base2.get_worst(disk_state, state)
+        disk_state = lib.base3.get_state(throughput15, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100)
+        state = lib.base3.get_worst(disk_state, state)
 
         if throughput15:
             table_values.append({
                 'name': disk,
-                'r1': lib.base2.bytes2human(read_bytes_per_second1),
-                'w1': lib.base2.bytes2human(write_bytes_per_second1),
-                'r15': lib.base2.bytes2human(read_bytes_per_second15),
-                'w15': lib.base2.bytes2human(write_bytes_per_second15),
-                't15': lib.base2.bytes2human(throughput15),
-                'max': lib.base2.bytes2human(throughput_max),
-                'state': lib.base2.state2str(disk_state, empty_ok=False),
+                'r1': lib.base3.bytes2human(read_bytes_per_second1),
+                'w1': lib.base3.bytes2human(write_bytes_per_second1),
+                'r15': lib.base3.bytes2human(read_bytes_per_second15),
+                'w15': lib.base3.bytes2human(write_bytes_per_second15),
+                't15': lib.base3.bytes2human(throughput15),
+                'max': lib.base3.bytes2human(throughput_max),
+                'state': lib.base3.state2str(disk_state, empty_ok=False),
                 })
 
-    lib.db_sqlite2.close(conn)
+    lib.db_sqlite3.close(conn)
 
     msg = msg + '\n\n'
     if len(table_values) > 0:
-        msg += lib.base2.get_table(
+        msg += lib.base3.get_table(
             table_values,
             ['name', 'max', 'r1', 'w1', 'r15', 'w15', 't15', 'state'],
             header=['Disk', 'RWmax/s', 'R1/s', 'W1/s', 'R{}/s'.format(args.COUNT), 'W{}/s'.format(args.COUNT), 'RW{}/s'.format(args.COUNT), 'State'],
             )
 
-    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
