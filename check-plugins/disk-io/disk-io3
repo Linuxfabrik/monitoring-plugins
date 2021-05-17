@@ -56,7 +56,7 @@ DEFAULT_IGNORE = [
     ]
 
 
-def parse_args():   
+def parse_args():
     """Parse command line arguments using argparse.
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -215,8 +215,9 @@ def main():
         perfdata += lib.base3.get_perfdata('{}_write_merged_count'.format(disk), diskdata[0]['write_merged_count'], 'c', None, None, 0, None)
         perfdata += lib.base3.get_perfdata('{}_write_time'.format(disk), diskdata[0]['write_time'], 'c', None, None, 0, None)
 
-        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second1'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second1'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_throughput1'.format(disk), throughput1, None, None, None, 0, throughput_max)
 
         if throughput1 > max_rw:
             msg = '{}: {}/s read, {}/s write (current)'.format(
@@ -236,6 +237,10 @@ def main():
         read_bytes_per_second15 = float((diskdata[0]['read_bytes'] - diskdata[args.COUNT - 1]['read_bytes']) / timestamp_diff)
         write_bytes_per_second15 = float((diskdata[0]['write_bytes'] - diskdata[args.COUNT - 1]['write_bytes']) / timestamp_diff)
         throughput15 = read_bytes_per_second15 + write_bytes_per_second15   # let's just call it like in cpu-usage
+
+        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second15'.format(disk), read_bytes_per_second15, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second15'.format(disk), write_bytes_per_second15, 'B', None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_throughput15'.format(disk), throughput15, None, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100, 0, throughput_max)
 
         # get state based on max measured I/O values
         disk_state = lib.base3.get_state(throughput15, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100)
