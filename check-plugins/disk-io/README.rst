@@ -1,5 +1,5 @@
-Check "disk-io"
-===============
+Check disk-io
+=============
 
 Overview
 --------
@@ -23,21 +23,55 @@ The first line always shows the disk with the currently highest throughput. For 
 * The throughput from now to 5 measured values in the past is 100 MB/sec read and 1.7 GB/sec write (R5/W5). Compared to the current values, there was a higher throughput for a while.
 * Since the drive offers a maximum of 2.1 GB/sec, a RW5 value of 1.8 GB/sec results in a warning (``2.1 GB/sec * 80% = 1.68 GB/sec``). The current value of 1.75 GB/sec doesn't matter, it could be a peak.
 
-Hints and Recommendations:
+Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any of your disks was above a threshold in the last 5 minutes.
 * The check uses the SQLite databases ``/tmp/disk-io.db`` and ``/tmp/linuxfabrik-plugin-cache.db`` to store its historical data.
 * If you are wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the kernel, used by LVM. Use ``dmsetup ls`` to see what is behind it.
 
-We recommend running the check once a minute.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Interval Recommendation","Once a minute"
+    "Python Version","2, 3"
+    "Download","https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-io"
+    "Requirements","Python module ``psutil``"
 
 
-Installation and Usage
-----------------------
+Help
+----
 
-Requirements:
+::
 
-* Python2 module ``psutil``
+    usage: disk-io2 [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
+                    [--ignore IGNORE] [--warning WARN]
+
+    Checks disk IO.
+
+    optional arguments:
+      -h, --help       show this help message and exit
+      -V, --version    show program's version number and exit
+      --always-ok      Always returns OK.
+      --count COUNT    Number of times the value has to be above the given
+                       thresholds. Default: 5
+      --critical CRIT  Set the CRIT threshold for disk I/O read/write rate over
+                       the entire period as a percentage of the maximum disk I/O
+                       rate. Default: >= 90
+      --ignore IGNORE  Ignore some disks like "sr0" or "zram0" (repeating).
+                       Default: ['sr0', 'loop0', 'loop1', 'loop2', 'loop3',
+                       'loop4', 'loop5', 'loop6', 'loop7', 'loop8', 'loop9',
+                       'zram0']
+      --warning WARN   Set the CRIT threshold for disk I/O read/write rate over
+                       the entire period as a percentage of the maximum disk I/O
+                       rate. Default: 80
+
+
+Usage
+-----
 
 .. code-block:: bash
 
