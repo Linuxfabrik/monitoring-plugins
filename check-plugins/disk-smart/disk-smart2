@@ -33,7 +33,7 @@ import lib.args2
 import lib.base2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021702'
+__version__ = '2021052001'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -882,12 +882,13 @@ def main():
                         serial_number,
                         sensor_name), sensor_value, None, None, None, 0, None)
 
-        msg_body += '* {}{} ({}, {}, SerNo {})\n'.format(
-            lib.base2.state2str(disk_state, prefix='', suffix=' '),
+        msg_body += '* {} ({}, {}, SerNo {}){}\n'.format(
             disk,
             disk_report['general']['model'],
             disk_report['general']['device_model'],
-            disk_report['general']['serial_number'])
+            disk_report['general']['serial_number']
+            lib.base2.state2str(disk_state, prefix='', suffix=' '),
+            )
         if smart_msg:
             msg_body += smart_msg
         msg_body += disk_msg
