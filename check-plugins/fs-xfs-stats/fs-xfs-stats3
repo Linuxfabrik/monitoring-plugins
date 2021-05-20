@@ -1,0 +1,215 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021052001'
+
+DESCRIPTION = """This check provides some internal XFS statistics to user's view,
+                which can be helpful on debugging/understanding IO characteristics and optimizing
+                performance."""
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    xfs_stat = lib.base3.coe(lib.disk3.read_file('/proc/fs/xfs/stat'))
+    for row in xfs_stat.strip().split('\n'):
+        stat = row.split(' ')
+
+        # ExtentAllocationStats
+        if stat[0] == 'extent_alloc':
+            if len(stat) != 5:
+                lib.base3.oao('Incorrect number of values for XFS extent allocation stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            extents_allocated = stat[1]
+            blocks_allocated = stat[2]
+            extents_freed = stat[3]
+            blocks_freed = stat[4]
+            perfdata += lib.base3.get_perfdata('extent_allocation_blocks_allocated_total', blocks_allocated, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('extent_allocation_blocks_freed_total', blocks_freed, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('extent_allocation_extents_allocated_total', extents_allocated, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('extent_allocation_extents_freed_total', extents_freed, 'c', None, None, 0, None)
+
+        # BTreeStats
+        if stat[0] == 'abt':
+            if len(stat) != 5:
+                lib.base3.oao('Incorrect number of values for XFS btree stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            lookups = stat[1]
+            compares = stat[2]
+            records_inserted = stat[3]
+            records_deleted = stat[4]
+            perfdata += lib.base3.get_perfdata('allocation_btree_compares_total', compares, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('allocation_btree_lookups_total', lookups, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('allocation_btree_records_deleted_total', records_deleted, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('allocation_btree_records_inserted_total', records_inserted, 'c', None, None, 0, None)
+
+        # BlockMappingStats
+        if stat[0] == 'blk_map':
+            if len(stat) != 8:
+                lib.base3.oao('Incorrect number of values for XFS block mapping stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            reads = stat[1]
+            writes = stat[2]
+            unmaps = stat[3]
+            extent_list_insertions = stat[4]
+            extent_list_deletions = stat[5]
+            extent_list_lookups = stat[6]
+            extent_list_compares = stat[7]
+            perfdata += lib.base3.get_perfdata('block_mapping_extent_list_compares_total', extent_list_compares, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_extent_list_deletions_total', extent_list_deletions, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_extent_list_insertions_total', extent_list_insertions, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_extent_list_lookups_total', extent_list_lookups, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_reads_total', reads, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_unmaps_total', unmaps, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_mapping_writes_total', writes, 'c', None, None, 0, None)
+
+        # BTreeStats
+        if stat[0] == 'bmbt':
+            if len(stat) != 5:
+                lib.base3.oao('Incorrect number of values for XFS btree stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            lookups = stat[1]
+            compares = stat[2]
+            recordsinserted = stat[3]
+            recordsdeleted = stat[4]
+            perfdata += lib.base3.get_perfdata('block_map_btree_compares_total', compares, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_map_btree_lookups_total', lookups, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_map_btree_records_deleted_total', recordsdeleted, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('block_map_btree_records_inserted_total', recordsinserted, 'c', None, None, 0, None)
+        
+        # DirectoryOperationStats
+        if stat[0] == 'dir':
+            if len(stat) != 5:
+                lib.base3.oao('Incorrect number of values for XFS directory operation stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            lookups = stat[1]
+            creates = stat[2]
+            removes = stat[3]
+            getdents = stat[4]
+            perfdata += lib.base3.get_perfdata('directory_operation_create_total', creates, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('directory_operation_getdents_total', getdents, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('directory_operation_lookup_total', lookups, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('directory_operation_remove_total', removes, 'c', None, None, 0, None)
+
+        # InodeOperationStats
+        if stat[0] == 'ig':
+            if len(stat) != 8:
+                lib.base3.oao('Incorrect number of values for XFS inode operation stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            attempts = stat[1]
+            found = stat[2]
+            recycle = stat[3]
+            missed = stat[4]
+            duplicate = stat[5]
+            reclaims = stat[6]
+            attributechange = stat[7]
+            perfdata += lib.base3.get_perfdata('inode_operation_attempts_total', attempts, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_attribute_changes_total', attributechange, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_duplicates_total', duplicate, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_found_total', found, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_missed_total', missed, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_reclaims_total', reclaims, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('inode_operation_recycled_total', recycle, 'c', None, None, 0, None)
+
+        # VnodeStats
+        if stat[0] == 'vnodes':
+            # The attribute "Free" appears to not be available on older XFS
+            # stats versions.  Therefore, 7 or 8 elements may appear in
+            # this slice.
+            if len(stat) != 9:
+                lib.base3.oao('Incorrect number of values for XFS vnode stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            active = stat[1]
+            allocate = stat[2]
+            get = stat[3]
+            hold = stat[4]
+            release = stat[5]
+            reclaim = stat[6]
+            remove = stat[7]
+            free = stat[8]
+            perfdata += lib.base3.get_perfdata('vnode_active_total', active, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_allocate_total', allocate, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_free_total', free, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_get_total', get, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_hold_total', hold, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_reclaim_total', reclaim, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_release_total', release, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('vnode_remove_total', remove, 'c', None, None, 0, None)
+            
+        # ReadWriteStats            
+        if stat[0] == 'rw':
+            if len(stat) != 3:
+                lib.base3.oao('Incorrect number of values for XFS read write stats.', STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+            writes = stat[1]
+            reads = stat[2]
+            perfdata += lib.base3.get_perfdata('read_calls_total', reads, 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('write_calls_total', writes, 'c', None, None, 0, None)
+
+    # build the message
+    msg = 'Everything is ok. Extent allocation, btree, block mapping, btree, directory operation, inode operation, vnode and read write stats collected.'
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
