@@ -24,7 +24,6 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    :stub-columns: 1
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
