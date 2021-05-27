@@ -4,7 +4,7 @@ This plugin lets you check the most common analytics values from Matomo, for one
 
 Use the `--metric=name[,warn-range][,crit-range]` parameter to filter the output and to check against thresholds.
 
-You have to provide the Matomo `token_auth` to the Plugin's `--password` parameter. This `token_auth` is as secret as your login and password, so do not share it. If you want to view or change this token, please go to Personal > Settings > API Authentication Token (there, click on the token to see the full information).
+You have to provide the Matomo `token_auth` to the Plugin's `--password` parameter. This `token_auth` is as secret as your login and password, so do not share it. If you want to view or change this token, please go to Personal > Security > Auth Tokens (there, click on the token to see the full information).
 
 For details on the Matomo API, have a look at the [documentation](https://developer.matomo.org/api-reference/reporting-api).
 
