@@ -14,29 +14,29 @@
 import os
 
 # considering a virtual environment
-activate_this = False
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-import lib.base2
-import lib.url2
-from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050302'
+__version__ = '2021052701'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -46,13 +46,15 @@ DEFAULT_CRIT = 95       # %
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -60,7 +62,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '-c', '--critical', 
@@ -68,14 +70,14 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '-u', '--url',
         help='Apache Server Status URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -83,12 +85,15 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -171,11 +176,18 @@ def main():
 
     # build the message
     msg += '{}/{} busy ({}%{}; {} "G"), {} idle, {} free; {} total accesses, {} req/s; {} total traffic, {}/s, {}/req; Up {}'.format(
-        workers_busy_total, workers_total,
-        workers_pct, lib.base2.state2str(state, prefix=' '), workers_finishing,
-        workers_idle_total, workers_free,
-        httpd_total_accesses, round(httpd_reqpersec, 0),
-        lib.base2.bytes2human(httpd_total_traffic), lib.base2.bytes2human(httpd_bytespersec), lib.base2.bytes2human(httpd_bytesperreq),
+        workers_busy_total,
+        workers_total,
+        workers_pct,
+        lib.base2.state2str(state, prefix=' '),
+        workers_finishing,
+        workers_idle_total,
+        workers_free,
+        lib.base2.number2human(httpd_total_accesses),
+        round(httpd_reqpersec, 0),
+        lib.base2.bytes2human(httpd_total_traffic),
+        lib.base2.bytes2human(httpd_bytespersec),
+        lib.base2.bytes2human(httpd_bytesperreq),
         lib.base2.seconds2human(uptime),
         )
 
@@ -209,6 +221,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)
