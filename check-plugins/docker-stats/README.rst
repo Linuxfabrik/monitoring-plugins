@@ -21,6 +21,15 @@ Requirements:
     ./docker-stats --warning-cpu 70 --critical-cpu 90 --count 5 --warning-mem 90 --critical-mem 95
     ./docker-stats --help
 
+Output::
+
+    Everything is ok.
+
+    Container CPU % State Mem %  State RX bps    TX bps    BlockIn/s BlockOut/s 
+    --------- ----- ----- ------ ----- --------- --------- --------- ---------- 
+    cont01    0.1   [OK]  1.79   [OK]  0.0bps    0.0bps    0.0B      0.0B
+    cont02    0.0   [OK]  2.11   [OK]  0.0bps    0.0bps    0.0B      0.0B
+
 
 States
 ------
@@ -36,13 +45,15 @@ Perfdata
 --------
 
 * cpu: Number of Host CPUs
-* ram: Total Host Memory
+* mem_usage: Docker Host Memory Usage (Bytes)
+* mem_usage_percent: Docker Host Memory Usage (Percent)
 * <containername>_block_in: Blocks In (Bytes)
 * <containername>_block_in_bytespersec: Blocks In (Bytes per second)
 * <containername>_block_out: Blocks Out (Bytes)
 * <containername>_block_out_bytespersec: Blocks Out (Bytes per second)
 * <containername>_cpu_usage: Container's CPU usage (normalized)
-* <containername>_mem_usage: Container's memory usage
+* <containername>_mem_usage: Container's memory usage (Bytes)
+* <containername>_mem_usage_percent: Container's memory usage (Percent)
 * <containername>_rx: Container's received bytes
 * <containername>_rx_bps: Container's incoming bits per second
 * <containername>_tx: Container's sent bytes
