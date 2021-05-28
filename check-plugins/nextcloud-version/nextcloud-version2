@@ -39,13 +39,12 @@ from lib.globals2 import  STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pyli
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021051701'
+__version__ = '2021052801'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server update is available."""
 
 DEFAULT_CACHE_EXPIRE = 24 # hours
 DEFAULT_PATH = '/var/www/html/nextcloud'
-DEFAULT_USER = 'apache'
 
 
 def parse_args():
@@ -82,21 +81,17 @@ def parse_args():
         default=DEFAULT_PATH,
     )
 
-    parser.add_argument(
-        '--user',
-        help='User under whom the web server is running. Default: %(default)s',
-        dest='USER',
-        default=DEFAULT_USER,
-    )
-
     return parser.parse_args()
 
 
-def get_config(user, path):
+def get_config(path):
     """Get the whole NC config using the OCC command.
     """
-    occ = os.path.join(path, 'occ')    
-    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('sudo -u {} {} config:list'.format(user, occ)))
+    # get the owner of config.php
+    user = lib.base2.get_owner(os.path.join(path, 'config/config.php'))
+    occ = os.path.join(path, 'occ')
+    # When running a command as a UID, many shells require that the ‘#’ be escaped with a backslash (‘\’). 
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('sudo -u \\#{} {} config:list'.format(user, occ)))
     if stderr:
         lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:
@@ -145,7 +140,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    config = get_config(args.USER, args.PATH)
+    config = get_config(args.PATH)
 
     if not has_internet_connection(config):
         lib.base2.oao('Nextcloud is running in a closed network, so checking for a new version is not possible.',  STATE_OK)

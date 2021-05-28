@@ -11,7 +11,7 @@ The check uses a sqlite database to cache its query result.
 
 ```bash
 ./nextcloud-version --path /var/www/html/nextcloud
-./nextcloud-version --path /var/www/html/nextcloud --channel stable --cache-expire 8 --always-ok
+./nextcloud-version --path /var/www/html/nextcloud --cache-expire 8 --always-ok
 ./nextcloud-version --help
 ```
 
@@ -25,6 +25,12 @@ The check uses a sqlite database to cache its query result.
 # Perfdata
 
 There is no perfdata.
+
+
+# Troubleshooting
+
+`sudo: unknown user: #-1, sudo: error initializing audit plugin sudoers_audit`
+    Nextcloud installation was not found.
 
 
 # Credits, License
