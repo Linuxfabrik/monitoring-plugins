@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052101'
+__version__ = '2021052801'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -241,7 +241,7 @@ def main():
         cache_hits = php['opcache_statistics']['hits']
         cache_misses = php['opcache_statistics']['misses']
         cache_hit_rate = round(php['opcache_statistics']['opcache_hit_rate'], 1)
-        opcache_state = lib.base2.get_state(cache_hit_rate, args.CRIT, args.WARN, operator='le')
+        opcache_state = lib.base2.get_state(cache_hit_rate, args.WARN, args.CRIT, operator='le')
         state = lib.base2.get_worst(opcache_state, state)
         msg += 'Hit Rate {}% ({} hits, {} misses){}, '.format(
             cache_hit_rate,
@@ -292,7 +292,7 @@ def main():
 
         perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-hits', cache_hits, 'c', None, None, 0, None)
         perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-misses', cache_misses, 'c', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-opcache_hit_rate', cache_hit_rate, '%', args.CRIT, args.WARN, 0, 100)
+        perfdata += lib.base2.get_perfdata('php-opcache-opcache_statistics-opcache_hit_rate', cache_hit_rate, '%', args.WARN, args.CRIT, 0, 100)
 
         perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-percentage', string_percentage, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base2.get_perfdata('php-opcache-interned_strings_usage-used_memory', string_used, 'B', None, None, 0, string_total)
