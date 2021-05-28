@@ -47,7 +47,7 @@ We recommend to run this check every 15 minutes.
 * nc_storage_num_storages_home
 * nc_storage_num_storages_local
 * nc_storage_num_storages_other
-* nc_storage_num_users: For num_users, the Nexctloud serverinfo app (NC21) returns the number of users that have ever existed, and not those that are enabled.
+* nc_storage_num_users: For num_users, the Nexctloud serverinfo app (NC21) returns the number of users that have ever existed, and not those that are enabled. See https://github.com/nextcloud/serverinfo/issues/311
 * nc_system_apps_num_installed
 
 
