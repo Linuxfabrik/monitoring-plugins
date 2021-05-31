@@ -28,22 +28,18 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import json # pylint: disable=C0413
-import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
-import lib.cache3 # pylint: disable=C0413
-import lib.url3 # pylint: disable=C0413
-from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
+from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052801'
+__version__ = '2021053101'
 
-DESCRIPTION = """This plugin lets you track if Nextcloud server update is available."""
+DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
-DEFAULT_CACHE_EXPIRE = 24 # hours
 DEFAULT_PATH = '/var/www/html/nextcloud'
 
 
@@ -67,14 +63,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--cache-expire',
-        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
-        dest='CACHE_EXPIRE',
-        type=int,
-        default=DEFAULT_CACHE_EXPIRE,
-    )
-
-    parser.add_argument(
         '--path',
         help='Local path to your Nextcloud installation, typically within your Webserver\'s Document Root. Default: %(default)s',
         dest='PATH',
@@ -84,50 +72,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_config(path):
-    """Get the whole NC config using the OCC command.
+def run_occ(path, cmd, format='json'):
+    """Run the Nextcloud OCC command.
     """
     # get the owner of config.php
     user = lib.base3.get_owner(os.path.join(path, 'config/config.php'))
     occ = os.path.join(path, 'occ')
     # When running a command as a UID, many shells require that the ‘#’ be escaped with a backslash (‘\’). 
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('sudo -u \\#{} {} config:list'.format(user, occ)))
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:
-        return json.loads(stdout)
+        if format == 'json':
+            return json.loads(stdout)
+        else:
+            return stdout.strip()
     except:
         lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
-
-
-def get_installed_version(config):
-    return config['system']['version']
-
-
-def has_internet_connection(config):
-    return config['system'].get('has_internet_connection', True)
-
-
-def get_latest_version(expire):
-    """Get latest NC version online, but first from cache.
-    """
-    latest_version = lib.cache3.get('nextcloud-version')
-    if latest_version:
-        return (True, latest_version)
-
-    # nothing found in cache, get the latest version from NC download site
-    url = 'https://download.nextcloud.com/.customers/server/'
-    success, html = lib.url3.fetch(url, timeout=7)
-    if not success:
-        return (success, html)
-    
-    # parse the output (no need for BeautifulSoup or similar)
-    # <tr><td valign="top"><img src="/icons/folder.gif" alt="[DIR]"></td><td><a href="18.0.9-9f639568/">18.0.9-9f639568/</a></td><td align="right">2020-09-10 08:43  </td><td align="right">  - </td><td>&nbsp;</td></tr>
-    versions = re.findall(r'>(\d{2}\.\d{1,2}\.\d{1,2})', html)
-    latest_version = versions[-1]
-    
-    lib.cache3.set('nextcloud-version', latest_version, lib.base3.now() + expire)
-    return (True, latest_version)
 
 
 def main():
@@ -140,16 +101,24 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    config = get_config(args.PATH)
+    config = run_occ(args.PATH, 'config:list')
 
-    if not has_internet_connection(config):
+    if not config['system'].get('has_internet_connection', True):
         lib.base3.oao('Nextcloud is running in a closed network, so checking for a new version is not possible.',  STATE_OK)
 
-    installed_version = get_installed_version(config)
-    latest_version = lib.base3.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
-    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
-        lib.base3.oao('Nextcloud v{} is up to date'.format(installed_version), STATE_OK)
-    lib.base3.oao('Nextcloud v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+    # If you entered your subscription key in the support app, you should be able to find the update URL
+    # in your config.php under the key "updater.server.url". It is usually in the form 
+    # "https://updates.nextcloud.com/customers/YOUR-SUBSCRIPTION-KEY/".
+    # But you can't simply ping this URL, as the updater code is sending a rather complex request
+    # there to check for updates. Instead, if you have the app "updatenotification" enabled, you can
+    # use "occ update:check" and parse the output to check the state. See
+    # https://github.com/nextcloud/server/blob/master/apps/updatenotification/lib/Command/Check.php#L92
+    result = run_occ(args.PATH, 'update:check', format='text')
+
+    if result == 'Everything up to date':
+        lib.base3.oao('Nextcloud v{} is up to date'.format(config['system']['version']), STATE_OK)
+
+    lib.base3.oao('{} (installed: v{})'.format(result, config['system']['version']), STATE_WARN, always_ok=args.ALWAYS_OK)
    
 
 if __name__ == '__main__':
