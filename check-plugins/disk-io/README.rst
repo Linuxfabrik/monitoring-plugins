@@ -35,20 +35,22 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
-    "Check Interval Recommendation","Once a minute"
-    "Python Version","2, 3"
-    "Download","https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-io"
-    "Requirements","Python module ``psutil``"
+
+    "Check Plugin Download",          "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-io"
+    "Check Interval Recommendation",  "Once a minute"
+    "Available for ",                 "Python 2, Python 3"
+    "Requirements",                   "Python module ``psutil``"
+    "Handles Periods",                "Yes"
+    "Uses SQLite DBs",                "Yes"
 
 
 Help
 ----
 
-::
+.. code-block:: text
 
-    usage: disk-io2 [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
-                    [--ignore IGNORE] [--warning WARN]
+    usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
+                   [--ignore IGNORE] [--warning WARN]
 
     Checks disk IO.
 
@@ -67,19 +69,19 @@ Help
                        'zram0']
       --warning WARN   Set the CRIT threshold for disk I/O read/write rate over
                        the entire period as a percentage of the maximum disk I/O
-                       rate. Default: 80
+                       rate. Default: >= 80
 
 
-Usage
------
+Usage Examples
+--------------
 
 .. code-block:: bash
 
-    ./disk-io
     ./disk-io --ignore sr0 --ignore dm-1 --warning 80 --critical 90 --count 5
-    ./disk-io --help
 
-Output::
+Output:
+
+.. code-block:: text
 
     dm-2: 516.0B/s read, 540.1KiB/s write (current)
 
@@ -97,28 +99,33 @@ States
 * WARN or CRIT if the throughput over the last n measured values is above a certain percentage, compared to the all time maximum throughput of this drive.
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 Per disk:
 
-* <disk>_busy_time: Continous Counter. Time spent doing actual I/Os (in milliseconds).
-* <disk>_read_bytes: Continous Counter. Number of bytes read.
-* <disk>_read_bytes_per_second1: Bytes. Current number of bytes read.
-* <disk>_read_bytes_per_second15: Bytes. Current number of bytes read.
-* <disk>_read_merged_count: Continous Counter. Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt.
-* <disk>_read_time: Continous Counter. Time spent reading from disk (in milliseconds).
-* <disk>_write_bytes: Continous Counter. Number of bytes written.
-* <disk>_write_bytes_per_second1: Bytes. Current number of bytes written.
-* <disk>_write_bytes_per_second15: Bytes. Current number of bytes written.
-* <disk>_write_merged_count: Continous Counter. Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt.
-* <disk>_write_time: Continous Counter. Time spent writing to disk (in milliseconds).
-* <disk>_throughput1: Bytes per second. read_bytes_per_second1 + write_bytes_per_second1.
-* <disk>_throughput15: Bytes per second. read_bytes_per_second15 + write_bytes_per_second15.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    "Name",                             "Type",                 "Description"
+    "<disk>_busy_time",                 "Continous Counter",    "Time spent doing actual I/Os (in milliseconds)."
+    "<disk>_read_bytes",                "Continous Counter",    "Number of bytes read."
+    "<disk>_read_bytes_per_second1",    "Bytes",                "Current number of bytes read."
+    "<disk>_read_bytes_per_second15",   "Bytes",                "Current number of bytes read."
+    "<disk>_read_merged_count",         "Continous Counter",    "Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt."
+    "<disk>_read_time",                 "Continous Counter",    "Time spent reading from disk (in milliseconds)."
+    "<disk>_write_bytes",               "Continous Counter",    "Number of bytes written."
+    "<disk>_write_bytes_per_second1",   "Bytes",                "Current number of bytes written."
+    "<disk>_write_bytes_per_second15",  "Bytes",                "Current number of bytes written."
+    "<disk>_write_merged_count",        "Continous Counter",    "Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt."
+    "<disk>_write_time",                "Continous Counter",    "Time spent writing to disk (in milliseconds)."
+    "<disk>_throughput1",               "None",                 "Bytes per second. read_bytes_per_second1 + write_bytes_per_second1."
+    "<disk>_throughput15",              "None",                 "Bytes per second. read_bytes_per_second15 + write_bytes_per_second15."
 
 
 Credits, License
 ----------------
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-* License: The Unlicense, see LICENSE file.
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.
