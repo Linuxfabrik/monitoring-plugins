@@ -39,10 +39,6 @@ __version__ = '2021060101'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
-# Not in psutil because it's too complex, too low level and not portable by using a consistent API.
-# So we have to call an external command.
-CMD = 'sysctl fs.file-nr'
-
 DEFAULT_WARN  = 90      # %
 DEFAULT_CRIT  = 95      # %
 
@@ -95,27 +91,25 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
-    if (stderr or retc != 0):
-        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
 
-    file_descriptors = stdout.split('\t')
-    # fs.file-nr = 1248\t0\t90913
-    # =>  The number of allocated \t unused-but-allocated \t system-wide maximum number of file handles.
+    with open('/proc/sys/fs/file-nr') as file:
+        fs = [float(item) for item in file.readline().split('\t')]
 
-    # calculate
-    fd_current = float(file_descriptors[0].split(' ')[2])
-    fd_max = float(file_descriptors[2].strip())
-    fd_percent = round(fd_current / fd_max * 100, 1)
+    files_allocated = fs[0]     # The number of allocated file handles
+    files_max = fs[2]           # The number of system-wide maximum number of file handles
+    # fs[1] is the number of unused-but-allocated file handles
+    files_percent = round(files_allocated / files_max * 100, 1)
 
     msg = '{}% file descriptors used ({}/{})'.format(
-        fd_percent,
-        lib.base2.number2human(fd_current),
-        lib.base2.number2human(fd_max)
+        files_percent,
+        lib.base2.number2human(files_allocated),
+        lib.base2.number2human(files_max)
     )
-    perfdata = lib.base2.get_perfdata('fd', fd_percent, '%', args.WARN, args.CRIT, 0, 100)
-    state = lib.base2.get_state(fd_percent, args.WARN, args.CRIT, 'ge')
+    perfdata += lib.base2.get_perfdata('fd', files_percent, '%', args.WARN, args.CRIT, 0, 100)
+    state = lib.base2.get_state(files_percent, args.WARN, args.CRIT, 'ge')
 
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
