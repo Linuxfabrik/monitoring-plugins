@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -30,8 +30,8 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -96,9 +96,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD))
     if (stderr or retc != 0):
-        lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     file_descriptors = stdout.split('\t')
     # fs.file-nr = 1248\t0\t90913
@@ -111,13 +111,13 @@ def main():
 
     msg = '{}% file descriptors used ({}/{})'.format(
         fd_percent,
-        lib.base2.number2human(fd_current),
-        lib.base2.number2human(fd_max)
+        lib.base3.number2human(fd_current),
+        lib.base3.number2human(fd_max)
     )
-    perfdata = lib.base2.get_perfdata('fd', fd_percent, '%', args.WARN, args.CRIT, 0, 100)
-    state = lib.base2.get_state(fd_percent, args.WARN, args.CRIT, 'ge')
+    perfdata = lib.base3.get_perfdata('fd', fd_percent, '%', args.WARN, args.CRIT, 0, 100)
+    state = lib.base3.get_state(fd_percent, args.WARN, args.CRIT, 'ge')
 
-    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
