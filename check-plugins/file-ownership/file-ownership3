@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -31,8 +31,8 @@ import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -126,15 +126,15 @@ def main():
             file = file.split(',')
             path = file[1]
         except:
-            lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+            lib.base3.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
         try:
             owner, group = file[0].split(':')
         except:
-            lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+            lib.base3.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
         cmd = command.format(path=path)
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
 
         for line in stdout.splitlines():
             if not line.startswith('Access: ('):
@@ -149,31 +149,31 @@ def main():
                 file_state = STATE_OK
             cnt += 1
 
-            state = lib.base2.get_worst(file_state, state)
+            state = lib.base3.get_worst(file_state, state)
             table_values.append({
                 'file': path,
                 'owner': file_owner,
                 'group': file_group,
-                'state': lib.base2.state2str(file_state, empty_ok=False)
+                'state': lib.base3.state2str(file_state, empty_ok=False)
                 })
 
     # create output
     if cnt == 0:
-        lib.base2.oao('No files checked.', state)
+        lib.base3.oao('No files checked.', state)
     
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n'
     else:
         msg = 'One or more problems with owners or groups.\n\n'
     if len(table_values) > 0:
-        msg += lib.base2.get_table(
+        msg += lib.base3.get_table(
             table_values,
             ['file', 'owner', 'group', 'state'],
             header=['Path', 'Owner', 'Group', 'State'],
             )
 
     # over and out
-    lib.base2.oao(msg, state)
+    lib.base3.oao(msg, state)
 
 
 if __name__ == '__main__':
