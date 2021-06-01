@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -32,13 +32,13 @@ import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
 except ImportError as e:
-    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -62,7 +62,7 @@ def parse_args():
 
 
 def find_command(return_text, cmd, version_regex=None):
-    success, result = lib.base2.shell_exec(cmd)
+    success, result = lib.base3.shell_exec(cmd)
     if not success:
         return ''
     if cmd.endswith(' -h'):
@@ -91,6 +91,7 @@ def get_sys_dimensions():
     sys = {}
     sys['cpu'] = psutil.cpu_count(logical=True)
     sys['ram'] = psutil.virtual_memory().total
+    sys['disks'] = 0
 
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
     for disk in stdout.strip().split('\n'):
@@ -276,9 +277,7 @@ def get_sw():
 
 
 def get_os_info():
-    os_info = os.uname()
-    platform_info = platform.linux_distribution()
-    return '{} {} {}'.format(platform_info[0], platform_info[1], os_info[2])
+    return platform.platform()
 
 
 def get_python_modules():
@@ -318,9 +317,9 @@ def main():
     perfdata = ''
 
     sys_dimensions = get_sys_dimensions()
-    msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base2.pluralize('CPU', sys_dimensions['cpu']))
-    msg += lib.base2.bytes2human(sys_dimensions['ram']) + ' RAM, '
-    msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base2.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
+    msg += '{} {}, '.format(sys_dimensions['cpu'], lib.base3.pluralize('CPU', sys_dimensions['cpu']))
+    msg += lib.base3.bytes2human(sys_dimensions['ram']) + ' RAM, '
+    msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base3.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
     msg = msg[:-2]
 
     sw = get_sw()
@@ -341,12 +340,11 @@ def main():
     
     msg += ' - OS: ' + get_os_info()
 
-    perfdata += lib.base2.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('osversion', platform.linux_distribution()[1].replace('.', ''), None, None, None, None, None)
+    perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('disks', sys_dimensions['disks'], None, None, None, 0, None)
 
-    lib.base2.oao(msg, STATE_OK, perfdata)
+    lib.base3.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
