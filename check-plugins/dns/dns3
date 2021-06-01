@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -32,9 +32,9 @@ import sys # pylint: disable=C0413
 import time # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.base2 # pylint: disable=C0413
-import lib.net2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.net3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -134,32 +134,32 @@ def main():
     start_time = time.time()
     try:
         if args.TYPE == 'udp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET, lib.net2.SOCK_UDP, lib.net2.PROTO_UDP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET, lib.net3.SOCK_UDP, lib.net3.PROTO_UDP)
         elif args.TYPE == 'udp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET6, lib.net2.SOCK_UDP, lib.net2.PROTO_UDP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET6, lib.net3.SOCK_UDP, lib.net3.PROTO_UDP)
         elif args.TYPE == 'tcp':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET, lib.net2.SOCK_TCP, lib.net2.PROTO_TCP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET, lib.net3.SOCK_TCP, lib.net3.PROTO_TCP)
         elif args.TYPE == 'tcp6':
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net2.AF_INET6, lib.net2.SOCK_TCP, lib.net2.PROTO_TCP)
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET6, lib.net3.SOCK_TCP, lib.net3.PROTO_TCP)
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
     except socket.error as e:
-        lib.base2.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base3.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     except socket.herror as e:
-        lib.base2.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base3.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     except socket.gaierror as e:
-        lib.base2.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+        lib.base3.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
     runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
 
     msg = 'Lookup for {} returns '.format(args.HOSTNAME)
     for res in result:
         af, socktype, proto, canonname, sa = res
-        msg += '{} ({}{}:{}), '.format(sa[0], lib.net2.PROTOSTR[proto], lib.net2.FAMILIYSTR[af], sa[1])
+        msg += '{} ({}{}:{}), '.format(sa[0], lib.net3.PROTOSTR[proto], lib.net3.FAMILIYSTR[af], sa[1])
 
-    state = lib.base2.get_state(runtime, args.WARN, args.CRIT, operator='ge')
-    perfdata = lib.base2.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
+    state = lib.base3.get_state(runtime, args.WARN, args.CRIT, operator='ge')
+    perfdata = lib.base3.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
 
-    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
