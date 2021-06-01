@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -30,10 +30,10 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.args2 # pylint: disable=C0413
-import lib.base2 # pylint: disable=C0413
-import lib.disk2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -77,7 +77,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args2.csv,
+        type=lib.args3.csv,
     )
 
     return parser.parse_args()
@@ -95,10 +95,10 @@ def main():
 
     if args.TEST == None:
         # get the values the normal way
-        mounts = lib.base2.coe(lib.disk2.read_file('/proc/mounts'))
+        mounts = lib.base3.coe(lib.disk3.read_file('/proc/mounts'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.base2.test(args.TEST)
+        stdout, stderr, retc = lib.base3.test(args.TEST)
         mounts = stdout
 
     cnt = 0
@@ -106,7 +106,7 @@ def main():
     for mount in mounts.splitlines():
         mnt = mount.split()
         if len(mnt) != 6:
-            lib.base2.oao('Unexpected format of /proc/mounts.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+            lib.base3.oao('Unexpected format of /proc/mounts.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
         mount_spec = mnt[0]
         mount_point = mnt[1]
         mount_type = mnt[2]
@@ -122,18 +122,18 @@ def main():
     if len(ros) > 0:
         msg = '{} read-only mount {} found: '.format(
             len(ros),
-            lib.base2.pluralize('point', len(ros)),
+            lib.base3.pluralize('point', len(ros)),
             )
         for item in ros:
             msg += '{}, '.format(item)
         msg = msg[:-2]
         state = STATE_WARN
     else:
-        msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.base2.pluralize('point', cnt))
+        msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.base3.pluralize('point', cnt))
         state = STATE_OK
 
     # over and out
-    lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
