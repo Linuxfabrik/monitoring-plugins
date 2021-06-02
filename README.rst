@@ -25,6 +25,49 @@ Donate
 |Donate|
 
 
+Human Readable Numbers
+----------------------
+
+This is how we append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+
+.. csv-table::
+    :header-rows: 1
+    
+    Value,     Symbol,  Type,       For,                Description
+    1000^1,    K,       ,           Number,             Thousand
+    1000^2,    M,       SI Symbol,  Number,             'Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^3,    G,       SI Symbol,  Number,             'Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^4,    T,       SI Symbol,  Number,             'Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^5,    P,       SI Symbol,  Number,             'Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^6,    E,       SI Symbol,  Number,             'Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^7,    Z,       SI Symbol,  Number,             'Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^8,    Y,       SI Symbol,  Number,             'Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1024^1,    KiB,     ISQ Symbol, Bytes,              Kibibytes (used in Output)
+    1024^2,    MiB,     ISQ Symbol, Bytes,              Mebibytes (used in Output)
+    1024^3,    GiB,     ISQ Symbol, Bytes,              Gibibytes (used in Output)
+    1024^4,    TiB,     ISQ Symbol, Bytes,              Tebibytes (used in Output)
+    1024^5,    PiB,     ISQ Symbol, Bytes,              Pebibytes (used in Output)
+    1024^6,    EiB,     ISQ Symbol, Bytes,              Exbibytes (used in Output)
+    1024^7,    ZiB,     ISQ Symbol, Bytes,              Zebibytes (used in Output)
+    1024^8,    YiB,     ISQ Symbol, Bytes,              Yobibytes (used in Output)
+    1000^1,    KB,      other,      Bytes,              Kilobytes
+    1000^2,    MB,      other,      Bytes,              Megabytes
+    1000^3,    GB,      other,      Bytes,              Gigabytes
+    1000^4,    TB,      other,      Bytes,              Terrabytes
+    1000^5,    PB,      other,      Bytes,              Petabytes
+    1000^6,    EB,      other,      Bytes,              Exabytes
+    1000^7,    ZB,      other,      Bytes,              Zetabytes
+    1000^8,    YB,      other,      Bytes,              Yottabytes
+    1000^1,    Kbps,    other,      Bits per Second,    Kilobits
+    1000^2,    Mbps,    other,      Bits per Second,    Megabits
+    1000^3,    Gbps,    other,      Bits per Second,    Gigabits
+    1000^4,    Tbps,    other,      Bits per Second,    Terrabits
+    1000^5,    Pbps,    other,      Bits per Second,    Petabits
+    1000^6,    Ebps,    other,      Bits per Second,    Exabits
+    1000^7,    Zbps,    other,      Bits per Second,    Zetabits
+    1000^8,    Ybps,    other,      Bits per Second,    Yottabits
+
+
 Libraries
 ---------
 
@@ -259,12 +302,3 @@ For now, there are two ways:
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
 
-
-Check Plugin Fact Sheet
------------------------
-
-Have a look at the ``check-plugin-fact-sheet.csv``.
-
-
-.. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
-   :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url
