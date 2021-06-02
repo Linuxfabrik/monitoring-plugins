@@ -19,7 +19,8 @@ Counts tcp, tcp6, udp and udp6 connection details. Emulating ``ss -antp``.
 * ``SYN_SENT``: Actively trying to establish connection.
 * ``TIME_WAIT``: Wait after close for remote shutdown retransmission.
 
-* Does not WARN or CRIT on anything, because we do not know on what. Until there is some clarification, this check is useful for debugging purposes.
+Does not WARN or CRIT on anything, because we do not know on what. Until there is some clarification, this check is useful for debugging purposes.
+
 
 Fact Sheet
 ----------
@@ -30,10 +31,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/network-connections"
     "Check Interval Recommendation",        "Once a minute"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python2 module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -41,13 +39,13 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: network-connections [-h] [-V]
 
-    Example Check.
+    Counts tcp, tcp6, udp and udp6 connections.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
 
 
 Usage Examples
@@ -61,7 +59,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    tcp ESTABLISHED: 19, udp NONE: 16, tcp LISTEN: 9, udp6 NONE: 5, tcp CLOSE WAIT: 4, tcp6 LISTEN: 4, tcp TIME WAIT: 1, tcp6 CLOSE WAIT: 1
 
 
 States

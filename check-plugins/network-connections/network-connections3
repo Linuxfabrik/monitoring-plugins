@@ -8,103 +8,96 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-import socket
-from socket import AF_INET, SOCK_STREAM, SOCK_DGRAM
-from traceback import print_exc
-import lib.base3
-from lib.globals3 import *
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.net3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
-    import psutil
-except ImportError as e:
+    import psutil # pylint: disable=C0413
+except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
 DESCRIPTION = 'Counts tcp, tcp6, udp and udp6 connections.'
 
-AF_INET6 = getattr(socket, 'AF_INET6', object())
-proto_map = {
-    (AF_INET, SOCK_STREAM): 'tcp',
-    (AF_INET6, SOCK_STREAM): 'tcp6',
-    (AF_INET, SOCK_DGRAM): 'udp',
-    (AF_INET6, SOCK_DGRAM): 'udp6',
-}
-
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        print_exc(e)
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    proc_names = {}
-    # Changed in psutil version 5.3.0: added “attrs” and “ad_value” parameters.
-    if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
-        for p in psutil.process_iter(attrs=['pid', 'name']):
-            proc_names[p.info['pid']] = p.info['name']
-    else:
-        for p in psutil.process_iter():
-            try:
-                proc_names[p.pid] = p.name()
-            except psutil.Error:
-                pass
-
+    # fetch data
     stats = {}
     for c in psutil.net_connections(kind='inet'):
-        key = proto_map[(c.family, c.type)] + '_' + c.status
-        if key not in list(stats.keys()):
-            stats[key] = 1
-        else:
+        key = lib.net3.PROTO_MAP[(c.family, c.type)] + '_' + c.status
+        if key in list(stats.keys()):
             stats[key] += 1
+        else:
+            stats[key] = 1
 
+    # init some vars
     msg = ''
     perfdata = ''
 
+    # build the message
     for item in lib.base3.sort(stats, reverse=True):
         proto, value = item
         if value:
             msg += '{}: {}, '.format(proto.replace('_', ' '), value)
         perfdata += lib.base3.get_perfdata(proto, value, None, None, None, None, None)
 
+    # over and out
     lib.base3.oao(msg[:-2], STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)
