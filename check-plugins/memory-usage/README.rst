@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/memory-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python2 module ``psutil``"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
