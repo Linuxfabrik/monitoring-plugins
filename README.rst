@@ -35,13 +35,13 @@ This is how we convert and append symbols to large numbers in a human-readable f
     
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          'Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^3,       G,      SI Symbol,  Number,          'Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^4,       T,      SI Symbol,  Number,          'Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^5,       P,      SI Symbol,  Number,          'Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^6,       E,      SI Symbol,  Number,          'Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^7,       Z,      SI Symbol,  Number,          'Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^8,       Y,      SI Symbol,  Number,          'Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^2,       M,      SI Symbol,  Number,          "Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^3,       G,      SI Symbol,  Number,          "Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^4,       T,      SI Symbol,  Number,          "Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^5,       P,      SI Symbol,  Number,          "Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^6,       E,      SI Symbol,  Number,          "Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^7,       Z,      SI Symbol,  Number,          "Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^8,       Y,      SI Symbol,  Number,          "Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
     1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes (used in Output)
     1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes (used in Output)
     1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes (used in Output)
@@ -309,3 +309,7 @@ For now, there are two ways:
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
 
+
+
+.. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
+   :target: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url
