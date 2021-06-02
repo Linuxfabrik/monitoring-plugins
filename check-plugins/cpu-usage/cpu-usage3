@@ -8,51 +8,62 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+from collections import Counter # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-import lib.base3
-import lib.db_sqlite3
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.db_sqlite3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
-    import psutil
-except ImportError as e:
+    import psutil # pylint: disable=C0413
+except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021702'
 
-DESCRIPTION = 'Mainly provides utilization percentages for each specific CPU time. Takes a time period into account: the cpu usage within a certain amount of time has to be equal or above given thresholds before a warning is raised.'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021060201'
+
+DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
+                period into account: the cpu usage within a certain amount of time has to be equal
+                or above given thresholds before a warning is raised."""
 
 DEFAULT_WARN = 80 # %
 DEFAULT_CRIT = 90 # %
 DEFAULT_COUNT = 5 # measurements; if check runs once per minute, this is a 5 minute interval
 
+
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -60,7 +71,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--count',
@@ -68,7 +79,7 @@ def parse_args():
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
-        )
+    )
 
     parser.add_argument(
         '-c', '--critical',
@@ -76,7 +87,7 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -84,7 +95,7 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
@@ -104,15 +115,21 @@ def get_from_db(conn, threshold):
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # init some vars
+    msg, msg_header, msg_body = '', '', ''
+    perfdata = ''
+    state = STATE_OK
     stats = {}
     extstats = {}
-
 
     # create the db table
     definition = '''
@@ -130,7 +147,6 @@ def main():
     conn = lib.base3.coe(lib.db_sqlite3.connect(filename='cpu-usage.db'))
     lib.base3.coe(lib.db_sqlite3.create_table(conn, definition))
 
-
     # Grab CPU stats using psutil's cpu_times_percent
     # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/issues/57: changed from 0.25 to 1.25
     try:
@@ -139,18 +155,17 @@ def main():
         lib.db_sqlite3.close(conn)
         lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
+    stats['cpu_usage'] = round(100.0 - getattr(cpu_times_percent, 'idle'), 1)
 
-    stats['cpu_usage'] = 100.0 - getattr(cpu_times_percent, 'idle')
-
-    if hasattr(cpu_times_percent, 'guest'): stats['guest'] = getattr(cpu_times_percent, 'guest')
-    if hasattr(cpu_times_percent, 'guest_nice'): stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice')
-    if hasattr(cpu_times_percent, 'iowait'): stats['iowait'] = getattr(cpu_times_percent, 'iowait')
-    if hasattr(cpu_times_percent, 'irq'): stats['irq'] = getattr(cpu_times_percent, 'irq')
-    if hasattr(cpu_times_percent, 'nice'): stats['nice'] = getattr(cpu_times_percent, 'nice')
-    if hasattr(cpu_times_percent, 'softirq'): stats['softirq'] = getattr(cpu_times_percent, 'softirq')
-    if hasattr(cpu_times_percent, 'steal'): stats['steal'] = getattr(cpu_times_percent, 'steal')
-    if hasattr(cpu_times_percent, 'system'): stats['system'] = getattr(cpu_times_percent, 'system')
-    if hasattr(cpu_times_percent, 'user'): stats['user'] = getattr(cpu_times_percent, 'user')
+    stats['guest'] = getattr(cpu_times_percent, 'guest', 0)
+    stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice', 0)
+    stats['iowait'] = getattr(cpu_times_percent, 'iowait', 0)
+    stats['irq'] = getattr(cpu_times_percent, 'irq', 0)
+    stats['nice'] = getattr(cpu_times_percent, 'nice', 0)
+    stats['softirq'] = getattr(cpu_times_percent, 'softirq', 0)
+    stats['steal'] = getattr(cpu_times_percent, 'steal', 0)
+    stats['system'] = getattr(cpu_times_percent, 'system', 0)
+    stats['user'] = getattr(cpu_times_percent, 'user', 0)
 
     # save trend data to local sqlite database, limited to "count" rows max.
     lib.base3.coe(lib.db_sqlite3.insert(conn, stats))
@@ -164,21 +179,14 @@ def main():
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
     if lib.base3.version(psutil.__version__) >= lib.base3.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
-        if hasattr(cpu_stats, 'ctx_switches'): extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches')
-        if hasattr(cpu_stats, 'interrupts'): extstats['interrupts'] = getattr(cpu_stats, 'interrupts')
-        if hasattr(cpu_stats, 'soft_interrupts'): extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts')
-
+        extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches', 0)
+        extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
+        extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts', 0)
 
     # sort by highest value
     cpu_usage = stats['cpu_usage']
     del stats['cpu_usage']
     stats = lib.base3.sort(stats, reverse=True)
-
-
-    msg = ''
-    perfdata = ''
-    state = STATE_OK
-
 
     # now, calculate the WARN or CRIT.
     # overall state is not ok, if ...
@@ -190,12 +198,10 @@ def main():
         state = STATE_WARN
     lib.db_sqlite3.close(conn)
 
-
     # build the message
     perfdata += lib.base3.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
     # msg_header: values > 0%
     # msg_body: values == 0%
-    msg_header, msg_body = '', ''
     for stat in stats:
         if stat[1] != 0:
             msg_header += '{}: {:.1f}%, '.format(stat[0], stat[1])
@@ -211,16 +217,36 @@ def main():
     if extstats:
         msg += '\n'
         for key in extstats:
-            msg += '{}: {}, '.format(key, extstats[key])
+            msg += '{}: {}, '.format(key, lib.base3.number2human(extstats[key]))
             perfdata += lib.base3.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
-        msg = msg[:-2]
+        msg = msg[:-2] + '\n'
 
+    # list top3 processes which consumed the most cpu time
+    cnt = Counter()
+    msg += '\nTop3 processes which consumed the most cpu time:\n'
+    if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
+        try:
+            for p in psutil.process_iter(attrs=['name', 'cpu_times']):
+                cnt[p.info['name']] += sum(p.info['cpu_times'][:2])
+        except psutil.NoSuchProcess:
+            pass
+    else:
+        try:
+            for p in [x.as_dict(attrs=['name', 'cpu_times']) for x in psutil.process_iter()]:
+                cnt[p['name']] += sum(p['cpu_times'][:2])
+        except psutil.NoSuchProcess:
+            pass
+
+    for i, p in enumerate(cnt.most_common(3)):
+        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.base3.seconds2human(p[1]))
+
+    # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)
