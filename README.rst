@@ -28,44 +28,51 @@ Donate
 Human Readable Numbers
 ----------------------
 
-This is how we append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
 
 .. csv-table::
     :header-rows: 1
     
-    Value,     Symbol,  Type,       For,                Description
-    1000^1,    K,       ,           Number,             Thousand
-    1000^2,    M,       SI Symbol,  Number,             'Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^3,    G,       SI Symbol,  Number,             'Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^4,    T,       SI Symbol,  Number,             'Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^5,    P,       SI Symbol,  Number,             'Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^6,    E,       SI Symbol,  Number,             'Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^7,    Z,       SI Symbol,  Number,             'Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1000^8,    Y,       SI Symbol,  Number,             'Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
-    1024^1,    KiB,     ISQ Symbol, Bytes,              Kibibytes (used in Output)
-    1024^2,    MiB,     ISQ Symbol, Bytes,              Mebibytes (used in Output)
-    1024^3,    GiB,     ISQ Symbol, Bytes,              Gibibytes (used in Output)
-    1024^4,    TiB,     ISQ Symbol, Bytes,              Tebibytes (used in Output)
-    1024^5,    PiB,     ISQ Symbol, Bytes,              Pebibytes (used in Output)
-    1024^6,    EiB,     ISQ Symbol, Bytes,              Exbibytes (used in Output)
-    1024^7,    ZiB,     ISQ Symbol, Bytes,              Zebibytes (used in Output)
-    1024^8,    YiB,     ISQ Symbol, Bytes,              Yobibytes (used in Output)
-    1000^1,    KB,      other,      Bytes,              Kilobytes
-    1000^2,    MB,      other,      Bytes,              Megabytes
-    1000^3,    GB,      other,      Bytes,              Gigabytes
-    1000^4,    TB,      other,      Bytes,              Terrabytes
-    1000^5,    PB,      other,      Bytes,              Petabytes
-    1000^6,    EB,      other,      Bytes,              Exabytes
-    1000^7,    ZB,      other,      Bytes,              Zetabytes
-    1000^8,    YB,      other,      Bytes,              Yottabytes
-    1000^1,    Kbps,    other,      Bits per Second,    Kilobits
-    1000^2,    Mbps,    other,      Bits per Second,    Megabits
-    1000^3,    Gbps,    other,      Bits per Second,    Gigabits
-    1000^4,    Tbps,    other,      Bits per Second,    Terrabits
-    1000^5,    Pbps,    other,      Bits per Second,    Petabits
-    1000^6,    Ebps,    other,      Bits per Second,    Exabits
-    1000^7,    Zbps,    other,      Bits per Second,    Zetabits
-    1000^8,    Ybps,    other,      Bits per Second,    Yottabits
+    Value,        Symbol, Origin,     Type,            Description
+    1000^1,       K,      ,           Number,          Thousand
+    1000^2,       M,      SI Symbol,  Number,          'Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^3,       G,      SI Symbol,  Number,          'Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^4,       T,      SI Symbol,  Number,          'Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^5,       P,      SI Symbol,  Number,          'Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^6,       E,      SI Symbol,  Number,          'Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^7,       Z,      SI Symbol,  Number,          'Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1000^8,       Y,      SI Symbol,  Number,          'Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))'
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes (used in Output)
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes (used in Output)
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes (used in Output)
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes (used in Output)
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes (used in Output)
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes (used in Output)
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes (used in Output)
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes (used in Output)
+    1000^1,       KB,     other,      Bytes,           Kilobytes
+    1000^2,       MB,     other,      Bytes,           Megabytes
+    1000^3,       GB,     other,      Bytes,           Gigabytes
+    1000^4,       TB,     other,      Bytes,           Terrabytes
+    1000^5,       PB,     other,      Bytes,           Petabytes
+    1000^6,       EB,     other,      Bytes,           Exabytes
+    1000^7,       ZB,     other,      Bytes,           Zetabytes
+    1000^8,       YB,     other,      Bytes,           Yottabytes
+    1000^1,       Kbps,   other,      Bits per Second, Kilobits
+    1000^2,       Mbps,   other,      Bits per Second, Megabits
+    1000^3,       Gbps,   other,      Bits per Second, Gigabits
+    1000^4,       Tbps,   other,      Bits per Second, Terrabits
+    1000^5,       Pbps,   other,      Bits per Second, Petabits
+    1000^6,       Ebps,   other,      Bits per Second, Exabits
+    1000^7,       Zbps,   other,      Bits per Second, Zetabits
+    1000^8,       Ybps,   other,      Bits per Second, Yottabits
+    1..59,        s,      other,      Time,            Seconds
+    60,           m,      other,      Time,            Minutes
+    60*60,        h,      other,      Time,            Hours
+    60*60*24,     D,      other,      Time,            Days
+    60*60*24*7,   W,      other,      Time,            Weeks
+    60*60*24*30,  M,      other,      Time,            Months
+    60*60*24*365, Y,      other,      Time,            Years
 
 
 Libraries
