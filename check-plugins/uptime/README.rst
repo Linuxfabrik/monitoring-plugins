@@ -16,10 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/uptime"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python2 module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +24,18 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: uptime [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Tell how long the system has been running.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for uptime in days. Default: 366
+      -w WARN, --warning WARN
+                            Set the warning threshold for uptime in days. Default: 180
 
 
 Usage Examples
@@ -49,7 +51,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Up 1W 9h
 
 
 States
