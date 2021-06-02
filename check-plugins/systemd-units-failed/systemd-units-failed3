@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -30,9 +30,9 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.args2 # pylint: disable=C0413
-import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -64,7 +64,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args2.csv,
+        type=lib.args3.csv,
     )
 
     return parser.parse_args()
@@ -82,14 +82,14 @@ def main():
 
     if args.TEST is None:
         # get the values the normal way
-        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(
             'systemctl --state=failed --no-pager --no-legend'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.base2.test(args.TEST)
+        stdout, stderr, retc = lib.base3.test(args.TEST)
 
     if retc != 0:
-        lib.base2.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
+        lib.base3.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
 
     failed_units = stdout.splitlines()
     if len(failed_units) == 0:
@@ -98,9 +98,9 @@ def main():
         state = STATE_OK
     else:
         msg = 'There {} {} failed {}.\n'.format(
-            lib.base2.pluralize('', len(failed_units), 'is,are'),
+            lib.base3.pluralize('', len(failed_units), 'is,are'),
             len(failed_units),
-            lib.base2.pluralize('unit', len(failed_units)),
+            lib.base3.pluralize('unit', len(failed_units)),
             )
         table_data = []
         for line in failed_units:
@@ -113,17 +113,17 @@ def main():
                 'description': ' '.join(unit[4:]),
                 })
             state = STATE_WARN
-        table = lib.base2.get_table(
+        table = lib.base3.get_table(
             table_data,
             ['unit', 'load', 'active', 'sub', 'description'],
             ['unit', 'load', 'active', 'sub', 'description'],
             )
 
-    perfdata = lib.base2.get_perfdata(
+    perfdata = lib.base3.get_perfdata(
         'systemd-units-failed', len(failed_units), None, 1, None, 0, None)
 
     # over and out
-    lib.base2.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
