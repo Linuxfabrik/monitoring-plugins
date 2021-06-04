@@ -139,8 +139,14 @@ def main():
     result = lib.base3.filter_mltext(result, ignore)
 
     # build the message
+    cnt = result.count('\n') + 1
     if len(result) > 0:
-        msg = '{} in dmesg.\n\n{}'.format(lib.base3.pluralize('Error', len(result)), result)
+        if cnt > 10:
+            # shorten the message
+            result = result.split('\n')
+            result = result[0:5] + ['...'] + result[-5:]
+            result = '\n'.join(result)
+        msg = '{} {} in Kernel Ring Buffer.\n\n{}'.format(cnt, lib.base2.pluralize('error', cnt), result)
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
     else:
         msg = 'Everything is ok.'
