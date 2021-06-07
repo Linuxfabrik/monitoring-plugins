@@ -193,9 +193,11 @@ The columns in detail:
 * | Report Change as
   | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``TMPDIR/linuxfabrik-plugin-cache.db``.
 
-The output would be something like this::
+The output would be something like this
 
-    Uptime: 5m 1w
+.. code-block:: text
+
+    Uptime: 5M 1W
 
     Key         Value           State 
     ---         -----           ----- 
