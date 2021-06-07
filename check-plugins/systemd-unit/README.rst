@@ -69,38 +69,38 @@ Help
       --unitfilestate {bad,disabled,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}
                             Expected systemd UnitFileState.
 
-`--activestate` (repeating):
+``--activestate`` (repeating):
 
 * The high-level unit activation state(s), i.e. generalization of SUB.
 * If ommited, the unit's active state will not be checked.
 * activestate=active,failed,inactive,activating,deactivating
 * Default: none
 
-`--loadstate`:
+``--loadstate``:
 
 * Reflects whether the unit definition was properly loaded.
 * loadstate=loaded,not-found
 * Default: loaded
 
-`--severity`:
+``--severity``:
 
 * If something was found, the check returns WARN unless set here.
 * severity=warn,crit
 * Default: warn
 
-`--substate` (repeating):
+``--substate`` (repeating):
 
 * The low-level unit activation state(s); values depend on unit type.
 * If ommited, the unit's substate will not be checked.
 * substate=abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting
 * Default: none
 
-`--unit`:
+``--unit``:
 
 * The unit name (service, timer, mount etc.).
 * Required.
 
-`--unitfilestate`:
+``--unitfilestate``:
 
 * If ommited, the unit's unit-file state will not be checked.
 * unitfilestate=bad,disabled,enabled,enabled-runtime,generated,indirect,static,transient
@@ -109,8 +109,6 @@ Help
 
 Usage Examples
 --------------
-
-Examples:
 
 * | Does the service exist? (and nothing more!)
   | ``systemd-unit --unit=firewalld.service``
