@@ -203,7 +203,7 @@ The output would be something like this::
     Location    Office          [OK]  
     Contact     The Printer Man [OK]  
     Description Brother NC-350w [OK]  
-    Uptime      5m 1w           [OK]|Uptime=13762718.93s;;;0;;
+    Uptime      5M 1W           [OK]
 
 The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
