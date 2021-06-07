@@ -1,18 +1,12 @@
-Check "nginx-status"
-====================
+Check nginx-status
+==================
 
 Overview
 --------
 
-This check provides NGINX basic status information (from the stub status module).
+This check provides nginx basic status information from the stub status module.
 
-We recommend to run this check every minute.
-
-
-Installation and Usage
-----------------------
-
-Enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
+For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
 
 .. code-block::
     :caption: /etc/nginx/nginx.conf
@@ -25,15 +19,58 @@ Enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_mod
          }
     }
 
-Fetch the status data:
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Enable ``stub_status``"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [-u URL] [-w WARN]
+                        [--test TEST]
+
+    This check provides NGINX basic status information.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold for the number of active
+                            connections. Default: >= 486
+      -u URL, --url URL     NGINX Server Status URL. Default:
+                            http://localhost/server-status
+      -w WARN, --warning WARN
+                            Set the WARN threshold for the number of active
+                            connections. Default: >= 460
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./nginx-status --url http://nginx/server-status --warning 460 --critical 486
 
-Output::
+Output:
 
-    4 active concurrent conns; 4540245 accepted conns, 4540245 handled conns, 4540243 reqs; 1.0 req per conn; currently 0 receiving reqs, 2 sending responses, 2 keep-alive conns
+.. code-block:: text
+
+    1 active concurrent conn; 3 accepted conns, 3 handled conns, 3 reqs; 1.0 req per conn; currently 0 receiving reqs, 1 sending response, 0 keep-alive conns
 
 
 States
@@ -43,8 +80,8 @@ States
 * WARN or CRIT if the active connections are above the specified thresholds.
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * connections_active: The current number of active client connections including Waiting connections. 
 * total_connections_accepted: The total number of accepted client connections. 
@@ -60,5 +97,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
-
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

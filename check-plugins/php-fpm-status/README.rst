@@ -1,31 +1,80 @@
-Check "php-fpm-status"
-======================
+Check php-fpm-status
+====================
 
 Overview
 --------
 
 This check collects information from the PHP-FPM pool status page and alerts on certain overuse. In addition, a table is printed which contains each pool process in the status "Running" (which information relates to the current request that is being served).
 
-We recommend running this check every minute.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/php-fpm-status"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Configure a status page like ``/fpm-status``, ``/<poolname>-fpm-status`` or similar in ``/etc/php-fpm.d/<poolname>.conf``"
 
 
-Installation and Usage
-----------------------
+Help
+----
 
-Requirements:
+.. code-block:: text
 
-* Activate the status page ``/fpm-status`` in ``/etc/php-fpm.d/<poolname>.conf`` (or an URL like ``/<poolname>-status`` or similar).
-* Configure your webserver to serve this URL, grant access from localhost only.
+    usage: php-fpm-status [-h] [-V] [--always-ok] [-c CRIT]
+                          [--critical-maxchildren CRIT_MAX_CHILDREN]
+                          [--critical-slowreq CRIT_SLOW_REQUESTS] [--test TEST]
+                          [-u URL] [-w WARN]
+                          [--warning-maxchildren WARN_MAX_CHILDREN]
+                          [--warning-slowreq WARN_SLOW_REQUESTS]
 
-After that:
+    This check collects information from the PHP-FPM status page and alerts on
+    certain overuse. In addition, a table is printed which contains each pool
+    process in the status "Running" (information relates to the current request
+    that is being served).
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold for queue usage as a
+                            percentage. Default: >= 90
+      --critical-maxchildren CRIT_MAX_CHILDREN
+                            Set the CRIT threshold for the number of times the
+                            process limit has been reached. Default: >= 100
+      --critical-slowreq CRIT_SLOW_REQUESTS
+                            Set the CRIT threshold for slow requests. Default: >=
+                            100
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+      -u URL, --url URL     PHP-FPM Status URL. Default: http://localhost/fpm-
+                            status
+      -w WARN, --warning WARN
+                            Set the WARN threshold for queue usage as a
+                            percentage. Default: >= 80
+      --warning-maxchildren WARN_MAX_CHILDREN
+                            Set the WARN threshold for the number of times the
+                            process limit has been reached. Default: >= 1
+      --warning-slowreq WARN_SLOW_REQUESTS
+                            Set the WARN threshold for slow requests. Default: >=
+                            1
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
-    ./php-fpm-status
     ./php-fpm-status --url http://localhost/fpm-status --warning 80 --warning-maxchildren 10 --critical-slowreq 3
-    ./php-fpm-status --help
 
-Output::
+Output:
+
+.. code-block:: text
 
     Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129k connections, 10.3 req/s, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)
 
@@ -41,7 +90,7 @@ The columns mean:
 * Requests: the number of requests the process has served
 * ReqDur: the duration of the requests
 * Request URI: the request URI with the query string
-* POST: the content length of the POST request (or '-' if not POST)
+* POST: the content length of the POST request (or '-' if not a POST)
 * AuthUser: the user (PHP_AUTH_USER) (or '-' if not set);
 
 
@@ -53,8 +102,8 @@ States
 * WARN or CRIT if numer of slow queries is over certain thresholds (default 1/100)
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * accepted conn: the number of request accepted by the pool
 * active processes: the number of active processes
@@ -72,4 +121,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

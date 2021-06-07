@@ -4,8 +4,7 @@ Check kemp-services
 Overview
 --------
 
-Kemp is a virtual load balancer (https://kemptechnologies.com).
-This check warns on any virtual service which is marked as down, using the REST API.
+Kemp is a virtual load balancer (https://kemptechnologies.com). This check warns on any virtual service which is marked as down, using the REST API.
 
 Hints:
 
@@ -19,13 +18,11 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/kemp-services"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -33,13 +30,32 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: kemp-services [-h] [--always-ok] [--filter FILTER] -H HOSTNAME
+                         [--insecure] [--no-proxy] --password PASSWORD
+                         [--port PORT] [--state {warn,crit}] [--test TEST]
+                         [--timeout TIMEOUT] -u USERNAME [-V]
 
-    Example Check.
+    Warns if virtual services provided by a kemp loadbalancer appliance are down.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      --always-ok           Always returns OK.
+      --filter FILTER       Only check services that contain this string in their
+                            NickName.
+      -H HOSTNAME, --hostname HOSTNAME
+                            KEMP Appliance address.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --password PASSWORD   API Password.
+      --port PORT           KEMP Appliance port.
+      --state {warn,crit}   The state that has to be returned. Default: warn
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      -u USERNAME, --username USERNAME
+                            API Username.
+      -V, --version         show program's version number and exit
 
 
 Usage Examples
@@ -47,15 +63,15 @@ Usage Examples
 
 .. code-block:: bash
 
-	./kemp-services --hostname localhost --username user --password password
-	./kemp-services --hostname localhost --username user --password password --filter PROD
-	./kemp-services --hostname localhost --username user --password password --filter PROD --state crirt
+    ./kemp-services --hostname localhost --username user --password password
+    ./kemp-services --hostname localhost --username user --password password --filter PROD
+    ./kemp-services --hostname localhost --username user --password password --filter PROD --state crirt
 
 Output:
 
 .. code-block:: text
 
-	TODO
+    TODO
 
 
 States
@@ -67,7 +83,7 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.                                                                             
+There is no perfdata.
 
 
 Credits, License

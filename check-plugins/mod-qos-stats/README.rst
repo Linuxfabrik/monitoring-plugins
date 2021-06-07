@@ -1,5 +1,5 @@
-Check "mod-qos-stats"
-=====================
+Check mod-qos-stats
+===================
 
 Overview
 --------
@@ -9,16 +9,49 @@ mod_qos for Apache httpd features a handler showing the current connection and r
 Due to the behavior of mod_qos, this check does not issue a warning, since mod_qos adds waiting times in the event of overuse, for example. The check is useful for statistical purposes and for visualization over time, e.g. in Grafana.
 
 
-Installation and Usage
-----------------------
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/mod-qos-stats"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Enable ``mod_qos`` and configure a ``Location`` for ``SetHandler qos-viewer``"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: mod-qos-stats [-h] [-V] [--always-ok] [--test TEST] [-u URL]
+
+    mod_qos for Apache httpd features a handler showing the current connection and
+    request status. This check fetches the machine-readable version of the status
+    information.
+
+    optional arguments:
+      -h, --help         show this help message and exit
+      -V, --version      show program's version number and exit
+      --always-ok        Always returns OK.
+      --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
+                         stderr-file,expected-retc".
+      -u URL, --url URL  mod_qos Status URL. Default: http://localhost/qos-status
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
-    ./mod-qos-stats
     ./mod-qos-stats --url http://webserver/qos-status
-    ./mod-qos-stats --help
 
-Output::
+Output:
+
+.. code-block:: text
 
     Everything is ok.
 
@@ -34,11 +67,11 @@ Output::
 States
 ------
 
-Always returns ok.
+* Always returns OK.
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 Depends on your mod_qos configuration. The configuration options are suffixed by their specified request pattern (path and query). For example:
 
@@ -53,4 +86,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

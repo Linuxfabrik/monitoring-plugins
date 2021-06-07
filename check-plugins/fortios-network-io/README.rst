@@ -10,8 +10,7 @@ Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any interface was above a threshold in the last 5 minutes.
 * Check needs ``count`` runs to warm up its caches.
-* Check uses a SQLite database in ``/tmp`` to store its historical data.
-* The check inventorizes your appliance. If you change any of Forti's interfaces, and you want to reset the check's warnings about this, simply delete its ``fortios-network-io.db`` file.
+* The check inventorizes your appliance. If you change any of Forti's interfaces, and you want to reset the check's warnings about this, simply delete its ``/tmp/fortios-network-io.db`` file.
 
 
 Fact Sheet
@@ -22,11 +21,11 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-network-io"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
+    "Requirements",                         "None"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
 
 
 Help
@@ -34,13 +33,30 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
-
-    Example Check.
+    usage: fortios-network-io [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
+                              -H HOSTNAME [--insecure] [--no-proxy] --password
+                              PASSWORD [--timeout TIMEOUT] [-w WARN]
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --count COUNT         Number of times the value has to be above the given
+                            thresholds. Default: 5
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for link saturation for
+                            <count> checks, in bps. Default: 900000000
+      -H HOSTNAME, --hostname HOSTNAME
+                            FortiOS-based Appliance address, optional including
+                            port ("192.168.1.1:443").
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --password PASSWORD   FortiOS REST API Single Access Token.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      -w WARN, --warning WARN
+                            Set the warning threshold for link saturation for
+                            <count> checks, in bps. Default: 800000000
 
 
 Usage Examples
@@ -48,14 +64,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password sSEaTjuNbPYW5yepUD2JtDhyykY59D
-    ./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password sSEaTjuNbPYW5yepUD2JtDhyykY59D --count 5 --warning 800000000 --critical 900000000
+    ./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 5 --warning 800000000 --critical 900000000
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

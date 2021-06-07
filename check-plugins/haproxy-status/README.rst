@@ -1,27 +1,66 @@
-Check "haproxy-status"
-======================
+Check haproxy-status
+====================
 
 Overview
 --------
 
-This check shows you an "abundance of metrics that cover the health of your HAProxy server, current request rates, response times, and more. These metrics give you granular data on a per-frontend, backend, and server basis. You need to add a stats enable directive, which is typically put into its own frontend section." (from https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/).
-
-We recommend running this check every minute.
+This check shows you an *abundance of metrics that cover the health of your HAProxy server, current request rates, response times, and more. These metrics give you granular data on a per-frontend, backend, and server basis. You need to add a stats enable directive, which is typically put into its own frontend section.* (from https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/).
 
 
-Installation and Usage
-----------------------
+Fact Sheet
+----------
 
-.. code-block:: bash
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2"
+    "Requirements",                         "Stats directive enabled"
 
-    ./haproxy-status
-    ./haproxy-status --help
+
+Help
+----
+
+.. code-block:: text
+
+    usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--lengthy]
+                          [-p PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                          [-u URL] [--username USERNAME] [-w WARN]
+
+    This check shows you an abundance of metrics that cover the health of your
+    HAProxy server, current request rates, response times, and more.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold as a percentage. Default: >= 95
+      --lengthy             Extended reporting.
+      -p PASSWORD, --password PASSWORD
+                            HAProxy Stats Auth password.
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      -u URL, --url URL     HAProxy Stats URI. Default: http://localhost/server-
+                            status
+      --username USERNAME   HAProxy Stats Auth username. Default: haproxy-stats
+      -w WARN, --warning WARN
+                            Set the WARN threshold as a percentage. Default: >= 80
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./haproxy-status --username haproxy-status --password password --url http://webserver/server-status
 
-Output::
+Output:
+
+.. code-block:: text
 
     frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP, rabbitmq-35671-5672 BACKEND: DOWN, srvvcs01-80 srvvcs01: NOLB, srvvcs01-80 BACKEND: MAINT, srvvcs01-5050 srvvcs01: DRAIN, srvapp01-6080 srvapp01: 8 queued connections (80.0%) [WARNING], stats FRONTEND: 8 sessions over the last second (rate 80.0%) [WARNING]
 
@@ -45,7 +84,9 @@ Output::
 
     ./haproxy-status --username haproxy-status --password password --url http://webserver/server-status --lengthy
 
-Output::
+Output:
+
+.. code-block:: text
 
     frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP, rabbitmq-35671-5672 BACKEND: DOWN, srvvcs01-80 srvvcs01: NOLB, srvvcs01-80 BACKEND: MAINT, srvvcs01-5050 srvvcs01: DRAIN, srvapp01-6080 srvapp01: 8 queued connections (80.0%) [WARNING], stats FRONTEND: 8 sessions over the last second (rate 80.0%) [WARNING]
 
@@ -75,8 +116,8 @@ States
 * WARN or CRIT if rate utilization (sessions per second) is above certain thresholds (80/90%)
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 For each Proxy+Server:
 
@@ -131,4 +172,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

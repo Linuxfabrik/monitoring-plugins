@@ -1,5 +1,5 @@
-Check "snmp"
-============
+Check snmp
+==========
 
 Overview
 --------
@@ -10,10 +10,99 @@ This check utilizes ``snmpget`` to query for information on a network entity, so
 
     Only use SNMP if there is no other way. SNMP puts much strain on the target system and the monitoring software.
 
-    * If you can use an agent of your monitoring software for monitoring, for example the Icinga agent, do it.
-    * If you can't install an agent, but there is a good (REST-)API available, use that.
+    * If you can use an agent of your monitoring software for monitoring, for example Icinga, and one of our plugins, do it.
+    * If you can't install an agent, but there is a good (REST-)API available (and maybe one of our plugins), use that.
     * If you can't install an agent on a device and there is no (good) API, then use SNMP.
     * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low.
+
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/snmp"
+    "Check Interval Recommendation",        "Every 5 minutes"
+    "Can be called without parameters",     "No"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "``snmpget`` from ``net-snmp-utils``"
+    "Uses SQLite DBs",                      "Yes"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
+                -H HOSTNAME [--mib MIB] [--mibdir MIBDIR]
+                [--snmpversion {1,2c,3}] [-t TIMEOUT] [--v3bootstime V3BOOTSTIME]
+                [--v3context V3CONTEXT] [--v3contextengineid V3CONTEXTENGINEID]
+                [--v3securityengineid V3SECURITYENGINEID]
+                [--v3level {noAuthNoPriv,authNoPriv,authPriv}]
+                [--v3authprotpassword V3AUTHPROTPASSWORD]
+                [--v3privprotpassword V3PRIVPROTPASSWORD]
+                [--v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
+                [--v3privprot {DES,AES,AES-192,AES-256}]
+                [--v3username V3USERNAME] [--test TEST]
+
+    This check is a SNMP application that uses the SNMP GET request to query for
+    information on a network entity. The object identifiers (OIDs) of interest
+    have to be defined in a CSV file, including optional WARN and CRIT parameters.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --community COMMUNITY
+                            SNMP Version 1 or 2c specific. Set the community
+                            string. Default: public.
+      --device DEVICE       The name of a device file containing the SNMP-OIDs,
+                            located under `./device-oids`, for example `switch-
+                            fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`.
+                            Default: any-any-any.csv.
+      --hide-ok             Don't print OIDs with OK state. Default: False.
+      -H HOSTNAME, --hostname HOSTNAME
+                            SNMP Appliance address.
+      --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
+                            MIB:BROTHER-MIB`. Behaves like the `-m` option of
+                            `snmpget`.
+      --mibdir MIBDIR       Look in given list of directories for MIBs. Behaves
+                            like the `-M` option of `snmpget`. Default:
+                            $HOME/.snmp/mibs:/usr/share/snmp/mibs.
+      --snmpversion {1,2c,3}
+                            Specifies SNMP version to use. Default: 2c.
+      -t TIMEOUT, --timeout TIMEOUT
+                            Network timeout in seconds. Default: 7 (seconds).
+      --v3bootstime V3BOOTSTIME
+                            SNMP Version 3 specific. Set destination engine
+                            boots/time.
+      --v3context V3CONTEXT
+                            SNMP Version 3 specific. Set context name (e.g.
+                            bridge1).
+      --v3contextengineid V3CONTEXTENGINEID
+                            SNMP Version 3 specific. Set context engine ID (e.g.
+                            800000020109840301).
+      --v3securityengineid V3SECURITYENGINEID
+                            SNMP Version 3 specific. Set security engine ID (e.g.
+                            800000020109840301).
+      --v3level {noAuthNoPriv,authNoPriv,authPriv}
+                            SNMP Version 3 specific. Set security level.
+      --v3authprotpassword V3AUTHPROTPASSWORD
+                            SNMP Version 3 specific. Set authentication protocol
+                            pass phrase.
+      --v3privprotpassword V3PRIVPROTPASSWORD
+                            SNMP Version 3 specific. Set privacy protocol pass
+                            phrase.
+      --v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
+                            SNMP Version 3 specific. Set authentication protocol.
+      --v3privprot {DES,AES,AES-192,AES-256}
+                            SNMP Version 3 specific. Set privacy protocol.
+      --v3username V3USERNAME
+                            SNMP Version 3 specific. Set security name (e.g.
+                            bert).
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
 
 
 Installation
@@ -31,8 +120,8 @@ If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/
 Create an OID list in ``/usr/lib64/nagios/plugins/device-oids/...`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
 
-Usage
------
+Usage Examples
+--------------
 
 A minimal command call:
 
@@ -61,7 +150,7 @@ Other example using a more specific OID list and an additional MIB directory:
 Defining a Device
 -----------------
 
-You want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
+If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
 
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
 OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as
@@ -70,9 +159,6 @@ SNMPv2-MIB::sysName.0     Name
 SNMPv2-MIB::sysLocation.0 Location                                                                                                         WARN
 SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True             
 ========================= ============= ================== ============ ======================= ======================= ================== ==================
-
-The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request. 
-
 
 The columns in detail:
 
@@ -119,6 +205,7 @@ The output would be something like this::
     Description Brother NC-350w [OK]  
     Uptime      5m 1w           [OK]|Uptime=13762718.93s;;;0;;
 
+The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
 
 Calculating and Comparing using ``value`` and ``values``
@@ -211,8 +298,8 @@ Depending on the OID definitions the check returns
 * UNKNOWN
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 All numeric values are automatically returned.
 

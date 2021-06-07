@@ -1,5 +1,5 @@
-Check efortios-memory-usage
-===========================
+Check fortios-memory-usage
+==========================
 
 Overview
 --------
@@ -19,11 +19,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-memory-usage"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -31,13 +29,31 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: fortios-memory-usage [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
+                                [--insecure] [--no-proxy] --password PASSWORD
+                                [--timeout TIMEOUT] [-w WARN]
 
-    Example Check.
+    Displays amount of used memory in percent, and checks against configured or
+    given thresholds.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for memory usage (in
+                            percent). Default: 88
+      -H HOSTNAME, --hostname HOSTNAME
+                            FortiOS-based Appliance address, optional including
+                            port ("192.168.1.1:443").
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --password PASSWORD   FortiOS REST API Single Access Token.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      -w WARN, --warning WARN
+                            Set the warning threshold for memory usage (in
+                            percent). Default: 82
 
 
 Usage Examples
@@ -45,13 +61,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fortios-memory-usage --hostname fortigate-cluster.linuxfabrik.io --password sSEaTjuNbPYW5yepUD2JtDhyykY59D --warning=50 --critical=70
+    ./fortios-memory-usage --hostname fortigate-cluster.linuxfabrik.io --password mypass --warning=50 --critical=70
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

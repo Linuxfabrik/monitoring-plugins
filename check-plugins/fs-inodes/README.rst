@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fs-inodes"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: fs-inodes [-h] [-V] [--always-ok] [-c CRIT] [--mount MOUNT] [-w WARN]
 
-    Example Check.
+    Checks the used inode space in percent, default on "/", "/tmp" and "/boot".
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold inode usage percentage.
+                            Default: 95
+      --mount MOUNT         The mount point. Default: "/, /tmp, /boot"
+      -w WARN, --warning WARN
+                            Set the warning threshold inode usage percentage.
+                            Default: 90
 
 
 Usage Examples
@@ -41,14 +47,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fs-inodes
     ./fs-inodes --mount '/, /boot, /tmp' --warning 90 --critical 95
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    / 1.7%, /tmp 3.2%, /boot 0.2%
 
 
 States

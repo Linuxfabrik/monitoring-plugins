@@ -1,5 +1,5 @@
-Check etop3-processes-which-caused-the-most-io
-===============================================
+Check top3-processes-which-caused-the-most-io
+=============================================
 
 Overview
 --------
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/top3-processes-which-caused-the-most-io"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python2 module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,13 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: top3-processes-which-caused-the-most-io [-h] [-V]
 
-    Example Check.
+    Displays the top 3 processes which cause the most IO.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
 
 
 Usage Examples
@@ -47,7 +45,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    1. systemd: 37.5GiB/24.2GiB (r/w), 2. firefox: 2.4GiB/11.4GiB (r/w), 3. nextcloud: 1.3GiB/5.4GiB (r/w)
 
 
 States

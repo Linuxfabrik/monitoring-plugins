@@ -4,8 +4,9 @@ Check network-port-tcp
 Overview
 --------
 
-Checks whether a network port is reachable.
-Known Issues and Limitations are - the check works fine for tcp connections, but not for udp. The port response for udp is based on the target application (for example DNS or OpenVPN) and is not standard like tcp.
+Checks whether a network port is reachable. This command works with both IPv4 and IPv6.
+
+The check works fine for tcp connections, but not for udp. The port response for udp is based on the target application (for example DNS or OpenVPN) and is not standard like tcp.
 
 
 Fact Sheet
@@ -16,11 +17,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/network-port-tcp"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -28,13 +27,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: network-port-tcp [-h] [-V] [-H HOSTNAME] [-p PORT]
+                            [--portname PORTNAME] [--state {warn,crit}]
+                            [-t TIMEOUT] [--type {tcp,tcp6}]
 
-    Example Check.
+    Checks whether a network port is reachable.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      -H HOSTNAME, --hostname HOSTNAME
+                            The host or ip address to check. Default: localhost
+      -p PORT, --port PORT  The port number. Default: 22
+      --portname PORTNAME   The display name of the port.
+      --state {warn,crit}   The state that has to be returned. Default: warn
+      -t TIMEOUT, --timeout TIMEOUT
+                            Network timeout. Default: 2
+      --type {tcp,tcp6}     Connection type. Default: tcp
+
 
 
 Usage Examples
@@ -42,15 +52,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./network-port-tcp
-    ./network-port-tcp --port 22
-    ./network-port-tcp --hostname www.google.ch --port 443 --portname https --timeout 1.3 --state warn
+    ./network-port-tcp --hostname www.linuxfabrik.ch --port 443 --portname https --timeout 1.3 --state warn
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    www.linuxfabrik.ch:https/tcp is reachable.
 
 
 States

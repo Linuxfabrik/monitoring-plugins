@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/qts-version"
     "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: qts-version [-h] [-V] [--always-ok] --url URL [--insecure] [--no-proxy]
+                       [--username USERNAME] --password PASSWORD
+                       [--timeout TIMEOUT]
 
-    Example Check.
+    This plugin lets you track if server updates are available.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      --url URL            QTS-based Appliance URL, for example
+                           https://192.168.1.1:8080.
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --username USERNAME  QTS User. Default: admin
+      --password PASSWORD  QTS Password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -41,13 +50,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./qts-version --url http://192.168.1.100:8080 --username admin --password my-password
+    ./qts-version --url http://qts:8080 --username admin --password my-password
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    QTS 4.5.3.1670 Build 20210515 is up to date
 
 
 States

@@ -15,11 +15,10 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-ha-stats"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
+    "Requirements",                         "None"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
 
 
 Help
@@ -27,13 +26,29 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: fortios-ha-stats [-h] [-V] [--always-ok] [--count COUNT] -H HOSTNAME
+                            [--insecure] [--no-proxy] --password PASSWORD
+                            [--timeout TIMEOUT]
 
-    Example Check.
+    Returns statistics for members of HA cluster from Forti Appliances like
+    FortiGate running FortiOS via FortiOS REST API. Warns if the number of HA
+    members is more or less than expected (default: 2). The authentication is done
+    via a single API token (Token-based authentication), not via Session-based
+    authentication, which is stated as "legacy".
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --count COUNT         Number of expected cluster members. Default: 2
+      -H HOSTNAME, --hostname HOSTNAME
+                            FortiOS-based Appliance address, optional including
+                            port ("192.168.1.1:443").
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --password PASSWORD   FortiOS REST API Single Access Token.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -41,13 +56,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fortios-ha-stats --hostname fortigate-cluster.linuxfabrik.io --password sSEaTjuNbPYW5yepUD2JtDhyykY59D --count 2
+    ./fortios-ha-stats --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 2
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

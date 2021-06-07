@@ -1,5 +1,5 @@
-Check "wildfly-uptime"
-======================
+Check wildfly-uptime
+====================
 
 Overview
 --------
@@ -8,17 +8,61 @@ This check plugin monitors the uptime of a WildFly server, using its HTTP-JSON b
 
 Tested with WildFly 11 and WildFly 23.
 
-We recommend running this check every minute.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/wildfly-uptime"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
 
 
-Installation and Usage
-----------------------
+Help
+----
+
+.. code-block:: text
+
+    usage: wildfly-uptime [-h] [-V] [--always-ok] [--critical CRIT]
+                          [--instance INSTANCE] [--mode {standalone,domain}]
+                          [--node NODE] -p PASSWORD [--timeout TIMEOUT]
+                          [--url URL] --username USERNAME [--warning WARN]
+
+    Checks the uptime of a Wildfly/JBossAS over HTTP.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --critical CRIT       Set the critical threshold.
+      --instance INSTANCE   The instance (server-config) to check if running in
+                            domain mode.
+      --mode {standalone,domain}
+                            The mode the server is running.
+      --node NODE           The node (host) if running in domain mode.
+      -p PASSWORD, --password PASSWORD
+                            WildFly API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --url URL             WildFly API URL. Default: http://localhost:9990
+      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --warning WARN        Set the warning threshold.
+
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./wildfly-uptime --username wildfly-admin --password password --url http://wildfly:9990 --warning 180 --critical 366
 
-Output::
+Output:
+
+.. code-block:: text
 
     Up 1h 11m
 
@@ -31,8 +75,8 @@ Triggers an alarm on uptime in days.
 * WARN or CRIT when uptime (the number of days) exceeds the thresholds (default 180/366 days)
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * uptime: seconds
 
@@ -41,4 +85,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

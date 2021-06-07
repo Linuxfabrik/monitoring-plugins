@@ -14,12 +14,10 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/updates"
-    "Check Interval Recommendation",        "Every day"
+    "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,20 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: updates [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Checks the number of pending updates.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for the number of pending
+                            updates. Default: 50
+      -w WARN, --warning WARN
+                            Set the warning threshold for the number of pending
+                            updates. Default: 1
 
 
 Usage Examples
@@ -41,14 +46,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./updates3
-    ./updates3 --critical 10
+    ./updates --critical 10
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

@@ -1,10 +1,10 @@
-Check ecountdown
-================
+Check countdown
+===============
 
 Overview
 --------
 
-The check warns before an expiration date of events that are scheduled to occur. Useful to warn before a hardware or contract expiration date. For example, ``./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'`` returns WARN/CRIT 60/30 days before 2025-12-23, otherwise OK.
+The check warns before an expiration date of events that are scheduled to occur. Useful to warn before a hardware or contract expiration date. Use ``./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'`` (repeating). For example, ``./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'`` returns WARN/CRIT 60/30 days before 2025-12-23, otherwise OK.
 
 
 Fact Sheet
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/countdown"
     "Check Interval Recommendation",        "Twice a day"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,15 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: countdown [-h] [-V] [--always-ok] --input INPUT
 
-    Example Check.
+    Warns before an expiration date is scheduled to occur.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --input INPUT  "Display Name 1, yyyy-mm-dd, warn, crit" (repeating)
 
 
 Usage Examples
@@ -41,24 +41,25 @@ Usage Examples
 
 .. code-block:: bash
 
-    Use `./countdown --input='<Event Name>, <yyyy-mm-dd>, <WARN days before>, <CRIT days before>'` (repeating).
-
-    ./countdown --input='Supermicro X11 (SerNo ABCD), 2025-12-23, 60, 30'
-    ./countdown --input='Contract A, 2023-12-31, 60, None' --input 'Contract B, 2024-12-31, 30, 14'
+    ./countdown --input='Supermicro X11 (SerNo ABCD), 2023-12-31, 60, None' --input 'Allianz Insurance, 2024-12-31, 120, 30'
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Everything is ok.
+
+    * Supermicro X11 (SerNo ABCD) expires in 229 days (thresholds 60/None)
+    * Allianz Insurance expires in 549 days (thresholds 120/30)
 
 
 States
 ------
 
 For each event:
-* CRIT: if event is <= days away; 'None' means that CRIT is never returned
-* WARN: if event is <= days away; 'None' is not possible
+
+* WARN: if event happens in warning days; 'None' is not possible
+* CRIT: if event happens in critical days; 'None' means that CRIT is never returned
 
 
 Perfdata / Metrics

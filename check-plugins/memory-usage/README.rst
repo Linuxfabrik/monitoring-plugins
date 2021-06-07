@@ -4,7 +4,7 @@ Check memory-usage
 Overview
 --------
 
-Displays the amount of free and used memory in the system and checks how much physical memory is left across platforms by using the "available" field.
+Displays the amount of free and used memory in the system and checks how much physical memory is left across platforms by using the ``available`` field.
 
 
 Fact Sheet
@@ -15,6 +15,7 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/memory-usage"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Python module ``psutil``"
 
@@ -71,7 +72,7 @@ Perfdata / Metrics
 * available: The memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory values depending on the platform and it is supposed to be used to monitor actual memory usage in a cross platform fashion.
 * buffers (Linux, BSD): Cache for things like file system metadata.
 * cached (Linux, BSD): Cache for various things.
-* free: Memory not being used at all (zeroed) that is readily available; note that this doesn’t reflect the actual memory available (use ``available`` instead). ``total - used`` does not necessarily match ``free``.
+* free: Memory not being used at all (zeroed) that is readily available; note that this doesn't reflect the actual memory available (use ``available`` instead). ``total - used`` does not necessarily match ``free``.
 * shared (Linux, BSD): memory that may be simultaneously accessed by multiple processes.
 * total: Total physical memory (exclusive swap).
 * usage_percent

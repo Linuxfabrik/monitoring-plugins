@@ -1,5 +1,5 @@
-Check "wildfly-memory-pool-usage"
-=================================
+Check wildfly-memory-pool-usage
+===============================
 
 Overview
 --------
@@ -8,17 +8,61 @@ This check plugin monitors the memory pool usage of a WildFly server, using its 
 
 Tested with WildFly 11 and WildFly 23.
 
-We recommend running this check every minute.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/wildfly-memory-pool-usage"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
 
 
-Installation and Usage
-----------------------
+Help
+----
+
+.. code-block:: text
+
+    usage: wildfly-memory-pool-usage3 [-h] [-V] [--always-ok] [--critical CRIT]
+                                      [--instance INSTANCE]
+                                      [--mode {standalone,domain}] [--node NODE]
+                                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                                      --username USERNAME [--warning WARN]
+
+    Checks the memory pool usage of a Wildfly/JBossAS over HTTP.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --critical CRIT       Set the critical threshold.
+      --instance INSTANCE   The instance (server-config) to check if running in
+                            domain mode.
+      --mode {standalone,domain}
+                            The mode the server is running.
+      --node NODE           The node (host) if running in domain mode.
+      -p PASSWORD, --password PASSWORD
+                            WildFly API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --url URL             WildFly API URL. Default: http://localhost:9990
+      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --warning WARN        Set the warning threshold.
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./wildfly-memory-pool-usage --username wildfly-admin --password password --url http://wildfly:9990 --warning 80 --critical 90
 
-Output::
+Output:
+
+.. code-block:: text
 
     8 Memory Pools checked, everything is ok.
 
@@ -44,8 +88,8 @@ Triggers an alarm on usage in percent.
 * WARN if WildFly reports 'usage-threshold-exceeded' == TRUE
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * memory-pool-<name>-committed: Returns the amount of memory in bytes that is committed for the Java virtual machine to use. This amount of memory is guaranteed for the Java virtual machine to use.
 * memory-pool-<name>-max: Returns the maximum amount of memory in bytes that can be used for memory management. This method returns -1 if the maximum memory size is undefined. This amount of memory is not guaranteed to be available for memory management if it is greater than the amount of committed memory. The Java virtual machine may fail to allocate memory even if the amount of used memory does not exceed this maximum size.
@@ -57,4 +101,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

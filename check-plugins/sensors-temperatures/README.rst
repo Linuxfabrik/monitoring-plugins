@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/sensors-temperatures"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python2 module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,17 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: sensors-temperatures [-h] [-V] [--always-ok]
 
-    Example Check.
+    Return certain hardware temperature sensors (it may be a CPU, an hard disk or
+    something else, depending on the OS and its configuration). All temperatures
+    are expressed in celsius. Check is done automatically against hardware
+    thresholds. If sensors are not supported by the OS OK is returned.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
 
 
 Usage Examples
@@ -47,8 +49,9 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
-
+    * nvme: Composite = 42.85°C, Sensor 1 = 42.85°C
+    * coretemp: Package id 0 = 52.0°C, Core 0 = 50.0°C, Core 1 = 52.0°C, Core 2 = 51.0°C, Core 3 = 50.0°C, Package id 0 = 52.0°C, Core 0 = 50.0°C, Core 1 = 52.0°C, Core 2 = 51.0°C, Core 3 = 50.0°C
+    * iwlwifi_1: iwlwifi_1 = 46.0°
 
 States
 ------

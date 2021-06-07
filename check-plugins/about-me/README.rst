@@ -4,13 +4,15 @@ Check about-me
 Overview
 --------
 
-Reports a quick overview about the host dimensions and installed software. Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
+Reports a quick overview about the host dimensions and installed software:
 
-* Software: packages installed using ``yum``
-* Apps (if any): manual installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
-* Tools (if any): tools like dig, wget etc., normally not installed on a CentOS minimal system
+* Software: lists well-known packages installed by your package manager
+* Apps (if any): manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
+* Tools (if any): tools like dig, wget etc., normally not installed on a minimal server system
 * Python Modules: reports version of installed Python modules some of our checks depend on
 * OS: system information
+
+Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
 
 Fact Sheet
@@ -21,7 +23,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/about-me"
     "Check Interval Recommendation",        "Once a day or once a week"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -29,7 +33,7 @@ Help
 
 .. code-block:: text
 
-    usage: about-me2 [-h] [-V]
+    usage: about-me [-h] [-V]
 
     Reports a quick overview about the host dimensions and installed software.
 
@@ -64,7 +68,7 @@ Perfdata / Metrics
 * cpu: Number of CPUs
 * ram: Size of memory
 * disks: Number of disks
-* osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened (only Python 2 variant of this check)
+* only Python 2 variant of this check: osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened
 
 
 Credits, License

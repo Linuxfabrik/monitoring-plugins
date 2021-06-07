@@ -1,5 +1,5 @@
 Check ping
-===========
+==========
 
 Overview
 --------
@@ -19,11 +19,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/ping"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``ping``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -31,13 +29,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: ping [-h] [-V] [--count COUNT] [-H HOSTNAME] [--interval INTERVAL]
+                [-t DEADLINE]
 
-    Example Check.
+    Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --count COUNT         Stop after sending count ECHO_REQUEST packets.
+                            Default: 5
+      -H HOSTNAME, --hostname HOSTNAME
+                            The ping destination. Default: 127.0.0.1
+      --interval INTERVAL   Wait interval seconds between sending each packet.
+                            Default: 0.2
+      -t DEADLINE, --timeout DEADLINE
+                            Specify a timeout, in seconds, before ping exits
+                            regardless of how many packets have been sent or
+                            received. Default: 5
 
 
 Usage Examples
@@ -51,7 +60,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    PING www.linuxfabrik.ch: 5 packets transmitted, 5 received, 0% packet loss, time 831ms. rtt min/avg/max/mdev = 1.798/21.246/73.485/26.824 ms
 
 
 States

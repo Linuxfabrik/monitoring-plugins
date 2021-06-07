@@ -21,8 +21,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/cpu-usage"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python2 module ``psutil``"
+    "Requirements",                         "Python module ``psutil``"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"
 
@@ -57,7 +58,6 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./cpu-usage
     ./cpu-usage --count=15 --warning=50 --critical=70
     
 Output:
@@ -85,7 +85,7 @@ Perfdata / Metrics
 ------------------
 
 * ``cpu-usage``: %. The overall cpu usage. This is (100 - ``idle``).
-* ``ctx_switches``: Continous counter. Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer’s CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict.
+* ``ctx_switches``: Continous counter. Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer's CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict.
 * ``guest``: %. Linux 2.6.24+: Time spent running a virtual CPU.
 * ``guest_nice``: %. Linux 3.2.0+
 * ``idle``: %. If the CPU has completed all tasks it is idle.
@@ -96,7 +96,7 @@ Perfdata / Metrics
 * ``soft_interrupts``: Continous counter. Number of software interrupts since boot.
 * ``steal``: %. Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor.
 * ``system``: %. Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel.
-* ``user``: %. Percent time spent in user space. User CPU time is the time spent on the processor running your program’s code (or code in libraries).
+* ``user``: %. Percent time spent in user space. User CPU time is the time spent on the processor running your program's code (or code in libraries).
 
 
 Credits, License

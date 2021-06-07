@@ -1,5 +1,5 @@
-Check "apache-httpd-status"
-===========================
+Check apache-httpd-status
+=========================
 
 Overview
 --------
@@ -26,31 +26,66 @@ Free workers are:
 
 * ``.``: Open slot with no current process
 
-We recommend to run this check every minute.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/apache-httpd-status"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2"
+    "Requirements",                         "Enable ``mod_status`` and set ``ExtendedStatus`` to ``On``"
 
 
-Installation and Usage
-----------------------
+Help
+----
+
+.. code-block:: text
+
+    usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [-u URL]
+                                [-w WARN]
+
+    Checks how well an Apache httpd server is performing.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold for the number of workers
+                            processing requests in percent. Default: >= 95
+      -u URL, --url URL     Apache Server Status URL. Default: http://localhost
+                            /server-status
+      -w WARN, --warning WARN
+                            Set the WARN threshold for the number of workers
+                            processing requests in percent. Default: >= 80
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
-    ./apache-httpd-status
-    ./apache-httpd-status --url http://localhost/server-status --warning 80 --critical 90
-    ./apache-httpd-status --help
+    ./apache-httpd-status --url http://apache-httpd/server-status --warning 80 --critical 90
 
-Output::
+Output:
 
-    Workers: 1/256 busy (0%; 0 "G"), 5 idle, 250 free; 2010 total accesses, 0.0 req/s; 1.4M total traffic, 12.0B/s, 731.0B/req; Up 1d 9h
+.. code-block:: text
+
+    Workers: 1/400 busy (0%; 0 "G"), 99 idle, 300 free; 2.5K total accesses, 0.0 req/s; 62.4MiB total traffic, 9.4KiB/s, 25.3KiB/req; Up 1h 53m
 
 
 States
 ------
 
-* WARN or CRIT if more than 80% or 95% busy workers compared to the total possible number of workers are found.
+* WARN or CRIT if more than 80% or 95% busy workers compared to the total possible number of workers found.
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * httpd_bytesperreq: Average number of bytes per request (\*)
 * httpd_bytespersec: Average number of bytes served per second (\*)
@@ -99,5 +134,5 @@ From https://httpd.apache.org/docs/2.4/mod/mod_status.html#troubleshoot:
 Credits, License
 ----------------
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-* License: The Unlicense, see LICENSE file.
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

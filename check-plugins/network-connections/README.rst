@@ -19,7 +19,7 @@ Counts tcp, tcp6, udp and udp6 connection details. Emulating ``ss -antp``.
 * ``SYN_SENT``: Actively trying to establish connection.
 * ``TIME_WAIT``: Wait after close for remote shutdown retransmission.
 
-Does not WARN or CRIT on anything, because we do not know on what. Until there is some clarification, this check is useful for debugging purposes.
+Does not WARN or CRIT on anything, because we currently do not know on what. Until there is some clarification (you could `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_), this check is useful for debugging purposes.
 
 
 Fact Sheet
@@ -30,6 +30,7 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/network-connections"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Python module ``psutil``"
 

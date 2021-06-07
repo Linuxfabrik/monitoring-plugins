@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/scheduled-task"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: scheduled-task [-h] [-V] --task TASK [--severity {warn,crit}]
+                       [--status {Disabled,Queued,Ready,Running,Unknown}]
 
-    Example Check.
+    Check the status of a scheduled task.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --task TASK           Name of the scheduled task.
+      --severity {warn,crit}
+                            Severity if something is found. One of "warn" or
+                            "crit". Default: warn
+      --status {Disabled,Queued,Ready,Running,Unknown}
+                            Expected task status (repeating). Default: ['Ready',
+                            'Running']
 
 
 Usage Examples
@@ -41,15 +47,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./scheduled-task3 --task Schedule
-    ./scheduled-task3 --task Schedule --severity crit
-    ./scheduled-task3 --task Schedule --status Disabled
+    ./scheduled-task --task Schedule --status Disabled  --severity crit
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

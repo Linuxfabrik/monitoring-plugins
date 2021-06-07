@@ -6,8 +6,6 @@ Overview
 
 Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. May take more than 10 seconds to execute.
 
-We recommend to run this check once a day or after a ``yum update`` only.
-
 
 Fact Sheet
 ----------
@@ -16,12 +14,10 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/needs-restarting"
-    "Check Interval Recommendation",        "Once a day"
+    "Check Interval Recommendation",        "Once a day (or after a ``yum update`` only)"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -29,13 +25,16 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: needs-restarting2 [-h] [-V]
 
-    Example Check.
+    Checks for processes that started running before they or some component that
+    they use were updated. Returns WARN if a full reboot is required or if
+    services might need a restart, and in any other case OK. Should be called once
+    a day or after a `yum update` only.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
 
 
 Usage Examples
@@ -49,7 +48,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    No system or service restart needed, but Invalid configuration value: failovermethod=priority in /etc/yum.repos.d/teamviewer.repo; Configuration: OptionBinding with id "failovermethod" does not exist
 
 
 States

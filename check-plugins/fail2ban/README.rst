@@ -4,7 +4,7 @@ Check fail2ban
 Overview
 --------
 
-In fail2ban, checks the amount of banned IP addresses (for a list of jails).
+In fail2ban, checks the amount of banned IP addresses (for all jails).
 
 
 Fact Sheet
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fail2ban"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``fail2ban-client``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,20 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: fail2ban2 [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Example Check.
+    In fail2ban, checks the amount of banned IP addresses (for a list of jails).
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for banned IPs. Default:
+                            10000
+      -w WARN, --warning WARN
+                            Set the warning threshold for banned IPs. Default:
+                            1000
 
 
 Usage Examples
@@ -47,7 +52,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    787 IPs banned in jail "linuxfabrik-portscan" (acting on /var/log/messages), 0 IPs banned in jail "sshd"
 
 
 States

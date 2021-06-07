@@ -19,11 +19,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/getent"
     "Check Interval Recommendation",        "Every 15 minutes"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``getent``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -31,13 +29,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: getent [-h] [-V] [--database DATABASE] [--key KEY]
 
-    Example Check.
+    Trys to get entries from Name Service Switch (NSS) libraries and warns on
+    errors or no match.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --database DATABASE  May be any of those supported by "getent", for example
+                           "group", "hosts" etc. Default: group
+      --key KEY            If one or more key arguments are provided, then only
+                           the entries that match the supplied keys will be
+                           fetched. Otherwise, if no key is provided, all entries
+                           will be fetched (unless the database does not support
+                           enumeration). (repeating)
 
 
 Usage Examples
@@ -52,7 +58,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Everything is ok. Executed `/usr/bin/getent group`.
 
 
 States

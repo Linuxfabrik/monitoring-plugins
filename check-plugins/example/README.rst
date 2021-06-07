@@ -27,6 +27,7 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes|No"
     "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
     "Handles Periods",                      "Yes"
@@ -94,9 +95,21 @@ OR
     :widths: 25, 15, 60
     :header-rows: 1
     
-    Name                                      , Type             , Description                                                                                                                          
-    allocation_btree_compares_total           , Continous Counter, Number of allocation B-tree compares for a filesystem.                                                                               
-    allocation_btree_lookups_total            , Continous Counter, Number of allocation B-tree lookups for a filesystem.                                                                                
+    Name,                                       Type,               Description                                           
+    allocation_btree_compares_total,            Continous Counter,  Number of allocation B-tree compares for a filesystem.
+    allocation_btree_lookups_total,             Bytes,              Number of allocation B-tree lookups for a filesystem.
+    allocation_btree_lookups_total,             Percentage,         Number of allocation B-tree lookups for a filesystem.
+    allocation_btree_lookups_total,             None,               Number of allocation B-tree lookups for a filesystem.
+
+
+Troubleshooting
+---------------
+
+My Error Message 1
+    My Solution goes here.
+
+My Error Message 2
+    My Solution goes here.
 
 
 Credits, License

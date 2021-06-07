@@ -1,24 +1,54 @@
-Check "docker-info"
-===================
+Check docker-info
+=================
 
 Overview
 --------
 
-Displays system-wide docker or podman information. We recommend to run this once a day.
+Displays system-wide docker or podman information.
 
 
-Installation and Usage
-----------------------
+Fact Sheet
+----------
 
-Requirements:
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/docker-info"
+    "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
 
-* ``docker`` or ``podman``
+
+Help
+----
+
+.. code-block:: text
+
+    usage: docker-info [-h] [-V] [--always-ok] [--test TEST]
+
+    Displays system-wide docker information.
+
+    optional arguments:
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                     file,expected-retc".
+
+
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./docker-info
-    ./docker-info --always-ok
-    ./docker-info --help
+
+Output:
+
+.. code-block:: text
+
+    WARNING: the devicemapper storage-driver is deprecated, and will be removed in a future release., 37 Containers (2 running, 0 paused, 35 stopped), 103 Images, Storage Driver: devicemapper, Logging Driver: json-file, Registry: https://index.docker.io/v1/, Docker v20.10.6, 6 CPUs, 15.51GiB Memory
 
 
 States
@@ -28,8 +58,8 @@ States
 * CRIT on ``docker info`` errors
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * containers: Number of containers
     
@@ -62,5 +92,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
-
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

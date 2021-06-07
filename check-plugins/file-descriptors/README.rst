@@ -4,7 +4,7 @@ Check file-descriptors
 Overview
 --------
 
-Checks the number of allocated file handles in percent. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
+Checks the number of assigned file handles in percent. Also shows the top 3 processes that currently have the highest number of open file descriptors (not cumulative). Depending on the user (e.g. running as *icinga*), sudo (sudoers) is needed.
 
 
 Fact Sheet
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/file-descriptors"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``sysctl``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,20 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Checks the number of allocated file handles in percent.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for file descriptor usage
+                            (in percent). Default: 95
+      -w WARN, --warning WARN
+                            Set the warning threshold for file descriptor usage
+                            (in percent). Default: 90
 
 
 Usage Examples
@@ -47,7 +52,12 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    2.2% file descriptors used (2.1K/94.1K)
+
+    Top3 processes opening file descriptors:
+    1. mongod: 183 FD
+    2. master: 91 FD
+    3. mariadbd: 75 FD
 
 
 States

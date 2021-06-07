@@ -4,11 +4,9 @@ Check file-count
 Overview
 --------
 
-Checks the number of matching files or directories found. It can be also used to check the existence / absence of a single file. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
-It supports glob in accordance with https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob (python3) or https://docs.python.org/2.7/library/glob.html (python2).
-Beware that using recursive globs might cause high memory usage.
-Also note that there are small differences in recursive file matching between python2 and python3.
-Optionally, the check can be restricted to only consider files that were modified in a given timerange.
+Checks the number of matching files or directories found. It can be also used to check the existence / absence of a single file.
+
+Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with `Python 3 <https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob>`_ or `Python 2 <https://docs.python.org/2.7/library/glob.html>`_. Beware that using recursive globs might cause high memory usage. Also note that there are small differences in recursive file matching between Python 2 and Python 3. Optionally, the check can be restricted to only consider files that were modified in a given timerange.
 
 
 Fact Sheet
@@ -19,11 +17,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/file-count"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -31,13 +27,43 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: file-count [-h] [--always-ok] [--filename FILENAME] [-u URL]
+                      [--timeout TIMEOUT] [--password PASSWORD]
+                      [--pattern PATTERN] [--username USERNAME] [--only-dirs]
+                      [--only-files] [-V] [-c CRIT] [-w WARN]
+                      [--timerange TIMERANGE]
 
-    Example Check.
+    Checks the number of matching files.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      --always-ok           Always returns OK.
+      --filename FILENAME   File (or directory) name to check. Supports glob in
+                            accordance with
+                            https://docs.python.org/2.7/library/glob.html. Beware
+                            of using recursive globs. This is mutually exclusive
+                            with -u / --url.
+      -u URL, --url URL     Set the url of the file (or directory) to check,
+                            starting with "smb://". This is mutually exclusive
+                            with --filename.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --password PASSWORD   SMB Password.
+      --pattern PATTERN     The search string to match against the names of SMB
+                            directories or files. This pattern can use '*' as a
+                            wildcard for multiple chars and '?' as a wildcard for
+                            a single char. Does not support regex patterns.
+                            Default: *.
+      --username USERNAME   SMB Username.
+      --only-dirs           Only consider directories.
+      --only-files          Only consider files.
+      -V, --version         show program's version number and exit
+      -c CRIT, --critical CRIT
+                            Set the critical number of files. Supports ranges.
+      -w WARN, --warning WARN
+                            Set the warning number of files. Supports ranges.
+      --timerange TIMERANGE
+                            Set the timerange (seconds) in which the files should
+                            be considered. Supports ranges.
 
 
 Usage Examples
@@ -61,14 +87,13 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States
 ------
 
-TODO State
-
+TODO States
 
 
 Perfdata / Metrics

@@ -15,6 +15,7 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/uptime"
     "Check Interval Recommendation",        "Every 5 minutes"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Python module ``psutil``"
 
@@ -43,8 +44,6 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./uptime
-    ./uptime --always-ok
     ./uptime --warning 180 --critical 366
     
 Output:

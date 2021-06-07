@@ -1,5 +1,5 @@
-Check eborgbackup
-=================
+Check borgbackup
+================
 
 Overview
 --------
@@ -14,11 +14,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/borgbackup"
     "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -26,13 +24,20 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: borgbackup [-h] [-V] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Checks the date and return code of the last borgbackup, according to the
+    logfile.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for the time difference to
+                            the start of the last backup (in hours). Default: None
+      -w WARN, --warning WARN
+                            Set the warning threshold for the time difference to
+                            the start of the last backup (in hours). Default: 24
 
 
 Usage Examples
@@ -46,19 +51,25 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Last Backup started 2021-06-02 23:05:07, ended 2021-06-02 23:05:43, took 36s.
+    * Create retc: 0, State: 
+    * Prune retc: 0, State:
 
 
 States
 ------
 
-* Always returns OK.
+* WARN on active borg mounts
+* WARN on Borg return codes > 1
+* WARN if last backup start time > n hours
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+* create_retc
+* prune_retc
+* duration
 
 
 Credits, License

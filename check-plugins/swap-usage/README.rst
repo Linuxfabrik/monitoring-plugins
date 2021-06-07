@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/swap-usage"
     "Check Interval Recommendation",        "Once a minute"
-    "Available for",                        "Python 2"
-    "Requirements",                         "Python2 module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Displays amount of free and used swap space in the system, checks against used
+    swap in percent.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for swap usage (in
+                            percent). Default: 90
+      -w WARN, --warning WARN
+                            Set the warning threshold for swap usage (in percent).
+                            Default: 70
 
 
 Usage Examples
@@ -41,14 +47,14 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./swap-usage
     ./swap-usage --warning 70 --critical 90
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    38.6% - total: 11.7GiB, used: 4.5GiB, free: 7.2GiB
+    swapped in: 1.6GiB, swapped out: 11.9GiB
 
 
 States

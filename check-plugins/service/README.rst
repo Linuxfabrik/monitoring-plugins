@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/service"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: service [-h] [-V] --service SERVICE [--severity {warn,crit}]
+                   [--status {running,paused,start_pending,pause_pending,continue_pending,stop_pending,stopped}]
+                   [--starttype {automatic,manual,disabled}]
 
-    Example Check.
+    Check the state of a Windows service.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --service SERVICE     Name of the service.
+      --severity {warn,crit}
+                            Severity if something is found. One of "warn" or
+                            "crit". Default: warn
+      --status {running,paused,start_pending,pause_pending,continue_pending,stop_pending,stopped}
+                            Expected service status (repeating). Default:
+                            ['running']
+      --starttype {automatic,manual,disabled}
+                            Expected service start type. Default: automatic
 
 
 Usage Examples
@@ -41,15 +50,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./service3 --task Schedule
-    ./service3 --task Schedule --severity crit
-    ./service3 --task Schedule --status running
+    ./service --task Schedule --status running --severity crit
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

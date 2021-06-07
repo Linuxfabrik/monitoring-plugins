@@ -1,10 +1,10 @@
-Check epip-version
-==================
+Check pip-version
+=================
 
 Overview
 --------
 
-This plugin lets you track if an update for a python package installed via ``pip`` is available.
+This plugin lets you track if an update for a python package installed via ``pip`` is available. May take more than 10 seconds to execute.
 
 
 Fact Sheet
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/pip-version"
     "Check Interval Recommendation",        "Once a week"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -27,13 +25,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: pip-version [-h] [-V] [--package PACKAGE] [--virtualenv VIRTUALENV]
+                       [--test TEST]
 
-    Example Check.
+    Checks if there is an update for a python package installed via `pip`.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --package PACKAGE     Name of the python package.
+      --virtualenv VIRTUALENV
+                            Path of the virtualenv that will be activated before
+                            checking for updates. For example:
+                            "/opt/sphinx/bin/activate".
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
 
 
 Usage Examples
@@ -41,14 +47,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./pip-version --package sphinx
     ./pip-version --package sphinx --virtualenv /opt/sphinx/bin/activate
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    sphinx 3.2.1 is up to date.
 
 
 States

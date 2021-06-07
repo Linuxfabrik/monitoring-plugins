@@ -13,7 +13,7 @@ Hints:
 * If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks.
 * If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact (so this check can't report this).
 
-Tested with Nextcloud >= 15.0.4
+Tested with Nextcloud 15+.
 
 
 Fact Sheet
@@ -24,11 +24,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nextcloud-stats"
     "Check Interval Recommendation",        "Every 15 minutes"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "App serverinfo"
 
 
 Help
@@ -36,13 +34,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                           --password PASSWORD [--url URL] [--username USERNAME]
 
-    Example Check.
+    This plugin lets you track if app updates are available, the number of active
+    users over time, the number of shares in various categories and some storage
+    statistics against a Nextcloud server.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --password PASSWORD  Nextcloud API password.
+      --url URL            Nextcloud API URL. Default: http://localhost/nextcloud/
+                           ocs/v2.php/apps/serverinfo/api/v1/info
+      --username USERNAME  Nextcloud API username. Default: admin
 
 
 Usage Examples
@@ -56,7 +65,13 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    11 users (6/6/6 in the last 5min/1h/24h), 0 files, 52 apps, v20.0.10.2
+    * Shares: 110 (17 groups, 34 links [33 w/o password], 4 mails, 0 rooms, 20 users, 1 federated sent)
+    * Federated Shares: 0 received
+    * Storages: 0 (12 home, 5 other, 1 local)
+    * PHP: v7.4.20, upload_max_filesize=11.0GiB, max_execution_time=3600s, memory_limit=2.0GiB
+    * DB: mysql v10.3.29, size=222.0MiB
+    * Web: Apache/2.4.6 (CentOS), local memcache: Memcache\APCu, locking memcache: Memcache\Redis
 
 
 States

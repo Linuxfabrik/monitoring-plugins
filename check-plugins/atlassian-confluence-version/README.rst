@@ -4,9 +4,7 @@ Check atlassian-confluence-version
 Overview
 --------
 
-This plugin lets you track if a Atlassian Confluence server update is available. To check for updates, this plugin uses the Atlassian RSS release feed. To compare against the current/installed version of Atlassian Confluence, the check has to run on the Atlassian Confluence server itself and needs access to the Atlassian Confluence installation directory.
-
-The check uses a sqlite database to cache its query result.
+This plugin lets you track if an Atlassian Confluence server update is available. To check for updates, this plugin uses the Atlassian RSS release feed. To compare against the current/installed version of Atlassian Confluence, the check has to run on the Atlassian Confluence server itself and needs access to the Atlassian Confluence installation directory.
 
 
 Fact Sheet
@@ -17,11 +15,10 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/atlassian-confluence-version"
     "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
+    "Requirements",                         "None"
     "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
 
 
 Help
@@ -29,13 +26,21 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: atlassian-confluence-version [-h] [-V] [--always-ok]
+                                         [--cache-expire CACHE_EXPIRE]
+                                         [--path PATH]
 
-    Example Check.
+    This plugin lets you track if server updates are available.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --cache-expire CACHE_EXPIRE
+                            The amount of time after which the update check cache
+                            expires, in hours. Default: 24
+      --path PATH           Local path to your Atlassian Confluence installation.
+                            Default: /opt/atlassian/confluence
 
 
 Usage Examples
@@ -43,14 +48,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./atlassian-confluence-version --path /opt/atlassian/confluence
     ./atlassian-confluence-version --path /opt/atlassian/confluence --cache-expire 8 --always-ok
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Atlassian Confluence v7.11.0 is up to date
 
 
 States

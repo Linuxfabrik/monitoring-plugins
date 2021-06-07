@@ -6,8 +6,6 @@ Overview
 
 Checks if the local or a given hostname is a valid fully qualified domain name in full compliance with RFC 1035. The parameter ``--hostname`` checks the given string, not a remote host.
 
-We recommend to run this check once a week or once in the lifetime of a machine.
-
 
 Fact Sheet
 ----------
@@ -16,12 +14,10 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/hostname-fqdn"
-    "Check Interval Recommendation",        "Once a minute"
+    "Check Interval Recommendation",        "Once a week or even once in the lifetime of a machine"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -29,14 +25,16 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: hostname-fqdn [-h] [-V] [-H HOSTNAME]
 
-    Example Check.
+    Checks if the local or a given hostname is a valid fully qualified domain name
+    in full compliance with RFC 1035.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
-
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      -H HOSTNAME, --hostname HOSTNAME
+                            Hostname to check. Defaults to the local hostname.
 
 Usage Examples
 --------------
@@ -49,7 +47,7 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    "linuxfabrik" is an invalid fully qualified domain name (FQDN)
 
 
 States

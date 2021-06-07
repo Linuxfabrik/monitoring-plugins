@@ -1,5 +1,5 @@
-Check esystemd-units-failed
-===========================
+Check systemd-units-failed
+==========================
 
 Overview
 --------
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/systemd-units-failed"
     "Check Interval Recommendation",        "Once a minute"
-    "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,16 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: systemd-units-failed [-h] [-V] [--always-ok] [--test TEST]
 
-    Example Check.
+    Warns on any failed systemd units.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                     file,expected-retc".
 
 
 Usage Examples
@@ -47,7 +48,11 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    There is 1 failed unit.
+
+    unit            load   active sub    description    
+    ----            ----   ------ ---    -----------    
+    ipmievd.service loaded failed failed Ipmievd Daemon
 
 
 States

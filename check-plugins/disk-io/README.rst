@@ -4,9 +4,7 @@ Check disk-io
 Overview
 --------
 
-Checks the disk throughput over a period of time.
-
-For this purpose, the check logs the maximum throughput and warns if the throughput over the last n measured values is above a certain percentage (by default 80/90% over the last 5 values). So the whole thing works similarly to Load5, only on disk I/O level.
+Checks the disk throughput over a period of time. For this purpose, the check logs the maximum throughput and warns if the throughput over the last n measured values is above a certain percentage (by default 80/90% over the last 5 values). So the whole thing works similarly to Load5, only on disk I/O level.
 
 Assuming the NVMe disk offers 2.1 GB/sec throughput. The result of ``./disk-io --count 5 --warning 80 --critical 90`` could then look like this::
 
@@ -16,12 +14,12 @@ Assuming the NVMe disk offers 2.1 GB/sec throughput. The result of ``./disk-io -
     ---- ------- ---- ----   ----     ----   -----  -----     
     dm-2 2.1GiB  0.0B 1.6GiB 100.0MiB 1.7GiB 1.8GiB [WARNING] 
 
-The first line always shows the disk with the currently highest throughput. For example, the table row for ``dm-2`` means:
+The first line always shows the disk with the currently highest throughput. The table columns shown above mean:
 
-* In practice, a maximum throughput of 2.1 GB/sec was determined (RWmax).
-* The current throughput is 0.0 B/sec read and 1.75 GB/sec write (R1/W1).
-* The throughput from now to 5 measured values in the past is 100 MB/sec read and 1.7 GB/sec write (R5/W5). Compared to the current values, there was a higher throughput for a while.
-* Since the drive offers a maximum of 2.1 GB/sec, a RW5 value of 1.8 GB/sec results in a warning (``2.1 GB/sec * 80% = 1.68 GB/sec``). The current value of 1.75 GB/sec doesn't matter, it could be a peak.
+* RWmax: Always starting with 10Mib/sec. Here, a maximum throughput of 2.1 GB/sec was determined.
+* R1/W1: The current throughput is 0.0 B/sec read and 1.75 GB/sec write.
+* R5/W5: The throughput from now to 5 measured values in the past is 100 MB/sec read and 1.7 GB/sec write. Compared to the current values, there was a higher throughput for a while.
+* State: Since the drive offers a maximum of 2.1 GB/sec, a RW5 value of 1.8 GB/sec results in a warning (``2.1 GB/sec * 80% = 1.68 GB/sec``). The current value of 1.75 GB/sec doesn't matter, it could be a peak.
 
 Hints:
 
@@ -36,12 +34,13 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
 
-    "Check Plugin Download",          "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-io"
-    "Check Interval Recommendation",  "Once a minute"
-    "Available for ",                 "Python 2, Python 3"
-    "Requirements",                   "Python module ``psutil``"
-    "Handles Periods",                "Yes"
-    "Uses SQLite DBs",                "Yes"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-io"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for ",                       "Python 2, Python 3"
+    "Requirements",                         "Python module ``psutil``"
+    "Handles Periods",                      "Yes"
+    "Uses SQLite DBs",                      "Yes"
 
 
 Help
@@ -90,7 +89,7 @@ Output:
     dm-0      2.2GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
     dm-2      2.1GiB  516.0B 540.1KiB 5.2KiB 9.9MiB  9.9MiB  [OK]  
     nvme0n1   2.1GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
-    nvme0n1p3 2.1GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]
+    nvme0n1p3 2.1GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
 
 
 States
@@ -108,20 +107,20 @@ Per disk:
     :widths: 25, 15, 60
     :header-rows: 1
     
-    "Name",                             "Type",                 "Description"
-    "<disk>_busy_time",                 "Continous Counter",    "Time spent doing actual I/Os (in milliseconds)."
-    "<disk>_read_bytes",                "Continous Counter",    "Number of bytes read."
-    "<disk>_read_bytes_per_second1",    "Bytes",                "Current number of bytes read."
-    "<disk>_read_bytes_per_second15",   "Bytes",                "Current number of bytes read."
-    "<disk>_read_merged_count",         "Continous Counter",    "Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt."
-    "<disk>_read_time",                 "Continous Counter",    "Time spent reading from disk (in milliseconds)."
-    "<disk>_write_bytes",               "Continous Counter",    "Number of bytes written."
-    "<disk>_write_bytes_per_second1",   "Bytes",                "Current number of bytes written."
-    "<disk>_write_bytes_per_second15",  "Bytes",                "Current number of bytes written."
-    "<disk>_write_merged_count",        "Continous Counter",    "Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt."
-    "<disk>_write_time",                "Continous Counter",    "Time spent writing to disk (in milliseconds)."
-    "<disk>_throughput1",               "None",                 "Bytes per second. read_bytes_per_second1 + write_bytes_per_second1."
-    "<disk>_throughput15",              "None",                 "Bytes per second. read_bytes_per_second15 + write_bytes_per_second15."
+    Name,                               Type,                   Description                                           
+    <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in milliseconds).
+    <disk>_read_bytes,                  Continous Counter,      Number of bytes read.
+    <disk>_read_bytes_per_second1,      Bytes,                  Current number of bytes read.
+    <disk>_read_bytes_per_second15,     Bytes,                  Current number of bytes read.
+    <disk>_read_merged_count,           Continous Counter,      Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt.
+    <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in milliseconds).
+    <disk>_write_bytes,                 Continous Counter,      Number of bytes written.
+    <disk>_write_bytes_per_second1,     Bytes,                  Current number of bytes written.
+    <disk>_write_bytes_per_second15,    Bytes,                  Current number of bytes written.
+    <disk>_write_merged_count,          Continous Counter,      Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt.
+    <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in milliseconds).
+    <disk>_throughput1,                 None,                   Bytes per second. read_bytes_per_second1 + write_bytes_per_second1.
+    <disk>_throughput15,                None,                   Bytes per second. read_bytes_per_second15 + write_bytes_per_second15.
 
 
 Credits, License

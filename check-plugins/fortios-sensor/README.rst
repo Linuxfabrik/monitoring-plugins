@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-sensor"
     "Check Interval Recommendation",        "Every 15 minutes"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,23 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: fortios-sensor [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
+                          [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
 
-    Example Check.
+    Checks FortiOS sensor information in detail.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -H HOSTNAME, --hostname HOSTNAME
+                            FortiOS-based Appliance address, optional including
+                            port ("192.168.1.1:443").
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --password PASSWORD   FortiOS REST API Single Access Token.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -41,13 +49,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fortios-sensor --hostname fortigate-cluster.linuxfabrik.io --password sSEaTjuNbPYW5yepUD2JtDhyykY59D
+    ./fortios-sensor --hostname fortigate-cluster.linuxfabrik.io --password mypass
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    TODO
 
 
 States

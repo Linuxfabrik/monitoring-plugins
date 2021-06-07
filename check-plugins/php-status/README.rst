@@ -1,43 +1,69 @@
-Check "php-status"
-==================
+Check php-status
+================
 
 Overview
 --------
 
 This plugin checks for PHP Opcache status, startup errors using ``php --version``, missing modules using ``php --modules`` or misconfigured directives using ``php --info``.
 
-On the subject of Opcache see also
+So that the check can call up the Opcache data in the context of a web server, first put the ``monitoring.php`` file to the web server's document root directory. The check can then call up additional PHP information, such as the PHP Opcache statistics. On the subject of Opcache see also:
 
 * `Opcache Runtime Configuration <https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.interned-strings-buffer>`_
 * `A one-page opcache status page <https://github.com/rlerdorf/opcache-status>`_
 * `Fine-Tune Your Opcache Configuration to Avoid Caching Suprises <https://tideways.com/profiler/blog/fine-tune-your-opcache-configuration-to-avoid-caching-suprises>`_.
 
-We recommend to run this check every 5 minutes.
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3, Windows"
+    "Requirements",                         "Callable ``monitoring.php`` (optional)"
 
 
-Installation and Usage
-----------------------
+Help
+----
 
-So that the check can call up the Opcache data in the context of the Apache web server, first put the ``monitoring.php`` file to the web server's document root directory. The check can then call up additional PHP information, such as the PHP Opcache statistics.
+.. code-block:: text
 
-Check whether there are any startup errors, whether the modules listed are installed, whether the configuration options are set as specified:
+    usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG]
+                      [--module MODULES] [--url URL] [-w WARN]
 
-.. code-block:: bash
+    This plugin checks for PHP startup errors, missing modules and misconfigured
+    php.ini directives.
 
-    ./php-status
-    ./php-status --config date.timezone=Europe/Zurich --config memory_limit=256M --module mbstring --module GD
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold for Opcache usage as a
+                            percentage. Default: >= 90
+      --config CONFIG       "key=value" pairs to check (startswith), for example
+                            `--config "memory_limit=128M"` (repeating)
+      --module MODULES      "modulename" to check (startswith), for example
+                            `--module json --module mbstring` (repeating)
+      --url URL             URL to PHP monitoring script.
+      -w WARN, --warning WARN
+                            Set the WARN threshold for Opcache usage as a
+                            percentage. Default: >= 80
 
-Output::
 
-    Config errors: memory_limit = 256M
-
-Check Opcache usage, list some important php.ini settings etc.:
+Usage Examples
+--------------
 
 .. code-block:: bash
 
     ./php-status --url http://localhost/monitoring.php --config date.timezone=Europe/Zurich --config memory_limit=256M --module mbstring --module GD
 
-Output::
+Output:
+
+.. code-block:: text
 
     PHP v7.4.19 (/etc/php.ini), OpCache Mem 52.7% used (52.7MiB/100.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 23.5% used (3816/16229), Hit Rate 100.0% (13.3 Mill. hits, 2.6K misses), Interned Strings 21.4% used (4.5MiB/21.0MiB, 73159 Strings), 0 OOM / 0 manual / 0 key restarts
 
@@ -75,8 +101,8 @@ WARN or CRIT:
 * if Opcache interned string usage is above the given percentage thresholds (default 80/90%)
 
 
-Perfdata
---------
+Perfdata / Metrics
+------------------
 
 * php-config-errors: 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT
 * php-module-errors: 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT
@@ -120,4 +146,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

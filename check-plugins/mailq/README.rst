@@ -6,7 +6,9 @@ Overview
 
 Checks the mail queue. Tested with Postfix and Exim.
 
-Regarding Exim: _By default, ``exim -bq`` (``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue._ Alternatively, add the icinga user to the exim group.
+Regarding Exim:
+
+    *By default, ``exim -bq`` (``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue.* Alternatively, add the icinga user to the exim group.
 
 
 Fact Sheet
@@ -17,11 +19,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/mailq"
     "Check Interval Recommendation",        "Every 5 minutes"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``mailq``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "command-line tool ``mailq``"
 
 
 Help
@@ -29,13 +29,22 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: mailq [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
-    Example Check.
+    Checks the mail queue.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for mails in the queue.
+                            Default: 250
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+      -w WARN, --warning WARN
+                            Set the warning threshold for mails in the queue.
+                            Default: 2
 
 
 Usage Examples
@@ -43,14 +52,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mailq
     ./mailq --warning 2 --critical 250
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    4 mails to deliver.
 
 
 States

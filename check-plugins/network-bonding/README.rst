@@ -1,5 +1,5 @@
-Check enetwork-bonding
-======================
+Check network-bonding
+=====================
 
 Overview
 --------
@@ -15,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/network-bonding"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "None"
 
 
 Help
@@ -27,13 +25,17 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: network-bonding [-h] [-V] [--always-ok] [--test TEST]
 
-    Example Check.
+    Reports the state of a channel bonding interface. Channel bonding enables two
+    or more network interfaces to act as one, simultaneously increasing the
+    bandwidth and providing redundancy.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --test TEST    For unit tests. Needs "path-to-bonding-file".
 
 
 Usage Examples
@@ -47,7 +49,10 @@ Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    One or more errors.
+
+    * [WARNING] bond0 (IEEE 802.3ad Dynamic link aggregation)
+        * Could not detect the MAC Address of the switch. This could indicate that LACP is not configured properly.
 
 
 States

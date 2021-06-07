@@ -8,8 +8,10 @@ Checks the number of currently running processes and warns on process counts.
 
 Process State Codes are summarized:
 
+.. code-block:: text
+
     procstate   shown as/grouped  meaning
-    --------------------------------------------------------------------------------------------------
+    ---------   ----------------  -------------------------------------------------------------------
            D    uninterruptible   uninterruptible sleep (usually IO)
            R    running           running or runnable (on run queue)
            I    sleeping          idle kernel thread
@@ -29,11 +31,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/procs"
     "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``ps``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -41,13 +41,43 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT]
+                 [--command COMMAND] [-c CRIT] [--critical-cpu CRIT_CPU]
+                 [--critical-mem CRIT_MEM] [--no-kthreads] [--username USERNAME]
+                 [-w WARN] [--warning-cpu WARN_CPU] [--warning-mem WARN_MEM]
 
-    Example Check.
+    Checks the number of currently running processes and warns on process counts
+    or zombie process states.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --argument ARGUMENT   Only scan for processes containing ARGUMENT in the
+                            command.
+      --command COMMAND     Only scan for processes starting with COMMAND (without
+                            path).
+      -c CRIT, --critical CRIT
+                            Set the critical threshold for the number of processes
+                            (none, range or int). Default: None
+      --critical-cpu CRIT_CPU
+                            Set the critical threshold CPU Usage Percentage.
+                            Default: None
+      --critical-mem CRIT_MEM
+                            Set the critical threshold Memory Usage in bytes.
+                            Default: None
+      --no-kthreads         Only scan for non kernel threads (works on Linux
+                            only). Default: False.
+      --username USERNAME   Only scan for processes with user name.
+      -w WARN, --warning WARN
+                            Set the warning threshold for the number of processes
+                            (none, range or int). Default: None
+      --warning-cpu WARN_CPU
+                            Set the warning threshold CPU Usage Percentage.
+                            Default: None
+      --warning-mem WARN_MEM
+                            Set the warning threshold Memory Usage in bytes.
+                            Default: None
 
 
 Usage Examples
@@ -62,7 +92,7 @@ Output:
 
 .. code-block:: text
 
-    349 tasks, 348 sleeping, 1 uninterruptible (1x glances)|'procs'=349;;;0; 'procs_sleeping'=348;;;0; 'procs_running'=0;;;0; 'procs_uninterruptible'=1;;;0; 'procs_zombies'=0;;;0; 'procs_stopped'=0;;;0; 'procs_dead'=0;;;0;
+    349 procs - 347 sleeping, 1 running (1x virt-manager), 1 uninterruptible (1x glances)|'procs'=349;;;0; 'procs_sleeping'=347;;;0; 'procs_running'=1;;;0; 'procs_uninterruptible'=1;;;0; 'procs_zombies'=0;;;0; 'procs_stopped'=0;;;0; 'procs_dead'=0;;;0;
 
 
 States
@@ -75,13 +105,15 @@ Perfdata / Metrics
 ------------------
 
 * ``procs``: Total number of processes.
-* ``procs_sleeping``
+* ``procs_cpu``
+* ``procs_dead``
+* ``procs_mem``
+* ``procs_paging``
 * ``procs_running``
+* ``procs_sleeping``
+* ``procs_stopped``
 * ``procs_uninterruptible``
 * ``procs_zombies``
-* ``procs_stopped``
-* ``procs_paging``
-* ``procs_dead``
 
 
 Credits, License

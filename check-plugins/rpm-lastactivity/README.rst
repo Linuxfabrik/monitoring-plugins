@@ -1,13 +1,10 @@
-Check erpm-lastactivity
-=======================
+Check rpm-lastactivity
+======================
 
 Overview
 --------
 
 Checks the timespan since the last rpm activity, for example due to a yum/dnf install, update or remove.
-
-* ``./rpm-lastactivity`` checks if the last rpm-activity (for example a yum-update) is more than 90 or 365 days ago. If not, it results in "Last rpm/yum/dnf activity is below the given thresholds (90d/365d)." (OK)
-* ``./rpm-lastactivity --warning 0`` checks if there was rpm-activity within the last 0 days. If not, it results in "Last rpm/yum/dnf activity is more than 0 days ago." (WARN)
 
 
 Fact Sheet
@@ -18,11 +15,9 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/rpm-lastactivity"
     "Check Interval Recommendation",        "Once a day"
-    "Available for",                        "Python 2"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``rpm``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
 
 
 Help
@@ -30,13 +25,18 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: rpm-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
 
-    Example Check.
+    Checks the timespan since the last rpm activity, for example due to a yum/dnf
+    install/update.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      -c CRIT, --critical CRIT
+                            Set the critical threshold (in days). Default: 365
+      -w WARN, --warning WARN
+                            Set the warning threshold (in days). Default: 90
 
 
 Usage Examples
@@ -44,14 +44,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./rpm-lastactivity
     ./rpm-lastactivity --warning 90 --critical 365
     
 Output:
 
 .. code-block:: text
 
-    TODOVM Output
+    Last rpm/yum/dnf activity is 10h 54m ago (so below the given thresholds 90D/365D).
 
 
 States
