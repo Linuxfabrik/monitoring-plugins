@@ -308,4 +308,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see LICENSE file.
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.
