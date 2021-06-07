@@ -110,32 +110,30 @@ Help
 Usage Examples
 --------------
 
-.. code-block:: bash
+Examples:
 
-    Examples:
-
-    * | Does the service exist? (and nothing more!)
-      | `systemd-unit --unit=firewalld.service`
-    * | Is the service running?
-      | `systemd-unit --substate=running --unit=firewalld.service`
-    * | Is the service disabled?
-      | `systemd-unit --unitfilestate=disabled --unit=firewalld.service`
-    * | Is the service stopped and disabled?
-      | `systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service`
-    * | Is the service exited?
-      | `systemd-unit --substate=exited --unit=firewalld.service`
-    * | Is this service with instance name "server" running?
-      | `systemd-unit --substate=running --unit=openvpn-server@server.service`
-    * | Is this service absent/uninstalled?
-      | `systemd-unit --loadstate=not-found --unit=firewalld.service`
-    * | Is this path mounted? (Output shown below)
-      | `systemd-unit --substate=mounted --unit=mnt-smb.mount`
-    * | Is this device plugged in?
-      | `systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device`
-    * | The current state of a timer job? (has one activestate and two substates)
-      | `systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer`
-    * | Check a service depending on a timer (has two activestates and two substates):
-      | `systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service`
+* | Does the service exist? (and nothing more!)
+  | ``systemd-unit --unit=firewalld.service``
+* | Is the service running?
+  | ``systemd-unit --substate=running --unit=firewalld.service``
+* | Is the service disabled?
+  | ``systemd-unit --unitfilestate=disabled --unit=firewalld.service``
+* | Is the service stopped and disabled?
+  | ``systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service``
+* | Is the service exited?
+  | ``systemd-unit --substate=exited --unit=firewalld.service``
+* | Is this service with instance name "server" running?
+  | ``systemd-unit --substate=running --unit=openvpn-server@server.service``
+* | Is this service absent/uninstalled?
+  | ``systemd-unit --loadstate=not-found --unit=firewalld.service``
+* | Is this path mounted? (Output shown below)
+  | ``systemd-unit --substate=mounted --unit=mnt-smb.mount``
+* | Is this device plugged in?
+  | ``systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device``
+* | The current state of a timer job? (has one activestate and two substates)
+  | ``systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer``
+* | Check a service depending on a timer (has two activestates and two substates):
+  | ``systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service``
 
 Output:
 
