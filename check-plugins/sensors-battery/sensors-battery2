@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
 DESCRIPTION = 'Return battery status information. If no battery is installed or metrics can’t be determined OK is returned.'
 
@@ -37,12 +37,13 @@ from lib.globals2 import *
 import lib.base2
 
 import argparse
-try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
 from traceback import print_exc
+
+try:
+    import psutil # pylint: disable=C0413
+except ImportError:
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 def parse_args():
