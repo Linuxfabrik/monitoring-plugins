@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060301'
+__version__ = '2021060801'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -211,7 +211,7 @@ def main():
             mem_used_percentage,
             lib.base2.bytes2human(mem_used),
             lib.base2.bytes2human(mem_total),
-            lib.base2.state2str(opcache_state, prefix=''),
+            lib.base2.state2str(opcache_state, prefix=' '),
             )
 
         wmem_used = php['memory_usage']['wasted_memory']
@@ -234,7 +234,7 @@ def main():
             keys_cached_percentage,
             keys_cached,
             keys_total,
-            lib.base2.state2str(opcache_state, prefix=''),
+            lib.base2.state2str(opcache_state, prefix=' '),
             )
 
         # Opcache Hit Rate
@@ -247,7 +247,7 @@ def main():
             cache_hit_rate,
             lib.base2.number2human(cache_hits),
             lib.base2.number2human(cache_misses),
-            lib.base2.state2str(opcache_state, prefix=''),
+            lib.base2.state2str(opcache_state, prefix=' '),
             )
 
         # Opcache Interned String Buffer (opcache.interned_strings_buffer)
@@ -263,7 +263,7 @@ def main():
             lib.base2.bytes2human(string_used),
             lib.base2.bytes2human(string_total),
             string_number,
-            lib.base2.state2str(opcache_state, prefix=''),
+            lib.base2.state2str(opcache_state, prefix=' '),
             )
 
         # Opcache Restarts
@@ -274,7 +274,7 @@ def main():
         state = lib.base2.get_worst(opcache_state, state)
         msg += '{} OOM{} / {} manual / {} key restarts, '.format(
             restarts_oom,
-            lib.base2.state2str(opcache_state, prefix=''),
+            lib.base2.state2str(opcache_state, prefix=' '),
             restarts_manual,
             restarts_keys,
             )
