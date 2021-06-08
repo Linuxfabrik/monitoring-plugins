@@ -33,16 +33,18 @@ import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
 import lib.base2 # pylint: disable=C0413
+import lib.net2 # pylint: disable=C0413
 from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
-except ImportError as e:
-    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+except ImportError:
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060101'
+__version__ = '2021060201'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -91,8 +93,9 @@ def get_sys_dimensions():
     sys = {}
     sys['cpu'] = psutil.cpu_count(logical=True)
     sys['ram'] = psutil.virtual_memory().total
+    sys['disks'] = 0
 
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
+    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
     for disk in stdout.strip().split('\n'):
         # zRAM devices can appear in the output of lsblk, but
         # we cannot do anything useful with them
@@ -322,6 +325,10 @@ def main():
     msg += lib.base2.bytes2human(sys_dimensions['ram']) + ' RAM, '
     msg += '{} {} ({}), '.format(sys_dimensions['disks'], lib.base2.pluralize('Disk', sys_dimensions['disks']), sys_dimensions['disk-sizes'])
     msg = msg[:-2]
+
+    netinfo = lib.net2.get_netinfo()
+    if netinfo:
+        msg += ' - IP {}/{}, Pub {}'.format(netinfo['address'], netinfo['mask_cidr'], netinfo['public_address'])
 
     sw = get_sw()
     if sw:

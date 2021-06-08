@@ -4,7 +4,7 @@ Check about-me
 Overview
 --------
 
-Reports a quick overview about the host dimensions and installed software:
+Reports a quick overview about the host dimensions, its IP addresses and installed software:
 
 * Software: lists well-known packages installed by your package manager
 * Apps (if any): manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
@@ -53,7 +53,8 @@ Output:
 
 .. code-block:: text
 
-    8 CPUs, 15.2GiB RAM, 1 Disk (953.9G) - Software: Apache httpd 2.4.46, Docker/Podman 3.1.2, Docker Compose 1.27.4, Firefox 88.0.1, Git 2.31.1, Glances 3.1.4.1, Java openjdk 11.0.11 2021-04-20, LibreOffice 7.0.6.2, MySQL 8.0.25, Node 14.16.1, npm 6.14.12, OpenSSL 1.1.1k, Perl 5.32.1, PHP 7.4.19, pip 20.2.2, Python mapped to 3.9.5, Python2 2.7.18, Python3 3.9.5, Sublime Text 4107, TeamViewer  15.17.6, tmate 2.4.0 - Apps: VMware Tools, Brother Printer SW, F5 VPN SW, Google Chrome, KeeWeb, Rambox, Nextcloud - Tools: dig, lsof, nano, ncat, nmap, rsync, tcpdump, telnet, unzip, wget, whois, wireshark - Python modules: BeautifulSoup 4.9.3, mysql.connector 2.2.9, psutil 5.7.2 - OS: Linux-5.12.6-200.fc33.x86_64-x86_64-with-glibc2.32|'cpu'=8;;;0; 'ram'=16340357120B;;;0; 'disks'=1;;;0;
+    8 CPUs, 15.2GiB RAM, 1 Disk (953.9G) - IP 192.168.0.122/24, Pub 1.2.3.4 - Software: Apache httpd 2.4.46, Docker/Podman 3.1.2, Docker Compose 1.27.4, Firefox 88.0.1, Git 2.31.1, Glances 3.1.4.1, Java openjdk 11.0.11 2021-04-20, LibreOffice 7.0.6.2, MySQL 8.0.25, Node 14.17.0, npm 6.14.13, OpenSSL 1.1.1k, Perl 5.32.1, PHP 7.4.19, pip 20.2.2, Python mapped to 3.9.5, Python2 2.7.18, Python3 3.9.5, Sublime Text 4107, TeamViewer  15.18.5, tmate 2.4.0 - Apps: VMware Tools, Brother Printer SW, F5 VPN SW, Google Chrome, KeeWeb, Rambox, Nextcloud - Tools: dig, lsof, nano, ncat, nmap, rsync, tcpdump, telnet, unzip, wget, whois, wireshark - Python modules: BeautifulSoup 4.9.3, mysql.connector 2.2.9, psutil 5.7.2 - OS: Linux-5.12.8-200.fc33.x86_64-x86_64-with-glibc2.32|'cpu'=8;;;0; 'ram'=16340357120B;;;0; 'disks'=1;;;0;
+
 
 
 States
