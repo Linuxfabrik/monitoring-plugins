@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060801'
+__version__ = '2021060901'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -99,12 +99,11 @@ def get_sys_dimensions():
     for disk in stdout.strip().split('\n'):
         # zRAM devices can appear in the output of lsblk, but
         # we cannot do anything useful with them
-        disk = disk.split(' ')
-        if disk[0].startswith('zram'):
+        if disk.startswith('zram'):
             continue
         sys['disks'] += 1
-        sys['disk-sizes'] = re.sub(r'\s+', ' ', disk[1]).strip()
-    
+        sys['disk-sizes'] = re.sub(r'\s+', ' ', disk).strip()    
+
     return sys
 
 
