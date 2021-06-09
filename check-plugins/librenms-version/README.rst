@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-alerts"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
