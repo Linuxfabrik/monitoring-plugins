@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/haproxy-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2"
