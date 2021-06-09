@@ -4,7 +4,7 @@ Check about-me
 Overview
 --------
 
-Reports a quick overview about the host dimensions, its IP addresses and installed software:
+Reports a quick overview about the host dimensions, its IP addresses (if the Python module ``netifaces`` is installed) and deployed software:
 
 * Software: lists well-known packages installed by your package manager
 * Apps (if any): manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
@@ -25,7 +25,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day or once a week"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``"
+    "Requirements",                         "Python module ``psutil``, Python module ``netifaces`` (optional)"
 
 
 Help
