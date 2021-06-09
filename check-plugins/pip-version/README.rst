@@ -15,7 +15,7 @@ Fact Sheet
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/pip-version"
     "Check Interval Recommendation",        "Once a week"
-    "Can be called without parameters",     "Yes"
+    "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
     "Requirements",                         "Python module ``psutil``"
 
