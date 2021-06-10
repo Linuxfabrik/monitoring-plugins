@@ -26,6 +26,20 @@ Free workers are:
 
 * ``.``: Open slot with no current process
 
+Apache httpd config example:
+
+.. code-block:: text
+
+    # the alias prevents the processing of .htaccess files, which could contain RewriteRules that interfere with server-status
+    Alias /server-status /dev/null
+    <IfModule status_module>
+        ExtendedStatus On
+        <Location /server-status>
+            SetHandler server-status
+            Require local
+        </Location>
+    </IfModule>
+
 
 Fact Sheet
 ----------
