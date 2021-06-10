@@ -8,45 +8,47 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-import time
-from traceback import print_exc
-from collections import defaultdict
+import argparse # pylint: disable=C0413
+from collections import defaultdict # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-import lib.base3
-from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
-    import psutil
-except ImportError as e:
+    import psutil # pylint: disable=C0413
+except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060701'
+__version__ = '2021061001'
 
-DESCRIPTION = 'Checks the number of currently running processes and warns on process counts or zombie process states.'
+DESCRIPTION = """Checks the number of currently running processes and warns on process counts or 
+                process memory usage."""
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = None
-DEFAULT_CRIT_CPU = None
-DEFAULT_WARN_CPU = None
 DEFAULT_CRIT_MEM = None
 DEFAULT_WARN_MEM = None
 
@@ -70,13 +72,13 @@ def parse_args():
 
     parser.add_argument(
         '--argument',
-        help='Only scan for processes containing ARGUMENT in the command.',
+        help='Only scan for processes containing ARGUMENT in the command, for example `-s` (case-insensitive).',
         dest='ARGUMENT',
     )
 
     parser.add_argument(
         '--command',
-        help='Only scan for processes starting with COMMAND (without path).',
+        help='Only scan for processes starting with COMMAND, for example `bash` (without path, case-insensitive).',
         dest='COMMAND',
     )
 
@@ -85,13 +87,6 @@ def parse_args():
         help='Set the critical threshold for the number of processes (none, range or int). Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
-    )
-
-    parser.add_argument(
-        '--critical-cpu',
-        help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
-        default=DEFAULT_CRIT_CPU,
-        dest='CRIT_CPU',
     )
 
     parser.add_argument(
@@ -111,7 +106,7 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='Only scan for processes with user name.',
+        help='Only scan for processes with user name, for example `apache` (case-insensitive).',
         dest='USERNAME',
     )
 
@@ -120,13 +115,6 @@ def parse_args():
         help='Set the warning threshold for the number of processes (none, range or int). Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
-    )
-
-    parser.add_argument(
-        '--warning-cpu',
-        help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
-        default=DEFAULT_WARN_CPU,
-        dest='WARN_CPU',
     )
 
     parser.add_argument(
@@ -146,44 +134,36 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    cpu_sum = 0
+    # init some vars
     kthreadd_pid = 0
     mem_sum = 0
-    uninterruptibles = running = zombies = {}
     my_pid = os.getpid()
     proc_states = defaultdict(lambda : 0)
-    procs_count = 0
+    cnt = 0
+    uninterruptibles = running = zombies = {}
 
-    if args.CRIT_CPU or args.WARN_CPU:
-        for process in psutil.process_iter():
-            try:
-                process.cpu_percent(interval=0)
-            except:
-                # process no longer exists
-                continue
-        time.sleep(1.25)
-
-    for process in psutil.process_iter():
+    processes = psutil.process_iter()
+    for process in processes:
         try:
             process_info = process.as_dict(attrs=['cmdline', 'name', 'status', 'memory_info', 'username', 'ppid'])
         except:
             # process no longer exists 
             continue
 
-        # ignore user name (if set)
-        if args.USERNAME and process_info['username'] != args.USERNAME:
-            continue
-
-        # ignore command name (if set)
-        if args.COMMAND and process_info['name'] != args.COMMAND:
-            continue
-
-        # ignore command name (if set)
-        if args.ARGUMENT and not args.ARGUMENT in ' '.join(process_info['cmdline']):
-            continue
-
-        # ignore myself
+        # always ignore myself
         if process.pid == my_pid:
+            continue
+
+        # only scan for processes for user name (if set)
+        if args.USERNAME and process_info['username'].lower() != args.USERNAME.lower():
+            continue
+
+        # only scan for processes starting with command name (if set)
+        if args.COMMAND and not process_info['name'].lower().startswith(args.COMMAND.lower()):
+            continue
+
+        # only scan for processes with arguments (if set)
+        if args.ARGUMENT and not args.ARGUMENT.lower() in ' '.join(process_info['cmdline']).lower():
             continue
 
         # filter kernel threads (childs of KTHREAD_PARENT)
@@ -194,9 +174,13 @@ def main():
                 if kthreadd_pid and process_info['ppid'] == kthreadd_pid:
                     continue
 
-        procs_count += 1
-        cpu_sum += process.cpu_percent(interval=0)
+        cnt += 1
+
+        # aka “Resident Set Size”, this is the non-swapped physical memory a process has used.
+        # * On UNIX it matches “top“‘s RES column.
+        # * On Windows this is an alias for wset field and it matches “Mem Usage” column of taskmgr.exe.
         mem_sum += process_info['memory_info'].rss
+
         proc_states[process_info['status']] += 1
 
         if process_info['status'] == psutil.STATUS_DISK_SLEEP:  # == uninterruptible
@@ -220,27 +204,19 @@ def main():
             else:
                 zombies[name] = 1
 
-    # group some proc_states, have a look at the README for detals
+    # group some proc_states, have a look at the README for details
     proc_states[psutil.STATUS_SLEEPING] += proc_states[psutil.STATUS_IDLE]
     del proc_states[psutil.STATUS_IDLE]
     proc_states[psutil.STATUS_STOPPED] += proc_states[psutil.STATUS_TRACING_STOP]
     del proc_states[psutil.STATUS_TRACING_STOP]
 
     # build the state, check the ranges
-    if not lib.base3.coe(lib.base3.match_range(procs_count, args.CRIT)):
+    if not lib.base3.coe(lib.base3.match_range(cnt, args.CRIT)):
         state = STATE_CRIT
-    elif not lib.base3.coe(lib.base3.match_range(procs_count, args.WARN)):
+    elif not lib.base3.coe(lib.base3.match_range(cnt, args.WARN)):
         state = STATE_WARN
     else:
         state = STATE_OK
-
-    if not lib.base3.coe(lib.base3.match_range(cpu_sum, args.CRIT_CPU)):
-        cpu_state = STATE_CRIT
-    elif not lib.base3.coe(lib.base3.match_range(cpu_sum, args.WARN_CPU)):
-        cpu_state = STATE_WARN
-    else:
-        cpu_state = STATE_OK
-    state = lib.base3.get_worst(state, cpu_state)
 
     if not lib.base3.coe(lib.base3.match_range(mem_sum, args.CRIT_MEM)):
         mem_state = STATE_CRIT
@@ -251,13 +227,22 @@ def main():
     state = lib.base3.get_worst(state, mem_state)
 
     # build the message
-    msg = '{} {}: '.format(procs_count, lib.base3.pluralize('proc', procs_count))
+    msg = '{} {} using '.format(cnt, lib.base3.pluralize('proc', cnt))
+    msg += '{} mem '.format(lib.base3.bytes2human(mem_sum))
 
-    if args.CRIT_CPU or args.WARN_CPU:
-        msg += '{:.1f} cpu, '.format(cpu_sum)
+    msg_param = ''
+    if args.USERNAME:
+        msg_param += 'user {}, '.format(args.USERNAME)
+    if args.COMMAND:
+        msg_param += 'cmd {}, '.format(args.COMMAND)
+    if args.ARGUMENT:
+        msg_param += 'args {}, '.format(args.ARGUMENT)
+    if args.NO_KTHREADS:
+        msg_param += 'w/o kthreads, '.format(args.COMMAND)
+    if msg_param:
+        msg += '(filter: {}) '.format(msg_param[:-2])
 
-    if args.CRIT_MEM or args.WARN_MEM:
-        msg += '{} mem, '.format(lib.base3.bytes2human(mem_sum))
+    msg += '- '
 
     if proc_states[psutil.STATUS_DEAD]:
         msg += '{} dead, '.format(proc_states[psutil.STATUS_DEAD])
@@ -291,20 +276,16 @@ def main():
 
     # build perfdata
     perfdata = ''
-    perfdata += lib.base3.get_perfdata('procs', procs_count, None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base3.get_perfdata('procs', cnt, None, args.WARN, args.CRIT, 0, None)
     perfdata += lib.base3.get_perfdata('procs_sleeping', proc_states[psutil.STATUS_SLEEPING], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('procs_running', proc_states[psutil.STATUS_RUNNING], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('procs_uninterruptible', proc_states[psutil.STATUS_DISK_SLEEP], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('procs_zombies', proc_states[psutil.STATUS_ZOMBIE], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('procs_stopped', proc_states[psutil.STATUS_STOPPED], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('procs_dead', proc_states[psutil.STATUS_DEAD], None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('procs_mem', mem_sum, None, args.WARN_MEM, args.CRIT_MEM, 0, None)
 
-    if args.CRIT_CPU or args.WARN_CPU:
-        perfdata += lib.base3.get_perfdata('procs_cpu', cpu_sum, '%', None, None, 0, 100)
-
-    if args.CRIT_MEM or args.WARN_MEM:
-        perfdata += lib.base3.get_perfdata('procs_mem', mem_sum, None, None, None, 0, None)
-
+    # over and out
     lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
