@@ -87,7 +87,7 @@ The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Pytho
 Virtual Environment
 ~~~~~~~~~~~~~~~~~~~
 
-If you want to use a virtual environment for Python (we recommend that), you could create one in the same directory as the check-plugins.
+If you want to use a virtual environment for Python (optional, but recommended), you could create one in the same directory as the check-plugins.
 
 .. code-block:: bash
 
