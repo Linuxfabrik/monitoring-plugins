@@ -1,6 +1,10 @@
 Python-based Monitoring Check Plugins Collection
 ================================================
 
+.. raw:: html
+
+    <img alt="linuxfabrik-monitoring-check-plugins-logo.png" src="linuxfabrik-monitoring-check-plugins-logo.png" style="float: right; margin: 0 0 0 15px;">
+
 This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 These monitoring check plugins
