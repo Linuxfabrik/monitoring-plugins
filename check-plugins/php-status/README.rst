@@ -12,6 +12,14 @@ So that the check can call up the Opcache data in the context of a web server, f
 * `A one-page opcache status page <https://github.com/rlerdorf/opcache-status>`_
 * `Fine-Tune Your Opcache Configuration to Avoid Caching Suprises <https://tideways.com/profiler/blog/fine-tune-your-opcache-configuration-to-avoid-caching-suprises>`_.
 
+Apache httpd config example:
+
+.. code-block:: text
+
+    <Location /monitoring.php>
+        Require local
+    </Location>
+
 
 Fact Sheet
 ----------
