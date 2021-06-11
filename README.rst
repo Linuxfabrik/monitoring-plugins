@@ -87,7 +87,7 @@ The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Pytho
 Virtual Environment
 ~~~~~~~~~~~~~~~~~~~
 
-If you want to use a virtual environment for Python (we recommend that), you must create one in the same directory as the check-plugins.
+If you want to use a virtual environment for Python (we recommend that), you could create one in the same directory as the check-plugins.
 
 .. code-block:: bash
 
@@ -107,7 +107,7 @@ Libraries
 
 We use our own `libraries, which you find in a separate Git repository <https://git.linuxfabrik.ch/linuxfabrik/lib>`_.
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example ``psutils``), we stick with official versions. We recommend installing these in the above mentioned virtual environment.
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutils <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. We recommend installing these in the above mentioned check plugin virtual environment.
 
 
 Running the Check Plugins on Linux
@@ -116,42 +116,43 @@ Running the Check Plugins on Linux
 Installation
 ~~~~~~~~~~~~
 
-* Install Python 2 (currently preferred) or Python 3 on the client.
-* Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
+Install Python 2 (currently preferred) or Python 3 on the client.
 
-    .. code:: bash
+Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
 
-        cd /tmp
-        
-        curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/master/monitoring-plugins-master.tar.gz
-        curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/master/lib-master.tar.gz
+.. code:: bash
 
-        tar xf lib.tar.gz
-        tar xf monitoring-plugins.tar.gz
+    cd /tmp
+    
+    curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/master/monitoring-plugins-master.tar.gz
+    curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/master/lib-master.tar.gz
 
-* Prepare the directory tree:
+    tar xf lib.tar.gz
+    tar xf monitoring-plugins.tar.gz
 
-    .. code:: bash
+Prepare the directory tree:
 
-        mkdir -p /usr/lib64/nagios/plugins/lib
+.. code:: bash
 
-* Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
+    mkdir -p /usr/lib64/nagios/plugins/lib
 
-    .. code:: bash
+Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
-        \cp /tmp/lib-master/*.py /usr/lib64/nagios/plugins/lib
+.. code:: bash
 
-* Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
+    \cp /tmp/lib-master/*.py /usr/lib64/nagios/plugins/lib
 
-    .. code:: bash
+Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
-        cd /tmp/monitoring-plugins-master/check-plugins
-        for check in $(find -maxdepth 2 -name '*2')
-        do
-            dir=$(dirname $check)
-            file=${dir:2}
-            \cp $check /usr/lib64/nagios/plugins/$file
-        done
+.. code:: bash
+
+    cd /tmp/monitoring-plugins-master/check-plugins
+    for check in $(find -maxdepth 2 -name '*2')
+    do
+        dir=$(dirname $check)
+        file=${dir:2}
+        \cp $check /usr/lib64/nagios/plugins/$file
+    done
 
 That's it. After that your directory on the client should now look like this:
 
@@ -176,17 +177,11 @@ That's it. After that your directory on the client should now look like this:
 sudoers
 ~~~~~~~
 
-You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/``.
+Some check plugins require ``sudo``-permissions to run. To do this, we provide a ``sudoers`` file for your operating system in ``monitoring-plugins/assets/sudoers``, for example ``CentOS8.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the client.
 
-You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote server. For example:
+.. note::
 
-.. code:: bash
-
-    cd monitoring-plugins/assets/sudoers/
-    scp CentOS7.sudoers monitoring-server:/etc/sudoers.d/monitoring-plugins
-
-Side note: We are also using the path ``/usr/lib64/nagios/plugins/`` for other OSes, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because when adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
-
+    We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
 
 Running the Check Plugins on Windows
@@ -254,6 +249,8 @@ Creating Custom Grafana Dashboards
 
 Roadmap
 --------
+
+Next steps (beside maintaining and writing new check plugins):
 
 * Migrate every Plugin to Python 3.
 * We will stop maintaining the Python 2-based check plugins on 2021-12-31, focusing on Python 3 only.
