@@ -105,7 +105,7 @@ If you prefer to place the virtual environment somewhere else, you can point the
 Libraries
 ~~~~~~~~~
 
-We use our own `libraries, which you find in a separate Git repository <https://git.linuxfabrik.ch/linuxfabrik/lib>`_.
+The check plugins require our own `Python libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. The libraries are in a separate Git repository, as we also use them in other projects.
 
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutils <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. We recommend installing these in the above mentioned check plugin virtual environment.
 
@@ -169,7 +169,7 @@ That's it. After that your directory on the client should now look like this:
    |   |-- ...
    |-- ...
 
-.. tipp::
+**Tipp**
 
     There is also an `ansible  monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_ available.
 
@@ -179,7 +179,7 @@ sudoers
 
 Some check plugins require ``sudo``-permissions to run. To do this, we provide a ``sudoers`` file for your operating system in ``monitoring-plugins/assets/sudoers``, for example ``CentOS8.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the client.
 
-.. note::
+**Note**
 
     We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
