@@ -29,21 +29,21 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
     
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          "Million [#f1]_ / Million [#f2]_"
-    1000^3,       G,      SI Symbol,  Number,          "Billion [#f1]_ / Milliard [#f2]_"
-    1000^4,       T,      SI Symbol,  Number,          "Trillion [#f1]_ / Billion [#f2]_"
-    1000^5,       P,      SI Symbol,  Number,          "Quadrillion [#f1]_ / Billiard [#f2]_"
-    1000^6,       E,      SI Symbol,  Number,          "Quintillion [#f1]_ / Trillion [#f2]_"
-    1000^7,       Z,      SI Symbol,  Number,          "Sextillion [#f1]_ / Trilliard [#f2]_"
-    1000^8,       Y,      SI Symbol,  Number,          "Septillion [#f1]_ / Quadrillion [#f2]_"
-    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes [#f3]_
-    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes [#f3]_
-    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes [#f3]_
-    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes [#f3]_
-    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes [#f3]_
-    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes [#f3]_
-    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes [#f3]_
-    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes [#f3]_
+    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1` / Million :sup:`2`"
+    1000^3,       G,      SI Symbol,  Number,          "Billion :sup:`1` / Milliard :sup:`2`"
+    1000^4,       T,      SI Symbol,  Number,          "Trillion :sup:`1` / Billion :sup:`2`"
+    1000^5,       P,      SI Symbol,  Number,          "Quadrillion :sup:`1` / Billiard :sup:`2`"
+    1000^6,       E,      SI Symbol,  Number,          "Quintillion :sup:`1` / Trillion :sup:`2`"
+    1000^7,       Z,      SI Symbol,  Number,          "Sextillion :sup:`1` / Trilliard :sup:`2`"
+    1000^8,       Y,      SI Symbol,  Number,          "Septillion :sup:`1` / Quadrillion :sup:`2`"
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes :sup:`3`
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes :sup:`3`
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes :sup:`3`
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes :sup:`3`
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes :sup:`3`
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes :sup:`3`
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes :sup:`3`
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes :sup:`3`
     1000^1,       KB,     other,      Bytes,           Kilobytes
     1000^2,       MB,     other,      Bytes,           Megabytes
     1000^3,       GB,     other,      Bytes,           Gigabytes
@@ -68,11 +68,9 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
     60*60*24*30,  M,      other,      Time,            Months
     60*60*24*365, Y,      other,      Time,            Years
 
-.. rubric:: Footnotes
-
-.. [#f1] US, Canada and modern British (short scale)
-.. [#f2] Traditional European (Peletier) (long scale)
-.. [#f3] Only used in output
+* :sup:`1`: US, Canada and modern British (short scale)
+* :sup:`2`: Traditional European (Peletier) (long scale)
+* :sup:`3`: Only used in output
 
 
 A few words about Python
