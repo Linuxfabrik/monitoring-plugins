@@ -7,7 +7,7 @@ These monitoring check plugins
 
 * are only written in Python (your main system language on RHEL / CentOS)
 * ensure easy access to the source code
-* are fast, reliable and use few system resources
+* are fast, reliable and use as few system resources as possible 
 * uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
 * use out of the box some sort of automatic detection using useful default settings
 * trigger WARNs and CRITs only where absolutely necessary
@@ -29,21 +29,21 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
     
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          "Million / Million [#f1]_"
-    1000^3,       G,      SI Symbol,  Number,          "Billion / Milliard"
-    1000^4,       T,      SI Symbol,  Number,          "Trillion / Billion"
-    1000^5,       P,      SI Symbol,  Number,          "Quadrillion / Billiard"
-    1000^6,       E,      SI Symbol,  Number,          "Quintillion / Trillion"
-    1000^7,       Z,      SI Symbol,  Number,          "Sextillion / Trilliard"
-    1000^8,       Y,      SI Symbol,  Number,          "Septillion / Quadrillion"
-    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes (used in Output)
-    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes (used in Output)
-    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes (used in Output)
-    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes (used in Output)
-    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes (used in Output)
-    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes (used in Output)
-    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes (used in Output)
-    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes (used in Output)
+    1000^2,       M,      SI Symbol,  Number,          "Million [#f1]_ / Million [#f2]_"
+    1000^3,       G,      SI Symbol,  Number,          "Billion [#f1]_ / Milliard [#f2]_"
+    1000^4,       T,      SI Symbol,  Number,          "Trillion [#f1]_ / Billion [#f2]_"
+    1000^5,       P,      SI Symbol,  Number,          "Quadrillion [#f1]_ / Billiard [#f2]_"
+    1000^6,       E,      SI Symbol,  Number,          "Quintillion [#f1]_ / Trillion [#f2]_"
+    1000^7,       Z,      SI Symbol,  Number,          "Sextillion [#f1]_ / Trilliard [#f2]_"
+    1000^8,       Y,      SI Symbol,  Number,          "Septillion [#f1]_ / Quadrillion [#f2]_"
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes [#f3]_
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes [#f3]_
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes [#f3]_
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes [#f3]_
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes [#f3]_
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes [#f3]_
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes [#f3]_
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes [#f3]_
     1000^1,       KB,     other,      Bytes,           Kilobytes
     1000^2,       MB,     other,      Bytes,           Megabytes
     1000^3,       GB,     other,      Bytes,           Gigabytes
@@ -70,7 +70,9 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
 
 .. rubric:: Footnotes
 
-.. [#f1] US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale)
+.. [#f1] US, Canada and modern British (short scale)
+.. [#f2] Traditional European (Peletier) (long scale)
+.. [#f3] Only used in output
 
 
 A few words about Python
