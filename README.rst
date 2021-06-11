@@ -1,7 +1,7 @@
 Python-based Monitoring Check Plugins Collection
 ================================================
 
-.. image:: linuxfabrik-monitoring-check-plugins-logo.png
+.. figure:: linuxfabrik-monitoring-check-plugins-logo.png
     :align: center
     :width: 100px
 
