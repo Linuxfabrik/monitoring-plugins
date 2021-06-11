@@ -279,7 +279,7 @@ Suffixes::
     s - seconds (also us, ms)
     % - percentage
     B - bytes (also KB, MB, TB)
-    c - a continous counter (such as bytes transmitted on an interface)
+    c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
 
