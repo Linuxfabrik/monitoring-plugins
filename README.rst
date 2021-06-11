@@ -209,10 +209,11 @@ For each check, you have to create an Icinga Command. We show this using the "cp
 
 Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
-* Link "+Add", ``Plugin Check Command``
+* Click "+Add", choose Command type: ``Plugin Check Command``
 * Command name: ``cmd-check-cpu-usage``
 * Command: ``/usr/lib64/nagios/plugins/cpu-usage``
-* Button "Add"
+* Timeout: set it according to hints in the check's README (usually ``10`` seconds)
+* Click the "Add" button
 
 Tab "Arguments":
 
