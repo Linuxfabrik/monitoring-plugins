@@ -156,7 +156,7 @@ Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plu
 
 That's it. After that your directory on the client should now look like this:
 
-.. code:: bash
+.. code:: text
 
    /usr/lib64/nagios/plugins/
    |-- about-me
