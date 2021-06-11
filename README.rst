@@ -97,7 +97,7 @@ If you want to use a virtual environment for Python (optional, but recommended),
 
 If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence over the virtual environment above.
 
-.. caution::
+**Caution**
 
     Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
 
