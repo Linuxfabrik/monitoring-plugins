@@ -6,6 +6,23 @@ Overview
 
 This check fetches the ping monitoring page of PHP-FPM. This could be used to test from outside that FPM is alive and responding, to create a graph of FPM availability, or to trigger alerts for the operating team (24/7).
 
+PHP-FPM config example:
+
+.. code-block:: text
+    :caption: PHP-FPM Config
+
+    ping.path = /fpm-ping
+    ping.response = pong
+
+.. code-block:: text
+    :caption: Apache Config
+
+    Alias /fpm-ping /dev/null
+    <Location "/fpm-ping">
+        Require local
+        ProxyPass unix:/run/php-fpm/www.sock|fcgi://localhost/fpm-ping
+    </Location>
+
 
 Fact Sheet
 ----------

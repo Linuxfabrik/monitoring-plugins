@@ -6,6 +6,22 @@ Overview
 
 This check collects information from the PHP-FPM pool status page and alerts on certain overuse. In addition, a table is printed which contains each pool process in the status "Running" (which information relates to the current request that is being served).
 
+PHP-FPM config example:
+
+.. code-block:: text
+    :caption: PHP-FPM Config
+
+    pm.status_path = /fpm-status
+
+.. code-block:: text
+    :caption: Apache Config
+
+    Alias /fpm-status /dev/null
+    <LocationMatch "/fpm-status">
+        Require local
+        ProxyPass unix:/run/php-fpm/www.sock|fcgi://localhost/fpm-status
+    </LocationMatch>
+
 
 Fact Sheet
 ----------
