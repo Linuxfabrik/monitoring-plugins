@@ -6,6 +6,19 @@ Overview
 
 This check shows you an *abundance of metrics that cover the health of your HAProxy server, current request rates, response times, and more. These metrics give you granular data on a per-frontend, backend, and server basis. You need to add a stats enable directive, which is typically put into its own frontend section.* (from https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/).
 
+HAProxy config example:
+
+.. code-block:: text
+
+    listen stats # Define a listen section called "stats"
+        bind :9000                          # Listen on localhost:9000
+        mode http
+        stats auth haproxy-stats:password   # Authentication credentials
+        stats enable                        # Enable stats page
+        stats hide-version                  # Hide HAProxy version
+        stats realm HAProxy\ Statistics     # Title text for popup window
+        stats uri /server-status            # Stats URI
+
 
 Fact Sheet
 ----------
