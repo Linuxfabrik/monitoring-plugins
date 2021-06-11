@@ -171,7 +171,7 @@ That's it. After that your directory on the client should now look like this:
 
 **Tipp**
 
-    There is also an `ansible  monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_ available.
+    We also provide an `Ansible "monitoring-plugins" role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
 
 
 sudoers
