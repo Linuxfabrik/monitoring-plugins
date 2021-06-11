@@ -1,9 +1,9 @@
-Python-based Monitoring Plugins Collection
-==========================================
+Python-based Monitoring Check Plugins Collection
+================================================
 
-This Enterprise Class Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-If you're looking for monitoring plugins that ...
+These monitoring check plugins
 
 * are only written in Python (your main system language on RHEL / CentOS)
 * ensure easy access to the source code
@@ -14,13 +14,7 @@ If you're looking for monitoring plugins that ...
 * provide additional information on troubleshooting where possible
 * avoid dependencies on additional system libraries where possible
 
-... then these plugins could be something for you. 
-
-All plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows. Check out the ``check-plugin-fact-sheet.csv`` for further details.
-
-
-Donate
-------
+All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
 
 |Donate|
 
@@ -28,20 +22,20 @@ Donate
 Human Readable Numbers
 ----------------------
 
-This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
 
 .. csv-table::
     :header-rows: 1
     
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          "Million / Million (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^3,       G,      SI Symbol,  Number,          "Billion / Milliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^4,       T,      SI Symbol,  Number,          "Trillion / Billion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^5,       P,      SI Symbol,  Number,          "Quadrillion / Billiard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^6,       E,      SI Symbol,  Number,          "Quintillion / Trillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^7,       Z,      SI Symbol,  Number,          "Sextillion / Trilliard (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
-    1000^8,       Y,      SI Symbol,  Number,          "Septillion / Quadrillion (US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale))"
+    1000^2,       M,      SI Symbol,  Number,          "Million / Million [#f1]_"
+    1000^3,       G,      SI Symbol,  Number,          "Billion / Milliard"
+    1000^4,       T,      SI Symbol,  Number,          "Trillion / Billion"
+    1000^5,       P,      SI Symbol,  Number,          "Quadrillion / Billiard"
+    1000^6,       E,      SI Symbol,  Number,          "Quintillion / Trillion"
+    1000^7,       Z,      SI Symbol,  Number,          "Sextillion / Trilliard"
+    1000^8,       Y,      SI Symbol,  Number,          "Septillion / Quadrillion"
     1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes (used in Output)
     1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes (used in Output)
     1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes (used in Output)
@@ -74,128 +68,92 @@ This is how we convert and append symbols to large numbers in a human-readable f
     60*60*24*30,  M,      other,      Time,            Months
     60*60*24*365, Y,      other,      Time,            Years
 
+.. rubric:: Footnotes
 
-Libraries
----------
-
-We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below for instructions on using it with the plugins.
-
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions.
+.. [#f1] US, Canada and modern British (short scale) / Traditional European (Peletier) (long scale)
 
 
-Roadmaps
---------
-
-Monitoring-Plugins
-~~~~~~~~~~~~~~~~~~
-
-* Migrate every Plugin to Python 3.
-* Provide a meaningful Grafana-Panel (where it makes sense).
-* Compile plugins for Windows (where it makes sense).
-* Provide a (unit) test for the majority of the plugins.
-* Automate the testing pipeline.
-
+A few words about Python
+------------------------
 
 Python 2 vs Python 3
 ~~~~~~~~~~~~~~~~~~~~
 
-2021-12-31:
+All check plugins are currently available for Python 2. We are gradually migrating them to Python 3 by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2", the Python 3 plugins have the suffix "3".
 
-* We will stop maintaining the Python 2-based checks on December 31, 2021, focusing on Python 3 only.
-
-
-2021-03-20:
-
-* All checks are currently available for Python 2.
-* We are migrating them step by step to Python 3, currently around 30% of the checks are also available for Python 3.
-
-The Python 2-based plugins use ``#!/usr/bin/env python2``, whereas the Python 3-based plugins use ``#!/usr/bin/env python3``. 
+The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3``. 
 
 
+Virtual Environment
+~~~~~~~~~~~~~~~~~~~
+
+If you want to use a virtual environment for Python (we recommend that), you must create one in the same directory as the check-plugins.
+
+.. code-block:: bash
+
+    cd /usr/lib64/nagios/plugins
+    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
+    python3 -m venv --system-site-packages monitoring-plugins-venv3
+
+If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence over the virtual environment above.
+
+.. caution::
+
+    Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
+
+
+Libraries
+~~~~~~~~~
+
+We use our own `libraries, which you find in a separate Git repository <https://git.linuxfabrik.ch/linuxfabrik/lib>`_.
+
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example ``psutils``), we stick with official versions. We recommend installing these in the above mentioned virtual environment.
+
+
+Running the Check Plugins on Linux
+----------------------------------
 
 Installation
-------------
-
-Requirements
 ~~~~~~~~~~~~
 
-Fedora
-    - Required: Install Python2, for example by using ``dnf install python2``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``dnf install python2-psutil``
+* Install Python 2 (currently preferred) or Python 3 on the client.
+* Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
 
-CentOS 8
-    - Required: Install Python2, for example by using ``dnf install python2``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Some of those modules are found in the EPEL repo. Example:
-      ``dnf install epel-release; dnf install python2-psutil``
+    .. code:: bash
 
-CentOS 7
-    - Most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Some of those modules are found in the EPEL repo. Example:
-      ``yum install epel-release; yum install python2-psutil``
+        cd /tmp
+        
+        curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/master/monitoring-plugins-master.tar.gz
+        curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/master/lib-master.tar.gz
 
-Ubuntu 20
-    - Most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``apt install python-psutil``
+        tar xf lib.tar.gz
+        tar xf monitoring-plugins.tar.gz
 
-Ubuntu 16
-    - Required: Install Python2, for example by using ``apt install python-minimal``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``apt install python-psutil``
+* Prepare the directory tree:
 
-Windows
-    tbd
+    .. code:: bash
 
+        mkdir -p /usr/lib64/nagios/plugins/lib
 
+* Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
-Installation on Linux
-~~~~~~~~~~~~~~~~~~~~~
+    .. code:: bash
 
-As the required `lib <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ is a separate git repo, we need to make sure to deploy the plugins and the libraries correctly.
+        \cp /tmp/lib-master/*.py /usr/lib64/nagios/plugins/lib
 
-In the following example, we will deploy everything to ``/usr/lib64/nagios/plugins/`` on the remote server ``monitoring-server``:
+* Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
-.. code:: bash
+    .. code:: bash
 
-    # first, make sure the target directory exists
-    ssh monitoring-server
-    mkdir -p /usr/lib64/nagios/plugins/lib
-    exit
+        cd /tmp/monitoring-plugins-master/check-plugins
+        for check in $(find -maxdepth 2 -name '*2')
+        do
+            dir=$(dirname $check)
+            file=${dir:2}
+            \cp $check /usr/lib64/nagios/plugins/$file
+        done
 
-Install the libraries:
-
-.. code:: bash
-
-    # on your local administrator machine
-    git clone https://git.linuxfabrik.ch/linuxfabrik/lib
-    cd lib
-    # for python2
-    scp *2.py monitoring-server:/usr/lib64/nagios/plugins/lib/
-    # for python3
-    scp *3.py monitoring-server:/usr/lib64/nagios/plugins/lib/
-
-Install some or all plugins:
-
-.. code:: bash
-
-    # on your local administrator machine
-    git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
-    cd monitoring-plugins
-    # copy a selection of plugins to the remote server
-    # for python2
-    scp check-plugins/about-me/about-me2 /usr/lib64/nagios/plugins/about-me
-    scp check-plugins/disk-smart/disk-smart2 /usr/lib64/nagios/plugins/disk-smart
-    # for python3
-    scp check-plugins/about-me/about-me3 /usr/lib64/nagios/plugins/about-me
-    scp check-plugins/disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
-
-Your directory on ``monitoring-server`` should now look like this:
+That's it. After that your directory on the client should now look like this:
 
 .. code:: bash
 
@@ -205,51 +163,20 @@ Your directory on ``monitoring-server`` should now look like this:
    |-- ...
    |-- lib
    |   |-- base2.py
+   |   |-- base3.py
    |   |-- globals2.py
    |   |-- ...
    |-- ...
 
-To make the deployment easier, we provide an `ansible  monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
+.. tipp::
 
-
-Configuration
--------------
-
-Icinga (Icingaweb, Icinga Director)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For each check, you have to create an Icinga Command, and use this within a Service Template, a Service Set and/or a Single Service.
-
-Example for creating a command for ``cpu-usage`` using Icinga Director (Icinga Director > Commands > Commands):
-
-Tab "Command"
-
-* Add a ``Plugin Check Command``
-* Command name: ``cmd-check-cpu-usage``
-* Command: ``/usr/lib64/nagios/plugins/cpu-usage``
-* Button ``Add``
-
-Tab "Arguments"
-
-* run ``/usr/lib64/nagios/plugins/cpu-usage --help`` to get a list of all arguments
-* create those you want to be customizable:
-
-    * Argument name ``--always-ok``, Value type: String, Condition (set_if): ``$cpu_usage_always_ok$``
-    * Argument name ``--count``, Value type: String, Value: ``$cpu_usage_count$``
-    * Argument name ``--critical``, Value type: String, Value: ```$cpu_usage_critical$``
-    * Argument name ``--warning``, Value type: String, Value: ```$cpu_usage_warning$``
-
-Tab "Fields"
-
-* Label "CPU Usage: Count", Field name "cpu_usage_count", Mandatory "n"
-* Label "CPU Usage: Critical", Field name "cpu_usage_critical", Mandatory "n"
-* Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
+    There is also an `ansible  monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_ available.
 
 
 sudoers
 ~~~~~~~
 
-You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet" CSV.
+You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/``.
 
 You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote server. For example:
 
@@ -261,8 +188,49 @@ You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote serv
 Side note: We are also using the path ``/usr/lib64/nagios/plugins/`` for other OSes, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because when adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
 
-Grafana Dashboards
-~~~~~~~~~~~~~~~~~~
+
+Running the Check Plugins on Windows
+------------------------------------
+
+TODO
+
+
+Icinga
+------
+
+Configuration in Icinga Director
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For each check, you have to create an Icinga Command. We show this using the "cpu-usage" check plugin.
+
+Create a command for ``cpu-usage`` using Icinga Director: Icinga Director > Commands > Commands
+
+* Link "+Add", ``Plugin Check Command``
+* Command name: ``cmd-check-cpu-usage``
+* Command: ``/usr/lib64/nagios/plugins/cpu-usage``
+* Button "Add"
+
+Tab "Arguments":
+
+* Run ``/usr/lib64/nagios/plugins/cpu-usage --help`` to get a list of all arguments.
+* Create those you want to be customizable:
+
+    * Argument name ``--always-ok``, Value type: String, Condition (set_if): ``$cpu_usage_always_ok$``
+    * Argument name ``--count``, Value type: String, Value: ``$cpu_usage_count$``
+    * Argument name ``--critical``, Value type: String, Value: ```$cpu_usage_critical$``
+    * Argument name ``--warning``, Value type: String, Value: ```$cpu_usage_warning$``
+
+Tab "Fields":
+
+* Label "CPU Usage: Count", Field name "cpu_usage_count", Mandatory "n"
+* Label "CPU Usage: Critical", Field name "cpu_usage_critical", Mandatory "n"
+* Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
+
+Now use this command within a Service Template, a Service Set and/or a Single Service.
+
+
+Grafana
+-------
 
 There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
 
@@ -283,22 +251,16 @@ Creating Custom Grafana Dashboards
         # for more options, see
         ./tools/grafana-tool --help
 
-Virtual Environment
-~~~~~~~~~~~~~~~~~~~
 
-If you want to use a virtual environment for python, you can create one in the same directory as the check-plugins.
+Roadmap
+--------
 
-.. code-block:: bash
-
-    cd /usr/lib64/nagios/plugins
-    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
-    python3 -m venv --system-site-packages monitoring-plugins-venv3
-
-If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence to the virtual environment above.
-
-.. caution::
-
-    Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using sudo).
+* Migrate every Plugin to Python 3.
+* We will stop maintaining the Python 2-based check plugins on 2021-12-31, focusing on Python 3 only.
+* Provide a meaningful Grafana-Panel (where it makes sense).
+* Compile check plugins for Windows using ``nuitka`` (where it makes sense).
+* Provide a (unit) test for the majority of the check plugins (where it makes sense).
+* Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
 
 
 Reporting Issues
@@ -308,6 +270,10 @@ For now, there are two ways:
 
 1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
+
+
+
+
 
 
 
