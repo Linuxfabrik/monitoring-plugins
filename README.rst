@@ -184,6 +184,16 @@ Some check plugins require ``sudo``-permissions to run. To do this, we provide a
     We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
 
+Upgrade
+~~~~~~~
+
+* Overwrite ``/usr/lib64/nagios/plugins/lib`` with the new libraries.
+* Overwrite ``/usr/lib64/nagios/plugins`` with the new plugins.
+* Copy the new sudoers files to ``/etc/sudoers.d/``
+* Delete all SQLite database files (``*.db``) in ``/tmp``.
+
+
+
 Running the Check Plugins on Windows
 ------------------------------------
 
