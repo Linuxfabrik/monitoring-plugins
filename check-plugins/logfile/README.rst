@@ -20,9 +20,9 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Python module ``psutil``"
-    "Handles Periods",                      "Yes"?
-    "Uses SQLite DBs",                      "Yes"?
-    "Perfdata compatible with Prometheus",  "Yes"?
+    "Handles Periods",                      "TODO"
+    "Uses SQLite DBs",                      "TODO"
+    "Perfdata compatible with Prometheus",  "TODO"
 
 
 Help
