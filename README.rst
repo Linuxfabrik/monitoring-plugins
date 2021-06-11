@@ -23,6 +23,14 @@ Support
 The source is published here without support. For a supported enterprise installation, the check plugins are free to download, distribute and use. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/ueber-uns/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
 
 
+Check Plugin Poster
+-------------------
+
+See most of our check plugins in action on an Icinga server at a glance:
+
+.. image:: linuxfabrik-monitoring-check-plugins.png
+
+
 Human Readable Numbers
 ----------------------
 
