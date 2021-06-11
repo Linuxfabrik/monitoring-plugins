@@ -16,7 +16,11 @@ These monitoring check plugins
 
 All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
 
-|Donate|
+
+Support
+-------
+
+The source is published here without support. For a supported enterprise installation, the check plugins are free to download, distribute and use. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply contact us). If you just like to support our work, consider donating by clicking on |Donate|. :-)
 
 
 Human Readable Numbers
