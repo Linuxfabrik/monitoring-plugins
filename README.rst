@@ -189,9 +189,8 @@ Upgrade
 
 * Overwrite ``/usr/lib64/nagios/plugins/lib`` with the new libraries.
 * Overwrite ``/usr/lib64/nagios/plugins`` with the new plugins.
-* Copy the new sudoers files to ``/etc/sudoers.d/``
+* Copy the new sudoers file to ``/etc/sudoers.d/``
 * Delete all SQLite database files (``*.db``) in ``/tmp``.
-
 
 
 Running the Check Plugins on Windows
