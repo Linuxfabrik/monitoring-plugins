@@ -207,7 +207,7 @@ Configuration in Icinga Director
 
 For each check, you have to create an Icinga Command. We show this using the "cpu-usage" check plugin.
 
-Create a command for ``cpu-usage`` using Icinga Director: Icinga Director > Commands > Commands
+Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
 * Link "+Add", ``Plugin Check Command``
 * Command name: ``cmd-check-cpu-usage``
