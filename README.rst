@@ -243,17 +243,16 @@ When importing via the WebGUI simply import the ``plugin-name.grafana-external.j
 If you want to use provisioning, take a look at `Grafana Provisioning <https://grafana.com/docs/grafana/latest/administration/provisioning/>`_.
 Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
 
-Creating Custom Grafana Dashboards
-    If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
+If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
 
-    .. code:: bash
+.. code:: bash
 
-        # interactive usage
-        ./tools/grafana-tool assets/grafana/all-panels-external.json
-        ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
+    # interactive usage
+    ./tools/grafana-tool assets/grafana/all-panels-external.json
+    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
 
-        # for more options, see
-        ./tools/grafana-tool --help
+    # for more options, see
+    ./tools/grafana-tool --help
 
 
 Roadmap
