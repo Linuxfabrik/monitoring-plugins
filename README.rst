@@ -68,9 +68,9 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
     60*60*24*30,  M,      other,      Time,            Months
     60*60*24*365, Y,      other,      Time,            Years
 
-* :sup:`1`: US, Canada and modern British (short scale)
-* :sup:`2`: Traditional European (Peletier) (long scale)
-* :sup:`3`: Only used in output
+* 1: US, Canada and modern British (short scale)
+* 2: Traditional European (Peletier) (long scale)
+* 3: Used in output
 
 
 A few words about Python
