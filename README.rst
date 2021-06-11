@@ -261,7 +261,6 @@ Roadmap
 Next steps (beside maintaining and writing new check plugins):
 
 * Migrate every Plugin to Python 3.
-* We will stop maintaining the Python 2-based check plugins on 2021-12-31, focusing on Python 3 only.
 * Provide a meaningful Grafana-Panel (where it makes sense).
 * Compile check plugins for Windows using ``nuitka`` (where it makes sense).
 * Provide a (unit) test for the majority of the check plugins (where it makes sense).
