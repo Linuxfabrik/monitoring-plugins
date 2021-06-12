@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041901'
+__version__ = '2021061201'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -157,14 +157,14 @@ def main():
         connections_writing, lib.base2.pluralize('response', connections_writing),
         connections_waiting, lib.base2.pluralize('conn', connections_waiting),
         )
-    perfdata += lib.base2.get_perfdata('connections_active', active_connections, None, None, None, 0, args.CRIT)
-    perfdata += lib.base2.get_perfdata('total_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('total_connections_handled', total_connections_handled, 'c', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('total_requests', total_requests, 'c', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('requests_per_connection', requests_per_connection, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('connections_reading', connections_reading, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('connections_writing', connections_writing, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('connections_waiting', connections_waiting, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_connections_active', active_connections, None, None, None, 0, args.CRIT)
+    perfdata += lib.base2.get_perfdata('nginx_connections_handled', total_connections_handled, 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_connections_reading', connections_reading, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_connections_waiting', connections_waiting, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_connections_writing', connections_writing, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_http_requests_total', total_requests, 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('nginx_requests_per_connection', requests_per_connection, None, None, None, 0, None)
 
     # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

@@ -31,6 +31,7 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Enable ``stub_status``"
+    "Perfdata compatible to Prometheus",    "Yes"
 
 
 Help
@@ -83,14 +84,14 @@ States
 Perfdata / Metrics
 ------------------
 
-* connections_active: The current number of active client connections including Waiting connections. 
-* total_connections_accepted: The total number of accepted client connections. 
-* total_connections_handled: The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the worker_connections limit).
-* total_requests: The total number of client requests. 
-* requests_per_connection: The number of handled requests per connection.
-* connections_reading: The current number of connections where nginx is reading the request header.
-* connections_writing: The current number of connections where nginx is writing the response back to the client.
-* connections_waiting: The current number of idle client connections waiting for a request.
+* nginx_connections_accepted: The total number of accepted client connections. 
+* nginx_connections_active: The current number of active client connections including Waiting connections. 
+* nginx_connections_handled: The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the worker_connections limit).
+* nginx_connections_reading: The current number of connections where nginx is reading the request header.
+* nginx_connections_waiting: The current number of idle client connections waiting for a request.
+* nginx_connections_writing: The current number of connections where nginx is writing the response back to the client.
+* nginx_http_requests_total: The total number of client requests. 
+* nginx_requests_per_connection: The number of handled requests per connection.
 
 
 Credits, License
