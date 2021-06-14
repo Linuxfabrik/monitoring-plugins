@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050601'
+__version__ = '2021061401'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
@@ -151,10 +151,13 @@ def main():
 
         # fetch the url
         if args.USERNAME and args.PASSWORD:
-            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT, 
-                header={'Authorization': 'Basic {}'.format(base64.b64encode(args.USERNAME + ':' + args.PASSWORD))}))
+            auth = args.USERNAME + ':' + args.PASSWORD
+            encoded_auth = base64.b64encode(auth.encode()).decode()
+            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT,
+                header={'Authorization': 'Basic {}'.format(encoded_auth)}))
         else:
             result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT))
+        result = result.decode()
     else:
         # do not call the command, put in test data
         if args.TEST[0] and os.path.isfile(args.TEST[0]):
