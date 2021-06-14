@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052701'
+__version__ = '2021061401'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -214,20 +214,18 @@ def main():
     if (stderr or retc != 0):
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
-
     # init some vars
     msg, msg_header = '', ''
     state = STATE_OK
     perfdata = ''
     table_values = []
 
-
     # evaluate results
     perfdata += lib.base3.get_perfdata('cpu', host_cpus, None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(host_mem), 'B', None, None, 0, None)
 
     now = lib.base3.now()
-    host_mem_usage, rx_bps, tx_bps, block_in_bytespersec, block_out_bytespersec = 0, 0, 0, 0, 0
+    rx_bps, tx_bps, block_in_bytespersec, block_out_bytespersec = 0, 0, 0, 0
     containers = lib.base3.mltext2array(stdout, skip_header=True, sort_key=1)
 
     for container in containers:
@@ -264,9 +262,6 @@ def main():
         if mem_state != STATE_OK:
             msg += '"{}" memory {}% {}, '.format(name, mem_usage, lib.base3.state2str(mem_state))
         state = lib.base3.get_worst(mem_state, state)
-
-        # for alerting when docker consumes too much host ram
-        host_mem_usage += mem_usage
 
         # net rx, tx
         # since we do not know the bandwidth, we cannot issue a warning here
@@ -321,13 +316,6 @@ def main():
     # we don't need the database any more: save data and close connection
     lib.db_sqlite3.commit(conn)
     lib.db_sqlite3.close(conn)
-
-    perfdata += lib.base3.get_perfdata('host_mem_usage', host_mem_usage, '%', args.WARN_MEM, args.CRIT_MEM, 0, 100)
-    host_mem_state = lib.base3.get_state(host_mem_usage, args.WARN_MEM, args.CRIT_MEM)
-    if host_mem_state != STATE_OK:
-        msg += 'Host memory {}% {}, '.format(host_mem_usage, lib.base3.state2str(host_mem_state))
-    state = lib.base3.get_worst(host_mem_state, state)
-
 
     # create output
     if state == STATE_OK:
