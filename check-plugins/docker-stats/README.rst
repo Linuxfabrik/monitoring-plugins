@@ -4,7 +4,13 @@ Check docker-stats
 Overview
 --------
 
-This check prints various statistics for all running Docker containers, in much the same way as the Unix application top, using the ``docker stats`` command.
+This check prints cpu and memory statistics for all running Docker containers, using the `docker stats <https://docs.docker.com/engine/reference/commandline/stats/>`_ command. Container CPU usage is divided by the available number of CPU cores.
+
+Hint:
+
+    Since ``docker stats`` only displays byte-related data in a human-readable format, for example *4.82GB*), a calculation of network I/O (``RX bps``, ``TX bps``) and block I/O (``BlockIn/s``, ``BlockOut/s``) becomes more and more imprecise. Therefore those values are not used at all.
+
+Plugin execution may take up to 10 seconds.
 
 
 Fact Sheet
@@ -68,10 +74,10 @@ Output:
 
     Everything is ok.
 
-    Container       CPU % State Mem %  State RX bps    TX bps    BlockIn/s BlockOut/s 
-    ---------       ----- ----- ------ ----- --------- --------- --------- ---------- 
-    prod_idp_logger 0.0   [OK]  2.23   [OK]  0.0bps    0.0bps    0.0B      0.0B       
-    prod_idp_app    0.2   [OK]  52.11  [OK]  0.0bps    0.0bps    0.0B      0.0B
+    Container       CPU % State Mem %  State
+    ---------       ----- ----- ------ -----
+    prod_idp_logger 0.0   [OK]  2.23   [OK] 
+    prod_idp_app    0.2   [OK]  52.11  [OK] 
 
 
 States
@@ -80,7 +86,6 @@ States
 Alerts if
 
 * any container memory usage is above the memory thresholds
-* the docker host memory usage is above the memory thresholds
 * any container cpu usage is above the cpu thresholds during the last n checks (default: 5)
 
 
@@ -88,19 +93,9 @@ Perfdata / Metrics
 ------------------
 
 * cpu: Number of Host CPUs
-* mem_usage: Docker Host Memory Usage (Bytes)
-* mem_usage_percent: Docker Host Memory Usage (Percent)
-* <containername>_block_in: Blocks In (Bytes)
-* <containername>_block_in_bytespersec: Blocks In (Bytes per second)
-* <containername>_block_out: Blocks Out (Bytes)
-* <containername>_block_out_bytespersec: Blocks Out (Bytes per second)
 * <containername>_cpu_usage: Container's CPU usage (normalized)
 * <containername>_mem_usage: Container's memory usage (Bytes)
 * <containername>_mem_usage_percent: Container's memory usage (Percent)
-* <containername>_rx: Container's received bytes
-* <containername>_rx_bps: Container's incoming bits per second
-* <containername>_tx: Container's sent bytes
-* <containername>_tx_bps: Container's outgoing bits per second
 
 
 Credits, License

@@ -30,23 +30,20 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061401'
+__version__ = '2021061402'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
 
+DEFAULT_COUNT = 5           # measurements; if check runs once per minute, this is a 5 minute period
 DEFAULT_WARN_CPU  = 80      # %
 DEFAULT_CRIT_CPU  = 90      # %
-
-DEFAULT_COUNT = 5           # measurements; if check runs once per minute, this is a 5 minute period
-
 DEFAULT_WARN_MEM  = 90      # %
 DEFAULT_CRIT_MEM  = 95      # %
 
@@ -122,30 +119,6 @@ def get_cpu_from_db(conn, container, threshold):
     return int(result['cnt'])
 
 
-def get_net_from_db(conn, container):
-    result = lib.base3.coe(lib.db_sqlite3.select(conn, 
-        '''
-        SELECT *
-        FROM net
-        WHERE container = :container
-        ''',
-        {'container': container},
-    ))
-    return result
-
-
-def get_block_from_db(conn, container):
-    result = lib.base3.coe(lib.db_sqlite3.select(conn, 
-        '''
-        SELECT *
-        FROM block
-        WHERE container = :container
-        ''',
-        {'container': container},
-    ))
-    return result
-
-
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -165,12 +138,8 @@ def main():
         strpos1 = stdout.find('CPUs: ') + 6
         strpos2 = stdout.find('\n', strpos1)
         host_cpus = int(stdout[strpos1:strpos2])
-        strpos1 = stdout.find('Total Memory: ') + 14
-        strpos2 = stdout.find('\n', strpos1)
-        host_mem = stdout[strpos1:strpos2]
     except:
         lib.base3.oao('{}'.format('Unable to compute docker info.'), STATE_UNKNOWN)
-
 
     # create the db tables
     definition = '''
@@ -180,27 +149,6 @@ def main():
     conn = lib.base3.coe(lib.db_sqlite3.connect(filename='docker-stats.db'))
     lib.base3.coe(lib.db_sqlite3.create_table(conn, definition, table='cpu'))
     lib.db_sqlite3.create_index(conn, 'container', table='cpu')
-
-    definition = '''
-                container TEXT NOT NULL,
-                rx REAL NOT NULL,
-                tx REAL NOT NULL,
-                timestamp INT NOT NULL
-        '''
-    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='docker-stats.db'))
-    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition, table='net'))
-    lib.db_sqlite3.create_index(conn, 'container', table='net', unique=True)
-
-    definition = '''
-                container TEXT NOT NULL,
-                block_in REAL NOT NULL,
-                block_out REAL NOT NULL,
-                timestamp INT NOT NULL
-        '''
-    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='docker-stats.db'))
-    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition, table='block'))
-    lib.db_sqlite3.create_index(conn, 'container', table='block', unique=True)
-
 
     # get the container statistics for all running containers
 
@@ -222,12 +170,8 @@ def main():
 
     # evaluate results
     perfdata += lib.base3.get_perfdata('cpu', host_cpus, None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(host_mem), 'B', None, None, 0, None)
 
-    now = lib.base3.now()
-    rx_bps, tx_bps, block_in_bytespersec, block_out_bytespersec = 0, 0, 0, 0
     containers = lib.base3.mltext2array(stdout, skip_header=True, sort_key=1)
-
     for container in containers:
         try:
             container_id, name, cpu_percent, mem_usage, tmp, mem_limit, mem_percent, net_in, tmp, net_out, block_in, tmp, block_out, pids = container
@@ -241,7 +185,6 @@ def main():
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base3.coe(lib.db_sqlite3.insert(conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'))
         lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(containers), table='cpu'))
-        lib.base3.coe(lib.db_sqlite3.commit(conn))
 
         # alert when container cpu_usage is exceeded
         # my container state is not ok, if in every of my historic rows the cpu value is above the threshold
@@ -263,55 +206,13 @@ def main():
             msg += '"{}" memory {}% {}, '.format(name, mem_usage, lib.base3.state2str(mem_state))
         state = lib.base3.get_worst(mem_state, state)
 
-        # net rx, tx
-        # since we do not know the bandwidth, we cannot issue a warning here
-        # but we can calculate the bps
-        rx = lib.base3.human2bytes(net_in)
-        perfdata += lib.base3.get_perfdata('{}_rx'.format(name), rx, 'B', None, None, 0, None)
-        tx = lib.base3.human2bytes(net_out)
-        perfdata += lib.base3.get_perfdata('{}_tx'.format(name), tx, 'B', None, None, 0, None)
-
-        rx *= 8
-        tx *= 8
-        prev_net = get_net_from_db(conn, name)
-        if prev_net:
-            timestamp_diff = now - prev_net[0]['timestamp'] # in seconds
-            rx_bps = int((rx - prev_net[0]['rx']) / timestamp_diff)
-            perfdata += lib.base3.get_perfdata('{}_rx_bps'.format(name), rx_bps, None, None, None, 0, None)
-            tx_bps = int((tx - prev_net[0]['tx']) / timestamp_diff)
-            perfdata += lib.base3.get_perfdata('{}_tx_bps'.format(name), tx_bps, None, None, None, 0, None)
-        lib.base3.coe(lib.db_sqlite3.replace(conn, {'container': name, 'rx': rx, 'tx': tx, 'timestamp': now}, table='net'))
-
-        # block_in, block_out
-        # since we do not know the bandwidth, we cannot issue a warning here
-        # but we can calculate bytes per second
-        block_in = lib.base3.human2bytes(block_in)
-        perfdata += lib.base3.get_perfdata('{}_block_in'.format(name), block_in, 'B', None, None, 0, None)
-        block_out = lib.base3.human2bytes(block_out)
-        perfdata += lib.base3.get_perfdata('{}_block_out'.format(name), block_out, 'B', None, None, 0, None)
-
-        prev_block = get_block_from_db(conn, name)
-        if prev_block:
-            timestamp_diff = now - prev_block[0]['timestamp'] # in seconds
-            block_in_bytespersec = int((block_in - prev_block[0]['block_in']) / timestamp_diff)
-            perfdata += lib.base3.get_perfdata('{}_block_in_bytespersec'.format(name), block_in_bytespersec, None, None, None, 0, None)
-            block_out_bytespersec = int((block_out - prev_block[0]['block_out']) / timestamp_diff)
-            perfdata += lib.base3.get_perfdata('{}_block_out_bytespersec'.format(name), block_out_bytespersec, None, None, None, 0, None)
-        lib.base3.coe(lib.db_sqlite3.replace(conn, {'container': name, 'block_in': block_in, 'block_out': block_out, 'timestamp': now}, table='block'))
-
-
         table_values.append({
             'name': name,
             'cpu_usage': cpu_usage,
             'cpu_state': lib.base3.state2str(cpu_state, empty_ok=False),
             'mem_usage': mem_usage,
             'mem_state': lib.base3.state2str(mem_state, empty_ok=False),
-            'rx': lib.base3.bps2human(rx_bps),
-            'tx': lib.base3.bps2human(tx_bps),
-            'block_in': lib.base3.bytes2human(block_in_bytespersec),
-            'block_out': lib.base3.bytes2human(block_out_bytespersec),
             })
-
 
     # we don't need the database any more: save data and close connection
     lib.db_sqlite3.commit(conn)
@@ -325,8 +226,8 @@ def main():
     if len(table_values) > 0:
         msg += lib.base3.get_table(
             table_values,
-            ['name', 'cpu_usage', 'cpu_state', 'mem_usage', 'mem_state', 'rx', 'tx', 'block_in', 'block_out'],
-            header=['Container', 'CPU %', 'State', 'Mem % ', 'State', 'RX bps   ', 'TX bps   ', 'BlockIn/s', 'BlockOut/s'],
+            ['name', 'cpu_usage', 'cpu_state', 'mem_usage', 'mem_state'],
+            header=['Container', 'CPU %', 'State', 'Mem % ', 'State'],
             )
 
     # over and out
