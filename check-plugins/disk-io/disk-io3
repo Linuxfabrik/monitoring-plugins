@@ -41,7 +41,7 @@ import lib.db_sqlite3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061001'
+__version__ = '2021061401'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -253,13 +253,12 @@ def main():
         if throughput15:
             table_values.append({
                 'name': disk,
+                'max': lib.base3.bytes2human(throughput_max),
                 'r1': lib.base3.bytes2human(read_bytes_per_second1),
                 'w1': lib.base3.bytes2human(write_bytes_per_second1),
                 'r15': lib.base3.bytes2human(read_bytes_per_second15),
                 'w15': lib.base3.bytes2human(write_bytes_per_second15),
-                't15': lib.base3.bytes2human(throughput15),
-                'max': lib.base3.bytes2human(throughput_max),
-                'state': lib.base3.state2str(disk_state, empty_ok=False),
+                't15': lib.base3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
                 })
 
     lib.db_sqlite3.close(conn)
@@ -268,8 +267,8 @@ def main():
     if len(table_values) > 0:
         msg += lib.base3.get_table(
             table_values,
-            ['name', 'max', 'r1', 'w1', 'r15', 'w15', 't15', 'state'],
-            header=['Disk', 'RWmax/s', 'R1/s', 'W1/s', 'R{}/s'.format(args.COUNT), 'W{}/s'.format(args.COUNT), 'RW{}/s'.format(args.COUNT), 'State'],
+            ['name', 'max', 'r1', 'w1', 'r15', 'w15', 't15'],
+            header=['Disk', 'RWmax/s', 'R1/s', 'W1/s', 'R{}/s'.format(args.COUNT), 'W{}/s'.format(args.COUNT), 'RW{}/s'.format(args.COUNT)],
             )
 
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
