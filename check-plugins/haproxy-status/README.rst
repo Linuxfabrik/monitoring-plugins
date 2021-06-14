@@ -29,7 +29,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/haproxy-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Stats directive enabled"
 
 
