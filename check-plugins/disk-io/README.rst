@@ -6,6 +6,8 @@ Overview
 
 Checks the disk throughput over a period of time. For this purpose, the check logs the maximum throughput and warns if the throughput over the last n measured values is above a certain percentage (by default 80/90% over the last 5 values). So the whole thing works similarly to Load5, only on disk I/O level.
 
+Disk I/O is always starting with 10Mib/sec but saves the highest mesured throughput, so it adjusts the ``RWmax/s`` value accordingly. For this reason, this check needs some time to warm up its (cached) measured values: The check will throw a few warnings and criticals during the first major disk activities above 10Mib/sec until the maximum throughput of the disk has been determined.
+
 Assuming the NVMe disk offers 2.1 GB/sec throughput. The result of ``./disk-io --count 5 --warning 80 --critical 90`` could then look like this::
 
     dm-2: 0.0B/s read, 1.75GiB/s write (current)
@@ -16,7 +18,7 @@ Assuming the NVMe disk offers 2.1 GB/sec throughput. The result of ``./disk-io -
 
 The first line always shows the disk with the currently highest throughput. The table columns shown above mean:
 
-* RWmax: Always starting with 10Mib/sec. Here, a maximum throughput of 2.1 GB/sec was determined.
+* RWmax: Here, a maximum throughput of 2.1 GB/sec was determined.
 * R1/W1: The current throughput is 0.0 B/sec read and 1.75 GB/sec write.
 * R5/W5: The throughput from now to 5 measured values in the past is 100 MB/sec read and 1.7 GB/sec write. Compared to the current values, there was a higher throughput for a while.
 * State: Since the drive offers a maximum of 2.1 GB/sec, a RW5 value of 1.8 GB/sec results in a warning (``2.1 GB/sec * 80% = 1.68 GB/sec``). The current value of 1.75 GB/sec doesn't matter, it could be a peak.
