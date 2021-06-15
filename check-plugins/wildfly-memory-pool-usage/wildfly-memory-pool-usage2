@@ -1,0 +1,226 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+# inspired by
+# * https://github.com/aparnachaudhary/nagios-plugin-jbossas7/blob/master/check_jbossas7.py
+# * https://github.com/gtudan/nagios-plugin-wildlfy/blob/master/check_wildfly.py
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021042002'
+
+DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
+
+DEFAULT_CRIT = 90
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:9990'
+DEFAULT_USERNAME = 'wildfly-admin'
+DEFAULT_WARN = 80
+
+
+#====================
+from lib.globals2 import *
+
+import lib.args2
+import lib.base2
+import lib.wildfly2
+
+import argparse
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--critical',
+        help='Set the critical threshold.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument(
+        '--instance',
+        help='The instance (server-config) to check if running in domain mode.',
+        dest='INSTANCE',
+        )
+
+    parser.add_argument(
+        '--mode',
+        help='The mode the server is running.',
+        dest='MODE',
+        choices=['standalone', 'domain'],
+        default='standalone',
+        )
+
+    parser.add_argument(
+        '--node',
+        help='The node (host) if running in domain mode.',
+        dest='NODE',
+        )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='WildFly API password.',
+        dest='PASSWORD',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--url',
+        help='WildFly API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument(
+        '--username',
+        help='WildFly API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        required=True,
+        )
+
+    parser.add_argument(
+        '--warning',
+        help='Set the warning threshold.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def check_memory_pool_usage(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /core-service/platform-mbean/type/memory-pool
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory-pool'}],
+        'json': 1,
+    }
+    res = lib.wildfly2.get_data(args, data)
+
+    msg_heap = '\n\nHeap:\n'
+    msg_non_heap = '\nNon-Heap:\n'
+    perfdata = ''
+    state = STATE_OK
+    pools = 0
+
+    for name, value in res['name'].items():
+        name = name.replace("'", '').replace('"', '')
+        pools += 1
+
+        mem_used = value['usage']['used']
+        mem_committed = value['usage']['committed']
+        mem_max = value['usage']['max']
+        if mem_max != -1:
+            used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
+        else:
+            used_percent = 0.0
+
+        if mem_max != -1:
+            used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+            state = lib.base2.get_worst(state, used_state)
+        else:
+            used_state = STATE_OK
+
+        if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] == True:
+            threshold_state = STATE_WARN
+        else:
+            threshold_state = STATE_OK
+        state = lib.base2.get_worst(state, threshold_state)
+
+        if value['type'] == 'HEAP':
+            msg_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
+                name, used_percent,
+                lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base2.state2str(used_state, prefix=' '),
+                lib.base2.bytes2human(mem_committed),
+                )
+            if threshold_state != STATE_OK:
+                msg_heap += ', Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
+            msg_heap += '\n'
+        else:
+            msg_non_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
+                name, used_percent,
+                lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base2.state2str(used_state, prefix=' '),
+                lib.base2.bytes2human(mem_committed),
+                )
+            if threshold_state != STATE_OK:
+                msg_non_heap += ', Usage Threshold exceeded{}'.format(lib.base2.state2str(threshold_state, prefix=' '))
+            msg_non_heap += '\n'
+
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-committed'.format(name), mem_committed, 'B', None, None, 0, mem_max if mem_max != -1 else None)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-max'.format(name), mem_max, 'B', None, None, 0, mem_max if mem_max != -1 else None)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-used'.format(name), mem_used, 'B', None, None, 0, mem_max if mem_max != -1 else None)
+        perfdata += lib.base2.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
+
+    if state == STATE_OK:
+        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base2.pluralize('Pool', pools))
+    else:
+        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base2.pluralize('Pool', pools))
+    msg += msg_heap + msg_non_heap
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # fetch and analyze data
+    # https://docs.wildfly.org/23/Admin_Guide.html
+    return check_memory_pool_usage(args)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

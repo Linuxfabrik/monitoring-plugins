@@ -8,52 +8,59 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from collections import Counter
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+from collections import Counter # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-import lib.base3
-from lib.globals3 import STATE_UNKNOWN
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
-    import psutil
-except ImportError as e:
+    import psutil # pylint: disable=C0413
+except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
-DESCRIPTION = 'Displays amount of free and used memory in the system, checks against used memory in percent.'
+DESCRIPTION = """Displays amount of free and used memory in the system, checks against used memory
+                in percent."""
 
 DEFAULT_WARN = 90 # %
 DEFAULT_CRIT = 95 # %
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -61,7 +68,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '-c', '--critical',
@@ -69,7 +76,7 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -77,40 +84,56 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     virt = psutil.virtual_memory()
-    mem_usage_percent = float(getattr(virt, 'percent', 0))
 
-    msg_header = '{}% - total: {}, used: {}, free: {}, available: {}\n'.format(
-        mem_usage_percent,
-        lib.base3.bytes2human(virt.total),
-        lib.base3.bytes2human(virt.used),
-        lib.base3.bytes2human(virt.free),
-        lib.base3.bytes2human(getattr(virt, 'available', 0)),
-    )
+    # init some vars
+    msg_header, msg_body = '', ''
+    state = STATE_OK
+    perfdata = ''
 
-    stats = {}
-    if hasattr(virt, 'shared'): stats['shared'] = getattr(virt, 'shared')
-    if hasattr(virt, 'buffers'): stats['buffers'] = getattr(virt, 'buffers')
-    if hasattr(virt, 'cached'): stats['cached'] = getattr(virt, 'cached')
+    # analyze data and build the message
+    state = lib.base3.get_state(getattr(virt, 'percent', 0), args.WARN, args.CRIT, operator='ge')
 
-    msg_body = ''
-    for key, value in list(stats.items()):
-        msg_body += f'{key}: {value}, '
-    # strip leading ', '
-    if msg_body: msg_body = msg_body.rstrip(', ') + '\n'
+    msg_header += '{}% - '.format(getattr(virt, 'percent', 0))
+    msg_header += '{}: {}, '.format('total', lib.base3.bytes2human(getattr(virt, 'total', 0)))
+    msg_header += '{}: {}, '.format('used', lib.base3.bytes2human(getattr(virt, 'used', 0)))
+    msg_header += '{}: {}, '.format('available', lib.base3.bytes2human(getattr(virt, 'available', 0)))
+    msg_header += '{}: {}, '.format('free', lib.base3.bytes2human(getattr(virt, 'free', 0)))
+    if msg_header:
+        msg_header = msg_header[:-2] + '\n'
 
+    msg_body += '{}: {}, '.format('shared', lib.base3.bytes2human(getattr(virt, 'shared', 0)))
+    msg_body += '{}: {}, '.format('buffers',lib.base3.bytes2human(getattr(virt, 'buffers', 0)))
+    msg_body += '{}: {}, '.format('cached',lib.base3.bytes2human(getattr(virt, 'cached', 0)))
+    if msg_body:
+        msg_body = msg_body[:-2] + '\n'
+
+    perfdata += lib.base3.get_perfdata('usage_percent', getattr(virt, 'percent', 0), '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base3.get_perfdata('total', getattr(virt, 'total', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('used', getattr(virt, 'used', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('free', getattr(virt, 'free', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base3.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total)
+
+    # list top 3 most memory consuming processes
     cnt = Counter()
     msg_body += '\nTop3 most memory consuming processes:\n'
     if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
@@ -125,20 +148,10 @@ def main():
                 cnt[p['name']] += p['memory_percent']
         except psutil.NoSuchProcess:
             pass
-
     for i, p in enumerate(cnt.most_common(3)):
-        msg_body += '{}. {}: {:.2f}%\n'.format(i + 1, p[0], p[1])
+        msg_body += '{}. {}: {:.1f}%\n'.format(i + 1, p[0], p[1])
 
-    perfdata = lib.base3.get_perfdata('usage_percent', mem_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base3.get_perfdata('total', virt.total, 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('used', virt.used, 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('free', virt.free, 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base3.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total)
-
-    state = lib.base3.get_state(mem_usage_percent, args.WARN, args.CRIT, operator='ge')
+    # over and out
     lib.base3.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

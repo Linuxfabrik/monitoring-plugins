@@ -1,0 +1,112 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021060201'
+
+DESCRIPTION = """Checks the timespan since the last rpm activity, for example due to a yum/dnf
+                install/update."""
+
+DEFAULT_WARN  = 90   # days
+DEFAULT_CRIT  = 365  # days
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__),
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        default=DEFAULT_CRIT,
+        dest='CRIT',
+        help='Set the critical threshold (in days). Default: %(default)s',
+        type=int,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        default=DEFAULT_WARN,
+        dest='WARN',
+        help='Set the warning threshold (in days). Default: %(default)s',
+        type=int,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(
+        'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sort | tail -1'
+    ))
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+    last_activity = stdout.strip().split(' ')
+
+    # calculating the final check state
+    delta = lib.base3.now() - int(last_activity[0])
+
+    # over and out
+    if delta >= args.CRIT * 24 * 60 * 60:
+        lib.base3.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.CRIT), STATE_CRIT)
+    if delta >= args.WARN * 24 * 60 * 60:
+        lib.base3.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.WARN), STATE_WARN)
+    lib.base3.oao('Last rpm/yum/dnf activity is {} ago (so below the given thresholds {}D/{}D).'.format(
+        lib.base3.seconds2human(delta),args.WARN, args.CRIT), STATE_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

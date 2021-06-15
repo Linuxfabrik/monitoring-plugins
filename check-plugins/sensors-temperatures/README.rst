@@ -1,0 +1,73 @@
+Check sensors-temperatures
+==========================
+
+Overview
+--------
+
+Return certain hardware temperature sensors (it may be a CPU, an hard disk or something else, depending on the OS and its configuration). All temperatures are expressed in celsius. Check is done automatically against hardware thresholds. If sensors are not supported by the OS OK is returned.
+
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/sensors-temperatures"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2"
+    "Requirements",                         "Python module ``psutil``"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: sensors-temperatures [-h] [-V] [--always-ok]
+
+    Return certain hardware temperature sensors (it may be a CPU, an hard disk or
+    something else, depending on the OS and its configuration). All temperatures
+    are expressed in celsius. Check is done automatically against hardware
+    thresholds. If sensors are not supported by the OS OK is returned.
+
+    optional arguments:
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+
+
+Usage Examples
+--------------
+
+.. code-block:: bash
+
+    ./sensors-temperatures
+    
+Output:
+
+.. code-block:: text
+
+    * nvme: Composite = 42.85°C, Sensor 1 = 42.85°C
+    * coretemp: Package id 0 = 52.0°C, Core 0 = 50.0°C, Core 1 = 52.0°C, Core 2 = 51.0°C, Core 3 = 50.0°C, Package id 0 = 52.0°C, Core 0 = 50.0°C, Core 1 = 52.0°C, Core 2 = 51.0°C, Core 3 = 50.0°C
+    * iwlwifi_1: iwlwifi_1 = 46.0°
+
+States
+------
+
+* WARN or CRIT if temperature for a sensor is above a given hardware threshold (automatically).
+
+
+Perfdata / Metrics
+------------------
+
+* temperature for each sensor found (°C)
+
+
+Credits, License
+----------------
+
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.
+* Credits: https://github.com/giampaolo/psutil/blob/master/scripts/temperatures.py

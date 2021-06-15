@@ -1,0 +1,242 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_sqlite3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021061402'
+
+DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
+                same way as the Unix application top, using the "docker stats" command."""
+
+DEFAULT_COUNT = 5           # measurements; if check runs once per minute, this is a 5 minute period
+DEFAULT_WARN_CPU  = 80      # %
+DEFAULT_CRIT_CPU  = 90      # %
+DEFAULT_WARN_MEM  = 90      # %
+DEFAULT_CRIT_MEM  = 95      # %
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--count',
+        help='Number of times the value has to be above the given thresholds. Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+    
+    parser.add_argument(
+        '--critical-cpu',
+        help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+        default=DEFAULT_CRIT_CPU,
+        dest='CRIT_CPU',
+    )
+
+    parser.add_argument(
+        '--critical-mem',
+        help='Set the critical threshold Memory Usage Percentage. Default: %(default)s',
+        default=DEFAULT_CRIT_MEM,
+        dest='CRIT_MEM',
+    )
+
+    parser.add_argument(
+        '--warning-cpu',
+        help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+        default=DEFAULT_WARN_CPU,
+        dest='WARN_CPU',
+    )
+
+    parser.add_argument(
+        '--warning-mem',
+        help='Set the warning threshold Memory Usage Percentage. Default: %(default)s',
+        default=DEFAULT_WARN_MEM,
+        dest='WARN_MEM',
+    )
+
+    return parser.parse_args()
+
+
+def get_cpu_from_db(conn, container, threshold):
+    result = lib.base3.coe(lib.db_sqlite3.select(conn, 
+        '''
+        SELECT count(*) as cnt
+        FROM cpu
+        WHERE container = :container and cpu_usage >= :threshold
+        ''',
+        {'container': container, 'threshold': threshold},
+        fetchone=True
+    ))
+    return int(result['cnt'])
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # we need cpu and memory from docker perspective
+    cmd = 'docker info'
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    if not stdout:
+        lib.base3.oao('{}'.format('Unable to fetch docker info.'), STATE_UNKNOWN)
+    try:
+        strpos1 = stdout.find('CPUs: ') + 6
+        strpos2 = stdout.find('\n', strpos1)
+        host_cpus = int(stdout[strpos1:strpos2])
+    except:
+        lib.base3.oao('{}'.format('Unable to compute docker info.'), STATE_UNKNOWN)
+
+    # create the db tables
+    definition = '''
+                container TEXT NOT NULL,
+                cpu_usage REAL NOT NULL
+        '''
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='docker-stats.db'))
+    lib.base3.coe(lib.db_sqlite3.create_table(conn, definition, table='cpu'))
+    lib.db_sqlite3.create_index(conn, 'container', table='cpu')
+
+    # get the container statistics for all running containers
+
+    # CONTAINER ID   NAME            CPU %     MEM USAGE / LIMIT     MEM %     NET I/O       BLOCK I/O        PIDS
+    # 0d42d796123b   graylog         204.20%   215.6MiB / 3.702GiB   5.69%     578B / 0B     0B / 0B          21
+    # 40cd9c3978b3   elasticsearch   188.77%   634.1MiB / 3.702GiB   16.73%    508B / 0B     1.44MB / 0B      26
+    # b48543f756e6   mongo           0.27%     73.84MiB / 3.702GiB   1.95%     760B / 116B   6.59MB / 480kB   33
+
+    cmd = 'docker stats --no-stream'
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    if (stderr or retc != 0):
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    # init some vars
+    msg, msg_header = '', ''
+    state = STATE_OK
+    perfdata = ''
+    table_values = []
+
+    # evaluate results
+    perfdata += lib.base3.get_perfdata('cpu', host_cpus, None, None, None, 0, None)
+
+    containers = lib.base3.mltext2array(stdout, skip_header=True, sort_key=1)
+    for container in containers:
+        try:
+            container_id, name, cpu_percent, mem_usage, tmp, mem_limit, mem_percent, net_in, tmp, net_out, block_in, tmp, block_out, pids = container
+        except:
+            continue
+
+        # divide by number of cores (got by docker info)
+        cpu_usage = round(float(cpu_percent.replace('%', '').strip()) / host_cpus, 1)
+        perfdata += lib.base3.get_perfdata('{}_cpu_usage'.format(name), cpu_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100)
+
+        # save trend data to local sqlite database, limited to "count" rows max.
+        lib.base3.coe(lib.db_sqlite3.insert(conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'))
+        lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(containers), table='cpu'))
+
+        # alert when container cpu_usage is exceeded
+        # my container state is not ok, if in every of my historic rows the cpu value is above the threshold
+        if get_cpu_from_db(conn, name, args.CRIT_CPU) == args.COUNT:
+            cpu_state = STATE_CRIT
+        elif get_cpu_from_db(conn, name, args.WARN_CPU) == args.COUNT:
+            cpu_state = STATE_WARN
+        else:
+            cpu_state = STATE_OK
+        if cpu_state != STATE_OK:
+            msg += '"{}" cpu {}% {}, '.format(name, cpu_usage, lib.base3.state2str(cpu_state))
+        state = lib.base3.get_worst(cpu_state, state)
+
+        # alert when container mem_usage is exceeded
+        mem_usage = float(mem_percent.replace('%', '').strip())
+        perfdata += lib.base3.get_perfdata('{}_mem_usage'.format(name), mem_usage, '%', args.WARN_CPU, args.CRIT_CPU, 0, 100)
+        mem_state = lib.base3.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
+        if mem_state != STATE_OK:
+            msg += '"{}" memory {}% {}, '.format(name, mem_usage, lib.base3.state2str(mem_state))
+        state = lib.base3.get_worst(mem_state, state)
+
+        table_values.append({
+            'name': name,
+            'cpu_usage': cpu_usage,
+            'cpu_state': lib.base3.state2str(cpu_state, empty_ok=False),
+            'mem_usage': mem_usage,
+            'mem_state': lib.base3.state2str(mem_state, empty_ok=False),
+            })
+
+    # we don't need the database any more: save data and close connection
+    lib.db_sqlite3.commit(conn)
+    lib.db_sqlite3.close(conn)
+
+    # create output
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n'
+    else:
+        msg = msg[:-2] + '\n\n'
+    if len(table_values) > 0:
+        msg += lib.base3.get_table(
+            table_values,
+            ['name', 'cpu_usage', 'cpu_state', 'mem_usage', 'mem_state'],
+            header=['Container', 'CPU %', 'State', 'Mem % ', 'State'],
+            )
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

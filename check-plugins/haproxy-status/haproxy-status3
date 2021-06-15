@@ -1,0 +1,394 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import base64
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021061401'
+
+DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
+                    HAProxy server, current request rates, response times, and more."""
+
+DEFAULT_LENGTHY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost/server-status'
+DEFAULT_USERNAME = 'haproxy-stats'
+DEFAULT_WARN = 80       # %
+DEFAULT_CRIT = 95       # %
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical', 
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='HAProxy Stats Auth password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='HAProxy Stats URI. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='HAProxy Stats Auth username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        url = args.URL
+        if url[0:4] != 'http':
+            lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        url = url + ';csv'
+
+        # fetch the url
+        if args.USERNAME and args.PASSWORD:
+            auth = args.USERNAME + ':' + args.PASSWORD
+            encoded_auth = base64.b64encode(auth.encode()).decode()
+            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT,
+                header={'Authorization': 'Basic {}'.format(encoded_auth)}))
+        else:
+            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT))
+        result = result.decode()
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r') # pylint: disable=C0103
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r') # pylint: disable=C0103
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+        result = stdout
+
+    result = result.strip().split('\n')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_values = []
+
+    # analyze data
+    for line in result[1:]:
+        values = [x.strip() for x in line.strip().split(',')]
+
+        # ugly, but necessary - the csv is huge
+        try:
+            ha_pxname = values[0]
+            ha_svname = values[1]
+            ha_qcur = values[2]
+            ha_qmax = values[3]
+            ha_scur = values[4]
+            ha_smax = values[5]
+            ha_slim = values[6]
+            ha_stot = values[7]
+            ha_bin = values[8]
+            ha_bout = values[9]
+            ha_dreq = values[10]
+            ha_dresp = values[11]
+            ha_ereq = values[12]
+            ha_econ = values[13]
+            ha_eresp = values[14]
+            ha_wretr = values[15]
+            ha_wredis = values[16]
+            ha_status = values[17]
+            ha_weight = values[18]
+            ha_act = values[19]
+            ha_bck = values[20]
+            ha_chkfail = values[21]
+            ha_chkdown = values[22]
+            ha_lastchg = values[23]
+            ha_downtime = values[24]
+            ha_qlimit = values[25]
+            ha_pid = values[26]
+            ha_iid = values[27]
+            ha_sid = values[28]
+            ha_throttle = values[29]
+            ha_lbtot = values[30]
+            ha_tracked = values[31]
+            ha_type = values[32]
+            ha_rate = values[33]
+            ha_rate_lim = values[34]
+            ha_rate_max = values[35]
+            ha_check_status = values[36]
+            ha_check_code = values[37]
+            ha_check_duration = values[38]
+            ha_hrsp_1xx = values[39]
+            ha_hrsp_2xx = values[40]
+            ha_hrsp_3xx = values[41]
+            ha_hrsp_4xx = values[42]
+            ha_hrsp_5xx = values[43]
+            ha_hrsp_other = values[44]
+            ha_hanafail = values[45]
+            ha_req_rate = values[46]
+            ha_req_rate_max = values[47]
+            ha_req_tot = values[48]
+            ha_cli_abrt = values[49]
+            ha_srv_abrt = values[50]
+            ha_comp_in = values[51]
+            ha_comp_out = values[52]
+            ha_comp_byp = values[53]
+            ha_comp_rsp = values[54]
+            ha_lastsess = values[55]
+            ha_last_chk = values[56]
+            ha_last_agt = values[57]
+            ha_qtime = values[58]
+            ha_ctime = values[59]
+            ha_rtime = values[60]
+            ha_ttime = values[61]
+        except:
+            lib.base3.oao('Malformed HAProxy status info.', STATE_UNKNOWN)
+
+        # process status
+        status_state = STATE_OK
+        if ha_status not in ['OPEN', 'UP', 'no check']:
+            status_state = STATE_WARN
+            msg += '{} {}: {}, '.format(ha_pxname, ha_svname, ha_status)
+            state = lib.base3.get_worst(status_state, state)
+
+        # queue limits
+        q_state = STATE_OK
+        if ha_qcur and ha_qlimit:
+            if float(ha_qlimit != 0):
+                q_percentage = round(float(ha_qcur) / float(ha_qlimit) * 100, 1)
+                q_state = lib.base3.get_state(q_percentage, args.WARN, args.CRIT)
+                if q_state != STATE_OK:
+                    msg += '{} {}: {} queued connections ({}%){}, '.format(ha_pxname, ha_svname, ha_qcur,
+                        q_percentage, lib.base3.state2str(q_state, prefix=' '))
+                    state = lib.base3.get_worst(q_state, state)
+
+        # session limts
+        s_state = STATE_OK
+        if ha_scur and ha_slim:
+            if float(ha_slim) != 0:
+                s_percentage = round(float(ha_scur) / float(ha_slim) * 100, 1)
+                s_state = lib.base3.get_state(s_percentage, args.WARN, args.CRIT)
+                if s_state != STATE_OK:
+                    msg += '{} {}: {} sessions ({}%){}, '.format(ha_pxname, ha_svname, ha_scur,
+                        s_percentage, lib.base3.state2str(s_state, prefix=' '))
+                    state = lib.base3.get_worst(s_state, state)
+
+        # sessions in the last second limits (rate)
+        r_state = STATE_OK
+        if ha_rate and ha_rate_lim:
+            if float(ha_rate_lim) != 0:
+                r_percentage = round(float(ha_rate) / float(ha_rate_lim) * 100, 1)
+                r_state = lib.base3.get_state(r_percentage, args.WARN, args.CRIT)
+                if r_state != STATE_OK:
+                    msg += '{} {}: {} sessions over the last second (rate {}%){}, '.format(ha_pxname, ha_svname, ha_rate,
+                        r_percentage, lib.base3.state2str(r_state, prefix=' '))
+                    state = lib.base3.get_worst(r_state, state)            
+
+        table_values.append({
+            'pxname': ha_pxname,
+            'svname': ha_svname,
+            'qcur': '{}{}{}'.format(ha_qcur, '/' + ha_qlimit if ha_qlimit else '', lib.base3.state2str(q_state, prefix=' ')),
+            'scur': '{}{}{}'.format(lib.base3.number2human(ha_scur), '/' + lib.base3.number2human(ha_slim) if ha_slim else '', lib.base3.state2str(s_state, prefix=' ')),
+            'bin': lib.base3.bytes2human(int(ha_bin)),
+            'bout':  lib.base3.bytes2human(int(ha_bout)),
+            'status': '{}{}'.format(ha_status, lib.base3.state2str(status_state, prefix=' ')),
+            'lbtot': lib.base3.number2human(ha_lbtot),
+            'rate': '{}{}{}'.format(ha_rate, '/' + ha_rate_lim if ha_rate_lim else '', lib.base3.state2str(r_state, prefix=' ')),
+            'hrsp_2xx': lib.base3.number2human(ha_hrsp_2xx),
+            'hrsp_4xx': lib.base3.number2human(ha_hrsp_4xx),
+            'hrsp_5xx': lib.base3.number2human(ha_hrsp_5xx),
+            'req_rate': ha_req_rate,
+            'lastsess': lib.base3.seconds2human(int(ha_lastsess)) if ha_lastsess != '' and ha_lastsess != '-1' else '',
+            'ttime': ha_ttime,
+            })
+
+        key = '{}_{}'.format(ha_pxname, ha_svname)
+
+        perfdata += lib.base3.get_perfdata('{}_act'.format(key), ha_act, None, None, None, 0, None) if ha_act else ''
+        perfdata += lib.base3.get_perfdata('{}_bck'.format(key), ha_bck, None, None, None, 0, None) if ha_bck else ''
+        perfdata += lib.base3.get_perfdata('{}_bin'.format(key), ha_bin, 'B', None, None, 0, None) if ha_bin else ''
+        perfdata += lib.base3.get_perfdata('{}_bout'.format(key), ha_bout, 'B', None, None, 0, None) if ha_bout else ''
+        perfdata += lib.base3.get_perfdata('{}_chkdown'.format(key), ha_chkdown, 'c', None, None, 0, None) if ha_chkdown else ''
+        perfdata += lib.base3.get_perfdata('{}_chkfail'.format(key), ha_chkfail, 'c', None, None, 0, None) if ha_chkfail else ''
+        perfdata += lib.base3.get_perfdata('{}_cli_abrt'.format(key), ha_cli_abrt, 'c', None, None, 0, None) if ha_cli_abrt else ''
+        perfdata += lib.base3.get_perfdata('{}_comp_byp'.format(key), ha_comp_byp, 'B', None, None, 0, None) if ha_comp_byp else ''
+        perfdata += lib.base3.get_perfdata('{}_comp_in'.format(key), ha_comp_in, 'B', None, None, 0, None) if ha_comp_in else ''
+        perfdata += lib.base3.get_perfdata('{}_comp_out'.format(key), ha_comp_out, 'B', None, None, 0, None) if ha_comp_out else ''
+        perfdata += lib.base3.get_perfdata('{}_comp_rsp'.format(key), ha_comp_rsp, 'c', None, None, 0, None) if ha_comp_rsp else ''
+        perfdata += lib.base3.get_perfdata('{}_ctime'.format(key), ha_ctime, 'ms', None, None, 0, None) if ha_ctime else ''
+        perfdata += lib.base3.get_perfdata('{}_downtime'.format(key), ha_downtime, None, None, None, 0, None) if ha_downtime else ''
+        perfdata += lib.base3.get_perfdata('{}_dreq'.format(key), ha_dreq, 'c', None, None, 0, None) if ha_dreq else ''
+        perfdata += lib.base3.get_perfdata('{}_dresp'.format(key), ha_dresp, 'c', None, None, 0, None) if ha_dresp else ''
+        perfdata += lib.base3.get_perfdata('{}_econ'.format(key), ha_econ, 'c', None, None, 0, None) if ha_econ else ''
+        perfdata += lib.base3.get_perfdata('{}_ereq'.format(key), ha_ereq, 'c', None, None, 0, None) if ha_ereq else ''
+        perfdata += lib.base3.get_perfdata('{}_eresp'.format(key), ha_eresp, 'c', None, None, 0, None) if ha_eresp else ''
+        perfdata += lib.base3.get_perfdata('{}_hanafail'.format(key), ha_hanafail, None, None, None, 0, None) if ha_hanafail else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_1xx'.format(key), ha_hrsp_1xx, 'c', None, None, 0, None) if ha_hrsp_1xx else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_2xx'.format(key), ha_hrsp_2xx, 'c', None, None, 0, None) if ha_hrsp_2xx else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_3xx'.format(key), ha_hrsp_3xx, 'c', None, None, 0, None) if ha_hrsp_3xx else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_4xx'.format(key), ha_hrsp_4xx, 'c', None, None, 0, None) if ha_hrsp_4xx else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_5xx'.format(key), ha_hrsp_5xx, 'c', None, None, 0, None) if ha_hrsp_5xx else ''
+        perfdata += lib.base3.get_perfdata('{}_hrsp_other'.format(key), ha_hrsp_other, 'c', None, None, 0, None) if ha_hrsp_other else ''
+        perfdata += lib.base3.get_perfdata('{}_last_chk'.format(key), ha_last_chk, 's', None, None, 0, None) if ha_last_chk else ''
+        perfdata += lib.base3.get_perfdata('{}_lastchg'.format(key), ha_lastchg, 's', None, None, 0, None) if ha_lastchg else ''
+        perfdata += lib.base3.get_perfdata('{}_lastsess'.format(key), ha_lastsess, 's', None, None, 0, None) if ha_lastsess else ''
+        perfdata += lib.base3.get_perfdata('{}_lbtot'.format(key), ha_lbtot, 'c', None, None, 0, None) if ha_lbtot else ''
+        perfdata += lib.base3.get_perfdata('{}_qcur'.format(key), ha_qcur, None, None, None, 0, None) if ha_qcur else ''
+        perfdata += lib.base3.get_perfdata('{}_qlimit'.format(key), ha_qlimit, None, None, None, 0, None) if ha_qlimit else ''
+        perfdata += lib.base3.get_perfdata('{}_qtime'.format(key), ha_qtime, 'ms', None, None, 0, None) if ha_qtime else ''
+        perfdata += lib.base3.get_perfdata('{}_rate'.format(key), ha_rate, None, None, None, 0, None) if ha_rate else ''
+        perfdata += lib.base3.get_perfdata('{}_rate_lim'.format(key), ha_rate_lim, None, None, None, 0, None) if ha_rate_lim else ''
+        perfdata += lib.base3.get_perfdata('{}_req_rate'.format(key), ha_req_rate, None, None, None, 0, None) if ha_req_rate else ''
+        perfdata += lib.base3.get_perfdata('{}_req_tot'.format(key), ha_req_tot, 'c', None, None, 0, None) if ha_req_tot else ''
+        perfdata += lib.base3.get_perfdata('{}_rtime'.format(key), ha_rtime, 'ms', None, None, 0, None) if ha_rtime else ''
+        perfdata += lib.base3.get_perfdata('{}_scur'.format(key), ha_scur, None, None, None, 0, None) if ha_scur else ''
+        perfdata += lib.base3.get_perfdata('{}_slim'.format(key), ha_slim, None, None, None, 0, None) if ha_slim else ''
+        perfdata += lib.base3.get_perfdata('{}_srv_abrt'.format(key), ha_srv_abrt, 'c', None, None, 0, None) if ha_srv_abrt else ''
+        perfdata += lib.base3.get_perfdata('{}_stot'.format(key), ha_stot, 'c', None, None, 0, None) if ha_stot else ''
+        perfdata += lib.base3.get_perfdata('{}_tracked'.format(key), ha_tracked, None, None, None, 0, None) if ha_tracked else ''
+        perfdata += lib.base3.get_perfdata('{}_ttime'.format(key), ha_ttime, 'ms', None, None, 0, None) if ha_ttime else ''
+        perfdata += lib.base3.get_perfdata('{}_weight'.format(key), ha_weight, None, None, None, 0, None) if ha_weight else ''
+        perfdata += lib.base3.get_perfdata('{}_wredis'.format(key), ha_wredis, 'c', None, None, 0, None) if ha_wredis else ''
+        perfdata += lib.base3.get_perfdata('{}_wretr'.format(key), ha_wretr, 'c', None, None, 0, None) if ha_wretr else ''
+
+
+    # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
+    else:
+        msg = msg[:-2]
+    msg += '\n\n'
+
+    if not args.LENGTHY:
+        msg += lib.base3.get_table(
+            table_values,
+            ['pxname', 'svname', 'status', 'scur', 'bin', 'bout', 'hrsp_5xx', 'req_rate'],
+            header=['Proxy name', 'Server name', 'Status', 'Sessions', 'RqBytes', 'RspBytes', 'Rsp5xx', 'Rq/s'],
+        )
+    else:
+        msg += lib.base3.get_table(
+            table_values,
+            ['pxname', 'svname', 'status', 'qcur', 'scur', 'bin', 'bout', 'lbtot', 'rate', 'hrsp_2xx', 'hrsp_4xx', 'hrsp_5xx', 'req_rate', 'lastsess', 'ttime'],
+            header=['Proxy name', 'Server name', 'Status', 'Queued', 'Sessions', 'RqBytes', 'RspBytes', 'RqLB', 'Rate', 'Rsp2xx', 'Rsp4xx', 'Rsp5xx', 'Rq/s', 'LastReq', 'RqRspTime'],
+        )
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

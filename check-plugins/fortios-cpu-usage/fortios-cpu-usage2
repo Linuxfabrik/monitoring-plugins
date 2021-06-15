@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021042101'
 
 DESCRIPTION = 'Returns the current system-wide CPU utilization as a percentage from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns only if the overall CPU usage is above a certain threshold within the last n checks (default: 5). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy". Hint: This plugin tries to check against the global configured `cpu-use-threshold` first; only if there is no value, the check\'s command line values (or their defaults) are used.'
 
@@ -43,6 +43,7 @@ import lib.db_sqlite2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -76,7 +77,7 @@ def parse_args():
         )
 
     parser.add_argument('-H', '--hostname', 
-        help='FortiOS-based Appliance address.',
+        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required = True,
         )
@@ -139,7 +140,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
-    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=cpu&interval=1-min&access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
@@ -159,7 +160,7 @@ def main():
 
     # try to get the global configured cpu warning threshold from Forti OS
     # if success, use it, otherwise our from args.WARN etc.
-    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     thresholds = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('cpu-use-threshold', args.WARN)
 

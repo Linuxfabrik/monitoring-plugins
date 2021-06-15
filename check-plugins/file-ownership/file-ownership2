@@ -8,121 +8,177 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060101'
 
 DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
 command = 'stat {path}'
 
-DEFAULT_FILES = '''apache:apache,/usr/share/httpd/*
-graylog:graylog,/etc/graylog/certs
-hnet:hnet,/var/hnet
-ldap:ldap,/var/run/openldap
-lool:lool,/etc/loolwsd/loolwsd.xml
-named:named,/var/named/*.zone
-root:named,/etc/named.conf
-root:root,/tmp
-unbound:unbound,/var/lib/unbound/root.key
-vdsm:kvm,/home/ovirt'''
-
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-import re
-from traceback import print_exc
+# sorted by path
+DEFAULT_FILES = [
+    'root:root,/boot/grub/grub.conf',
+    'root:root,/boot/grub2/grub.cfg',
+    'root:root,/boot/grub2/grubenv',
+    'root:root,/boot/grub2/user.cfg',
+    'root:root,/etc/anacrontab',
+    'root:root,/etc/at.allow',
+    'root:root,/etc/cron.allow',
+    'root:root,/etc/cron.d',
+    'root:root,/etc/cron.daily',
+    'root:root,/etc/cron.hourly',
+    'root:root,/etc/cron.monthly',
+    'root:root,/etc/cron.weekly',
+    'root:root,/etc/crontab',
+    'graylog:graylog,/etc/graylog/certs',
+    'root:root,/etc/group',
+    'root:root,/etc/group-',
+    'root:root,/etc/gshadow',
+    'root:root,/etc/gshadow-',
+    'root:root,/etc/hosts.allow',
+    'root:root,/etc/hosts.deny',
+    'root:root,/etc/issue',
+    'root:root,/etc/issue.net',
+    'lool:lool,/etc/loolwsd/loolwsd.xml',
+    'root:root,/etc/motd',
+    'root:named,/etc/named.conf',
+    'root:root,/etc/passwd',
+    'root:root,/etc/passwd-',
+    'root:root,/etc/shadow',
+    'root:root,/etc/shadow-',
+    'root:root,/etc/ssh/sshd_config',
+    'vdsm:kvm,/home/ovirt',
+    'root:root,/tmp',
+    'hnet:hnet,/var/hnet',
+    'unbound:unbound,/var/lib/unbound/root.key',
+    'ldap:ldap,/var/run/openldap',
+]
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--filename',
-        help='A list of filenames to be checked, in the format "owner:group,path;owner:group,path;...".',
+    parser.add_argument(
+        '--filename',
+        help='File to be checked, in the format `owner:group,path` (repeatable).',
+        action='append',
         dest='FILES',
-        type=str,
-        default='',
-        )
+        default=DEFAULT_FILES,
+    )
 
     return parser.parse_args()
 
 
-def main():    
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
-
-    FILES = DEFAULT_FILES + '\n' + args.FILES.replace(';', '\n')
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     state = STATE_OK
     msg = ''
     cnt = 0
+    table_values = []
 
-    for line in FILES.splitlines():
+    for file in args.FILES:
+        if not file:
+            continue
         try:
-            line = line.split(',')
-            path = line[1]
+            file = file.split(',')
+            path = file[1]
+        except:
+            lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+        try:
+            owner, group = file[0].split(':')
         except:
             lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
-        if os.path.exists(path):
-            try:
-                owner, group = line[0].split(':')
-            except:
-                lib.base2.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
+        cmd = command.format(path=path)
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
 
-            cmd = command.format(path=path)
-            # execute the shell command and return its result and exit code
-            stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
-            if (stderr or retc != 0):
-                lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
+        for line in stdout.splitlines():
+            if not line.startswith('Access: ('):
+                continue
+            # Access: (0644/-rw-r--r--)  Uid: (  982/ unbound)   Gid: (  981/ unbound)
+            # Access: (0600/-rw-------)  Uid: ( 1000/markus.frei)   Gid: ( 1000/markus.frei)
+            file_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
+            file_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
+            if owner != file_owner or group != file_group:
+                file_state = STATE_WARN
+            else:
+                file_state = STATE_OK
+            cnt += 1
 
-            for line in stdout.splitlines():
-                if line.startswith('Access: ('):
-                    # Access: (0644/-rw-r--r--)  Uid: (  982/ unbound)   Gid: (  981/ unbound)
-                    # Access: (0600/-rw-------)  Uid: ( 1000/markus.frei)   Gid: ( 1000/markus.frei)
-                    current_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
-                    current_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
-                    if owner != current_owner or group != current_group:
-                        state = STATE_WARN
-                        msg = '* {path} is [{current_owner}:{current_group}], fix using "chown {owner}:{group} {path}" (WARN)\n'.format(path=path, current_owner=current_owner, current_group=current_group, owner=owner, group=group) + msg # append to start of msg
-                    else:
-                        msg += '* {path} is [{current_owner}:{current_group}]\n'.format(path=path, current_owner=current_owner, current_group=current_group)
-                    cnt += 1
+            state = lib.base2.get_worst(file_state, state)
+            table_values.append({
+                'file': path,
+                'owner': file_owner,
+                'group': file_group,
+                'state': lib.base2.state2str(file_state, empty_ok=False)
+                })
 
+    # create output
     if cnt == 0:
         lib.base2.oao('No files checked.', state)
+    
     if state == STATE_OK:
-        lib.base2.oao('Owners and groups are correct.\n' + 'Checked: \n' + msg, state)
-    lib.base2.oao('One or more problems with owners or groups.\n' + 'Checked: \n' + msg, state)
+        msg = 'Everything is ok.\n\n'
+    else:
+        msg = 'One or more problems with owners or groups.\n\n'
+    if len(table_values) > 0:
+        msg += lib.base2.get_table(
+            table_values,
+            ['file', 'owner', 'group', 'state'],
+            header=['Path', 'Owner', 'Group', 'State'],
+            )
+
+    # over and out
+    lib.base2.oao(msg, state)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)

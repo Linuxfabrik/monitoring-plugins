@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021042101'
 
 DESCRIPTION = 'Returns statistics for members of HA cluster from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns if the number of HA members is more or less than expected (default: 2). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".'
 
@@ -40,6 +40,7 @@ import lib.base2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -70,7 +71,7 @@ def parse_args():
     
     parser.add_argument(
         '-H', '--hostname', 
-        help='FortiOS-based Appliance address.',
+        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required=True,
         )
@@ -116,7 +117,7 @@ def main():
     except SystemExit as e:
         exit(STATE_UNKNOWN)
 
-    url = 'https://{}/api/v2/monitor/system/ha-statistics/select/?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/ha-statistics/select/?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     member_count = len(result['results'])
 

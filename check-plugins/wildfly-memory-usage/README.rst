@@ -1,0 +1,122 @@
+Check wildfly-memory-usage
+==========================
+
+Overview
+--------
+
+This check plugin monitors the heap and non-heap memory usage of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+
+Tested with WildFly 11 and WildFly 23.
+
+To create a monitoring user, do this:
+
+.. code-block:: bash
+
+    /opt/wildfly/bin/add-user.sh 
+
+.. code-block:: text
+
+    What type of user do you wish to add? 
+     a) Management User (mgmt-users.properties) 
+     b) Application User (application-users.properties)
+    (a): a
+
+    Enter the details of the new user to add.
+    Using realm 'ManagementRealm' as discovered from the existing property files.
+    Username : wildfly-monitoring
+    Password : 
+    Re-enter Password : 
+    What groups do you want this user to belong to? (Please enter a comma separated list, or leave blank for none)[  ]: 
+    About to add user 'wildfly-monitoring' for realm 'ManagementRealm'
+    Is this correct yes/no? yes
+    Is this new user going to be used for one AS process to connect to another AS process? 
+    e.g. for a slave host controller connecting to the master or for a Remoting connection for server to server Jakarta Enterprise Beans calls.
+    yes/no? no
+
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/wildfly-memory-usage"
+    "Check Interval Recommendation",        "Once a minute"
+    "Can be called without parameters",     "No"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "None"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: wildfly-memory-usage [-h] [-V] [--always-ok] [--critical CRIT]
+                                [--instance INSTANCE]
+                                [--mode {standalone,domain}] [--node NODE] -p
+                                PASSWORD [--timeout TIMEOUT] [--url URL]
+                                --username USERNAME [--warning WARN]
+
+    Checks the memory usage of a Wildfly/JBossAS over HTTP.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --critical CRIT       Set the critical threshold.
+      --instance INSTANCE   The instance (server-config) to check if running in
+                            domain mode.
+      --mode {standalone,domain}
+                            The mode the server is running.
+      --node NODE           The node (host) if running in domain mode.
+      -p PASSWORD, --password PASSWORD
+                            WildFly API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --url URL             WildFly API URL. Default: http://localhost:9990
+      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --warning WARN        Set the warning threshold.
+
+
+Usage Examples
+--------------
+
+.. code-block:: bash
+
+    ./wildfly-memory-usage --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+
+Output:
+
+.. code-block:: text
+
+    Heap used: 18.04% (82.2MiB of 455.5MiB), Heap committed: 44.35% (202.0MiB of 455.5MiB), Non-Heap used: 14.56% (108.3MiB of 744.0MiB), Non-Heap committed: 16.25% (120.9MiB of 744.0MiB)
+
+
+States
+------
+
+Triggers an alarm on usage in percent.
+
+* WARN or CRIT if memory usage (used or committed, heap or non-heap) is above certain thresholds (default 80/90%)
+
+
+Perfdata / Metrics
+------------------
+
+* heap-committed: in bytes
+* heap-committed-percent: in percent
+* heap-max: in bytes
+* heap-usage-percent: in percent
+* heap-used: in bytes
+* non-heap-committed: in bytes
+* non-heap-committed-percent: in percent
+* non-heap-max: in bytes
+* non-heap-usage-percent: in percent
+* non-heap-used: in bytes
+
+
+Credits, License
+----------------
+
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

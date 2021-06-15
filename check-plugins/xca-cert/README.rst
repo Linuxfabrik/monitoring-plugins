@@ -1,0 +1,105 @@
+Check xca-cert
+==============
+
+Overview
+--------
+
+If you are using XCA by Christian Hohnstädt (an *application that is intended for creating and managing X.509 certificates, certificate requests, RSA, DSA and EC private keys, Smart-cards and CRLs*) with `"Remote Databases" feature enabled <https://hohnstaedt.de/xca/index.php/documentation/remote-databases>`_, this plugin lets you check the expiration date of any certificate within those XCA MySQL/MariaDB databases. CRLs are also taken into account.
+
+Hints:
+
+* This check works with MySQL/MariaDB backend only, although XCA is supporting PostgreSQL as well.
+* We recommend to run this check directly on your database host.
+
+
+Fact Sheet
+----------
+
+.. csv-table::
+    :widths: 30, 70
+    
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/xca-cert"
+    "Check Interval Recommendation",        "Once a day"
+    "Can be called without parameters",     "Yes"
+    "Available for",                        "Python 2"
+    "Requirements",                         "None"
+
+
+Help
+----
+
+.. code-block:: text
+
+    usage: xca-cert [-h] [-V] [-c CRIT] [--database DATABASE] [-H HOSTNAME]
+                    [-p PASSWORD] [--prefix PREFIX] [-u USERNAME] [-w WARN]
+
+    Checks expiration date of certificates in a XCA based MySQL/MariaDB database.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      -c CRIT, --critical CRIT
+                            Set the critical for the expiration date in days.
+                            Default: 5
+      --database DATABASE   Set the MySQL database running the XCA database.
+                            Default: xca
+      -H HOSTNAME, --hostname HOSTNAME
+                            Set the hostname of the MySQL server running the XCA
+                            database. Default: localhost
+      -p PASSWORD, --password PASSWORD
+                            Set the password for the MySQL server running the XCA
+                            database. Default:
+      --prefix PREFIX       Set the table prefix of the XCA database.
+      -u USERNAME, --username USERNAME
+                            Set the username for the MySQL server running the XCA
+                            database. Default: root
+      -w WARN, --warning WARN
+                            Set the warning for the expiration date in days.
+                            Default: 14
+
+
+Usage Examples
+--------------
+
+.. code-block:: bash
+
+    ./xca-cert --hostname localhost --database xca --username dbuser --password dbpass --prefix xca_prefix_ --warning 14 --critical 5 
+    
+Output:
+
+.. code-block:: text
+
+    5 Certificates and 1 CRL checked.
+
+    Certificates:
+    commonName     CA Serial State Expiry date         
+    ----------     -- ------ ----- -----------         
+    CommonName 1   y  1234   [OK]  2028-10-31 13:11:00 
+    CommonName 2   n  2345   [OK]  2021-10-31 13:14:00 
+    CommonName 3   y  3456   [OK]  2028-10-31 13:11:00 
+    CommonName 4   n  4567   [OK]  2021-10-09 13:46:00 
+    CommonName 5   n  5678   [OK]  2021-10-09 13:48:00 
+
+    CRLs:
+    commonName  State Expiry date         
+    ----------  ----- -----------         
+    MyCRL       [OK]  2024-02-15 15:10:00
+
+
+States
+------
+
+* WARN or CRIT if a certificate expires within a given threshold.
+
+
+Perfdata / Metrics
+------------------
+
+There is no perfdata.
+
+
+Credits, License
+----------------
+
+* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.

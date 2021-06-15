@@ -23,11 +23,10 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021032501'
 
 DESCRIPTION = 'Checks the IPMI System Event Log (SEL) and returns WARN if there are entries. Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'
 
-cmd = 'ipmitool sel elist'
 
 #====================
 from lib.globals2 import *
@@ -46,6 +45,50 @@ def parse_args():
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
         )
 
+    parser.add_argument('--authtype', 
+        help='Specify an authentication type to use during IPMIv1.5 lan session activation. Supported types are NONE, PASSWORD, MD2, MD5, or OEM.',
+        dest='V15AUTHTYPE',
+        choices=['NONE', 'PASSWORD', 'MD2', 'MD5', 'OEM'],
+        default='NONE',
+        )
+
+    parser.add_argument('-H', '--hostname', 
+        help='Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.',
+        dest='HOSTNAME',
+        default=None,
+        )
+
+    parser.add_argument('--interface', 
+        help='Selects IPMI interface to use. Supported types are "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).',
+        dest='INTERFACE',
+        choices=['lan', 'lanplus'],
+        default='lan',
+        )
+
+    parser.add_argument('--password', 
+        help='Remote server password.',
+        dest='PASSWORD',
+        )
+
+    parser.add_argument('--port',
+        help='Remote server UDP port to connect to. Default is 623.',
+        dest='PORT',
+        default=623,
+        )
+
+    parser.add_argument('--privlevel', 
+        help='Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR. Default is USER.',
+        dest='PRIVLEVEL',
+        choices=['CALLBACK', 'USER', 'OPERATOR', 'ADMINISTRATOR'],
+        default='USER',
+        )
+
+    parser.add_argument('--username', 
+        help='Remote server username, default is NULL user.',
+        dest='USERNAME',
+        default='NULL',
+        )
+
     return parser.parse_args()
 
 
@@ -55,6 +98,17 @@ def main():
         args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
+
+    cmd = 'ipmitool sel elist '
+    if args.HOSTNAME:
+        # use ipmi with remote parameters
+        cmd += '-A {} '.format(args.V15AUTHTYPE) if args.INTERFACE == 'lan' else ''
+        cmd += '-H {} '.format(args.HOSTNAME) if args.HOSTNAME else ''
+        cmd += '-I {} '.format(args.INTERFACE) if args.INTERFACE else ''
+        cmd += '-L {} '.format(args.PRIVLEVEL) if args.PRIVLEVEL else ''
+        cmd += '-p {} '.format(args.PORT) if args.PORT else ''
+        cmd += '-P {} '.format(args.PASSWORD) if args.PASSWORD else ''
+        cmd += '-U {} '.format(args.USERNAME) if args.USERNAME else ''
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))

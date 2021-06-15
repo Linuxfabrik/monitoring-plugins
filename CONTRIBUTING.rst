@@ -1,5 +1,23 @@
-Linuxfabrik's Icinga Plugin Developer Guidelines
-================================================
+Linuxfabrik's Check Plugin Developer Guidelines
+===============================================
+
+Monitoring of an Application 
+----------------------------
+
+Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check.
+
+Avoid an extensive check that covers a wide variety of aspects:
+
+* ``myapp --action threading --warning 1500 --critical 2000``
+* ``myapp --action memory-usage --warning 80 --critical 90``
+* ``myapp --action deployment-status`` (warning and critical command line options not supported)
+
+Better write three separate checks:
+
+* ``myapp-threading --warning 1500 --critical 2000``
+* ``myapp-memory-usage --warning 80 --critical 90`` 
+* ``myapp-deployment-status``
+
 
 Setting up your development environment
 ---------------------------------------
@@ -12,37 +30,41 @@ Simply clone the libraries and monitoring plugins:
     git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
     cd monitoring-plugins
 
+
 Deliverables
 ------------
 
-- The plugin itself.
-- A nice 16x16 transparent PNG icon, for example based on font-awesome.
-- README file explaining "How?" and Why?"
-- LICENSE file
-- optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
-- optional: Icinga Director Basket Config
-- optional: Icinga Web 2 Grafana Module .ini file
-- optional: sudoers file (see `sudoers File <#sudoers-file>`_)
-- optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
+* The plugin itself.
+* A nice 16x16 transparent PNG icon, for example based on font-awesome.
+* README file explaining "How?" and Why?"
+* LICENSE file
+* if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_)
+* optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
+* optional: Icinga Director Basket Config
+* optional: Icinga Web 2 Grafana Module .ini file
+* optional: sudoers file (see `sudoers File <#sudoers-file>`_)
+* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
+
 
 Rules of Thumb
 --------------
 
-- The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
-- Develop with CentOS 7/8 Minimal in mind.
-- Develop with Icinga2 in mind.
-- Avoid complicated or fancy (and therefore unreadable) Python statements.
-- Comments and output should be in English only.
-- If possible avoid libraries that have to be installed.
-- Validate user input.
-- It is not needed to execute system (shell/bash) commands by specifying their full path.
-- It is ok to use temp files if needed.
-- Much better: use a local SQLite database if you want to use a temp file.
-- Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is great if the plugin executes fast and uses less resources (CPU time, memory etc.).
-- Timeout gracefully on errors (for example ``df`` on a failed network drive) and return WARN.
-- Return UNKNOWN on missing dependencies or wrong parameters.
-- Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
-- EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
+* The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
+* Develop with a minimal Linux in mind.
+* Develop with Icinga2 in mind.
+* Avoid complicated or fancy (and therefore unreadable) Python statements.
+* Comments and output should be in English only.
+* If possible avoid libraries that have to be installed.
+* Validate user input.
+* It is not needed to execute system (shell/bash) commands by specifying their full path.
+* It is ok to use temp files if needed.
+* Much better: use a local SQLite database if you want to use a temp file.
+* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is great if the plugin executes fast and uses less resources (CPU time, memory etc.).
+* Timeout gracefully on errors (for example ``df`` on a failed network drive) and return WARN.
+* Return UNKNOWN on missing dependencies or wrong parameters.
+* Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
+* EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
+
 
 Names, Naming Conventions, Parameters, Option Processing
 --------------------------------------------------------
@@ -71,22 +93,27 @@ For all other options, use long parameters only. We recommend using some of thos
 ::
 
     --activestate
+    --action
     --always-ok
+    --brief
     --cache-expire
     --channel
     --command
     --count
     --database
     --depth
+    --device
     --filename
     --filter
     --full
+    --hide-ok
     --ignore
     --input
     --insecure
     --interface
     --interval
     --key
+    --lengthy
     --loadstate
     --metric
     --mode
@@ -94,6 +121,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --no-kthreads
     --no-proxy
     --no-summary
+    --node
     --path
     --portname
     --prefix
@@ -106,23 +134,38 @@ For all other options, use long parameters only. We recommend using some of thos
     --type
     --unit
     --unitfilestate
+    --username
 
-- For complex parameter tupels, use the ``csv`` type.
+`Parameter types <https://docs.python.org/3/library/argparse.html>`_ are usually:
+
+* type=float
+* type=int
+* type=lib.args3.csv
+* type=lib.args3.float_or_none
+* type=lib.args3.int_or_none
+* type=str (the default)
+* choices=['udp', 'udp6', 'tcp', 'tcp6']
+* action='store_true', action='store_false' for switches
+
+Hints:
+
+* For complex parameter tupels, use the ``csv`` type.
   ``--input='Name, Value, Warn, Crit'`` results in ``[ 'Name', 'Value', 'Warn', 'Crit' ]``
-- For repeating parameters, use the ``append`` action. A ``default`` variable has to be a list then. ``--input=a --input=b`` results in ``[ 'a', 'b' ]``
-- If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in
+* For repeating parameters, use the ``append`` action. A ``default`` variable has to be a list then. ``--input=a --input=b`` results in ``[ 'a', 'b' ]``
+* If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in
   ``[['1', '2', '3'], ['a', 'b', 'c']]``
+
 
 Threshold and Ranges
 --------------------
 
 If a threshold has to be handled as a range parameter, this is how to interpret them. Pretty much the same as stated in the `Nagios Development Guidelines <http://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_.
 
-- simple value: a range from 0 up to and including the value
-- ``:``: describes a range
-- empty value before or after ``:``: positive infinity
-- ``~``: negative infinity
-- ``@``: if range starts with "@", then alert if inside this range (including endpoints)
+* simple value: a range from 0 up to and including the value
+* ``:``: describes a range
+* empty value before or after ``:``: positive infinity
+* ``~``: negative infinity
+* ``@``: if range starts with "@", then alert if inside this range (including endpoints)
 
 +--------+-------------------+-------------------+--------------------------------+
 | -w, -c | OK if result is   | WARN/CRIT if      | lib.base.parse_range() returns |
@@ -175,86 +218,93 @@ Another example: ``--warning ~:0 --critical 10``
 
 Have a look at ``procs`` on how to implement this.
 
+
 Caching temporary data, SQLite database
 ---------------------------------------
 
 Use ``cache`` if you need a simple key-value store, for example as used in ``nextcloud-version``. Otherwise, use ``db_sqlite`` as used in ``cpu-usage``.
 
+
 Error Handling
 --------------
 
-- Catch exceptions using ``try``/``except``, especially in functions.
-- In functions, if you have to catch exceptions, on such an exception always return ``(False, errormessage)``. Otherwise return ``(True, result)`` if the function succeeds in any way. For example, returning ``(True, False)`` means that the function has not raised an exception and its result is simply ``False``.
-- A function calling a function with such an extended error handling has to return a ``(retc, result)`` tuple itself.
-- In ``main()`` you can use ``lib.base.coe()`` to simplify error handling.
-- Have a look at ``nextcloud-version`` for details.
+* Catch exceptions using ``try``/``except``, especially in functions.
+* In functions, if you have to catch exceptions, on such an exception always return ``(False, errormessage)``. Otherwise return ``(True, result)`` if the function succeeds in any way. For example, returning ``(True, False)`` means that the function has not raised an exception and its result is simply ``False``.
+* A function calling a function with such an extended error handling has to return a ``(retc, result)`` tuple itself.
+* In ``main()`` you can use ``lib.base.coe()`` to simplify error handling.
+* Have a look at ``nextcloud-version`` for details.
+
 
 Plugin Output
 -------------
 
-- Print a short concise message in the first line within the first 80 chars if possible.
-- Use multi-line output for details (``msg_body``), with the most important output in the first line (``msg_header``).
-- Don't print "OK".
-- Print "(WARN)" or "(CRIT)" for clarification next to a specific item.
-- If possible give a help text to solve the problem.
-- Multiple items checked, and ...
+* Print a short concise message in the first line within the first 80 chars if possible.
+* Use multi-line output for details (``msg_body``), with the most important output in the first line (``msg_header``).
+* Don't print "OK".
+* Print "(WARN)" or "(CRIT)" for clarification next to a specific item.
+* If possible give a help text to solve the problem.
+* Multiple items checked, and ...
 
-  - ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-  - ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+  * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+  * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
-- Use short "Units of Measurements" without white spaces:
+* Use short "Units of Measurements" without white spaces:
 
-  - Percentage: 93.2%
-  - Bytes: 7B, 3.4K, M, G, T
-  - Temperatures: 7.3C, 45F
-  - Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-  - I/O and Throughput: 220.4MB/s (Megabyte per Second)
-  - Read/Write: "R/s", "W/s", "IO/s"
+  * Percentage: 93.2%
+  * Bytes: 7B, 3.4K, M, G, T
+  * Temperatures: 7.3C, 45F
+  * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
+  * I/O and Throughput: 220.4MB/s (Megabyte per Second)
+  * Read/Write: "R/s", "W/s", "IO/s"
 
-- Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
-- Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
+* Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
+* Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
 
-Plugin Perfdata
----------------
 
-UOM = Unit of Measurement
+Plugin Performance Data, Perfdata
+---------------------------------
 
-Sample:
+"UOM" means "Unit of Measurement".
 
-::
+Sample::
 
     'label'=value[UOM];[warn];[crit];[min];[max];
 
-Perfdata value-suffixes:
+``label``  doesn't need to be machine friendly, so ``Pages scanned=100;;;;;`` is as valuable as ``pages-scanned=100;;;;;``.
 
-::
+
+Suffixes::
 
     no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
     s - seconds (also us, ms)
     % - percentage
     B - bytes (also KB, MB, TB)
-    c - a continous counter (such as bytes transmitted on an interface)
+    c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
+
 
 PEP8 Style Guide for Python Code
 --------------------------------
 
 We recently started to use `PEP 8 -- Style Guide for Python Code <https://www.python.org/dev/peps/pep-0008/>`_.
 
+
 docstring, pydoc
 ----------------
 
 Not long ago we started to document our `Libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ using docstrings, so that calling ``pydoc lib/base.py`` works, for example.
+
 
 Pylint
 ------
 
 To further improve code quality, we recently started using `Pylint <https://www.pylint.org/>`_ with pure ``pylint`` for the libraries, and with ``pylint --disable=C0103,C0114,C0116`` for the plugins, on a more regular basis. The parameter disables warnings for
 
-- non-conformance to snake_case naming style
-- missing module docstring
-- missing function or method docstring
+* non-conformance to snake_case naming style
+* missing module docstring
+* missing function or method docstring
+
 
 isort
 -----
@@ -269,15 +319,16 @@ To help sort the ``import``-statements we use ``isort``:
     # sort in a single plugin
     isort plugin_name
 
+
 Unit Tests
 ----------
 
 Implementing tests:
 
-- | Use the ``unittest`` framework (`https://docs.python.org/2.7/library/unittest.html <https://docs.python.org/2.7/library/unittest.html>`_).
+* | Use the ``unittest`` framework (`https://docs.python.org/2.7/library/unittest.html <https://docs.python.org/2.7/library/unittest.html>`_).
   | Within your ``test`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
    against stdout, stderr and retc.
-- To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
+* To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
 Have a look at the ``fs-ro`` plugin on how to do this.
 
@@ -288,6 +339,7 @@ Running a complete unit test:
     # cd into the plugin directory and run:
     ./test
 
+
 sudoers File
 ------------
 
@@ -296,6 +348,36 @@ If the plugin requires ``sudo``-permissions to run, please add the plugin to the
 .. attention::
 
     The newline at the end is required!
+
+
+Compiling for Windows
+---------------------
+
+To allow running the check plugins under Windows without installing python, we compile the check plugins using `nuitka <https://nuitka.net/>`_.
+For this, you need a Windows Machine with python3 and nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
+
+To manually compile a check on the Windows Machine, deploy the python3 variant, then:
+
+.. code-block:: batch
+
+    cd C:\ProgramData\icinga2\usr\lib64\nagios\plugins\
+    py -3 -m nuitka --mingw64 --follow-imports --recurse-all --output-dir C:\nuitka-compile-temp --remove-output --standalone about-me.py
+    rename about-me.dist about-me
+
+Alternatively, use the ``monitoring-plugins-nuitka-compile``-Ansible-Tag:
+
+.. code-block:: bash
+
+   ansible-playbook --inventory inventory playbook.yml --tags monitoring-plugins,monitoring-plugins-nuitka-compile --extra-vars 'monitoring_plugins_windows_method=python monitoring_plugins_repo_version=develop' --limit windows-machine
+
+
+Then copy the new folder to a Linux Machine and add zip it:
+
+.. code-block:: bash
+
+    zip -r about-me3.zip about-me
+    mv about-me3.zip /path/to/git/repo/check-plugins/about-me/about-me3.zip
+
 
 Grafana Dashboards
 ------------------
@@ -308,23 +390,25 @@ As there are two options to import the Grafana dashboards (either importing via 
 
 Always make sure that there is no sensitive data in the export (eg. hostnames).
 
+
 Exporting for later import via the WebGUI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Make sure all rows are collapsed
-- Share dashboard (Icon right of the dashboard title)
-- Export
-- Export for sharing externally: yes
-- Save to file: all-panels-external.json
+* Make sure all rows are collapsed
+* Share dashboard (Icon right of the dashboard title)
+* Export
+* Export for sharing externally: yes
+* Save to file: all-panels-external.json
+
 
 Exporting for provisioning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Make sure all rows are collapsed
-- Share dashboard (Icon right of the dashboard title)
-- Export
-- Export for sharing externally: no
-- Save to file: all-panels-provisioning.json
+* Make sure all rows are collapsed
+* Share dashboard (Icon right of the dashboard title)
+* Export
+* Export for sharing externally: no
+* Save to file: all-panels-provisioning.json
 
 Afterwards generate the dashboards for each plugin using the
 ``grafana-tool``:
@@ -336,12 +420,14 @@ Afterwards generate the dashboards for each plugin using the
 
 Make sure to adjust the generated ini file if necessary.
 
-Virtual Environment
--------------------
+
+Virtual Environments
+--------------------
 
 To allow the check plugins to activate a virtual environment as described in the README, place this at the top of the check plugin (do not forget to adjust it to the python version):
 
 .. code-block:: python
+    :caption: Example for Python 3
 
     import os
 

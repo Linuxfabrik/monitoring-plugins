@@ -40,6 +40,7 @@ DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appli
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
+DEFAULT_PORT = 443
 DEFAULT_STATE = 'warn'
 DEFAULT_TIMEOUT = 3
 
@@ -94,6 +95,13 @@ def parse_args():
         )
 
     parser.add_argument(
+        '--port',
+        help='KEMP Appliance port.',
+        dest='PORT',
+        default=DEFAULT_PORT,
+        )
+
+    parser.add_argument(
         '--state',
         help='The state that has to be returned. Default: %(default)s',
         dest='STATE',
@@ -141,7 +149,7 @@ def main():
 
     if args.TEST is None:
         # get the values the normal way
-        url = 'https://{}/access/listvs'.format(args.HOSTNAME)
+        url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
         header = {
             'Authorization': "Basic {}".format(
                 base64.b64encode(args.USERNAME + ':' + args.PASSWORD)

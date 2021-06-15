@@ -1,218 +1,266 @@
-Python-based Monitoring Plugins Collection
-==========================================
+Python-based Monitoring Check Plugins Collection
+================================================
 
-This Enterprise Class Plugin Collection provides a bundle of more than eighty Python based plugins for Icinga, Naemon, Nagios, Shinken, Sensu, and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software runs these plugins to determine the current status of hosts and services on your network.
-
-All plugins are tested on CentOS 7+ (Minimal), Fedora 30+ and Ubuntu Server 16+ - and some on Microsoft Windows, too.
-
-If you
-
-- search for plugins that are all written in Python only (your main system language on RHEL/CentOS)
-- want to have an easy look into the source code of the plugins
-- want to use plugins that are fast, reliable and mainly focused on CentOS and Icinga2
-- want to use plugins that all behave uniform and report the same (for example "used") in a short and precise manner, on Linux as well as on Windows
-- want to use plugins out of the box with some kind of auto-discovery, that use useful defaults and only throw CRITs where it is absolutely necessary
-- are happy about plugins that provide some additional information to help you troubleshoot your system
-- want to use plugins that try to avoid 3rd party dependencies wherever possible
-
-... then these plugins might be for you.
+.. image:: linuxfabrik-monitoring-check-plugins-logo.png
 
 
-Donate
-------
+This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-|Donate|
+These monitoring check plugins
 
+* are only written in Python (your main system language on RHEL / CentOS)
+* ensure easy access to the source code
+* are fast, reliable and use as few system resources as possible 
+* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
+* use out of the box some sort of automatic detection using useful default settings
+* trigger WARNs and CRITs only where absolutely necessary
+* provide additional information for troubleshooting where possible
+* avoid dependencies on additional system libraries where possible
 
-Python
-------
-
-Python2
-~~~~~~~
-
-All plugins are first written in Python 2 (suffixed by "2"), because ...
-
-- in a datacenter environment (where these plugins are mainly used) the ``python == python2`` side is still more popular. - in CentOS 7, Python 2.7 is the default (Python3 became available in CentOS 7.8).
-- in CentOS 8, there is no default. You just need to specify whether you want Python 3 or 2.
-- support for Python 2 has ended, but not in CentOS 8 (Python 2 remains available in CentOS 8 until the late 2020's decade - for further details have a look at `https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/ <https://developers.redhat.com/blog/2018/11/14/python-in-rhel-8/>`_).
-
-Our plugins call Python 2 using ``#!/usr/bin/env python2``.
+All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
 
 
-Python3
-~~~~~~~
+Support
+-------
 
-There are already some Python 3 plugins available (suffixed by "3"; currently mainly for Windows). Check out the "Plugin Fact Sheet" at the end of this document.
+The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/ueber-uns/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
 
-Our plugins call Python 3 using ``#!/usr/bin/env python3``.
 
+Check Plugin Poster
+-------------------
+
+See most of our check plugins in action on an Icinga server at a glance:
+
+.. image:: linuxfabrik-monitoring-check-plugins.png
+
+ 
+If you zoom in, for example in *CPU Usage*:
+
+.. image:: linuxfabrik-monitoring-check-plugins-cpu-usage.png
+
+
+Human Readable Numbers
+----------------------
+
+Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+
+.. csv-table::
+    :header-rows: 1
+    
+    Value,        Symbol, Origin,     Type,            Description
+    1000^1,       K,      ,           Number,          Thousand
+    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1` / Million :sup:`2`"
+    1000^3,       G,      SI Symbol,  Number,          "Billion :sup:`1` / Milliard :sup:`2`"
+    1000^4,       T,      SI Symbol,  Number,          "Trillion :sup:`1` / Billion :sup:`2`"
+    1000^5,       P,      SI Symbol,  Number,          "Quadrillion :sup:`1` / Billiard :sup:`2`"
+    1000^6,       E,      SI Symbol,  Number,          "Quintillion :sup:`1` / Trillion :sup:`2`"
+    1000^7,       Z,      SI Symbol,  Number,          "Sextillion :sup:`1` / Trilliard :sup:`2`"
+    1000^8,       Y,      SI Symbol,  Number,          "Septillion :sup:`1` / Quadrillion :sup:`2`"
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes :sup:`3`
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes :sup:`3`
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes :sup:`3`
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes :sup:`3`
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes :sup:`3`
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes :sup:`3`
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes :sup:`3`
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes :sup:`3`
+    1000^1,       KB,     other,      Bytes,           Kilobytes
+    1000^2,       MB,     other,      Bytes,           Megabytes
+    1000^3,       GB,     other,      Bytes,           Gigabytes
+    1000^4,       TB,     other,      Bytes,           Terrabytes
+    1000^5,       PB,     other,      Bytes,           Petabytes
+    1000^6,       EB,     other,      Bytes,           Exabytes
+    1000^7,       ZB,     other,      Bytes,           Zetabytes
+    1000^8,       YB,     other,      Bytes,           Yottabytes
+    1000^1,       Kbps,   other,      Bits per Second, Kilobits
+    1000^2,       Mbps,   other,      Bits per Second, Megabits
+    1000^3,       Gbps,   other,      Bits per Second, Gigabits
+    1000^4,       Tbps,   other,      Bits per Second, Terrabits
+    1000^5,       Pbps,   other,      Bits per Second, Petabits
+    1000^6,       Ebps,   other,      Bits per Second, Exabits
+    1000^7,       Zbps,   other,      Bits per Second, Zetabits
+    1000^8,       Ybps,   other,      Bits per Second, Yottabits
+    1..59,        s,      other,      Time,            Seconds
+    60,           m,      other,      Time,            Minutes
+    60*60,        h,      other,      Time,            Hours
+    60*60*24,     D,      other,      Time,            Days
+    60*60*24*7,   W,      other,      Time,            Weeks
+    60*60*24*30,  M,      other,      Time,            Months
+    60*60*24*365, Y,      other,      Time,            Years
+
+* 1: US, Canada and modern British (short scale)
+* 2: Traditional European (Peletier) (long scale)
+* 3: Used in output
+
+
+A few words about Python
+------------------------
+
+Python 2 vs Python 3
+~~~~~~~~~~~~~~~~~~~~
+
+All check plugins are currently available for Python 2. We are gradually migrating them to Python 3 by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
+
+The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3``. 
+
+
+Virtual Environment
+~~~~~~~~~~~~~~~~~~~
+
+If you want to use a virtual environment for Python (optional, but recommended), you could create one in the same directory as the check-plugins.
+
+.. code-block:: bash
+
+    cd /usr/lib64/nagios/plugins
+    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
+    python3 -m venv --system-site-packages monitoring-plugins-venv3
+
+If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence over the virtual environment above.
+
+**Caution**
+
+    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
 
 
 Libraries
 ~~~~~~~~~
 
-We try to avoid dependencies on 3rd party libraries wherever possible. If we have to use additional libraries for various reasons, we stick to official versions. Have a look at the plugin's README or the "Plugin Fact Sheet" at the end of this document.
+The check plugins require our own `Python libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. The libraries are in a separate Git repository, as we also use them in other projects.
 
-We make use of our own libraries, which you can find `here <https://git.linuxfabrik.ch/linuxfabrik/lib>`_. See "Installation" below or "Setting up your development environment" in :doc:`CONTRIBUTING` for instructions on using it with the plugins.
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutils <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. We recommend installing these in the above mentioned check plugin virtual environment.
 
 
-
-Roadmap
--------
-
-* Every plugin is available fpr Python2 and Python3.
-* Every plugin is also tested on Windows.
-* Provide a unit test for every plugin.
-* Automate the testing pipeline.
-
+Running the Check Plugins on Linux
+----------------------------------
 
 Installation
-------------
-
-Requirements
 ~~~~~~~~~~~~
 
-CentOS 8
-    - Required: Install Python2, for example by using ``dnf install python2``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Some of those modules are found in the EPEL repo. Example:
-      ``dnf install epel-release; dnf install python2-psutil``
+Install Python 2 (currently preferred) or Python 3 on the client.
 
-CentOS 7
-    - Most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Some of those modules are found in the EPEL repo. Example:
-      ``yum install epel-release; yum install python2-psutil``
-
-Fedora
-    - Required: Install Python2, for example by using ``dnf install python2``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``dnf install python2-psutil``
-
-Ubuntu 20
-    - Most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``apt install python-psutil``
-
-Ubuntu 16
-    - Required: Install Python2, for example by using ``apt install python-minimal``
-    - After that, most of the plugins will run out of the box.
-    - Optional: Install 3rd party Python modules if a plugin requires them.
-      Example: ``apt install python-psutil``
-
-Windows
-    tbd
-
-
-
-Installation on Linux
-~~~~~~~~~~~~~~~~~~~~~
-
-As the required `lib <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ is a separate git repo, we need to make sure to deploy the plugins and the library correctly.
-
-In the following example, we will deploy everything to ``/usr/lib64/nagios/plugins/`` on the remote server ``monitoring-server``:
+Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
 
 .. code:: bash
 
-    # first, make sure the target directory exists
-    ssh monitoring-server
+    BRANCH=master
+    PYVER=2
+
+    cd /tmp
+    
+    curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
+    curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
+
+    tar xf lib.tar.gz
+    tar xf monitoring-plugins.tar.gz
+
+Prepare the directory tree:
+
+.. code:: bash
+
     mkdir -p /usr/lib64/nagios/plugins/lib
-    exit
 
-Install the libraries:
-
-.. code:: bash
-
-    # on your local administrator machine
-    git clone https://git.linuxfabrik.ch/linuxfabrik/lib
-    cd lib
-    # for python2
-    scp *2.py monitoring-server:/usr/lib64/nagios/plugins/lib/
-    # for python3
-    scp *3.py monitoring-server:/usr/lib64/nagios/plugins/lib/
-
-Install some or all plugins:
+Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
 .. code:: bash
 
-    # on your local administrator machine
-    git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
-    cd monitoring-plugins
-    # copy a selection of plugins to the remote server
-    # for python2
-    scp check-plugins/about-me/about-me2 /usr/lib64/nagios/plugins/about-me
-    scp check-plugins/disk-smart/disk-smart2 /usr/lib64/nagios/plugins/disk-smart
-    # for python3
-    scp check-plugins/about-me/about-me3 /usr/lib64/nagios/plugins/about-me
-    scp check-plugins/disk-smart/disk-smart3 /usr/lib64/nagios/plugins/disk-smart
+    \cp /tmp/lib-$BRANCH/*.py /usr/lib64/nagios/plugins/lib
 
-Your directory on ``monitoring-server`` should now look like this:
+Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
 .. code:: bash
+
+    cd /tmp/monitoring-plugins-$BRANCH/check-plugins
+    find -maxdepth 2 -name 'test2' -delete
+    find -maxdepth 2 -name 'test3' -delete
+    for check in $(find -maxdepth 2 -name "*$PYVER")
+    do
+        dir=$(dirname $check)
+        file=${dir:2}
+        \cp $check /usr/lib64/nagios/plugins/$file
+    done
+
+That's it. After that your directory on the client should now look like this:
+
+.. code:: text
 
    /usr/lib64/nagios/plugins/
    |-- about-me
    |-- disk-smart
+   |-- ...
    |-- lib
    |   |-- base2.py
+   |   |-- base3.py
    |   |-- globals2.py
    |   |-- ...
    |-- ...
 
-To make the deployment easier, we deploy the monitoring plugins and libraries using `ansible <https://www.ansible.com/>`_. You can take a look at our `monitoring-plugins role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
+**Tipp**
+
+    We also provide an `Ansible "monitoring-plugins" role <https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins>`_.
 
 
+sudoers
+~~~~~~~
 
-Icinga (Icingaweb, Icinga Director)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Some check plugins require ``sudo``-permissions to run. To do this, we provide a ``sudoers`` file for your operating system in ``monitoring-plugins/assets/sudoers``, for example ``CentOS8.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the client.
 
-For each check, you have to create an Icinga Command, and use this within a Service Template, a Service Set and/or a Single Service.
+**Note**
 
-Example for creating a command for ``cpu-usage`` using Icinga Director (Icinga Director > Commands > Commands):
+    We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
-Tab "Command"
 
-* Add a ``Plugin Check Command``
+Upgrade
+~~~~~~~
+
+* Overwrite ``/usr/lib64/nagios/plugins/lib`` with the new libraries.
+* Overwrite ``/usr/lib64/nagios/plugins`` with the new plugins.
+* Copy the new sudoers file to ``/etc/sudoers.d/``
+* Delete all SQLite database files (``*.db``) in ``/tmp``.
+
+
+Running the Check Plugins on Windows
+------------------------------------
+
+TODO
+
+
+Icinga
+------
+
+Configuration in Icinga Director
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For each check, you have to create an Icinga Command. We show this using the "cpu-usage" check plugin.
+
+Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
+
+* Click "+Add", choose Command type: ``Plugin Check Command``
 * Command name: ``cmd-check-cpu-usage``
 * Command: ``/usr/lib64/nagios/plugins/cpu-usage``
-* Button ``Add``
+* Timeout: set it according to hints in the check's README (usually ``10`` seconds)
+* Click the "Add" button
 
-Tab "Arguments"
+Tab "Arguments":
 
-* run ``/usr/lib64/nagios/plugins/cpu-usage --help`` to get a list of all arguments
-* create those you want to be customizable:
+* Run ``/usr/lib64/nagios/plugins/cpu-usage --help`` to get a list of all arguments.
+* Create those you want to be customizable:
 
     * Argument name ``--always-ok``, Value type: String, Condition (set_if): ``$cpu_usage_always_ok$``
     * Argument name ``--count``, Value type: String, Value: ``$cpu_usage_count$``
     * Argument name ``--critical``, Value type: String, Value: ```$cpu_usage_critical$``
     * Argument name ``--warning``, Value type: String, Value: ```$cpu_usage_warning$``
 
-Tab "Fields"
+Tab "Fields":
 
 * Label "CPU Usage: Count", Field name "cpu_usage_count", Mandatory "n"
 * Label "CPU Usage: Critical", Field name "cpu_usage_critical", Mandatory "n"
 * Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
 
-
-sudoers
-~~~~~~~
-
-You can check which check plugins require ``sudo``-permissions to run by looking at the respective ``sudoers`` file for your operating system in ``assets/sudoers/`` or by looking at the "Plugin Fact Sheet".
-
-You need to place the ``sudoers`` file in ``/etc/sudoers.d/`` on the remote server. For example:
-
-.. code:: bash
-
-    cd monitoring-plugins/assets/sudoers/
-    scp CentOS7.sudoers monitoring-server:/etc/sudoers.d/monitoring-plugins
-
-Side note: We are also using the path ``/usr/lib64/nagios/plugins/`` for other OSes, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/`` there. This is because when adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+Now use this command within a Service Template, a Service Set and/or a Single Service.
 
 
-Grafana Dashboards
-~~~~~~~~~~~~~~~~~~
+Grafana
+-------
 
 There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
 
@@ -221,33 +269,28 @@ When importing via the WebGUI simply import the ``plugin-name.grafana-external.j
 If you want to use provisioning, take a look at `Grafana Provisioning <https://grafana.com/docs/grafana/latest/administration/provisioning/>`_.
 Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
 
-Creating Custom Grafana Dashboards
-    If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
+If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
 
-    .. code:: bash
+.. code:: bash
 
-        # interactive usage
-        ./tools/grafana-tool assets/grafana/all-panels-external.json
-        ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
+    # interactive usage
+    ./tools/grafana-tool assets/grafana/all-panels-external.json
+    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
 
-        # for more options, see
-        ./tools/grafana-tool --help
+    # for more options, see
+    ./tools/grafana-tool --help
 
-Virtual Environment
-~~~~~~~~~~~~~~~~~~~
 
-If you want to use a virtual environment for python, you can create one in the same directory as the check-plugins.
+Roadmap
+--------
 
-.. code-block:: bash
+Next steps (beside maintaining and writing new check plugins):
 
-    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
-    python3 -m venv --system-site-packages monitoring-plugins-venv3
-
-If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence to the virtual environment above.
-
-.. caution::
-
-    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using sudo).
+* Migrate every Plugin to Python 3.
+* Provide a meaningful Grafana-Panel (where it makes sense).
+* Compile check plugins for Windows using ``nuitka`` (where it makes sense).
+* Provide a (unit) test for the majority of the check plugins (where it makes sense).
+* Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
 
 
 Reporting Issues
@@ -259,10 +302,9 @@ For now, there are two ways:
 2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
 
 
-Check Plugin Fact Sheet
------------------------
 
-Have a look at the ``check-plugin-fact-sheet.csv``.
+
+
 
 
 .. |Donate| image:: https://img.shields.io/badge/Donate-PayPal-green.svg

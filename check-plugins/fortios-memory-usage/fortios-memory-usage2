@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021042101'
 
 DESCRIPTION = 'Displays amount of used memory in percent, and checks against configured or given thresholds.'
 
@@ -41,6 +41,7 @@ import lib.base2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -67,7 +68,7 @@ def parse_args():
         )
     
     parser.add_argument('-H', '--hostname', 
-        help='FortiOS-based Appliance address.',
+        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required = True,
         )
@@ -117,7 +118,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     # Resource to get usage data for [cpu|memory|disk|sessions|lograte].
-    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=mem&interval=1-min&access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/resource/usage?resource=mem&interval=1-min&access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     stats = {}
@@ -125,7 +126,7 @@ def main():
 
     # try to get the global configured memory warning thresholds from Forti OS
     # if success, use them, otherwise our from args.WARN etc.
-    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     thresholds = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('memory-use-threshold-green', args.WARN)
     crit = thresholds['results'].get('memory-use-threshold-red', args.CRIT)

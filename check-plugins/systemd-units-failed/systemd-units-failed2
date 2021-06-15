@@ -8,44 +8,49 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
-import lib.args2
-import lib.base2
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
-DESCRIPTION = '''Warns on any failed systemd units.'''
-
-CMD = 'systemctl --state=failed --no-pager --no-legend'
+DESCRIPTION = """Warns on any failed systemd units."""
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -53,28 +58,32 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args2.csv,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
     if args.TEST is None:
         # get the values the normal way
-        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(CMD))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(
+            'systemctl --state=failed --no-pager --no-legend'))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.base2.test(args.TEST)
@@ -112,12 +121,14 @@ def main():
 
     perfdata = lib.base2.get_perfdata(
         'systemd-units-failed', len(failed_units), None, 1, None, 0, None)
-    lib.base2.oao('{}\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
+
+    # over and out
+    lib.base2.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)

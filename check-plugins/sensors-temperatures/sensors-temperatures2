@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
 DESCRIPTION = 'Return certain hardware temperature sensors (it may be a CPU, an hard disk or something else, depending on the OS and its configuration). All temperatures are expressed in celsius. Check is done automatically against hardware thresholds. If sensors are not supported by the OS OK is returned.'
 
@@ -34,14 +34,15 @@ from lib.globals2 import *
 import lib.base2
 
 import argparse
-try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
 from traceback import print_exc
 import warnings
 warnings.filterwarnings("ignore")
+
+try:
+    import psutil # pylint: disable=C0413
+except ImportError:
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 def parse_args():

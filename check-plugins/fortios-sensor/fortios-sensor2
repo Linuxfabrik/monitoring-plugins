@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021042101'
 
 DESCRIPTION = 'Checks FortiOS sensor information in detail.'
 
@@ -39,6 +39,7 @@ import lib.base2
 import lib.url2
 
 import argparse
+import urllib2
 from traceback import print_exc
 
 
@@ -58,7 +59,7 @@ def parse_args():
         )
 
     parser.add_argument('-H', '--hostname', 
-        help='FortiOS-based Appliance address.',
+        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required = True,
         )
@@ -113,7 +114,7 @@ def main():
         exit(STATE_UNKNOWN)
 
     # Resource to get sensor data from
-    url = 'https://{}/api/v2/monitor/system/sensor-info/select?access_token={}'.format(args.HOSTNAME, args.PASSWORD)
+    url = 'https://{}/api/v2/monitor/system/sensor-info/select?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
 
     msg_header, msg_body = '', ''

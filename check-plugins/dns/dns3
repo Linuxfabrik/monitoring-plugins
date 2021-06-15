@@ -1,0 +1,170 @@
+#! /usr/bin/env python3
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import socket # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import time # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.net3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021060101'
+
+DESCRIPTION = """Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the
+                name servers configured on the machine running this check plugin (for example those
+                visible in `/etc/resolv.conf`) will be queried - you can't query other DNS servers.
+                This command works with both IPv4 and IPv6."""
+
+DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_PORT = 53
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Return critical if elapsed time in ms exceeds value. Default: None',
+        dest='CRIT',
+        type=float,
+        default=None,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='The host or ip address to check. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--port',
+        help='The port number. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--type',
+        help='Connection type. Can be optionally specified in order to narrow the list of addresses returned.',
+        dest='TYPE',
+        choices=['udp', 'udp6', 'tcp', 'tcp6'],
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Return warning if elapsed time in ms exceeds value. Default: None',
+        dest='WARN',
+        type=float,
+        default=None,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # https://docs.python.org/2/library/socket.html#socket.getaddrinfo
+    # socket.getaddrinfo(host, port[, family[, socktype[, proto[, flags]]]])¶
+
+    # The function returns a list of 5-tuples with the following structure:
+    # (family, socktype, proto, canonname, sockaddr)
+    # family, socktype, proto are all integers
+    # sockaddr is a tuple describing a socket address
+    #   (address, port) 2-tuple for AF_INET
+    #   (address, port, flow info, scope id) for AF_INET6
+    # [(10, 1, 6, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (10, 2, 17, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (10, 3, 0, '', ('2606:2800:220:1:248:1893:25c8:1946', 53, 0, 0)), (2, 1, 6, '', ('93.184.216.34', 53)), (2, 2, 17, '', ('93.184.216.34', 53)), (2, 3, 0, '', ('93.184.216.34', 53))]
+    # [(2, 1, 6, '', ('172.217.168.67', 53)), (2, 2, 17, '', ('172.217.168.67', 53)), (2, 3, 0, '', ('172.217.168.67', 53)), (10, 1, 6, '', ('2a00:1450:400a:803::2003', 53, 0, 0)), (10, 2, 17, '', ('2a00:1450:400a:803::2003', 53, 0, 0)), (10, 3, 0, '', ('2a00:1450:400a:803::2003', 53, 0, 0))]
+
+    start_time = time.time()
+    try:
+        if args.TYPE == 'udp':
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET, lib.net3.SOCK_UDP, lib.net3.PROTO_UDP)
+        elif args.TYPE == 'udp6':
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET6, lib.net3.SOCK_UDP, lib.net3.PROTO_UDP)
+        elif args.TYPE == 'tcp':
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET, lib.net3.SOCK_TCP, lib.net3.PROTO_TCP)
+        elif args.TYPE == 'tcp6':
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT, lib.net3.AF_INET6, lib.net3.SOCK_TCP, lib.net3.PROTO_TCP)
+        else:
+            result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
+    except socket.error as e:
+        lib.base3.oao('Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+    except socket.herror as e:
+        lib.base3.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+    except socket.gaierror as e:
+        lib.base3.oao('Address related Socket error "{}" for {}:{}/{}.'.format(e, args.HOSTNAME, args.PORT, args.TYPE), STATE_WARN)
+    runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
+
+    msg = 'Lookup for {} returns '.format(args.HOSTNAME)
+    for res in result:
+        af, socktype, proto, canonname, sa = res
+        msg += '{} ({}{}:{}), '.format(sa[0], lib.net3.PROTOSTR[proto], lib.net3.FAMILIYSTR[af], sa[1])
+
+    state = lib.base3.get_state(runtime, args.WARN, args.CRIT, operator='ge')
+    perfdata = lib.base3.get_perfdata('time', runtime, 'ms', args.WARN, args.CRIT, 0, None)
+
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

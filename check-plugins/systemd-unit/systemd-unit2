@@ -8,26 +8,39 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021060201'
 
-DESCRIPTION = 'Checks the state of a service, socket, device, mount, automount, swap, target, path, timer, slice or scope - using systemd/systemctl. For example, to check if the service "sshd" is running, use "systemd-unit --substate=running --unit=sshd". Have a look at the README for more details.'
-
-command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
+DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
+                path, timer, slice or scope - using systemd/systemctl. For example, to check if the
+                service "sshd" is running, use `systemd-unit --substate=running --unit=sshd`. Have a
+                look at the README for more details."""
 
 DEFAULT_ACTIVESTATE  = []
 DEFAULT_LOADSTATE  = 'loaded'
@@ -35,25 +48,19 @@ DEFAULT_SERVERITY = 'warn'
 DEFAULT_SUBSTATE  = []
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-from traceback import print_exc
-
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--activestate',
+    parser.add_argument(
+        '--activestate',
         help='Expected systemd ActiveState (repeating).',
         dest='ACTIVESTATE',
         default=DEFAULT_ACTIVESTATE,
@@ -64,10 +71,11 @@ def parse_args():
             'inactive',
             'activating',
             'deactivating',
-            ],
-        )
+        ],
+    )
 
-    parser.add_argument('--loadstate',
+    parser.add_argument(
+        '--loadstate',
         help='Expected systemd LoadState. Default: %(default)s',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
@@ -82,17 +90,19 @@ def parse_args():
             'masked',
             'not-found',
             'reloading',
-            ],
-        )
+        ],
+    )
 
-    parser.add_argument('--severity',
+    parser.add_argument(
+        '--severity',
         help='Severity if something is found. One of "warn" or "crit". Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
-        )
+    )
 
-    parser.add_argument('--substate',
+    parser.add_argument(
+        '--substate',
         help='Expected systemd SubState (repeating).',
         dest='SUBSTATE',
         default=DEFAULT_SUBSTATE,
@@ -142,32 +152,50 @@ def parse_args():
             'unmounting-sigkill',
             'unmounting-sigterm',
             'waiting',
-            ],
-        )
+        ],
+    )
 
-    parser.add_argument('--unit',
+    parser.add_argument(
+        '--unit',
         help='Systemd unit name, for example "sshd", "sshd.service", "my-samba-mount.mount".',
         dest='UNIT',
         required = True,
-        )
+    )
 
-    parser.add_argument('--unitfilestate',
+    parser.add_argument(
+        '--unitfilestate',
         help='Expected systemd UnitFileState.',
         dest='UNITFILESTATE',
-        choices=['bad', 'disabled', 'enabled', 'enabled-runtime', 'generated', 'indirect', 'linked', 'linked-runtime', 'masked', 'masked-runtime', 'static', 'transient']
-        )
+        choices=[
+            'bad',
+            'disabled',
+            'enabled',
+            'enabled-runtime',
+            'generated',
+            'indirect',
+            'linked',
+            'linked-runtime',
+            'masked',
+            'masked-runtime',
+            'static',
+            'transient',
+        ]
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
-
+    command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
     stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(command + args.UNIT))
     if (stderr or retc != 0):
         lib.base2.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
@@ -177,7 +205,6 @@ def main():
     activestate   = result[1].replace('ActiveState=', '')
     substate      = result[2].replace('SubState=', '')
     unitfilestate = result[3].replace('UnitFileState=', '')
-
 
     state = STATE_OK
     msg = '{} is {}, {}, {}'.format(args.UNIT, loadstate, activestate, substate)
@@ -191,29 +218,30 @@ def main():
         problem = True
         problem_msg += 'Unit {} not found.  '.format(args.UNIT)
     else:
-	    if args.LOADSTATE and args.LOADSTATE != loadstate:
-	        problem = True
-	        problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, args.LOADSTATE)
-	    if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
-	        problem = True
-	        problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, args.ACTIVESTATE)
-	    if args.SUBSTATE and substate not in args.SUBSTATE:
-	        problem = True
-	        problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
-	    if args.UNITFILESTATE and args.UNITFILESTATE != unitfilestate:
-	        problem = True
-	        problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
+        if args.LOADSTATE and args.LOADSTATE != loadstate:
+            problem = True
+            problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, args.LOADSTATE)
+        if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
+            problem = True
+            problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, args.ACTIVESTATE)
+        if args.SUBSTATE and substate not in args.SUBSTATE:
+            problem = True
+            problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
+        if args.UNITFILESTATE and args.UNITFILESTATE != unitfilestate:
+            problem = True
+            problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
 
     if problem:
         msg = '{} - '.format(args.UNIT) + problem_msg[:-2]
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
+    # over and out
     lib.base2.oao(msg, state)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)

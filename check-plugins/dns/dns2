@@ -8,99 +8,116 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
+
+import argparse # pylint: disable=C0413
+import socket # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import time # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.net2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021702'
+__version__ = '2021060101'
 
-DESCRIPTION = 'Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the name servers configured on the machine running this check plugin (for example those visible in `/etc/resolv.conf`) will be queried - you can\'t query other DNS servers. This command works with both IPv4 and IPv6.'
+DESCRIPTION = """Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the
+                name servers configured on the machine running this check plugin (for example those
+                visible in `/etc/resolv.conf`) will be queried - you can't query other DNS servers.
+                This command works with both IPv4 and IPv6."""
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 53
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-import lib.net2
-
-import argparse
-import socket
-import time
-from traceback import print_exc
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('-c', '--critical',
+    parser.add_argument(
+        '-c', '--critical',
         help='Return critical if elapsed time in ms exceeds value. Default: None',
         dest='CRIT',
         type=float,
         default=None,
-        )
+    )
 
-    parser.add_argument('-H', '--hostname',
+    parser.add_argument(
+        '-H', '--hostname',
         help='The host or ip address to check. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
-        )
+    )
 
-    parser.add_argument('-p', '--port',
+    parser.add_argument(
+        '-p', '--port',
         help='The port number. Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
-        )
+    )
 
-    parser.add_argument('--type',
+    parser.add_argument(
+        '--type',
         help='Connection type. Can be optionally specified in order to narrow the list of addresses returned.',
         dest='TYPE',
         choices=['udp', 'udp6', 'tcp', 'tcp6'],
-        )
+    )
 
-    parser.add_argument('-w', '--warning',
+    parser.add_argument(
+        '-w', '--warning',
         help='Return warning if elapsed time in ms exceeds value. Default: None',
         dest='WARN',
         type=float,
         default=None,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # https://docs.python.org/2/library/socket.html#socket.getaddrinfo
     # socket.getaddrinfo(host, port[, family[, socktype[, proto[, flags]]]])¶
@@ -148,6 +165,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
