@@ -14,7 +14,7 @@ These monitoring check plugins
 * uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
 * use out of the box some sort of automatic detection using useful default settings
 * trigger WARNs and CRITs only where absolutely necessary
-* provide additional information on troubleshooting where possible
+* provide additional information for troubleshooting where possible
 * avoid dependencies on additional system libraries where possible
 
 All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
@@ -114,7 +114,7 @@ If you prefer to place the virtual environment somewhere else, you can point the
 
 **Caution**
 
-    Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
+    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
 
 
 Libraries
