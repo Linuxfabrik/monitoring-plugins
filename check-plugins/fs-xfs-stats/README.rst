@@ -109,6 +109,13 @@ Perfdata / Metrics
     write_calls_total                         , Continous Counter, Number of write(2) system calls made to files in a filesystem.                                                                       
 
 
+Troubleshooting
+---------------
+
+I/O error "No such file or directory" while opening or reading /proc/fs/xfs/stat
+    VM does not use a XFS-based filesystem, instead Ext4 or other. Disable the check for this machine.
+
+
 Credits, License
 ----------------
 
