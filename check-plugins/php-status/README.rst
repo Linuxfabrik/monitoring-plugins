@@ -18,6 +18,9 @@ Apache httpd config example:
 
     <Location /monitoring.php>
         Require local
+        # if using php-fpm, two examples:
+        #SetHandler "proxy:fcgi://127.0.0.1:9000/monitoring.php"
+        #SetHandler "proxy:unix:/run/php-fpm/www.sock|fcgi://localhost/monitoring.php"
     </Location>
 
 
