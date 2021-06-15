@@ -23,7 +23,7 @@ All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 1
 Support
 -------
 
-The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/ueber-uns/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
+The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
 
 
 Check Plugin Poster
@@ -298,12 +298,8 @@ Reporting Issues
 
 For now, there are two ways:
 
-1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
-2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
-
-
-
-
+1. Create an account on https://git.linuxfabrik.ch and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_ (preferred).
+2. `Contact us <https://www.linuxfabrik.ch/kontakt>`_ by email or web form and describe your problem.
 
 
 
