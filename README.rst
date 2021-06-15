@@ -14,7 +14,7 @@ These monitoring check plugins
 * uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
 * use out of the box some sort of automatic detection using useful default settings
 * trigger WARNs and CRITs only where absolutely necessary
-* provide additional information on troubleshooting where possible
+* provide additional information for troubleshooting where possible
 * avoid dependencies on additional system libraries where possible
 
 All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
@@ -114,7 +114,7 @@ If you prefer to place the virtual environment somewhere else, you can point the
 
 **Caution**
 
-    Make sure the ``bin/activate`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
+    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
 
 
 Libraries
@@ -137,10 +137,13 @@ Get our monitoring check plugins and the associated libraries from Linuxfabrik's
 
 .. code:: bash
 
+    BRANCH=master
+    PYVER=2
+
     cd /tmp
     
-    curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/master/monitoring-plugins-master.tar.gz
-    curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/master/lib-master.tar.gz
+    curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
+    curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
 
     tar xf lib.tar.gz
     tar xf monitoring-plugins.tar.gz
@@ -155,14 +158,16 @@ Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
 .. code:: bash
 
-    \cp /tmp/lib-master/*.py /usr/lib64/nagios/plugins/lib
+    \cp /tmp/lib-$BRANCH/*.py /usr/lib64/nagios/plugins/lib
 
 Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
 .. code:: bash
 
-    cd /tmp/monitoring-plugins-master/check-plugins
-    for check in $(find -maxdepth 2 -name '*2')
+    cd /tmp/monitoring-plugins-$BRANCH/check-plugins
+    find -maxdepth 2 -name 'test2' -delete
+    find -maxdepth 2 -name 'test3' -delete
+    for check in $(find -maxdepth 2 -name "*$PYVER")
     do
         dir=$(dirname $check)
         file=${dir:2}
