@@ -33,6 +33,10 @@ See most of our check plugins in action on an Icinga server at a glance:
 
 .. image:: linuxfabrik-monitoring-check-plugins.png
 
+... and if you zoom in, for example in *CPU Usage*:
+
+.. image:: linuxfabrik-monitoring-check-plugins-cpu-usage.png
+
 
 Human Readable Numbers
 ----------------------
