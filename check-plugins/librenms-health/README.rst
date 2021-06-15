@@ -4,7 +4,9 @@ Check librenms-health
 Overview
 --------
 
-Get health details of all devices in LibreNMS (mostly for debugging purposes). Depending on the number of devices and their sensors, the execution can take 3 seconds or longer.
+Get health details of all devices in LibreNMS (mostly for debugging purposes). Depending on the number of devices and their sensors, the execution can take 300 seconds or longer.
+
+You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
 
 .. hint::
 

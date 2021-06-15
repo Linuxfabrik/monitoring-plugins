@@ -6,6 +6,8 @@ Overview
 
 Displays LibreNMS instance information. This is not a "is there a new version out there" check as LibreNMS is capable of updating itself (if running the Git version).
 
+You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
+
 
 Fact Sheet
 ----------

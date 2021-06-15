@@ -6,6 +6,8 @@ Overview
 
 LibreNMS includes a highly customizable alerting system. The system requires a set of user-defined rules to evaluate the situation of each device, port, service or any other entity. This check warns about unacknowledged alerts in LibreNMS and reports the latest of the most critical alerts of each device.
 
+You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
+
 
 Fact Sheet
 ----------
@@ -17,7 +19,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
-    "Requirements",                         "LibreNMS"
+    "Requirements",                         "LibreNMS API Token"
 
 
 Help
