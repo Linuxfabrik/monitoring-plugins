@@ -1,0 +1,192 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.cache2 # pylint: disable=C0413
+import lib.net2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021061801'
+
+DESCRIPTION = """This plugin processes the database statistics of the Starface PBX. It uses the
+                data output of the Starface Monitoring Module, which was originally written for
+                Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is
+                cached up to one minute, so that other Starface plugins running in parallel do not
+                query the data again and overload the PBX."""
+
+DEFAULT_CACHE_EXPIRE = 1        # minutes
+DEFAULT_CACHE_FILE = 'linuxfabrik-starface-cache.db'
+DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_IPV6 = False
+DEFAULT_PORT = 6556
+DEFAULT_TIMEOUT = 3             # seconds
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the cached data expires, in minutes. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname', 
+        help='Starface PBX address, can be IP address or hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='Starface PBX monitoring port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-6', '--6',
+        help='Use IPv6.',
+        dest='USE_IPV6',
+        action='store_true',
+        default=DEFAULT_IPV6,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        # fetch data from PBX, but first from cache
+        data = lib.cache2.get(args.HOSTNAME, filename=DEFAULT_CACHE_FILE)
+        if not data:
+            data = lib.base2.coe(lib.net2.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
+            lib.cache2.set(args.HOSTNAME, data, lib.base2.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r') # pylint: disable=C0103
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r') # pylint: disable=C0103
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+        data = stdout
+
+    if not data:
+        lib.base2.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
+
+    # extract data
+    needle = '<<<starface_database>>>'
+    pos1 = data.find(needle)
+    pos2 = data.find('<<<', pos1+1)
+    result = data[pos1+len(needle):pos2].split('\n')
+
+    # init some vars
+    msg = 'Connections: '
+    state = STATE_OK
+    perfdata = ''
+
+    # build the message
+    for row in result:
+        if not row:
+            continue
+        key, value = row.split(' ')
+        if key == 'opened_connections':
+            msg += '{} opened, '.format(lib.base2.number2human(value))
+            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
+        if key == 'closed_connections':
+            msg += '{} closed, '.format(lib.base2.number2human(value))
+            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
+        if key == 'active_connections':
+            msg += '{} active, '.format(lib.base2.number2human(value))
+            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+        if key == 'idle_connections':
+            msg += '{} idle, '.format(lib.base2.number2human(value))
+            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+
+    # over and out
+    lib.base2.oao(msg[:-2], state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
