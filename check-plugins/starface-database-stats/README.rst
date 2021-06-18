@@ -1,5 +1,5 @@
-Check example
-=============
+Check starface-database-stats
+=============================
 
 Overview
 --------
