@@ -1,5 +1,5 @@
 <?php
-# 2021051201
+# 2021062101
 print_r(
     json_encode(
         array_merge(
@@ -22,7 +22,7 @@ print_r(
                     'post_max_size' => ini_get('post_max_size'),
                     'upload_max_filesize' => ini_get('upload_max_filesize'),
                 )
-            ),
+            )
         )
     )
 );
