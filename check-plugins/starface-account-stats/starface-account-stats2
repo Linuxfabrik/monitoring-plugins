@@ -40,7 +40,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021062101'
 
-DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
+DESCRIPTION = """Returns the account statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
                 originally written for Check_MK and listens on port 6556. Supports both IPv4 and
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
@@ -152,35 +152,50 @@ def main():
         lib.base2.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
 
     # extract data
-    result = lib.base2.extract_str(data, '<<<starface_database>>>', '<<<').splitlines()
+    result = lib.base2.extract_str(data, '<<<starface_accounts>>>', '<<<').splitlines()
 
     # init some vars
-    msg = 'Connections: '
+    msg = ''
     state = STATE_OK
     perfdata = ''
 
-    # build the message
+    # analyze the data
     for row in result:
         if not row:
             continue
-        key, value = row.split(' ')
-        if key == 'opened_connections':
-            msg += '{} opened, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'closed_connections':
-            msg += '{} closed, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'active_connections':
-            msg += '{} active, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
-        if key == 'idle_connections':
-            if value == '':
-                value = 0
-            msg += '{} idle, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+        if row.startswith('total_accounts'):
+            total_accounts = row.replace('total_accounts ', '').replace('/0', '')
+        if row.startswith('admin_accounts'):
+            admin_accounts = row.replace('admin_accounts ', '')
+        if row.startswith('active_accounts'):
+            active_accounts = row.replace('active_accounts ', '')
+        if row.startswith('available_accounts'):
+            available_accounts = row.replace('available_accounts ', '')
+        if row.startswith('ringing_accounts'):
+            ringing_accounts = row.replace('ringing_accounts ', '')
+        if row.startswith('unavailable_accounts'):
+            unavailable_accounts = row.replace('unavailable_accounts ', '')
+
+    # build the message
+    msg += '{} ringing, {} active, {} available{} (total {} {})\n{} of them are admin accounts'.format(
+        ringing_accounts,
+        active_accounts,
+        available_accounts,
+        ', {} unavailable'.format(unavailable_accounts) if unavailable_accounts else '',
+        total_accounts,
+        lib.base2.pluralize('account', total_accounts),
+        admin_accounts,
+    )
+
+    perfdata += lib.base2.get_perfdata('active_accounts', active_accounts, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('admin_accounts', admin_accounts, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('available_accounts', available_accounts, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ringing_accounts', ringing_accounts, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('total_accounts', total_accounts, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('unavailable_accounts', unavailable_accounts, None, None, None, 0, None)
 
     # over and out
-    lib.base2.oao(msg[:-2], state, perfdata)
+    lib.base2.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

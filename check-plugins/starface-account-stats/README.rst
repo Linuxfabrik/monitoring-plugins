@@ -1,10 +1,10 @@
-Check starface-database-stats
-=============================
+Check starface-account-stats
+============================
 
 Overview
 --------
 
-This plugin processes the database statistics of the Starface PBX.
+This check plugin returns the account statistics of the Starface PBX.
 
 It uses the data output of the `Starface Monitoring Module <https://wiki.fluxpunkt.de/display/FPW/Monitoring>`_, which was originally written for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up to one minute, so that other Starface plugins running in parallel do not query the data again and overload the PBX.
 
@@ -21,7 +21,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/starface-database-stats"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/starface-account-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
@@ -34,15 +34,15 @@ Help
 
 .. code-block:: text
 
-    usage: starface-database-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
-                                   [-H HOSTNAME] [--port PORT] [--test TEST]
-                                   [--timeout TIMEOUT] [-6]
+    usage: starface-account-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
+                                  [-H HOSTNAME] [--port PORT] [--test TEST]
+                                  [--timeout TIMEOUT] [-6]
 
-    Returns the database connection statistics of the Starface PBX. It uses the
-    data output of the Starface Monitoring Module, which was originally written
-    for Check_MK and listens on port 6556. Supports both IPv4 and IPv6. Fetched
-    data is cached up to one minute, so that other Starface plugins running in
-    parallel do not query the data again and overload the PBX.
+    Returns the account statistics of the Starface PBX. It uses the data output of
+    the Starface Monitoring Module, which was originally written for Check_MK and
+    listens on port 6556. Supports both IPv4 and IPv6. Fetched data is cached up
+    to one minute, so that other Starface plugins running in parallel do not query
+    the data again and overload the PBX.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -60,19 +60,19 @@ Help
       -6, --6               Use IPv6.
 
 
-
 Usage Examples
 --------------
 
 .. code-block:: bash
 
-    ./starface-database-stats --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+    ./starface-account-stats --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
 
 Output:
 
 .. code-block:: text
 
-    Connections: 26.7M opened, 26.7M closed, 19.0 active, 0.0 idle
+    1 ringing, 6 active, 86 available (total 97 accounts)
+    6 of them are admin accounts
 
 
 States
@@ -88,11 +88,13 @@ Perfdata / Metrics
     :widths: 25, 15, 60
     :header-rows: 1
     
-    Name,                               Type,                   Description                                           
-    active_connections,                 "Count",                "Number of currently active database connections"
-    closed_connections,                 "Continous Counter",    "Number of closed database connections"
-    idle_connections,                   "Count",                "Number of currently idle database connections"
-    opened_connections,                 "Continous Counter",    "Number of opened database connections"
+    Name,                               Type,                   Description
+    active_accounts,                    "Counter",              ""
+    admin_accounts,                     "Counter",              ""
+    available_accounts,                 "Counter",              ""
+    ringing_accounts,                   "Counter",              ""
+    total_accounts,                     "Counter",              ""
+    unavailable_accounts,               "Counter",              ""
 
 
 Credits, License

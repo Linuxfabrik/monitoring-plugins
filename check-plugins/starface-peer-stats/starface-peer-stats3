@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- encoding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -30,17 +30,17 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.args2 # pylint: disable=C0413
-import lib.base2 # pylint: disable=C0413
-import lib.cache2 # pylint: disable=C0413
-import lib.net2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.cache3 # pylint: disable=C0413
+import lib.net3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021062101'
 
-DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
+DESCRIPTION = """Returns the peer statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
                 originally written for Check_MK and listens on port 6556. Supports both IPv4 and
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
@@ -92,7 +92,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args2.csv,
+        type=lib.args3.csv,
     )
 
     parser.add_argument(
@@ -127,10 +127,10 @@ def main():
     # fetch data
     if args.TEST is None:
         # fetch data from PBX, but first from cache
-        data = lib.cache2.get(args.HOSTNAME, filename=DEFAULT_CACHE_FILE)
+        data = lib.cache3.get(args.HOSTNAME, filename=DEFAULT_CACHE_FILE)
         if not data:
-            data = lib.base2.coe(lib.net2.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
-            lib.cache2.set(args.HOSTNAME, data, lib.base2.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
+            data = lib.base3.coe(lib.net3.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
+            lib.cache3.set(args.HOSTNAME, data, lib.base3.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
     else:
         # do not call the command, put in test data
         if args.TEST[0] and os.path.isfile(args.TEST[0]):
@@ -149,38 +149,46 @@ def main():
         data = stdout
 
     if not data:
-        lib.base2.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
+        lib.base3.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
 
     # extract data
-    result = lib.base2.extract_str(data, '<<<starface_database>>>', '<<<').splitlines()
+    result = lib.base3.extract_str(data, '<<<starface_peers>>>', '<<<').splitlines()
 
     # init some vars
-    msg = 'Connections: '
+    msg = ''
     state = STATE_OK
     perfdata = ''
 
-    # build the message
+    # analyze the data
     for row in result:
         if not row:
             continue
-        key, value = row.split(' ')
-        if key == 'opened_connections':
-            msg += '{} opened, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'closed_connections':
-            msg += '{} closed, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'active_connections':
-            msg += '{} active, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
-        if key == 'idle_connections':
-            if value == '':
-                value = 0
-            msg += '{} idle, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+        if ' sip peers ' in row:
+            row = row.split(' ')
+            sip_peers = row[0]
+            mon_online = row[4]
+            mon_offline = row[6]
+            unmon_online = row[9]
+            unmon_offline = row[11]
+            break
+
+    # build the message
+    msg += '{} SIP Peers: {} online / {} offline (monitored), {} online / {} offline (unmonitored)'.format(
+        sip_peers,
+        mon_online,
+        mon_offline,
+        unmon_online,
+        unmon_offline,
+    )
+
+    perfdata += lib.base3.get_perfdata('sip_peers', sip_peers, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mon_online', mon_online, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mon_offline', mon_offline, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('unmon_online', unmon_online, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('unmon_offline', unmon_offline, None, None, None, 0, None)
 
     # over and out
-    lib.base2.oao(msg[:-2], state, perfdata)
+    lib.base3.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

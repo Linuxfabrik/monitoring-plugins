@@ -34,13 +34,13 @@ import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
 import lib.cache2 # pylint: disable=C0413
 import lib.net2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021062101'
 
-DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
+DESCRIPTION = """Checks the status of the newest backups of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
                 originally written for Check_MK and listens on port 6556. Supports both IPv4 and
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
@@ -48,10 +48,12 @@ DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
 
 DEFAULT_CACHE_EXPIRE = 1        # minutes
 DEFAULT_CACHE_FILE = 'linuxfabrik-starface-cache.db'
+DEFAULT_CRIT = None             # hours
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_IPV6 = False
 DEFAULT_PORT = 6556
 DEFAULT_TIMEOUT = 3             # seconds
+DEFAULT_WARN = 24               # hours
 
 
 def parse_args():
@@ -66,11 +68,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--cache-expire',
         help='The amount of time after which the cached data expires, in minutes. Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -101,6 +119,14 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
     )
 
     parser.add_argument(
@@ -152,35 +178,53 @@ def main():
         lib.base2.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
 
     # extract data
-    result = lib.base2.extract_str(data, '<<<starface_database>>>', '<<<').splitlines()
+    result = lib.base2.extract_str(data, '<<<starface_backups>>>', '<<<').splitlines()
 
     # init some vars
-    msg = 'Connections: '
+    msg = ''
     state = STATE_OK
     perfdata = ''
+    old_timestamp = 0
 
-    # build the message
+    # analyze the data
     for row in result:
         if not row:
             continue
-        key, value = row.split(' ')
-        if key == 'opened_connections':
-            msg += '{} opened, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'closed_connections':
-            msg += '{} closed, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'active_connections':
-            msg += '{} active, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
-        if key == 'idle_connections':
-            if value == '':
-                value = 0
-            msg += '{} idle, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+        # [HDD] 1623885428016 de.vertico.backup.successful'
+        # [SMB]192.168.1.6:/Backup_Starface 1556666025340 de.vertico.backup.mountfail
+        row = row.split(' ')
+        row[1] = int(row[1])/1000
+        if row[1] > old_timestamp:
+            # we found a more recent backup
+            target = row[0]
+            timestamp = row[1]
+            retc = row[2]
+            old_timestamp = row[1]
+
+    # get the states
+    now = lib.base2.now()
+    delta = now - timestamp
+    delta_state = lib.base2.get_state(delta, 
+        args.WARN * 60 * 60 if args.WARN is not None else None,
+        args.CRIT * 60 * 60 if args.CRIT is not None else None
+    )
+    state = lib.base2.get_worst(delta_state, state)
+
+    backup_state = STATE_WARN if not retc.endswith('successful') else STATE_OK
+    state = lib.base2.get_worst(backup_state, state)
+
+    # build the message
+    msg += 'Last Backup to {} at {} ({} ago{}) {}{}.'.format(
+        target,
+        lib.base2.epoch2iso(timestamp),
+        lib.base2.seconds2human(delta),
+        lib.base2.state2str(delta_state, prefix=' '),
+        'was successful' if backup_state == STATE_OK else 'failed ({})'.format(retc),
+        lib.base2.state2str(backup_state, prefix=' '),
+    )
 
     # over and out
-    lib.base2.oao(msg[:-2], state, perfdata)
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

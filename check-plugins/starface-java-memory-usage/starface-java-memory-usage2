@@ -34,13 +34,14 @@ import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
 import lib.cache2 # pylint: disable=C0413
 import lib.net2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021062101'
 
-DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
+DESCRIPTION = """Monitors the heap and non-heap memory usage of the Java VM of the
+                Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
                 originally written for Check_MK and listens on port 6556. Supports both IPv4 and
                 IPv6. Fetched data is cached up to one minute, so that other Starface plugins
@@ -48,10 +49,12 @@ DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
 
 DEFAULT_CACHE_EXPIRE = 1        # minutes
 DEFAULT_CACHE_FILE = 'linuxfabrik-starface-cache.db'
+DEFAULT_CRIT = 90               # %
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_IPV6 = False
 DEFAULT_PORT = 6556
 DEFAULT_TIMEOUT = 3             # seconds
+DEFAULT_WARN = 80               # %
 
 
 def parse_args():
@@ -66,11 +69,26 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--cache-expire',
         help='The amount of time after which the cached data expires, in minutes. Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--critical',
+        help='Set the critical threshold (percentage). Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -101,6 +119,13 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning',
+        help='Set the warning threshold (percentage). Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
     )
 
     parser.add_argument(
@@ -152,10 +177,10 @@ def main():
         lib.base2.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
 
     # extract data
-    result = lib.base2.extract_str(data, '<<<starface_database>>>', '<<<').splitlines()
+    result = lib.base2.extract_str(data, '<<<starface_java>>>', '<<<').splitlines()
 
     # init some vars
-    msg = 'Connections: '
+    msg = ''
     state = STATE_OK
     perfdata = ''
 
@@ -163,24 +188,47 @@ def main():
     for row in result:
         if not row:
             continue
-        key, value = row.split(' ')
-        if key == 'opened_connections':
-            msg += '{} opened, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'closed_connections':
-            msg += '{} closed, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, 'c', None, None, 0, None)
-        if key == 'active_connections':
-            msg += '{} active, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
-        if key == 'idle_connections':
-            if value == '':
-                value = 0
-            msg += '{} idle, '.format(lib.base2.number2human(value))
-            perfdata += lib.base2.get_perfdata(key, value, None, None, None, 0, None)
+
+        if row.startswith('java_heap_memory'):
+            mem_used, mem_max = row.replace('java_heap_memory ', '').split('/')
+            mem_used = float(mem_used)
+            mem_max = float(mem_max)
+            if mem_max == -1:
+                # unlimited memory usage allowed
+                msg += 'Heap used: {} (unlimited memory usage allowed), '.format(lib.base2.bytes2human(mem_used))
+                perfdata += lib.base2.get_perfdata('heap-used', mem_used, 'B', None, None, 0, None)
+            else:
+                used_percent = round(mem_used / mem_max * 100, 1)
+                used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+                msg += 'Heap used: {}% ({} of {}){}, '.format(
+                    used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+                )
+                state += lib.base2.get_worst(used_state, state)
+                perfdata += lib.base2.get_perfdata('heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
+                perfdata += lib.base2.get_perfdata('heap-used', mem_used, 'B', None, None, 0, mem_max)
+                perfdata += lib.base2.get_perfdata('heap-max', mem_max, 'B', None, None, 0, mem_max)
+
+        if row.startswith('java_non_heap_memory'):
+            mem_used, mem_max = row.replace('java_non_heap_memory ', '').split('/')
+            mem_used = float(mem_used)
+            mem_max = float(mem_max)
+            if mem_max == -1:
+                # unlimited memory usage allowed
+                msg += 'Non-Heap used: {} (unlimited memory usage allowed), '.format(lib.base2.bytes2human(mem_used))
+                perfdata += lib.base2.get_perfdata('non-heap-used', mem_used, 'B', None, None, 0, None)
+            else:
+                used_percent = round(mem_used / mem_max * 100, 1)
+                used_state = lib.base2.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+                msg += 'Non-Heap used: {}% ({} of {}){}, '.format(
+                    used_percent, lib.base2.bytes2human(mem_used), lib.base2.bytes2human(mem_max), lib.base2.state2str(used_state, prefix=' '),
+                )
+                state += lib.base2.get_worst(used_state, state)
+                perfdata += lib.base2.get_perfdata('non-heap-used-percent', used_percent, '%', args.WARN, args.CRIT, 0, 100)
+                perfdata += lib.base2.get_perfdata('non-heap-used', mem_used, 'B', None, None, 0, mem_max)
+                perfdata += lib.base2.get_perfdata('non-heap-max', mem_max, 'B', None, None, 0, mem_max)
 
     # over and out
-    lib.base2.oao(msg[:-2], state, perfdata)
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
