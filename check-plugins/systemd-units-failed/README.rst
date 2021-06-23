@@ -67,6 +67,16 @@ Perfdata / Metrics
 * systemd-units-failed: Number of failed units
 
 
+Troubleshooting
+---------------
+
+If you can't do anything and simply want to reset the status of a failed unit, do this:
+
+.. code-block:: bash
+
+    systemctl reset-failed ipmievd.service
+
+
 Credits, License
 ----------------
 
