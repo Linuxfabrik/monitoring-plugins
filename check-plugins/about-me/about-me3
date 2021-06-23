@@ -44,7 +44,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060901'
+__version__ = '2021062301'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -186,8 +186,7 @@ def get_apps():
 
     if apps:
         return apps[:-2]
-    else:
-        return ''
+    return ''
 
 
 def get_tools():
@@ -214,8 +213,7 @@ def get_tools():
     
     if sw:
         return sw[:-2]
-    else:
-        return ''
+    return ''
 
 
 def get_sw():
@@ -271,10 +269,13 @@ def get_sw():
     sw += find_command('TeamViewer',                'teamviewer --version',      version_regex=r'    (.*) ')  # TODO: better regex here
     sw += find_command('tmate',                     'tmate -V',                  version_regex=r' (.*)')
     
+    (success, (stdout, stderr, retc)) = lib.base3.shell_exec('/usr/sbin/vsftpd -version 0>&1', shell=True)
+    if success:
+        sw += stdout.strip().replace(': version', '') + ', '
+
     if sw:
         return sw[:-2]
-    else:
-        return ''
+    return ''
 
 
 def get_os_info():
@@ -300,8 +301,7 @@ def get_python_modules():
         pass
     if pm:
         return pm[:-2]
-    else:
-        return ''
+    return ''
 
 
 def main():
