@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021041901'
+__version__ = '2021062301'
 
 DESCRIPTION = 'This plugin lets you track if php updates are available.'
 
@@ -80,7 +80,7 @@ def get_installed_version():
     # where to find the version number in output?
     version_regex = r'PHP (.*?) \(.*'
     try:
-        stdout = re.search(version_regex, stdout)
+        stdout = re.match(version_regex, stdout)
         return stdout.group(1).strip()
     except:
         return ''
@@ -112,12 +112,18 @@ def main():
     installed_version = get_installed_version()
     if not installed_version:
         lib.base3.oao('PHP not found', STATE_UNKNOWN)
-    major, minor, patch = installed_version.split('.')
-    perfdata = lib.base3.get_perfdata('php-version', float('{}.{}{}'.format(major, minor, patch)), None, None, None, 0, None)
-    latest_version = get_latest_version(major, minor, args.CACHE_EXPIRE*60*60)
-    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
-        lib.base3.oao('PHP v{} is up to date'.format(installed_version), STATE_OK, perfdata)
-    lib.base3.oao('PHP v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+    if re.match(r'^\d\.\d\.\d+$', installed_version) is not None:
+        # we got a "normal" version number like "5.4.0" or 7.3.38"
+        installed_version = lib.base3.version2float(installed_version)
+        major, minor, patch = installed_version.split('.')
+        perfdata = lib.base3.get_perfdata('php-version', float('{}.{}{}'.format(major, minor, patch)), None, None, None, 0, None)
+        latest_version = get_latest_version(major, minor, args.CACHE_EXPIRE*60*60)
+        if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
+            lib.base3.oao('PHP v{} is up to date'.format(installed_version), STATE_OK, perfdata)
+        lib.base3.oao('PHP v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        # we got something unusual like "5.640-0+deb8u12" what is too troublesome to check
+        lib.base3.oao('PHP v{} found. Due to the unusual version number, no update check is carried out.'.format(installed_version), STATE_OK)
 
 
 if __name__ == '__main__':
