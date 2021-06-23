@@ -35,7 +35,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060101'
+__version__ = '2021062301'
 
 DESCRIPTION = 'Trys to get entries from Name Service Switch (NSS) libraries and warns on errors or no match.'
 
@@ -92,21 +92,20 @@ def main():
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
-    if (stderr):
+    if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
-    # init some vars
-    state = STATE_OK
-    msg = 'Everything is ok. Executed `{}`.'.format(cmd)
-
     # build the message
-    if (retc == 1):
+    if retc == 0:
+        msg = 'Everything is ok. Executed `{}`.\n\n{}'.format(cmd, stdout)
+        state = STATE_OK
+    if retc == 1:
         msg = 'Missing arguments for `{}`, or database "{}" unknown.'.format(cmd, args.DATABASE)
         state = STATE_UNKNOWN
-    if (retc == 2):
+    if retc == 2:
         msg = 'One or more supplied keys could not be found in "{}", executing `{}`.'.format(args.DATABASE, cmd)
         state = STATE_WARN
-    if (retc == 3):
+    if retc == 3:
         msg = 'Multiple keys (enumeration) not supported on database "{}".'.format(args.DATABASE)
         state = STATE_UNKNOWN
 
