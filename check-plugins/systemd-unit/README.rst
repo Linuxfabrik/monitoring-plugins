@@ -4,7 +4,7 @@ Check systemd-unit
 Overview
 --------
 
-Checks states of a service, job, mount etc., using ``systemctl show``.
+Checks the state of a service, job, mount etc., using ``systemctl show``.
 
 Simple example: ``./systemd-unit --loadstate=loaded --activestate=active --substate=running --unitfilestate=enabled --unit=crond.service`` is checked against ``systemctl show -p LoadState,ActiveState,SubState,UnitFileState crond.service``.
 
@@ -137,7 +137,7 @@ Output:
 
 .. code-block:: text
 
-    firewalld.service - LoadState is "loaded", but supposed to be "not-found"
+    firewalld.service - LoadState is "loaded", but should be set to "not-found"
 
 
 States

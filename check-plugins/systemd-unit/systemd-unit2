@@ -35,7 +35,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060201'
+__version__ = '2021062302'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -169,6 +169,7 @@ def parse_args():
         choices=[
             'bad',
             'disabled',
+            'empty',
             'enabled',
             'enabled-runtime',
             'generated',
@@ -208,8 +209,10 @@ def main():
 
     state = STATE_OK
     msg = '{} is {}, {}, {}'.format(args.UNIT, loadstate, activestate, substate)
+    if args.UNITFILESTATE == 'empty':
+        args.UNITFILESTATE = None
     if args.UNITFILESTATE:
-        msg += ', unit file is {}.'.format(unitfilestate)
+        msg += ', UnitFileState is {}.'.format(unitfilestate)
 
     # now do the checks
     problem = False
@@ -220,16 +223,16 @@ def main():
     else:
         if args.LOADSTATE and args.LOADSTATE != loadstate:
             problem = True
-            problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, args.LOADSTATE)
+            problem_msg += 'LoadState is "{}", but should be set to "{}"; '.format(loadstate, args.LOADSTATE)
         if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
             problem = True
-            problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, args.ACTIVESTATE)
+            problem_msg += 'ActiveState is "{}", but should be set to "{}"; '.format(activestate, args.ACTIVESTATE)
         if args.SUBSTATE and substate not in args.SUBSTATE:
             problem = True
-            problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
+            problem_msg += 'SubState is "{}", but should be set to "{}"; '.format(substate, args.SUBSTATE)
         if args.UNITFILESTATE and args.UNITFILESTATE != unitfilestate:
             problem = True
-            problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
+            problem_msg += 'UnitFileState is "{}", but should be set to "{}"; '.format(unitfilestate, args.UNITFILESTATE)
 
     if problem:
         msg = '{} - '.format(args.UNIT) + problem_msg[:-2]
