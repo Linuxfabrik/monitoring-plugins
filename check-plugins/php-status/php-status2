@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021062201'
+__version__ = '2021062301'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -218,7 +218,7 @@ def main():
         mem_used_percentage = round(float(mem_used) / float(mem_total) * 100, 1)
         opcache_state = lib.base2.get_state(mem_used_percentage, args.WARN, args.CRIT)
         state = lib.base2.get_worst(opcache_state, state)
-        msg += 'OpCache Mem {}% used ({}/{}){}, '.format(
+        msg += 'Opcache Mem {}% used ({}/{}){}, '.format(
             mem_used_percentage,
             lib.base2.bytes2human(mem_used),
             lib.base2.bytes2human(mem_total),
@@ -320,7 +320,7 @@ def main():
         table_values.append({'key': 'opcache.validate_timestamps', 'val': 'True' if php.get('opcache_config').get('directives').get('opcache.validate_timestamps') else 'False'})
         table_values.append({'key': 'opcache.revalidate_freq', 'val': php.get('opcache_config').get('directives').get('opcache.revalidate_freq')})
     else:
-        msg += 'Opache not installed or not enabled{}, '.format(lib.base2.state2str(STATE_WARN, prefix=' '))
+        msg += 'Opcache not installed or not enabled{}, '.format(lib.base2.state2str(STATE_WARN, prefix=' '))
         state = lib.base2.get_worst(state, STATE_WARN)
 
     startup_errors = get_startup_errors()
