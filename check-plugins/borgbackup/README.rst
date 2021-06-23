@@ -73,6 +73,13 @@ Perfdata / Metrics
 * duration
 
 
+Troubleshooting
+---------------
+
+local variable '...' referenced before assignment
+    Expected behaviour of the check. If either ``starttime``, ``endtime``, ``create_retc`` or ``prune_retc`` is missing (and hence this error message is returned), the backup has failed in any way.
+
+
 Credits, License
 ----------------
 
