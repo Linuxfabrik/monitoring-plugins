@@ -16,9 +16,9 @@ How do you get an idea what to check for?
 
 .. attention::
 
-    * If any of `--activestate`, `--substate` or `--unitfilestate` is ommited, the related unit state value will not be checked (so the check don't care, just prints).
-    * Best practise is to specify `--activestate` and `--substate` at least.
-    * The unit suffix `.service` is optional for service units only, but it is - as always - recommended to use it.
+    * If any of ``--activestate``, ``--substate`` or ``--unitfilestate`` is ommited, the related unit state value will not be checked (so the check don't care, just prints).
+    * Best practise is to specify ``--activestate`` and ``--substate`` at least.
+    * The unit suffix ``.service`` is optional for service units only, but it is - as always - recommended to use it.
 
 
 Fact Sheet
@@ -39,13 +39,13 @@ Help
 
 .. code-block:: text
 
-    usage: systemd-unit [-h] [-V]
-                        [--activestate {active,failed,inactive,activating,deactivating}]
-                        [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
-                        [--severity {warn,crit}]
-                        [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
-                        --unit UNIT
-                        [--unitfilestate {bad,disabled,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}]
+    usage: systemd-unit2 [-h] [-V]
+                         [--activestate {active,failed,inactive,activating,deactivating}]
+                         [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
+                         [--severity {warn,crit}]
+                         [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
+                         --unit UNIT
+                         [--unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}]
 
     Checks the state of a service, socket, device, mount, automount, swap, target,
     path, timer, slice or scope - using systemd/systemctl. For example, to check
@@ -56,82 +56,57 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --activestate {active,failed,inactive,activating,deactivating}
-                            Expected systemd ActiveState (repeating).
+                            Expected systemd ActiveState (repeating). This is the
+                            high-level unit activation state(s), i.e.
+                            generalization of SUB. If ommited, the unit's active
+                            state will not be checked.
       --loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}
-                            Expected systemd LoadState. Default: loaded
+                            Expected systemd LoadState. Reflects whether the unit
+                            definition was properly loaded. Default: loaded
       --severity {warn,crit}
-                            Severity if something is found. One of "warn" or
-                            "crit". Default: warn
+                            If something was found, the check returns WARN unless
+                            set here. One of "warn" or "crit". Default: warn
       --substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
-                            Expected systemd SubState (repeating).
-      --unit UNIT           Systemd unit name, for example "sshd", "sshd.service",
-                            "my-samba-mount.mount".
-      --unitfilestate {bad,disabled,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}
-                            Expected systemd UnitFileState.
+                            Expected systemd SubState (repeating). This is the
+                            low-level unit activation state(s); values depend on
+                            unit type. If ommited, the unit's substate will not be
+                            checked.
+      --unit UNIT           The unit name (service, timer, mount etc.). Required.
+                            For example "sshd", "sshd.service", "my-samba-
+                            mount.mount" etc.
+      --unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}
+                            Expected systemd UnitFileState. If ommited or set to
+                            "None", the unit's unit-file state will not be
+                            checked. If "empty", checks exactly for
+                            ``UnitFileState=""``.
 
-``--activestate`` (repeating):
-
-* The high-level unit activation state(s), i.e. generalization of SUB.
-* If ommited, the unit's active state will not be checked.
-* activestate=active,failed,inactive,activating,deactivating
-* Default: none
-
-``--loadstate``:
-
-* Reflects whether the unit definition was properly loaded.
-* loadstate=loaded,not-found
-* Default: loaded
-
-``--severity``:
-
-* If something was found, the check returns WARN unless set here.
-* severity=warn,crit
-* Default: warn
-
-``--substate`` (repeating):
-
-* The low-level unit activation state(s); values depend on unit type.
-* If ommited, the unit's substate will not be checked.
-* substate=abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting
-* Default: none
-
-``--unit``:
-
-* The unit name (service, timer, mount etc.).
-* Required.
-
-``--unitfilestate``:
-
-* If ommited, the unit's unit-file state will not be checked.
-* unitfilestate=bad,disabled,enabled,enabled-runtime,generated,indirect,static,transient
-* Default: none
 
 
 Usage Examples
 --------------
 
 * | Does the service exist? (and nothing more!)
-  | ``systemd-unit --unit=firewalld.service``
+  | ``./systemd-unit --unit=firewalld.service``
 * | Is the service running?
-  | ``systemd-unit --substate=running --unit=firewalld.service``
+  | ``./systemd-unit --substate=running --unit=firewalld.service``
 * | Is the service disabled?
-  | ``systemd-unit --unitfilestate=disabled --unit=firewalld.service``
+  | ``./systemd-unit --unitfilestate=disabled --unit=firewalld.service``
 * | Is the service stopped and disabled?
-  | ``systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service``
+  | ``./systemd-unit --activestate=inactive --substate=dead --unitfilestate=disabled --unit=firewalld.service``
 * | Is the service exited?
-  | ``systemd-unit --substate=exited --unit=firewalld.service``
+  | ``./systemd-unit --substate=exited --unit=firewalld.service``
 * | Is this service with instance name "server" running?
-  | ``systemd-unit --substate=running --unit=openvpn-server@server.service``
+  | ``./systemd-unit --substate=running --unit=openvpn-server@server.service``
 * | Is this service absent/uninstalled?
-  | ``systemd-unit --loadstate=not-found --unit=firewalld.service``
+  | ``./systemd-unit --loadstate=not-found --unit=firewalld.service``
 * | Is this path mounted? (Output shown below)
-  | ``systemd-unit --substate=mounted --unit=mnt-smb.mount``
+  | ``./systemd-unit --substate=mounted --unit=mnt-smb.mount``
 * | Is this device plugged in?
-  | ``systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device``
+  | ``./systemd-unit --substate=plugged --unit=sys-devices-virtual-net-tun0.device``
 * | The current state of a timer job? (has one activestate and two substates)
-  | ``systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer``
+  | ``./systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer``
 * | Check a service depending on a timer (has two activestates and two substates):
-  | ``systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service``
+  | ``./systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service``
 
 Output:
 
