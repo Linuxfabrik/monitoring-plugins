@@ -6,6 +6,8 @@ Overview
 
 This check plugin monitors the memory pool usage of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
 
+Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
+
 Tested with WildFly 11 and WildFly 23.
 
 To create a monitoring user, do this:
@@ -109,8 +111,8 @@ States
 
 Triggers an alarm on usage in percent.
 
-* WARN or CRIT if memory usage (used) is above certain thresholds (default 80/90 %)
-* WARN if WildFly reports 'usage-threshold-exceeded' == TRUE
+* WARN or CRIT if memory usage is above certain thresholds (default 80/90 %). Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
+* WARN if WildFly reports ``usage-threshold-exceeded == TRUE``
 
 
 Perfdata / Metrics

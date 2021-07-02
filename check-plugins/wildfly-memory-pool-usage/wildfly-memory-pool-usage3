@@ -27,7 +27,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021042002'
+__version__ = '2021070201'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -41,7 +41,6 @@ DEFAULT_WARN = 80
 #====================
 from lib.globals3 import *
 
-import lib.args3
 import lib.base3
 import lib.wildfly3
 
@@ -157,16 +156,15 @@ def check_memory_pool_usage(args):
         mem_used = value['usage']['used']
         mem_committed = value['usage']['committed']
         mem_max = value['usage']['max']
+        used_state = STATE_OK
+        used_percent = 0.0
         if mem_max != -1:
+            # limited memory
             used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
-        else:
-            used_percent = 0.0
-
-        if mem_max != -1:
-            used_state = lib.base3.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-            state = lib.base3.get_worst(state, used_state)
-        else:
-            used_state = STATE_OK
+            if 'Survivor' not in name:
+                # ignore PS_Survivor_Space
+                used_state = lib.base3.get_state(used_percent, args.WARN, args.CRIT, 'ge')
+                state = lib.base3.get_worst(state, used_state)
 
         if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] == True:
             threshold_state = STATE_WARN
