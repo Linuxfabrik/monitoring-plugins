@@ -8,49 +8,59 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.cache2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021062301'
+__version__ = '2021070501'
 
-DESCRIPTION = 'This plugin lets you track if php updates are available.'
+DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
+                whether the installed PHP version is EOL. For example, if you installed PHP 7.3
+                while PHP 7.4 is available, you will get a warning. If you're running PHP 7.4 and
+                PHP 8 is available (which is a major upgrade), you won't get a warning. To check for
+                available upgrades, this plugin uses https://www.php.net/releases/index.php.
+                To compare against the current/installed version of PHP, the check calls 
+                ``php --version``."""
 
 DEFAULT_CACHE_EXPIRE = 24 # hours
 
 
-#====================
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
-
-import lib.base2
-import lib.cache2
-import lib.url2 
-
-import argparse
-import re
-import sys
-from traceback import print_exc
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -58,7 +68,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--cache-expire',
@@ -66,7 +76,7 @@ def parse_args():
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
-        )
+    )
 
     return parser.parse_args()
 
@@ -86,9 +96,23 @@ def get_installed_version():
         return ''
 
 
-def get_latest_version(major, minor, expire):
+def get_latest_version(expire, major, minor=None):
     # get version online, but first from cache
-    latest_version = lib.cache2.get('php-{}.{}-version'.format(major, minor))
+    if minor is None:
+        latest_version = lib.cache2.get('latest-version-php-{}'.format(major))
+        if latest_version:
+            return latest_version
+
+        # nothing found in cache, get the latest version
+        jsonst = lib.base2.coe(lib.url2.fetch_json('https://www.php.net/releases/index.php?json&version={}'.format(major)))
+        try:
+            latest_version = jsonst['version']
+            lib.cache2.set('latest-version-php-{}'.format(major), latest_version, lib.base2.now() + expire)
+            return latest_version
+        except:
+            lib.base2.oao('PHP.net does not know anything about PHP v{}.'.format(major), STATE_UNKNOWN)
+
+    latest_version = lib.cache2.get('latest-version-php-{}-{}'.format(major, minor))
     if latest_version:
         return latest_version
 
@@ -96,13 +120,16 @@ def get_latest_version(major, minor, expire):
     jsonst = lib.base2.coe(lib.url2.fetch_json('https://www.php.net/releases/index.php?json&version={}.{}'.format(major, minor)))
     try:
         latest_version = jsonst['version']
-        lib.cache2.set('php-{}.{}-version'.format(major, minor), latest_version, lib.base2.now() + expire)
+        lib.cache2.set('latest-version-php-{}-{}'.format(major, minor), latest_version, lib.base2.now() + expire)
         return latest_version
     except:
-        lib.base2.oao('Unknown PHP version', STATE_UNKNOWN)
+        lib.base2.oao('PHP.net does not know anything about PHP v{}.{}.'.format(major, minor), STATE_UNKNOWN)
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -111,24 +138,77 @@ def main():
 
     installed_version = get_installed_version()
     if not installed_version:
-        lib.base2.oao('PHP not found', STATE_UNKNOWN)
-    if re.match(r'^\d\.\d\.\d+$', installed_version) is not None:
-        # we got a "normal" version number like "5.4.0" or 7.3.38"
-        installed_version = lib.base2.version2float(installed_version)
-        major, minor, patch = installed_version.split('.')
-        perfdata = lib.base2.get_perfdata('php-version', float('{}.{}{}'.format(major, minor, patch)), None, None, None, 0, None)
-        latest_version = get_latest_version(major, minor, args.CACHE_EXPIRE*60*60)
-        if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
-            lib.base2.oao('PHP v{} is up to date'.format(installed_version), STATE_OK, perfdata)
-        lib.base2.oao('PHP v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, perfdata, always_ok=args.ALWAYS_OK)
-    else:
+        lib.base2.oao('PHP not found.', STATE_UNKNOWN)
+    if re.match(r'^\d\.\d\.\d+$', installed_version) is None:
         # we got something unusual like "5.640-0+deb8u12" what is too troublesome to check
         lib.base2.oao('PHP v{} found. Due to the unusual version number, no update check is carried out.'.format(installed_version), STATE_OK)
+
+    # we got a "normal" version number like "5.4.0" or 7.3.38"
+    installed_major, installed_minor, installed_patch = installed_version.split('.')
+    latest_patch_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major, installed_minor)
+    latest_minor_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major)
+    latest_major, latest_minor, latest_patch = latest_minor_version.split('.')
+
+    # for example:
+    #   installed_version: 7.3.10
+    #   latest_patch_version: 7.3.29 as of 2021-07-05
+    #   latest_minor_version: 7.4.21 as of 2021-07-05
+    # ==> raises a warning because 7.4 is available
+
+    # init some vars
+    state = STATE_OK
+    perfdata = lib.base2.get_perfdata('php-version', '{}.{}{}'.format(
+        installed_major,
+        installed_minor,
+        installed_patch), None, None, None, 0, None
+    )
+    msg = 'PHP v{} installed'.format(installed_version)
+
+    # check the installed vs available version
+    if lib.base2.version(installed_major + '.' + installed_minor) < lib.base2.version(latest_major + '.' + latest_minor):
+        state = STATE_WARN
+
+    # check EOL
+    # unfortunately, the "museum" tag in json response doesn't help here, so we have to maintain
+    # this list manually
+    if installed_major + '.' + installed_minor == '5.6':
+        msg += ', EOL since 2018-12-31'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '7.0':
+        msg += ', EOL since 2019-01-10'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '7.1':
+        msg += ', EOL since 2019-12-01'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '7.2':
+        msg += ', EOL since 2020-11-30'
+        state = STATE_WARN
+
+    if installed_major + '.' + installed_minor == '7.3' and lib.base2.now(as_type='iso') > '2021-12-06':
+        msg += ', EOL since 2021-12-06'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '7.4' and lib.base2.now(as_type='iso') > '2022-11-28':
+        msg += ', EOL since 2022-11-28'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '8.0' and lib.base2.now(as_type='iso') > '2023-11-26':
+        msg += ', EOL since 2023-11-26'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '8.1' and lib.base2.now(as_type='iso') > '2024-11-30':
+        msg += ', EOL since 2024-11-30'
+        state = STATE_WARN
+
+    if lib.base2.version(installed_version) >= lib.base2.version(latest_minor_version):
+        msg += ', is up to date'
+    else:
+        msg += ', PHP v{} available at php.net'.format(latest_minor_version)
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
         sys.exit(STATE_UNKNOWN)

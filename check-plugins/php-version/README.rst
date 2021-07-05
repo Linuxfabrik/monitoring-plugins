@@ -4,7 +4,9 @@ Check php-version
 Overview
 --------
 
-This plugin lets you track if a PHP update is available. To check for updates, this plugin uses https://www.php.net/releases/index.php. To compare against the current/installed version of PHP, the check calls ``php --version``.
+With this plugin you can check whether a PHP minor *upgrade* is available or whether the installed PHP version is EOL. For example, if you installed PHP 7.3 while PHP 7.4 is available, you will get a warning. If you're running PHP 7.4 and PHP 8 is available (which is a major upgrade), you won't get a warning. 
+
+To check for available upgrades, this plugin uses https://www.php.net/releases/index.php. To compare against the current/installed version of PHP, the check calls ``php --version``.
 
 
 Fact Sheet
@@ -26,9 +28,15 @@ Help
 
 .. code-block:: text
 
-    usage: php-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+    usage: php-version3 [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
 
-    This plugin lets you track if php updates are available.
+    With this plugin you can check whether a PHP minor *upgrade* is available or
+    whether the installed PHP version is EOL. For example, if you installed PHP
+    7.3 while PHP 7.4 is available, you will get a warning. If you're running PHP
+    7.4 and PHP 8 is available (which is a major upgrade), you won't get a
+    warning. To check for available upgrades, this plugin uses
+    https://www.php.net/releases/index.php. To compare against the
+    current/installed version of PHP, the check calls ``php --version``.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -50,20 +58,21 @@ Output:
 
 .. code-block:: text
 
-    PHP v7.4.20 is available (installed: v7.4.19)
+    PHP v7.4.20 installed, PHP v7.4.21 available at php.net
 
 
 States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if update is available.
+* else returns WARN if a minor update is available
+* or returns WARN if installed PHP version is End-of-Life (EOL)
 
 
 Perfdata / Metrics
 ------------------
 
-* php-version: as a float. "7.4.16" becomes "7.416".
+* php-version: Installed PHP version as a float. "7.4.16" becomes "7.416".
 
 
 Credits, License
