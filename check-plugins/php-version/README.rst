@@ -28,7 +28,7 @@ Help
 
 .. code-block:: text
 
-    usage: php-version3 [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+    usage: php-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
 
     With this plugin you can check whether a PHP minor *upgrade* is available or
     whether the installed PHP version is EOL. For example, if you installed PHP
