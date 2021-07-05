@@ -77,6 +77,7 @@ Help
       --warning WARN        Set the warning threshold.
 
 
+
 Usage Examples
 --------------
 
@@ -96,7 +97,7 @@ States
 
 Triggers an alarm on absolute values.
 
-* WARN or CRIT if any Garbage Collector "Average Time" is above certain thresholds (default 500/1000)
+* WARN or CRIT if any Garbage Collector "Average Time" is above certain thresholds (default 1500/5000)
 
 
 Perfdata / Metrics
