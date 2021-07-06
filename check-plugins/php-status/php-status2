@@ -30,14 +30,13 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 from traceback import print_exc # pylint: disable=C0413
 
-import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
 import lib.url2 # pylint: disable=C0413
 from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021062301'
+__version__ = '2021070601'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -252,13 +251,10 @@ def main():
         cache_hits = php.get('opcache_status').get('opcache_statistics').get('hits')
         cache_misses = php.get('opcache_status').get('opcache_statistics').get('misses')
         cache_hit_rate = round(php.get('opcache_status').get('opcache_statistics').get('opcache_hit_rate'), 1)
-        opcache_state = lib.base2.get_state(cache_hit_rate, args.WARN, None, operator='le')
-        state = lib.base2.get_worst(opcache_state, state)
-        msg += 'Hit Rate {}% ({} hits, {} misses){}, '.format(
+        msg += 'Hit Rate {}% ({} hits, {} misses), '.format(
             cache_hit_rate,
             lib.base2.number2human(cache_hits),
             lib.base2.number2human(cache_misses),
-            lib.base2.state2str(opcache_state, prefix=' '),
             )
 
         # Opcache Interned String Buffer (opcache.interned_strings_buffer)

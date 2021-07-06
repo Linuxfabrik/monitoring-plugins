@@ -108,7 +108,6 @@ WARN or CRIT:
 
 * if Opcache Memory usage is above the given percentage thresholds (default 80/90%)
 * if Opcache Key usage is above the given percentage thresholds (default 80/90%)
-* if Opcache Hit Rate is below the given percentage thresholds (default 80/90%)
 * if Opcache interned string usage is above the given percentage thresholds (default 80/90%)
 
 
