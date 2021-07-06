@@ -8,76 +8,59 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-# inspired by
-# * https://github.com/aparnachaudhary/nagios-plugin-jbossas7/blob/master/check_jbossas7.py
-# * https://github.com/gtudan/nagios-plugin-wildlfy/blob/master/check_wildfly.py
+"""Have a look at the check's README for further details.
+"""
 
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.wildfly3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021070501'
+__version__ = '2021070601'
 
-DESCRIPTION = 'Checks the status of the Wildfly/JBossAS garbage collector over HTTP.'
+DESCRIPTION = 'Prints the status of the Wildfly/JBossAS garbage collector.'
 
-DEFAULT_CRIT = 5000
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-admin'
-DEFAULT_WARN = 1500
-
-
-#====================
-from lib.globals3 import *
-
-import lib.args3
-import lib.base3
-import lib.wildfly3
-
-import argparse
-from traceback import print_exc
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
-
-    parser.add_argument(
-        '--always-ok',
-        help='Always returns OK.',
-        dest='ALWAYS_OK',
-        action='store_true',
-        default=False,
-        )
-
-    parser.add_argument(
-        '--critical',
-        help='Set the critical threshold.',
-        dest='CRIT',
-        default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '--instance',
         help='The instance (server-config) to check if running in domain mode.',
         dest='INSTANCE',
-        )
+    )
 
     parser.add_argument(
         '--mode',
@@ -85,20 +68,20 @@ def parse_args():
         dest='MODE',
         choices=['standalone', 'domain'],
         default='standalone',
-        )
+    )
 
     parser.add_argument(
         '--node',
         help='The node (host) if running in domain mode.',
         dest='NODE',
-        )
+    )
 
     parser.add_argument(
         '-p', '--password',
         help='WildFly API password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -106,14 +89,14 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
         '--url',
         help='WildFly API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     parser.add_argument(
         '--username',
@@ -121,19 +104,23 @@ def parse_args():
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
-        )
-
-    parser.add_argument(
-        '--warning',
-        help='Set the warning threshold.',
-        dest='WARN',
-        default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
 
-def check_garbage_collector_status(args):
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch and analyze data
+    # https://docs.wildfly.org/23/Admin_Guide.html
     data = {
         'operation': 'read-resource',
         'include-runtime': 'true',
@@ -143,41 +130,28 @@ def check_garbage_collector_status(args):
         'json': 1,    }
     res = lib.wildfly3.get_data(args, data)
 
-    msg = 'GC Statistics (time/count/avr). '
+    msg = ''
     perfdata = ''
     state = STATE_OK
 
     for name, value in res['name'].items():
         gc_time = value['collection-time']
         gc_count = value['collection-count']
-        avr_gc_time = 0
-        if gc_count > 0:
-            avr_gc_time = float(gc_time / gc_count)
-        perfdata += lib.base3.get_perfdata('garbage-collector-{}-collection-time'.format(name), gc_time, 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('garbage-collector-{}-collection-time'.format(name), gc_time, 'ms', None, None, 0, None)
         perfdata += lib.base3.get_perfdata('garbage-collector-{}-collection-count'.format(name), gc_count, 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('garbage-collector-{}-collection-avrtime'.format(name), avr_gc_time, None, None, None, 0, None)
-        local_state = lib.base3.get_state(avr_gc_time, args.WARN, args.CRIT)
-        state = lib.base3.get_worst(state, local_state)
-        msg += '{}: {}/{}/{}{}, '.format(name, gc_time, gc_count, avr_gc_time, lib.base3.state2str(local_state, prefix=' '))
+        msg += '{}: CollectionCount {}, CollectionTime {}; '.format(
+            name,
+            lib.base3.number2human(gc_count),
+            lib.base3.seconds2human(float(gc_time)/1000),
+        )
 
-    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
-
-
-def main():
-    # parse the command line, exit with UNKNOWN if it fails
-    try:
-        args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
-
-    # fetch and analyze data
-    # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_garbage_collector_status(args)
+    # over and out
+    lib.base3.oao(msg[:-2], state, perfdata)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         print_exc()
-        exit(STATE_UNKNOWN)
+        sys.exit(STATE_UNKNOWN)
