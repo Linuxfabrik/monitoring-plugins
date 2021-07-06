@@ -1,5 +1,5 @@
-Check cloudflare-security-level
-===============================
+Event-Plugin cloudflare-security-level
+======================================
 
 Overview
 --------
@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/dummy"
+    "Event Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/dummy"
     "Check Interval Recommendation",        "Event Plugin: On state change"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2, Python 3"
@@ -33,8 +33,8 @@ Help
     "under_attack" if state of the service - from which this event plugin was
     called - changes to CRITICAL (even in SOFT state). Changes to "medium" when
     the state is OK. If the zone/site is in "Under Attack Mode", Cloudflare will
-    display a JavaScript challenge when you visit this website. This event plugin
-    is useful, for example, when the Apache httpd status check reports overuse.
+    display a 5sec Delay when you visit this website. This event plugin is useful,
+    for example, when the Apache httpd status check reports overuse.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -52,23 +52,11 @@ Usage Examples
 
 .. code-block:: bash
 
-    # enables Cloudflare "Under Attack Mode"
-    ./cloudflare-security-level --servicestate CRITICAL --key 1234 --username info@linuxfabrik.ch --zone-id 9876
+    # enables Cloudflare "Under Attack Mode" for two zones
+    ./cloudflare-security-level --servicestate CRITICAL --key 1234 --username info@linuxfabrik.ch --zone-id 0815 --zone-id 4711
 
     # disables Cloudflare "Under Attack Mode"
-    ./cloudflare-security-level --servicestate OK --key 1234 --username info@linuxfabrik.ch --zone-id 9876
-    
-
-States
-------
-
-* Always returns OK.
-
-
-Perfdata / Metrics
-------------------
-
-There is no perfdata.
+    ./cloudflare-security-level --servicestate OK --key 1234 --username info@linuxfabrik.ch --zone-id 0815 --zone-id 4711
 
 
 Credits, License

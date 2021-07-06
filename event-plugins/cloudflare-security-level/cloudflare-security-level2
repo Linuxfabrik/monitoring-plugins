@@ -39,7 +39,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021062301'
+__version__ = '2021070601'
 
 DESCRIPTION = """Event Plugin: Changes the security level for a zone at Cloudflare to "under_attack"
                 if state of the service - from which this event plugin was called - changes to
@@ -90,7 +90,8 @@ def parse_args():
 
     parser.add_argument(
         '--zone-id',
-        help='Cloudflare API Zone Identifier (from Cloudflare Portal > Home > Choose your site > Overview)',
+        help='Cloudflare API Zone Identifier (repeating; from Cloudflare Portal > Home > Choose your site > Overview)',
+        action='append',
         dest='ZONE_ID',
         required=True,
     )
@@ -111,21 +112,23 @@ def main():
     # Cloudflare API:
     # https://api.cloudflare.com/#zone-settings-change-security-level-setting
 
-    # build Cloudflare API URL and Header
-    url = 'https://api.cloudflare.com/client/v4/zones/{}/settings/security_level'.format(args.ZONE_ID)
+    # Python Requests Module:
+    # https://docs.python-requests.org/en/master/
+
     header = {
         'Content-Type': 'application/json',
         'X-Auth-Email': args.USERNAME,
         'X-Auth-Key': args.KEY,
     }
-
-    # https://docs.python-requests.org/en/master/
-    if args.SERVICE_STATE == 'CRITICAL':
-        json = { 'value': 'under_attack' }
-        r = requests.patch(url, headers=header, json=json)
-    elif args.SERVICE_STATE == 'OK':
-        json = { 'value': 'medium' }
-        r = requests.patch(url, headers=header, json=json)
+    for zone in args.ZONE_ID:
+        # build Cloudflare API URL and Header
+        url = 'https://api.cloudflare.com/client/v4/zones/{}/settings/security_level'.format(zone)
+        if args.SERVICE_STATE == 'CRITICAL':
+            json = { 'value': 'under_attack' }
+            r = requests.patch(url, headers=header, json=json)
+        elif args.SERVICE_STATE == 'OK':
+            json = { 'value': 'medium' }
+            r = requests.patch(url, headers=header, json=json)
 
     # over and out
     sys.exit(STATE_OK)
