@@ -11,6 +11,7 @@
 import argparse
 import importlib
 import json
+import os
 import re
 import sys
 
@@ -79,16 +80,19 @@ def _return_parser(self):
 
 def main():
     try:
-        check = sys.argv[1]
+        path_to_plugin = sys.argv[1]
         output_file = sys.argv[2]
     except IndexError:
-        print('usage: check2basket.py [check_name] [output_file]')
+        print('usage: check2basket.py [path_to_plugin] [output_file]')
         sys.exit(1)
+
+    check3 = os.path.basename(path_to_plugin)
+    check = os.path.basename(path_to_plugin).removesuffix('3')
 
     # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
     argparse.ArgumentParser.parse_args = _return_parser
 
-    spec = importlib.util.spec_from_loader(f'{check}3', importlib.machinery.SourceFileLoader(f'{check}3', f"./check-plugins/{check}/{check}3"))
+    spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, path_to_plugin))
     check_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(check_module)
 
