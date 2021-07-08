@@ -1,4 +1,4 @@
-﻿#! /usr/bin/env python2
+#! /usr/bin/env python2
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
