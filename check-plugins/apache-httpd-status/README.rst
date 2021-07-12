@@ -89,7 +89,40 @@ Output:
 
 .. code-block:: text
 
-    Workers: 1/400 busy (0%; 0 "G"), 99 idle, 300 free; 2.5K total accesses, 0.0 req/s; 62.4MiB total traffic, 9.4KiB/s, 25.3KiB/req; Up 1h 53m
+    192.168.122.97: 256/400 workers busy (64.0%; 0 "G"), 144 idle, 0 free; 78.7K accesses, 8.4GiB traffic, 2537.5 req/s, 0.04s/req, 278.6MiB/s, 112.4KiB/req in the last 31s; Up 2m 3s
+
+    Key                            ! Value                                               
+    ------------------------------ ! --------------------------------------------------- 
+    Current Time                   ! Friday, 09-Jul-2021 16:11:17 CEST                   
+    Restart Time                   ! Friday, 09-Jul-2021 16:09:14 CEST                   
+    Interval                       ! 31s                                                 
+    Uptime                         ! 2m 3s                                               
+    Connections                    ! 314                                                 
+      Async Writing                ! 0                                                   
+      Async KeepAlive              ! 0                                                   
+      Async Closing                ! 140                                                 
+    Requests per Second            ! 2537.5                                              
+    Bytes per Second               ! 278.6MiB                                            
+    Bytes per Request              ! 112.4KiB                                            
+    Seconds per Request            ! 0.04                                                
+    Requests                       ! 78.7K                                               
+    Bytes                          ! 8.4GiB                                              
+    Request Duration               ! 58m 39s                                             
+    Load1                          ! 2.32                                                
+    Load5                          ! 0.56                                                
+    Load15                         ! 0.19                                                
+    Processes                      ! 16                                                  
+      Stopping                     ! 0                                                   
+    Workers Total                  ! 400                                                 
+      Busy                         ! 256                                                 
+      Idle                         ! 144                                                 
+      Usage (%)                    ! 64.0                                                
+    Parent Server ConfigGeneration ! 1                                                   
+    Parent Server MPMGeneration    ! 0                                                   
+    Server Name                    ! 192.168.122.97                                      
+    Server MPM                     ! event                                               
+    Server Version                 ! Apache/2.4.48 (Fedora) OpenSSL/1.1.1k mod_qos/11.66 
+    Server Built                   ! Jun  2 2021 00:00:00
 
 
 States
@@ -101,32 +134,48 @@ States
 Perfdata / Metrics
 ------------------
 
-* httpd_bytesperreq: Average number of bytes per request (\*)
-* httpd_bytespersec: Average number of bytes served per second (\*)
-* httpd_reqpersec: Average number of requests per second (\*)
-* httpd_total_accesses: A total number of accesses and byte count served (\*)
-* httpd_total_traffic
-* workers: Maximum number of workers possible
-* workers_free
-* uptime: The time the server has been running for
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    Accesses,                                   Number,             "A total number of accesses and byte count served"
+    BusyWorkers,                                Number,             workers_closing + workers_dns + workers_finishing + workers_free + workers_keepalive + workers_logging + workers_reading + workers_replying + workers_starting + workers_waiting
+    Bytes,                                      Bytes,              
+    BytesPerReq,                                Bytes,              "Average number of bytes per request"
+    BytesPerSec,                                Bytes,              "Average number of bytes served per second"
+    ConnsAsyncClosing,                          Number,             
+    ConnsAsyncKeepAlive,                        Number,             
+    ConnsAsyncWriting,                          Number,             
+    ConnsTotal,                                 Number,             
+    CPULoad,                                    Number,             
+    DurationPerReq,                             Number,             
+    IdleWorkers,                                Number,             workers_idle
+    Load1,                                      Number,             
+    Load15,                                     Number,             
+    Load5,                                      Number,             
+    ParentServerConfigGeneration,               Number,             
+    ParentServerMPMGeneration,                  Number,             
+    Processes,                                  Number,             
+    ReqPerSec,                                  Number,             "Average number of requests per second"
+    Stopping,                                   Number,             
+    Total Duration,                             Seconds,            
+    TotalWorkers,                               Number,             
+    Uptime,                                     Seconds,            "The time the server has been running for"
+    WorkerUsagePercentage,                      Percentage,         
+    workers_closing,                            Number,             "serving; Closing connection, 'C' in Apache Scoreboard (SERVER_CLOSING)"
+    workers_dns,                                Number,             "serving; DNS Lookup,'D' in Apache Scoreboard (SERVER_BUSY_DNS)"
+    workers_finishing,                          Number,             "serving; Gracefully finishing, 'G' in Apache Scoreboard (SERVER_GRACEFUL)"
+    workers_free,                               Number,             "serving; Open slot with no current process, '.' in Apache Scoreboard (SERVER_DEAD)"
+    workers_idle,                               Number,             "idle; Idle cleanup of worker, 'I' in Apache Scoreboard (SERVER_IDLE_KILL)"
+    workers_keepalive,                          Number,             "idle; Keepalive (read), 'K' in Apache Scoreboard (SERVER_BUSY_KEEPALIVE)"
+    workers_logging,                            Number,             "serving; Logging, 'L' in Apache Scoreboard (SERVER_BUSY_LOG)"
+    workers_reading,                            Number,             "serving; Reading Request, 'R' in Apache Scoreboard (SERVER_BUSY_READ)"
+    workers_replying,                           Number,             "serving; Sending Reply, 'W' in Apache Scoreboard (SERVER_BUSY_WRITE)"
+    workers_starting,                           Number,             "serving; Starting up, 'S' in Apache Scoreboard (SERVER_STARTING)"
+    workers_waiting,                            Number,             "serving; Waiting for Connection, '_' in Apache Scoreboard (SERVER_READY)"
 
-The number of idle workers:
-
-* workers_idle
-* workers_waiting
-
-The number of workers serving requests:
-
-* workers_closing
-* workers_dns
-* workers_finishing
-* workers_keepalive
-* workers_logging
-* workers_reading
-* workers_replying
-* workers_starting
-
-The lines marked "(\*)" are only available if ``ExtendedStatus`` is ``On``.
+workers_closing + workers_dns + workers_finishing + workers_free + workers_logging + workers_reading + workers_replying + workers_starting + workers_waiting
 
 
 Troubleshooting
