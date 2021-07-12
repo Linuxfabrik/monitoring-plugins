@@ -140,7 +140,7 @@ Perfdata / Metrics
     
     Name,                                       Type,               Description                                           
     Accesses,                                   Number,             "A total number of accesses and byte count served"
-    BusyWorkers,                                Number,             workers_closing + workers_dns + workers_finishing + workers_free + workers_keepalive + workers_logging + workers_reading + workers_replying + workers_starting + workers_waiting
+    BusyWorkers,                                Number,             workers_closing + workers_dns + workers_idle + workers_keepalive + workers_logging + workers_reading + workers_replying + workers_starting
     Bytes,                                      Bytes,              
     BytesPerReq,                                Bytes,              "Average number of bytes per request"
     BytesPerSec,                                Bytes,              "Average number of bytes served per second"
@@ -150,7 +150,7 @@ Perfdata / Metrics
     ConnsTotal,                                 Number,             
     CPULoad,                                    Number,             
     DurationPerReq,                             Number,             
-    IdleWorkers,                                Number,             workers_idle
+    IdleWorkers,                                Number,             workers_finishing + workers_waiting
     Load1,                                      Number,             
     Load15,                                     Number,             
     Load5,                                      Number,             
@@ -163,19 +163,17 @@ Perfdata / Metrics
     TotalWorkers,                               Number,             
     Uptime,                                     Seconds,            "The time the server has been running for"
     WorkerUsagePercentage,                      Percentage,         
-    workers_closing,                            Number,             "serving; Closing connection, 'C' in Apache Scoreboard (SERVER_CLOSING)"
-    workers_dns,                                Number,             "serving; DNS Lookup,'D' in Apache Scoreboard (SERVER_BUSY_DNS)"
-    workers_finishing,                          Number,             "serving; Gracefully finishing, 'G' in Apache Scoreboard (SERVER_GRACEFUL)"
-    workers_free,                               Number,             "serving; Open slot with no current process, '.' in Apache Scoreboard (SERVER_DEAD)"
-    workers_idle,                               Number,             "idle; Idle cleanup of worker, 'I' in Apache Scoreboard (SERVER_IDLE_KILL)"
-    workers_keepalive,                          Number,             "idle; Keepalive (read), 'K' in Apache Scoreboard (SERVER_BUSY_KEEPALIVE)"
-    workers_logging,                            Number,             "serving; Logging, 'L' in Apache Scoreboard (SERVER_BUSY_LOG)"
-    workers_reading,                            Number,             "serving; Reading Request, 'R' in Apache Scoreboard (SERVER_BUSY_READ)"
-    workers_replying,                           Number,             "serving; Sending Reply, 'W' in Apache Scoreboard (SERVER_BUSY_WRITE)"
-    workers_starting,                           Number,             "serving; Starting up, 'S' in Apache Scoreboard (SERVER_STARTING)"
-    workers_waiting,                            Number,             "serving; Waiting for Connection, '_' in Apache Scoreboard (SERVER_READY)"
-
-workers_closing + workers_dns + workers_finishing + workers_free + workers_logging + workers_reading + workers_replying + workers_starting + workers_waiting
+    workers_closing,                            Number,             "BusyWorkers; Closing connection, 'C' in Apache Scoreboard (SERVER_CLOSING)"
+    workers_dns,                                Number,             "BusyWorkers; DNS Lookup,'D' in Apache Scoreboard (SERVER_BUSY_DNS)"
+    workers_finishing,                          Number,             "IdleWorkers; Gracefully finishing, 'G' in Apache Scoreboard (SERVER_GRACEFUL)"
+    workers_free,                               Number,             "Open slot with no current process, '.' in Apache Scoreboard (SERVER_DEAD)"
+    workers_idle,                               Number,             "BusyWorkers; Idle cleanup of worker, 'I' in Apache Scoreboard (SERVER_IDLE_KILL)"
+    workers_keepalive,                          Number,             "BusyWorkers; Keepalive (read), 'K' in Apache Scoreboard (SERVER_BUSY_KEEPALIVE)"
+    workers_logging,                            Number,             "BusyWorkers; Logging, 'L' in Apache Scoreboard (SERVER_BUSY_LOG)"
+    workers_reading,                            Number,             "BusyWorkers; Reading Request, 'R' in Apache Scoreboard (SERVER_BUSY_READ)"
+    workers_replying,                           Number,             "BusyWorkers; Sending Reply, 'W' in Apache Scoreboard (SERVER_BUSY_WRITE)"
+    workers_starting,                           Number,             "BusyWorkers; Starting up, 'S' in Apache Scoreboard (SERVER_STARTING)"
+    workers_waiting,                            Number,             "IdleWorkers; Waiting for Connection, '_' in Apache Scoreboard (SERVER_READY)"
 
 
 Troubleshooting
