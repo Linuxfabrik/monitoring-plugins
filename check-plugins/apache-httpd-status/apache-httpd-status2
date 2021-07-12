@@ -38,7 +38,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021070901'
+__version__ = '2021071201'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -67,7 +67,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical', 
+        '-c', '--critical',
         help='Set the CRIT threshold for the number of workers processing requests in percent. Default: >= %(default)s',
         dest='CRIT',
         type=int,
@@ -184,7 +184,7 @@ def main():
     if apache['TotalWorkers'] == 0:
         lib.base2.oao('Malformed Apache server info.', STATE_UNKNOWN)
 
-                                                                # from mod_status.c:                                                                
+                                                                # from mod_status.c:
     workers['closing'] = apache['Scoreboard'].count('C')        # SERVER_CLOSING
     workers['dns'] = apache['Scoreboard'].count('D')            # SERVER_BUSY_DNS
     workers['finishing'] = apache['Scoreboard'].count('G')      # SERVER_GRACEFUL
@@ -365,7 +365,7 @@ def main():
     table_values.append({'key': 'Workers Total', 'value': apache['TotalWorkers']})
     table_values.append({'key': '  Busy', 'value': apache['BusyWorkers']})
     table_values.append({'key': '  Idle', 'value': apache['IdleWorkers']})
-    table_values.append({'key': '  Usage (%)', 'value': apache['WorkerUsagePercentage']})
+    table_values.append({'key': '  Usage (%)', 'value': apache['WorkerUsagePercentage'] + lib.base2.state2str(state, prefix=' ')})
     table_values.append({'key': 'Parent Server ConfigGeneration', 'value': apache['ParentServerConfigGeneration']})
     table_values.append({'key': 'Parent Server MPMGeneration', 'value': apache['ParentServerMPMGeneration']})
     table_values.append({'key': 'Server Name', 'value': apache['ServerName']})
