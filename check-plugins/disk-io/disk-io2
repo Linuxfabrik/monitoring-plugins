@@ -41,7 +41,7 @@ import lib.db_sqlite2 # pylint: disable=C0413
 from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061401'
+__version__ = '2021071301'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -193,6 +193,10 @@ def main():
         read_bytes_per_second1 = int(float(diskdata[0]['read_bytes'] - diskdata[1]['read_bytes']) / timestamp_diff)
         write_bytes_per_second1 = int(float(diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff)
         throughput1 = read_bytes_per_second1 + write_bytes_per_second1
+        if timestamp_diff < 0 or read_bytes_per_second1 < 0 or write_bytes_per_second1 < 0 or throughput1 < 0:
+            # happens after a reboot
+            lib.db_sqlite2.close(conn)
+            lib.base2.oao('Waiting for more data.', state)
 
         # store the max. measured throughput in cache
         throughput_db = lib.cache2.get('disk-io-{}-throughput-max'.format(disk))
