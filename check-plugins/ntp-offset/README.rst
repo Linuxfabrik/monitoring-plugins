@@ -49,6 +49,10 @@ If ``ntpd`` is used, prints
 * reachability register in octal
 * and the current estimated delay, offset and dispersion of the peer
 
+``ntpd`` is deprecated on RHEL/CentOS 8+.
+
+The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (which is stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+
 
 Fact Sheet
 ----------
