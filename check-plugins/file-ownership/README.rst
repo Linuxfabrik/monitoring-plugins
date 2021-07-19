@@ -6,41 +6,48 @@ Overview
 
 Checks the ownership (owner and group, both have to be names) of a list of files, and also (and always) most of the files defined in the CIS Security Benchmarks. Depending on the file and user (e.g. running as 'icinga') sudo (sudoers) is needed.
 
-Default files checked, sorted by path:
+Default files checked:
 
-* root:root,/boot/grub/grub.conf
-* root:root,/boot/grub2/grub.cfg
-* root:root,/boot/grub2/grubenv
-* root:root,/boot/grub2/user.cfg
-* root:root,/etc/anacrontab
-* root:root,/etc/at.allow
-* root:root,/etc/cron.allow
-* root:root,/etc/cron.d
-* root:root,/etc/cron.daily
-* root:root,/etc/cron.hourly
-* root:root,/etc/cron.monthly
-* root:root,/etc/cron.weekly
-* root:root,/etc/crontab
-* graylog:graylog,/etc/graylog/certs
-* root:root,/etc/group
-* root:root,/etc/group-
-* root:root,/etc/gshadow-
-* root:root,/etc/hosts.allow
-* root:root,/etc/hosts.deny
-* root:root,/etc/issue
-* root:root,/etc/issue.net
-* lool:lool,/etc/loolwsd/loolwsd.xml
-* root:root,/etc/motd
-* root:named,/etc/named.conf
-* root:root,/etc/passwd
-* root:root,/etc/passwd-
-* root:root,/etc/shadow-
-* root:root,/etc/ssh/sshd_config
-* vdsm:kvm,/home/ovirt
-* root:root,/tmp
-* hnet:hnet,/var/hnet
-* unbound:unbound,/var/lib/unbound/root.key
-* ldap:ldap,/var/run/openldap
+* /boot/grub/grub.conf: root:root
+* /boot/grub2/grub.cfg: root:root
+* /boot/grub2/grubenv: root:root
+* /boot/grub2/user.cfg: root:root
+* /etc/anacrontab: root:root
+* /etc/at.allow: root:root
+* /etc/cron.allow: root:root
+* /etc/cron.d: root:root
+* /etc/cron.daily: root:root
+* /etc/cron.hourly: root:root
+* /etc/cron.monthly: root:root
+* /etc/cron.weekly: root:root
+* /etc/crontab: root:root
+* /etc/graylog/certs: graylog:graylog
+* /etc/group: root:root
+* /etc/group-: root:root
+* /etc/hosts.allow: root:root
+* /etc/gshadow-: root:root
+* /etc/hosts.deny: root:root
+* /etc/issue.net: root:root
+* /etc/issue: root:root
+* /etc/loolwsd/loolwsd.xml: lool:lool
+* /etc/motd: root:root
+* /etc/named.conf: root:named
+* /etc/passwd: root:root
+* /etc/passwd-: root:root
+* /etc/ssh/sshd_config: root:root
+* /home/ovirt: vdsm:kvm
+* /tmp: root:root
+* /var/hnet: hnet:hnet
+* /var/lib/unbound/root.key: unbound:unbound
+* /var/run/openldap: ldap:ldap
+
+According to CIS the below mentioned files should also be checked by default, but we don't, because their owners differ on RHEL/CentOS, Debian/Ubuntu and SLES:
+
+* /etc/gshadow
+* /etc/shadow
+* /etc/shadow-
+
+If you also want to check for those ones, simply configure them in the monitoring software and supply the parameter ``--filename`` with suitable values.
 
 
 Fact Sheet
