@@ -132,6 +132,8 @@ States
 Perfdata / Metrics
 ------------------
 
+See also https://cbonte.github.io/haproxy-dconv/1.7/management.html.
+
 For each Proxy+Server:
 
 * proxyname_servername_act: Total number of active UP servers with a non-zero weight
@@ -159,8 +161,8 @@ For each Proxy+Server:
 * proxyname_servername_hrsp_4xx: Total number of HTTP responses with status 400-499 returned by this object since the worker process started
 * proxyname_servername_hrsp_5xx: Total number of HTTP responses with status 500-599 returned by this object since the worker process started
 * proxyname_servername_hrsp_other: Total number of HTTP responses with status <100, >599 returned by this object since the worker process started (error -1 included)
-* proxyname_servername_last_chk: How long ago the last server state changed, in seconds
-* proxyname_servername_lastchg: How long ago the last server state changed, in seconds
+* proxyname_servername_last_chk: Last health check contents or textual error
+* proxyname_servername_lastchg: Number of seconds since the last UP<->DOWN transition
 * proxyname_servername_lastsess: How long ago some traffic was seen on this object on this worker process, in seconds
 * proxyname_servername_lbtot: Total number of requests routed by load balancing since the worker process started (ignores queue pop and stickiness)
 * proxyname_servername_qcur: Number of current queued connections
