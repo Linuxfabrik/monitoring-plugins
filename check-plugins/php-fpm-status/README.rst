@@ -130,7 +130,7 @@ Perfdata / Metrics
 * queue usage: the number of request in the queue of pending connections, in %
 * req per sec: the number of request accepted by the pool divided by number of seconds since FPM has started
 * slow requests: the number of slow requests
-* up: number of seconds since FPM has started
+* start since: number of seconds since FPM has started
 
 
 Credits, License
