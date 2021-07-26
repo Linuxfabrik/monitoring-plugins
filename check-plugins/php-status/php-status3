@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021070601'
+__version__ = '2021072601'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -320,7 +320,8 @@ def main():
 
         table_values.append({'key': 'opcache.validate_timestamps', 'val': 'True' if php.get('opcache_config').get('directives').get('opcache.validate_timestamps') else 'False'})
         table_values.append({'key': 'opcache.revalidate_freq', 'val': php.get('opcache_config').get('directives').get('opcache.revalidate_freq')})
-    else:
+
+    if php.get('opcache_status') and php.get('opcache_status').get('opcache_enabled') == False:
         msg += 'Opcache not installed or not enabled{}, '.format(lib.base3.state2str(STATE_WARN, prefix=' '))
         state = lib.base3.get_worst(state, STATE_WARN)
 
