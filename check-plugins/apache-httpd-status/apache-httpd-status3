@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021072801'
+__version__ = '2021072802'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -174,7 +174,7 @@ def main():
             apache['Total Bytes'] = int(value) * 1024
             continue
         if key == 'Total Duration':
-            apache['Total Duration'] = float(value) / 1000    # msec to sec
+            apache['Total Duration'] = int(value) / 1000    # msec to sec
             continue
 
         apache[key] = value
@@ -202,7 +202,7 @@ def main():
     workers['waiting'] = apache['Scoreboard'].count('_')        # SERVER_READY
 
     # currently the only value we warn about
-    apache['WorkerUsagePercentage'] = round(float(apache['BusyWorkers']) / float(apache['TotalWorkers']) * 100.0, 1)
+    apache['WorkerUsagePercentage'] = round(int(apache['BusyWorkers']) / int(apache['TotalWorkers']) * 100.0, 1)
     state = lib.base3.get_state(apache['WorkerUsagePercentage'], args.WARN, args.CRIT)
 
     perfdata += lib.base3.get_perfdata('WorkerUsagePercentage', apache['WorkerUsagePercentage'], '%', args.WARN, args.CRIT, 0, 100)
@@ -257,10 +257,10 @@ def main():
         lib.base3.oao('Waiting for more data (1).', STATE_OK)
 
     # calculate "raw" values for the current interval from total values (continous counters)
-    uptime_diff = float(apache['Uptime']) - float(prev_uptime)
-    apache['Total Accesses'] = float(apache['Total Accesses']) - float(prev_count)
-    apache['Total Bytes'] = float(apache['Total Bytes']) - float(prev_bcount)
-    if uptime_diff <= 0 or apache['Total Accesses'] < 0 or apache['Total Bytes'] < 0:
+    uptime_diff = int(apache['Uptime']) - int(prev_uptime)
+    apache['Total Accesses'] = int(apache['Total Accesses']) - int(prev_count)
+    apache['Total Bytes'] = int(apache['Total Bytes']) - int(prev_bcount)
+    if uptime_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
         lib.base3.oao('Waiting for more data (2).', STATE_OK)
 
     # calculate the values that apache only returns as average values over its entire uptime
@@ -307,8 +307,8 @@ def main():
         lib.base3.oao('Waiting for more data (3).', STATE_OK)
 
     # calculate "raw" values for the current interval from total values (continous counters)
-    duration_diff = float(apache['Total Duration']) - float(prev_duration_global)
-    if duration_diff <= 0 or apache['Total Accesses'] < 0 or apache['Total Bytes'] < 0:
+    duration_diff = apache['Total Duration'] - float(prev_duration_global)
+    if duration_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
         lib.base3.oao('Waiting for more data (4).', STATE_OK)
 
     # calculate the values that apache only returns as average values over its entire uptime
