@@ -88,6 +88,22 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
+    def test_if_check_runs_EXAMPLE07(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('rm -f /tmp/linuxfabrik-plugin-cache.db'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE07a,,'))
+        self.assertIn('Waiting for more data (1).',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE07b,,'))
+        self.assertIn('Waiting for more data (3).',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE07c,,'))
+        self.assertIn('192.168.122.97: 327/400 workers busy (81.8% [WARNING]; 0 "G"), 73 idle, 0 free; 6.2K accesses, 732.9MiB traffic, 5.5 req/s, 1s/req, 672.5KiB/s, 121.4KiB/req in the last 18m 36s; Up 1W 1D',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -50,7 +50,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/apache-httpd-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Enable ``mod_status`` and set ``ExtendedStatus`` to ``On``"
 
 
