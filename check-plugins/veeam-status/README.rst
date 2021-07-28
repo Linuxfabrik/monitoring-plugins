@@ -60,7 +60,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      --url URL             Veeam API URL. Default: https://localhost:9398/api
+      --url URL             Veeam API URL. Default: https://localhost:9398
       --username USERNAME   Veeam API username. Default: Administrator
       -w WARN, --warning WARN
                             Set the WARN threshold as a percentage. Default: >= 80
