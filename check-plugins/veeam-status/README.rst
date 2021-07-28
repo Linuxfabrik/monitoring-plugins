@@ -139,8 +139,8 @@ Perfdata / Metrics
     BackupServers,                              None,               https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110
     FailedJobRuns,                              None,               https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
     FailedVmLastestStates,                      None,               https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110
-    FullBackupPointsSize,                       None,               https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
-    IncrementalBackupPointsSize,                None,               https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
+    FullBackupPointsSize,                       Bytes,              https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
+    IncrementalBackupPointsSize,                Bytes,              https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
     MaxBackupJobDuration,                       Seconds,            https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
     MaxJobDuration,                             Seconds,            https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
     MaxReplicaJobDuration,                      Seconds,            https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
