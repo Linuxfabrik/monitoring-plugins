@@ -42,55 +42,55 @@ If you zoom in, for example in *CPU Usage*:
 Human Readable Numbers
 ----------------------
 
-Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other). The plugins display Byte sizes in powers of 2 (KiB, MiB, GiB etc.).
 
 .. csv-table::
     :header-rows: 1
     
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1` / Million :sup:`2`"
-    1000^3,       G,      SI Symbol,  Number,          "Billion :sup:`1` / Milliard :sup:`2`"
-    1000^4,       T,      SI Symbol,  Number,          "Trillion :sup:`1` / Billion :sup:`2`"
-    1000^5,       P,      SI Symbol,  Number,          "Quadrillion :sup:`1` / Billiard :sup:`2`"
-    1000^6,       E,      SI Symbol,  Number,          "Quintillion :sup:`1` / Trillion :sup:`2`"
-    1000^7,       Z,      SI Symbol,  Number,          "Sextillion :sup:`1` / Trilliard :sup:`2`"
-    1000^8,       Y,      SI Symbol,  Number,          "Septillion :sup:`1` / Quadrillion :sup:`2`"
-    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes :sup:`3`
-    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes :sup:`3`
-    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes :sup:`3`
-    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes :sup:`3`
-    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes :sup:`3`
-    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes :sup:`3`
-    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes :sup:`3`
-    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes :sup:`3`
-    1000^1,       KB,     other,      Bytes,           Kilobytes
-    1000^2,       MB,     other,      Bytes,           Megabytes
-    1000^3,       GB,     other,      Bytes,           Gigabytes
-    1000^4,       TB,     other,      Bytes,           Terrabytes
-    1000^5,       PB,     other,      Bytes,           Petabytes
-    1000^6,       EB,     other,      Bytes,           Exabytes
-    1000^7,       ZB,     other,      Bytes,           Zetabytes
-    1000^8,       YB,     other,      Bytes,           Yottabytes
-    1000^1,       Kbps,   other,      Bits per Second, Kilobits
-    1000^2,       Mbps,   other,      Bits per Second, Megabits
-    1000^3,       Gbps,   other,      Bits per Second, Gigabits
-    1000^4,       Tbps,   other,      Bits per Second, Terrabits
-    1000^5,       Pbps,   other,      Bits per Second, Petabits
-    1000^6,       Ebps,   other,      Bits per Second, Exabits
-    1000^7,       Zbps,   other,      Bits per Second, Zetabits
-    1000^8,       Ybps,   other,      Bits per Second, Yottabits
-    1..59,        s,      other,      Time,            Seconds
-    60,           m,      other,      Time,            Minutes
-    60*60,        h,      other,      Time,            Hours
-    60*60*24,     D,      other,      Time,            Days
-    60*60*24*7,   W,      other,      Time,            Weeks
-    60*60*24*30,  M,      other,      Time,            Months
-    60*60*24*365, Y,      other,      Time,            Years
+    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1`, Million :sup:`2`"
+    1000^3,       G,      SI Symbol,  Number,          "Milliard :sup:`1`, Billion :sup:`2`"
+    1000^4,       T,      SI Symbol,  Number,          "Billion :sup:`1`, Trillion :sup:`2`"
+    1000^5,       P,      SI Symbol,  Number,          "Billiard :sup:`1`, Quadrillion :sup:`2`"
+    1000^6,       E,      SI Symbol,  Number,          "Trillion :sup:`1`, Quintillion :sup:`2`"
+    1000^7,       Z,      SI Symbol,  Number,          "Trilliard :sup:`1`, Sextillion :sup:`2`"
+    1000^8,       Y,      SI Symbol,  Number,          "Quadrillion :sup:`1`, Septillion :sup:`2`"
+    1024^0,       B,      ,           Bytes,           Bytes
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes
+    1000^1,       KB,     ,           Bytes,           Kilobytes
+    1000^2,       MB,     ,           Bytes,           Megabytes
+    1000^3,       GB,     ,           Bytes,           Gigabytes
+    1000^4,       TB,     ,           Bytes,           Terrabytes
+    1000^5,       PB,     ,           Bytes,           Petabytes
+    1000^6,       EB,     ,           Bytes,           Exabytes
+    1000^7,       ZB,     ,           Bytes,           Zetabytes
+    1000^8,       YB,     ,           Bytes,           Yottabytes
+    1000^1,       Kbps,   ,           Bits per Second, Kilobits
+    1000^2,       Mbps,   ,           Bits per Second, Megabits
+    1000^3,       Gbps,   ,           Bits per Second, Gigabits
+    1000^4,       Tbps,   ,           Bits per Second, Terrabits
+    1000^5,       Pbps,   ,           Bits per Second, Petabits
+    1000^6,       Ebps,   ,           Bits per Second, Exabits
+    1000^7,       Zbps,   ,           Bits per Second, Zetabits
+    1000^8,       Ybps,   ,           Bits per Second, Yottabits
+    1..59,        s,      ,           Time,            Seconds
+    60,           m,      ,           Time,            Minutes
+    60*60,        h,      ,           Time,            Hours
+    60*60*24,     D,      ,           Time,            Days
+    60*60*24*7,   W,      ,           Time,            Weeks
+    60*60*24*30,  M,      ,           Time,            Months
+    60*60*24*365, Y,      ,           Time,            Years
 
-* 1: US, Canada and modern British (short scale)
-* 2: Traditional European (Peletier) (long scale)
-* 3: Used in output
+* 1: Traditional European (Peletier) (long scale)
+* 2: US, Canada and modern British (short scale)
 
 
 A few words about Python

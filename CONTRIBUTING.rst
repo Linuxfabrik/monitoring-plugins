@@ -39,11 +39,11 @@ Deliverables
 * README file explaining "How?" and Why?"
 * LICENSE file
 * if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_)
+* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
 * optional: Icinga Director Basket Config
 * optional: Icinga Web 2 Grafana Module .ini file
 * optional: sudoers file (see `sudoers File <#sudoers-file>`_)
-* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 
 
 Rules of Thumb
@@ -73,6 +73,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 ::
 
+    -6, --6                 use IPv6
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
@@ -353,8 +354,7 @@ If the plugin requires ``sudo``-permissions to run, please add the plugin to the
 Compiling for Windows
 ---------------------
 
-To allow running the check plugins under Windows without installing python, we compile the check plugins using `nuitka <https://nuitka.net/>`_.
-For this, you need a Windows Machine with python3 and nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
+To allow running the check plugins under Windows without installing python, we compile the check plugins using `nuitka <https://nuitka.net/>`_. For this, you need a Windows Machine with python3 and nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
 
 To manually compile a check on the Windows Machine, deploy the python3 variant, then:
 
@@ -369,7 +369,6 @@ Alternatively, use the ``monitoring-plugins-nuitka-compile``-Ansible-Tag:
 .. code-block:: bash
 
    ansible-playbook --inventory inventory playbook.yml --tags monitoring-plugins,monitoring-plugins-nuitka-compile --extra-vars 'monitoring_plugins_windows_method=python monitoring_plugins_repo_version=develop' --limit windows-machine
-
 
 Then copy the new folder to a Linux Machine and add zip it:
 

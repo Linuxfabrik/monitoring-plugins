@@ -1,4 +1,5 @@
-# Reporting Security Issues
+Reporting Security Issues
+=========================
 
 How to report any security issue you discovered:
 
