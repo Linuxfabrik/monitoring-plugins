@@ -1,0 +1,345 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.veeam2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021072701'
+
+DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
+                 the backup repositories. In addition, the check provides information about backup
+                 infrastructure components and performed backup and replication jobs, executed jobs,
+                 their status and duration, backed up and replicated VMs, available recovery points
+                 and backup repositories, their capacity, free storage space and size of the backup
+                 files - using the Veeam Enterprise Manager API (requires a Veeam Enterprise
+                 License)."""
+
+DEFAULT_CRIT = 90
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'https://localhost:9398/api'
+DEFAULT_USERNAME = 'Administrator'
+DEFAULT_WARN = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Veeam API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Veeam API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Veeam API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+    
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        success, result, token = lib.veeam2.get_token(args)
+        if not success:
+            lib.base2.oao(result, STATE_UNKNOWN)
+
+        header = {
+            'X-RestSvcSessionId': token,
+            'Accept': 'application/json',
+        }
+        result = {}
+
+        # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110
+        url = args.URL + '/api/reports/summary/overview'
+        result['overview'] = lib.base2.coe(lib.url2.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        
+        # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
+        url = args.URL + '/api/reports/summary/job_statistics'
+        result['job_statistics'] = lib.base2.coe(lib.url2.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        
+        # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
+        url = args.URL + '/api/reports/summary/vms_overview'
+        result['vms_overview'] = lib.base2.coe(lib.url2.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        
+        # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110
+        url = args.URL + '/api/reports/summary/repository'
+        result['repository'] = lib.base2.coe(lib.url2.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+    else:
+        # do not call the command, put in test data
+        if args.TEST[0] and os.path.isfile(args.TEST[0]):
+            f = open(args.TEST[0], 'r') # pylint: disable=C0103
+            stdout = f.read()
+            f.close()
+        else:
+            stdout = args.TEST[0]
+        if args.TEST[1] and os.path.isfile(args.TEST[1]):
+            f = open(args.TEST[1], 'r') # pylint: disable=C0103
+            stderr = f.read()
+            f.close()
+        else:
+            stderr = args.TEST[1]
+        retc = args.TEST[2]
+
+        import json
+        result = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_values = []
+
+    # analyze data
+
+    # "Lastets" (sic!)
+    val = result['overview']['FailedVmLastestStates']
+    if val > 0:
+        local_state = STATE_CRIT
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{} {} failed{}, '.format(
+            val,
+            lib.base2.pluralize('VM', val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+    val = result['overview']['WarningVmLastestStates']
+    if val > 0:
+        local_state = STATE_WARN
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{} {} with warnings{}, '.format(
+            val,
+            lib.base2.pluralize('VM', val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+
+    val = result['job_statistics']['FailedJobRuns']
+    if  val > 0:
+        local_state = STATE_CRIT
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{} {} failed{}, '.format(
+            val,
+            lib.base2.pluralize('Job', val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+    val = result['job_statistics']['WarningsJobRuns']
+    if  val > 0:
+        local_state = STATE_WARN
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{} {} with warnings{}, '.format(
+            val,
+            lib.base2.pluralize('Job', val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+    val = result['job_statistics']['MaxBackupJobDuration']
+    if  val > 86400:
+        # job lasts longer than 24 hours
+        local_state = STATE_WARN
+        state = lib.base2.get_worst(state, local_state)
+        msg += '"{}" ran for {}{}, '.format(
+            result['job_statistics']['MaxDurationBackupJobName'],
+            lib.base2.seconds2human(val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+    val = result['job_statistics']['MaxReplicaJobDuration']
+    if  val > 86400:
+        # job lasts longer than 24 hours
+        local_state = STATE_WARN
+        state = lib.base2.get_worst(state, local_state)
+        msg += '{} ran for {}{}, '.format(
+            result['job_statistics']['MaxDurationReplicaJobName'],
+            lib.base2.seconds2human(val),
+            lib.base2.state2str(local_state, prefix=' ')
+        )
+
+    for repo in result['repository']['Periods']:
+        val = round(float(repo['BackupSize']) / float(repo['Capacity']) * 100, 1)
+        local_state = lib.base2.get_state(val, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(state, local_state)
+        msg += '"{}" {}%{} used - total: {}, used: {}, free: {}, '.format(
+            repo['Name'],
+            val,
+            lib.base2.state2str(local_state, prefix=' '),
+            lib.base2.bytes2human(repo['Capacity']),
+            lib.base2.bytes2human(repo['BackupSize']),
+            lib.base2.bytes2human(repo['FreeSpace']),
+        )
+        perfdata += lib.base2.get_perfdata('Repo Usage ' + repo['Name'], val, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base2.get_perfdata('Repo Capacity ' + repo['Name'], repo['Capacity'], 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('Repo FreeSpace ' + repo['Name'], repo['FreeSpace'], 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('Repo BackupSize ' + repo['Name'], repo['BackupSize'], 'B', None, None, 0, None)
+
+    # Build perfdata and property table
+    perfdata += lib.base2.get_perfdata('BackedUpVms', result['vms_overview']['BackedUpVms'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('BackupServers', result['overview']['BackupServers'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('FailedJobRuns', result['job_statistics']['FailedJobRuns'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('FailedVmLastestStates', result['overview']['FailedVmLastestStates'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('FullBackupPointsSize', result['vms_overview']['FullBackupPointsSize'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('IncrementalBackupPointsSize', result['vms_overview']['IncrementalBackupPointsSize'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('MaxBackupJobDuration', result['job_statistics']['MaxBackupJobDuration'], 's', None, None, 0, None)
+    #perfdata += lib.base2.get_perfdata('MaxDurationBackupJobName', result['job_statistics']['MaxDurationBackupJobName'], None, None, None, 0, None)
+    #perfdata += lib.base2.get_perfdata('MaxDurationReplicaJobName', result['job_statistics']['MaxDurationReplicaJobName'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('MaxJobDuration', result['job_statistics']['MaxJobDuration'], 's', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('MaxReplicaJobDuration', result['job_statistics']['MaxReplicaJobDuration'], 's', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ProtectedVms', result['vms_overview']['ProtectedVms'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ProxyServers', result['overview']['ProxyServers'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ReplicaRestorePointsSize', result['vms_overview']['ReplicaRestorePointsSize'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ReplicatedVms', result['vms_overview']['ReplicatedVms'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('RepositoryServers', result['overview']['RepositoryServers'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('RestorePoints', result['vms_overview']['RestorePoints'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('RunningJobs', result['job_statistics']['RunningJobs'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ScheduledBackupJobs', result['job_statistics']['ScheduledBackupJobs'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ScheduledJobs', result['job_statistics']['ScheduledJobs'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('ScheduledReplicaJobs', result['job_statistics']['ScheduledReplicaJobs'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('SourceVmsSize', result['vms_overview']['SourceVmsSize'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('SuccessBackupPercents', result['vms_overview']['SuccessBackupPercents'], '%', None, None, 0, 100)
+    perfdata += lib.base2.get_perfdata('SuccessfulJobRuns', result['job_statistics']['SuccessfulJobRuns'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('SuccessfulVmLastestStates', result['overview']['SuccessfulVmLastestStates'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('TotalJobRuns', result['job_statistics']['TotalJobRuns'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('WarningsJobRuns', result['job_statistics']['WarningsJobRuns'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('WarningVmLastestStates', result['overview']['WarningVmLastestStates'], None, None, None, 0, None)
+
+    table_values.append({'key': 'BackedUpVms', 'value': result['vms_overview']['BackedUpVms']})
+    table_values.append({'key': 'BackupServers', 'value': result['overview']['BackupServers']})
+    table_values.append({'key': 'FailedJobRuns', 'value': result['job_statistics']['FailedJobRuns']})
+    table_values.append({'key': 'FailedVmLastestStates', 'value': result['overview']['FailedVmLastestStates']})
+    table_values.append({'key': 'FullBackupPointsSize', 'value': lib.base2.bytes2human(result['vms_overview']['FullBackupPointsSize'])})
+    table_values.append({'key': 'IncrementalBackupPointsSize', 'value': lib.base2.bytes2human(result['vms_overview']['IncrementalBackupPointsSize'])})
+    table_values.append({'key': 'MaxBackupJobDuration', 'value': lib.base2.seconds2human(result['job_statistics']['MaxBackupJobDuration'])})
+    table_values.append({'key': 'MaxDurationBackupJobName', 'value': result['job_statistics']['MaxDurationBackupJobName']})
+    table_values.append({'key': 'MaxDurationReplicaJobName', 'value': result['job_statistics']['MaxDurationReplicaJobName']})
+    table_values.append({'key': 'MaxJobDuration', 'value': lib.base2.seconds2human(result['job_statistics']['MaxJobDuration'])})
+    table_values.append({'key': 'MaxReplicaJobDuration', 'value': lib.base2.seconds2human(result['job_statistics']['MaxReplicaJobDuration'])})
+    table_values.append({'key': 'ProtectedVms', 'value': result['vms_overview']['ProtectedVms']})
+    table_values.append({'key': 'ProxyServers', 'value': result['overview']['ProxyServers']})
+    table_values.append({'key': 'ReplicaRestorePointsSize', 'value': lib.base2.bytes2human(result['vms_overview']['ReplicaRestorePointsSize'])})
+    table_values.append({'key': 'ReplicatedVms', 'value': result['vms_overview']['ReplicatedVms']})
+    table_values.append({'key': 'RepositoryServers', 'value': result['overview']['RepositoryServers']})
+    table_values.append({'key': 'RestorePoints', 'value': result['vms_overview']['RestorePoints']})
+    table_values.append({'key': 'RunningJobs', 'value': result['job_statistics']['RunningJobs']})
+    table_values.append({'key': 'ScheduledBackupJobs', 'value': result['job_statistics']['ScheduledBackupJobs']})
+    table_values.append({'key': 'ScheduledJobs', 'value': result['job_statistics']['ScheduledJobs']})
+    table_values.append({'key': 'ScheduledReplicaJobs', 'value': result['job_statistics']['ScheduledReplicaJobs']})
+    table_values.append({'key': 'SourceVmsSize', 'value': lib.base2.bytes2human(result['vms_overview']['SourceVmsSize'])})
+    table_values.append({'key': 'SuccessBackupPercents', 'value': str(result['vms_overview']['SuccessBackupPercents']) + '%'})
+    table_values.append({'key': 'SuccessfulJobRuns', 'value': result['job_statistics']['SuccessfulJobRuns']})
+    table_values.append({'key': 'SuccessfulVmLastestStates', 'value': result['overview']['SuccessfulVmLastestStates']})
+    table_values.append({'key': 'TotalJobRuns', 'value': result['job_statistics']['TotalJobRuns']})
+    table_values.append({'key': 'WarningsJobRuns', 'value': result['job_statistics']['WarningsJobRuns']})
+    table_values.append({'key': 'WarningVmLastestStates', 'value': result['overview']['WarningVmLastestStates']})
+
+    # build the message
+    msg = msg[:-2] + '\n\n' + lib.base2.get_table(
+        table_values,
+        ['key', 'value'],
+        header=['Key', 'Value'],
+    )
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)
