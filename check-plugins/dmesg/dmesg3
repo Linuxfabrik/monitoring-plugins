@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021072901'
+__version__ = '2021073001'
 
 DESCRIPTION = """Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
                 --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want to
@@ -137,11 +137,11 @@ def main():
 
     # analyze data
     result = stdout.strip()
-    result = lib.base3.filter_mltext(result, ignore)
+    result = lib.base3.filter_mltext(result, ignore).strip()
 
     # build the message
-    cnt = result.count('\n') + 1
     if len(result) > 0:
+        cnt = result.count('\n') + 1
         if cnt > 10:
             # shorten the message
             result = result.split('\n')
