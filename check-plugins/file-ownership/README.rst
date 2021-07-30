@@ -25,7 +25,6 @@ Default files checked:
 * /etc/group: root:root
 * /etc/group-: root:root
 * /etc/hosts.allow: root:root
-* /etc/gshadow-: root:root
 * /etc/hosts.deny: root:root
 * /etc/issue.net: root:root
 * /etc/issue: root:root
@@ -44,6 +43,7 @@ Default files checked:
 According to CIS the below mentioned files should also be checked by default, but we don't, because their owners differ on RHEL/CentOS, Debian/Ubuntu and SLES:
 
 * /etc/gshadow
+* /etc/gshadow-
 * /etc/shadow
 * /etc/shadow-
 
