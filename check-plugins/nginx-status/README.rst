@@ -16,7 +16,7 @@ For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/
             stub_status;
             allow 127.0.0.1;    # only allow requests from localhost
             deny all;           # deny all other hosts   
-         }
+        }
     }
 
 
