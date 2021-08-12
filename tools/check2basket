@@ -114,7 +114,15 @@ def main():
 
     spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, path_to_plugin))
     check_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(check_module)
+
+    try:
+        spec.loader.exec_module(check_module)
+    except Exception as e:
+        err_print(f'Exception during check execution: {e}')
+        return None
+    except SystemExit as e:
+        err_print(f'SystemExit during check execution: {e}')
+        return None
 
     args = check_module.parse_args()
 
