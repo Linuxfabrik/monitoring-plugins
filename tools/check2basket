@@ -223,10 +223,12 @@ def main():
         if isinstance(action, argparse._HelpAction):
             continue
 
-        if isinstance(action, argparse._StoreAction):
+        if isinstance(action, argparse._StoreAction) or isinstance(action, argparse._AppendAction):
             data['Command'][f"cmd-check-{check}"]['arguments'][long_param] = {
                 "value": f"${varname}$"
             }
+            if isinstance(action, argparse._AppendAction):
+                data['Command'][f"cmd-check-{check}"]['arguments'][long_param]['repeat_key'] = True
 
             data['Command'][f"cmd-check-{check}"]['fields'].append({
                 "datafield_id": command_field_id,
