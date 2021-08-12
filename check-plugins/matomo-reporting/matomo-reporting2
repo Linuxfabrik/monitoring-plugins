@@ -85,12 +85,12 @@ def parse_args():
         default=DEFAULT_INSECURE,
         )
 
-    parser.add_argument('--metric', 
+    parser.add_argument('--metric',
         help='Filter the output and optionally check against thresholds or ranges, for example "--metric nb_visits,100:,50:" (repeating, csv, works with ranges). Default: %(default)s',
         dest='METRIC',
         type=lib.args2.csv,
         action='append',
-        default=DEFAULT_METRIC, 
+        default=DEFAULT_METRIC,
         )
 
     parser.add_argument('--no-proxy',
@@ -139,7 +139,7 @@ def main():
     url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     if 'result' in result and result['result'] == 'error':
-        lib.base2.oao('{}'.format(result['message']), STATE_UNKNOWN)    
+        lib.base2.oao('{}'.format(result['message']), STATE_UNKNOWN)
 
     state = STATE_OK
     msg = ''
@@ -161,7 +161,7 @@ def main():
                 crit = metric[2]
             except:
                 crit = None
-            
+
             if not lib.base2.coe(lib.base2.match_range(value, crit)):
                 sensor_state = STATE_CRIT
             elif not lib.base2.coe(lib.base2.match_range(value, warn)):
@@ -183,7 +183,7 @@ def main():
             perfdata += lib.base2.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
     lib.base2.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
-   
+
 
 if __name__ == '__main__':
     try:

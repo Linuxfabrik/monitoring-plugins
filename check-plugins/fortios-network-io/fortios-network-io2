@@ -68,7 +68,7 @@ def parse_args():
         type=int,
         default=DEFAULT_COUNT,
         )
-    
+
     parser.add_argument('-c', '--critical',
         help='Set the critical threshold for link saturation for <count> checks, in bps. Default: %(default)s',
         dest='CRIT',
@@ -76,7 +76,7 @@ def parse_args():
         default=DEFAULT_CRIT,
         )
 
-    parser.add_argument('-H', '--hostname', 
+    parser.add_argument('-H', '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required = True,
@@ -120,7 +120,7 @@ def parse_args():
 
 
 def get_interface_states_from_db(conn, interface):
-    return lib.db_sqlite2.select(conn, 
+    return lib.db_sqlite2.select(conn,
         '''
         SELECT *
         FROM state
@@ -144,7 +144,7 @@ def main():
 
     conn = lib.base2.coe(lib.db_sqlite2.connect(filename='fortios-network-io.db'))
 
-    # create the db inventory table for the link states - there we only 
+    # create the db inventory table for the link states - there we only
     # want to insert records once if they do not exist
     # so set a unique constraint and ignore any insert errors later on
     definition = '''
@@ -185,7 +185,7 @@ def main():
         data['speed'] = interface['speed']
         data['duplex'] = interface['duplex']
         inventorized, first = get_interface_states_from_db(conn, data['interface'])
-        
+
         if inventorized:
             # we got something from DB, so there is inventorized data, so compare against current values
             # we want to be informed if
@@ -230,7 +230,7 @@ def main():
 
         if sum1bps > max_load:
             msg_header = '{}: {}/{} bps (rx/tx, current).'.format(
-                interface['interface'], 
+                interface['interface'],
                 lib.base2.bits2human(rx1bps),
                 lib.base2.bits2human(tx1bps),
                 )
@@ -243,7 +243,7 @@ def main():
         sensor_state = lib.base2.get_worst(sensor_state, lib.base2.get_state(txnbps, args.WARN, args.CRIT, operator='ge'))
         if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
             msg_saturation += 'Bandwidth saturation for {}: {}/{} bps (rx/tx) is too high{}. '.format(
-                interface['interface'], 
+                interface['interface'],
                 lib.base2.bits2human(rxnbps),
                 lib.base2.bits2human(txnbps),
                 lib.base2.state2str(sensor_state, prefix=' (', suffix=')')
@@ -253,7 +253,7 @@ def main():
         perfdata += lib.base2.get_perfdata('{}_tx1'.format(interface['interface']), interface['tx_bytes1'], 'B', args.WARN/8, args.CRIT/8, 0, None)
         perfdata += lib.base2.get_perfdata('{}_rxn'.format(interface['interface']), interface['rx_bytesn'], 'B', args.WARN/8, args.CRIT/8, 0, None)
         perfdata += lib.base2.get_perfdata('{}_txn'.format(interface['interface']), interface['tx_bytesn'], 'B', args.WARN/8, args.CRIT/8, 0, None)
-        
+
         table_data.append({
             'interface': '{}{}'.format(interface['interface'], lib.base2.state2str(sensor_state, prefix=' (', suffix=')')),
             'rx1': lib.base2.bits2human(rx1bps),
@@ -265,7 +265,7 @@ def main():
 
     # get_table(data, keys, header=None, sort_by_key=None, sort_order_reverse=False):
     table = lib.base2.get_table(
-        table_data, 
+        table_data,
         ['interface', 'rx1', 'tx1', 'rx{}'.format(args.COUNT), 'tx{}'.format(args.COUNT)],
         header=['interface', 'rx1bps', 'tx1bps', 'rx{}bps'.format(args.COUNT), 'tx{}bps'.format(args.COUNT)],
         )

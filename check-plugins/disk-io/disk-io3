@@ -110,7 +110,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():    
+def main():
     """The main function. Hier spielt die Musik.
     """
 
@@ -125,7 +125,7 @@ def main():
     # create the perfdata table
     definition = '''
             name                TEXT NOT NULL,
-            busy_time           INT NOT NULL, 
+            busy_time           INT NOT NULL,
             read_bytes          INT NOT NULL,
             read_merged_count   INT NOT NULL,
             read_time           INT NOT NULL,
@@ -178,7 +178,7 @@ def main():
     # we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
     for disk in sorted(disks):
         # get all historical data rows for a specific disk, newest item first
-        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn, 
+        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn,
             'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
             {'name': disk}
         ))
@@ -231,7 +231,7 @@ def main():
                 )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
-        # calculate read/write rate over the entire period 
+        # calculate read/write rate over the entire period
         if len(diskdata) != args.COUNT:
             # not enough data yet
             continue

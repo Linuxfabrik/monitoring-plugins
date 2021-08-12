@@ -74,7 +74,7 @@ def parse_args():
     parser.add_argument('-p', '--password',
         help='Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
         dest='PASSWORD',
-        required = True,        
+        required = True,
         )
 
     parser.add_argument('--port',
@@ -86,7 +86,7 @@ def parse_args():
     parser.add_argument('-u', '--username',
         help='MySQL/MariaDB username.',
         dest='USERNAME',
-        required = True,        
+        required = True,
         )
 
     return parser.parse_args()
@@ -189,7 +189,7 @@ def main():
     if len(version) <1:
         print('You probably did not get enough privileges for running this check.')
         exit(STATE_UNKNOWN)
-    
+
     version = version[0].split('.')
     mysqlvermajor = int(version[0])
     mysqlverminor = int(version[1])
@@ -294,7 +294,7 @@ def main():
 
     # Aborted Connections
     mycalc['pct_connections_aborted'] = int(mystat['Aborted_connects'] / mystat['Connections'] * 100) if mystat['Connections'] else 0
-    
+
     # Query cache
     if mysqltype == 'MySQL' and (mysqlvermajor >= 8 and mysqlvermajor <= 10):
         mycalc['query_cache_efficiency'] = 0
@@ -370,7 +370,7 @@ def main():
     perfdata += lib.base2.get_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
     perfdata += lib.base2.get_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
 
-    
+
     msg += log_file_recommendations(myvar)
 
     # checks as done in mysqltuner
@@ -442,7 +442,7 @@ def main():
             state = lib.base2.get_worst(state, STATE_WARN)
         msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.base2.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
         perfdata += lib.base2.get_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
-            
+
         if mycalc['query_cache_prunes_per_day'] > 98:
             if myvar['query_cache_size'] >= 128 * 1024 * 1024:
                 msg_warn += '* Increasing the query_cache size over 128M may reduce performance\n'
@@ -473,10 +473,10 @@ def main():
     # Temporary tables
     if mystat['Created_tmp_tables'] > 0:
         if mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] < 256 * 1024 * 1024:
-            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and/or increase tmp_table_size + increase max_heap_table_size (when making adjustments, make tmp_table_size/max_heap_table_size equal)\n' 
+            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and/or increase tmp_table_size + increase max_heap_table_size (when making adjustments, make tmp_table_size/max_heap_table_size equal)\n'
             state = lib.base2.get_worst(state, STATE_WARN)
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
-            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n' 
+            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n'
             state = lib.base2.get_worst(state, STATE_WARN)
     msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.base2.number2human(mystat['Created_tmp_disk_tables']), lib.base2.number2human(mystat['Created_tmp_tables']))
     perfdata += lib.base2.get_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)

@@ -68,7 +68,7 @@ def parse_args():
         type=int,
         default=DEFAULT_COUNT,
         )
-    
+
     parser.add_argument('-c', '--critical',
         help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
         dest='CRIT',
@@ -76,7 +76,7 @@ def parse_args():
         default=DEFAULT_CRIT,
         )
 
-    parser.add_argument('-H', '--hostname', 
+    parser.add_argument('-H', '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required = True,
@@ -120,7 +120,7 @@ def parse_args():
 
 
 def get_from_db(conn, threshold):
-    result = lib.base2.coe(lib.db_sqlite2.select(conn, 
+    result = lib.base2.coe(lib.db_sqlite2.select(conn,
         '''
         SELECT count(*) as cnt
         FROM perfdata
@@ -167,7 +167,7 @@ def main():
     # now, calculate the WARN or CRIT.
     # overall state is not ok, if ...
     #   in a row in any column there is a value above the threshold
-    #   and this is true for every row 
+    #   and this is true for every row
     state = STATE_OK
     if get_from_db(conn, args.CRIT) == args.COUNT:
         state = STATE_CRIT
