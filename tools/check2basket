@@ -15,8 +15,14 @@ import os
 import re
 import sys
 
+try:
+    import colorama
+    colorama.init(autoreset=True)
+except ImportError:
+    colorama = False
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050501'
+__version__ = '2021081201'
 
 skip_params = [
     '--test'
@@ -36,7 +42,7 @@ def save_json_to_file(data, filename):
         with open(filename, 'w') as file:
             json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
     except FileNotFoundError as e:
-        print(f'{e}. Ignoring...')
+        err_print(f'{e}. Ignoring...')
 
 
 def find_long_param(params):
@@ -78,12 +84,26 @@ def _return_parser(self):
     return self
 
 
+def warn_print(msg):
+    if colorama:
+        print(colorama.Fore.YELLOW + msg)
+    else:
+        print(msg)
+
+
+def err_print(msg):
+    if colorama:
+        print(colorama.Fore.RED + msg)
+    else:
+        print(msg)
+
+
 def main():
     try:
         path_to_plugin = sys.argv[1]
         output_file = sys.argv[2]
     except IndexError:
-        print('usage: check2basket.py [path_to_plugin] [output_file]')
+        err_print('usage: check2basket.py [path_to_plugin] [output_file]')
         sys.exit(1)
 
     check3 = os.path.basename(path_to_plugin)
@@ -191,7 +211,7 @@ def main():
     for action in args._actions:
         long_param = find_long_param(action.option_strings)
         if not long_param:
-            print(f'Could not find a long parameter for:\n{action}')
+            warn_print(f'Could not find a long parameter for:\n{action}')
             continue
         if long_param in skip_params:
             continue
@@ -204,7 +224,6 @@ def main():
             continue
 
         if isinstance(action, argparse._StoreAction):
-
             data['Command'][f"cmd-check-{check}"]['arguments'][long_param] = {
                 "value": f"${varname}$"
             }
@@ -258,7 +277,7 @@ def main():
                 }
 
             if action.default is not None:
-                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] =  str(action.default).replace('$', '$$')
+                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] = str(action.default).replace('$', '$$')
 
             command_field_id += 1
             continue
@@ -289,7 +308,7 @@ def main():
             command_field_id += 1
             continue
 
-        print(f'Unhandled action class: "{action.__class__.__name__}".')
+        warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
 
     save_json_to_file(data, output_file)
 
