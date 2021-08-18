@@ -69,6 +69,8 @@ Rules of Thumb
 Names, Naming Conventions, Parameters, Option Processing
 --------------------------------------------------------
 
+The plugin name should match the following regex: ``^[a-zA-Z0-9\-\_]*$``. This allows the plugin name to be used as the grafana dashboard uid (according to `here <https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11>`_).
+
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
 ::
