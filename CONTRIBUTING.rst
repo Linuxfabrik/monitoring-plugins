@@ -1,7 +1,7 @@
 Linuxfabrik's Check Plugin Developer Guidelines
 ===============================================
 
-Monitoring of an Application 
+Monitoring of an Application
 ----------------------------
 
 Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check.
@@ -15,7 +15,7 @@ Avoid an extensive check that covers a wide variety of aspects:
 Better write three separate checks:
 
 * ``myapp-threading --warning 1500 --critical 2000``
-* ``myapp-memory-usage --warning 80 --critical 90`` 
+* ``myapp-memory-usage --warning 80 --critical 90``
 * ``myapp-deployment-status``
 
 
