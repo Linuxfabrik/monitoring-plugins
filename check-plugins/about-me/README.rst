@@ -53,8 +53,7 @@ Output:
 
 .. code-block:: text
 
-    8 CPUs, 15.2GiB RAM, 1 Disk (nvme0n1 953.9G) - IP 10.80.32.231/24, Pub 212.51.138.220 - Software: Apache httpd 2.4.48, Docker/Podman 3.1.2, Docker Compose 1.27.4, Firefox 89.0, gcc 10.3.1, g++ 10.3.1, Git 2.31.1, Glances 3.1.4.1, Java openjdk 11.0.11 2021-04-20, LibreOffice 7.0.6.2, MySQL 8.0.25, Node 14.17.0, npm 6.14.13, OpenSSL 1.1.1k, Perl 5.32.1, PHP 7.4.20, pip 20.2.2, Python mapped to 3.9.5, Python2 2.7.18, Python3 3.9.5, Sublime Text 4107, TeamViewer  15.19.3, tmate 2.4.0, vsftpd 3.0.3 - Apps: VMware Tools, Brother Printer SW, F5 VPN SW, Google Chrome, KeeWeb, Rambox, Nextcloud - Tools: dig, lsof, nano, ncat, nmap, rsync, tcpdump, telnet, unzip, wget, whois, wireshark - Python modules: BeautifulSoup 4.9.3, mysql.connector 2.2.9, psutil 5.7.2 - OS: Linux-5.12.11-200.fc33.x86_64-x86_64-with-glibc2.32
-
+    8 CPUs, 15.2GiB RAM, 1 Disk (nvme0n1 953.9G) - IP 10.80.32.231/24, Pub 212.51.138.220 - Software: Apache httpd 2.4.48, Docker/Podman 3.2.3, Docker Compose 1.28.6, Firefox 90.0.2, gcc 11.1.1, g++ 11.1.1, Git 2.31.1, Glances 3.1.4.1, Java openjdk 11.0.11 2021-04-20, LibreOffice 7.1.5.2, MySQL 8.0.26, Node 14.17.0, npm 6.14.13, OpenSSL 1.1.1k, OpenVPN 2.5.3, Perl 5.32.1, PHP 7.4.21, pip 21.0.1, Python mapped to 3.9.6, Python2 2.7.18, Python3 3.9.6, Sublime Text 4113, TeamViewer  15.20.3, tmate 2.4.0, vsftpd 3.0.3 - Apps: VMware Tools, Brother Printer SW, F5 VPN SW, Google Chrome, KeeWeb, Rambox, Nextcloud - Tools: dig, lsof, nano, ncat, nmap, rsync, tcpdump, telnet, unzip, wget, whois, wireshark - Python modules: BeautifulSoup 4.9.3, mysql.connector 2.2.9, psutil 5.8.0 - OS: Linux-5.13.4-200.fc34.x86_64-x86_64-with-glibc2.33
 
 
 States
