@@ -36,9 +36,11 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060201'
+__version__ = '2021082301'
 
 DESCRIPTION = """Warns on any failed systemd units."""
+
+DEFAULT_IGNORE = []
 
 
 def parse_args():
@@ -58,6 +60,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a unit, for example "dhcpd.service" (repeating). Default: %(default)s',
+        dest='IGNORE',
+        default=DEFAULT_IGNORE,
+        action='append',
     )
 
     parser.add_argument(
@@ -91,20 +101,19 @@ def main():
     if retc != 0:
         lib.base3.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
 
+    msg = 'Everything is ok.'
+    table = ''
+    state = STATE_OK
+    count = 0
+
     failed_units = stdout.splitlines()
-    if len(failed_units) == 0:
-        msg = 'Everything is ok.'
-        table = ''
-        state = STATE_OK
-    else:
-        msg = 'There {} {} failed {}.\n'.format(
-            lib.base3.pluralize('', len(failed_units), 'is,are'),
-            len(failed_units),
-            lib.base3.pluralize('unit', len(failed_units)),
-            )
+    if len(failed_units) > 0:
         table_data = []
         for line in failed_units:
             unit = line.split()
+            if unit[0] in args.IGNORE:
+                continue
+            count += 1
             table_data.append({
                 'unit': unit[0],
                 'load': unit[1],
@@ -112,15 +121,21 @@ def main():
                 'sub': unit[3],
                 'description': ' '.join(unit[4:]),
                 })
+        if count > 0:
             state = STATE_WARN
-        table = lib.base3.get_table(
-            table_data,
-            ['unit', 'load', 'active', 'sub', 'description'],
-            ['unit', 'load', 'active', 'sub', 'description'],
-            )
+            msg = 'There {} {} failed {}.\n'.format(
+                lib.base3.pluralize('', count, 'is,are'),
+                count,
+                lib.base3.pluralize('unit', count),
+                )
+            table = lib.base3.get_table(
+                table_data,
+                ['unit', 'load', 'active', 'sub', 'description'],
+                ['unit', 'load', 'active', 'sub', 'description'],
+                )
 
     perfdata = lib.base3.get_perfdata(
-        'systemd-units-failed', len(failed_units), None, 1, None, 0, None)
+        'systemd-units-failed', count, None, 1, None, 0, None)
 
     # over and out
     lib.base3.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
