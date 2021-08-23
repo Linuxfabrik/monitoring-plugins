@@ -61,6 +61,23 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
+    def test_if_check_runs_EXAMPLE07_ignore1(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --ignore 567760 --test=examples/EXAMPLE07,,0'))
+        self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE07_ignore2(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --ignore 567760 --ignore 2719104 --test=examples/EXAMPLE07,,0'))
+        self.assertRegexpMatches(stdout, r'Everything is ok.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE07_ignore3(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --ignore 567760 --ignore 2719104 --ignore anything --test=examples/EXAMPLE07,,0'))
+        self.assertRegexpMatches(stdout, r'Everything is ok.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
 if __name__ == '__main__':
     unittest.main()

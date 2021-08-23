@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021073001'
+__version__ = '2021082301'
 
 DESCRIPTION = """Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
                 --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want to
@@ -46,10 +46,12 @@ DEFAULT_SERVERITY = 'crit'
 
 cmd = 'dmesg --level=emerg,alert,crit,err --ctime'
 
-# ignore false positives / bugs:
-ignore = [
+# ignore false positives / bugs / messages without impact on anything:
+DEFAULT_IGNORE = [
     ' Asking for cache data failed',
     ' Assuming drive cache: write through',
+    ' brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio for chip BCM4345/6',  # Raspbian
+    ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',    # Raspbian
     ' CIFS VFS: Free previous auth_key.response = ',
     ' cpufreq: __cpufreq_add_dev: ->get() failed',
     ' ERST: Failed to get Error Log Address Range.',
@@ -83,6 +85,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a kernel message (case-sensitive, repeating). Default: %(default)s',
+        dest='IGNORE',
+        default=DEFAULT_IGNORE,
+        action='append',
     )
 
     parser.add_argument(
@@ -137,7 +147,7 @@ def main():
 
     # analyze data
     result = stdout.strip()
-    result = lib.base3.filter_mltext(result, ignore).strip()
+    result = lib.base3.filter_mltext(result, args.IGNORE).strip()
 
     # build the message
     if len(result) > 0:
