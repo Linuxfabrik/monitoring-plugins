@@ -38,7 +38,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021082301'
 
 DESCRIPTION = 'Check the state of a Windows service.'
 
@@ -73,9 +73,9 @@ def parse_args():
 
     parser.add_argument(
         '--status',
-        help='Expected service status (repeating). Default: %(default)s',
+        help='Expected service status (repeating). Default: %(DEFAULT_STATUS)s',
         dest='STATUS',
-        default=DEFAULT_STATUS,
+        default=None,# due to https://bugs.python.org/issue16399, see in main() below
         action='append',
         choices=['running', 'paused', 'start_pending', 'pause_pending', 'continue_pending', 'stop_pending', 'stopped'],
     )
@@ -97,6 +97,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # due to https://bugs.python.org/issue16399, set the default value here
+    if args.STATUS is None:
+        args.STATUS = DEFAULT_STATUS
 
     try:
         service = psutil.win_service_get(args.SERVICE)
