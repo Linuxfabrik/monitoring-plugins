@@ -29,14 +29,13 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 import argparse # pylint: disable=C0413
 import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
 from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052701'
+__version__ = '2021082501'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -831,7 +830,7 @@ def main():
             continue
 
         if args.TEST is None:
-            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + str(disk))
+            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + unicode(disk))
             stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
@@ -920,5 +919,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

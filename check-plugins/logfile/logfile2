@@ -8,33 +8,37 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import datetime
-import re
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import datetime # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.base2
-import lib.db_sqlite2
-import lib.icinga2
-from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.base2 # pylint: disable=C0413
+import lib.db_sqlite2 # pylint: disable=C0413
+import lib.icinga2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021081801'
+__version__ = '2021082501'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -46,6 +50,7 @@ DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -196,8 +201,7 @@ def main():
         lib.base2.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
 
     if args.ICINGA_CALLBACK and not all((args.ICINGA_URL, args.ICINGA_PASSWORD, args.ICINGA_USERNAME, args.ICINGA_SERVICE_NAME)):
-        print('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.')
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.', STATE_UNKNOWN)
 
     # create the db table
     conn = lib.base2.coe(lib.db_sqlite2.connect(filename='logfile.db'))
@@ -436,5 +440,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

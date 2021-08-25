@@ -28,7 +28,6 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base2 # pylint: disable=C0413
 import lib.cache2 # pylint: disable=C0413
@@ -37,7 +36,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050601'
+__version__ = '2021082501'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -173,6 +172,7 @@ def main():
 
     # fetch data
     activity = lib.base2.coe(get_json(args.URL + '/api/activity', token))[0]
+
     settings = lib.base2.coe(get_data(args.URL + '/api/setting/site-name', token))  # /api/setting/:key returns plain text, not json
     stats = lib.base2.coe(get_json(args.URL + '/api/util/stats', token))
 
@@ -188,7 +188,7 @@ def main():
     msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.base2.pluralize('collection', stats['stats']['collection']['collections']))
     msg += '{} CPUs, {} MiB RAM'.format(stats['stats']['system']['processors'], stats['stats']['system']['max_memory'])
 
-    msg += '\nLast activity: "{}{}" by {} ({} ago)'.format(
+    msg += u'\nLast activity: "{}{}" by {} ({} ago)'.format(
         activity['topic'],
         '/' + activity['details']['name'] if 'name' in activity['details'] else '',
         activity['user']['common_name'],
@@ -212,5 +212,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

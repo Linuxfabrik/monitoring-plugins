@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021702'
+__version__ = '2021082501'
 
 DESCRIPTION = 'Returns information about a specific team or donor at Folding@Home.'
 
@@ -40,7 +40,6 @@ import lib.url2
 
 import argparse
 import json
-from traceback import print_exc
 
 
 def parse_args():
@@ -118,7 +117,7 @@ def main():
             lib.base2.seconds2human(delta),
             lib.base2.number2human(result['credit']),
             result['active_50'],
-            str(donors) + '+' if donors >= 1000 else donors,
+            unicode(donors) + '+' if donors >= 1000 else donors,
             args.TEAM
             )
         perfdata += lib.base2.get_perfdata('rank', result['rank'], None, None, None, 0, result['total_teams'])
@@ -136,5 +135,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+        lib.base2.cu()

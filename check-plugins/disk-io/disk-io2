@@ -28,20 +28,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
-try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
 
 import lib.base2 # pylint: disable=C0413
 import lib.cache2 # pylint: disable=C0413
 import lib.db_sqlite2 # pylint: disable=C0413
 from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
+try:
+    import psutil
+except ImportError as e:
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021071301'
+__version__ = '2021082501'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -282,5 +282,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+        lib.base2.cu()

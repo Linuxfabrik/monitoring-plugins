@@ -28,7 +28,6 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
@@ -38,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021072701'
+__version__ = '2021082501'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -320,7 +319,7 @@ def main():
     table_values.append({'key': 'ScheduledJobs', 'value': result['job_statistics']['ScheduledJobs']})
     table_values.append({'key': 'ScheduledReplicaJobs', 'value': result['job_statistics']['ScheduledReplicaJobs']})
     table_values.append({'key': 'SourceVmsSize', 'value': lib.base2.bytes2human(result['vms_overview']['SourceVmsSize'])})
-    table_values.append({'key': 'SuccessBackupPercents', 'value': str(result['vms_overview']['SuccessBackupPercents']) + '%'})
+    table_values.append({'key': 'SuccessBackupPercents', 'value': unicode(result['vms_overview']['SuccessBackupPercents']) + '%'})
     table_values.append({'key': 'SuccessfulJobRuns', 'value': result['job_statistics']['SuccessfulJobRuns']})
     table_values.append({'key': 'SuccessfulVmLastestStates', 'value': result['overview']['SuccessfulVmLastestStates']})
     table_values.append({'key': 'TotalJobRuns', 'value': result['job_statistics']['TotalJobRuns']})
@@ -342,5 +341,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

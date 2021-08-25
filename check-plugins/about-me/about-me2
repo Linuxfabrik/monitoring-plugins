@@ -30,7 +30,6 @@ import argparse # pylint: disable=C0413
 import platform # pylint: disable=C0413
 import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base2 # pylint: disable=C0413
 import lib.net2 # pylint: disable=C0413
@@ -39,12 +38,11 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 try:
     import psutil # pylint: disable=C0413
 except ImportError:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082301'
+__version__ = '2021082501'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -363,5 +361,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

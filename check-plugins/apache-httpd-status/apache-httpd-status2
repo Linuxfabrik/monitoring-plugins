@@ -28,7 +28,6 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
@@ -38,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021072801'
+__version__ = '2021082501'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -371,7 +370,7 @@ def main():
     table_values.append({'key': 'Workers Total', 'value': apache['TotalWorkers']})
     table_values.append({'key': '  Busy', 'value': apache['BusyWorkers']})
     table_values.append({'key': '  Idle', 'value': apache['IdleWorkers']})
-    table_values.append({'key': '  Usage (%)', 'value': str(apache['WorkerUsagePercentage']) + lib.base2.state2str(state, prefix=' ')})
+    table_values.append({'key': '  Usage (%)', 'value': unicode(apache['WorkerUsagePercentage']) + lib.base2.state2str(state, prefix=' ')})
     table_values.append({'key': 'Parent Server ConfigGeneration', 'value': apache['ParentServerConfigGeneration']}) if 'ParentServerConfigGeneration' in apache else ''
     table_values.append({'key': 'Parent Server MPMGeneration', 'value': apache['ParentServerMPMGeneration']}) if 'ParentServerMPMGeneration' in apache else ''
     table_values.append({'key': 'Server Name', 'value': apache['ServerName']})
@@ -395,5 +394,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()
