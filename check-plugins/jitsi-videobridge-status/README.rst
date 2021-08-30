@@ -78,7 +78,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    jitsi-videobridge-state,                    Number,             The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN).
+    jitsi-videobridge-state,                    Number,             "The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN)."
 
 
 Credits, License
