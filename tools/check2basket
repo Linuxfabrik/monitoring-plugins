@@ -22,7 +22,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021083001'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -35,19 +35,19 @@ skip_params = [
     '--test'
 ]
 
-# always use lowercase, the regex has the ignorecase option
+# case does not matter, the regex uses the ignorecase option
 capitalized_words = [
-    'ok',
-    'url',
-    'xa',
-    'gc',
-    'tcp',
-    'md5',
-    'sha',
-    'aes',
-    'des',
-    'cpu',
-    'dns',
+    'OK',
+    'URL',
+    'XA',
+    'GC',
+    'TCP',
+    'MD5',
+    'SHA',
+    'AES',
+    'DES',
+    'CPU',
+    'DNS',
 ]
 
 command_field_id = 1
@@ -148,24 +148,8 @@ def err_print(msg):
         print(msg)
 
 
-def get_data_template():
-    return {
-        "Command": {
-        },
-        "ServiceTemplate": {
-        },
-        "DataList": {
-        },
-        "Datafield": {
-        },
-    }
-
-
-def generate_basket(plugin_file):
-    global command_field_id # this prevents command_field_id collisions
-
+def get_plugin_args(plugin_file):
     check3 = os.path.basename(plugin_file)
-    check = os.path.basename(plugin_file).removesuffix('3')
 
     # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
     argparse.ArgumentParser.parse_args = _return_parser
@@ -182,11 +166,24 @@ def generate_basket(plugin_file):
         err_print(f'SystemExit during check execution: {e}')
         return None
 
-    plugin_args = plugin_module.parse_args()
+    return plugin_module.parse_args()
 
-    data = get_data_template()
 
-    data["Command"][f"cmd-check-{check}"] = {
+def get_data_template():
+    return {
+        "Command": {
+        },
+        "ServiceTemplate": {
+        },
+        "DataList": {
+        },
+        "Datafield": {
+        },
+    }
+
+
+def get_command_template(check):
+    return {
         "arguments": {
         },
         "command": f"/usr/lib64/nagios/plugins/{check}",
@@ -203,7 +200,9 @@ def generate_basket(plugin_file):
         "zone": None
     }
 
-    data["ServiceTemplate"][f"tpl-service-{check}"] = {
+
+def get_service_template(check, description):
+    return {
         "action_url": None,
         "apply_for": None,
         "assign_filter": None,
@@ -232,7 +231,7 @@ def generate_basket(plugin_file):
             "tpl-service-generic"
         ],
         "max_check_attempts": None,
-        "notes": f"{plugin_args.description}",
+        "notes": f"{description}",
         "notes_url": f"https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/{check}",
         "object_name": f"tpl-service-{check}",
         "object_type": "template",
@@ -242,16 +241,25 @@ def generate_basket(plugin_file):
         "use_agent": None,
         "use_var_overrides": None,
         "vars": {
-            # "snmp_community": "public",
-            # "snmp_device": "any-any-any.csv",
-            # "snmp_hide_ok": false,
-            # "snmp_mibdir": "$$HOME\/.snmp\/mibs:\/usr\/share\/snmp\/mibs",
-            # "snmp_snmpversion": "2c",
-            # "snmp_timeout": "7"
         },
         "volatile": None,
         "zone": None
     }
+
+
+def generate_basket(plugin_file):
+    global command_field_id # this prevents command_field_id collisions
+
+    plugin_args = get_plugin_args(plugin_file)
+
+    check = os.path.basename(plugin_file).removesuffix('3')
+
+    data = get_data_template()
+    data["Command"][f"cmd-check-{check}"] = get_command_template(check)
+    data["ServiceTemplate"][f"tpl-service-{check}"] = get_service_template(check, plugin_args.description)
+
+
+    # handle argparse arguments
 
     # argparse action classes
     # class BooleanOptionalAction(Action):
