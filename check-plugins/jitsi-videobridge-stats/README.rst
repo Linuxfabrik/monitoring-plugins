@@ -4,7 +4,7 @@ Check jitsi-videobridge-stats
 Overview
 --------
 
-Checks the number of participants on a Jitsi Videobridge (v2.1+) and returns a bunch of performance data using the `REST version of the COLIBRI protocol <https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest-colibri.md>`.
+Checks the number of participants on a Jitsi Videobridge (v2.1+) and returns a bunch of performance data using the `REST version of the COLIBRI protocol <https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest-colibri.md>`_.
 
 The `statistics <https://github.com/jitsi/jitsi-videobridge/blob/master/doc/statistics.md>`_ are available through the ``/colibri/stats`` endpoint on the *private* REST interface that `must be activated first <https://github.com/jitsi/jitsi-videobridge/blob/master/doc/rest.md>`_.
 
