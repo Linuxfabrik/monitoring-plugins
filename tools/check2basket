@@ -22,7 +22,14 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021081201'
+__version__ = '2021082501'
+
+DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
+
+skip_checks = [
+    'example',
+    'dummy',
+]
 
 skip_params = [
     '--test'
@@ -34,7 +41,50 @@ capitalized_words = [
     'url',
     'xa',
     'gc',
+    'tcp',
+    'md5',
+    'sha',
+    'aes',
+    'des',
+    'cpu',
+    'dns',
 ]
+
+command_field_id = 1
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--output-file',
+        help='Set the output file. All baskets will be stored in this single file. Can be used together with --auto to generate one basket for all plugins.',
+        dest='OUTPUT_FILE',
+        type=str,
+    )
+
+    parser.add_argument(
+        '--plugin-file',
+        help='Set the plugin file. Use this if you want to generate the basket for only one plugin.',
+        dest='PLUGIN_FILE',
+        type=str,
+    )
+
+    parser.add_argument(
+        '--auto',
+        help='Automatically generate a basket for each plugin.',
+        dest='AUTO',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
 
 
 def save_json_to_file(data, filename):
@@ -98,103 +148,11 @@ def err_print(msg):
         print(msg)
 
 
-def main():
-    try:
-        path_to_plugin = sys.argv[1]
-        output_file = sys.argv[2]
-    except IndexError:
-        err_print('usage: check2basket.py [path_to_plugin] [output_file]')
-        sys.exit(1)
-
-    check3 = os.path.basename(path_to_plugin)
-    check = os.path.basename(path_to_plugin).removesuffix('3')
-
-    # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
-    argparse.ArgumentParser.parse_args = _return_parser
-
-    spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, path_to_plugin))
-    check_module = importlib.util.module_from_spec(spec)
-
-    try:
-        spec.loader.exec_module(check_module)
-    except Exception as e:
-        err_print(f'Exception during check execution: {e}')
-        return None
-    except SystemExit as e:
-        err_print(f'SystemExit during check execution: {e}')
-        return None
-
-    args = check_module.parse_args()
-
-    data = {
+def get_data_template():
+    return {
         "Command": {
-            f"cmd-check-{check}": {
-                "arguments": {
-                },
-                "command": f"/usr/lib64/nagios/plugins/{check}",
-                "disabled": False,
-                "fields": [
-                ],
-                "imports": [],
-                "is_string": None,
-                "methods_execute": "PluginCheck",
-                "object_name": f"cmd-check-{check}",
-                "object_type": "object",
-                "timeout": "10",
-                "vars": {},
-                "zone": None
-            }
         },
         "ServiceTemplate": {
-            f"tpl-service-{check}": {
-                "action_url": None,
-                "apply_for": None,
-                "assign_filter": None,
-                "check_command": f"cmd-check-{check}",
-                "check_interval": None,
-                "check_period": None,
-                "check_timeout": None,
-                "command_endpoint": None,
-                "disabled": False,
-                "display_name": None,
-                "enable_active_checks": None,
-                "enable_event_handler": None,
-                "enable_flapping": None,
-                "enable_notifications": None,
-                "enable_passive_checks": None,
-                "enable_perfdata": None,
-                "event_command": None,
-                "fields": [],
-                "flapping_threshold_high": None,
-                "flapping_threshold_low": None,
-                "groups": [],
-                "host": None,
-                "icon_image": f"{check}.png",
-                "icon_image_alt": None,
-                "imports": [
-                    "tpl-service-generic"
-                ],
-                "max_check_attempts": None,
-                "notes": None,
-                "notes_url": None,
-                "object_name": f"tpl-service-{check}",
-                "object_type": "template",
-                "retry_interval": None,
-                "service_set": None,
-                "template_choice": None,
-                "use_agent": None,
-                "use_var_overrides": None,
-                "vars": {
-                    # "snmp_community": "public",
-                    # "snmp_device": "any-any-any.csv",
-                    # "snmp_hide_ok": false,
-                    # "snmp_mibdir": "$$HOME\/.snmp\/mibs:\/usr\/share\/snmp\/mibs",
-                    # "snmp_snmpversion": "2c",
-                    # "snmp_timeout": "7"
-                },
-                "volatile": None,
-                "zone": None
-            }
         },
         "DataList": {
         },
@@ -202,6 +160,98 @@ def main():
         },
     }
 
+
+def generate_basket(plugin_file):
+    global command_field_id # this prevents command_field_id collisions
+
+    check3 = os.path.basename(plugin_file)
+    check = os.path.basename(plugin_file).removesuffix('3')
+
+    # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
+    argparse.ArgumentParser.parse_args = _return_parser
+
+    spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, plugin_file))
+    plugin_module = importlib.util.module_from_spec(spec)
+
+    try:
+        spec.loader.exec_module(plugin_module)
+    except Exception as e:
+        err_print(f'Exception during check execution: {e}')
+        return None
+    except SystemExit as e:
+        err_print(f'SystemExit during check execution: {e}')
+        return None
+
+    plugin_args = plugin_module.parse_args()
+
+    data = get_data_template()
+
+    data["Command"][f"cmd-check-{check}"] = {
+        "arguments": {
+        },
+        "command": f"/usr/lib64/nagios/plugins/{check}",
+        "disabled": False,
+        "fields": [
+        ],
+        "imports": [],
+        "is_string": None,
+        "methods_execute": "PluginCheck",
+        "object_name": f"cmd-check-{check}",
+        "object_type": "object",
+        "timeout": "10",
+        "vars": {},
+        "zone": None
+    }
+
+    data["ServiceTemplate"][f"tpl-service-{check}"] = {
+        "action_url": None,
+        "apply_for": None,
+        "assign_filter": None,
+        "check_command": f"cmd-check-{check}",
+        "check_interval": None,
+        "check_period": None,
+        "check_timeout": None,
+        "command_endpoint": None,
+        "disabled": False,
+        "display_name": None,
+        "enable_active_checks": None,
+        "enable_event_handler": None,
+        "enable_flapping": None,
+        "enable_notifications": None,
+        "enable_passive_checks": None,
+        "enable_perfdata": None,
+        "event_command": None,
+        "fields": [],
+        "flapping_threshold_high": None,
+        "flapping_threshold_low": None,
+        "groups": [],
+        "host": None,
+        "icon_image": f"{check}.png",
+        "icon_image_alt": None,
+        "imports": [
+            "tpl-service-generic"
+        ],
+        "max_check_attempts": None,
+        "notes": f"{plugin_args.description}",
+        "notes_url": f"https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/{check}",
+        "object_name": f"tpl-service-{check}",
+        "object_type": "template",
+        "retry_interval": None,
+        "service_set": None,
+        "template_choice": None,
+        "use_agent": None,
+        "use_var_overrides": None,
+        "vars": {
+            # "snmp_community": "public",
+            # "snmp_device": "any-any-any.csv",
+            # "snmp_hide_ok": false,
+            # "snmp_mibdir": "$$HOME\/.snmp\/mibs:\/usr\/share\/snmp\/mibs",
+            # "snmp_snmpversion": "2c",
+            # "snmp_timeout": "7"
+        },
+        "volatile": None,
+        "zone": None
+    }
 
     # argparse action classes
     # class BooleanOptionalAction(Action):
@@ -215,8 +265,7 @@ def main():
     # class _SubParsersAction(Action):
     #     class _ChoicesPseudoAction(Action):
 
-    command_field_id = 1
-    for action in args._actions:
+    for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
         if not long_param:
             warn_print(f'Could not find a long parameter for:\n{action}')
@@ -269,11 +318,22 @@ def main():
                     data['DataList'][datalist_name]['entries'].append(
                         {
                             "entry_name": choice,
-                            "entry_value": lf_title(choice.replace("-", " ")),
+                            "entry_value": lf_title(choice.replace("-", " ").replace("_", " ")),
                             "format": "string",
                             "allowed_roles": None
                         }
                     )
+            elif isinstance(action, argparse._AppendAction):
+                data['Datafield'][command_field_id] = {
+                    "varname": varname,
+                    "caption": get_caption(check, long_param),
+                    "description": help2description(action.help),
+                    "datatype": r"Icinga\Module\Director\DataType\DataTypeArray",
+                    "format": None,
+                    "settings": {
+                        "visibility": get_visibility(varname)
+                    }
+                }
             else:
                 data['Datafield'][command_field_id] = {
                     "varname": varname,
@@ -320,7 +380,42 @@ def main():
 
         warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
 
-    save_json_to_file(data, output_file)
+    return data
+
+
+def main():
+    args = parse_args()
+
+    if args.PLUGIN_FILE and args.OUTPUT_FILE:
+        save_json_to_file(generate_basket(args.PLUGIN_FILE), args.OUTPUT_FILE)
+    elif args.AUTO:
+        data = get_data_template()
+        directories = os.listdir('check-plugins')
+        for directory in directories:
+            if directory in skip_checks:
+                continue
+
+            plugin_file = os.path.join('check-plugins', directory, directory + '3')
+            if os.path.isfile(plugin_file):
+                print(f'Check: {directory}')
+                plugin_data = generate_basket(plugin_file)
+                if plugin_data:
+                    if args.OUTPUT_FILE:
+                        # append the plugin_data to data, save to a single file in the end
+                        for key, value in plugin_data.items():
+                            data[key].update(value)
+                    else:
+                        output_file = os.path.join('check-plugins', directory, directory + '.basket.json')
+                        save_json_to_file(plugin_data, output_file)
+                else:
+                    err_print(f'No data for {directory}.')
+        if args.OUTPUT_FILE:
+            save_json_to_file(data, args.OUTPUT_FILE)
+
+    else:
+        err_print('Either --auto or --check-file and --output-file is required.')
+        sys.exit(2)
+
 
 if __name__ == '__main__':
     main()
