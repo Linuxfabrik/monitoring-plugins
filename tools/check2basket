@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import uuid
 
 try:
     import colorama
@@ -26,7 +27,7 @@ __version__ = '2021083001'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
-skip_checks = [
+skip_plugins = [
     'example',
     'dummy',
 ]
@@ -64,7 +65,7 @@ def parse_args():
 
     parser.add_argument(
         '--output-file',
-        help='Set the output file. All baskets will be stored in this single file. Can be used together with --auto to generate one basket for all plugins.',
+        help='Set the output file. This does not work with --auto.',
         dest='OUTPUT_FILE',
         type=str,
     )
@@ -247,7 +248,82 @@ def get_service_template(check, description):
     }
 
 
-def generate_basket(plugin_file):
+def offer_selection(options):
+    options = list(options)
+    for index, text in enumerate(options):
+        print('{}: {}'.format(index, text))
+
+    print('n: treat as a new object and generate a new guid')
+
+    print('- ' * 40)
+    try:
+        while True:
+            selection = input('Please choose the corresponding object, or type "n" to generate a new guid: ')
+            if selection == 'n':
+                return None
+            elif int(selection) < len(options):
+                return options[int(selection)]
+    except KeyboardInterrupt:
+        sys.exit()
+    except ValueError:
+        print('Failed to parse selection.')
+        sys.exit(3)
+
+
+def manage_uuids(data, old_data=None):
+    if old_data:
+        reused_guid_objects = []
+        for parent_key, parent_value in old_data.items():
+            if parent_key == 'Datafield':
+                varnames = {value['varname']: key for key, value in data['Datafield'].items()}
+                for key, value in parent_value.items():
+                    if 'guid' in value:
+                        varname = value['varname']
+                        if varname in varnames:
+                            data[parent_key][varnames[varname]]['guid'] = value['guid']
+                        else:
+                            print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
+                            selection = offer_selection(varnames.keys())
+                            if selection:
+                                data[parent_key][varnames[selection]]['guid'] = value['guid']
+                        reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+
+            else:
+                for key, value in parent_value.items():
+                    if 'guid' in value:
+                        if parent_key in data and key in data[parent_key]:
+                            data[parent_key][key]['guid'] = value['guid']
+                        else:
+                            print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
+                            selection = offer_selection(data[parent_key].keys())
+                            if selection:
+                                data[parent_key][selection]['guid'] = value['guid']
+                        reused_guid_objects.append(f'[{parent_key}][{key}]')
+
+        if reused_guid_objects:
+            print('\nFound the same object in the old basket, reusing the guid:\n* ', end='')
+            print('\n* '.join(reused_guid_objects))
+
+        warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
+
+    new_guid_objects = []
+    for parent_key, parent_value in data.items():
+        for key, value in parent_value.items():
+            if 'guid' not in value:
+                if parent_key == 'Datafield':
+                    new_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                else:
+                    new_guid_objects.append(f'[{parent_key}][{key}]')
+                data[parent_key][key]['guid'] = str(uuid.uuid4())
+
+    if new_guid_objects:
+        print('\nAdding guid to the following items (this means we are assuming they are new):\n* ', end='')
+        print('\n* '.join(new_guid_objects))
+
+    return data
+
+
+def generate_basket(plugin_file, old_data=None):
     global command_field_id # this prevents command_field_id collisions
 
     plugin_args = get_plugin_args(plugin_file)
@@ -303,7 +379,7 @@ def generate_basket(plugin_file):
 
             if action.choices is not None:
                 datalist_name = f'{varname}_list'
-                data['Datafield'][command_field_id] = {
+                data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
                     "caption": get_caption(check, long_param),
                     "description": help2description(action.help),
@@ -332,7 +408,7 @@ def generate_basket(plugin_file):
                         }
                     )
             elif isinstance(action, argparse._AppendAction):
-                data['Datafield'][command_field_id] = {
+                data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
                     "caption": get_caption(check, long_param),
                     "description": help2description(action.help),
@@ -343,7 +419,7 @@ def generate_basket(plugin_file):
                     }
                 }
             else:
-                data['Datafield'][command_field_id] = {
+                data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
                     "caption": get_caption(check, long_param),
                     "description": help2description(action.help),
@@ -371,7 +447,7 @@ def generate_basket(plugin_file):
                 "var_filter": None
             })
 
-            data['Datafield'][command_field_id] = {
+            data['Datafield'][str(command_field_id)] = {
                 "varname": varname,
                 "caption": get_caption(check, long_param) + '?',
                 "description": help2description(action.help),
@@ -388,40 +464,49 @@ def generate_basket(plugin_file):
 
         warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
 
-    return data
+    return manage_uuids(data, old_data)
 
 
 def main():
     args = parse_args()
 
     if args.PLUGIN_FILE and args.OUTPUT_FILE:
-        save_json_to_file(generate_basket(args.PLUGIN_FILE), args.OUTPUT_FILE)
+        old_data = None
+        if os.path.isfile(args.OUTPUT_FILE):
+            with open(args.OUTPUT_FILE, 'rb') as file:
+                print(f'Found an existing basket at {args.OUTPUT_FILE}, updating it.')
+                old_data = json.load(file)
+        save_json_to_file(generate_basket(args.PLUGIN_FILE, old_data), args.OUTPUT_FILE)
+
     elif args.AUTO:
-        data = get_data_template()
         directories = os.listdir('check-plugins')
         for directory in directories:
-            if directory in skip_checks:
+            if directory in skip_plugins:
                 continue
 
             plugin_file = os.path.join('check-plugins', directory, directory + '3')
             if os.path.isfile(plugin_file):
                 print(f'Check: {directory}')
-                plugin_data = generate_basket(plugin_file)
+                old_data = None
+                output_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+                if os.path.isfile(output_file):
+                    with open(output_file, 'rb') as file:
+                        print(f'Found an existing basket at {output_file}, updating it.')
+                        old_data = json.load(file)
+                else:
+                    try:
+                        os.mkdir(os.path.join('check-plugins', directory, 'icingaweb2-module-director'))
+                    except FileExistsError:
+                        pass
+
+                plugin_data = generate_basket(plugin_file, old_data)
                 if plugin_data:
-                    if args.OUTPUT_FILE:
-                        # append the plugin_data to data, save to a single file in the end
-                        for key, value in plugin_data.items():
-                            data[key].update(value)
-                    else:
-                        output_file = os.path.join('check-plugins', directory, directory + '.basket.json')
-                        save_json_to_file(plugin_data, output_file)
+                    save_json_to_file(plugin_data, output_file)
                 else:
                     err_print(f'No data for {directory}.')
-        if args.OUTPUT_FILE:
-            save_json_to_file(data, args.OUTPUT_FILE)
 
     else:
-        err_print('Either --auto or --check-file and --output-file is required.')
+        err_print('Either --auto or --plugin-file and --output-file is required.')
         sys.exit(2)
 
 
