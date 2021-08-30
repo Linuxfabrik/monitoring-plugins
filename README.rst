@@ -6,24 +6,18 @@ Python-based Monitoring Check Plugins Collection
 
 This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-These monitoring check plugins
+The check plugins run on
 
-* are only written in Python (your main system language on RHEL / CentOS)
-* ensure easy access to the source code
-* are fast, reliable and use as few system resources as possible 
-* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
-* use out of the box some sort of automatic detection using useful default settings
-* trigger WARNs and CRITs only where absolutely necessary
-* provide additional information for troubleshooting where possible
-* avoid dependencies on additional system libraries where possible
+* Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
+* Windows Server (some of them)
 
-All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
+All plugins are written in Python and licensed under the UNLICENSE, which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example "used"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
 
 Support
 -------
 
-The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
+The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/kontakt>`_). If you just like to support our work, please consider donating by clicking on |Donate|.
 
 
 Check Plugin Poster
@@ -33,7 +27,6 @@ See most of our check plugins in action on an Icinga server at a glance:
 
 .. image:: assets/img/linuxfabrik-monitoring-check-plugins.png
 
- 
 If you zoom in, for example in *CPU Usage*:
 
 .. image:: assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png
@@ -89,7 +82,7 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
     60*60*24*30,  M,      ,           Time,            Months
     60*60*24*365, Y,      ,           Time,            Years
 
-* 1: Traditional European (Peletier) (long scale)
+* 1: Traditional European (Peletier, long scale)
 * 2: US, Canada and modern British (short scale)
 
 
@@ -99,9 +92,9 @@ A few words about Python
 Python 2 vs Python 3
 ~~~~~~~~~~~~~~~~~~~~
 
-All check plugins are currently available for Python 2. We are gradually migrating them to Python 3 by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
+All check plugins are currently available for Python 2.7. We are gradually migrating them to Python 3.6+ by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
 
-The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3``. 
+The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3`` explicitly.
 
 
 Virtual Environment
@@ -142,7 +135,7 @@ Get our monitoring check plugins and the associated libraries from Linuxfabrik's
 
 .. code:: bash
 
-    BRANCH=master
+    BRANCH="master"   # or "develop"
     PYVER=2
 
     cd /tmp
@@ -169,9 +162,14 @@ Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plu
 
 .. code:: bash
 
+    BRANCH="master"   # or "develop"
+    PYVER=2
+
     cd /tmp/monitoring-plugins-$BRANCH/check-plugins
+
     find -maxdepth 2 -name 'test2' -delete
     find -maxdepth 2 -name 'test3' -delete
+    find -maxdepth 2 -name '.zip' -delete
     for check in $(find -maxdepth 2 -name "*$PYVER")
     do
         dir=$(dirname $check)
@@ -288,7 +286,6 @@ Next steps (beside maintaining and writing new check plugins):
 
 * Migrate every Plugin to Python 3.
 * Provide a meaningful Grafana-Panel (where it makes sense).
-* Compile check plugins for Windows using ``nuitka`` (where it makes sense).
 * Provide a (unit) test for the majority of the check plugins (where it makes sense).
 * Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
 

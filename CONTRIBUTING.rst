@@ -66,6 +66,17 @@ Rules of Thumb
 * EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
 
 
+Bytes vs. Unicode
+-----------------
+
+* Data coming into your plugins must be bytes, encoded with ``UTF-8``.
+* Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
+* **Use unicode throughout your plugin.**
+* When outputting data, use library functions, they should do output conversions for you. Library functions like ``base.oao`` or ``url.fetch_json`` will take care of the conversion to and from bytes.
+
+See https://nedbatchelder.com/text/unipain.html for details.
+
+
 Names, Naming Conventions, Parameters, Option Processing
 --------------------------------------------------------
 
@@ -73,7 +84,7 @@ The plugin name should match the following regex: ``^[a-zA-Z0-9\-\_]*$``. This a
 
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
-::
+.. code-block:: text
 
     -6, --6                 use IPv6
     -a, --authentication    authentication password
@@ -93,7 +104,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 For all other options, use long parameters only. We recommend using some of those:
 
-::
+.. code-block:: text
 
     --activestate
     --action
@@ -141,14 +152,14 @@ For all other options, use long parameters only. We recommend using some of thos
 
 `Parameter types <https://docs.python.org/3/library/argparse.html>`_ are usually:
 
-* type=float
-* type=int
-* type=lib.args3.csv
-* type=lib.args3.float_or_none
-* type=lib.args3.int_or_none
-* type=str (the default)
-* choices=['udp', 'udp6', 'tcp', 'tcp6']
-* action='store_true', action='store_false' for switches
+* ``type=float``
+* ``type=int``
+* ``type=lib.args3.csv``
+* ``type=lib.args3.float_or_none``
+* ``type=lib.args3.int_or_none``
+* ``type=str`` (the default)
+* ``choices=['udp', 'udp6', 'tcp', 'tcp6']``
+* ``action='store_true'``, ``action='store_false'`` for switches
 
 Hints:
 
@@ -157,6 +168,18 @@ Hints:
 * For repeating parameters, use the ``append`` action. A ``default`` variable has to be a list then. ``--input=a --input=b`` results in ``[ 'a', 'b' ]``
 * If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in
   ``[['1', '2', '3'], ['a', 'b', 'c']]``
+
+
+Git Commits
+-----------
+
+You have to make sure that an issue in the `plugin <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues>`_ or `lib <https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues>`_ project exists. No code fix without issue.
+
+**Fix only one issue per commit.**
+
+The commit message must consist of the issue title followed by "(fixed #issueno)", for example: ``about-me: Add OpenVPN (fixed #341)``. For the first commit, use the message ``initial commit``.
+
+This applies from 2021-08-31.
 
 
 Threshold and Ranges
@@ -194,7 +217,7 @@ If a threshold has to be handled as a range parameter, this is how to interpret 
 
 So, a definition like ``--warning 2:100 --critical 1:150`` should return the states:
 
-::
+.. code-block:: text
 
     val   0   1   2 .. 100 101 .. 150 151
     -w   WA  WA  OK     OK  WA     WA  WA
@@ -203,7 +226,7 @@ So, a definition like ``--warning 2:100 --critical 1:150`` should return the sta
 
 Another example: ``--warning 190: --critical 200:``
 
-::
+.. code-block:: text
 
     val 189 190 191 .. 199 200 201
     -w   WA  OK  OK     OK  OK  OK
@@ -212,7 +235,7 @@ Another example: ``--warning 190: --critical 200:``
 
 Another example: ``--warning ~:0 --critical 10``
 
-::
+.. code-block:: text
 
     val  -2  -1   0   1 ..   910  11
     -w   OK  OK  OK  WA     WA  WA  WA
@@ -244,21 +267,21 @@ Plugin Output
 * Print a short concise message in the first line within the first 80 chars if possible.
 * Use multi-line output for details (``msg_body``), with the most important output in the first line (``msg_header``).
 * Don't print "OK".
-* Print "(WARN)" or "(CRIT)" for clarification next to a specific item.
+* Print "[WARNING]" or "[CRITICAL]" for clarification next to a specific item using ``lib.base3.state2str()``.
 * If possible give a help text to solve the problem.
 * Multiple items checked, and ...
 
-  * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-  * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+    * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+    * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
 * Use short "Units of Measurements" without white spaces:
 
-  * Percentage: 93.2%
-  * Bytes: 7B, 3.4K, M, G, T
-  * Temperatures: 7.3C, 45F
-  * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-  * I/O and Throughput: 220.4MB/s (Megabyte per Second)
-  * Read/Write: "R/s", "W/s", "IO/s"
+    * Percentage: 93.2%
+    * Bytes: 7B, 3.4K, M, G, T
+    * Temperatures: 7.3C, 45F
+    * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
+    * I/O and Throughput: 220.4MB/s (Megabyte per Second)
+    * Read/Write: "R/s", "W/s", "IO/s"
 
 * Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
 * Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
@@ -269,19 +292,23 @@ Plugin Performance Data, Perfdata
 
 "UOM" means "Unit of Measurement".
 
-Sample::
+Sample:
+
+.. code-block:: text
 
     'label'=value[UOM];[warn];[crit];[min];[max];
 
 ``label``  doesn't need to be machine friendly, so ``Pages scanned=100;;;;;`` is as valuable as ``pages-scanned=100;;;;;``.
 
 
-Suffixes::
+Suffixes:
+
+.. code-block:: text
 
     no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
-    s - seconds (also us, ms)
+    s - seconds (also us, ms etc.)
     % - percentage
-    B - bytes (also KB, MB, TB)
+    B - bytes (also KB, MB, TB etc.). Bytes preferred, they are exact.
     c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
@@ -333,14 +360,14 @@ Implementing tests:
    against stdout, stderr and retc.
 * To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
-Have a look at the ``fs-ro`` plugin on how to do this.
+For example, have a look at the ``fs-ro`` plugin on how to do this.
 
 Running a complete unit test:
 
 .. code:: bash
 
-    # cd into the plugin directory and run:
-    ./test
+    # cd into the plugin directory and run the Python 3 based test:
+    ./test3
 
 
 sudoers File
