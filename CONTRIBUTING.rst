@@ -274,6 +274,8 @@ Plugin Output
     * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
     * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
+* Wrong username or password? Print "Failed to authenticate."
+
 * Use short "Units of Measurements" without white spaces:
 
     * Percentage: 93.2%
