@@ -1,0 +1,108 @@
+{
+    "Command": {
+        "cmd-check-php-version": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$php_version_always_ok$"
+                },
+                "--cache-expire": {
+                    "value": "$php_version_cache_expire$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/php-version",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 523,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 524,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-php-version",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "ac293d2d-c1cc-4e9f-aeab-580da4093a8c"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-php-version": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-php-version",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "php-version.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": null,
+            "notes": "With this plugin you can check whether a PHP minor *upgrade* is available or\n                whether the installed PHP version is EOL. For example, if you installed PHP 7.3\n                while PHP 7.4 is available, you will get a warning. If you're running PHP 7.4 and\n                PHP 8 is available (which is a major upgrade), you won't get a warning. To check for\n                available upgrades, this plugin uses https://www.php.net/releases/index.php.\n                To compare against the current/installed version of PHP, the check calls\n                ``php --version``.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/php-version",
+            "object_name": "tpl-service-php-version",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "php_version_always_ok": false,
+                "php_version_cache_expire": "24"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "144f71de-478b-4c9a-a679-f5cb69aef19a"
+        }
+    },
+    "DataList": {},
+    "Datafield": {
+        "523": {
+            "varname": "php_version_always_ok",
+            "caption": "Php Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "f6689724-1b7f-47e8-baf4-2b994b67ff17"
+        },
+        "524": {
+            "varname": "php_version_cache_expire",
+            "caption": "Php Version: Cache Expire",
+            "description": "The amount of time after which the update check cache expires, in hours.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "71a289e1-4a8d-4339-9b31-3db3493cc947"
+        }
+    }
+}

@@ -1,0 +1,126 @@
+{
+    "Command": {
+        "cmd-check-disk-smart": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$disk_smart_always_ok$"
+                },
+                "--full": {
+                    "set_if": "$disk_smart_full$"
+                },
+                "--ignore": {
+                    "value": "$disk_smart_ignore$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/disk-smart",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-disk-smart",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "b8ed7d73-cb23-4463-b54d-2797fc7cb79f"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-disk-smart": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-disk-smart",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "disk-smart.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": null,
+            "notes": "This check is some kind of user interface for smartctl, which is a tool for\n    querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in\n    hard disk and solid-state drives. It allows you to inspect the drive's SMART data to determine\n    its health.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/disk-smart",
+            "object_name": "tpl-service-disk-smart",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "disk_smart_always_ok": false,
+                "disk_smart_full": false,
+                "disk_smart_ignore": "[]"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "0fdf4874-8a9e-45a3-a68f-29131c00ab61"
+        }
+    },
+    "DataList": {},
+    "Datafield": {
+        "5": {
+            "varname": "disk_smart_always_ok",
+            "caption": "Disk Smart: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "ff221aa1-b192-4926-84d8-136a30763f1f"
+        },
+        "6": {
+            "varname": "disk_smart_full",
+            "caption": "Disk Smart: Full?",
+            "description": "If set, also warn on any assumptions (in GSmartControl stated as \"notice\" messages), otherwise just warn on \"real\" SMART issues. Default: check warnings and alerts only.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "c3507800-a48e-42ac-8b0c-099c12bd402b"
+        },
+        "7": {
+            "varname": "disk_smart_ignore",
+            "caption": "Disk Smart: Ignore",
+            "description": "A comma-separated list of disks which should be ignored, in the format 'sda,sdb'.Default: %(default)s",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "6bcd31b8-7c95-4834-977d-1749e5eefcac"
+        }
+    }
+}

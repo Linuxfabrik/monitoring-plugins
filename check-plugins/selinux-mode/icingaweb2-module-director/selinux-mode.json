@@ -1,0 +1,136 @@
+{
+    "Command": {
+        "cmd-check-selinux-mode": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$selinux_mode_always_ok$"
+                },
+                "--mode": {
+                    "value": "$selinux_mode_mode$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/selinux-mode",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 525,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 526,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-selinux-mode",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "be0e6179-ad85-41ae-b6d9-6971f0d2247e"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-selinux-mode": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-selinux-mode",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "selinux-mode.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": null,
+            "notes": "Checks the current mode of SELinux against a desired mode,\n                    and returns a warning on a non-match.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/selinux-mode",
+            "object_name": "tpl-service-selinux-mode",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "selinux_mode_always_ok": false,
+                "selinux_mode_mode": "enforcing"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "ecb117e5-438e-484d-bdc5-38f4a4249822"
+        }
+    },
+    "DataList": {
+        "selinux_mode_mode_list": {
+            "list_name": "selinux_mode_mode_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "enforcing",
+                    "entry_value": "Enforcing",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "permissive",
+                    "entry_value": "Permissive",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "disabled",
+                    "entry_value": "Disabled",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "guid": "453193f4-b3f9-46cd-b2e4-1d4911306cdf"
+        }
+    },
+    "Datafield": {
+        "525": {
+            "varname": "selinux_mode_always_ok",
+            "caption": "Selinux Mode: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "412718f5-7641-410e-90f8-98ed29f8dd7c"
+        },
+        "526": {
+            "varname": "selinux_mode_mode",
+            "caption": "Selinux Mode: Mode",
+            "description": "The expected SELinux mode, one of \"enforcing\", \"permissive\" or \"disabled\" (case-insensitive).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "selinux_mode_mode_list"
+            },
+            "guid": "e4c72a70-0b9b-45aa-b7fe-1599b8a122d7"
+        }
+    }
+}
