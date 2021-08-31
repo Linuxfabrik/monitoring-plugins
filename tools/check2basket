@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import uuid
+import yaml
 
 try:
     import colorama
@@ -61,13 +62,6 @@ def parse_args():
         '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
-    )
-
-    parser.add_argument(
-        '--output-file',
-        help='Set the output file. This does not work with --auto.',
-        dest='OUTPUT_FILE',
-        type=str,
     )
 
     parser.add_argument(
@@ -323,7 +317,17 @@ def manage_uuids(data, old_data=None):
     return data
 
 
-def generate_basket(plugin_file, old_data=None):
+def apply_overwrites(data, overwrites):
+    for key, value in overwrites.items():
+        try:
+            exec(f'data{key} = {value}', {}, {'data': data})
+        except KeyError:
+            err_print(f'Could not apply overwrite "{key}", as the path was not found.')
+
+    return data
+
+
+def generate_basket(plugin_file, config= None, old_data=None):
     global command_field_id # this prevents command_field_id collisions
 
     plugin_args = get_plugin_args(plugin_file)
@@ -464,19 +468,39 @@ def generate_basket(plugin_file, old_data=None):
 
         warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
 
+    if 'overwrites' in config:
+        data = apply_overwrites(data, config['overwrites'])
+
     return manage_uuids(data, old_data)
 
 
 def main():
     args = parse_args()
 
-    if args.PLUGIN_FILE and args.OUTPUT_FILE:
+    if args.PLUGIN_FILE:
+        plugin_dir = os.path.dirname(args.PLUGIN_FILE)
+        check = os.path.basename(args.PLUGIN_FILE).removesuffix('3')
+
+        output_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.json')
         old_data = None
-        if os.path.isfile(args.OUTPUT_FILE):
-            with open(args.OUTPUT_FILE, 'rb') as file:
-                print(f'Found an existing basket at {args.OUTPUT_FILE}, updating it.')
+        if os.path.isfile(output_file):
+            with open(output_file, 'rb') as file:
+                print(f'Found an existing basket at {output_file}, updating it.')
                 old_data = json.load(file)
-        save_json_to_file(generate_basket(args.PLUGIN_FILE, old_data), args.OUTPUT_FILE)
+        else:
+            try:
+                os.mkdir(os.path.join(plugin_dir, 'icingaweb2-module-director'))
+            except FileExistsError:
+                pass
+
+        config_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.yml')
+        config = None
+        if os.path.isfile(config_file):
+            with open(config_file, 'rb') as file:
+                print(f'Using config at {config_file}.')
+                config = yaml.safe_load(file)
+
+        save_json_to_file(generate_basket(args.PLUGIN_FILE, config, old_data), output_file)
 
     elif args.AUTO:
         directories = os.listdir('check-plugins')
@@ -506,7 +530,7 @@ def main():
                     err_print(f'No data for {directory}.')
 
     else:
-        err_print('Either --auto or --plugin-file and --output-file is required.')
+        err_print('Either --auto or --plugin-file is required.')
         sys.exit(2)
 
 
