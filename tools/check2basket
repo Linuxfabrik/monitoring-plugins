@@ -24,9 +24,14 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021083103'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
+
+DEFAULT_VARIANTS = [
+    'linux',
+]
+
 
 skip_plugins = [
     'example',
@@ -358,7 +363,7 @@ def manage_uuids(data, old_data=None):
                         reused_guid_objects.append(f'[{parent_key}][{key}]')
 
         if reused_guid_objects:
-            print('\nFound the same object in the old basket, reusing the guid:\n* ', end='')
+            print('\nFound an object with the same name in the old basket, reusing the guid:\n* ', end='')
             print('\n* '.join(reused_guid_objects))
 
         warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
@@ -522,46 +527,77 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
     return data
 
 
-def generate_basket(plugin_file, config= None, old_data=None):
+def generate_basket(plugin_file, config=None, old_data=None):
+    if config is None:
+        config = []
+    if 'variants' not in config:
+        config['variants'] = DEFAULT_VARIANTS
+
     plugin_args = get_plugin_args(plugin_file)
 
     check_name = os.path.basename(plugin_file).removesuffix('3')
 
-    command_object_name = f'cmd-check-{check_name}'
-    service_object_name = f'tpl-service-{check_name}'
-    command = f'/usr/lib64/nagios/plugins/{check_name}'
-    varname_suffix = ''
+    data = get_data_template()
 
-    if 'windows' in config.get('variants', []):
+    if 'linux' in config['variants']:
+        print('Generating "linux" variant.')
+        command_object_name = f'cmd-check-{check_name}'
+        service_object_name = f'tpl-service-{check_name}'
+        command = f'/usr/lib64/nagios/plugins/{check_name}'
+        varname_suffix = ''
+
+        data = get_command_template(
+            data,
+            command_object_name,
+            command
+        )
+
+        data = get_service_template(
+            data,
+            service_object_name,
+            command_object_name,
+            check_name,
+            plugin_args.description
+        )
+
+        data = parse_plugin_args(
+            data,
+            plugin_args,
+            check_name,
+            command_object_name,
+            service_object_name,
+            varname_suffix
+        )
+
+    if 'windows' in config['variants']:
+        print('Generating "windows" variant.')
         command_object_name += '-windows'
         service_object_name += '-windows'
         command = f'C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}\\{check_name}.exe'
         varname_suffix = '_windows'
 
-    data = get_data_template()
+        data = get_command_template(
+            data,
+            command_object_name,
+            command
+        )
 
-    data = get_command_template(
-        data,
-        command_object_name,
-        command
-    )
+        data = get_service_template(
+            data,
+            service_object_name,
+            command_object_name,
+            check_name,
+            plugin_args.description
+        )
 
-    data = get_service_template(
-        data,
-        service_object_name,
-        command_object_name,
-        check_name,
-        plugin_args.description
-    )
-
-    data = parse_plugin_args(
-        data,
-        plugin_args,
-        check_name,
-        command_object_name,
-        service_object_name,
-        varname_suffix
-    )
+        data = parse_plugin_args(
+            data,
+            plugin_args,
+            check_name,
+            command_object_name,
+            service_object_name,
+            varname_suffix
+        )
 
     if 'variants' in config:
         if 'sudo' in config['variants']:
@@ -586,7 +622,6 @@ def generate_basket(plugin_file, config= None, old_data=None):
             )
 
         if 'windows' in config['variants']:
-            print('Generating "windows" (python) variant.')
             data = get_command_template(
                 data,
                 f'cmd-check-{check_name}-windows-python',
