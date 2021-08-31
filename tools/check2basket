@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2021083104'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -529,11 +529,13 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
 def generate_basket(plugin_file, config=None, old_data=None):
     if config is None:
-        config = []
+        config = {}
     if 'variants' not in config:
         config['variants'] = DEFAULT_VARIANTS
 
     plugin_args = get_plugin_args(plugin_file)
+    if plugin_args is None:
+        return None
 
     check_name = os.path.basename(plugin_file).removesuffix('3')
 
