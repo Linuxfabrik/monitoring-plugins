@@ -15,12 +15,12 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
@@ -30,8 +30,8 @@ import argparse # pylint: disable=C0413
 import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
-import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
@@ -109,13 +109,13 @@ def main():
         )
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if (stderr or retc == 2):
-        lib.base2.oao(stderr, STATE_UNKNOWN)
+        lib.base3.oao(stderr, STATE_UNKNOWN)
 
     result = stdout.splitlines()
     if not result[0] or not result[3]:
-        lib.base2.oao('Unexpected output from ping.', STATE_UNKNOWN)
+        lib.base3.oao('Unexpected output from ping.', STATE_UNKNOWN)
 
     # throwing CRIT if ping exits with 1 (CRIT instead of WARN beacuse of the
     # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).
@@ -160,24 +160,24 @@ def main():
         msg += result[4]
 
     perfdata = ''
-    perfdata += lib.base2.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('received', received, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('errors', errors, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
-    perfdata += lib.base2.get_perfdata('time', time, 'ms', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('received', received, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('errors', errors, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
+    perfdata += lib.base3.get_perfdata('time', time, 'ms', None, None, 0, None)
 
-    perfdata += lib.base2.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
 
-    lib.base2.oao(msg, state, perfdata)
+    lib.base3.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        lib.base2.cu()
+        lib.base3.cu()
