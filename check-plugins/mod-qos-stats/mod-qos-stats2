@@ -36,7 +36,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021083101'
 
 DESCRIPTION = """mod_qos for Apache httpd features a handler showing the current connection and
                 request status. This check fetches the machine-readable version of the status
@@ -102,19 +102,7 @@ def main():
         result = lib.base2.coe(lib.url2.fetch(url))
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r') # pylint: disable=C0103
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r') # pylint: disable=C0103
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test2.test(args.TEST)
         result = stdout
 
     result = result.strip().split('\n')

@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061401'
+__version__ = '2021083101'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
@@ -160,19 +160,7 @@ def main():
         result = result.decode()
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r') # pylint: disable=C0103
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r') # pylint: disable=C0103
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test3.test(args.TEST)
         result = stdout
 
     result = result.strip().split('\n')

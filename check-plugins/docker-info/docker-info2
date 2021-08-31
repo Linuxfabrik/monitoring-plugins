@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021083101'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -83,19 +83,7 @@ def main():
             lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r')
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r')
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test2.test(args.TEST)
 
     # init some vars
     msg = ''

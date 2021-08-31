@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021072701'
+__version__ = '2021083101'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -167,19 +167,7 @@ def main():
         result['repository'] = lib.base3.coe(lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r') # pylint: disable=C0103
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r') # pylint: disable=C0103
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test3.test(args.TEST)
 
         import json
         result = json.loads(stdout)

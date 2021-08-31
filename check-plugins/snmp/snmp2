@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021083101'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -242,20 +242,7 @@ def main():
             stdout += tmp
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r')
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r')
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
-
+        stdout, stderr, retc = lib.test2.test(args.TEST)
 
 
     def index_of_oid(snmp_objects, oid, start=0):
