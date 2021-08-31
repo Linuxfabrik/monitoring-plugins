@@ -1,0 +1,204 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import base64
+import sys
+from traceback import print_exc
+import xml.etree.ElementTree as ET
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.args3
+import lib.base3
+import lib.url3
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021701'
+
+DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_PORT = 443
+DEFAULT_STATE = 'warn'
+DEFAULT_TIMEOUT = 3
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--filter',
+        help='Only check services that contain this string in their NickName.',
+        dest='FILTER',
+        type=str,
+        )
+
+    parser.add_argument(
+        '-H',
+        '--hostname',
+        help='KEMP Appliance address.',
+        dest='HOSTNAME',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure"'
+        ' SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+        )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+        )
+
+    parser.add_argument(
+        '--password',
+        help='API Password.',
+        dest='PASSWORD',
+        required=True,
+        )
+
+    parser.add_argument(
+        '--port',
+        help='KEMP Appliance port.',
+        dest='PORT',
+        default=DEFAULT_PORT,
+        )
+
+    parser.add_argument(
+        '--state',
+        help='The state that has to be returned. Default: %(default)s',
+        dest='STATE',
+        default=DEFAULT_STATE,
+        choices=['warn', 'crit'],
+        )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '-u',
+        '--username',
+        help='API Username.',
+        dest='USERNAME',
+        required=True,
+        )
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    return parser.parse_args()
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None:
+        # get the values the normal way
+        url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
+        header = {
+            'Authorization': "Basic {}".format(
+                base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
+                )
+        }
+        result = lib.base3.coe(lib.url3.fetch(
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT, header=header
+            ))
+    else:
+        # do not call the command, put in test data
+        result, stderr, retc = lib.base3.test(args.TEST)
+
+    state = STATE_OK
+    count = 0
+    table = []
+    root = ET.fromstring(result)
+    for service in root.findall('.Success/Data/VS'):
+        name = service.find('NickName').text
+        if not args.FILTER or args.FILTER in name:
+            count += 1
+            status = service.find('Status').text
+            service_state = STATE_OK if status.lower() != 'down' else \
+                STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+            table.append({
+                'name': name,
+                'state': lib.base3.state3str(service_state, empty_ok=False),
+                })
+            state = lib.base3.get_worst(state, service_state)
+
+    # create the message
+    msg = '{} {} checked. '.format(
+        count,
+        lib.base3.pluralize('service', count),
+        )
+
+    if len(table) > 0:
+        msg += '\n\n' + lib.base3.get_table(
+            table,
+            ['name', 'state'],
+            header=['NickName', 'State'],
+            )
+
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

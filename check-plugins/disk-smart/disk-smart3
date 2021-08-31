@@ -1,0 +1,924 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
+from traceback import print_exc # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021052701'
+
+DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
+    querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
+    hard disk and solid-state drives. It allows you to inspect the drive\'s SMART data to determine
+    its health.'''
+
+DEFAULT_IGNORE = []
+
+CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --include 8,252,259 | grep -v 'zram'"
+CMD_SMARTCTL = 'smartctl --xall {disk_path}'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--full',
+        help='If set, also warn on any assumptions (in GSmartControl stated as "notice" messages), '
+        'otherwise just warn on "real" SMART issues. Default: check warnings and alerts only.',
+        dest='FULL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'.'
+        'Default: %(default)s',
+        dest='IGNORE',
+        type=lib.args3.csv,
+        default=DEFAULT_IGNORE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    return parser.parse_args()
+
+
+def get_value(line):
+    """>>> get_value('Model Family:     Western Digital RE4')
+    Western Digital RE4
+    """
+
+    return line.split(b':')[1].strip()
+
+
+def get_worst(w1, w2):
+    if 'alert' in [w1, w2]:
+        return 'alert'
+    if 'warn' in [w1, w2]:
+        return 'warn'
+    if 'notice' in [w1, w2]:
+        return 'notice'
+    return 'none'
+
+
+def translate(smartstate, full=False):
+    """Warning types in GSmartControl: none  notice   warn  alert
+       Mapping in Nagios:              OK    OK/WARN  WARN  CRIT
+
+    If full=True, gsmartcontrol.notice is a nagios.WARN, otherwise nagios.OK
+    """
+    if smartstate == 'alert':
+        return STATE_CRIT
+    if smartstate == 'warn':
+        return STATE_WARN
+    if smartstate == 'notice' and full:
+        return STATE_WARN
+    return STATE_OK
+
+
+def get_sections(smartctl):
+    section, subsection = 'none', 'none'
+    sections = {
+        'data_attributes': [],
+        'data_capabilities': [],
+        'data_data': [],
+        'data_devstat': [],
+        'data_directory_log': [],
+        'data_error_log': [],
+        'data_health': [],
+        'data_sataphy': [],
+        'data_scterc_log': [],
+        'data_scttemp_log': [],
+        'data_selective_selftest_log': [],
+        'data_selftest_log': [],
+        'info_info': [],
+        'none_none': [],
+    }
+
+    for line in smartctl.splitlines():
+        if b'START OF INFORMATION SECTION' in line:
+            section = 'info'
+            subsection = 'info'
+            continue
+        if b'START OF READ SMART DATA SECTION' in line:
+            section = 'data'
+            subsection = 'data'
+            continue
+        if b'START OF READ SMART DATA SECTION' in line \
+        or b'START OF ENABLE/DISABLE COMMANDS SECTION' in line \
+        or b'START OF OFFLINE IMMEDIATE AND SELF-TEST SECTION' in line:
+            section = 'none'
+            subsection = 'none'
+            continue
+        if line.startswith(b'SMART overall-health self-assessment'):
+            section = 'data'
+            subsection = 'health'
+            continue
+        if line.startswith(b'SMART/Health Information'):
+            section = 'none'
+            subsection = 'none'
+            continue
+        if line.startswith(b'General SMART Values'):
+            section = 'data'
+            subsection = 'capabilities'
+            continue
+        if line.startswith(b'SMART Attributes Data Structure'):
+            section = 'data'
+            subsection = 'attributes'
+            continue
+        if line.startswith(b'General Purpose Log Directory Version') \
+        or line.startswith(b'General Purpose Log Directory not supported') \
+        or line.startswith(b'General Purpose Logging (GPL) feature set supported') \
+        or line.startswith(b'Read GP Log Directory failed') \
+        or line.startswith(b'Log Directories not read due to ') \
+        or line.startswith(b'Read SMART Log Directory failed') \
+        or line.startswith(b'SMART Log Directory Version'):
+            section = 'data'
+            subsection = 'directory_log'
+            continue
+        if line.startswith(b'SMART Error Log Version') \
+        or line.startswith(b'SMART Extended Comprehensive Error Log Version') \
+        or line.startswith(b'Warning: device does not support Error Logging') \
+        or line.startswith(b'SMART Error Log not supported') \
+        or line.startswith(b'Read SMART Error Log failed'):
+            section = 'data'
+            subsection = 'error_log'
+            continue
+        if line.startswith(b'SMART Extended Comprehensive Error Log (GP Log 0x03) not supported') \
+        or line.startswith(b'SMART Extended Comprehensive Error Log size ') \
+        or line.startswith(b'Read SMART Extended Comprehensive Error Log failed'):
+            section = 'none'
+            subsection = 'none'
+            continue
+        if line.startswith(b'SMART Self-test log') \
+        or line.startswith(b'SMART Extended Self-test Log Version') \
+        or line.startswith(b'Warning: device does not support Self Test Logging') \
+        or line.startswith(b'Read SMART Self-test Log failed') \
+        or line.startswith(b'SMART Self-test Log not supported'):
+            section = 'data'
+            subsection = 'selftest_log'
+            continue
+        if line.startswith(b'SMART Extended Self-test Log (GP Log 0x07) not supported') \
+        or line.startswith(b'SMART Extended Self-test Log size ') \
+        or line.startswith(b'Read SMART Extended Self-test Log failed'):
+            section = 'none'
+            subsection = 'none'
+            continue
+        if line.startswith(b'SMART Selective self-test log data structure') \
+        or line.startswith(b'Device does not support Selective Self Tests/Logging') \
+        or line.startswith(b'Selective Self-tests/Logging not supported') \
+        or line.startswith(b'Read SMART Selective Self-test Log failed'):
+            section = 'data'
+            subsection = 'selective_selftest_log'
+            continue
+        if line.startswith(b'SCT Status Version') \
+        or line.startswith(b'SCT Commands not supported') \
+        or line.startswith(b'SCT Data Table command not supported') \
+        or line.startswith(b'Error unknown SCT Temperature History Format Version') \
+        or line.startswith(b'Another SCT command is executing, abort Read Data Table') \
+        or line.startswith(b'Warning: device does not support SCT Commands'):
+            section = 'data'
+            subsection = 'scttemp_log'
+            continue
+        if line.startswith(b'SCT Error Recovery Control') \
+        or line.startswith(b'SCT Error Recovery Control command not supported') \
+        or line.startswith(b'SCT (Get) Error Recovery Control command failed') \
+        or line.startswith(b'Another SCT command is executing, abort Error Recovery Control') \
+        or line.startswith(b'Warning: device does not support SCT (Get) Error Recovery Control'):
+            section = 'data'
+            subsection = 'scterc_log'
+            continue
+        if line.startswith(b'Device Statistics ') \
+        or line.startswith(b'Read Device Statistics page '):
+            section = 'data'
+            subsection = 'devstat'
+            continue
+        if line.startswith(b'SATA Phy Event Counters') \
+        or line.startswith(b'SATA Phy Event Counters (GP Log 0x11) not supported') \
+        or line.startswith(b'SATA Phy Event Counters with ') \
+        or line.startswith(b'Read SATA Phy Event Counters failed'):
+            section = 'data'
+            subsection = 'sataphy'
+
+        sections['{}_{}'.format(section, subsection)].append(line.strip())
+
+    return sections
+
+
+def parse_section_info(section):
+    # Model Family:     Seagate Barracuda LP
+    # Device Model:     ST32000542AS
+    # Serial Number:    LINUXFABRIK
+    # LU WWN Device Id: 5 000c50 02ab8edf5
+    # Firmware Version: CC34
+    # User Capacity:    2\xe2\x80\x99000\xe2\x80\x99398\xe2\x80\x99934\xe2\x80\x99016 bytes [2.00 TB]
+    # Sector Size:      512 bytes logical/physical
+    # Rotation Rate:    5900 rpm
+    # Device is:        In smartctl database [for details use: -P show]
+    # ATA Version is:   ATA8-ACS T13/1699-D revision 4
+    # SATA Version is:  SATA 2.6, 3.0 Gb/s
+    # Local Time is:    Tue Dec  3 13:44:25 2019 CET
+    #
+    # ==> WARNING: A firmware update for this drive may be available,
+    # see the following Seagate web pages:
+    # http://knowledge.seagate.com/articles/en_US/FAQ/207931en
+    # http://knowledge.seagate.com/articles/en_US/FAQ/213915en
+    #
+    # ==> WARNING: I am another possible warning
+    # see the following Seagate web pages:
+    # http://knowledge.seagate.com/articles/en_US/FAQ/207931en
+    # http://knowledge.seagate.com/articles/en_US/FAQ/213915en
+    #
+    # ==> WARNING: >> Terminate command early due to bad response to IEC mode page
+    # see the following Seagate web pages: I will not be outputted as a warning
+    # http://knowledge.seagate.com/articles/en_US/FAQ/207931en
+    # http://knowledge.seagate.com/articles/en_US/FAQ/213915en
+    #
+    # SMART support is: Available - device has SMART capability.
+    # SMART support is: Enabled
+    # AAM level is:     0 (vendor specific), recommended: 254
+    # APM level is:     192 (intermediate level without standby)
+    # Rd look-ahead is: Enabled
+    # Write cache is:   Enabled
+    # DSN feature is:   Unavailable
+    # ATA Security is:  Disabled, NOT FROZEN [SEC1]
+    # Wt Cache Reorder: Unknown
+    #
+    p = {}      # property
+    p['model'] = ''
+    p['device_model'] = 'Unknown model'
+    p['w'] = 'none'
+    p['msg'] = ''
+
+    expecting_warning_lines = False
+    warning_line = ''
+    warning = ''
+
+    for line in section:
+        if expecting_warning_lines:
+            if line == b'':
+                expecting_warning_lines = False
+                #  Some errors get in the way of subsection detection and have little value,
+                # ignore them.
+                if b'mandatory SMART command failed' not in warning_line \
+                and b'Enabled status cached by OS, trying SMART RETURN STATUS cmd' not in warning_line \
+                and not warning_line.startswith(b'Unexpected SCT status') \
+                and not warning_line.startswith(b'Write SCT (Get) XXX Error Recovery Control Command failed') \
+                and not warning_line.startswith(b'Write SCT (Get) Feature Control Command failed') \
+                and not warning_line.startswith(b'Read SCT Status failed') \
+                and not warning_line.startswith(b'Read SMART Data failed') \
+                and not warning_line.startswith(b'Unknown SCT Status format version') \
+                and not warning_line.startswith(b'Read SMART Thresholds failed') \
+                and not warning_line.startswith(b'>> Terminate command early due to bad response to IEC mode page') \
+                and not warning_line.startswith(b'scsiModePageOffset:') \
+                and not warning_line.startswith(b'This firmware returns bogus raw values'):
+                    p['w'] = get_worst('notice', p['w'])        # storage_property_autoset_warning
+                    warning += '    ' + warning_line
+                warning_line = ''
+            else:
+                warning_line += '    ' + line + '\n'
+
+        # Sometimes, we get this in the middle of Info section (separated by double newlines):
+        if line.startswith(b'==> WARNING: '):
+            expecting_warning_lines = True
+            warning_line += line.replace('==> WARNING: ', '') + '\n'
+
+        if line.startswith(b'Model Family:'):
+            p['model'] += get_value(line) + ' '
+            continue
+        if line.startswith(b'Model Number:'):
+            p['model'] += get_value(line) + ' '
+            continue
+        if line.startswith(b'Product:'):
+            p['model'] += get_value(line) + ' '
+            continue
+        if line.startswith(b'Device Model:'):
+            p['device_model'] = get_value(line)
+            continue
+        if line.lower().startswith(b'serial number:'):
+            p['serial_number'] = get_value(line)
+            continue
+        if line.startswith(b'SMART support is'):
+            if b'Disabled' in line:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Info: SMART is disabled. You shoud enable it to read any SMART information from this drive. Additionally, some drives do not log useful data with SMART disabled, so it\'s advisable to keep it always enabled.\n'
+                continue
+            if b'Unavailable' in line:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Info: SMART is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
+
+    p['model'] = lib.base3.uniq(p['model'].strip())
+
+    if warning:
+        p['msg'] += '  - There are warnings, your drive may be affected:\n{}'.format(warning)
+    return p
+
+
+def parse_section_data_subsection_health(section):
+    # Drive failure expected in less than 24 hours. SAVE ALL DATA.
+    # See vendor-specific Attribute list for failed Attributes.
+    #
+    p = {}      # property
+    p['w'] = 'none'
+    p['msg'] = ''
+    for line in section:
+        if line:
+            p['w'] = get_worst('alert', p['w'])
+            p['msg'] = p.get('msg', '') + line + ' '
+
+    if p['msg']:
+        p['msg'] = '  - Health: ' + p['msg'][:-1]
+    return p
+
+
+def parse_section_data_subsection_attributes(section):
+    # Vendor Specific SMART Attributes with Thresholds:
+    # ID# ATTRIBUTE_NAME          FLAGS    VALUE WORST THRESH FAIL RAW_VALUE
+    # 1 Raw_Read_Error_Rate     POSR--   095   093   006    -    206969285
+    # 3 Spin_Up_Time            PO----   100   100   000    -    0
+    # 4 Start_Stop_Count        -O--CK   100   100   020    -    28
+    # 5 Reallocated_Sector_Ct   PO--CK   004   004   036    NOW  3956
+    # 7 Seek_Error_Rate         POSR--   074   060   030    -    27571332
+    # 9 Power_On_Hours          -O--CK   080   080   000    -    18319
+    # 10 Spin_Retry_Count        PO--C-   100   100   097    -    0
+    # 12 Power_Cycle_Count       -O--CK   100   100   020    -    27
+    # 183 Runtime_Bad_Block       -O--CK   096   096   000    -    4
+    # 184 End-to-End_Error        -O--CK   100   100   099    -    0
+    # 187 Reported_Uncorrect      -O--CK   100   100   000    -    0
+    # 188 Command_Timeout         -O--CK   100   099   000    -    8590065667
+    # 189 High_Fly_Writes         -O-RCK   100   100   000    -    0
+    # 190 Airflow_Temperature_Cel -O---K   078   058   045    -    22 (Min/Max 22/22)
+    # 194 Temperature_Celsius     -O---K   022   042   000    -    22 (0 20 0 0 0)
+    # 195 Hardware_ECC_Recovered  -O-RC-   023   017   000    -    206969285
+    # 197 Current_Pending_Sector  -O--C-   100   100   000    -    0
+    # 198 Offline_Uncorrectable   ----C-   100   100   000    -    0
+    # 199 UDMA_CRC_Error_Count    -OSRCK   200   200   000    -    4
+    # 240 Head_Flying_Hours       ------   100   253   000    -    18386 (132 95 0)
+    # 241 Total_LBAs_Written      ------   100   253   000    -    3973655019
+    # 242 Total_LBAs_Read         ------   100   253   000    -    3238867291
+    # ||||||_ K auto-keep
+    # |||||__ C event count
+    # ||||___ R error rate
+    # |||____ S speed/performance
+    # ||_____ O updated online
+    # |______ P prefailure warning
+    #
+    p = {}      # property
+    p['w'] = 'none'
+    p['msg'] = ''
+    p['perfdata'] = {}
+    for line in section:
+        splitted_line = line.split()
+        if len(splitted_line) < 7:
+            continue
+
+        smartid = splitted_line[0]
+        attribute = splitted_line[1]
+        flags = splitted_line[2]
+        value = splitted_line[3]
+        fail = splitted_line[6]
+        raw_value = splitted_line[7]
+
+        sensor_name = '{}_{}'.format(smartid, attribute)
+
+        # First go through all attributes and check the FAIL column.
+        # If it's 'NOW' set the state and go to the next line, else we look at the values
+        if 'NOW' in fail:
+            # check if pre-fail or old_age
+            if 'P' in flags:
+                # pre-fail
+                p['w'] = get_worst('alert', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a failing pre-fail attribute ("{} {}"). Usually this indicates that the drive will FAIL soon. Please back up immediately!\n'.format(smartid, attribute)
+            else:
+                # old_age
+                p['w'] = get_worst('warn', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a failing old-age attribute ("{} {}"). Usually this indicates a wear-out. You should consider replacing the drive.\n'.format(smartid, attribute)
+            continue
+        if 'Past' in fail:
+            # check if pre-fail or old_age
+            flags = splitted_line[2]
+            if 'P' in flags:
+                # pre-fail
+                p['w'] = get_worst('warn', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive had a failing pre-fail attribute ("{} {}"), but it has been restored to a normal value. This may be a serious problem, you should consider replacing the drive.\n'.format(smartid, attribute)
+            #else old_age - do nothing. We don't warn about e.g. temperature increase in the past
+            continue
+
+        if line.startswith(b'5 Reallocated_Sector_Ct'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(smartid, attribute)
+
+        if line.startswith(b'10 Spin_Retry_Count'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. Your drive may have problems spinning up, which could lead to a complete mechanical failure. Please back up.\n'.format(smartid, attribute)
+
+        if line.startswith(b'13 Read_Soft_Error_Rate'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(smartid, attribute)
+
+        if line.startswith(b'190 Temperature_Celsius') \
+        or line.startswith(b'194 Temperature_Celsius') \
+        or line.startswith(b'194 Airflow_Temperature') \
+        or line.startswith(b'194 Temperature_Celsius') \
+        or line.startswith(b'194 Temperature_Internal') \
+        or line.startswith(b'231 Temperature_Celsius'):
+            raw_value = int(raw_value)
+            p['perfdata'][sensor_name] = raw_value
+            if raw_value > 50:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+
+        if line.startswith(b'194 Temperature_Celsius_x10'):
+            raw_value = int(raw_value)
+            p['perfdata'][sensor_name] = raw_value
+            if raw_value > 500:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: The temperature of drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+
+        if line.startswith(b'196 Reallocated_Event_Count'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(smartid, attribute)
+
+        if line.startswith(b'197 Current_Pending_Sector') \
+        or line.startswith(b'197 Total_Pending_Sectors'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(smartid, attribute)
+
+        if line.startswith(b'198 Offline_Uncorrectable') \
+        or line.startswith(b'198 Total_Offl_Uncorrectabl'):
+            raw_value = int(raw_value)
+            if raw_value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has a non-zero Raw value ("{} {}"), but there is no SMART warning yet. This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(smartid, attribute)
+
+        if line.startswith(b'5 Retired_Block_Count') \
+        or line.startswith(b'169 Remaining_Lifetime_Perc') \
+        or line.startswith(b'202 Percent_Lifetime_Remain') \
+        or line.startswith(b'209 Remaining_Lifetime_Perc') \
+        or line.startswith(b'231 SSD_Life_Left') \
+        or line.startswith(b'232 Perc_Avail_Resrvd_Space') \
+        or line.startswith(b'232 Spares_Remaining_Perc') \
+        or line.startswith(b'233 Media_Wearout_Indicator') \
+        or line.startswith(b'233 Remaining_Lifetime_Perc'):
+            value = int(value)
+            p['perfdata'][sensor_name] = value
+            if value < 50:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(smartid, attribute)
+
+        if line.startswith(b'202 Percent_Lifetime_Used'):
+            raw_value = int(raw_value)
+            p['perfdata'][sensor_name] = raw_value
+            if raw_value >= 50:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Attributes: Drive has less than half of its estimated life left ("{} {}").\n'.format(smartid, attribute)
+
+        # collect perfdata for some more attributes
+        if line.startswith(b'4 Start') \
+        or line.startswith(b'9 Power') \
+        or line.startswith(b'12 Power'):
+            raw_value = int(raw_value)
+            p['perfdata'][sensor_name] = raw_value
+
+    if p['msg']:
+        p['msg'] = p['msg'][:-1]
+    return p
+
+
+def parse_section_data_subsection_error_log(section):
+    # Device Error Count: 1
+    # CR     = Command Register
+    # FEATR  = Features Register
+    # COUNT  = Count (was: Sector Count) Register
+    # LBA_48 = Upper bytes of LBA High/Mid/Low Registers ]  ATA-8
+    # LH     = LBA High (was: Cylinder High) Register    ]   LBA
+    # LM     = LBA Mid (was: Cylinder Low) Register      ] Register
+    # LL     = LBA Low (was: Sector Number) Register     ]
+    # DV     = Device (was: Device/Head) Register
+    # DC     = Device Control Register
+    # ER     = Error register
+    # ST     = Status register
+    # Powered_Up_Time is measured from power on, and printed as
+    # DDd+hh:mm:SS.sss where DD=days, hh=hours, mm=minutes,
+    # SS=sec, and sss=millisec. It "wraps" after 49.710 days.
+    #
+    # Error 1 [0] occurred at disk power-on lifetime: 7922 hours (330 days + 2 hours)
+    # When the command that caused the error occurred, the device was active or idle.
+    #
+    # After command completion occurred, registers were:
+    # ER -- ST COUNT  LBA_48  LH LM LL DV DC
+    # -- -- -- == -- == == == -- -- -- -- --
+    # 84 -- 51 00 57 00 00 01 14 50 4b 01 00  Error: ICRC, ABRT at LBA = 0x0114504b = 18108491
+    #
+    # Commands leading to the command that caused the error were:
+    # CR FEATR COUNT  LBA_48  LH LM LL DV DC  Powered_Up_Time  Command/Feature_Name
+    # -- == -- == -- == == == -- -- -- -- --  ---------------  --------------------
+    # 61 00 80 00 80 00 00 01 14 50 a2 40 00 26d+11:39:40.376  WRITE FPDMA QUEUED
+    # 61 00 80 00 d0 00 00 01 14 50 22 40 00 26d+11:39:40.372  WRITE FPDMA QUEUED
+    # 61 00 80 00 38 00 00 01 14 4f a2 40 00 26d+11:39:40.369  WRITE FPDMA QUEUED
+    # 61 00 80 00 20 00 00 01 14 4f 22 40 00 26d+11:39:40.366  WRITE FPDMA QUEUED
+    # 61 00 80 00 10 00 00 01 14 4e a2 40 00 26d+11:39:40.363  WRITE FPDMA QUEUED
+    #
+    p = {}      # property
+    p['w'] = 'none'
+    p['msg'] = ''
+    regex_error_count = re.compile(r'^(?:ATA|Device) Error Count:[ \t]*([0-9]+)', re.M | re.I)
+    for line in section:
+        matches = re.search(regex_error_count, line)
+        if matches:
+            p['w'] = get_worst('notice', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Drive is reporting {} internal errors. Usually this means uncorrectable data loss and similar severe errors. Check the actual errors for details.\n'.format(matches.group(1))
+
+        # GSmartControl:src/applib/storage_property.cpp:get_warning_level_for_error_type
+        if b'AMNF' in line:
+            p['w'] = get_worst('alert', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Address mark not found".\n'
+
+        if b'CCTO' in line:
+            p['w'] = get_worst('warn', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Command completion timed out".\n'
+
+        if b'EOM' in line:
+            p['w'] = get_worst('warn', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "End of media".\n'
+
+        if b'ICRC' in line:
+            p['w'] = get_worst('warn', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Interface CRC error".\n'
+
+        if b'IDNF' in line:
+            p['w'] = get_worst('alert', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Identity not found".\n'
+
+        if b'ILI' in line:
+            p['w'] = get_worst('notice', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Packet command-set specific".\n'
+
+        if b'TK0NF' in line:
+            p['w'] = get_worst('alert', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Track 0 not found".\n'
+
+        if b'UNC' in line:
+            p['w'] = get_worst('alert', p['w'])
+            p['msg'] = p.get('msg', '') + '  - Error Log: Error "Uncorrectable error in data".\n'
+
+    if p['msg']:
+        p['msg'] = p['msg'][:-1]
+    return p
+
+
+def parse_section_data_subsection_devstat(section):
+    # Page  Offset Size        Value Flags Description
+    # 0x01  =====  =               =  ===  == General Statistics (rev 1) ==
+    # 0x01  0x008  4              41  ---  Lifetime Power-On Resets
+    # 0x01  0x010  4           33577  ---  Power-on Hours
+    # 0x01  0x018  6    246546887344  ---  Logical Sectors Written
+    # 0x01  0x020  6      4648558254  ---  Number of Write Commands
+    # 0x01  0x028  6    462376778658  ---  Logical Sectors Read
+    # 0x01  0x030  6      2947763659  ---  Number of Read Commands
+    # 0x03  =====  =               =  ===  == Rotating Media Statistics (rev 1) ==
+    # 0x03  0x008  4           33570  ---  Spindle Motor Power-on Hours
+    # 0x03  0x010  4           33570  ---  Head Flying Hours
+    # 0x03  0x018  4             196  ---  Head Load Events
+    # 0x03  0x020  4               1  ---  Number of Reallocated Logical Sectors
+    # 0x03  0x028  4          132809  ---  Read Recovery Attempts
+    # 0x03  0x030  4               2  ---  Number of Mechanical Start Failures
+    # 0x04  =====  =               =  ===  == General Errors Statistics (rev 1) ==
+    # 0x04  0x008  4               0  ---  Number of Reported Uncorrectable Errors
+    # 0x04  0x010  4             150  ---  Resets Between Cmd Acceptance and Completion
+    # 0x05  =====  =               =  ===  == Temperature Statistics (rev 1) ==
+    # 0x05  0x008  1              23  ---  Current Temperature
+    # 0x05  0x010  1              34  N--  Average Short Term Temperature
+    # 0x05  0x018  1              32  N--  Average Long Term Temperature
+    # 0x05  0x020  1              53  ---  Highest Temperature
+    # 0x05  0x028  1              20  ---  Lowest Temperature
+    # 0x05  0x030  1              47  N--  Highest Average Short Term Temperature
+    # 0x05  0x038  1               0  N--  Lowest Average Short Term Temperature
+    # 0x05  0x040  1              32  N--  Highest Average Long Term Temperature
+    # 0x05  0x048  1               0  N--  Lowest Average Long Term Temperature
+    # 0x05  0x050  4               0  ---  Time in Over-Temperature
+    # 0x05  0x058  1              60  ---  Specified Maximum Operating Temperature
+    # 0x05  0x060  4               0  ---  Time in Under-Temperature
+    # 0x05  0x068  1               0  ---  Specified Minimum Operating Temperature
+    # 0x06  =====  =               =  ===  == Transport Statistics (rev 1) ==
+    # 0x06  0x008  4           14029  ---  Number of Hardware Resets
+    # 0x06  0x010  4             360  ---  Number of ASR Events
+    # 0x06  0x018  4               2  ---  Number of Interface CRC Errors
+    # |||_ C monitored condition met
+    # ||__ D supports DSN
+    # |___ N normalized value
+    #
+    # Pending Defects log (GP Log 0x0c) not supported
+    #
+    p = {}      # property
+    p['w'] = 'none'
+    p['msg'] = ''
+    for line in section:
+
+        splitted_line = line.decode().split()
+        if len(splitted_line) < 5:
+            continue
+        value = splitted_line[3]
+        flags = splitted_line[4]
+        description = ' '.join(splitted_line[5:])
+
+        # GSmartControl:src/applib/storage_property_descr.cpp:case StorageProperty::subsection_devstat
+        if 'Pending Error Count' in description:
+            value = int(value)
+            if value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+
+        if 'Utilization Usage Rate' in description\
+        or 'Percentage Used Endurance Indicator' in description:
+            value = int(value)
+            if value >= 50:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+            if value >= 100:
+                p['w'] = get_worst('warn', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: Drive is past its estimated lifespan.\n'
+
+        if 'Number of Reallocated Logical Sectors' in description:
+            # check if value is normalized or not
+            value = int(value)
+            if 'N' in flags:
+                # normalized
+                if value <= 0:
+                    p['w'] = get_worst('warn', p['w'])
+                    p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+            else:
+                # not normalized
+                if value > 0:
+                    p['w'] = get_worst('notice', p['w'])
+                    p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+
+        if 'Number of Mechanical Start Failures' in description:
+            value = int(value)
+            if value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting mechanical errors ("{}").\n'.format(description)
+
+        if 'Number of Realloc. Candidate Logical Sectors' in description\
+        or 'Number of Reported Uncorrectable Errors' in description:
+            value = int(value)
+            if value > 0:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: Drive is reporting surface errors ("{}"). This could be an indication of future failures and/or potential data loss in bad sectors.\n'.format(description)
+
+        if 'Current Temperature' in description:
+            value = int(value)
+            if value > 50:
+                p['w'] = get_worst('notice', p['w'])
+                p['msg'] = p.get('msg', '') + '  - Statistics: The temperature of the drive is higher than 50 degrees Celsius. This may shorten its lifespan and cause damage under severe load. Please install a cooling solution.\n'
+
+        if 'Time in Over-Temperature' in description:
+            try:
+                value = int(value)
+                if value > 0:
+                    p['w'] = get_worst('notice', p['w'])
+                    p['msg'] = p.get('msg', '') + '  - Statistics: The temperature of the drive is or was over the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please install a cooling solution.\n'
+            except:
+                pass
+
+        if 'Time in Under-Temperature' in description:
+            try:
+                value = int(value)
+                if value > 0:
+                    p['w'] = get_worst('notice', p['w'])
+                    p['msg'] = p.get('msg', '') + '  - Statistics: The temperature of the drive is or was under the manufacturer-specified maximum. This may have shortened its lifespan and caused damage. Please operate the drive within manufacturer-specified temperature range.\n'
+            except:
+                pass
+
+    if p['msg']:
+        p['msg'] = p['msg'][:-1]
+    return p
+
+
+def parse_sections(smartctl):
+    report = {}
+    sections = get_sections(smartctl)
+    # ('none', 'none')
+    # do nothing
+    # ('data', 'health')
+    report['health'] = parse_section_data_subsection_health(sections['data_health'])
+    # ('data', 'capabilities')
+    # do nothing
+    # ('data', 'attributes')
+    report['attributes'] = parse_section_data_subsection_attributes(sections['data_attributes'])
+    # ('data', 'directory_log')
+    # do nothing
+    # ('data', 'error_log')
+    report['error_log'] = parse_section_data_subsection_error_log(sections['data_error_log'])
+    # ('data', 'selftest_log')
+    # do nothing
+    # ('data', 'selective_selftest_log')
+    # do nothing
+    # ('data', 'scttemp_log')
+    # do nothing
+    # ('data', 'scterc_log')
+    # do nothing
+    # ('data', 'devstat')
+    report['statistics'] = parse_section_data_subsection_devstat(sections['data_devstat'])
+    # ('data', 'sataphy')
+    # do nothing
+    # ('info', 'info')
+    report['general'] = parse_section_info(sections['info_info'])
+
+    return report
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None:
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD_LIST_DISKS))
+        if stderr:
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        stdout, stderr, retc = 'sda  disk', '', 0
+
+    # stdout:
+    # sda  disk
+    # sdb  disk
+    # sdc  disk
+    # sdd  disk
+    # sde  disk
+    # sdf  disk
+    # sdg  disk
+    # sdh  disk
+
+    # calculating the final check state and generate the output message
+    msg_body = ''
+    smart_msg = ''
+    state = STATE_OK
+    perfdata = ''
+    disk_count = 0
+
+    for line in stdout.splitlines():
+        disk, disk_type = line.strip().split()
+        if not disk or disk in args.IGNORE or b'disk' not in disk_type:
+            continue
+
+        if args.TEST is None:
+            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + str(disk))
+            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd_smartctl))
+        else:
+            # do not call the command, put in test data
+            if args.TEST[0] and os.path.isfile(args.TEST[0]):
+                f = open(args.TEST[0], 'r')
+                stdout = f.read()
+                f.close()
+            else:
+                stdout = args.TEST[0]
+            if args.TEST[1] and os.path.isfile(args.TEST[1]):
+                f = open(args.TEST[1], 'r')
+                stderr = f.read()
+                f.close()
+            else:
+                stderr = args.TEST[1]
+            retc = int(args.TEST[2])
+
+        # compare the retc using bitmasks according to the man page of smartctl
+        if retc & 1:
+            lib.base3.oao('smartctl failed with exit status "Command line did not parse."', STATE_UNKNOWN)
+        if retc & 2:
+            lib.base3.oao('smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode."', STATE_UNKNOWN)
+
+        disk_msg = ''
+        disk_state = STATE_OK
+
+        # retc 4 is useless
+        if retc & 8:
+            smart_msg += '  - SMART status check returned DISK FAILING.\n'
+            disk_state = STATE_CRIT
+        if retc & 16:
+            smart_msg += '  - We found prefail Attributes <= threshold.\n'
+            disk_state = STATE_WARN
+        if retc & 32:
+            smart_msg += '  - SMART status check returned DISK OK but we found that some (usage or prefail) Attributes have been <= threshold at some time in the past.\n'
+            disk_state = STATE_WARN
+        if retc & 64:
+            smart_msg += '  - The device error log contains records of errors.\n'
+            disk_state = STATE_WARN
+        if retc & 128:
+            smart_msg += '  - The device self-test log contains records of errors. Failed self-tests outdated by a newer successful extended self-test are ignored.\n'
+
+        disk_report = parse_sections(stdout)
+        disk_count += 1
+        serial_number = disk_report['general']['serial_number']
+
+        for key, item in list(disk_report.items()):
+            if item['w'] != 'none':
+                disk_msg +=  item['msg'] + '\n'
+                disk_state = lib.base3.get_worst(translate(item['w'], args.FULL), disk_state)
+            if item.get('perfdata'):
+                for sensor_name, sensor_value in list(item['perfdata'].items()):
+                    perfdata += lib.base3.get_perfdata('{}--{}--{}--{}'.format(
+                        disk,
+                        disk_report['general']['device_model'].replace(" ", "_"),
+                        serial_number,
+                        sensor_name), sensor_value, None, None, None, 0, None)
+
+        msg_body += '* {} ({}, {}, SerNo {}){}\n'.format(
+            disk,
+            disk_report['general']['model'],
+            disk_report['general']['device_model'],
+            disk_report['general']['serial_number'],
+            lib.base3.state3str(disk_state, prefix='', suffix=' '),
+            )
+        if smart_msg:
+            msg_body += smart_msg
+        msg_body += disk_msg
+        state = lib.base3.get_worst(disk_state, state)
+
+
+    if disk_count:
+        msg_header = 'Checked {} {}.'.format(disk_count, lib.base3.pluralize('disk', disk_count))
+        if state == STATE_CRIT:
+            msg_header += ' There are critical errors.'
+        elif state == STATE_WARN:
+            msg_header += ' There are warnings.'
+        else:
+            msg_header += ' All are healthy.'
+        lib.base3.oao('{}\n{}'.format(msg_header, msg_body) , state, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base3.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

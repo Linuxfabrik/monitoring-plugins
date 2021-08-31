@@ -1,0 +1,125 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals3 import STATE_UNKNOWN
+
+import lib.base3
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021701'
+
+DESCRIPTION = 'Prints a list of all clients connected to the OpenVPN Server'
+
+DEFAULT_FILENAME = '/var/log/openvpn-status.log'
+
+DEFAULT_WARN = None
+DEFAULT_CRIT = None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for the number of connected clients. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument(
+        '--filename',
+        help='Set the path of the log filename. Default: %(default)s',
+        dest='FILENAME',
+        type=str,
+        default=DEFAULT_FILENAME,
+        )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the number of connected clients. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    try:
+        with open(args.FILENAME, 'rb') as file:
+            counter = 0
+            table = []
+            for line in file:
+                if line.startswith('CLIENT_LIST'):
+                    counter += 1
+                    line = line.split(',')
+                    table.append({
+                        'name': line[1],
+                        'ext_ip': line[2].split(':')[0],
+                        'int_ip': line[3],
+                        'connection_time': line[7],
+                        })
+    except IOError:
+        lib.base3.oao('Failed to read file {}.'.format(args.FILENAME), STATE_UNKNOWN)
+
+    state = lib.base3.get_state(counter, args.WARN, args.CRIT)
+    perfdata = lib.base3.get_perfdata('clients', counter, None, args.WARN, args.CRIT, 0, None)
+
+    msg = '{} {} connected to OpenVPN Server.\n\n'.format(
+        counter,
+        lib.base3.pluralize('user', counter)
+        )
+
+    msg += lib.base3.get_table(
+        table,
+        ['name', 'ext_ip', 'int_ip', 'connection_time'],
+        header=['Common Name', 'External IP', 'Internal IP', 'Connected since'],
+        )
+    lib.base3.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

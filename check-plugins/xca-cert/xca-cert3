@@ -1,0 +1,255 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import sys
+from traceback import print_exc
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN
+import lib.base3
+import lib.db_mysql3
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021701'
+
+DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
+
+DEFAULT_WARN = 14 # days
+DEFAULT_CRIT = 5  # days
+DEFAULT_DATABASE = 'xca'
+DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_PASSWORD = ''
+DEFAULT_USERNAME = 'root'
+
+CMD_OPENSSL_CRT = 'openssl x509 -noout -dates -in /dev/stdin'
+CMD_OPENSSL_CRL = 'openssl crl -noout -nextupdate -in /dev/stdin'
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical for the expiration date in days. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument(
+        '--database',
+        help='Set the MySQL database running the XCA database. Default: %(default)s',
+        dest='DATABASE',
+        type=str,
+        default=DEFAULT_DATABASE,
+        )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Set the hostname of the MySQL server running the XCA database. '
+             'Default: %(default)s',
+        dest='HOSTNAME',
+        type=str,
+        default=DEFAULT_HOSTNAME,
+        )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Set the password for the MySQL server running the XCA database. Default: %(default)s',
+        dest='PASSWORD',
+        type=str,
+        default=DEFAULT_PASSWORD,
+        )
+
+    parser.add_argument(
+        '--prefix',
+        help='Set the table prefix of the XCA database.',
+        dest='PREFIX',
+        type=str,
+        )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='Set the username for the MySQL server running the XCA database. Default: %(default)s',
+        dest='USERNAME',
+        type=str,
+        default=DEFAULT_USERNAME,
+        )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning for the expiration date in days. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'database':           args.DATABASE,
+        'raise_on_warnings':  True
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    state = STATE_OK
+
+    # ---
+    # cert checking
+    result = lib.base3.coe(
+        lib.db_mysql3.select(
+            conn,
+            'SELECT name, cert, ca, {prefix}certs_serial FROM xca.{prefix}view_certs '
+            'WHERE invaldate IS NULL'.format(prefix=args.PREFIX)
+            )
+        )
+
+    crt_count = 0
+    expiring_crt_count = 0
+    table_crts = []
+    for row in result:
+        name, cert, ca, serial = row
+        crt_count += 1
+
+        # add line break after 10th character, for the openssl command to always work
+        pem_cert = '-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(
+            cert[:10], cert[10:])
+
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD_OPENSSL_CRT, stdin=pem_cert))
+        for line in stdout.splitlines():
+            if line.startswith('notAfter='):
+                timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+                timestr = lib.base3.timestr3datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+                delta = timestr - lib.base3.now(as_type='datetime')
+                crt_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
+                table_crts.append({
+                    'name': name,
+                    'ca': 'y' if ca == 1 else 'n',
+                    'serial': serial,
+                    'state': lib.base3.state3str(crt_state, empty_ok=False),
+                    'timestr': '{}'.format(timestr),
+                    })
+                if crt_state != STATE_OK:
+                    expiring_crt_count += 1
+                    state = lib.base3.get_worst(state, crt_state)
+                break
+
+    # ---
+    # crl checking
+    result = lib.base3.coe(
+        lib.db_mysql3.select(
+            conn,
+            'SELECT name,crl FROM xca.{}view_crls ORDER BY date DESC LIMIT 1'.format(args.PREFIX)
+            )
+        )
+
+    crl_count = 0
+    expiring_crl_count = 0
+    table_crls = []
+    for row in result:
+        name, cert = row
+        crl_count += 1
+
+        pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(cert)
+
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD_OPENSSL_CRL, stdin=pem_cert))
+        for line in stdout.splitlines():
+            if line.startswith('nextUpdate='):
+                timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+                timestr = lib.base3.timestr3datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+                delta = timestr - lib.base3.now(as_type='datetime')
+                crl_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
+                table_crls.append({
+                    'name': name,
+                    'state': lib.base3.state3str(crl_state, empty_ok=False),
+                    'timestr': '{}'.format(timestr),
+                    })
+                if crl_state != STATE_OK:
+                    expiring_crl_count += 1
+                    state = lib.base3.get_worst(state, crl_state)
+                break
+
+    # create the message
+    msg = '{} {} and {} {} checked. '.format(
+        crt_count,
+        lib.base3.pluralize('Certificate', crt_count),
+        crl_count,
+        lib.base3.pluralize('CRL', crl_count)
+        )
+
+    if expiring_crt_count > 0:
+        msg += '{} {} {} expiring. '.format(
+            expiring_crt_count,
+            lib.base3.pluralize('Certificate', expiring_crt_count),
+            lib.base3.pluralize('', expiring_crt_count, 'is,are')
+            )
+    if expiring_crl_count > 0:
+        msg += '{} {} {} expiring.'.format(
+            expiring_crl_count,
+            lib.base3.pluralize('CRL', expiring_crl_count),
+            lib.base3.pluralize('', expiring_crl_count, 'is,are')
+            )
+
+    if len(table_crts) > 0:
+        msg += '\n\nCertificates:\n'
+        msg += lib.base3.get_table(
+            table_crts,
+            ['name', 'ca', 'serial', 'state', 'timestr'],
+            header=['commonName', 'CA', 'Serial', 'State', 'Expiry date'],
+            )
+    if len(table_crls) > 0:
+        msg += '\nCRLs:\n'
+        msg += lib.base3.get_table(
+            table_crls,
+            ['name', 'state', 'timestr'],
+            header=['commonName', 'State', 'Expiry date'],
+            )
+
+    lib.base3.oao(msg, state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

@@ -1,0 +1,132 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021701'
+
+DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
+
+cmd = 'virsh list --all'
+
+#====================
+from lib.globals3 import *
+
+import lib.base3
+
+import argparse
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    perfdata = ''
+    state = STATE_OK
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    if (stderr or retc != 0):
+        lib.base3.oao('{}'.format(stderr), STATE_WARN)
+    # we got a VM list and their states - strip first two header and last two empty rows
+    vm_list = stdout.strip().split('\n')[2:]
+
+    # count the VM states
+    running, idle, paused, in_shutdown, shut_off, crashed, pmsuspended = 0, 0, 0, 0, 0, 0, 0
+    if vm_list:
+        for vm in vm_list:
+            vm = ' '.join(vm.replace('shut off', 'shut_off').replace('in shutdown', 'in_shutdown').split())
+            vm_id, vm_name, vm_state = vm.split(' ')
+
+            running     += 1 if vm_state == 'running' else 0
+            idle        += 1 if vm_state == 'idle' else 0
+            paused      += 1 if vm_state == 'paused' else 0
+            in_shutdown += 1 if vm_state == 'in_shutdown' else 0
+            shut_off    += 1 if vm_state == 'shut_off' else 0
+            crashed     += 1 if vm_state == 'crashed' else 0
+            pmsuspended += 1 if vm_state == 'pmsuspended' else 0
+
+        msg = 'VMs: '
+        if running:
+            msg += '{} running, '.format(running)
+        if shut_off:
+            msg += '{} shut_off, '.format(shut_off)
+        if in_shutdown:
+            msg += '{} in_shutdown, '.format(in_shutdown)
+
+        if idle:
+            msg += '{} idle (WARN), '.format(idle)
+            state = lib.base3.get_worst(state, STATE_WARN)
+        if paused:
+            msg += '{} paused (WARN), '.format(paused)
+            state = lib.base3.get_worst(state, STATE_WARN)
+        if pmsuspended:
+            msg += '{} pmsuspended (WARN), '.format(pmsuspended)
+            state = lib.base3.get_worst(state, STATE_WARN)
+
+        if crashed:
+            msg += '{} crashed (CRIT), '.format(crashed)
+            state = lib.base3.get_worst(state, STATE_CRIT)
+        msg = msg[:-2]
+    else:
+        msg = 'No VMs running.'
+
+    perfdata += lib.base3.get_perfdata('vm_running', running, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_idle', idle, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_paused', paused, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_in_shutdown', in_shutdown, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_shut_off', shut_off, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None)
+
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)
