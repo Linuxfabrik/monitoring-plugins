@@ -34,7 +34,7 @@ import lib.icinga3
 from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021081801'
+__version__ = '2021083101'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -196,8 +196,7 @@ def main():
         lib.base3.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
 
     if args.ICINGA_CALLBACK and not all((args.ICINGA_URL, args.ICINGA_PASSWORD, args.ICINGA_USERNAME, args.ICINGA_SERVICE_NAME)):
-        print('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.')
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.', STATE_UNKNOWN)
 
     # create the db table
     conn = lib.base3.coe(lib.db_sqlite3.connect(filename='logfile.db'))

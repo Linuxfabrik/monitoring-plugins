@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021083101'
 
 DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics (based on MySQL-Tuner).'
 
@@ -181,8 +181,7 @@ def main():
     cursor.execute(query)
     version = cursor.fetchone()
     if len(version) <1:
-        print('You probably did not get enough privileges for running this check.')
-        exit(STATE_UNKNOWN)
+        lib.base2.oao('You probably did not get enough privileges for running this check.', STATE_UNKNOWN)
 
     version = version[0].split('.')
     mysqlvermajor = int(version[0])
@@ -221,15 +220,13 @@ def main():
         for (ptype, pname, pstatus) in cursor:
             perfschema[pname] = lib.base2.smartcast(pstatus)
     except mysql.connector.Error as err:
-        print('Failed querying performance_schema status. {}'.format(err))
-        exit(STATE_UNKNOWN)
+        lib.base2.oao('Failed querying performance_schema status. {}'.format(err), STATE_UNKNOWN)
 
     cursor.close()
     cnx.close()
 
     if len(mystat) <1:
-        print('Your server has not answered any queries - cannot continue.')
-        exit(STATE_UNKNOWN)
+        lib.base2.oao('Your server has not answered any queries - cannot continue.', STATE_UNKNOWN)
 
 
     # calculations as done in mysqltuner.pl
