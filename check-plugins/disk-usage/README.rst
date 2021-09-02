@@ -29,7 +29,7 @@ Help
 
 .. code-block:: text
 
-    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: disk-usage3 [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE] [-w WARN]
 
     Checks the used disk space, for each partition.
 
@@ -40,9 +40,13 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold partition usage percentage.
                             Default: 95
+      --ignore IGNORE       Mountpoint to be ignored (repeating). The mountpoint is
+                            ignored if it starts with the specified value. Example:
+                            "/boot" ignores "/boot" as well as "/boot/efi". On Windows,
+                            use drive letters without backslash ("Y:" or "Y"). Default: []
       -w WARN, --warning WARN
-                            Set the warning threshold partition usage percentage.
-                            Default: 90
+                            Set the warning threshold partition usage percentage. Default:
+                            90
 
 
 Usage Examples
@@ -51,7 +55,8 @@ Usage Examples
 .. code-block:: bash
 
     ./disk-usage
-    ./disk-usage --warning=80 --critical=90
+    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80 --critical=90
+    ./disk-usage --ignore=E: --ignore=Y: --warning=80 --critical=90
     
 Output:
 
@@ -61,23 +66,28 @@ Output:
 
     mountpoint type used     total    percent 
     ---------- ---- ----     -----    ------- 
+    /          ext4 381.7GiB 928.8GiB 43.3%
     /boot/efi  vfat 60.0MiB  598.8MiB 10.0%   
     /boot      ext4 389.4MiB 975.9MiB 42.8%   
-    /          ext4 381.7GiB 928.8GiB 43.3%
 
 
 States
 ------
 
-* WARN or CRIT if disk usage is above a given threshold.
+* WARN or CRIT if disk usage in percent is above a given threshold.
 
 
 Perfdata / Metrics
 ------------------
 
-* Usage (%)
-* Usage (Bytes)
-* Total Disksize (Bytes)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description
+    <mountpoint>-percent,                       Percentage,         Usage in percent
+    <mountpoint>-total,                         Bytes,              Total Disksize
+    <mountpoint>-usage,                         Bytes,              Usage in Bytes
 
 
 Credits, License
