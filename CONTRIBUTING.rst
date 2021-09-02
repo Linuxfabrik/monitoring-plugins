@@ -274,16 +274,20 @@ Plugin Output
     * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
     * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
+* Based on parameters etc. nothing is checked at the end? Print "Nothing checked."
 * Wrong username or password? Print "Failed to authenticate."
 
-* Use short "Units of Measurements" without white spaces:
+* Use short "Units of Measurements" without white spaces, including these terms:
 
+    * Bits: use ``base.bits2human()``
+    * Bytes: use ``base.bytes2human()``
+    * I/O and Throughput: ``base.bytes2human() + '/s'`` (Byte per Second)
+    * Network: "Rx/s", "Tx/s", use ``base.bps2human()``
+    * Numbers: use ``base.numer2human()``
     * Percentage: 93.2%
-    * Bytes: 7B, 3.4K, M, G, T
-    * Temperatures: 7.3C, 45F
-    * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-    * I/O and Throughput: 220.4MB/s (Megabyte per Second)
     * Read/Write: "R/s", "W/s", "IO/s"
+    * Seconds, Minutes etc.: use ``base.seconds2human()``
+    * Temperatures: 7.3C, 45F.
 
 * Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
 * Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
