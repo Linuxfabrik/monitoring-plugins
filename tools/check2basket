@@ -181,6 +181,9 @@ def get_plugin_args(plugin_file):
     spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, plugin_file))
     plugin_module = importlib.util.module_from_spec(spec)
 
+    # prevent exit() in the module from closing stdin
+    orig_sys_stdin_close = sys.stdin.close
+    sys.stdin.close = lambda _: None
     try:
         spec.loader.exec_module(plugin_module)
     except Exception as e:
@@ -189,6 +192,8 @@ def get_plugin_args(plugin_file):
     except SystemExit as e:
         err_print(f'SystemExit during check execution: {e}')
         return None
+    finally:
+        sys.stdin.close = orig_sys_stdin_close
 
     return plugin_module.parse_args()
 
@@ -347,13 +352,13 @@ def offer_selection(options):
             selection = input('Please choose the corresponding object, or type "n" to generate a new guid: ')
             if selection == 'n':
                 return None
-            elif int(selection) < len(options):
-                return options[int(selection)]
+            try:
+                if int(selection) < len(options):
+                    return options[int(selection)]
+            except ValueError:
+                print('\nFailed to parse selection.')
     except KeyboardInterrupt:
         sys.exit()
-    except ValueError:
-        print('Failed to parse selection.')
-        sys.exit(3)
 
 
 def manage_uuids(data, old_data=None):
