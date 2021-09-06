@@ -79,6 +79,9 @@ regex_replace_words = {
 }
 
 
+command_field_id = 1
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
@@ -417,6 +420,8 @@ def apply_overwrites(data, overwrites):
 
 
 def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix=''):
+    global command_field_id # this prevents command_field_id collisions
+
     # argparse action classes
     # class BooleanOptionalAction(Action):
     # class _StoreAction(Action):
@@ -429,7 +434,6 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
     # class _SubParsersAction(Action):
     #     class _ChoicesPseudoAction(Action):
 
-    command_field_id = 1
     for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
         if not long_param:
