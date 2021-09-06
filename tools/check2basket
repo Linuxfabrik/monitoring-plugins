@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090101'
+__version__ = '2021090601'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -38,42 +38,44 @@ skip_plugins = [
     'dummy',
 ]
 
+
 skip_params = [
     '--test'
 ]
 
-# case does not matter, the regex uses the ignorecase option
-capitalized_words = [
-    'AES',
-    'CPU',
-    'DES',
-    'DNS',
-    'FQDN',
-    'FS',
-    'GC',
-    'IPMI',
-    'JSON',
-    'KEMP',
-    'MD5',
-    'NTP',
-    'OK',
-    'PHP',
-    'PHP-FPM',
-    'QTS',
-    'RPM',
-    'RW',
-    'SHA',
-    'SMART',
-    'SNMP',
-    'TCP',
-    'TCP6',
-    'UDP',
-    'UDP6',
-    'URL',
-    'XA',
-]
 
-command_field_id = 1
+# case does not matter, the regex uses the ignorecase option
+regex_replace_words = {
+    r'\bAES\b':     'AES',
+    r'\bCPU\b':     'CPU',
+    r'\bDES\b':     'DES',
+    r'\bDNS\b':     'DNS',
+    r'\bFQDN\b':    'FQDN',
+    r'\bFS\b':      'FS',
+    r'\bGC\b':      'GC',
+    r'\bIO\b':      'I/O',
+    r'\bIPMI\b':    'IPMI',
+    r'\bJSON\b':    'JSON',
+    r'\bKEMP\b':    'KEMP',
+    r'\bMD5\b':     'MD5',
+    r'\bNTP\b':     'NTP',
+    r'\bOK\b':      'OK',
+    r'\bPHP-FPM\b': 'PHP-FPM',
+    r'\bPHP\b':     'PHP',
+    r'\bQTS\b':     'QTS',
+    r'\bRPM\b':     'RPM',
+    r'\bRW\b':      'RW',
+    r'\bSHA\b':     'SHA',
+    r'\bSMART\b':   'SMART',
+    r'\bSNMP\b':    'SNMP',
+    r'\bTCP6\b':    'TCP6',
+    r'\bTCP\b':     'TCP',
+    r'\bUDP6\b':    'UDP6',
+    r'\bUDP\b':     'UDP',
+    r'\bURL\b':     'URL',
+    r'\bXA\b':      'XA',
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -128,8 +130,8 @@ def help2description(help_text):
 
 def lf_title(string):
     string = string.title()
-    for item in capitalized_words:
-        string = re.sub(rf'\b{item}\b', item.upper(), string, flags=re.IGNORECASE)
+    for regex, sub in regex_replace_words:
+        string = re.sub(regex, sub, string, flags=re.IGNORECASE)
     return string
 
 
@@ -236,6 +238,7 @@ def get_command_template(data, object_name, command, imports=None):
 
 
 def get_service_template(data, object_name, check_command, check_name, description, imports=None):
+    description = re.sub(r'\\n\s*', ' ', description)
     if imports is None:
         data["ServiceTemplate"][object_name] = {
             "action_url": None,
@@ -412,8 +415,6 @@ def apply_overwrites(data, overwrites):
 
 
 def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix=''):
-    global command_field_id # this prevents command_field_id collisions
-
     # argparse action classes
     # class BooleanOptionalAction(Action):
     # class _StoreAction(Action):
@@ -426,6 +427,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
     # class _SubParsersAction(Action):
     #     class _ChoicesPseudoAction(Action):
 
+    command_field_id = 1
     for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
         if not long_param:
@@ -589,8 +591,8 @@ def generate_basket(plugin_file, config=None, old_data=None):
 
     if 'windows' in config['variants']:
         print('Generating "windows" variant.')
-        command_object_name += '-windows'
-        service_object_name += '-windows'
+        command_object_name = f'cmd-check-{check_name}-windows'
+        service_object_name = f'tpl-service-{check_name}-windows'
         command = f'C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}\\{check_name}.exe'
         varname_suffix = '_windows'
 
