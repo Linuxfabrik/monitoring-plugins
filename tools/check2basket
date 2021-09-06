@@ -707,7 +707,14 @@ def main():
                     except FileExistsError:
                         pass
 
-                plugin_data = generate_basket(plugin_file, old_data)
+                config_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.yml')
+                config = None
+                if os.path.isfile(config_file):
+                    with open(config_file, 'rb') as file:
+                        print(f'Using config at {config_file}.')
+                        config = yaml.safe_load(file)
+
+                plugin_data = generate_basket(plugin_file, config, old_data)
                 if plugin_data:
                     save_json_to_file(plugin_data, output_file)
                 else:
