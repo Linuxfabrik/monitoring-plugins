@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090601'
+__version__ = '2021090602'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -356,38 +356,39 @@ def offer_selection(options):
 
 def manage_uuids(data, old_data=None):
     if old_data:
-        # TODO: turn around the logic, iterate data and search for corresponding objects in old_data.
-        # because currently it offers an selection for deleted objects, which is not needed
         reused_guid_objects = []
-        for parent_key, parent_value in old_data.items():
+        for parent_key, parent_value in data.items():
             if parent_key == 'Datafield':
-                varnames = {value['varname']: key for key, value in data['Datafield'].items()}
+                old_varnames = {value['varname']: key for key, value in old_data['Datafield'].items()}
                 for key, value in parent_value.items():
-                    if 'guid' in value:
-                        varname = value['varname']
-                        if varname in varnames:
-                            data[parent_key][varnames[varname]]['guid'] = value['guid']
-                        else:
-                            print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
-                            selection = offer_selection(varnames.keys())
-                            if selection:
-                                data[parent_key][varnames[selection]]['guid'] = value['guid']
-                        reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                    varname = value['varname']
+                    if varname in old_varnames:
+                        data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[varname]]['guid']
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
+                        selection = offer_selection(old_varnames.keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = data[parent_key][old_varnames[selection]]['guid']
+                    reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
 
             else:
                 for key, value in parent_value.items():
-                    if 'guid' in value:
-                        if parent_key in data and key in data[parent_key]:
-                            data[parent_key][key]['guid'] = value['guid']
-                        else:
-                            print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
-                            selection = offer_selection(data[parent_key].keys())
-                            if selection:
-                                data[parent_key][selection]['guid'] = value['guid']
-                        reused_guid_objects.append(f'[{parent_key}][{key}]')
+                    try:
+                        old_guid = old_data[parent_key][key]['guid']
+                    except KeyError:
+                        old_guid = None
+
+                    if old_guid is not None:
+                        data[parent_key][key]['guid'] = old_guid
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
+                        selection = offer_selection(old_data[parent_key].keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = old_data[parent_key][selection]['guid']
+                    reused_guid_objects.append(f'[{parent_key}][{key}]')
 
         if reused_guid_objects:
-            print('\nFound an object with the same name in the old basket, reusing the guid:\n* ', end='')
+            print('\nFound an object with the same name in the old basket, reusing the guid for:\n* ', end='')
             print('\n* '.join(reused_guid_objects))
 
         warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
@@ -449,7 +450,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
         if isinstance(action, argparse._HelpAction):
             continue
 
-        if isinstance(action, argparse._StoreAction) or isinstance(action, argparse._AppendAction):
+        if isinstance(action, (argparse._StoreAction, argparse._AppendAction)):
             data['Command'][command_object_name]['arguments'][long_param] = {
                 "value": f"${varname}$"
             }
