@@ -1,32 +1,32 @@
 {
     "Command": {
-        "cmd-check-wordpress-version": {
+        "cmd-check-updates-windows": {
             "arguments": {
                 "--always-ok": {
-                    "set_if": "$wordpress_version_always_ok$"
+                    "set_if": "$updates_windows_always_ok$"
                 },
-                "--cache-expire": {
-                    "value": "$wordpress_version_cache_expire$"
+                "--critical": {
+                    "value": "$updates_windows_critical$"
                 },
-                "--path": {
-                    "value": "$wordpress_version_path$"
+                "--warning": {
+                    "value": "$updates_windows_warning$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/wordpress-version",
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\updates\\updates.exe",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 145,
+                    "datafield_id": 582,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 146,
+                    "datafield_id": 583,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 147,
+                    "datafield_id": 584,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -34,21 +34,38 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-wordpress-version",
+            "object_name": "cmd-check-updates-windows",
             "object_type": "object",
             "timeout": "10",
             "vars": {},
             "zone": null,
-            "guid": "dd0f30c3-a0fa-4ffe-8dc9-9d0129e61d40"
+            "guid": "d44f1e32-2dd4-40b0-9c24-22bc2d8b4ab3"
+        },
+        "cmd-check-updates-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\updates.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-updates-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-updates-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "eaea1692-f96f-436b-81c1-58b9ab8c651c"
         }
     },
     "ServiceTemplate": {
-        "tpl-service-wordpress-version": {
+        "tpl-service-updates-windows": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-wordpress-version",
-            "check_interval": 86400,
+            "check_command": "cmd-check-updates-windows",
+            "check_interval": 60,
             "check_period": null,
             "check_timeout": null,
             "command_endpoint": null,
@@ -66,63 +83,63 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "wordpress-version.png",
+            "icon_image": "updates.png",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin lets you track if server updates are available.",
-            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/wordpress-version",
-            "object_name": "tpl-service-wordpress-version",
+            "notes": "Checks the number of pending updates.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/updates",
+            "object_name": "tpl-service-updates-windows",
             "object_type": "template",
-            "retry_interval": 300,
+            "retry_interval": 15,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
             "use_var_overrides": null,
             "vars": {
-                "wordpress_version_always_ok": false,
-                "wordpress_version_cache_expire": "24",
-                "wordpress_version_path": "/var/www/html/wordpress"
+                "updates_windows_always_ok": false,
+                "updates_windows_critical": "50",
+                "updates_windows_warning": "1"
             },
             "volatile": null,
             "zone": null,
-            "guid": "f78abef0-2902-403f-b1e6-5a05a8de817f"
+            "guid": "6bc48775-1ec9-46ad-a7ed-d9a955d8b75d"
         }
     },
     "DataList": {},
     "Datafield": {
-        "145": {
-            "varname": "wordpress_version_always_ok",
-            "caption": "Wordpress Version: Always OK?",
+        "582": {
+            "varname": "updates_windows_always_ok",
+            "caption": "Updates: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "guid": "7d8ada7e-59ed-4cef-94a2-903f9c1ae35b"
+            "guid": "dc7f7931-90f3-42bf-a10d-43684cf76c4c"
         },
-        "146": {
-            "varname": "wordpress_version_cache_expire",
-            "caption": "Wordpress Version: Cache Expire",
-            "description": "The amount of time after which the update check cache expires, in hours.",
+        "583": {
+            "varname": "updates_windows_critical",
+            "caption": "Updates: Critical",
+            "description": "Set the critical threshold for the number of pending updates.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "a27b428f-dbf1-41e5-a5f9-9f289fd644fe"
+            "guid": "9188240c-b08e-450a-bb30-3388c215f68d"
         },
-        "147": {
-            "varname": "wordpress_version_path",
-            "caption": "Wordpress Version: Path",
-            "description": "Local path to your WordPress installation.",
+        "584": {
+            "varname": "updates_windows_warning",
+            "caption": "Updates: Warning",
+            "description": "Set the warning threshold for the number of pending updates.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "304adc53-1aa8-49d7-8f74-249596c748c9"
+            "guid": "76912128-e786-4747-877a-7458d3441d04"
         }
     }
 }
