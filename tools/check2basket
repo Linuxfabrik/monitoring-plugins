@@ -355,6 +355,7 @@ def offer_selection(options):
 
 
 def manage_uuids(data, old_data=None):
+    # TODO: the selection could be improved, filtering out guids that are already used in the new basket. this also prevents accidental duplicate guids
     if old_data:
         reused_guid_objects = []
         for parent_key, parent_value in data.items():
@@ -394,6 +395,7 @@ def manage_uuids(data, old_data=None):
         warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
 
     new_guid_objects = []
+    guids = []
     for parent_key, parent_value in data.items():
         for key, value in parent_value.items():
             if 'guid' not in value:
@@ -402,6 +404,11 @@ def manage_uuids(data, old_data=None):
                 else:
                     new_guid_objects.append(f'[{parent_key}][{key}]')
                 data[parent_key][key]['guid'] = str(uuid.uuid4())
+            guids += value['guid']
+
+    if len(guids) != len(set(guids)):
+        err_print('There are duplicate guids! Aborting...')
+        sys.exit(3)
 
     if new_guid_objects:
         print('\nAdding guid to the following items (this means we are assuming they are new):\n* ', end='')
