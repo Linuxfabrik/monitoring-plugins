@@ -371,29 +371,40 @@ def manage_uuids(data, old_data=None):
                 for key, value in parent_value.items():
                     varname = value['varname']
                     if varname in old_varnames:
-                        data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[varname]]['guid']
+                        try:
+                            data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[varname]]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                        except KeyError as e:
+                            if e.args[0] == 'guid':
+                                # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                                continue
+                            old_guid = None
                     else:
                         print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
                         selection = offer_selection(old_varnames.keys())
                         if selection:
                             data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[selection]]['guid']
-                    reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
 
             else:
                 for key, value in parent_value.items():
                     try:
                         old_guid = old_data[parent_key][key]['guid']
-                    except KeyError:
+                    except KeyError as e:
+                        if e.args[0] == 'guid':
+                            # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                            continue
                         old_guid = None
 
                     if old_guid is not None:
                         data[parent_key][key]['guid'] = old_guid
+                        reused_guid_objects.append(f'[{parent_key}][{key}]')
                     else:
                         print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
                         selection = offer_selection(old_data[parent_key].keys())
                         if selection:
                             data[parent_key][key]['guid'] = old_data[parent_key][selection]['guid']
-                    reused_guid_objects.append(f'[{parent_key}][{key}]')
+                            reused_guid_objects.append(f'[{parent_key}][{key}]')
 
         if reused_guid_objects:
             print('\nFound an object with the same name in the old basket, reusing the guid for:\n* ', end='')
