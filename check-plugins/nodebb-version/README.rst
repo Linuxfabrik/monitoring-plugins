@@ -82,7 +82,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description
-    nodebb-version,                             Number,             "Currently installed version. Example: "1.171" for v1.17.1"
+    nodebb-version,                             Number,             "Currently installed version. Example: '1.171' for v1.17.1"
 
 
 Credits, License
