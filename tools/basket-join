@@ -8,7 +8,6 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-# todo wihtout guids
 # todo datafield ids
 # todo include assets
 
@@ -119,32 +118,39 @@ def main():
 
             for key, value in basket_data.items():
                 data[key].update(value)
-    save_json_to_file(data, args.OUTPUT_FILE)
 
-    guids = []
-    objects_without_guids = []
-    for parent_key, parent_value in data.items():
-        for key, value in parent_value.items():
-            if 'guid' in value:
-                guids.append(value['guid'])
-            else:
-                if parent_key == 'Datafield':
-                    objects_without_guids.append(f'[{parent_key}][{value["varname"]}]')
+    if args.WITHOUT_GUIDS:
+        for parent_key, parent_value in data.items():
+            for key, value in parent_value.items():
+                if 'guid' in value:
+                    del data[parent_key][key]['guid']
+    else:
+        guids = []
+        objects_without_guids = []
+        for parent_key, parent_value in data.items():
+            for key, value in parent_value.items():
+                if 'guid' in value:
+                    guids.append(value['guid'])
                 else:
-                    objects_without_guids.append(f'[{parent_key}][{key}]')
+                    if parent_key == 'Datafield':
+                        objects_without_guids.append(f'[{parent_key}][{value["varname"]}]')
+                    else:
+                        objects_without_guids.append(f'[{parent_key}][{key}]')
 
-    if objects_without_guids:
-        warn_print('\nFound objects without guids:')
-        print('* ', end='')
-        print('\n* '.join(objects_without_guids))
+        if objects_without_guids:
+            warn_print('\nFound objects without guids:')
+            print('* ', end='')
+            print('\n* '.join(objects_without_guids))
 
-    unique_guids = set(guids)
-    if len(guids) != len(unique_guids):
-        for guid in unique_guids:
-            guids.remove(guid)
-        err_print('There are duplicate guids:')
-        print('* ', end='')
-        print('\n* '.join(guids))
+        unique_guids = set(guids)
+        if len(guids) != len(unique_guids):
+            for guid in unique_guids:
+                guids.remove(guid)
+            err_print('There are duplicate guids:')
+            print('* ', end='')
+            print('\n* '.join(guids))
+
+    save_json_to_file(data, args.OUTPUT_FILE)
 
 if __name__ == '__main__':
     main()
