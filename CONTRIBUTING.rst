@@ -106,49 +106,118 @@ For all other options, use long parameters only. We recommend using some of thos
 
 .. code-block:: text
 
+    --6
     --activestate
-    --action
+    --alarm-duration
     --always-ok
-    --brief
+    --argument
+    --authtype
     --cache-expire
-    --channel
     --command
+    --community
+    --config
     --count
+    --critical
+    --critical-count
+    --critical-cpu
+    --critical-maxchildren
+    --critical-mem
+    --critical-pattern
+    --critical-regex
+    --critical-slowreq
     --database
-    --depth
+    --date
     --device
+    --donor
     --filename
     --filter
     --full
     --hide-ok
+    --hostname
+    --icinga-callback
+    --icinga-password
+    --icinga-service-name
+    --icinga-url
+    --icinga-username
+    --idsite
     --ignore
+    --ignore-pattern
+    --ignore-regex
     --input
     --insecure
+    --instance
     --interface
     --interval
     --key
+    --latest
     --lengthy
     --loadstate
+    --message
+    --message-key
     --metric
+    --mib
+    --mibdir
     --mode
+    --module
     --mount
     --no-kthreads
     --no-proxy
     --no-summary
     --node
+    --only-dirs
+    --only-files
+    --password
     --path
+    --pattern
+    --perfdata
+    --perfdata-key
+    --period
+    --port
     --portname
     --prefix
+    --privlevel
+    --response
+    --service
     --severity
+    --snmpversion
+    --starttype
     --state
+    --state-key
+    --status
     --substate
+    --suppress-lines
+    --task
+    --team
     --test
-    --timespan
+    --timeout
+    --timerange
+    --token
     --trigger
     --type
     --unit
     --unitfilestate
+    --url
     --username
+    --v3authprot
+    --v3authprotpassword
+    --v3bootstime
+    --v3context
+    --v3contextengineid
+    --v3level
+    --v3privprot
+    --v3privprotpassword
+    --v3securityengineid
+    --v3username
+    --version
+    --virtualenv
+    --warning
+    --warning-count
+    --warning-cpu
+    --warning-maxchildren
+    --warning-mem
+    --warning-pattern
+    --warning-regex
+    --warning-slowreq
 
 `Parameter types <https://docs.python.org/3/library/argparse.html>`_ are usually:
 
