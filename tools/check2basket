@@ -509,6 +509,10 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
             if action.choices is not None:
                 datalist_name = f'{varname}_list'
+                if isinstance(action, argparse._AppendAction):
+                    target_data_type = 'array'
+                else:
+                    target_data_type = 'string'
                 data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
                     "caption": get_caption(check_name, long_param),
@@ -517,7 +521,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                     "format": None,
                     "settings": {
                         "behavior": "strict",
-                        "data_type": "string",
+                        "data_type": target_data_type,
                         "datalist": datalist_name
                     }
                 }
