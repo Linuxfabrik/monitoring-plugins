@@ -40,14 +40,15 @@ import argparse
 try:
     import mysql.connector
 except ImportError as e:
-    print('Python module "mysql.connector" is not installed.')
-    exit(STATE_UNKNOWN)
+    mysql_connector_found = False
+else:
+    mysql_connector_found = True
 try:
     import psutil
 except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
-from traceback import print_exc
+    psutil_found = False
+else:
+    psutil_found = True
 
 
 def parse_args():
@@ -148,6 +149,11 @@ def main():
         args = parse_args()
     except SystemExit as e:
         exit(STATE_UNKNOWN)
+
+    if mysql_connector_found is False:
+        lib.base2.oao('Python module "mysql.connector" is not installed.', STATE_UNKNOWN)
+    if psutil_found is False:
+        lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
     try:
         if mysql.connector.__version__ >= '2.1.1':
