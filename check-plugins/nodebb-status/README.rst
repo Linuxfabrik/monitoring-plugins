@@ -127,7 +127,7 @@ Perfdata / Metrics
     err503,                                     Continous Counter,  503 responses from today
     nodebb_heap_used,                           Bytes,              
     nodebb_heap_used_percent,                   Percentage,         
-    nodebb_rss,                                 Bytes,              "rss = "Resident Set Size". This is the non-swapped physical memory a process has used.""
+    nodebb_rss,                                 Bytes,              "rss = 'Resident Set Size'. This is the non-swapped physical memory a process has used."
 
 
 Credits, License
