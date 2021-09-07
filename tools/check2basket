@@ -445,8 +445,13 @@ def manage_uuids(data, old_data=None):
                 data[parent_key][key]['guid'] = str(uuid.uuid4())
             guids.append(value['guid'])
 
-    if len(guids) != len(set(guids)):
+    unique_guids = set(guids)
+    if len(guids) != len(unique_guids):
+        for guid in unique_guids:
+            guids.remove(guid)
         err_print('There are duplicate guids! Aborting...')
+        print('* ', end='')
+        print('\n* '.join(guids))
         sys.exit(3)
 
     if new_guid_objects:
