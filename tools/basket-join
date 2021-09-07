@@ -8,12 +8,12 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-# todo datafield ids
 # todo include assets
 
 import argparse
 import json
 import os
+import sys
 
 try:
     import colorama
@@ -101,6 +101,9 @@ def main():
         },
     }
 
+    guids2datafields = {}
+    highest_datafield_id = 0
+
     directories = os.listdir('check-plugins')
     for directory in directories:
         if directory in skip_plugins:
@@ -108,7 +111,7 @@ def main():
 
         basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
         if os.path.isfile(basket_file):
-            print(f'Check: {directory}')
+            print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
                 try:
                     basket_data = json.load(file)
@@ -116,8 +119,23 @@ def main():
                     err_print('Could not parse basket file. Skipping check...')
                     continue
 
-            for key, value in basket_data.items():
-                data[key].update(value)
+            for parent_key, parent_value in basket_data.items():
+                if parent_key == 'Datafield':
+                    for key, value in parent_value.items():
+                        guid = value['guid']
+                        if guid in guids2datafields:
+                            print(f'duplicate entry for guid {guid}. matching datafield_id: {guids2datafields[guid]}.')
+                            current_value = data['Datafield'][guids2datafields[guid]]
+                            if current_value != value:
+                                err_print(f'The objects "[{parent_key}][{value["varname"]}]" and "[{parent_key}][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
+                                sys.exit(3)
+                        else:
+                            highest_datafield_id += 1
+                            guids2datafields[guid] = str(highest_datafield_id)
+                            data[parent_key][str(highest_datafield_id)] = value
+                else:
+                    data[parent_key].update(parent_value)
+
 
     if args.WITHOUT_GUIDS:
         for parent_key, parent_value in data.items():
@@ -149,6 +167,7 @@ def main():
             err_print('There are duplicate guids:')
             print('* ', end='')
             print('\n* '.join(guids))
+            sys.exit(3)
 
     save_json_to_file(data, args.OUTPUT_FILE)
 
