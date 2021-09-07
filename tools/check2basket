@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090602'
+__version__ = '2021090701'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -717,7 +717,11 @@ def main():
         if os.path.isfile(output_file):
             with open(output_file, 'rb') as file:
                 print(f'Found an existing basket at {output_file}, updating it.')
-                old_data = json.load(file)
+                try:
+                    old_data = json.load(file)
+                except json.decoder.JSONDecodeError:
+                    err_print('Could not parse existing basket file. Aborting...')
+                    sys.exit(3)
         else:
             try:
                 os.mkdir(os.path.join(plugin_dir, 'icingaweb2-module-director'))
@@ -729,7 +733,11 @@ def main():
         if os.path.isfile(config_file):
             with open(config_file, 'rb') as file:
                 print(f'Using config at {config_file}.')
-                config = yaml.safe_load(file)
+                try:
+                    config = yaml.safe_load(file)
+                except yaml.scanner.ScannerError:
+                    err_print('Could not parse config file. Aborting...')
+                    sys.exit(3)
 
         save_json_to_file(generate_basket(args.PLUGIN_FILE, config, old_data), output_file)
 
@@ -749,7 +757,11 @@ def main():
                 if os.path.isfile(output_file):
                     with open(output_file, 'rb') as file:
                         print(f'Found an existing basket at {output_file}, updating it.')
-                        old_data = json.load(file)
+                        try:
+                            old_data = json.load(file)
+                        except json.decoder.JSONDecodeError:
+                            err_print('Could not parse existing basket file. Skipping check...')
+                            continue
                 else:
                     try:
                         os.mkdir(os.path.join('check-plugins', directory, 'icingaweb2-module-director'))
@@ -761,7 +773,11 @@ def main():
                 if os.path.isfile(config_file):
                     with open(config_file, 'rb') as file:
                         print(f'Using config at {config_file}.')
-                        config = yaml.safe_load(file)
+                        try:
+                            config = yaml.safe_load(file)
+                        except yaml.scanner.ScannerError:
+                            err_print('Could not parse config file. Skipping check...')
+                            continue
 
                 plugin_data = generate_basket(plugin_file, config, old_data)
                 if plugin_data:
