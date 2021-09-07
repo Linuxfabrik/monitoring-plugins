@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+# todo wihtout guids
+# todo datafield ids
+# todo include assets
+
+import argparse
+import json
+import os
+
+try:
+    import colorama
+    colorama.init(autoreset=True)
+except ImportError:
+    colorama = False
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021090701'
+
+DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
+
+
+skip_plugins = [
+    'example',
+    'dummy',
+]
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--output-file',
+        help='Set the output file.',
+        dest='OUTPUT_FILE',
+        type=str,
+        default='icingaweb2-module-director-basket.json',
+    )
+
+    parser.add_argument(
+        '--without-guids',
+        help='Remove all guids.',
+        dest='WITHOUT_GUIDS',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def warn_print(msg, **kwargs):
+    msg = msg.strip()
+    if colorama:
+        print(colorama.Fore.YELLOW + f'Warning: {msg}', **kwargs)
+    else:
+        print(msg, **kwargs)
+
+
+def err_print(msg, **kwargs):
+    msg = msg.strip()
+    if colorama:
+        print(colorama.Fore.RED + f'Error: {msg}', **kwargs)
+    else:
+        print(msg, **kwargs)
+
+
+def save_json_to_file(data, filename):
+    try:
+        with open(filename, 'w') as file:
+            json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
+            # file.write('\n') TODO use me later
+    except FileNotFoundError as e:
+        err_print(f'{e}. Ignoring...')
+
+
+def main():
+    args = parse_args()
+
+    data = {
+        "Command": {
+        },
+        "ServiceTemplate": {
+        },
+        "DataList": {
+        },
+        "Datafield": {
+        },
+    }
+
+    directories = os.listdir('check-plugins')
+    for directory in directories:
+        if directory in skip_plugins:
+            continue
+
+        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+        if os.path.isfile(basket_file):
+            print(f'Check: {directory}')
+            with open(basket_file, 'rb') as file:
+                try:
+                    basket_data = json.load(file)
+                except json.decoder.JSONDecodeError:
+                    err_print('Could not parse basket file. Skipping check...')
+                    continue
+
+            for key, value in basket_data.items():
+                data[key].update(value)
+    save_json_to_file(data, args.OUTPUT_FILE)
+
+    guids = []
+    objects_without_guids = []
+    for parent_key, parent_value in data.items():
+        for key, value in parent_value.items():
+            if 'guid' in value:
+                guids.append(value['guid'])
+            else:
+                if parent_key == 'Datafield':
+                    objects_without_guids.append(f'[{parent_key}][{value["varname"]}]')
+                else:
+                    objects_without_guids.append(f'[{parent_key}][{key}]')
+
+    if objects_without_guids:
+        warn_print('\nFound objects without guids:')
+        print('* ', end='')
+        print('\n* '.join(objects_without_guids))
+
+    unique_guids = set(guids)
+    if len(guids) != len(unique_guids):
+        for guid in unique_guids:
+            guids.remove(guid)
+        err_print('There are duplicate guids:')
+        print('* ', end='')
+        print('\n* '.join(guids))
+
+if __name__ == '__main__':
+    main()
