@@ -86,7 +86,6 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 .. code-block:: text
 
-    -6, --6                 use IPv6
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
@@ -106,8 +105,8 @@ For all other options, use long parameters only. We recommend using some of thos
 
 .. code-block:: text
 
-    --activestate
     --action
+    --activestate
     --always-ok
     --brief
     --cache-expire
@@ -126,6 +125,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --insecure
     --interface
     --interval
+    --ipv6
     --key
     --lengthy
     --loadstate
@@ -140,7 +140,6 @@ For all other options, use long parameters only. We recommend using some of thos
     --portname
     --prefix
     --severity
-    --state
     --substate
     --test
     --timespan
