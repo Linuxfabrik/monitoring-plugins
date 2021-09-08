@@ -36,6 +36,7 @@ Default files checked:
 * /etc/ssh/sshd_config: root:root
 * /home/ovirt: vdsm:kvm
 * /tmp: root:root
+* /tmp/linuxfabrik-plugin-cache.db: icinga:icinga
 * /var/hnet: hnet:hnet
 * /var/lib/unbound/root.key: unbound:unbound
 * /var/run/openldap: ldap:ldap
