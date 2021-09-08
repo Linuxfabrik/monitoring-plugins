@@ -1,4 +1,4 @@
-Check rocket.chat-stats
+Check rocketchat-stats
 =======================
 
 Overview
@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/rocket.chat-stats"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/rocketchat-stats"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
@@ -25,7 +25,7 @@ Help
 
 .. code-block:: text
 
-    usage: rocket.chat-stats [-h] [-V] -p PASSWORD [--url URL] --username
+    usage: rocketchat-stats [-h] [-V] -p PASSWORD [--url URL] --username
                              USERNAME
 
     This plugin lets you track statistics about a Rocket.Chat server. Requires a
@@ -46,7 +46,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./rocket.chat-stats --username rocket-stats --password mypassword --url http://rocket:3000/api/v1
+    ./rocketchat-stats --username rocket-stats --password mypassword --url http://rocket:3000/api/v1
     
 Output:
 

@@ -1,4 +1,4 @@
-Check rocket.chat-version
+Check rocketchat-version
 =========================
 
 Overview
@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/rocket.chat-version"
+    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/rocketchat-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2"
@@ -26,7 +26,7 @@ Help
 
 .. code-block:: text
 
-    usage: rocket.chat-version [-h] [-V] [--always-ok]
+    usage: rocketchat-version [-h] [-V] [--always-ok]
                                [--cache-expire CACHE_EXPIRE] -p PASSWORD
                                [--url URL] --username USERNAME
 
@@ -52,7 +52,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./rocket.chat-version --username rocket-stats --password mypassword --url http://rocket:3000/api/v1 --cache-expire 8 --always-ok
+    ./rocketchat-version --username rocket-stats --password mypassword --url http://rocket:3000/api/v1 --cache-expire 8 --always-ok
     
 Output:
 
