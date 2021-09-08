@@ -9,7 +9,7 @@
                     "value": "$borgbackup_warning$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/borgbackup",
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/borgbackup",
             "disabled": false,
             "fields": [
                 {
@@ -64,7 +64,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the date and return code of the last borgbackup, according to the logfile.",
+            "notes": "Checks the date and return code of the last borgbackup, according to the logfile. `cat /var/log/borg/borg-prune.log` `cat /var/log/borg/borg-create.log` Return code 0: success (logged as INFO) 1: warning (operation reached its normal end, but there were warnings \u2013 you should check the log, logged as WARNING) 2: error (like a fatal error, a local or remote exception, the operation did not reach its normal end, logged as ERROR) 128+N   killed by signal N (e.g. 137 == kill -9)",
             "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/borgbackup",
             "object_name": "tpl-service-borgbackup",
             "object_type": "template",
@@ -85,7 +85,7 @@
     "Datafield": {
         "500": {
             "varname": "borgbackup_critical",
-            "caption": "Borgbackup: Critical",
+            "caption": "BorgBackup: Critical",
             "description": "Set the critical threshold for the time difference to the start of the last backup (in hours).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -96,7 +96,7 @@
         },
         "501": {
             "varname": "borgbackup_warning",
-            "caption": "Borgbackup: Warning",
+            "caption": "BorgBackup: Warning",
             "description": "Set the warning threshold for the time difference to the start of the last backup (in hours).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
