@@ -90,7 +90,9 @@ class BasketJoiner:
                 json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
                 file.write('\n')
         except FileNotFoundError as e:
-            err_print(f'{e}. Ignoring...')
+            err_print(f'{e}.')
+            return False
+        return True
 
 
     def join_with_file(self, basket_file):
@@ -176,7 +178,8 @@ def main():
         if basket_joiner.validate_guids() is False:
             sys.exit(3)
 
-    basket_joiner.save_json_to_file(args.OUTPUT_FILE)
+    if basket_joiner.save_json_to_file(args.OUTPUT_FILE) is False:
+        sys.exit(3)
 
 if __name__ == '__main__':
     main()
