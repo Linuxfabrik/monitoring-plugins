@@ -23,7 +23,7 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021090801'
 
 DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
 
@@ -59,21 +59,21 @@ def parse_args():
     parser.add_argument('-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--community',
         help='SNMP Version 1 or 2c specific. Set the community string. Default: %(default)s.',
         default='public',
         dest='COMMUNITY',
-        )
+    )
 
     parser.add_argument(
         '--device',
         help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. Default: %(default)s.',
         dest='DEVICE',
         default='any-any-any.csv',
-        )
+    )
 
     parser.add_argument(
         '--hide-ok',
@@ -81,7 +81,7 @@ def parse_args():
         dest='HIDEOK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '-H',
@@ -89,28 +89,28 @@ def parse_args():
         help='SNMP Appliance address.',
         dest='HOSTNAME',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--mib',
         help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves like the `-m` option of `snmpget`.',
         dest='MIB',
-        )
+    )
 
     parser.add_argument(
-        '--mibdir',
+        '--mib-dir',
         help='Look in given list of directories for MIBs. Behaves like the `-M` option of `snmpget`. Default: %(default)s.',
-        dest='MIBDIR',
+        dest='MIB_DIR',
         default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
-        )
+    )
 
     parser.add_argument(
-        '--snmpversion',
+        '--snmp-version',
         help='Specifies SNMP version to use. Default: %(default)s.',
-        dest='SNMPVERSION',
+        dest='SNMP_VERSION',
         choices=['1', '2c', '3'],
         default='2c',
-        )
+    )
 
     parser.add_argument(
         '-t',
@@ -119,58 +119,78 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=7,
-        )
+    )
 
-    parser.add_argument('--v3bootstime',
+    parser.add_argument(
+        '--v3-boots-time',
         help='SNMP Version 3 specific. Set destination engine boots/time.',
-        dest='V3BOOTSTIME',
-        )
-    parser.add_argument('--v3context',
+        dest='V3_BOOTS_TIME',
+    )
+
+    parser.add_argument(
+        '--v3-context',
         help='SNMP Version 3 specific. Set context name (e.g. bridge1).',
-        dest='V3CONTEXT',
-        )
-    parser.add_argument('--v3contextengineid',
+        dest='V3_CONTEXT',
+    )
+
+    parser.add_argument(
+        '--v3-context-engine-id',
         help='SNMP Version 3 specific. Set context engine ID (e.g. 800000020109840301).',
-        dest='V3CONTEXTENGINEID',
-        )
-    parser.add_argument('--v3securityengineid',
+        dest='V3_CONTEXT_ENGINE_ID',
+    )
+
+    parser.add_argument(
+        '--v3-security-engine-id',
         help='SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).',
-        dest='V3SECURITYENGINEID',
-        )
-    parser.add_argument('--v3level',
+        dest='V3_SECURITY_ENGINE_ID',
+    )
+
+    parser.add_argument(
+        '--v3-level',
         help='SNMP Version 3 specific. Set security level.',
-        dest='V3LEVEL',
+        dest='V3_LEVEL',
         choices=['noAuthNoPriv', 'authNoPriv', 'authPriv'],
-        )
-    parser.add_argument('--v3authprotpassword',
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot-password',
         help='SNMP Version 3 specific. Set authentication protocol pass phrase.',
-        dest='V3AUTHPROTPASSWORD',
-        )
-    parser.add_argument('--v3privprotpassword',
+        dest='V3_AUTH_PROT_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--v3-priv-prot-password',
         help='SNMP Version 3 specific. Set privacy protocol pass phrase.',
-        dest='V3PRIVPROTPASSWORD',
-        )
-    parser.add_argument('--v3authprot',
+        dest='V3_PRIV_PROT_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot',
         help='SNMP Version 3 specific. Set authentication protocol.',
-        dest='V3AUTHPROT',
+        dest='V3_AUTH_PROT',
         choices=['MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'],
-        )
-    parser.add_argument('--v3privprot',
+    )
+
+    parser.add_argument(
+        '--v3-priv-prot',
         help='SNMP Version 3 specific. Set privacy protocol.',
-        dest='V3PRIVPROT',
+        dest='V3_PRIV_PROT',
         choices=['DES', 'AES', 'AES-192', 'AES-256'],
-        )
-    parser.add_argument('--v3username',
+    )
+
+    parser.add_argument(
+        '--v3-username',
         help='SNMP Version 3 specific. Set security name (e.g. bert).',
-        dest='V3USERNAME',
-        )
+        dest='V3_USERNAME',
+    )
 
     parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args2.csv,
-        )
+    )
+
     return parser.parse_args()
 
 
@@ -194,24 +214,24 @@ def main():
     #     S:  print MIB module-id plus last element
     #     t:  print timeticks unparsed as numeric integers
     #     U:  don't print units
-    if args.SNMPVERSION in ['1', '2c']:
-        cmd = 'snmpget -v {} '.format(args.SNMPVERSION)
+    if args.SNMP_VERSION in ['1', '2c']:
+        cmd = 'snmpget -v {} '.format(args.SNMP_VERSION)
         cmd += '-c {} '.format(args.COMMUNITY) if args.COMMUNITY else ''
     else:
         cmd = 'snmpget -v 3 '
-        cmd += '-a {} '.format(args.V3AUTHPROT) if args.V3AUTHPROT else ''
-        cmd += '-A {} '.format(args.V3AUTHPROTPASSWORD) if args.V3AUTHPROTPASSWORD else ''
-        cmd += '-e {} '.format(args.V3SECURITYENGINEID) if args.V3SECURITYENGINEID else ''
-        cmd += '-E {} '.format(args.V3CONTEXTENGINEID) if args.V3CONTEXTENGINEID else ''
-        cmd += '-l {} '.format(args.V3LEVEL) if args.V3LEVEL else ''
-        cmd += '-n {} '.format(args.V3CONTEXT) if args.V3CONTEXT else ''
-        cmd += '-u {} '.format(args.V3USERNAME) if args.V3USERNAME else ''
-        cmd += '-x {} '.format(args.V3PRIVPROT) if args.V3PRIVPROT else ''
-        cmd += '-X {} '.format(args.V3PRIVPROTPASSWORD) if args.V3PRIVPROTPASSWORD else ''
-        cmd += '-Z {} '.format(args.V3BOOTSTIME) if args.V3BOOTSTIME else ''
+        cmd += '-a {} '.format(args.V3_AUTH_PROT) if args.V3_AUTH_PROT else ''
+        cmd += '-A {} '.format(args.V3_AUTH_PROT_PASSWORD) if args.V3_AUTH_PROT_PASSWORD else ''
+        cmd += '-e {} '.format(args.V3_SECURITY_ENGINE_ID) if args.V3_SECURITY_ENGINE_ID else ''
+        cmd += '-E {} '.format(args.V3_CONTEXT_ENGINE_ID) if args.V3_CONTEXT_ENGINE_ID else ''
+        cmd += '-l {} '.format(args.V3_LEVEL) if args.V3_LEVEL else ''
+        cmd += '-n {} '.format(args.V3_CONTEXT) if args.V3_CONTEXT else ''
+        cmd += '-u {} '.format(args.V3_USERNAME) if args.V3_USERNAME else ''
+        cmd += '-x {} '.format(args.V3_PRIV_PROT) if args.V3_PRIV_PROT else ''
+        cmd += '-X {} '.format(args.V3_PRIV_PROT_PASSWORD) if args.V3_PRIV_PROT_PASSWORD else ''
+        cmd += '-Z {} '.format(args.V3_BOOTS_TIME) if args.V3_BOOTS_TIME else ''
     cmd += '-OSqtU -r 0 '
     cmd += '-t {} '.format(args.TIMEOUT) if args.TIMEOUT else ''
-    cmd += '-M {} '.format(args.MIBDIR) if args.MIBDIR else ''
+    cmd += '-M {} '.format(args.MIB_DIR) if args.MIB_DIR else ''
     cmd += '-m {} '.format(args.MIB) if args.MIB else ''
     cmd += '{} '.format(args.HOSTNAME) if args.HOSTNAME else ''
     cmd += '_OIDS_'
