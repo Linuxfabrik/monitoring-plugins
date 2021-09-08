@@ -21,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2021090803'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -96,6 +96,7 @@ class BasketJoiner:
 
 
     def join_with_file(self, basket_file):
+        new_datafield_ids = {} # this is reset for each file
         if os.path.isfile(basket_file):
             print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
@@ -105,22 +106,32 @@ class BasketJoiner:
                     err_print('Could not parse basket file. Skipping check...')
                     return False
 
+            for key, value in basket_data['Datafield'].items():
+                guid = value['guid']
+                if guid in self.guids2datafields:
+                    current_value = self.data['Datafield'][self.guids2datafields[guid]]
+                    if current_value != value:
+                        err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
+                        return False
+                else:
+                    self.highest_datafield_id += 1
+                    self.guids2datafields[guid] = str(self.highest_datafield_id)
+                    self.data['Datafield'][str(self.highest_datafield_id)] = value
+                    new_datafield_ids[key] = self.highest_datafield_id
+
             for parent_key, parent_value in basket_data.items():
                 if parent_key == 'Datafield':
-                    for key, value in parent_value.items():
-                        guid = value['guid']
-                        if guid in self.guids2datafields:
-                            print(f'duplicate entry for guid {guid}. matching datafield_id: {self.guids2datafields[guid]}.')
-                            current_value = self.data['Datafield'][self.guids2datafields[guid]]
-                            if current_value != value:
-                                err_print(f'The objects "[{parent_key}][{value["varname"]}]" and "[{parent_key}][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
-                                sys.exit(3)
-                        else:
-                            self.highest_datafield_id += 1
-                            self.guids2datafields[guid] = str(self.highest_datafield_id)
-                            self.data[parent_key][str(self.highest_datafield_id)] = value
+                    # already done above
+                    continue
                 else:
-                    self.data[parent_key].update(parent_value)
+                    for key, value in parent_value.items():
+                        fields = value.get('fields')
+                        if fields:
+                            for field in fields:
+                                old_datafield_id = field['datafield_id']
+                                field['datafield_id'] = new_datafield_ids[str(old_datafield_id)]
+                        self.data[parent_key][key] = value
+        return True
 
 
     def remove_guids(self):
@@ -170,7 +181,8 @@ def main():
             continue
 
         basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
-        basket_joiner.join_with_file(basket_file)
+        if basket_joiner.join_with_file(basket_file) is False:
+            sys.exit(3)
 
     if args.WITHOUT_GUIDS:
         basket_joiner.remove_guids()
