@@ -101,7 +101,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-For all other options, use long parameters only. We recommend using some of those:
+For all other options, use long parameters only. Separate words using a ``-``. We recommend using some of those:
 
 .. code-block:: text
 
