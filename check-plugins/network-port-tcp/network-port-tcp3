@@ -23,13 +23,13 @@ if activate_this and os.path.isfile(activate_this):
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021062501'
+__version__ = '2021090801'
 
 DESCRIPTION = 'Checks whether a network port is reachable.'
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 22
-DEFAULT_STATE = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 2
 DEFAULT_TYPE='tcp'
 
@@ -70,12 +70,13 @@ def parse_args():
         dest='PORTNAME',
         )
 
-    parser.add_argument('--state',
-        help='The state that has to be returned. Default: %(default)s',
-        dest='STATE',
-        default=DEFAULT_STATE,
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
-        )
+    )
 
     parser.add_argument('-t', '--timeout',
         help='Network timeout. Default: %(default)s',
@@ -112,7 +113,7 @@ def main():
         if sock.connect_ex((args.HOSTNAME, args.PORT)) == 0:
             state = STATE_OK
         else:
-            state = STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+            state = STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
         sock.close()
     except:
         lib.base3.oao('Cannot initiate a connection to {}:{}/{}.'.format(args.HOSTNAME, args.PORT, args.TYPE), STATE_UNKNOWN)

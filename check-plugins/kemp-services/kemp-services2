@@ -34,14 +34,14 @@ import lib.test2 # pylint: disable=C0413
 import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021090801'
 
 DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PORT = 443
-DEFAULT_STATE = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
 
 def parse_args():
@@ -102,12 +102,12 @@ def parse_args():
         )
 
     parser.add_argument(
-        '--state',
-        help='The state that has to be returned. Default: %(default)s',
-        dest='STATE',
-        default=DEFAULT_STATE,
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
-        )
+    )
 
     parser.add_argument(
         '--test',
@@ -173,7 +173,7 @@ def main():
             count += 1
             status = service.find('Status').text
             service_state = STATE_OK if status.lower() != 'down' else \
-                STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+                STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
             table.append({
                 'name': name,
                 'state': lib.base2.state2str(service_state, empty_ok=False),
