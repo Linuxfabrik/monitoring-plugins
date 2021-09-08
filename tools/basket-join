@@ -9,6 +9,7 @@
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
 import argparse
+import collections
 import json
 import os
 import sys
@@ -20,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090801'
+__version__ = '2021090802'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -78,16 +79,7 @@ def err_print(msg, **kwargs):
 
 class BasketJoiner:
     def __init__(self):
-        self.data = {
-            "Command": {
-            },
-            "ServiceTemplate": {
-            },
-            "DataList": {
-            },
-            "Datafield": {
-            },
-        }
+        self.data = collections.defaultdict(dict)
         self.guids2datafields = {}
         self.highest_datafield_id = 0
 
@@ -168,6 +160,7 @@ def main():
     args = parse_args()
 
     basket_joiner = BasketJoiner()
+    basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json')
 
     directories = os.listdir('check-plugins')
     for directory in directories:
