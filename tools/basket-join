@@ -8,8 +8,6 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
-# todo include assets
-
 import argparse
 import json
 import os
@@ -22,7 +20,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2021090801'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -78,38 +76,32 @@ def err_print(msg, **kwargs):
         print(msg, **kwargs)
 
 
-def save_json_to_file(data, filename):
-    try:
-        with open(filename, 'w') as file:
-            json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
-            # file.write('\n') TODO use me later
-    except FileNotFoundError as e:
-        err_print(f'{e}. Ignoring...')
+class BasketJoiner:
+    def __init__(self):
+        self.data = {
+            "Command": {
+            },
+            "ServiceTemplate": {
+            },
+            "DataList": {
+            },
+            "Datafield": {
+            },
+        }
+        self.guids2datafields = {}
+        self.highest_datafield_id = 0
 
 
-def main():
-    args = parse_args()
+    def save_json_to_file(self, filename):
+        try:
+            with open(filename, 'w') as file:
+                json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
+                file.write('\n')
+        except FileNotFoundError as e:
+            err_print(f'{e}. Ignoring...')
 
-    data = {
-        "Command": {
-        },
-        "ServiceTemplate": {
-        },
-        "DataList": {
-        },
-        "Datafield": {
-        },
-    }
 
-    guids2datafields = {}
-    highest_datafield_id = 0
-
-    directories = os.listdir('check-plugins')
-    for directory in directories:
-        if directory in skip_plugins:
-            continue
-
-        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+    def join_with_file(self, basket_file):
         if os.path.isfile(basket_file):
             print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
@@ -117,35 +109,36 @@ def main():
                     basket_data = json.load(file)
                 except json.decoder.JSONDecodeError:
                     err_print('Could not parse basket file. Skipping check...')
-                    continue
+                    return False
 
             for parent_key, parent_value in basket_data.items():
                 if parent_key == 'Datafield':
                     for key, value in parent_value.items():
                         guid = value['guid']
-                        if guid in guids2datafields:
-                            print(f'duplicate entry for guid {guid}. matching datafield_id: {guids2datafields[guid]}.')
-                            current_value = data['Datafield'][guids2datafields[guid]]
+                        if guid in self.guids2datafields:
+                            print(f'duplicate entry for guid {guid}. matching datafield_id: {self.guids2datafields[guid]}.')
+                            current_value = self.data['Datafield'][self.guids2datafields[guid]]
                             if current_value != value:
                                 err_print(f'The objects "[{parent_key}][{value["varname"]}]" and "[{parent_key}][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
                                 sys.exit(3)
                         else:
-                            highest_datafield_id += 1
-                            guids2datafields[guid] = str(highest_datafield_id)
-                            data[parent_key][str(highest_datafield_id)] = value
+                            self.highest_datafield_id += 1
+                            self.guids2datafields[guid] = str(self.highest_datafield_id)
+                            self.data[parent_key][str(self.highest_datafield_id)] = value
                 else:
-                    data[parent_key].update(parent_value)
+                    self.data[parent_key].update(parent_value)
 
 
-    if args.WITHOUT_GUIDS:
-        for parent_key, parent_value in data.items():
+    def remove_guids(self):
+        for parent_key, parent_value in self.data.items():
             for key, value in parent_value.items():
                 if 'guid' in value:
-                    del data[parent_key][key]['guid']
-    else:
+                    del self.data[parent_key][key]['guid']
+
+    def validate_guids(self):
         guids = []
         objects_without_guids = []
-        for parent_key, parent_value in data.items():
+        for parent_key, parent_value in self.data.items():
             for key, value in parent_value.items():
                 if 'guid' in value:
                     guids.append(value['guid'])
@@ -167,9 +160,30 @@ def main():
             err_print('There are duplicate guids:')
             print('* ', end='')
             print('\n* '.join(guids))
+            return False
+        return True
+
+
+def main():
+    args = parse_args()
+
+    basket_joiner = BasketJoiner()
+
+    directories = os.listdir('check-plugins')
+    for directory in directories:
+        if directory in skip_plugins:
+            continue
+
+        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+        basket_joiner.join_with_file(basket_file)
+
+    if args.WITHOUT_GUIDS:
+        basket_joiner.remove_guids()
+    else:
+        if basket_joiner.validate_guids() is False:
             sys.exit(3)
 
-    save_json_to_file(data, args.OUTPUT_FILE)
+    basket_joiner.save_json_to_file(args.OUTPUT_FILE)
 
 if __name__ == '__main__':
     main()
