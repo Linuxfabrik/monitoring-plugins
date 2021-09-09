@@ -105,6 +105,7 @@ regex_replace_words = {
     r'\bipv6\b':        'IPv6',
     r'\bmydumper\b':    'mydumper',
     r'\bpip\b':         'pip',
+    r'\bID\b':         'ID',
 }
 
 
@@ -584,7 +585,10 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                 }
 
             if action.default is not None:
-                data['ServiceTemplate'][service_object_name]['vars'][varname] = str(action.default).replace('$', '$$')
+                if isinstance(action.default, str):
+                    data['ServiceTemplate'][service_object_name]['vars'][varname] = action.default.replace('$', '$$')
+                else:
+                    data['ServiceTemplate'][service_object_name]['vars'][varname] = action.default
 
             command_field_id += 1
             continue
