@@ -1,40 +1,48 @@
 {
     "Command": {
-        "cmd-check-pip-updates": {
+        "cmd-check-nodebb-version": {
             "arguments": {
                 "--always-ok": {
-                    "set_if": "$pip_updates_always_ok$"
+                    "set_if": "$nodebb_version_always_ok$"
                 },
-                "--critical": {
-                    "value": "$pip_updates_critical$"
+                "--insecure": {
+                    "set_if": "$nodebb_version_insecure$"
                 },
-                "--warning": {
-                    "value": "$pip_updates_warning$"
+                "--timeout": {
+                    "value": "$nodebb_version_timeout$"
                 },
-                "--virtualenv": {
-                    "value": "$pip_updates_virtualenv$"
+                "--token": {
+                    "value": "$nodebb_version_token$"
+                },
+                "--url": {
+                    "value": "$nodebb_version_url$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/pip-updates",
+            "command": "/usr/lib64/nagios/plugins/nodebb-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 724,
+                    "datafield_id": 345,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 725,
+                    "datafield_id": 346,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 726,
+                    "datafield_id": 347,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 727,
+                    "datafield_id": 348,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 349,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -42,20 +50,20 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-pip-updates",
+            "object_name": "cmd-check-nodebb-version",
             "object_type": "object",
-            "timeout": 60,
+            "timeout": "10",
             "vars": {},
             "zone": null,
-            "guid": "bc344c3d-7de8-4f4c-accc-38f8bfbd4721"
+            "guid": "37ba77a8-7a57-47ed-8c22-abc91774fcd5"
         }
     },
     "ServiceTemplate": {
-        "tpl-service-pip-updates": {
+        "tpl-service-nodebb-version": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-pip-updates",
+            "check_command": "cmd-check-nodebb-version",
             "check_interval": 86400,
             "check_period": null,
             "check_timeout": null,
@@ -74,15 +82,15 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "pip-updates.png",
+            "icon_image": "nodebb-version.png",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks if there are updates for python packages installed via `pip`.",
-            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/pip-updates",
-            "object_name": "tpl-service-pip-updates",
+            "notes": "This plugin lets you track if a NodeBB update is available.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nodebb-version",
+            "object_name": "tpl-service-nodebb-version",
             "object_type": "template",
             "retry_interval": 300,
             "service_set": null,
@@ -90,58 +98,68 @@
             "use_agent": null,
             "use_var_overrides": null,
             "vars": {
-                "pip_updates_always_ok": false,
-                "pip_updates_critical": "100",
-                "pip_updates_warning": "10"
+                "nodebb_version_always_ok": false,
+                "nodebb_version_insecure": false,
+                "nodebb_version_timeout": "3",
+                "nodebb_version_url": "http://localhost:4567/forum"
             },
             "volatile": null,
             "zone": null,
-            "guid": "5ffa0b75-b385-4184-ab28-1e72fbcb1af9"
+            "guid": "3211a5c5-532a-4ac8-8959-17ca1d3092b0"
         }
     },
     "DataList": {},
     "Datafield": {
-        "724": {
-            "varname": "pip_updates_always_ok",
-            "caption": "pip Updates: Always OK?",
+        "345": {
+            "varname": "nodebb_version_always_ok",
+            "caption": "Nodebb Version: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "guid": "4e71c4cf-6e0f-478f-bc55-b6cc4e5f1689"
+            "guid": "71838dc7-e54d-4365-9ba8-f9a77f99c6ab"
         },
-        "725": {
-            "varname": "pip_updates_critical",
-            "caption": "pip Updates: Critical",
-            "description": "Set the critical threshold for the number of pending updates.",
+        "346": {
+            "varname": "nodebb_version_insecure",
+            "caption": "Nodebb Version: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "6f6598f3-e2a8-401c-9f89-ca016ff7a867"
+        },
+        "347": {
+            "varname": "nodebb_version_timeout",
+            "caption": "Nodebb Version: Timeout",
+            "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "54bf439f-909a-4fa9-adda-98e3924e8f01"
+            "guid": "30b15cb0-42ac-4688-ae51-bb2ecd80ca02"
         },
-        "726": {
-            "varname": "pip_updates_warning",
-            "caption": "pip Updates: Warning",
-            "description": "Set the warning threshold for the number of pending updates.",
+        "348": {
+            "varname": "nodebb_version_token",
+            "caption": "Nodebb Version: Token",
+            "description": "NodeBB API Bearer token.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "596913b8-7ab4-4d04-8b5e-3ac512fe7daa"
+            "guid": "62000e64-b9be-4b7b-8aad-72ecb89631e9"
         },
-        "727": {
-            "varname": "pip_updates_virtualenv",
-            "caption": "pip Updates: Virtualenv",
-            "description": "Path of the virtualenv that will be activated before checking for updates. For example: \"/opt/sphinx-venv/bin/activate\".",
+        "349": {
+            "varname": "nodebb_version_url",
+            "caption": "Nodebb Version: URL",
+            "description": "NodeBB API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "8aa7a83e-68fe-40cb-a3e7-1fa9d6e2837b"
+            "guid": "eb1496b4-56e7-4595-b125-af3318baa9ec"
         }
     }
 }

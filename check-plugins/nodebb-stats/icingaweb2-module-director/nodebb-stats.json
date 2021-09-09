@@ -1,40 +1,40 @@
 {
     "Command": {
-        "cmd-check-ping": {
+        "cmd-check-nodebb-stats": {
             "arguments": {
-                "--count": {
-                    "value": "$ping_count$"
-                },
-                "--hostname": {
-                    "value": "$ping_hostname$"
-                },
-                "--interval": {
-                    "value": "$ping_interval$"
+                "--insecure": {
+                    "set_if": "$nodebb_stats_insecure$"
                 },
                 "--timeout": {
-                    "value": "$ping_timeout$"
+                    "value": "$nodebb_stats_timeout$"
+                },
+                "--token": {
+                    "value": "$nodebb_stats_token$"
+                },
+                "--url": {
+                    "value": "$nodebb_stats_url$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/ping",
+            "command": "/usr/lib64/nagios/plugins/nodebb-stats",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 706,
+                    "datafield_id": 393,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 707,
+                    "datafield_id": 394,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 708,
+                    "datafield_id": 395,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 709,
+                    "datafield_id": 396,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -42,20 +42,20 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-ping",
+            "object_name": "cmd-check-nodebb-stats",
             "object_type": "object",
             "timeout": "10",
             "vars": {},
             "zone": null,
-            "guid": "b8293965-cf69-4c4e-b40b-0a698c4198de"
+            "guid": "d7492dd8-68ff-4540-b240-fade378bf48f"
         }
     },
     "ServiceTemplate": {
-        "tpl-service-ping": {
+        "tpl-service-nodebb-stats": {
             "action_url": null,
             "apply_for": null,
             "assign_filter": null,
-            "check_command": "cmd-check-ping",
+            "check_command": "cmd-check-nodebb-stats",
             "check_interval": 60,
             "check_period": null,
             "check_timeout": null,
@@ -65,7 +65,7 @@
             "enable_active_checks": null,
             "enable_event_handler": null,
             "enable_flapping": null,
-            "enable_notifications": true,
+            "enable_notifications": null,
             "enable_passive_checks": null,
             "enable_perfdata": true,
             "event_command": null,
@@ -74,15 +74,15 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "ping.png",
+            "icon_image": "nodebb-stats.png",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.",
-            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/ping",
-            "object_name": "tpl-service-ping",
+            "notes": "Gets some statistics from the /api/admin/settings/post and /api/admin/manage/users endpoints for debugging purposes.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nodebb-stats",
+            "object_name": "tpl-service-nodebb-stats",
             "object_type": "template",
             "retry_interval": 15,
             "service_set": null,
@@ -90,61 +90,58 @@
             "use_agent": null,
             "use_var_overrides": null,
             "vars": {
-                "ping_count": "5",
-                "ping_hostname": "127.0.0.1",
-                "ping_interval": "0.2",
-                "ping_timeout": "5"
+                "nodebb_stats_insecure": false,
+                "nodebb_stats_timeout": "3",
+                "nodebb_stats_url": "http://localhost:4567/forum"
             },
             "volatile": null,
             "zone": null,
-            "guid": "b716f127-2e5d-44bb-b480-09e9bb7bd9ec"
+            "guid": "99c937e1-459d-4c93-a053-50fdd7fbedb1"
         }
     },
     "DataList": {},
     "Datafield": {
-        "706": {
-            "varname": "ping_count",
-            "caption": "Ping: Count",
-            "description": "Stop after sending count ECHO_REQUEST packets.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+        "393": {
+            "varname": "nodebb_stats_insecure",
+            "caption": "Nodebb Stats: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "guid": "d1be5af4-f89a-4dcf-80e2-ac1508fd4ad8"
+            "settings": {},
+            "guid": "af0d56d9-8182-48c1-882c-a4ae8fe91327"
         },
-        "707": {
-            "varname": "ping_hostname",
-            "caption": "Ping: Hostname",
-            "description": "The ping destination.",
+        "394": {
+            "varname": "nodebb_stats_timeout",
+            "caption": "Nodebb Stats: Timeout",
+            "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "fcd9fdac-8264-403b-b4a1-699dcdd70e61"
+            "guid": "50abb300-90d0-45a8-8472-44673013fc44"
         },
-        "708": {
-            "varname": "ping_interval",
-            "caption": "Ping: Interval",
-            "description": "Wait interval seconds between sending each packet.",
+        "395": {
+            "varname": "nodebb_stats_token",
+            "caption": "Nodebb Stats: Token",
+            "description": "NodeBB API Bearer token.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "c8d8ef18-d76f-4037-acd9-6ce28368c01c"
+            "guid": "bb500151-f365-4fc5-8a4a-38cb1bfbfcc5"
         },
-        "709": {
-            "varname": "ping_timeout",
-            "caption": "Ping: Timeout",
-            "description": "Specify a timeout, in seconds, before ping exits regardless of how many packets have been sent or received.",
+        "396": {
+            "varname": "nodebb_stats_url",
+            "caption": "Nodebb Stats: URL",
+            "description": "NodeBB API URL.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "7a98988f-14de-4d75-a837-514548accc6d"
+            "guid": "ee366b0d-150e-4ccb-a894-5407c44ee10e"
         }
     }
 }
