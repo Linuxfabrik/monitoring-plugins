@@ -1,0 +1,207 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021032501'
+
+DESCRIPTION = 'Checks IPMI sensor information in detail.'
+
+COL_SENSOR  = 0
+COL_VALUE   = 1
+COL_UOM     = 2     # Unit Of Measurement
+COL_STATE   = 3
+COL_LOWERNR = 4     # NR = non-recoverable
+COL_LOWERCT = 5     # CT = critical
+COL_LOWERNC = 6     # NC = non-critical
+COL_UPPERNC = 7     # NC = non-critical
+COL_UPPERCT = 8     # CT = critical
+COL_UPPERNR = 9     # NR = non-recoverable
+
+
+#====================
+from lib.globals3 import *
+
+import lib.base3
+
+import argparse
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--authtype',
+        help='Specify an authentication type to use during IPMIv1.5 lan session activation. Supported types are NONE, PASSWORD, MD2, MD5, or OEM.',
+        dest='V15AUTHTYPE',
+        choices=['NONE', 'PASSWORD', 'MD2', 'MD5', 'OEM'],
+        default='NONE',
+        )
+
+    parser.add_argument('-H', '--hostname',
+        help='Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.',
+        dest='HOSTNAME',
+        default=None,
+        )
+
+    parser.add_argument('--interface',
+        help='Selects IPMI interface to use. Supported types are "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).',
+        dest='INTERFACE',
+        choices=['lan', 'lanplus'],
+        default='lan',
+        )
+
+    parser.add_argument('--password',
+        help='Remote server password.',
+        dest='PASSWORD',
+        )
+
+    parser.add_argument('--port',
+        help='Remote server UDP port to connect to. Default: %(default)s',
+        dest='PORT',
+        default=623,
+        )
+
+    parser.add_argument('--privlevel',
+        help='Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR. Default: %(default)s',
+        dest='PRIVLEVEL',
+        choices=['CALLBACK', 'USER', 'OPERATOR', 'ADMINISTRATOR'],
+        default='USER',
+        )
+
+    parser.add_argument('--username',
+        help='Remote server username, default is NULL user.',
+        dest='USERNAME',
+        default='NULL',
+        )
+
+    return parser.parse_args()
+
+
+def shorten_uom(uom):
+    if uom == 'degrees C':
+        return 'C'
+    if uom == 'degrees F':
+        return 'F'
+    if uom == 'Volts':
+        return 'V'
+    if uom == 'Watts':
+        return 'W'
+    return uom
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # build parameters for ipmitool
+    cmd = 'ipmitool sensor list '
+    if args.HOSTNAME:
+        # use ipmi with remote parameters
+        cmd += '-A {} '.format(args.V15AUTHTYPE) if args.INTERFACE == 'lan' else ''
+        cmd += '-H {} '.format(args.HOSTNAME) if args.HOSTNAME else ''
+        cmd += '-I {} '.format(args.INTERFACE) if args.INTERFACE else ''
+        cmd += '-L {} '.format(args.PRIVLEVEL) if args.PRIVLEVEL else ''
+        cmd += '-p {} '.format(args.PORT) if args.PORT else ''
+        cmd += '-P {} '.format(args.PASSWORD) if args.PASSWORD else ''
+        cmd += '-U {} '.format(args.USERNAME) if args.USERNAME else ''
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    if (stderr or retc != 0):
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    sensor_counter = 0
+
+    for sensor in stdout.splitlines():
+        # split by '|'' and trim each column
+        cols = [col.strip() for col in sensor.split('|')]
+
+        if cols[COL_UOM] == 'discrete':
+            # for now we support only 'Threshold' sensors - maybe enhance this in future
+            # ['Chassis Intru', '0x0', 'discrete', '0x0000', 'na', 'na', 'na', 'na', 'na', 'na']
+            continue
+
+        # na - Not Available, ns - Not Specified
+        if cols[COL_STATE] == 'na' or cols[COL_STATE] == 'ns':
+            continue
+
+        perfuom  = None
+        perfwarn = None if cols[COL_UPPERNC] == 'na' else cols[COL_UPPERNC]
+        perfcrit = None if cols[COL_UPPERCT] == 'na' else cols[COL_UPPERCT]
+        perfmin  = None if cols[COL_LOWERNR] == 'na' else cols[COL_LOWERNR]
+        perfmin  = 0    if perfmin and float(perfmin) > 0 else perfmin
+        perfmax  = 100  if cols[COL_UOM] == 'percent' else None if cols[COL_UPPERNR] == 'na' else cols[COL_UPPERNR]
+        perfdata += lib.base3.get_perfdata(cols[COL_SENSOR].replace(' ', '_'), cols[COL_VALUE], perfuom, perfwarn, perfcrit, perfmin, perfmax)
+
+        sensor_counter += 1
+
+        # ok
+        if cols[COL_STATE] == 'ok':
+            continue
+
+        # nr - Non Recoverable
+        if cols[COL_STATE] == 'nr':
+            msg += '\n* {} ({} {}) is NON-RECOVERABLE. Hardware might be DAMAGED.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_CRIT
+
+        # cr - Critical
+        if cols[COL_STATE] == 'cr':
+            msg += '\n* {} ({} {}) is above/below a critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_CRIT
+
+        # nc - Non Critical
+        if cols[COL_STATE] == 'nc':
+            msg += '\n* {} ({} {}) is above/below a non-critical threshold.'.format(cols[COL_SENSOR], cols[COL_VALUE], shorten_uom(cols[COL_UOM]))
+            sensor_state = STATE_WARN
+
+        state = lib.base3.get_worst(sensor_state, state)
+
+
+    if state == STATE_CRIT:
+        msg = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter)) + msg
+    elif state == STATE_WARN:
+        msg = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter)) + msg
+    else:
+        msg = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter)) + msg
+
+    lib.base3.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

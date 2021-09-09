@@ -1,0 +1,174 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021042101'
+
+DESCRIPTION = 'Checks FortiOS sensor information in detail.'
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 3
+
+
+#====================
+from lib.globals3 import *
+
+import lib.base3
+import lib.url3
+
+import argparse
+import urllib.request, urllib.error, urllib.parse
+from traceback import print_exc
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument('-H', '--hostname',
+        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
+        dest='HOSTNAME',
+        required = True,
+        )
+
+    parser.add_argument('--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+        )
+
+    parser.add_argument('--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+        )
+
+    parser.add_argument('--password',
+        help='FortiOS REST API Single Access Token.',
+        dest='PASSWORD',
+        required = True,
+        )
+
+    parser.add_argument('--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    return parser.parse_args()
+
+
+def shorten_uom(uom):
+    if uom == 'temperature':
+        return 'C'
+    if uom == 'power':
+        return 'W'
+    if uom == 'voltage':
+        return 'V'
+    if uom == 'fan':
+        return 'RPM'
+    return uom
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    # Resource to get sensor data from
+    url = 'https://{}/api/v2/monitor/system/sensor-info/select?access_token={}'.format(args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
+    result = lib.base3.coe(lib.url3.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+
+    msg_header, msg_body = '', ''
+    perfdata = ''
+    state = STATE_OK
+    sensor_counter = 0
+
+    for sensor in result['results']:
+        # {
+        #   "id":"voltage.mac_avs_1v",
+        #   "name":"MAC_AVS 1V",
+        #   "type":"voltage", temperature, fan, power
+        #   "value":0.990000,
+        #   "alarm":false,
+        #   "thresholds":{
+        #     "lower_non_recoverable":0.872400,
+        #     "lower_critical":0.892000,
+        #     "lower_non_critical":0.921400,
+        #     "upper_non_critical":1.078200,
+        #     "upper_critical":1.107600,
+        #     "upper_non_recoverable":1.127200
+        #   }
+        if sensor['value'] == 0.0:
+            # 0.0 means "no value"
+            continue
+
+        sensor_state = STATE_OK
+        if 'lower_non_critical' in sensor['thresholds']:
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], operator='le')
+            state = lib.base3.get_worst(sensor_state, state)
+            if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+                msg_body += '\n* {} ({} {}) is less or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'])
+        if 'upper_non_critical' in sensor['thresholds']:
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], operator='ge')
+            state = lib.base3.get_worst(sensor_state, state)
+            if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+                msg_body += '\n* {} ({} {}) is greater or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'])
+
+        perfdata += lib.base3.get_perfdata(sensor['id'], sensor['value'], None, sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], sensor['thresholds'].get('lower_non_recoverable', 0), sensor['thresholds']['upper_non_recoverable'])
+        sensor_counter += 1
+
+    if state == STATE_CRIT:
+        msg_header = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+    elif state == STATE_WARN:
+        msg_header = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+    else:
+        msg_header = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+
+    lib.base3.oao(msg_header + msg_body, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        exit(STATE_UNKNOWN)

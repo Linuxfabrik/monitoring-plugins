@@ -86,7 +86,6 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 .. code-block:: text
 
-    -6, --6                 use IPv6
     -a, --authentication    authentication password
     -C, --community         SNMP community
     -c, --critical          critical threshold
@@ -102,11 +101,10 @@ There are a few Nagios-compatible reserved options that should not be used for o
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-For all other options, use long parameters only. We recommend using some of those:
+For all other options, use long parameters only. Separate words using a ``-``. We recommend using some of those:
 
 .. code-block:: text
 
-    --6
     --activestate
     --alarm-duration
     --always-ok
@@ -148,6 +146,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --instance
     --interface
     --interval
+    --ipv6
     --key
     --latest
     --lengthy
@@ -179,7 +178,7 @@ For all other options, use long parameters only. We recommend using some of thos
     --response
     --service
     --severity
-    --snmpversion
+    --snmp-version
     --starttype
     --state
     --state-key
@@ -198,16 +197,6 @@ For all other options, use long parameters only. We recommend using some of thos
     --unitfilestate
     --url
     --username
-    --v3authprot
-    --v3authprotpassword
-    --v3bootstime
-    --v3context
-    --v3contextengineid
-    --v3level
-    --v3privprot
-    --v3privprotpassword
-    --v3securityengineid
-    --v3username
     --version
     --virtualenv
     --warning

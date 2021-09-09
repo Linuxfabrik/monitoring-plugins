@@ -1,0 +1,109 @@
+{
+    "Command": {
+        "cmd-check-borgbackup": {
+            "arguments": {
+                "--critical": {
+                    "value": "$borgbackup_critical$"
+                },
+                "--warning": {
+                    "value": "$borgbackup_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/borgbackup",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 500,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 501,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-borgbackup",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "c2ab2993-000b-44de-a27e-9312cdabac42"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-borgbackup": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-borgbackup",
+            "check_interval": 900,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "borgbackup.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the date and return code of the last borgbackup, according to the logfile. `cat /var/log/borg/borg-prune.log` `cat /var/log/borg/borg-create.log` Return code 0: success (logged as INFO) 1: warning (operation reached its normal end, but there were warnings \u2013 you should check the log, logged as WARNING) 2: error (like a fatal error, a local or remote exception, the operation did not reach its normal end, logged as ERROR) 128+N   killed by signal N (e.g. 137 == kill -9)",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/borgbackup",
+            "object_name": "tpl-service-borgbackup",
+            "object_type": "template",
+            "retry_interval": 180,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "borgbackup_warning": "24"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "d902f1bb-acba-4b7c-9a39-73b1c7f30359"
+        }
+    },
+    "DataList": {},
+    "Datafield": {
+        "500": {
+            "varname": "borgbackup_critical",
+            "caption": "BorgBackup: Critical",
+            "description": "Set the critical threshold for the time difference to the start of the last backup (in hours).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "ca2d032e-4267-40e7-8775-61981c3d80a7"
+        },
+        "501": {
+            "varname": "borgbackup_warning",
+            "caption": "BorgBackup: Warning",
+            "description": "Set the warning threshold for the time difference to the start of the last backup (in hours).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "f588828d-d41b-43ea-8893-3c6e72ccace5"
+        }
+    }
+}

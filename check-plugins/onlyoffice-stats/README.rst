@@ -16,7 +16,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/onlyoffice-stats"
-    "Check Interval Recommendation",        "Every 15 minutes"
+    "Check Interval Recommendation",        "Every 30 minutes"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"

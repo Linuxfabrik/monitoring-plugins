@@ -1,0 +1,137 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+import argparse
+import sys
+from traceback import print_exc
+from xml.dom import minidom
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+import lib.base3
+import lib.cache3
+import lib.disk3
+import lib.url3
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021702'
+
+DESCRIPTION = 'This plugin lets you track if server updates are available.'
+
+DEFAULT_PATH = '/opt/atlassian/jira'
+DEFAULT_CACHE_EXPIRE = 24 # hours
+
+
+#====================
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+        )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to your Atlassian Jira installation. Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+        )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    # jira/version.php: $OC_Version = array(18,0,2,2);
+    success, version = lib.disk3.grep_file(path + '/atlassian-jira/WEB-INF/classes/META-INF/maven/com.atlassian.jira/jira-core/pom.properties', r'version=(.*)')
+    if not success:
+        return (success, version)
+    if version:
+        return (True, version)
+    return (True, False)
+
+
+def get_latest_version(expire):
+    # get version online, but first from cache
+    latest_version = lib.cache3.get('atlassian-jira-version')
+    if latest_version:
+        return (True, latest_version)
+
+    # nothing found in cache, get the latest version
+
+    success, xmlst = lib.url3.fetch('https://my.atlassian.com/download/feeds/jira-core.rss')
+    if not success:
+        return (success, xmlst)
+
+    # there is an upate available, so result contains xml here
+    dom = minidom.parseString(xmlst)
+    latest_version = dom.getElementsByTagName('item')[0].getElementsByTagName('title')[0].firstChild.nodeValue.split()[0]
+    lib.cache3.set('atlassian-jira-version', latest_version, lib.base3.now() + expire)
+    return (True, latest_version)
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    installed_version = lib.base3.coe(get_installed_version(args.PATH))
+    # the jira update server isn't very reliable, so ignore if it is not available for any reason (we can't do anything about it,
+    # so exiting with a warning or unknown would not help)
+    success, latest_version = get_latest_version(args.CACHE_EXPIRE*60*60)
+    if not success:
+        lib.base3.oao('Atlassian Jira v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
+        lib.base3.oao('Atlassian Jira v{} is up to date'.format(installed_version), STATE_OK)
+    lib.base3.oao('Atlassian Jira v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

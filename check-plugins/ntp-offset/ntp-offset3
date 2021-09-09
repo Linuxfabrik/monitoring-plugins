@@ -1,0 +1,209 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+
+import argparse
+import sys
+
+from traceback import print_exc
+
+from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+
+import lib.base3
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021021701'
+
+DESCRIPTION = 'This plugin checks the clock offset in milliseconds compared to ntp servers.'
+
+systemctl_command = 'systemctl is-active --quiet {service}' # ntpd / chronyd
+
+ntpq_command = 'ntpq -p'
+chronyc_command = 'chronyc tracking'
+systemd_timesyncd_command = 'timedatectl timesync-status'
+
+DEFAULT_WARN = 800
+DEFAULT_CRIT = 1001
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Set the critical threshold for the ntp time offset, in ms. Default: %(default)sms',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+        )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Set the warning threshold for the ntp time offset, in ms. Default: %(default)sms',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+        )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # execute the shell command and return its result and exit code
+    formatted_systemctl_command = systemctl_command.format(service='ntpd')
+    stdout, stderr, ntp_retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    formatted_systemctl_command = systemctl_command.format(service='ntp')
+    stdout, stderr, ntpd_retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    ntpd_present = bool(ntp_retc == 0 or ntpd_retc == 0)
+
+    # execute the shell command and return its result and exit code
+    formatted_systemctl_command = systemctl_command.format(service='chronyd')
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+    chronyd_present = bool(retc == 0)
+
+    # execute the shell command and return its result and exit code
+    formatted_systemctl_command = systemctl_command.format(service='systemd-timesyncd')
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+    systemd_timesyncd_present = bool(retc == 0)
+
+    if not ntpd_present and not chronyd_present and not systemd_timesyncd_present:
+        lib.base3.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
+
+    if ntpd_present:
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(ntpq_command))
+        if stderr: # todo check retc?
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+        msg_body = stdout
+
+        ntp_server_found = False
+        for line in msg_body.splitlines():
+            line = line.strip()
+            if line.startswith('*'):
+                ntp_server_found = True
+                line = line[1:].split()  # remove '*' and split
+                ntp_server = line[0]
+                offset = float(line[8])
+                stratum = int(line[2])
+
+        if not ntp_server_found:
+            lib.base3.oao('No NTP server used.', STATE_UNKNOWN)
+
+    if chronyd_present:
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(chronyc_command))
+        if stderr: # todo check retc?
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+        msg_body = stdout
+
+        for line in msg_body.splitlines():
+            line = line.strip()
+            if line.startswith('Reference ID'):
+                ntp_server = line[line.find("(")+1:line.find(")")] # extract text in () using string splicing
+                continue
+
+            if line.startswith('Last offset'):
+                offset = float(line.split()[-2]) * 1000
+                continue
+
+            if line.startswith('Stratum'):
+                stratum = int(line.split()[-1])
+                continue
+
+    if systemd_timesyncd_present:
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(systemd_timesyncd_command))
+        if stderr:
+            if 'Unknown operation' in stderr:
+                lib.base3.oao('sytemd-timesyncd found. No further information can be extracted.', STATE_UNKNOWN)
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+        msg_body = stdout
+
+        for line in msg_body.splitlines():
+            line = line.strip()
+            if line.startswith('Server:'):
+                ntp_server = line[line.find("(")+1:line.find(")")] # extract text in () using string splicing
+                continue
+
+            if line.startswith('Offset:'):
+                offset = float(line.split()[-1][:-2])
+                continue
+
+            if line.startswith('Stratum:'):
+                stratum = int(line.split()[-1])
+                continue
+
+    if ntp_server == '':
+        lib.base3.oao('No NTP server found.', STATE_UNKNOWN)
+
+    if ntp_server == 'LOCAL':
+        lib.base3.oao('No NTP server used.', STATE_UNKNOWN)
+
+    perfdata = lib.base3.get_perfdata('offset', offset, 'ms', args.WARN, args.CRIT, None, None)
+
+    if abs(offset) >= args.CRIT:
+        msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
+        lib.base3.oao(msg_header + '\n' + msg_body, STATE_CRIT, perfdata)
+
+    if abs(offset) >= args.WARN:
+        msg_header = 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
+        lib.base3.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
+
+    if stratum >= 9:
+        msg_header = 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
+        lib.base3.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
+
+    msg_header = 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
+    lib.base3.oao(msg_header + '\n' + msg_body, STATE_OK, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        print_exc()
+        sys.exit(STATE_UNKNOWN)

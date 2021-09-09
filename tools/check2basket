@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083104'
+__version__ = '2021090701'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -38,26 +38,78 @@ skip_plugins = [
     'dummy',
 ]
 
+
 skip_params = [
     '--test'
 ]
 
+
 # case does not matter, the regex uses the ignorecase option
-capitalized_words = [
-    'OK',
-    'URL',
-    'XA',
-    'GC',
-    'TCP',
-    'MD5',
-    'SHA',
-    'AES',
-    'DES',
-    'CPU',
-    'DNS',
-]
+regex_replace_words = {
+    r'\bAES\b':         'AES',
+    r'\bBorgBackup\b':  'BorgBackup',
+    r'\bCPU\b':         'CPU',
+    r'\bDES\b':         'DES',
+    r'\bDNS\b':         'DNS',
+    r'\bFAH\b':         'FAH',
+    r'\bFQDN\b':        'FQDN',
+    r'\bFS RO\b':       'FS RO',
+    r'\bFS\b':          'FS',
+    r'\bFail2ban\b':    'Fail2ban',
+    r'\bFortiOS\b':     'FortiOS',
+    r'\bGC\b':          'GC',
+    r'\bHAProxy\b':     'HAProxy',
+    r'\bHA\b':          'HA',
+    r'\bIO\b':          'I/O',
+    r'\bIPMI\b':        'IPMI',
+    r'\bJSON\b':        'JSON',
+    r'\bKEMP\b':        'KEMP',
+    r'\bKThreads\b':    'KThreads',
+    r'\bKVM\b':         'KVM',
+    r'\bLibreNMS\b':    'LibreNMS',
+    r'\bMD5\b':         'MD5',
+    r'\bMIB\b':         'MIB',
+    r'\bMIBdir\b':      'MIBdir',
+    r'\bMem\b':         'Memory',
+    r'\bMod Qos\b':     'mod_qos',
+    r'\bMySQL\b':       'MySQL',
+    r'\bNTP\b':         'NTP',
+    r'\bOK\b':          'OK',
+    r'\bOpenVPN\b':     'OpenVPN',
+    r'\bPHP Fpm\b':     'PHP-FPM',
+    r'\bPHP-FPM\b':     'PHP-FPM',
+    r'\bPHP\b':         'PHP',
+    r'\bQTS\b':         'QTS',
+    r'\bRPM\b':         'RPM',
+    r'\bRW\b':          'RW',
+    r'\bRocketchat\b':  'Rocket.Chat',
+    r'\bSEL\b':         'SEL',
+    r'\bSELinux\b':     'SELinux',
+    r'\bSHA\b':         'SHA',
+    r'\bSMART\b':       'SMART',
+    r'\bSNMP\b':        'SNMP',
+    r'\bSNMPversion\b': 'SNMP Version',
+    r'\bSlowReq\b':     'SlowReq',
+    r'\bTCP6\b':        'TCP6',
+    r'\bTCP\b':         'TCP',
+    r'\bUDP6\b':        'UDP6',
+    r'\bUDP\b':         'UDP',
+    r'\bURL\b':         'URL',
+    r'\bV3':            'v3',
+    r'\bVM\b':          'VM',
+    r'\bXA\b':          'XA',
+    r'\bXCA\b':         'XCA',
+    r'\bhttpd\b':       'httpd',
+    r'\bidSite\b':      'idSite',
+    r'\bipv4\b':        'IPv4',
+    r'\bipv6\b':        'IPv6',
+    r'\bmydumper\b':    'mydumper',
+    r'\bpip\b':         'pip',
+}
+
 
 command_field_id = 1
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -91,6 +143,7 @@ def save_json_to_file(data, filename):
     try:
         with open(filename, 'w') as file:
             json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
+            file.write('\n')
     except FileNotFoundError as e:
         err_print(f'{e}. Ignoring...')
 
@@ -107,13 +160,15 @@ def get_varname(check, param):
 
 
 def help2description(help_text):
-    return re.sub(r' Default: %\(default\)s.*$', '', help_text)
+    help_text = re.sub(r' Default:.*%\(default\)s.*$', '', help_text)
+    help_text = re.sub(r'\n\s*', ' ', help_text)
+    return help_text
 
 
 def lf_title(string):
     string = string.title()
-    for item in capitalized_words:
-        string = re.sub(rf'\b{item}\b', item.upper(), string, flags=re.IGNORECASE)
+    for regex, sub in regex_replace_words.items():
+        string = re.sub(regex, sub, string, flags=re.IGNORECASE)
     return string
 
 
@@ -135,15 +190,17 @@ def _return_parser(self):
 
 
 def warn_print(msg):
+    msg = msg.strip()
     if colorama:
-        print(colorama.Fore.YELLOW + str(msg))
+        print(colorama.Fore.YELLOW + f'Warning: {msg}')
     else:
         print(msg)
 
 
 def err_print(msg):
+    msg = msg.strip()
     if colorama:
-        print(colorama.Fore.RED + str(msg))
+        print(colorama.Fore.RED + f'Error: {msg}')
     else:
         print(msg)
 
@@ -157,6 +214,9 @@ def get_plugin_args(plugin_file):
     spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, plugin_file))
     plugin_module = importlib.util.module_from_spec(spec)
 
+    # prevent exit() in the module from closing stdin
+    orig_sys_stdin_close = sys.stdin.close
+    sys.stdin.close = lambda _: None
     try:
         spec.loader.exec_module(plugin_module)
     except Exception as e:
@@ -165,6 +225,8 @@ def get_plugin_args(plugin_file):
     except SystemExit as e:
         err_print(f'SystemExit during check execution: {e}')
         return None
+    finally:
+        sys.stdin.close = orig_sys_stdin_close
 
     return plugin_module.parse_args()
 
@@ -209,7 +271,7 @@ def get_command_template(data, object_name, command, imports=None):
             "fields": [],
             "imports": imports,
             "is_string": None,
-            "methods_execute": "PluginCheck",
+            "methods_execute": None,
             "object_name": object_name,
             "object_type": "object",
             "timeout": None,
@@ -219,14 +281,16 @@ def get_command_template(data, object_name, command, imports=None):
     return data
 
 
-def get_service_template(data, object_name, check_command, check_name, description, imports=None):
+def get_service_template(data, object_name, check_command, check_name, description, imports=None, use_agent=None):
+    # description = re.sub(r'\n\s*', '\r\n', description) use this for line breaks in icingaweb2
+    description = re.sub(r'\n\s*', ' ', description)
     if imports is None:
         data["ServiceTemplate"][object_name] = {
             "action_url": None,
             "apply_for": None,
             "assign_filter": None,
             "check_command": check_command,
-            "check_interval": None,
+            "check_interval": 60,
             "check_period": None,
             "check_timeout": None,
             "command_endpoint": None,
@@ -249,15 +313,15 @@ def get_service_template(data, object_name, check_command, check_name, descripti
             "imports": [
                 "tpl-service-generic"
             ],
-            "max_check_attempts": None,
+            "max_check_attempts": 5,
             "notes": f"{description}",
             "notes_url": f"https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/{check_name}",
             "object_name": object_name,
             "object_type": "template",
-            "retry_interval": None,
+            "retry_interval": 15,
             "service_set": None,
             "template_choice": None,
-            "use_agent": None,
+            "use_agent": use_agent,
             "use_var_overrides": None,
             "vars": {},
             "volatile": None,
@@ -321,54 +385,68 @@ def offer_selection(options):
             selection = input('Please choose the corresponding object, or type "n" to generate a new guid: ')
             if selection == 'n':
                 return None
-            elif int(selection) < len(options):
-                return options[int(selection)]
+            try:
+                if int(selection) < len(options):
+                    return options[int(selection)]
+            except ValueError:
+                print('\nFailed to parse selection.')
     except KeyboardInterrupt:
         sys.exit()
-    except ValueError:
-        print('Failed to parse selection.')
-        sys.exit(3)
 
 
 def manage_uuids(data, old_data=None):
+    # TODO: the selection could be improved, filtering out guids that are already used in the new basket. this also prevents accidental duplicate guids
     if old_data:
-        # TODO: turn around the logic, iterate data and search for corresponding objects in old_data.
-        # because currently it offers an selection for deleted objects, which is not needed
         reused_guid_objects = []
-        for parent_key, parent_value in old_data.items():
+        for parent_key, parent_value in data.items():
             if parent_key == 'Datafield':
-                varnames = {value['varname']: key for key, value in data['Datafield'].items()}
+                old_varnames = {value['varname']: key for key, value in old_data['Datafield'].items()}
                 for key, value in parent_value.items():
-                    if 'guid' in value:
-                        varname = value['varname']
-                        if varname in varnames:
-                            data[parent_key][varnames[varname]]['guid'] = value['guid']
-                        else:
-                            print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
-                            selection = offer_selection(varnames.keys())
-                            if selection:
-                                data[parent_key][varnames[selection]]['guid'] = value['guid']
-                        reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                    varname = value['varname']
+                    if varname in old_varnames:
+                        try:
+                            data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[varname]]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                        except KeyError as e:
+                            if e.args[0] == 'guid':
+                                # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                                continue
+                            old_guid = None
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
+                        selection = offer_selection(old_varnames.keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[selection]]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
 
             else:
                 for key, value in parent_value.items():
-                    if 'guid' in value:
-                        if parent_key in data and key in data[parent_key]:
-                            data[parent_key][key]['guid'] = value['guid']
-                        else:
-                            print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
-                            selection = offer_selection(data[parent_key].keys())
-                            if selection:
-                                data[parent_key][selection]['guid'] = value['guid']
+                    try:
+                        old_guid = old_data[parent_key][key]['guid']
+                    except KeyError as e:
+                        if e.args[0] == 'guid':
+                            # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                            continue
+                        old_guid = None
+
+                    if old_guid is not None:
+                        data[parent_key][key]['guid'] = old_guid
                         reused_guid_objects.append(f'[{parent_key}][{key}]')
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
+                        selection = offer_selection(old_data[parent_key].keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = old_data[parent_key][selection]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{key}]')
 
         if reused_guid_objects:
-            print('\nFound an object with the same name in the old basket, reusing the guid:\n* ', end='')
+            print('\nFound an object with the same name in the old basket, reusing the guid for:\n* ', end='')
             print('\n* '.join(reused_guid_objects))
 
         warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
 
     new_guid_objects = []
+    guids = []
     for parent_key, parent_value in data.items():
         for key, value in parent_value.items():
             if 'guid' not in value:
@@ -377,6 +455,16 @@ def manage_uuids(data, old_data=None):
                 else:
                     new_guid_objects.append(f'[{parent_key}][{key}]')
                 data[parent_key][key]['guid'] = str(uuid.uuid4())
+            guids.append(value['guid'])
+
+    unique_guids = set(guids)
+    if len(guids) != len(unique_guids):
+        for guid in unique_guids:
+            guids.remove(guid)
+        err_print('There are duplicate guids! Aborting...')
+        print('* ', end='')
+        print('\n* '.join(guids))
+        sys.exit(3)
 
     if new_guid_objects:
         print('\nAdding guid to the following items (this means we are assuming they are new):\n* ', end='')
@@ -388,7 +476,7 @@ def manage_uuids(data, old_data=None):
 def apply_overwrites(data, overwrites):
     for key, value in overwrites.items():
         try:
-            exec(f'data{key} = {value}', {}, {'data': data})
+            exec(f'data{key} = value', {}, {'value': value, 'data': data})
         except KeyError:
             err_print(f'Could not apply overwrite "{key}", as the path was not found. Continuing...')
 
@@ -425,7 +513,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
         if isinstance(action, argparse._HelpAction):
             continue
 
-        if isinstance(action, argparse._StoreAction) or isinstance(action, argparse._AppendAction):
+        if isinstance(action, (argparse._StoreAction, argparse._AppendAction)):
             data['Command'][command_object_name]['arguments'][long_param] = {
                 "value": f"${varname}$"
             }
@@ -440,6 +528,10 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
             if action.choices is not None:
                 datalist_name = f'{varname}_list'
+                if isinstance(action, argparse._AppendAction):
+                    target_data_type = 'array'
+                else:
+                    target_data_type = 'string'
                 data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
                     "caption": get_caption(check_name, long_param),
@@ -448,7 +540,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                     "format": None,
                     "settings": {
                         "behavior": "strict",
-                        "data_type": "string",
+                        "data_type": target_data_type,
                         "datalist": datalist_name
                     }
                 }
@@ -573,8 +665,8 @@ def generate_basket(plugin_file, config=None, old_data=None):
 
     if 'windows' in config['variants']:
         print('Generating "windows" variant.')
-        command_object_name += '-windows'
-        service_object_name += '-windows'
+        command_object_name = f'cmd-check-{check_name}-windows'
+        service_object_name = f'tpl-service-{check_name}-windows'
         command = f'C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}\\{check_name}.exe'
         varname_suffix = '_windows'
 
@@ -620,7 +712,8 @@ def generate_basket(plugin_file, config=None, old_data=None):
                 f'tpl-service-{check_name}-no-agent',
                 f'cmd-check-{check_name}',
                 check_name,
-                plugin_args.description
+                plugin_args.description,
+                False
             )
 
         if 'windows' in config['variants']:
@@ -652,7 +745,11 @@ def main():
         if os.path.isfile(output_file):
             with open(output_file, 'rb') as file:
                 print(f'Found an existing basket at {output_file}, updating it.')
-                old_data = json.load(file)
+                try:
+                    old_data = json.load(file)
+                except json.decoder.JSONDecodeError:
+                    err_print('Could not parse existing basket file. Aborting...')
+                    sys.exit(3)
         else:
             try:
                 os.mkdir(os.path.join(plugin_dir, 'icingaweb2-module-director'))
@@ -664,7 +761,11 @@ def main():
         if os.path.isfile(config_file):
             with open(config_file, 'rb') as file:
                 print(f'Using config at {config_file}.')
-                config = yaml.safe_load(file)
+                try:
+                    config = yaml.safe_load(file)
+                except yaml.scanner.ScannerError:
+                    err_print('Could not parse config file. Aborting...')
+                    sys.exit(3)
 
         save_json_to_file(generate_basket(args.PLUGIN_FILE, config, old_data), output_file)
 
@@ -684,14 +785,29 @@ def main():
                 if os.path.isfile(output_file):
                     with open(output_file, 'rb') as file:
                         print(f'Found an existing basket at {output_file}, updating it.')
-                        old_data = json.load(file)
+                        try:
+                            old_data = json.load(file)
+                        except json.decoder.JSONDecodeError:
+                            err_print('Could not parse existing basket file. Skipping check...')
+                            continue
                 else:
                     try:
                         os.mkdir(os.path.join('check-plugins', directory, 'icingaweb2-module-director'))
                     except FileExistsError:
                         pass
 
-                plugin_data = generate_basket(plugin_file, old_data)
+                config_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.yml')
+                config = None
+                if os.path.isfile(config_file):
+                    with open(config_file, 'rb') as file:
+                        print(f'Using config at {config_file}.')
+                        try:
+                            config = yaml.safe_load(file)
+                        except yaml.scanner.ScannerError:
+                            err_print('Could not parse config file. Skipping check...')
+                            continue
+
+                plugin_data = generate_basket(plugin_file, config, old_data)
                 if plugin_data:
                     save_json_to_file(plugin_data, output_file)
                 else:
