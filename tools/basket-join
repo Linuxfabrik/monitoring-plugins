@@ -107,7 +107,7 @@ class BasketJoiner:
                     return False
 
             for key, value in basket_data['Datafield'].items():
-                guid = value['guid']
+                guid = value.get('guid')
                 if guid in self.guids2datafields:
                     current_value = self.data['Datafield'][self.guids2datafields[guid]]
                     if current_value != value:
@@ -115,7 +115,8 @@ class BasketJoiner:
                         return False
                 else:
                     self.highest_datafield_id += 1
-                    self.guids2datafields[guid] = str(self.highest_datafield_id)
+                    if guid:
+                        self.guids2datafields[guid] = str(self.highest_datafield_id)
                     self.data['Datafield'][str(self.highest_datafield_id)] = value
                     new_datafield_ids[key] = self.highest_datafield_id
 
