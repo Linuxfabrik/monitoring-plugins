@@ -267,7 +267,7 @@ For our complete Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To use our complete Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
-If you are using our Fork of the Icinga Director, you can use the following command:
+If you are using our `Fork of the Icinga Director <https://git.linuxfabrik.ch/linuxfabrik/icingaweb2-module-director>`_, you can use the following command:
 
 .. code-block:: bash
 
