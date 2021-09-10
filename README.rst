@@ -273,7 +273,7 @@ If you are using our Fork of the Icinga Director, you can use the following comm
 
    ./tools/basket-join
 
-Else, generate a Basket without ``guid``s:
+Else, generate a Basket without ``guids``:
 
 .. code-block:: bash
    ./tools/basket-join --without-guids
