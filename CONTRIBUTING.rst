@@ -524,7 +524,7 @@ Make sure to adjust the generated ini file if necessary.
 Icinga Director Basket Config
 -----------------------------
 
-Each plugin should provide its required Director config as a basket. The basket usually contains at least one Command, one Service Template and a few Datafields.
+Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and a few associated Datafields.
 The rest of the Icinga Director config (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be found in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
 
 The baskets for the plugins can be generated using the ``check2basket`` tool.
@@ -545,12 +545,11 @@ The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director
 * ``max_check_attempts``
 * ``retry_interval``
 
+If adjustments must be made to the basket, create a config file for ``check2basket``.
 **Never directly edit a basket.**
-
-If adjustments must be made to the basket, create a config file for ``check2basket``. For example, to set the timeout to 30s and to enable notifications, the config should look as follows:
+For example, to set the timeout to 30s and to enable notifications, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
 
 .. code-block: yml
-   :caption: check-plugins/new-check/icingaweb2-module-director/new-check.yml
 
     ---
     overwrites:
@@ -565,7 +564,7 @@ Then, re-run ``check2basket`` to apply the overwrites:
 
 The ``check2basket`` tool also offers to generate so-called ``variants`` of the checks:
 
-* ``linux``: This is the default, will be used if no variant is defined. It generates a ``cmd-check-...``, ``tpl-service-...`` and the associated datafields.
+* ``linux``: This is the default, and will be used if no other variant is defined. It generates a ``cmd-check-...``, ``tpl-service-...`` and the associated datafields.
 * ``windows``: Generates a ``cmd-check-...-windows``, ``cmd-check-...-windows-python``, ``tpl-service-...-windows`` and the associated datafields.
 * ``sudo``: Generates a ``cmd-check-...-sudo`` importing the ``cmd-check-...``, but with ``/usr/bin/sudo`` prepended to the command, and a ``tpl-service...-sudo`` importing the ``tpl-service...``, but with the ``cmd-check-...-sudo`` as the check command.
 * ``no-agent``: Generates a ``tpl-service...-no-agent`` importing the ``tpl-service...``, but with command endpoint set to the Icinga2 master.
@@ -573,14 +572,13 @@ The ``check2basket`` tool also offers to generate so-called ``variants`` of the 
 Specify these as follows in the config:
 
 .. code-block: yml
-   :caption: check-plugins/new-check/icingaweb2-module-director/new-check.yml
 
----
-variants:
-  - linux
-  - sudo
-  - windows
-  - no-agent
+    ---
+    variants:
+      - linux
+      - sudo
+      - windows
+      - no-agent
 
 
 To run ``check2basket`` against all checks, for example due to a change in the script itself, use:
@@ -589,7 +587,7 @@ To run ``check2basket`` against all checks, for example due to a change in the s
 
     ./tools/check2basket --auto
 
-Review the baskets before committing.
+**Always review the baskets before committing.**
 
 
 Virtual Environments
