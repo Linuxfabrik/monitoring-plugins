@@ -27,7 +27,7 @@ See most of our check plugins in action on an Icinga server at a glance:
 
 .. image:: assets/img/linuxfabrik-monitoring-check-plugins.png
 
-If you zoom in, for example in *CPU Usage*:
+If you zoom in, for example on *CPU Usage*:
 
 .. image:: assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png
 
@@ -39,7 +39,7 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
 
 .. csv-table::
     :header-rows: 1
-    
+
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
     1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1`, Million :sup:`2`"
@@ -139,7 +139,7 @@ Get our monitoring check plugins and the associated libraries from Linuxfabrik's
     PYVER=2
 
     cd /tmp
-    
+
     curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
     curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
 
@@ -228,7 +228,13 @@ Icinga
 Configuration in Icinga Director
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For each check, you have to create an Icinga Command. We show this using the "cpu-usage" check plugin.
+For a single Plugin
+^^^^^^^^^^^^^^^^^^^
+
+For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, ``check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json``).
+Import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
+
+Alternatively, you can manually configure the plugin as follows:
 
 Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
@@ -256,6 +262,23 @@ Tab "Fields":
 
 Now use this command within a Service Template, a Service Set and/or a Single Service.
 
+
+For our complete Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To use our complete Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
+If you are using our Fork of the Icinga Director, you can use the following command:
+
+.. code-block:: bash
+
+   ./tools/basket-join
+
+Else, generate a Basket without ``guid``s:
+
+.. code-block:: bash
+   ./tools/basket-join --without-guids
+
+Again, import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
 
 Grafana
 -------
