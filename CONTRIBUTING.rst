@@ -549,9 +549,10 @@ If adjustments must be made to the basket, create a config file for ``check2bask
 
 **Never directly edit a basket.**
 
-For example, to set the timeout to 30s and to enable notifications, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
+For example, to set the timeout to 30s and to enable notifications, the config should look as follows:
 
-.. code-block:
+.. code-block:: yml
+   :caption: check-plugins/new-check/icingaweb2-module-director/new-check.yml
 
     ---
     overwrites:
@@ -573,7 +574,7 @@ The ``check2basket`` tool also offers to generate so-called ``variants`` of the 
 
 Specify these as follows in the config:
 
-.. code-block:
+.. code-block:: yml
 
     ---
     variants:
