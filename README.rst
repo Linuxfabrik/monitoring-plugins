@@ -276,6 +276,7 @@ If you are using our Fork of the Icinga Director, you can use the following comm
 Else, generate a Basket without ``guids``:
 
 .. code-block:: bash
+
    ./tools/basket-join --without-guids
 
 Again, import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
