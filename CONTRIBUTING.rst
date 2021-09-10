@@ -571,7 +571,7 @@ The ``check2basket`` tool also offers to generate so-called ``variants`` of the 
 * ``sudo``: Generates a ``cmd-check-...-sudo`` importing the ``cmd-check-...``, but with ``/usr/bin/sudo`` prepended to the command, and a ``tpl-service...-sudo`` importing the ``tpl-service...``, but with the ``cmd-check-...-sudo`` as the check command.
 * ``no-agent``: Generates a ``tpl-service...-no-agent`` importing the ``tpl-service...``, but with command endpoint set to the Icinga2 master.
 
-Specify these as follows in the config:
+Specify these as follows in the ``check2basket`` config:
 
 .. code-block:: yml
 
@@ -599,7 +599,6 @@ Virtual Environments
 To allow the check plugins to activate a virtual environment as described in the README, place this at the top of the check plugin (do not forget to adjust it to the python version):
 
 .. code-block:: python
-    :caption: Example for Python 3
 
     import os
 
