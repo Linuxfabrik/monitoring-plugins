@@ -492,6 +492,15 @@ Exporting for later import via the WebGUI
 * Export for sharing externally: yes
 * Save to file: all-panels-external.json
 
+Afterwards generate the dashboards for each plugin using the
+``grafana-tool``:
+
+.. code:: bash
+
+    ./tools/grafana-tool assets/grafana/all-panels-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
+
+Make sure to adjust the generated ini file if necessary.
+
 
 Exporting for provisioning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -507,10 +516,80 @@ Afterwards generate the dashboards for each plugin using the
 
 .. code:: bash
 
-    ./tools/grafana-tool assets/grafana/all-panels-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
     ./tools/grafana-tool assets/grafana/all-panels-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
 
 Make sure to adjust the generated ini file if necessary.
+
+
+Icinga Director Basket Config
+-----------------------------
+
+Each plugin should provide its required Director config as a basket. The basket usually contains at least one Command, one Service Template and a few Datafields.
+The rest of the Icinga Director config (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be found in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
+
+The baskets for the plugins can be generated using the ``check2basket`` tool.
+Note that the tool can only generate baskets from python3 plugins.
+
+For example, after writing a new check called ``new-check``, generate a basket file using:
+
+.. code-block::
+
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+
+The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director/new-check.json``. Inspect the basket, paying special attention to:
+
+* ``timeout``
+* ``check_interval``
+* ``enable_notification``
+* ``enable_perfdata``
+* ``max_check_attempts``
+* ``retry_interval``
+
+**Never directly edit a basket.**
+
+If adjustments must be made to the basket, create a config file for ``check2basket``. For example, to set the timeout to 30s and to enable notifications, the config should look as follows:
+
+.. code-block: yml
+   :caption: check-plugins/new-check/icingaweb2-module-director/new-check.yml
+
+    ---
+    overwrites:
+      '["Command"]["cmd-check-new-check"]["timeout"]': 30
+      '["ServiceTemplate"]["tpl-service-new-check"]["enable_notification"]': true
+
+Then, re-run ``check2basket`` to apply the overwrites:
+
+.. code-block::
+
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+
+The ``check2basket`` tool also offers to generate so-called ``variants`` of the checks:
+
+* ``linux``: This is the default, will be used if no variant is defined. It generates a ``cmd-check-...``, ``tpl-service-...`` and the associated datafields.
+* ``windows``: Generates a ``cmd-check-...-windows``, ``cmd-check-...-windows-python``, ``tpl-service-...-windows`` and the associated datafields.
+* ``sudo``: Generates a ``cmd-check-...-sudo`` importing the ``cmd-check-...``, but with ``/usr/bin/sudo`` prepended to the command, and a ``tpl-service...-sudo`` importing the ``tpl-service...``, but with the ``cmd-check-...-sudo`` as the check command.
+* ``no-agent``: Generates a ``tpl-service...-no-agent`` importing the ``tpl-service...``, but with command endpoint set to the Icinga2 master.
+
+Specify these as follows in the config:
+
+.. code-block: yml
+   :caption: check-plugins/new-check/icingaweb2-module-director/new-check.yml
+
+---
+variants:
+  - linux
+  - sudo
+  - windows
+  - no-agent
+
+
+To run ``check2basket`` against all checks, for example due to a change in the script itself, use:
+
+.. code-block:: bash
+
+    ./tools/check2basket --auto
+
+Review the baskets before committing.
 
 
 Virtual Environments
