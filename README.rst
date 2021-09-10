@@ -279,7 +279,7 @@ Else, generate a Basket without ``guids``:
 
    ./tools/basket-join --without-guids
 
-Again, import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
+Import the resulting ``icingaweb2-module-director-basket.json`` via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
 
 Grafana
 -------
