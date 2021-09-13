@@ -154,6 +154,14 @@ class BasketJoiner:
                     else:
                         objects_without_guids.append(f'[{parent_key}][{key}]')
 
+                # decent into services of Service Sets
+                if 'services' in value and value['services']:
+                    for service_key, service_value in value['services'].items():
+                        if 'guid' in service_value:
+                            guids.append(service_value['guid'])
+                        else:
+                            objects_without_guids.append(f'[{parent_key}][{key}][{service_key}]')
+
         if objects_without_guids:
             warn_print('\nFound objects without guids:')
             print('* ', end='')
