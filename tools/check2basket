@@ -697,6 +697,15 @@ def generate_basket(plugin_file, config=None, old_data=None):
             varname_suffix
         )
 
+        data = get_command_template(
+            data,
+            f'cmd-check-{check_name}-windows-python',
+            f'C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}.py',
+            imports=[
+                f'cmd-check-{check_name}-windows',
+            ]
+        )
+
     if 'variants' in config:
         if 'sudo' in config['variants']:
             print('Generating "sudo" variant.')
@@ -728,15 +737,8 @@ def generate_basket(plugin_file, config=None, old_data=None):
                 check_name,
                 plugin_args.description,
                 False
-            )
-
-        if 'windows' in config['variants']:
-            data = get_command_template(
-                data,
-                f'cmd-check-{check_name}-windows-python',
-                f'C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}.py',
                 imports=[
-                    f'cmd-check-{check_name}-windows',
+                    service_object_name,
                 ]
             )
 
