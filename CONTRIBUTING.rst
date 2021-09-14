@@ -246,32 +246,25 @@ Threshold and Ranges
 If a threshold has to be handled as a range parameter, this is how to interpret them. Pretty much the same as stated in the `Nagios Development Guidelines <http://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_.
 
 * simple value: a range from 0 up to and including the value
-* ``:``: describes a range
-* empty value before or after ``:``: positive infinity
+* empty value after ``:``: positive infinity
 * ``~``: negative infinity
 * ``@``: if range starts with "@", then alert if inside this range (including endpoints)
 
-+--------+-------------------+-------------------+--------------------------------+
-| -w, -c | OK if result is   | WARN/CRIT if      | lib.base.parse_range() returns |
-+--------+-------------------+-------------------+--------------------------------+
-| 10     | in (0..10)        | not in (0..10)    | (0, 10, False)                 |
-+--------+-------------------+-------------------+--------------------------------+
-| -10    | in (-10..0)       | not in (-10..0)   | (0, -10, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| 10:    | in (10..inf)      | not in (10..inf)  | (10, inf, False)               |
-+--------+-------------------+-------------------+--------------------------------+
-| :      | in (0..inf)       | not in (0..inf)   | (0, inf, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| ~:10   | in (-inf..10)     | not in (-inf..10) | (-inf, 10, False)              |
-+--------+-------------------+-------------------+--------------------------------+
-| 10:20  | in (10..20)       | not in (10..20)   | (10, 20, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| @10:20 | not in (10..20)   | in 10..20         | (10, 20, True)                 |
-+--------+-------------------+-------------------+--------------------------------+
-| @~:20  | not in (-inf..20) | in (-inf..20)     | (-inf, 20, True)               |
-+--------+-------------------+-------------------+--------------------------------+
-| @      | not in (0..inf)   | in (0..inf)       | (0, inf, True)                 |
-+--------+-------------------+-------------------+--------------------------------+
+Examples:
+
+.. csv-table:: 
+    :header-rows: 1
+
+    "-w, -c",     OK if result is    ,   WARN/CRIT if      
+    10      ,     in (0..10)         ,   not in (0..10)    
+    -10     ,     in (-10..0)        ,   not in (-10..0)   
+    10:     ,     in (10..inf)       ,   not in (10..inf)  
+    :       ,     in (0..inf)        ,   not in (0..inf)   
+    ~:10    ,     in (-inf..10)      ,   not in (-inf..10) 
+    10:20   ,     in (10..20)        ,   not in (10..20)   
+    @10:20  ,     not in (10..20)    ,   in 10..20         
+    @~:20   ,     not in (-inf..20)  ,   in (-inf..20)     
+    @       ,     not in (0..inf)    ,   in (0..inf)       
 
 So, a definition like ``--warning 2:100 --critical 1:150`` should return the states:
 

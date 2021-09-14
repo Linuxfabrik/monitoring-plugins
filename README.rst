@@ -86,6 +86,34 @@ Check Plugin Output: This is how we convert and append symbols to large numbers 
 * 2: US, Canada and modern British (short scale)
 
 
+Threshold and Ranges
+--------------------
+
+If a check supports ranges, they can be used as follows:
+
+* Simple value: A range from 0 up to and including the value
+* A "Range" is the same as on `nagios-plugins.org <https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_: "... defined as a start and end point (inclusive) on a numeric scale (possibly negative or positive infinity).", in the format ``start:end``
+* Empty value after ``:``: positive infinity
+* ``~``: negative infinity
+* ``@``: if range starts with ``@``, then alert if inside this range (including endpoints)
+
+Examples:
+
+.. csv-table:: 
+    :header-rows: 1
+
+    "-w, -c",     OK if result is    ,   WARN/CRIT if      
+    10      ,     in (0..10)         ,   not in (0..10)    
+    -10     ,     in (-10..0)        ,   not in (-10..0)   
+    10:     ,     in (10..inf)       ,   not in (10..inf)  
+    :       ,     in (0..inf)        ,   not in (0..inf)   
+    ~:10    ,     in (-inf..10)      ,   not in (-inf..10) 
+    10:20   ,     in (10..20)        ,   not in (10..20)   
+    @10:20  ,     not in (10..20)    ,   in 10..20         
+    @~:20   ,     not in (-inf..20)  ,   in (-inf..20)     
+    @       ,     not in (0..inf)    ,   in (0..inf)       
+
+
 A few words about Python
 ------------------------
 
