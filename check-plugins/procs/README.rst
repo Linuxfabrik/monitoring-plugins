@@ -4,23 +4,28 @@ Check procs
 Overview
 --------
 
-Checks the number of currently running processes and warns on process counts or process memory usage. You may filter the process list by process name, arguments and/or user name.
+Prints the number of currently running processes and warns on metrics like process counts or process memory usage. You may filter the process list by process name, arguments and/or user name.
 
-Process State Codes are summarized:
+In output, process states are summarized like so:
 
-.. code-block:: text
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Reported            Proc State,  Description
+    dead,               X,           "dead (should never be seen)"
+    paging,             W,           "paging (not valid since the 2.6.xx kernel)"
+    running,            R,           "running or runnable (on run queue)"
+    sleeping,           "I, S",      "idle kernel thread, interruptible sleep (waiting for an event to complete)"
+    stopped,            "t, T",      "stopped by debugger during the tracing, stopped by job control signal"
+    uninterruptible,    D,           "uninterruptible sleep (usually due to I/O)"
+    zombies,            Z,           "defunct ('zombie') process, terminated but not reaped by its parent"
 
-    procstate   shown as/grouped  meaning
-    ---------   ----------------  -------------------------------------------------------------------
-           D    uninterruptible   uninterruptible sleep (usually IO)
-           R    running           running or runnable (on run queue)
-           I    sleeping          idle kernel thread
-           S    sleeping          interruptible sleep (waiting for an event to complete)
-           T    stopped           stopped by job control signal
-           t    stopped           stopped by debugger during the tracing
-           W    paging            paging (not valid since the 2.6.xx kernel)
-           X    dead              dead (should never be seen)
-           Z    zombies           defunct ("zombie") process, terminated but not reaped by its parent
+Hints:
+
+* RSS aka "Resident Set Size" ("Res"): This is the non-swapped physical memory a process has used. On UNIX it matches "top"'s RES column. On Windows this is an alias for wset field and it matches "Mem Usage" column of ``taskmgr.exe``.
+* Be aware of the differences in memory counting between different tools like top, htop, glances, GNOME System Monitor etc.
+* Memory counting also changed between different Linux Kernel versions.
 
 
 Fact Sheet
@@ -43,36 +48,57 @@ Help
 
     usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT]
                  [--command COMMAND] [-c CRIT] [--critical-mem CRIT_MEM]
-                 [--no-kthreads] [--username USERNAME] [-w WARN]
-                 [--warning-mem WARN_MEM]
+                 [--critical-mem-percent CRIT_MEM_PERCENT]
+                 [--critical-age CRIT_AGE] [--no-kthreads]
+                 [--status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}]
+                 [--username USERNAME] [-w WARN] [--warning-mem WARN_MEM]
+                 [--warning-mem-percent WARN_MEM_PERCENT]
+                 [--warning-age WARN_AGE]
 
-    Checks the number of currently running processes and warns on process counts
-    or zombie process states.
+    Prints the number of currently running processes and warns on metrics like
+    process counts or process memory usage. You may filter the process list by
+    process name, arguments and/or user name.
 
     optional arguments:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --argument ARGUMENT   Only scan for processes containing ARGUMENT in the
-                            command, for example `-s` (case-insensitive).
-      --command COMMAND     Only scan for processes starting with COMMAND, for
-                            example `bash` (without path, case-insensitive).
+      --argument ARGUMENT   Filter: Search only for processes containing ARGUMENT
+                            in the command, for example `-s` (case-insensitive).
+      --command COMMAND     Filter: Search only for processes starting with
+                            COMMAND, for example `bash` (without path, case-
+                            insensitive).
       -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of processes
-                            (none, range or int). Default: None
+                            Threshold for the number of processes. Type: None or
+                            Range. Default: None
       --critical-mem CRIT_MEM
-                            Set the critical threshold Memory Usage in bytes.
-                            Default: None
-      --no-kthreads         Only scan for non kernel threads (works on Linux
-                            only). Default: False.
-      --username USERNAME   Only scan for processes with user name, for example
-                            `apache` (case-insensitive).
+                            Threshold for memory usage, in bytes. Type: None or
+                            Range. Default: None
+      --critical-mem-percent CRIT_MEM_PERCENT
+                            Threshold for memory usage, in percent. Type: None or
+                            Range. Default: None
+      --critical-age CRIT_AGE
+                            Threshold for age of the process, in seconds. Type:
+                            None or Range. Default: None
+      --no-kthreads         Filter: Only scan for non kernel threads (works on
+                            Linux only). Default: False
+      --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
+                            Filter: Search only for processes that have a specific
+                            status. Default: None,
+      --username USERNAME   Filter: Search only for processes with specific user
+                            name, e.g. `apache` (case-insensitive).
       -w WARN, --warning WARN
-                            Set the warning threshold for the number of processes
-                            (none, range or int). Default: None
+                            Threshold for the number of processes. Type: None or
+                            Range. Default: None
       --warning-mem WARN_MEM
-                            Set the warning threshold Memory Usage in bytes.
-                            Default: None
+                            Threshold for memory usage, in bytes. Type: None or
+                            Range. Default: None
+      --warning-mem-percent WARN_MEM_PERCENT
+                            Threshold for memory usage, in percent. Type: None or
+                            Range. Default: None
+      --warning-age WARN_AGE
+                            Threshold for age of the process, in seconds. Type:
+                            None or Range. Default: None
 
 
 Usage Examples
@@ -80,36 +106,56 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./procs --no-kthreads --always-ok
-    ./procs --warning 2:100 --critical 1:150 --command httpd
-    
+    ./procs
+
 Output:
 
 .. code-block:: text
 
-    380 procs using 9.7GiB mem - 1 running (1x sublime_text, 1x kworker/u17:2+i915_flip), 378 sleeping, 1 uninterruptible (1x sublime_text, 1x kworker/u17:2+i915_flip)
+    356 procs using 9.5GiB RAM (62.7%), oldest proc created 7h 44m ago, 5 running (1x glances, 1x WebExtensions, 1x systemd-resolved, 1x firefox, 1x Privileged Cont), 351 sleeping
+
+Other examples:
+
+.. code-block:: bash
+
+    ./procs --no-kthreads --always-ok
+
+    # warn if there are less than two or more than 100 httpd processes
+    # crit if there are less than one or more than 150 httpd processes
+    ./procs --command=httpd --warning=2:100 --critical=1:150
+
+    # warn if "soffice" conversion consumes too much memory or was created more than 50 seconds ago
+    ./procs --command=soffice --warning-mem-percent=10 --warning-runtime=50
+
+    # warn if at least 1 zombie process exists
+    ./procs --status=zombie --warning=0
 
 
 States
 ------
 
-* WARN or CRIT if process count is above a given threshold.
-* WARN or CRIT if memory usage for all or filtered processes is above a given threshold.
+* WARN or CRIT depending on your parameters.
+* Returns OK if no processes can be found (this is usually positive: e.g. we cannot find a process running for more than n seconds).
 
 
 Perfdata / Metrics
 ------------------
 
-* ``procs``: Total number of processes.
-* ``procs_cpu``
-* ``procs_dead``
-* ``procs_mem``
-* ``procs_paging``
-* ``procs_running``
-* ``procs_sleeping``
-* ``procs_stopped``
-* ``procs_uninterruptible``
-* ``procs_zombies``
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    procs,                                      Number,             Number of procs found matching the filter criteria
+    procs_age,                                  Continous Counter,  Age of the oldest proc found in seconds
+    procs_dead,                                 Number,             Number of dead procs
+    procs_mem,                                  Bytes,              RAM usage of procs found
+    procs_mem_percent,                          Percentage,         RAM usage of procs found
+    procs_running,                              Number,             Number of procs in running state
+    procs_sleeping,                             Number,             Number of procs in idle or interruptible sleep state
+    procs_stopped,                              Number,             Number of procs stopped by debugger during the tracing or by job control signal
+    procs_uninterruptible,                      Number,             Number of procs in uninterruptible state
+    procs_zombies,                              Number,             Number of zombie processes
 
 
 Credits, License
