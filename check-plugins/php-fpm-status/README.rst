@@ -9,13 +9,13 @@ This check collects information from the PHP-FPM pool status page and alerts on 
 PHP-FPM config example:
 
 .. code-block:: text
-    :caption: PHP-FPM Config
-
+    
+    ; PHP-FPM Config
     pm.status_path = /fpm-status
 
 .. code-block:: text
-    :caption: Apache Config
-
+    
+    # Apache Config
     Alias /fpm-status /dev/null
     <LocationMatch "/fpm-status">
         Require local
