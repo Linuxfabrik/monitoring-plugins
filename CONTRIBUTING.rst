@@ -517,13 +517,19 @@ Make sure to adjust the generated ini file if necessary.
 Icinga Director Basket Config
 -----------------------------
 
-Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and a few associated Datafields.
-The rest of the Icinga Director config (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be found in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
+Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
 
-The baskets for the plugins can be generated using the ``check2basket`` tool.
-Note that the tool can only generate baskets from python3 plugins.
+The Icinga Director Basket for one or all plugins can be created using the ``check2basket`` tool. Note that the tool can only create baskets of Python 3 plugins.
 
-For example, after writing a new check called ``new-check``, generate a basket file using:
+.. important:
+
+    **Always review the basket before committing.**
+
+
+Create a Basket File from Scratch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After writing a new check called ``new-check``, generate a basket file using:
 
 .. code-block::
 
@@ -531,16 +537,18 @@ For example, after writing a new check called ``new-check``, generate a basket f
 
 The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director/new-check.json``. Inspect the basket, paying special attention to:
 
-* ``timeout``
-* ``check_interval``
-* ``enable_notification``
-* ``enable_perfdata``
-* ``max_check_attempts``
-* ``retry_interval``
+* Command: ``timeout``
+* ServiceTemplate: ``check_interval``
+* ServiceTemplate: ``enable_notifications``
+* ServiceTemplate: ``enable_perfdata``
+* ServiceTemplate: ``max_check_attempts``
+* ServiceTemplate: ``retry_interval``
 
-If adjustments must be made to the basket, create a config file for ``check2basket``.
 
-**Never directly edit a basket.**
+Fine-tune a Basket File
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Never directly edit a basket.** If adjustments must be made to the basket, create a YML config file for ``check2basket``.
 
 For example, to set the timeout to 30s and to enable notifications, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
 
@@ -557,14 +565,20 @@ Then, re-run ``check2basket`` to apply the overwrites:
 
     ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
 
-The ``check2basket`` tool also offers to generate so-called ``variants`` of the checks:
+If a parameter was added, changed or deleted in the plugin, simply re-run the ``check2basket`` to update the basket file.
+
+
+Basket File for different OS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``check2basket`` tool also offers to generate so-called ``variants`` of the checks (different flavours of the check command call to run on different operating systems):
 
 * ``linux``: This is the default, and will be used if no other variant is defined. It generates a ``cmd-check-...``, ``tpl-service-...`` and the associated datafields.
 * ``windows``: Generates a ``cmd-check-...-windows``, ``cmd-check-...-windows-python``, ``tpl-service-...-windows`` and the associated datafields.
 * ``sudo``: Generates a ``cmd-check-...-sudo`` importing the ``cmd-check-...``, but with ``/usr/bin/sudo`` prepended to the command, and a ``tpl-service...-sudo`` importing the ``tpl-service...``, but with the ``cmd-check-...-sudo`` as the check command.
 * ``no-agent``: Generates a ``tpl-service...-no-agent`` importing the ``tpl-service...``, but with command endpoint set to the Icinga2 master.
 
-Specify these as follows in the ``check2basket`` config:
+Specify them in the ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` configuration as follows:
 
 .. code-block:: yml
 
@@ -575,15 +589,15 @@ Specify these as follows in the ``check2basket`` config:
       - windows
       - no-agent
 
-If a parameter was added, changed or deleted in the plugin, simply re-run the ``check2basket`` to update the basket file.
+
+Create Basket Files for all Check Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To run ``check2basket`` against all checks, for example due to a change in the script itself, use:
 
 .. code-block:: bash
 
     ./tools/check2basket --auto
-
-**Always review the baskets before committing.**
 
 
 Virtual Environments
