@@ -66,7 +66,7 @@ Output:
 
 .. code-block:: text
 
-    Analysis/Intelligence: disruption [CRITICAL], Expense: degradation [WARNING] (@emea, UTC+0100)
+    Analysis/Intelligence: disruption [CRITICAL], Expense: degradation [WARNING] (@emea, UTC+0200)
 
 
 States
