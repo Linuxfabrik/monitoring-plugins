@@ -6,6 +6,11 @@ Overview
 
 Displays the amount of free and used memory in the system and checks how much physical memory is left across platforms by using the ``available`` field.
 
+Hints:
+
+* Be aware of the differences in memory counting between different tools like top, htop, glances, GNOME System Monitor etc.
+* Memory counting also changed between different Linux Kernel versions.
+
 
 Fact Sheet
 ----------
