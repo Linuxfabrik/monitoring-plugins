@@ -4,13 +4,18 @@ Check about-me
 Overview
 --------
 
-Reports a quick overview about the host dimensions, its IP addresses (if the Python module ``netifaces`` is installed) and deployed software:
+Reports a overview about the host dimensions, its network interfaces, deployed software and recurring jobs:
 
+* OS, disks: system information
+* Interfaces: all IPv4 network interfaces with their IP address
 * Software: lists well-known packages installed by your package manager
 * Apps (if any): manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
 * Tools (if any): tools like dig, wget etc., normally not installed on a minimal server system
-* Python Modules: reports version of installed Python modules some of our checks depend on
-* OS: system information
+* Python modules: reports version of installed Python modules some of our checks depend on
+* systemd default target: the default systemd target that will be booted into
+* systemd timers: a list of all system systemd timers (excluding user timers)
+* systemd enabled units: a list of all enabled systemd system units (excluding user units)
+* crontabs: a list of crontabs that are found in the usual locations. note that this list is not complete
 
 Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
@@ -20,12 +25,12 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/about-me"
     "Check Interval Recommendation",        "Once a day or once a week"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``, Python module ``netifaces`` (optional)"
+    "Requirements",                         "Python module ``psutil``"
 
 
 Help
@@ -53,7 +58,125 @@ Output:
 
 .. code-block:: text
 
-    8 CPUs, 15.2GiB RAM, 1 Disk (nvme0n1 953.9G) - IP 10.80.32.231/24, Pub 212.51.138.220 - Software: Apache httpd 2.4.48, Docker/Podman 3.2.3, Docker Compose 1.28.6, Firefox 90.0.2, gcc 11.1.1, g++ 11.1.1, Git 2.31.1, Glances 3.1.4.1, Java openjdk 11.0.11 2021-04-20, LibreOffice 7.1.5.2, MySQL 8.0.26, Node 14.17.0, npm 6.14.13, OpenSSL 1.1.1k, OpenVPN 2.5.3, Perl 5.32.1, PHP 7.4.21, pip 21.0.1, Python mapped to 3.9.6, Python2 2.7.18, Python3 3.9.6, Sublime Text 4113, TeamViewer  15.20.3, tmate 2.4.0, vsftpd 3.0.3 - Apps: VMware Tools, Brother Printer SW, F5 VPN SW, Google Chrome, KeeWeb, Rambox, Nextcloud - Tools: dig, lsof, nano, ncat, nmap, rsync, tcpdump, telnet, unzip, wget, whois, wireshark - Python modules: BeautifulSoup 4.9.3, mysql.connector 2.2.9, psutil 5.8.0 - OS: Linux-5.13.4-200.fc34.x86_64-x86_64-with-glibc2.33
+    CentOS Linux release 7.9.2009 (Core), 1 CPU, 988.6MiB, Pub IP 185.231.52.10
+
+    # Disks
+    * sda   100G
+
+    # Interfaces (IPv4)
+    * docker0 172.17.0.1/16
+    * eth0 10.168.26.30/24
+
+    # Software
+    * Apache httpd 2.4.6
+    * Apache Tomcat 7.0.76
+    * Borg 1.1.17
+    * Containerd 1.4.9
+    * Docker Compose 1.24.0
+    * Docker/Podman 20.10.8
+    * Erlang 23
+    * Fail2ban Server 0.11.1
+    * g++ 4.8.5
+    * gcc 4.8.5
+    * Git 1.8.3.1
+    * Glances 2.5.1
+    * Icinga2 2.13.1-1
+    * Java openjdk 1.8.0_302
+    * LibreOffice Online (LOOL)
+    * Lighttpd 1.4.54 (ssl)
+    * Linux 3.10.0-1160.42.2.el7.x86_64
+    * MariaDB 10.5.12
+    * MongoDB 4.0.27
+    * mydumper/myloader 0.10.7
+    * Nginx 1.20.1
+    * Node 8.17.0
+    * NodeJS 6.17.1
+    * npm 6.13.4
+    * OpenSSL 1.0.2k-fips
+    * Perl 5.16.3
+    * PHP 7.3.30
+    * pip 8.1.2
+    * Python mapped to 2.7.5
+    * Python2 2.7.5
+    * Python3 3.6.8
+    * systemd 219
+    * vsftpd 3.0.2
+
+    # Apps
+    * Collabora Office 6.4
+    * Rocket.Chat
+
+    # Tools
+    * dig
+    * iftop
+    * lsof
+    * nano
+    * ncat
+    * nmap
+    * rsync
+    * tcpdump
+    * vim
+    * wget
+    * wireshark
+
+    # Python modules
+    * psutil 5.6.7
+
+    # systemd default Target
+    * multi-user.target
+
+    # systemd Timers
+    * mariadb-dump.timer
+    * borg-backup-daily.timer
+    * systemd-tmpfiles-clean.timer
+    * notify-and-schedule.timer
+
+    # systemd enabled Units
+    * atd.service
+    * auditd.service
+    * autovt@.service
+    * crond.service
+    * docker.service
+    * fwb.service
+    * getty@.service
+    * haveged.service
+    * httpd.service
+    * icinga2.service
+    * irqbalance.service
+    * loolwsd.service
+    * lvm2-monitor.service
+    * microcode.service
+    * mongod.service
+    * ntpd.service
+    * ovirt-guest-agent.service
+    * postfix.service
+    * qemu-guest-agent.service
+    * rhel-autorelabel.service
+    * rhel-configure.service
+    * rhel-dmesg.service
+    * rhel-domainname.service
+    * rhel-import-state.service
+    * rhel-loadmodules.service
+    * rhel-readonly.service
+    * rocketchat.service
+    * rpcbind.service
+    * rsyslog.service
+    * smartd.service
+    * sshd.service
+    * sysstat.service
+    * systemd-readahead-collect.service
+    * systemd-readahead-drop.service
+    * systemd-readahead-replay.service
+    * tomcat-public.service
+    * tuned.service
+
+    # crontabs
+    01 * * * * root run-parts /etc/cron.hourly
+    */10 * * * * root /usr/lib64/sa/sa1 1 1
+    53 23 * * * root /usr/lib64/sa/sa2 -A
+    1       5       cron.daily              nice run-parts /etc/cron.daily
+    7       25      cron.weekly             nice run-parts /etc/cron.weekly
+    @monthly 45     cron.monthly            nice run-parts /etc/cron.monthly
 
 
 States
@@ -68,7 +191,7 @@ Perfdata / Metrics
 * cpu: Number of CPUs
 * ram: Size of memory
 * disks: Number of disks
-* only Python 2 variant of this check: osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened
+* osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened
 
 
 Credits, License
