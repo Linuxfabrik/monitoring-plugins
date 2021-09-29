@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092903'
+__version__ = '2021092904'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -492,8 +492,8 @@ def main():
     sys_dimensions = get_sys_dimensions()
     msg += '{} {}, {}'.format(sys_dimensions['cpu'], lib.base2.pluralize('CPU', sys_dimensions['cpu']), lib.base2.bytes2human(sys_dimensions['ram']))
 
-    pub_ip = lib.net2.get_ip_public()
-    if pub_ip:
+    success, pub_ip = lib.net2.get_ip_public()
+    if success:
         msg += ', Public IP {}'.format(pub_ip)
 
     disks = get_disks()
