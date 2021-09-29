@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092901'
+__version__ = '2021092902'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -373,10 +373,18 @@ def get_systemd_timers():
     return msg
 
 
-def get_systemd_enabled_services():
+def get_systemd_default_target():
+    cmd = 'systemctl get-default'
+    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    if stderr or retc != 0:
+        return ''
+
+    return '* {}\n'.format(stdout.strip())
+
+
+def get_systemd_units(cmd):
     # using `--output=json` sadly does not work with older systemd versions (eg systemd 239 on CentOS 7), therefore we have to parse the human output
     # in order to list for a different user (`--user`), we would need to sudo to that user first - we will skip that for now
-    cmd = 'systemctl list-unit-files --type service --state enabled --no-legend'
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if stderr or retc != 0:
         return ''
@@ -385,15 +393,6 @@ def get_systemd_enabled_services():
     for line in stdout.splitlines():
         msg += '* {}\n'.format(line.split()[0])
     return msg
-
-
-def get_systemd_default_target():
-    cmd = 'systemctl get-default'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
-    if stderr or retc != 0:
-        return ''
-
-    return '* {}\n'.format(stdout.strip())
 
 
 def get_crontabs():
@@ -468,9 +467,17 @@ def main():
     if timers:
         msg += '\n\n# systemd timers\n' + timers
 
-    enabled_units = get_systemd_enabled_services()
+    enabled_units = get_systemd_units('systemctl list-unit-files --type service --state enabled --no-legend')
     if enabled_units:
         msg += '\n\n# systemd enabled units\n' + enabled_units
+
+    mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend')
+    if mounts:
+        msg += '\n\n# systemd mounts\n' + mounts
+
+    automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
+    if automounts:
+        msg += '\n\n# systemd automounts\n' + automounts
 
     crontabs = get_crontabs()
     if crontabs:
