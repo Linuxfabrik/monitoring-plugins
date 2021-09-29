@@ -58,7 +58,7 @@ Output:
 
 .. code-block:: text
 
-    CentOS Linux release 7.9.2009 (Core), 1 CPU, 988.6MiB, Pub IP 185.231.52.10
+    CentOS Linux release 7.9.2009 (Core), 1 CPU, 988.6MiB, Pub IP 1.2.3.4
 
     # Disks
     * sda   100G

@@ -31,8 +31,8 @@ import re # pylint: disable=C0413
 import socket # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
-import lib.disk3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092802'
+__version__ = '2021092901'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -66,9 +66,12 @@ def find_command(return_text, cmd, version_regex=None, ignore_output=False):
     success, result = lib.base3.shell_exec(cmd)
     if not success:
         return ''
-    if ignore_output:
-        return '* {}\n'.format(return_text.strip())
     stdout, stderr, retc = result
+    if ignore_output:
+        if retc == 0:
+            return '* {}\n'.format(return_text.strip())
+        else:
+            return ''
     if stdout == '' and stderr != '':
         # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
         # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
@@ -160,7 +163,16 @@ def get_apps():
     apps += '* PHP 7.3 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php73') else ''
     apps += '* PHP 7.4 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php74') else ''
     apps += '* PHP 8.0 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php80') else ''
+    apps += '* PHP 8.1 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php81') else ''
     apps += '* Piwik\n'                           if os.path.isdir('/var/www/html/piwik') else ''
+    apps += '* PostgreSQL 7.2 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql72') else ''
+    apps += '* PostgreSQL 7.3 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql73') else ''
+    apps += '* PostgreSQL 7.4 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql74') else ''
+    apps += '* PostgreSQL 8.0 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql80') else ''
+    apps += '* PostgreSQL 8.1 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql81') else ''
+    apps += '* PostgreSQL 8.2 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql82') else ''
+    apps += '* PostgreSQL 8.3 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql83') else ''
+    apps += '* PostgreSQL 8.4 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql84') else ''
     apps += '* PostgreSQL 9.0 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql90') else ''
     apps += '* PostgreSQL 9.1 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql91') else ''
     apps += '* PostgreSQL 9.2 (RH)\n'             if os.path.isdir('/opt/rh/rh-postgresql92') else ''
@@ -192,22 +204,22 @@ def get_tools():
 
     tools = ''
 
-    tools += find_command('dig',       'dig -h', ignore_output=True)
-    tools += find_command('hdparm',    'hdparm -h', ignore_output=True)
-    tools += find_command('iftop',     'iftop -h', ignore_output=True)
-    tools += find_command('lsof',      'lsof -h', ignore_output=True)
-    tools += find_command('nano',      'nano -h', ignore_output=True)
-    tools += find_command('ncat',      'ncat -h', ignore_output=True)
-    tools += find_command('nmap',      'nmap -h', ignore_output=True)
-    tools += find_command('rsync',     'rsync -h', ignore_output=True)
-    tools += find_command('tcpdump',   'tcpdump -h', ignore_output=True)
-    tools += find_command('telnet',    'telnet -h', ignore_output=True)
-    tools += find_command('tmux',      'tmux -V', ignore_output=True)
-    tools += find_command('unzip',     'unzip -h', ignore_output=True)
-    tools += find_command('vim',       'vim -h', ignore_output=True)
-    tools += find_command('wget',      'wget -h', ignore_output=True)
-    tools += find_command('whois',     'whois -h', ignore_output=True)
-    tools += find_command('wireshark', 'tshark -h', ignore_output=True)
+    tools += find_command('dig',       'command -v dig', ignore_output=True)
+    tools += find_command('hdparm',    'command -v hdparm', ignore_output=True)
+    tools += find_command('iftop',     'command -v iftop', ignore_output=True)
+    tools += find_command('lsof',      'command -v lsof', ignore_output=True)
+    tools += find_command('nano',      'command -v nano', ignore_output=True)
+    tools += find_command('ncat',      'command -v ncat', ignore_output=True)
+    tools += find_command('nmap',      'command -v nmap', ignore_output=True)
+    tools += find_command('rsync',     'command -v rsync', ignore_output=True)
+    tools += find_command('tcpdump',   'command -v tcpdump', ignore_output=True)
+    tools += find_command('telnet',    'command -v telnet', ignore_output=True)
+    tools += find_command('tmux',      'command -v tmux', ignore_output=True)
+    tools += find_command('unzip',     'command -v unzip', ignore_output=True)
+    tools += find_command('vim',       'command -v vim', ignore_output=True)
+    tools += find_command('wget',      'command -v wget', ignore_output=True)
+    tools += find_command('whois',     'command -v whois', ignore_output=True)
+    tools += find_command('wireshark', 'command -v tshark', ignore_output=True)
 
     return tools
 
@@ -218,75 +230,75 @@ def get_sw():
 
     sw = ''
 
-    sw += find_command('Apache httpd',              'httpd -v',                                                     version_regex =r'Apache/(.*) ')
-    sw += find_command('Apache Tomcat',             'tomcat version',                                               version_regex =r'Server version: Apache Tomcat/(.*)')
-    sw += find_command('BIND',                      'named -v',                                                     version_regex =r'^BIND (.*?)-')
-    sw += find_command('Borg',                      'borg --version',                                               version_regex =r' (.*)')
-    sw += find_command('ClamAV',                    'clamd --version',                                              version_regex =r' (.*) ')
-    sw += find_command('chrony',                    'chrony --version',                                             version_regex =r'n ([\d\.]+)')
-    sw += find_command('cockpit',                   '/usr/libexec/cockpit-ws --version',                            version_regex =r': ([\d\.]+)')
-    sw += find_command('coturn', 'command -v turnserver',                                                           ignore_output=True)
-    sw += find_command('Containerd',                'containerd --version',                                         version_regex =r'\.io (.*) ')
-    sw += find_command('Docker Compose',            'docker-compose --version',                                     version_regex =r' version (.*?),')
-    sw += find_command('Docker/Podman',             'docker --version',                                             version_regex =r' (\d+\d?\.\d+\d?.\d+\d?)')
-    sw += find_command('Erlang', "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell",  version_regex =r'\"(.*)\"')
-    sw += find_command('Elastic-Filebeat',          'filebeat version',                                             version_regex =r'n ([\d\.]+)')
-    sw += find_command('Fail2ban Server',           'fail2ban-server --version',                                    version_regex =r' v(.*)')
-    sw += find_command('Firefox',                   'firefox --version',                                            version_regex =r' Firefox (.*)')
-    sw += find_command('FreeIPA',                   'ipa --version',                                                version_regex =r' (.*?),')
-    sw += find_command('g++',                       'g++ --version',                                                version_regex =r'\) ([\d\.]+)')
-    sw += find_command('gcc',                       'gcc --version',                                                version_regex =r'\) ([\d\.]+)')
-    sw += find_command('Git',                       'git --version',                                                version_regex =r'git version (.*)')
-    sw += find_command('Glances',                   'glances --version',                                            version_regex =r'Glances v(.*?) ')
-    sw += find_command('GNOME Display Manager',     'gdm --version ',                                               version_regex =r' \S*')
-    sw += find_command('GNOME Shell',               'gnome-shell --version',                                        version_regex =r'l (\S*)')
-    sw += find_command('Grafana Server',            'grafana-server -v',                                            version_regex =r'Version (.*?) ')
-    sw += find_command('i3',                        'i3 --version',                                                 version_regex =r'version (\S+)')
-    sw += find_command('Icinga2',                   'icinga2 --version',                                            version_regex =r'\(version: (.*)\)')
-    sw += find_command('InfluxDB',                  'influx --version',                                             version_regex =r': (.*)')
-    sw += find_command('Java',                      'java -version',                                                version_regex =r'(.*)').replace('version ', '').replace('"', '')
-    sw += find_command('LibreOffice Online (LOOL)', 'command -v loolwsd',                                           ignore_output=True)
-    sw += find_command('LibreOffice',               'libreoffice --version',                                        version_regex =r' (.*?) ')
-    sw += find_command('Lighttpd',                  'lighttpd -v',                                                  version_regex =r'lighttpd/(.*) -')
-    sw += find_command('Linux',                     'uname -r')
-    tmp = find_command('MySQL',                     'mysqld --version',                                             version_regex =r'Ver (.*?) ')
+    sw += find_command('Apache httpd',              'httpd -v',                           version_regex =r'Apache/(.*) ')
+    sw += find_command('Apache Tomcat',             'tomcat version',                     version_regex =r'Server version: Apache Tomcat/(.*)')
+    sw += find_command('BIND',                      'named -v',                           version_regex =r'^BIND (.*?)-')
+    sw += find_command('Borg',                      'borg --version',                     version_regex =r' (.*)')
+    sw += find_command('ClamAV',                    'clamd --version',                    version_regex =r' (.*) ')
+    sw += find_command('chrony',                    'chrony --version',                   version_regex =r'n ([\d\.]+)')
+    sw += find_command('cockpit',                   '/usr/libexec/cockpit-ws --version',  version_regex =r': ([\d\.]+)')
+    sw += find_command('coturn',                    'command -v turnserver',              ignore_output=True)
+    sw += find_command('Containerd',                'containerd --version',               version_regex =r'\.io (.*) ')
+    sw += find_command('Docker Compose',            'docker-compose --version',           version_regex =r' version (.*?),')
+    sw += find_command('Docker/Podman',             'docker --version',                   version_regex =r' (\d+\d?\.\d+\d?.\d+\d?)')
+    sw += find_command('Erlang',                    "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell",  version_regex =r'\"(.*)\"')
+    sw += find_command('Elastic-Filebeat',          'filebeat version',                   version_regex =r'n ([\d\.]+)')
+    sw += find_command('Fail2ban Server',           'fail2ban-server --version',          version_regex =r' v(.*)')
+    sw += find_command('Firefox',                   'firefox --version',                  version_regex =r' Firefox (.*)')
+    sw += find_command('FreeIPA',                   'ipa --version',                      version_regex =r' (.*?),')
+    sw += find_command('g++',                       'g++ --version',                      version_regex =r'\) ([\d\.]+)')
+    sw += find_command('gcc',                       'gcc --version',                      version_regex =r'\) ([\d\.]+)')
+    sw += find_command('Git',                       'git --version',                      version_regex =r'git version (.*)')
+    sw += find_command('Glances',                   'glances --version',                  version_regex =r'Glances v(.*?) ')
+    sw += find_command('GNOME Display Manager',     'gdm --version ',                     version_regex =r' \S*')
+    sw += find_command('GNOME Shell',               'gnome-shell --version',              version_regex =r'l (\S*)')
+    sw += find_command('Grafana Server',            'grafana-server -v',                  version_regex =r'Version (.*?) ')
+    sw += find_command('i3',                        'i3 --version',                       version_regex =r'version (\S+)')
+    sw += find_command('Icinga2',                   'icinga2 --version',                  version_regex =r'\(version: (.*)\)')
+    sw += find_command('InfluxDB',                  'influx --version',                   version_regex =r': (.*)')
+    sw += find_command('Java',                      'java -version',                      version_regex =r'(.*)').replace('version ', '').replace('"', '')
+    sw += find_command('LibreOffice Online (LOOL)', 'command -v loolwsd',                 ignore_output=True)
+    sw += find_command('LibreOffice',               'libreoffice --version',              version_regex =r' (.*?) ')
+    sw += find_command('Lighttpd',                  'lighttpd -v',                        version_regex =r'lighttpd/(.*) -')
+    sw += find_command('Linux Kernel',              'uname -r')
+    tmp = find_command('MySQL',                     'mysqld --version',                   version_regex =r'Ver (.*?) ')
     if 'MariaDB' in tmp:
         tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
     sw += tmp
-    sw += find_command('MongoDB',                   'mongod --version',                                             version_regex =r'db version v(.*?)\n')
-    sw += find_command('mydumper/myloader',         'mydumper --version',                                           version_regex =r' (.*?),')
-    sw += find_command('Nginx',                     'nginx -v',                                                     version_regex =r'nginx version: nginx/(.*)')
-    sw += find_command('Nikto',                     'nikto -Version',                                               version_regex =r'main\s*(.*)')
-    sw += find_command('Node',                      'node --version',                                               version_regex =r'v(.*)')
-    sw += find_command('NodeJS',                    'nodejs --version',                                             version_regex =r'v(.*)')
-    sw += find_command('npm',                       'npm --version',                                                version_regex =r'(.*)')
-    sw += find_command('ntpd',                      'ntpq -c version',                                              version_regex =r' ([\d\.p]+)@')
-    sw += find_command('OpenSSL',                   'openssl version',                                              version_regex =r' (.*?) ')
-    sw += find_command('OpenVAS',                   'openvas version',                                              version_regex =r' (.*?)$')
-    sw += find_command('OpenVPN',                   'openvpn --version',                                            version_regex =r'N (\d+\.\d+(\.\d+)?)')
-    sw += find_command('Open Virtual Machine Tools','vmtoolsd --version',                                           version_regex =r'n ([\d\.]+)')
-    sw += find_command('Perl',                      'perl --version',                                               version_regex =r' \(v(.*?)\) ')
-    sw += find_command('PHP',                       'php --version',                                                version_regex =r'PHP (.*?) \(.*')
-    sw += find_command('PHP-FPM',                   'php-fpm --version',                                            version_regex =r'PHP (.*?) \(.*')
-    sw += find_command('pip',                       'pip --version',                                                version_regex =r'pip (.*) from')
-    sw += find_command('Postfix',                   'postconf -d mail_version',                                     version_regex =r'= ([\d\.]+)')
-    sw += find_command('PostgreSQL',                'psql --version',                                               version_regex =r'\(PostgreSQL\) (.*)')
-    sw += find_command('Python mapped to',          'python --version',                                             version_regex =r' (.*)')
-    sw += find_command('Python2',                   'python2 --version',                                            version_regex =r' (.*)')
-    sw += find_command('Python3',                   'python3 --version',                                            version_regex =r' (.*)')
-    sw += find_command('QEMU Guest Agent',          'qemu-ga --version',                                            version_regex =r'([\d\.]+)')
+    sw += find_command('MongoDB',                   'mongod --version',                   version_regex =r'db version v(.*?)\n')
+    sw += find_command('mydumper/myloader',         'mydumper --version',                 version_regex =r' (.*?),')
+    sw += find_command('Nginx',                     'nginx -v',                           version_regex =r'nginx version: nginx/(.*)')
+    sw += find_command('Nikto',                     'nikto -Version',                     version_regex =r'main\s*(.*)')
+    sw += find_command('Node',                      'node --version',                     version_regex =r'v(.*)')
+    sw += find_command('NodeJS',                    'nodejs --version',                   version_regex =r'v(.*)')
+    sw += find_command('npm',                       'npm --version',                      version_regex =r'(.*)')
+    sw += find_command('ntpd',                      'ntpq -c version',                    version_regex =r' ([\d\.p]+)@')
+    sw += find_command('OpenSSL',                   'openssl version',                    version_regex =r' (.*?) ')
+    sw += find_command('OpenVAS',                   'openvas version',                    version_regex =r' (.*?)$')
+    sw += find_command('OpenVPN',                   'openvpn --version',                  version_regex =r'N (\d+\.\d+(\.\d+)?)')
+    sw += find_command('Open Virtual Machine Tools','vmtoolsd --version',                 version_regex =r'n ([\d\.]+)')
+    sw += find_command('Perl',                      'perl --version',                     version_regex =r' \(v(.*?)\) ')
+    sw += find_command('PHP',                       'php --version',                      version_regex =r'PHP (.*?) \(.*')
+    sw += find_command('PHP-FPM',                   'php-fpm --version',                  version_regex =r'PHP (.*?) \(.*')
+    sw += find_command('pip',                       'pip --version',                      version_regex =r'pip (.*) from')
+    sw += find_command('Postfix',                   'postconf -d mail_version',           version_regex =r'= ([\d\.]+)')
+    sw += find_command('PostgreSQL',                'psql --version',                     version_regex =r'\(PostgreSQL\) (.*)')
+    sw += find_command('Python mapped to',          'python --version',                   version_regex =r' (.*)')
+    sw += find_command('Python2',                   'python2 --version',                  version_regex =r' (.*)')
+    sw += find_command('Python3',                   'python3 --version',                  version_regex =r' (.*)')
+    sw += find_command('QEMU Guest Agent',          'qemu-ga --version',                  version_regex =r'([\d\.]+)')
     sw += find_command('RabbitMQ Server',           'rabbitmqctl version')
-    sw += find_command('Redis Server',              'redis-server --version',                                       version_regex =r' v=(.*?) ')
-    sw += find_command('SPICE agent',               'command -v spice-vdagentd',                                    ignore_output=True)
-    sw += find_command('ssh',                       'ssh -V',                                                       version_regex =r'_(.+),')
-    sw += find_command('Sublime Text',              'subl --version',                                               version_regex =r'.* (.*)$')
-    sw += find_command('sudo',                      'sudo --version',                                               version_regex =r'n (.+)')
-    sw += find_command('systemd',                   'systemctl --version',                                          version_regex =r'systemd (\d+)')
-    sw += find_command('Samba',                     'smbd --version',                                               version_regex =r'n ([\d\.]+)')
-    sw += find_command('TeamViewer',                'teamviewer --version',                                         version_regex =r'.* (\S*)  ')
-    sw += find_command('tmate',                     'tmate -V',                                                     version_regex =r' (.*)')
-    sw += find_command('Veeam',                     'veeamagent --version',                                         version_regex =r'(.*)')
-    sw += find_command('vsftpd',                    '/usr/sbin/vsftpd -version 0>&1',                               version_regex =r'n (\S*)')
+    sw += find_command('Redis Server',              'redis-server --version',             version_regex =r' v=(.*?) ')
+    sw += find_command('SPICE Agent',               'command -v spice-vdagentd',          ignore_output=True)
+    sw += find_command('ssh',                       'ssh -V',                             version_regex =r'_(.+),')
+    sw += find_command('Sublime Text',              'subl --version',                     version_regex =r'.* (.*)$')
+    sw += find_command('sudo',                      'sudo --version',                     version_regex =r'n (.+)')
+    sw += find_command('systemd',                   'systemctl --version',                version_regex =r'systemd (\d+)')
+    sw += find_command('Samba',                     'smbd --version',                     version_regex =r'n ([\d\.]+)')
+    sw += find_command('TeamViewer',                'teamviewer --version',               version_regex =r'.* (\S*)  ')
+    sw += find_command('tmate',                     'tmate -V',                           version_regex =r' (.*)')
+    sw += find_command('Veeam',                     'veeamagent --version',               version_regex =r'(.*)')
+    sw += find_command('vsftpd',                    '/usr/sbin/vsftpd -version 0>&1',     version_regex =r'n (\S*)')
 
     return sw
 
@@ -422,7 +434,7 @@ def main():
 
     pub_ip = lib.net3.get_ip_public()
     if pub_ip:
-        msg += ', Pub IP {}'.format(pub_ip)
+        msg += ', Public IP {}'.format(pub_ip)
 
     disks = get_disks()
     if disks:
@@ -462,7 +474,7 @@ def main():
 
     crontabs = get_crontabs()
     if crontabs:
-        msg += '\n# crontabs\n' + crontabs
+        msg += '\n\n# crontabs\n' + crontabs
 
     perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
