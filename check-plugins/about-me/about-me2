@@ -43,10 +43,54 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092902'
+__version__ = '2021092903'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
+DEFAULT_LINUX_USER = [
+    '_apt',
+    'abrt',
+    'adm',
+    'backup',
+    'bin',
+    'chrony',
+    'daemon',
+    'dbus',
+    'ftp',
+    'games',
+    'gnats',
+    'halt',
+    'irc',
+    'list',
+    'lp',
+    'mail',
+    'man',
+    'messagebus',
+    'news',
+    'nobody',
+    'operator',
+    'polkitd',
+    'proxy',
+    'rngd',
+    'root',
+    'rpc',
+    'rpcuser',
+    'shutdown',
+    'sshd',
+    'sssd',
+    'sync',
+    'sys',
+    'systemd-coredump',
+    'systemd-network',
+    'systemd-oom',
+    'systemd-resolve',
+    'systemd-timesync',
+    'tcpdump',
+    'tss',
+    'unbound',
+    'user',
+    'uucp',
+]
 
 def parse_args():
     """Parse command line arguments using argparse.
@@ -407,6 +451,23 @@ def get_crontabs():
     return msg
 
 
+def get_nondefault_users():
+    passwd = lib.base2.coe(lib.disk2.read_file('/etc/passwd'))
+    table_data = []
+    header = ['user', 'pw', 'uid', 'gid', 'comment', 'home_dir', 'user_shell']
+    for line in passwd.splitlines():
+        data = dict(zip(header, line.split(':')))
+        if data['user'] not in DEFAULT_LINUX_USER:
+            table_data.append(data)
+
+    return lib.base2.get_table(
+        table_data,
+        header,
+        header=header,
+        sort_by_key='user',
+    )
+
+
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -478,6 +539,10 @@ def main():
     automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
     if automounts:
         msg += '\n\n# systemd automounts\n' + automounts
+
+    nondefault_users = get_nondefault_users()
+    if nondefault_users:
+        msg += '\n\n# non-default users\n' + nondefault_users
 
     crontabs = get_crontabs()
     if crontabs:
