@@ -58,125 +58,215 @@ Output:
 
 .. code-block:: text
 
-    CentOS Linux release 7.9.2009 (Core), 1 CPU, 988.6MiB, Pub IP 1.2.3.4
+    myhostname - Fedora release 34 (Thirty Four), 8 CPUs, 15.2GiB, Public IP 1.2.3.4
 
     # Disks
-    * sda   100G
+    * nvme0n1 953.9G
+
 
     # Interfaces (IPv4)
-    * docker0 172.17.0.1/16
-    * eth0 10.168.26.30/24
+    * virbr0 192.168.122.1/24
+    * wlp0s20f3 10.80.32.245/24
+
 
     # Software
-    * Apache httpd 2.4.6
-    * Apache Tomcat 7.0.76
-    * Borg 1.1.17
-    * Containerd 1.4.9
-    * Docker Compose 1.24.0
-    * Docker/Podman 20.10.8
-    * Erlang 23
-    * Fail2ban Server 0.11.1
-    * g++ 4.8.5
-    * gcc 4.8.5
-    * Git 1.8.3.1
-    * Glances 2.5.1
-    * Icinga2 2.13.1-1
-    * Java openjdk 1.8.0_302
-    * LibreOffice Online (LOOL)
-    * Lighttpd 1.4.54 (ssl)
-    * Linux 3.10.0-1160.42.2.el7.x86_64
-    * MariaDB 10.5.12
-    * MongoDB 4.0.27
-    * mydumper/myloader 0.10.7
-    * Nginx 1.20.1
-    * Node 8.17.0
-    * NodeJS 6.17.1
-    * npm 6.13.4
-    * OpenSSL 1.0.2k-fips
-    * Perl 5.16.3
-    * PHP 7.3.30
-    * pip 8.1.2
-    * Python mapped to 2.7.5
-    * Python2 2.7.5
-    * Python3 3.6.8
-    * systemd 219
-    * vsftpd 3.0.2
+    * Apache httpd 2.4.49
+    * Docker Compose 1.28.6
+    * Docker/Podman 3.3.1
+    * Firefox 92.0
+    * g++ 11.2.1
+    * gcc 11.2.1
+    * Git 2.31.1
+    * Glances 3.1.4.1
+    * GNOME Display Manager 40.1
+    * GNOME Shell 40.4
+    * Java openjdk 11.0.12 2021-07-20
+    * LibreOffice 7.1.6.2.0
+    * Linux Kernel 5.13.19-200.fc34.x86_64
+    * MySQL 8.0.26
+    * Node 14.17.6
+    * npm 6.14.15
+    * ntpd ntpsec-1.2.1
+    * OpenSSL 1.1.1l
+    * OpenVPN 2.5.3
+    * Perl 5.32.1
+    * PHP 7.4.23
+    * PHP-FPM 7.4.23
+    * pip 21.0.1
+    * Python mapped to 3.9.7
+    * Python2 2.7.18
+    * Python3 3.9.7
+    * QEMU Guest Agent 5.2.0
+    * SPICE Agent
+    * ssh 8.6p1
+    * Sublime Text 4113
+    * sudo 1.9.5p2
+    * systemd 248
+    * TeamViewer 15.21.4
+    * tmate 2.4.0
+    * vsftpd 3.0.3
+
 
     # Apps
-    * Collabora Office 6.4
-    * Rocket.Chat
+    * Brother Printer SW
+    * F5 VPN SW
+    * Google Chrome
+    * KeeWeb
+    * Nextcloud
+    * Rambox
+    * VMware Tools
+
 
     # Tools
     * dig
-    * iftop
     * lsof
     * nano
     * ncat
     * nmap
     * rsync
     * tcpdump
-    * vim
+    * telnet
+    * tmux
+    * unzip
     * wget
+    * whois
     * wireshark
 
+
     # Python modules
-    * psutil 5.6.7
+    * BeautifulSoup 4.1.0
+    * psutil 5.8.0
 
-    # systemd default Target
-    * multi-user.target
 
-    # systemd Timers
-    * mariadb-dump.timer
-    * borg-backup-daily.timer
+    # systemd default target
+    * graphical.target
+
+
+    # systemd timers
+    * dnf-makecache.timer
     * systemd-tmpfiles-clean.timer
-    * notify-and-schedule.timer
+    * mlocate-updatedb.timer
+    * unbound-anchor.timer
+    * fstrim.timer
 
-    # systemd enabled Units
+
+    # systemd enabled units
+    * abrt-journal-core.service
+    * abrt-oops.service
+    * abrt-vmcore.service
+    * abrt-xorg.service
+    * abrtd.service
+    * accounts-daemon.service
+    * anydesk.service
     * atd.service
     * auditd.service
-    * autovt@.service
+    * avahi-daemon.service
+    * bluetooth.service
+    * chronyd.service
     * crond.service
-    * docker.service
-    * fwb.service
+    * cups.service
+    * dbus-broker.service
+    * firewalld.service
+    * flatpak-add-fedora-repos.service
+    * gdm.service
     * getty@.service
-    * haveged.service
-    * httpd.service
-    * icinga2.service
-    * irqbalance.service
-    * loolwsd.service
+    * import-state.service
+    * iscsi.service
+    * libvirtd.service
+    * lm_sensors.service
+    * low-memory-monitor.service
     * lvm2-monitor.service
-    * microcode.service
-    * mongod.service
-    * ntpd.service
-    * ovirt-guest-agent.service
-    * postfix.service
+    * mcelog.service
+    * mdmonitor.service
+    * ModemManager.service
+    * multipathd.service
+    * mysqld.service
+    * netcf-transaction.service
+    * NetworkManager-dispatcher.service
+    * NetworkManager-wait-online.service
+    * NetworkManager.service
+    * nfs-convert.service
+    * ostree-remount.service
     * qemu-guest-agent.service
-    * rhel-autorelabel.service
-    * rhel-configure.service
-    * rhel-dmesg.service
-    * rhel-domainname.service
-    * rhel-import-state.service
-    * rhel-loadmodules.service
-    * rhel-readonly.service
-    * rocketchat.service
-    * rpcbind.service
-    * rsyslog.service
+    * rngd.service
+    * rpmdb-rebuild.service
+    * rtkit-daemon.service
+    * selinux-autorelabel-mark.service
     * smartd.service
-    * sshd.service
-    * sysstat.service
-    * systemd-readahead-collect.service
-    * systemd-readahead-drop.service
-    * systemd-readahead-replay.service
-    * tomcat-public.service
-    * tuned.service
+    * sssd.service
+    * switcheroo-control.service
+    * systemd-oomd.service
+    * systemd-resolved.service
+    * teamviewerd.service
+    * thermald.service
+    * udisks2.service
+    * upower.service
+    * uresourced.service
+    * vboxservice.service
+    * vgauthd.service
+    * vmtoolsd.service
+    * vpnagentd.service
+    * vsftpd.service
+
+
+    # systemd mounts
+    * -.mount
+    * boot-efi.mount
+    * boot.mount
+    * dev-hugepages.mount
+    * dev-mqueue.mount
+    * proc-fs-nfsd.mount
+    * sys-fs-fuse-connections.mount
+    * sys-kernel-config.mount
+    * sys-kernel-debug.mount
+    * sys-kernel-tracing.mount
+    * tmp.mount
+    * var-lib-machines.mount
+    * var-lib-nfs-rpc_pipefs.mount
+
+
+    # systemd automounts
+    * proc-sys-fs-binfmt_misc.automount
+
+
+    # non-default users
+    user                ! pw ! uid  ! gid  ! comment                                                    ! home_dir                  ! user_shell        
+    --------------------+----+------+------+------------------------------------------------------------+---------------------------+-------------------
+    apache              ! x  ! 48   ! 48   ! Apache                                                     ! /usr/share/httpd          ! /sbin/nologin     
+    avahi               ! x  ! 70   ! 70   ! Avahi mDNS/DNS-SD Stack                                    ! /var/run/avahi-daemon     ! /sbin/nologin     
+    colord              ! x  ! 983  ! 983  ! User for colord                                            ! /var/lib/colord           ! /sbin/nologin     
+    dnsmasq             ! x  ! 987  ! 987  ! Dnsmasq DHCP and DNS server                                ! /var/lib/dnsmasq          ! /usr/sbin/nologin 
+    fahclient           ! x  ! 977  ! 975  ! Folding@home Client                                        ! /var/lib/fahclient        ! /sbin/nologin     
+    flatpak             ! x  ! 980  ! 978  ! User for flatpak system helper                             ! /                         ! /sbin/nologin     
+    gdm                 ! x  ! 42   ! 42   !                                                            ! /var/lib/gdm              ! /sbin/nologin     
+    geoclue             ! x  ! 985  ! 985  ! User for geoclue                                           ! /var/lib/geoclue          ! /sbin/nologin     
+    gluster             ! x  ! 996  ! 992  ! GlusterFS daemons                                          ! /run/gluster              ! /sbin/nologin     
+    gnome-initial-setup ! x  ! 979  ! 977  !                                                            ! /run/gnome-initial-setup/ ! /sbin/nologin     
+    bash         
+    mysql               ! x  ! 27   ! 27   ! MySQL Server                                               ! /var/lib/mysql            ! /bin/false        
+    nagios              ! x  ! 972  ! 965  !                                                            ! /var/spool/nagios         ! /sbin/nologin     
+    nginx               ! x  ! 975  ! 973  ! Nginx web server                                           ! /var/lib/nginx            ! /sbin/nologin     
+    nm-openconnect      ! x  ! 995  ! 990  ! NetworkManager user for OpenConnect                        ! /                         ! /sbin/nologin     
+    nm-openvpn          ! x  ! 981  ! 979  ! Default user for running openvpn spawned by NetworkManager ! /                         ! /sbin/nologin     
+    ntp                 ! x  ! 38   ! 38   !                                                            ! /var/lib/ntp              ! /sbin/nologin     
+    openvpn             ! x  ! 982  ! 980  ! OpenVPN                                                    ! /etc/openvpn              ! /sbin/nologin     
+    pipewire            ! x  ! 997  ! 995  ! PipeWire System Daemon                                     ! /var/run/pipewire         ! /sbin/nologin     
+    pkg-build           ! x  ! 976  ! 974  ! lpf local package build user                               ! /var/lib/lpf              ! /sbin/nologin     
+    pulse               ! x  ! 171  ! 171  ! PulseAudio System Daemon                                   ! /var/run/pulse            ! /sbin/nologin     
+    qemu                ! x  ! 107  ! 107  ! qemu user                                                  ! /                         ! /sbin/nologin     
+    radvd               ! x  ! 75   ! 75   ! radvd user                                                 ! /                         ! /sbin/nologin     
+    rtkit               ! x  ! 172  ! 172  ! RealtimeKit                                                ! /proc                     ! /sbin/nologin     
+    saslauth            ! x  ! 993  ! 76   ! Saslauthd user                                             ! /run/saslauthd            ! /sbin/nologin     
+    setroubleshoot      ! x  ! 974  ! 969  !                                                            ! /var/lib/setroubleshoot   ! /sbin/nologin     
+    usbmuxd             ! x  ! 113  ! 113  ! usbmuxd user                                               ! /                         ! /sbin/nologin     
+    vboxadd             ! x  ! 978  ! 1    !                                                            ! /var/run/vboxadd          ! /sbin/nologin     
+
 
     # crontabs
     01 * * * * root run-parts /etc/cron.hourly
-    */10 * * * * root /usr/lib64/sa/sa1 1 1
-    53 23 * * * root /usr/lib64/sa/sa2 -A
-    1       5       cron.daily              nice run-parts /etc/cron.daily
-    7       25      cron.weekly             nice run-parts /etc/cron.weekly
-    @monthly 45     cron.monthly            nice run-parts /etc/cron.monthly
+    1   5   cron.daily      nice run-parts /etc/cron.daily
+    7   25  cron.weekly     nice run-parts /etc/cron.weekly
+    @monthly 45 cron.monthly        nice run-parts /etc/cron.monthly
 
 
 States
