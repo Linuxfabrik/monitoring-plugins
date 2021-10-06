@@ -1,0 +1,348 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.test2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021100601'
+
+DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
+                consumption, memory fragmentation, hit rates and more."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '6379'
+DEFAULT_WARN = 90
+DEFAULT_CRIT = None
+DEFAULT_MAXMEMORY0_OK = False
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Server hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--maxmemory0-ok',
+        help='Don\'t warn on maxmemory=0. Default: %(default)s',
+        dest='MAXMEMORY0_OK',
+        default=DEFAULT_MAXMEMORY0_OK,
+        action='store_true',
+    )
+
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Password to use when connecting to the server.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--port',
+        help='Server port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--socket',
+        help='Server socket (overrides hostname and port).',
+        dest='SOCKET',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        if not args.SOCKET:
+            cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
+        else:
+            cmd = 'redis-cli -s {} '.format(args.SOCKET)
+        if args.PASSWORD:
+            cmd += '-a {} '.format(args.PASSWORD)
+        cmd += 'info default'
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base2.oao(u'{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test2.test(args.TEST)
+
+    # connection problems, for example "RR max number of clients reached"
+    if not stdout.startswith('# Server'):
+        lib.base2.oao(stdout, STATE_WARN)
+
+    # parse the output
+    lines = stdout.splitlines()
+    result = {}
+    for line in lines:
+        try:
+            key, value = line.split(':')
+            result[key] = value.strip()
+            try:
+                result[key] = float(result[key])
+            except:
+                continue
+        except:
+            continue
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze result, get the state and build the message
+    msg += 'Redis v{}, {} mode '.format(
+        result['redis_version'],
+        result['redis_mode'],
+   )
+    if not args.SOCKET:
+        msg += 'on {}:{}, '.format(
+            args.HOSTNAME,
+            int(result['tcp_port']),
+        )
+    else:
+        msg += 'connected via socket, '
+    msg += '{}, up {}, '.format(
+        result['config_file'],
+        lib.base2.seconds2human(result['uptime_in_seconds']),
+    )
+
+    if result['maxmemory'] != 0:
+        # fixed memory size
+        mem_usage = round(float(result['used_memory']) / float(result['maxmemory']) * 100, 1)
+    else:
+        # maxmemory = 0
+        mem_usage = round(float(result['used_memory']) / float(result['total_system_memory']) * 100, 1)
+        if not args.MAXMEMORY0_OK:
+            msg += 'unlimited memory usage enabled{}, '.format(lib.base2.state2str(STATE_WARN, prefix=' '))
+            state = lib.base2.get_worst(state, STATE_WARN)
+    mem_usage_state = lib.base2.get_state(mem_usage, args.WARN, args.CRIT)
+    state = lib.base2.get_worst(state, mem_usage_state)
+    
+    msg += '{}% memory usage{} ({}/{}), maxmemory-policy={}, '.format(
+        mem_usage,
+        lib.base2.state2str(mem_usage_state, prefix=' '),
+        lib.base2.bytes2human(result['used_memory']),
+        lib.base2.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.base2.bytes2human(result['total_system_memory']),
+        result['maxmemory_policy'],
+    )
+
+    # search for {'db0': 'keys=20489,expires=20489,avg_ttl=47954'}
+    db_count = 0
+    key_count = 0
+    db_names = ''
+    for key, value in result.items():
+        try:
+            if value.startswith('keys='):
+                # we found a database section
+                keys, expires, avg_ttl = value.split(',')
+                keys = int(keys.replace('keys=', ''))
+                db_count += 1
+                db_names += key + ' '
+                key_count += keys
+                perfdata += lib.base2.get_perfdata('keyspace_{}_keys'.format(key), keys, None, None, None, 0, None)
+                perfdata += lib.base2.get_perfdata('keyspace_{}_expires'.format(key), expires.replace('expires=', ''), None, None, None, 0, None)
+                perfdata += lib.base2.get_perfdata('keyspace_{}_avg_ttl'.format(key), float(avg_ttl.replace('avg_ttl=', ''))/1000, 's', None, None, 0, None)
+        except:
+            continue
+
+    if db_count:
+        msg += '{} {} ({}) with {} keys, '.format(
+            db_count,
+            lib.base2.pluralize('DB', db_count),
+            db_names.strip(),
+            key_count
+        )
+        perfdata += lib.base2.get_perfdata('db_count', db_count, None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('key_count', keys, None, None, None, 0, None)
+
+    if result['keyspace_hits'] + result['keyspace_misses'] != 0:
+        keyspace_hit_rate = round(result['keyspace_hits'] / (result['keyspace_hits'] + result['keyspace_misses']) * 100, 1)
+    else:
+        keyspace_hit_rate = 0
+    keyspace_hit_state = lib.base2.get_state(keyspace_hit_rate, args.WARN, None, operator='lt')
+    msg += '{} evicted {}, {} expired {}, hit rate {}%{} ({} hits, {} misses), '.format(
+        lib.base2.number2human(result['evicted_keys']),
+        lib.base2.pluralize('key', result['evicted_keys']),
+        lib.base2.number2human(result['expired_keys']),
+        lib.base2.pluralize('key', result['expired_keys']),
+        keyspace_hit_rate,
+        lib.base2.state2str(keyspace_hit_state, prefix=' '),
+        lib.base2.number2human(result['keyspace_hits']),
+        lib.base2.number2human(result['keyspace_misses']),
+    )
+    state = lib.base2.get_worst(state, keyspace_hit_state)
+
+    if result['mem_fragmentation_ratio'] < 1:
+        mem_frag_state = STATE_WARN
+        msg += 'Redis requires more memory than available and is forced to use swap{}, '.format(
+            lib.base2.state2str(mem_frag_state, prefix=' '),
+        )
+        state = lib.base2.get_worst(state, mem_frag_state)
+
+    if result['mem_fragmentation_ratio'] > 1.5:
+        mem_frag_state = STATE_WARN
+        msg += 'part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation{}, '.format(
+            lib.base2.state2str(mem_frag_state, prefix=' '),
+        )
+        state = lib.base2.get_worst(state, mem_frag_state)
+
+    if result['sync_partial_err'] > 0:
+        sync_state = STATE_WARN
+        msg += '{} denied partial resync requests{}, '.format(
+            result['sync_partial_err'],
+            lib.base2.state2str(sync_state, prefix=' '),
+        )
+        state = lib.base2.get_worst(state, sync_state)
+
+    # prepare perfdata
+    perfdata += lib.base2.get_perfdata('mem_usage', mem_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base2.get_perfdata('keyspace_hit_rate', keyspace_hit_rate, '%', None, None, 0, 100)
+
+    perfdata += lib.base2.get_perfdata('clients_blocked_clients', result['blocked_clients'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('clients_connected_clients', result['connected_clients'], None, None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('cpu_used_cpu_sys', result['used_cpu_sys'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('cpu_used_cpu_sys_children', result['used_cpu_sys_children'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('cpu_used_cpu_user', result['used_cpu_user'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('cpu_used_cpu_user_children', result['used_cpu_user_children'], None, None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('memory_maxmemory', result['maxmemory'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('memory_mem_fragmentation_ratio', result['mem_fragmentation_ratio'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('memory_total_system_memory', result['total_system_memory'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('memory_used_memory', result['used_memory'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('memory_used_memory_lua', result['used_memory_lua'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('memory_used_memory_rss', result['used_memory_rss'], 'B', None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('persistance_aof_current_rewrite_time_sec', result['aof_current_rewrite_time_sec'], 's', None, None, -1, None)
+    perfdata += lib.base2.get_perfdata('persistance_aof_rewrite_in_progress', result['aof_rewrite_in_progress'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('persistance_aof_rewrite_scheduled', result['aof_rewrite_scheduled'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('persistance_loading', result['loading'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('persistance_rdb_bgsave_in_progress', result['rdb_bgsave_in_progress'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('persistance_rdb_changes_since_last_save', result['rdb_changes_since_last_save'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('persistance_rdb_current_bgsave_time_sec', result['rdb_current_bgsave_time_sec'], 's', None, None, -1, None)
+
+    perfdata += lib.base2.get_perfdata('replication_connected_slaves', result['connected_slaves'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('replication_repl_backlog_histlen', result['repl_backlog_histlen'], 'B', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('replication_repl_backlog_size', result['repl_backlog_size'], 'B', None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('server_uptime_in_seconds', result['uptime_in_seconds'], 's', None, None, 0, None)
+
+    perfdata += lib.base2.get_perfdata('stats_evicted_keys', result['evicted_keys'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_expired_keys', result['expired_keys'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_instantaneous_input', int(float(result['instantaneous_input_kbps'])/8000), 'B', None, None, 0, None)      # Bytes/sec
+    perfdata += lib.base2.get_perfdata('stats_instantaneous_ops_per_sec', result['instantaneous_ops_per_sec'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_instantaneous_output', int(float(result['instantaneous_output_kbps'])/8000), 'B', None, None, 0, None)    # Bytes/sec
+    perfdata += lib.base2.get_perfdata('stats_keyspace_hits', result['keyspace_hits'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_keyspace_misses', result['keyspace_misses'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_latest_fork_usec', result['latest_fork_usec'], 'us', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_migrate_cached_sockets', result['migrate_cached_sockets'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_pubsub_channels', result['pubsub_channels'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_pubsub_patterns', result['pubsub_patterns'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_rejected_connections', result['rejected_connections'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_sync_full', result['sync_full'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_sync_partial_err', result['sync_partial_err'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_sync_partial_ok', result['sync_partial_ok'], None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_total_commands_processed', result['total_commands_processed'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_total_connections_received', result['total_connections_received'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_total_net_input_bytes', result['total_net_input_bytes'], 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('stats_total_net_output_bytes', result['total_net_output_bytes'], 'c', None, None, 0, None)
+
+    # over and out
+    lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()
