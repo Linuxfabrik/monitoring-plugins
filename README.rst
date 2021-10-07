@@ -114,6 +114,22 @@ Examples:
     @       ,     not in (0..inf)    ,   in (0..inf)       
 
 
+Command, Parameters and Arguments
+---------------------------------
+
+Shell commands like ``./file-age2 --filename='/tmp/*'`` have two basic parts:
+
+* Command name of the program to run (``./file-age2``). May be followed by one or more options, which adjust the behavior of the command or what it will do.
+* Options/Parameters normally start with one or two dashes to distinguish them from arguments (parameter ``--filename``, value ``'/tmp/*'``). They adjust the behavior of the command. Parameters may be short (``-w``) or long (``--warning``). We prefer and often offer only the long version.
+
+Many shell commands may also be followed by one or more arguments, which often indicate a target that the command should operate upon (``useradd linus`` for example) . This does not apply to check-plugins.
+
+To avoid problems when passing parameter values that start with a ``-``, the command line call must look like this:
+
+* Long parameters: ``./file-age --warning=-60:3600``. Use ``--param=value`` instead of ``--param value``.
+* Short parameters: ``./file-age -w-60:3600``. So simply not putting any space, nor escaping it in any special way.
+
+
 A few words about Python
 ------------------------
 

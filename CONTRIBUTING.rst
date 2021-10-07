@@ -548,16 +548,23 @@ The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director
 Fine-tune a Basket File
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-**Never directly edit a basket.** If adjustments must be made to the basket, create a YML config file for ``check2basket``.
+**Never directly edit a basket.** If adjustments must be made to the basket, create a YML/YAML config file for ``check2basket``.
 
-For example, to set the timeout to 30s and to enable notifications, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
+For example, to set the timeout to 30s, to enable notifications and some other options, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
 
 .. code-block:: yml
 
     ---
     overwrites:
+      '["Command"]["cmd-check-new-check"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/new-check'
       '["Command"]["cmd-check-new-check"]["timeout"]': 30
-      '["ServiceTemplate"]["tpl-service-new-check"]["enable_notification"]': true
+      '["ServiceTemplate"]["tpl-service-new-check"]["check_command"]': 'cmd-check-new-check-sudo'
+      '["ServiceTemplate"]["tpl-service-new-check"]["check_interval"]': 3600
+      '["ServiceTemplate"]["tpl-service-new-check"]["enable_notifications"]': true
+      '["ServiceTemplate"]["tpl-service-new-check"]["enable_perfdata"]': true
+      '["ServiceTemplate"]["tpl-service-new-check"]["max_check_attempts"]': 5
+      '["ServiceTemplate"]["tpl-service-new-check"]["retry_interval"]': 30
+      '["ServiceTemplate"]["tpl-service-new-check"]["use_agent"]': false
 
 Then, re-run ``check2basket`` to apply the overwrites:
 
@@ -598,6 +605,13 @@ To run ``check2basket`` against all checks, for example due to a change in the s
 .. code-block:: bash
 
     ./tools/check2basket --auto
+
+
+Service Sets
+~~~~~~~~~~~~
+
+If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique GUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
+
 
 
 Virtual Environments
