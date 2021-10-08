@@ -26,7 +26,7 @@ Free workers are:
 
 * ``.``: Open slot with no current process
 
-Apache httpd config example:
+Apache httpd config example - for httpd.conf:
 
 .. code-block:: text
 
@@ -39,6 +39,24 @@ Apache httpd config example:
             Require local
         </Location>
     </IfModule>
+
+Apache httpd config example - virtual host:
+
+.. code-block:: text
+
+    <IfModule status_module>
+        ExtendedStatus On
+    </IfModule>
+    <VirtualHost *:80>
+        ServerName localhost
+        <IfModule status_module>
+            Alias /server-status /dev/null
+            <Location /server-status>
+                SetHandler server-status
+                Require local
+            </Location>
+        </IfModule>
+    </VirtualHost>
 
 
 Fact Sheet
