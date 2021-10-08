@@ -8,29 +8,33 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN
-import lib.base2
-import lib.db_mysql2
+import lib.base2 # pylint: disable=C0413
+import lib.db_mysql2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021100801'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
@@ -46,13 +50,15 @@ CMD_OPENSSL_CRL = 'openssl crl -noout -nextupdate -in /dev/stdin'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '-c', '--critical',
@@ -60,7 +66,7 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
+    )
 
     parser.add_argument(
         '--database',
@@ -68,7 +74,7 @@ def parse_args():
         dest='DATABASE',
         type=str,
         default=DEFAULT_DATABASE,
-        )
+    )
 
     parser.add_argument(
         '-H', '--hostname',
@@ -77,7 +83,7 @@ def parse_args():
         dest='HOSTNAME',
         type=str,
         default=DEFAULT_HOSTNAME,
-        )
+    )
 
     parser.add_argument(
         '-p', '--password',
@@ -85,14 +91,14 @@ def parse_args():
         dest='PASSWORD',
         type=str,
         default=DEFAULT_PASSWORD,
-        )
+    )
 
     parser.add_argument(
         '--prefix',
         help='Set the table prefix of the XCA database.',
         dest='PREFIX',
         type=str,
-        )
+    )
 
     parser.add_argument(
         '-u', '--username',
@@ -100,7 +106,7 @@ def parse_args():
         dest='USERNAME',
         type=str,
         default=DEFAULT_USERNAME,
-        )
+    )
 
     parser.add_argument(
         '-w', '--warning',
@@ -108,18 +114,22 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     mysql_connection = {
         'user':               args.USERNAME,
         'password':           args.PASSWORD,
@@ -130,7 +140,6 @@ def main():
     conn = lib.base2.coe(lib.db_mysql2.connect(mysql_connection))
     state = STATE_OK
 
-    # ---
     # cert checking
     result = lib.base2.coe(
         lib.db_mysql2.select(
@@ -171,7 +180,6 @@ def main():
                     state = lib.base2.get_worst(state, crt_state)
                 break
 
-    # ---
     # crl checking
     result = lib.base2.coe(
         lib.db_mysql2.select(
@@ -243,11 +251,12 @@ def main():
             header=['commonName', 'State', 'Expiry date'],
             )
 
+    # over and out
     lib.base2.oao(msg, state)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()

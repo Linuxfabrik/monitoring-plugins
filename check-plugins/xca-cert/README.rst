@@ -21,7 +21,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/xca-cert"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -69,21 +69,22 @@ Output:
 
 .. code-block:: text
 
-    5 Certificates and 1 CRL checked.
+    39 Certificates and 1 CRL checked.
 
     Certificates:
-    commonName     CA Serial State Expiry date         
-    ----------     -- ------ ----- -----------         
-    CommonName 1   y  1234   [OK]  2028-10-31 13:11:00 
-    CommonName 2   n  2345   [OK]  2021-10-31 13:14:00 
-    CommonName 3   y  3456   [OK]  2028-10-31 13:11:00 
-    CommonName 4   n  4567   [OK]  2021-10-09 13:46:00 
-    CommonName 5   n  5678   [OK]  2021-10-09 13:48:00 
+    commonName                 ! CA ! Serial  ! State ! Expiry date         
+    ---------------------------+----+---------+-------+---------------------
+    LF Root CA SHA 384         ! y  ! 4F389A7 ! [OK]  ! 2022-03-12 23:59:59 
+    Linuxfabrik App CA SHA 384 ! y  ! 48B7851 ! [OK]  ! 2022-03-12 23:59:59 
+    server1                    ! n  ! 6485ECE ! [OK]  ! 2021-12-01 14:49:00 
+    user1@linuxfabrik.ch       ! n  ! 19EE889 ! [OK]  ! 2021-12-24 14:56:00 
+    user2@linuxfabrik.ch       ! n  ! 3C74DEF ! [OK]  ! 2021-12-26 14:58:00 
+    ...
 
     CRLs:
-    commonName  State Expiry date         
-    ----------  ----- -----------         
-    MyCRL       [OK]  2024-02-15 15:10:00
+    commonName                 ! State ! Expiry date         
+    ---------------------------+-------+---------------------
+    Linuxfabrik App CA SHA 384 ! [OK]  ! 2023-07-13 07:52:00
 
 
 States
