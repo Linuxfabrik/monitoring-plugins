@@ -8,39 +8,42 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021042001'
+__version__ = '2021100801'
 
-DESCRIPTION = 'With this plugin you can track some values of the Aexnita application.'
+DESCRIPTION = 'With this plugin you can track some values of the Axenita application.'
 
 DEFAULT_URL = 'http://localhost:10000/achilles/ar'
 DEFAULT_TIMEOUT = 3
-
-
-#====================
-from lib.globals3 import *
-
-import lib.args3
-import lib.base3
-import lib.url3
-
-import argparse
-import json
-from traceback import print_exc
 
 
 def parse_args():
@@ -50,26 +53,22 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('--url',
-        help='Axenita API URL. Default: %(default)s',
-        dest='URL',
-        default=DEFAULT_URL,
-        )
-
-    parser.add_argument('--test',
+    parser.add_argument(
+        '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args3.csv,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -77,18 +76,29 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Axenita API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     achilles_readmodel = ''
     achilles_userinfo = ''
     achilles_buildinfo = ''
@@ -110,19 +120,7 @@ def main():
             ))
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r')
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r')
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test3.test(args.TEST)
 
         try:
             stdout = json.loads(stdout)
@@ -147,11 +145,11 @@ def main():
     if achilles_maintenance:
         if achilles_maintenance['state'].upper() != 'SUCCESS':
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg = '{}/api/login/maintenance-state-active, state: {}{}'.format(args.URL, achilles_maintenance['state'], lib.base3.state3str(state))
+            msg = '{}/api/login/maintenance-state-active, state: {}{}'.format(args.URL, achilles_maintenance['state'], lib.base3.state2str(state))
             lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_maintenance['data'] != False:
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg += 'Axenita/Achilles is in maintenance mode {}, '.format(lib.base3.state3str(state))
+            msg += 'Axenita/Achilles is in maintenance mode {}, '.format(lib.base3.state2str(state))
             perfdata += lib.base3.get_perfdata('maintenance', 1, None, None, None, 0, 1)
         else:
             perfdata += lib.base3.get_perfdata('maintenance', 0, None, None, None, 0, 1)
@@ -159,11 +157,11 @@ def main():
     if achilles_readmodel:
         if achilles_readmodel['state'].upper() != 'SUCCESS':
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/readmodel/state, state: {}{}'.format(args.URL, achilles_readmodel['state'], lib.base3.state3str(state))
+            msg = '{}/api/admin/readmodel/state, state: {}{}'.format(args.URL, achilles_readmodel['state'], lib.base3.state2str(state))
             lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         if achilles_readmodel['data']['readModelState'].upper() != 'DONE':
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/readmodel/state, data.readModelState: {}{}'.format(args.URL, achilles_readmodel['data']['readModelState'], lib.base3.state3str(state))
+            msg = '{}/api/admin/readmodel/state, data.readModelState: {}{}'.format(args.URL, achilles_readmodel['data']['readModelState'], lib.base3.state2str(state))
             lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         msg += 'ReadModel: {}, '.format(args.URL, achilles_readmodel['data']['message'])
         perfdata += lib.base3.get_perfdata('currentInitRmStep', achilles_readmodel['data']['currentInitRmStep'], None, None, None, 0, None)
@@ -173,7 +171,7 @@ def main():
     if achilles_userinfo:
         if achilles_userinfo['state'].upper() != 'SUCCESS':
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg = '{}/api/admin/user-info/number-of-current-sessions, state: {}{}'.format(args.URL, achilles_userinfo['state'], lib.base3.state3str(state))
+            msg = '{}/api/admin/user-info/number-of-current-sessions, state: {}{}'.format(args.URL, achilles_userinfo['state'], lib.base3.state2str(state))
             lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         msg += '{} users logged in, {} active sessions, '.format(achilles_userinfo['data']['loggedInUsers'], achilles_userinfo['data']['currentActiveSessions'])
         perfdata += lib.base3.get_perfdata('loggedInUsers', achilles_userinfo['data']['loggedInUsers'], None, None, None, 0, None)
@@ -182,7 +180,7 @@ def main():
     if achilles_buildinfo:
         if achilles_buildinfo['state'].upper() != 'SUCCESS':
             state = lib.base3.get_worst(STATE_WARN, state)
-            msg = '{}/api/build-info, state: {}{}'.format(args.URL, achilles_buildinfo['state'], lib.base3.state3str(state))
+            msg = '{}/api/build-info, state: {}{}'.format(args.URL, achilles_buildinfo['state'], lib.base3.state2str(state))
             lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
         axenita_ver = achilles_buildinfo['data']['version']
         msg += '{} (timestamp {}), '.format(axenita_ver, achilles_buildinfo['data']['timestamp'])
@@ -190,11 +188,11 @@ def main():
         perfdata += lib.base3.get_perfdata('axenita-version', axenita_ver, None, None, None, 0, None)
 
     # over and out
-    lib.base3.oao(msg[:-3], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

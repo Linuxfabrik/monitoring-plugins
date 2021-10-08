@@ -8,39 +8,42 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.test2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021100801'
 
-DESCRIPTION = 'With this plugin you can track some values of the Aexnita application.'
+DESCRIPTION = 'With this plugin you can track some values of the Axenita application.'
 
 DEFAULT_URL = 'http://localhost:10000/achilles/ar'
 DEFAULT_TIMEOUT = 3
-
-
-#====================
-from lib.globals2 import *
-
-import lib.args2
-import lib.base2
-import lib.test2 # pylint: disable=C0413
-import lib.url2
-
-import argparse
-import json
 
 
 def parse_args():
@@ -50,26 +53,22 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('--url',
-        help='Axenita API URL. Default: %(default)s',
-        dest='URL',
-        default=DEFAULT_URL,
-        )
-
-    parser.add_argument('--test',
+    parser.add_argument(
+        '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args2.csv,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -77,18 +76,29 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Axenita API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     achilles_readmodel = ''
     achilles_userinfo = ''
     achilles_buildinfo = ''
@@ -180,8 +190,9 @@ def main():
     # over and out
     lib.base2.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
+
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
