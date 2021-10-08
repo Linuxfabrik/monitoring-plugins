@@ -25,20 +25,20 @@ Help
 
 .. code-block:: text
 
-    usage: dummy [-h] [--always-ok] [-V] [--message MESSAGE]
-                 [--state {ok,warn,crit,unk}] [--perfdata PERFDATA]
+    usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE]
+                 [--perfdata PERFDATA] [--state {ok,warn,crit,unk}]
 
     This check just returns the given message, state and perfdata.
 
     optional arguments:
       -h, --help            show this help message and exit
-      --always-ok           Always returns OK.
       -V, --version         show program's version number and exit
-      --message MESSAGE     The message to return.
-      --state {ok,warn,crit,unk}
-                            The state to return (ok, warn, crit, unk).
+      --always-ok           Always returns OK.
+      --message MESSAGE     The message to return. Default: Everything is ok.
       --perfdata PERFDATA   The perfdata to return, formatted according to the
-                            nagios guidelines.
+                            nagios guidelines. Default: None
+      --state {ok,warn,crit,unk}
+                            The state to return (ok, warn, crit, unk). Default: ok
 
 
 Usage Examples
@@ -46,13 +46,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./dummy --state crit --message 'Lorem ipsum'
-    
+    ./dummy2 --message='A warning message.' --state=warn --perfdata='85,"%",80,90,0,100'
+
 Output:
 
 .. code-block:: text
 
-    Lorem ipsum
+    A warning message.|85,%,80,90,0,100
 
 
 States
