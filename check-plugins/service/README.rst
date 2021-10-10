@@ -25,9 +25,9 @@ Help
 
 .. code-block:: text
 
-    usage: service [-h] [-V] --service SERVICE [--severity {warn,crit}]
-                   [--status {running,paused,start_pending,pause_pending,continue_pending,stop_pending,stopped}]
-                   [--starttype {automatic,manual,disabled}]
+    usage: service [-h] [-V] --service SERVICE [--severity {crit,warn}]
+                   [--starttype {automatic,disabled,manual}]
+                   [--status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}]
 
     Check the state of a Windows service.
 
@@ -35,14 +35,12 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --service SERVICE     Name of the service.
-      --severity {warn,crit}
-                            Severity if something is found. One of "warn" or
-                            "crit". Default: warn
-      --status {running,paused,start_pending,pause_pending,continue_pending,stop_pending,stopped}
-                            Expected service status (repeating). Default:
-                            ['running']
-      --starttype {automatic,manual,disabled}
+      --severity {crit,warn}
+                            Severity if something is found. Default: warn
+      --starttype {automatic,disabled,manual}
                             Expected service start type. Default: automatic
+      --status {continue_pending,pause_pending,paused,running,start_pending,stop_pending,stopped}
+                            At least one expect
 
 
 Usage Examples
