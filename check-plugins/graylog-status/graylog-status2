@@ -1,0 +1,148 @@
+#! /usr/bin/env python2
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import os
+
+activate_this = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if activate_this and os.path.isfile(activate_this):
+    exec(open(activate_this).read(), {'__file__': activate_this})
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021082501'
+
+DESCRIPTION = 'This check TODO'
+
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:9000'
+DEFAULT_USERNAME = 'graylog-monitoring'
+
+
+#====================
+from lib.globals2 import *
+
+import lib.base2
+import lib.url2
+
+import argparse
+import base64
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+        )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Graylog API password.',
+        dest='PASSWORD',
+        )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        )
+
+    parser.add_argument(
+        '--token',
+        help='Graylog API token (preferred over username and password).',
+        dest='TOKEN',
+        )
+
+    parser.add_argument(
+        '--url',
+        help='Graylog API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+        )
+
+    parser.add_argument(
+        '--username',
+        help='Graylog API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        )
+
+    return parser.parse_args()
+
+
+def fetch_data(url, token, username, password, timeout):
+    header = {}
+    header['Accept'] = 'application/json'
+    if token:
+        header['Authorization'] = 'Basic {}'.format(base64.b64encode(token + ':token'))
+    else:
+        header['Authorization'] = 'Basic {}'.format(base64.b64encode(username + ':' + password))
+    return lib.base2.coe(lib.url2.fetch_json(url, timeout=timeout, header=header))
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit as e:
+        exit(STATE_UNKNOWN)
+
+    if not args.TOKEN and not args.PASSWORD:
+        lib.base2.oao('Either token or username/password needed, token preferred.', STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # fetch data
+    result = fetch_data(args.URL + '/api/cluster', args.TOKEN, args.USERNAME, args.PASSWORD, args.TIMEOUT)
+
+    # check the application and create output
+    for key, value in result.items():
+        if value['lifecycle'] != 'running':
+            msg += 'Node {} is {}{}, '.format(value['hostname'], value['lifecycle'], lib.base2.state2str(STATE_WARN, prefix=' '))
+            state = STATE_WARN
+        if value['lb_status'] != 'alive':
+            msg += 'LB-status on Node {} is {}{}, '.format(value['hostname'], value['lb_status'], lib.base2.state2str(STATE_WARN, prefix=' '))
+            state = STATE_WARN
+        if not value['is_processing']:
+            msg += 'Node {} is not processing any data{}, '.format(value['hostname'], lib.base2.state2str(STATE_WARN, prefix=' '))
+            state = STATE_WARN
+
+    # over and out
+    if msg:
+        lib.base2.oao(msg[:-2], state, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base2.oao('Everything is ok.', state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        lib.base2.cu()

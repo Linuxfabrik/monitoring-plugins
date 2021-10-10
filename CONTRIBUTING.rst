@@ -623,13 +623,15 @@ To allow the check plugins to activate a virtual environment as described in the
 
     import os
 
-    activate_this = False
+    # considering a virtual environment
+    ACTIVATE_THIS = False
     venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
     if os.path.exists(venv_path):
-        activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+        ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
     if os.getenv('MONITORING_PLUGINS_VENV3'):
-        activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+        ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-    if activate_this and os.path.isfile(activate_this):
-        exec(open(activate_this).read(), {'__file__': activate_this})
+    if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+        exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
