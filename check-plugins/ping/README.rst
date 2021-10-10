@@ -10,6 +10,8 @@ Sends ICMP ECHO_REQUEST to network hosts using the built-in ``ping`` command. Wi
 
 This command works with both IPv4 and IPv6.
 
+The ``--always-ok`` parameter is useful for hosts that do not allow ping, but which can still execute check-plugins. The packet loss will be reported, but the state will be OK.
+
 
 Fact Sheet
 ----------
