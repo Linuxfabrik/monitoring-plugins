@@ -8,38 +8,44 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.args3
-import lib.base3
-from lib.globals3 import STATE_OK, STATE_UNKNOWN
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2021083101'
 
-DESCRIPTION = 'Checks the number of pending updates.'
+DESCRIPTION = 'Checks the number of pending Windows updates.'
 
-DEFAULT_WARN = 1
+DEFAULT_WARN = 2
 DEFAULT_CRIT = 50
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -76,12 +82,16 @@ def parse_args():
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     cmd = '''
     powershell -Command "
     $WindowsUpdates = New-Object -ComObject 'Microsoft.Update.Session';
@@ -92,10 +102,12 @@ def main():
         Write-Output $name;
     }
     "'''
+
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
     if stderr:
-        # Could not find any documentation in the return codes of 'query user'. Therefore we assume any is ok.
+        # Could not find any documentation in the return codes of 'query user'.
+        # Therefore we assume any is ok.
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     result = stdout.strip()
 
@@ -104,12 +116,18 @@ def main():
 
     if count:
         state = lib.base3.get_state(count, args.WARN, args.CRIT)
-        lib.base3.oao(f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '), state, perfdata, always_ok=args.ALWAYS_OK)
+        lib.base3.oao(
+            f'There are {count} pending updates:\n\n* ' + result.replace('\n', '\n* '),
+            state,
+            perfdata,
+            always_ok=args.ALWAYS_OK
+        )
+
     lib.base3.oao('There are no pending updates.', STATE_OK, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base3.cu()
