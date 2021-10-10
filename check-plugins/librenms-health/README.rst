@@ -79,7 +79,12 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    device_count,                               Number,             Number of devices found
 
 
 Credits, License
