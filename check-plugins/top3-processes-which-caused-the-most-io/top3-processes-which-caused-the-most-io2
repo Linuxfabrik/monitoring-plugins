@@ -39,33 +39,40 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101001'
 
 DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
-                        action='version',
-                        version='%(prog)s: v{} by {}'.format(
-                            __version__, __author__)
-                        )
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # init some vars
     msg = ''
     cnt = {}
 
+    # fetch data
     try:
         for p in [x.as_dict(attrs=['name', 'io_counters']) for x in psutil.process_iter()]:
             if p['io_counters']:
@@ -84,11 +91,12 @@ def main():
         msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.base2.bytes2human(
             value['r']), lib.base2.bytes2human(value['w']))
 
+    # over and out
     lib.base2.oao(msg[:-2], STATE_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
