@@ -8,24 +8,36 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.librenms2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101001'
 
-DESCRIPTION = 'This check fetches information from a LibreNMS instance, using its API.'
+DESCRIPTION = 'This check fetches unacknowledged alerts from a LibreNMS instance, using its API.'
 
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
@@ -34,24 +46,16 @@ DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost'
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-import lib.librenms2
-
-import argparse
-from pprint import pprint
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -59,7 +63,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -76,7 +80,7 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -92,36 +96,38 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
         '--token',
         help='LibreNMS API token',
         dest='TOKEN',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--url',
         help='LibreNMS API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # init some vars
     state = STATE_OK
     perfdata = ''
-
     devices = {}
     alerts = {}
 
@@ -141,10 +147,10 @@ def main():
         hardware = lib.librenms2.get_prop(device, 'hardware')
         hostname = lib.librenms2.get_prop(device, 'hostname')
         location = lib.librenms2.get_prop(device, 'location')
-        os = lib.librenms2.get_prop(device, 'os')
-        sys = lib.librenms2.get_prop(device, 'sysName')
-        if not sys:
-            sys = lib.librenms2.get_prop(device, 'sysDescr')
+        sysos = lib.librenms2.get_prop(device, 'os')
+        sysname = lib.librenms2.get_prop(device, 'sysName')
+        if not sysname:
+            sysname = lib.librenms2.get_prop(device, 'sysDescr')
         uptime = lib.librenms2.get_prop(device, 'uptime', 'int')
         uptime = lib.base2.seconds2human(uptime) if uptime is not None else ''
 
@@ -154,15 +160,14 @@ def main():
         devices[device_id]['hardware'] = hardware
         devices[device_id]['hostname'] = hostname
         devices[device_id]['location'] = location
-        devices[device_id]['os'] = os
-        devices[device_id]['sys'] = sys
+        devices[device_id]['os'] = sysos
+        devices[device_id]['sys'] = sysname
         devices[device_id]['timestamp'] = ''
         devices[device_id]['uptime'] = uptime
 
         devices[device_id]['state'] = STATE_OK
         devices[device_id]['alert_count'] = 0
         devices[device_id]['alert_rule'] = ''
-
 
     # return a list of alert rules
     alert_rules = lib.librenms2.get_data(args, '/api/v0/rules')
@@ -172,7 +177,6 @@ def main():
         alert_id = alert_rule['id']
         alert_name = alert_rule['name']
         alerts[alert_id] = alert_name
-
 
     # return a list of current alerts, but no "ok" or "acked"
     alert_list = lib.librenms2.get_data(args, '/api/v0/alerts?state=1')
@@ -190,7 +194,6 @@ def main():
             # report the newest/latest worst message only
             devices[device_id]['alert_rule'] = alerts[alert['rule_id']]
             devices[device_id]['timestamp'] = alert['timestamp']
-
 
     # create output
     table_values = []
@@ -216,7 +219,6 @@ def main():
     else:
         msg = 'Everything is ok.\n\n'
 
-
     if len(table_values) > 0:
         if not args.LENGTHY:
             msg += lib.base2.get_table(
@@ -231,6 +233,9 @@ def main():
                 header=['Hostname', 'SysName', 'Alerts', 'Worst State', 'Hardware', 'Type', 'OS', 'Location', 'Uptime', 'Alert Timestamp', 'Latest & Worst Msg'],
                 )
 
+    perfdata += lib.base2.get_perfdata('device_count', device_count, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('alert_count', alert_count, None, None, None, 0, None)
+
     # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
@@ -238,5 +243,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()

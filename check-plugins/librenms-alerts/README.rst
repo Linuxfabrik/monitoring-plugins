@@ -18,7 +18,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-alerts"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "LibreNMS API Token"
 
 
@@ -51,7 +51,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./librenms-alerts --url http://librenms --token 03xyza61e74a9876f3dc7ab11234229d
+    ./librenms-alerts --url http://librenms --token 03xyza61e711234229d
 
 Output:
 
@@ -80,7 +80,13 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    device_count,                               Number,             Number of devices found
+    alert_count,                                Number,             Number of alerts
 
 
 Credits, License
