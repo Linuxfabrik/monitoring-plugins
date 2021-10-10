@@ -1,0 +1,39 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './onlyoffice-stats3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        self.assertIn('Max 20 connections, no license, last hour: 7/17/19 views [CRITICAL] and 3/13/18 edits [WARNING]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
+        self.assertIn('Max 100 connections, licensed (expired) [WARNING], ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()
