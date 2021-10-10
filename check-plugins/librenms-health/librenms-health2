@@ -8,40 +8,42 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.librenms2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090801'
+__version__ = '2021101001'
 
-DESCRIPTION = 'This check fetches information from a LibreNMS instance, using its API.'
+DESCRIPTION = 'This check fetches sensor information from a LibreNMS instance, using its API.'
 
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = True
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost'
-
-
-#====================
-from lib.globals2 import *
-
-import lib.base2
-import lib.librenms2
-
-import argparse
-from pprint import pprint
 
 
 def parse_args():
@@ -51,7 +53,7 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -68,7 +70,7 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -84,21 +86,21 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
         '--token',
         help='LibreNMS API token',
         dest='TOKEN',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--url',
         help='LibreNMS API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     return parser.parse_args()
 
@@ -130,11 +132,14 @@ def get_sensor_data(args, devices, hgraph='health'):
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # init some vars
     state = STATE_OK
@@ -158,10 +163,10 @@ def main():
         hardware = lib.librenms2.get_prop(device, 'hardware')
         hostname = lib.librenms2.get_prop(device, 'hostname')
         location = lib.librenms2.get_prop(device, 'location')
-        os = lib.librenms2.get_prop(device, 'os')
-        sys = lib.librenms2.get_prop(device, 'sysName')
-        if not sys:
-            sys = lib.librenms2.get_prop(device, 'sysDescr')
+        sysos = lib.librenms2.get_prop(device, 'os')
+        sysname = lib.librenms2.get_prop(device, 'sysName')
+        if not sysname:
+            sysname = lib.librenms2.get_prop(device, 'sysDescr')
 
         devices[device_id] = {}
         devices[device_id]['device_id'] = device_id
@@ -169,16 +174,14 @@ def main():
         devices[device_id]['hardware'] = hardware
         devices[device_id]['hostname'] = hostname
         devices[device_id]['location'] = location
-        devices[device_id]['os'] = os
-        devices[device_id]['sys'] = sys
+        devices[device_id]['os'] = sysos
+        devices[device_id]['sys'] = sysname
 
         devices[device_id]['sensors'] = []
-
 
     # enrich devices by sensor data
     devices = get_sensor_data(args, devices, 'health')
     devices = get_sensor_data(args, devices, 'wireless')
-
 
     # create output
     table_values = []
@@ -195,8 +198,7 @@ def main():
                 'sensor_limit': '{}/{}'.format(sensor['sensor_limit_low'], sensor['sensor_limit']),
                 'sensor_value': '{} ({})'.format(sensor['sensor_current'], sensor['sensor_prev']),
                 'sys': device['sys'],
-                })
-
+            })
 
     if len(table_values) > 0:
         msg = 'Everything is ok.\n\n'
@@ -205,15 +207,15 @@ def main():
                 table_values,
                 ['hostname', 'sys', 'sensor_descr', 'sensor_value', 'sensor_limit'],
                 header=['Hostname', 'SysName', 'Sensor', 'Val (prev)', 'Limit low/high'],
-                )
+            )
         else:
             msg += lib.base2.get_table(
                 table_values,
                 ['hostname', 'sys', 'hardware', 'devtype', 'os', 'location', 'sensor_descr', 'sensor_value', 'sensor_limit', 'sensor_lastupdate'],
                 header=['Hostname', 'SysName', 'Hardware', 'Type', 'OS', 'Location', 'Sensor', 'Val (prev)', 'Limit low/high', 'Last Update'],
-                )
+            )
     else:
-        msg = 'Everything is ok (no health data).'
+        msg = 'Everything is ok (although no health data returned).'
 
     # over and out
     lib.base2.oao(msg, state, perfdata)
@@ -222,5 +224,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
