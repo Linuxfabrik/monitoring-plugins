@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/needs-restarting"
     "Check Interval Recommendation",        "Once a day (or after a ``yum update`` only)"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -25,12 +25,12 @@ Help
 
 .. code-block:: text
 
-    usage: needs-restarting2 [-h] [-V]
+    usage: needs-restarting [-h] [-V]
 
     Checks for processes that started running before they or some component that
     they use were updated. Returns WARN if a full reboot is required or if
     services might need a restart, and in any other case OK. Should be called once
-    a day or after a `yum update` only.
+    a day or after applying updates only.
 
     optional arguments:
       -h, --help     show this help message and exit
