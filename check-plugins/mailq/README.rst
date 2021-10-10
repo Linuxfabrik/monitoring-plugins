@@ -6,9 +6,9 @@ Overview
 
 Checks the mail queue. Tested with Postfix and Exim.
 
-Regarding Exim:
+Hints:
 
-    *By default, ``exim -bq`` (``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue.* Alternatively, add the icinga user to the exim group.
+* Exim: *By default, ``exim -bq`` (``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue.* Alternatively, add the icinga user to the exim group.
 
 
 Fact Sheet
@@ -20,7 +20,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/mailq"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "command-line tool ``mailq``"
 
 
