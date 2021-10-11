@@ -28,9 +28,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
-import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.feedparser3 # pylint: disable=C0413
@@ -39,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050602'
+__version__ = '2021082501'
 
 DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
     if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
@@ -269,13 +267,13 @@ def main():
     if args.NO_SUMMARY:
         msg = '{} ({} ago)'.format(
             feed_item.get('title', 'No title').encode('utf-8').strip(),
-            lib.base3.seconds3human(delta)
+            lib.base3.seconds2human(delta)
         )
     else:
         msg = '{}. {} ({} ago)'.format(
             feed_item.get('title', 'No title').encode('utf-8').strip(),
             feed_item.get('summary', 'No summary').encode('utf-8').strip(),
-            lib.base3.seconds3human(delta)
+            lib.base3.seconds2human(delta)
         )
 
     lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
@@ -285,5 +283,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()
