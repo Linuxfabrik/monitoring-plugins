@@ -8,36 +8,41 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.cache3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090801'
+__version__ = '2021101101'
 
-DESCRIPTION = 'This check is a SNMP application that uses the SNMP GET request to query for information on a network entity. The object identifiers (OIDs) of interest have to be defined in a CSV file, including optional WARN and CRIT parameters.'
-
-
-#====================
-from lib.globals3 import *
-
-import lib.args3
-import lib.base3
-import lib.cache3
-import lib.disk3
-import lib.test3 # pylint: disable=C0413
-
-import argparse
+DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
+                 information on a network entity. The object identifiers (OIDs) of interest have
+                 to be defined in a CSV file, including optional WARN and CRIT parameters."""
 
 
 CSV_COL_OID = 0
@@ -54,6 +59,8 @@ MAX_OIDS_PER_REQUEST = 25
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('-V', '--version',
@@ -84,8 +91,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H',
-        '--hostname',
+        '-H','--hostname',
         help='SNMP Appliance address.',
         dest='HOSTNAME',
         required=True,
@@ -113,12 +119,31 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-t',
-        '--timeout',
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '-t','--timeout',
         help='Network timeout in seconds. Default: %(default)s (seconds).',
         dest='TIMEOUT',
         type=int,
         default=7,
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot',
+        help='SNMP Version 3 specific. Set authentication protocol.',
+        dest='V3_AUTH_PROT',
+        choices=['MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'],
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot-password',
+        help='SNMP Version 3 specific. Set authentication protocol pass phrase.',
+        dest='V3_AUTH_PROT_PASSWORD',
     )
 
     parser.add_argument(
@@ -140,35 +165,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--v3-security-engine-id',
-        help='SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).',
-        dest='V3_SECURITY_ENGINE_ID',
-    )
-
-    parser.add_argument(
         '--v3-level',
         help='SNMP Version 3 specific. Set security level.',
         dest='V3_LEVEL',
         choices=['noAuthNoPriv', 'authNoPriv', 'authPriv'],
-    )
-
-    parser.add_argument(
-        '--v3-auth-prot-password',
-        help='SNMP Version 3 specific. Set authentication protocol pass phrase.',
-        dest='V3_AUTH_PROT_PASSWORD',
-    )
-
-    parser.add_argument(
-        '--v3-priv-prot-password',
-        help='SNMP Version 3 specific. Set privacy protocol pass phrase.',
-        dest='V3_PRIV_PROT_PASSWORD',
-    )
-
-    parser.add_argument(
-        '--v3-auth-prot',
-        help='SNMP Version 3 specific. Set authentication protocol.',
-        dest='V3_AUTH_PROT',
-        choices=['MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'],
     )
 
     parser.add_argument(
@@ -179,27 +179,35 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--v3-username',
-        help='SNMP Version 3 specific. Set security name (e.g. bert).',
-        dest='V3_USERNAME',
+        '--v3-priv-prot-password',
+        help='SNMP Version 3 specific. Set privacy protocol pass phrase.',
+        dest='V3_PRIV_PROT_PASSWORD',
     )
 
     parser.add_argument(
-        '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
-        dest='TEST',
-        type=lib.args3.csv,
+        '--v3-security-engine-id',
+        help='SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).',
+        dest='V3_SECURITY_ENGINE_ID',
+    )
+
+    parser.add_argument(
+        '--v3-username',
+        help='SNMP Version 3 specific. Set security name (e.g. bert).',
+        dest='V3_USERNAME',
     )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
@@ -265,7 +273,6 @@ def main():
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
 
-
     def index_of_oid(snmp_objects, oid, start=0):
         """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
         idx = start
@@ -328,6 +335,7 @@ def main():
         report_change = snmp_object[CSV_COL_RCA]
 
         if recalc:
+            # we got a formula
             try:
                 value = eval(recalc, {}, {'value': value, 'values': values})
             except Exception as e:
@@ -424,7 +432,6 @@ def main():
                 # unknown perfdata suffixes, so do not use them
                 perfdata += lib.base3.get_perfdata(name, value, None, None, None, 0, None)
 
-
     # create output
     if msg_header:
         msg +=  msg_header[:-2] + '\n\n'
@@ -442,5 +449,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base3.cu()

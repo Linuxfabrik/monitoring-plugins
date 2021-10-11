@@ -13,6 +13,7 @@ This check utilizes ``snmpget`` to query for information on a network entity, so
     * If you can use an agent of your monitoring software for monitoring, for example Icinga, and one of our plugins, do it.
     * If you can't install an agent, but there is a good (REST-)API available (and maybe one of our plugins), use that.
     * If you can't install an agent on a device and there is no (good) API, then use SNMP.
+    * If possible, use a SNMP specialized solution like `LibreNMS <https://www.librenms.org/>`_ instead of this check.
     * Prefer SNMPv2. Although completely insecure, it is fast and keeps the load on your appliance low.
 
 
@@ -36,7 +37,7 @@ Help
 .. code-block:: text
 
     usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
-                -H HOSTNAME [--mib MIB] [--mibdir MIBDIR]
+                -H HOSTNAME [--mib MIB] [--mib-dir MIBDIR]
                 [--snmpversion {1,2c,3}] [-t TIMEOUT] [--v3bootstime V3BOOTSTIME]
                 [--v3context V3CONTEXT] [--v3contextengineid V3CONTEXTENGINEID]
                 [--v3securityengineid V3SECURITYENGINEID]
@@ -67,7 +68,7 @@ Help
       --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
                             MIB:BROTHER-MIB`. Behaves like the `-m` option of
                             `snmpget`.
-      --mibdir MIBDIR       Look in given list of directories for MIBs. Behaves
+      --mib-dir MIBDIR       Look in given list of directories for MIBs. Behaves
                             like the `-M` option of `snmpget`. Default:
                             $HOME/.snmp/mibs:/usr/share/snmp/mibs.
       --snmpversion {1,2c,3}
@@ -115,7 +116,24 @@ Install ``snmpget``:
     # on CentOS:
     yum -y install net-snmp-utils
 
-If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/share/snmp/mibs``. If you prefer other locations, provide the paths using the ``--mibdir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``). The checks comes with some predefined, device-dependend MIBs located at ``/usr/lib64/nagios/plugins/device-mibs/``.
+
+Plugin Directory Strcuture
+--------------------------
+
+.. code-block:: text
+
+    /usr/lib64/nagios/plugins/
+    ├── device-mibs
+    │   ├── printer-...
+    │   ├── ...
+    │   └── switch-...
+    └── device-oids
+
+
+Handling MIBs
+-------------
+
+If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/share/snmp/mibs``. If you prefer other locations, provide the paths using the ``--mib-dir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``). The checks comes with some predefined, device-dependend MIBs located at ``/usr/lib64/nagios/plugins/device-mibs/``.
 
 Create an OID list in ``/usr/lib64/nagios/plugins/device-oids/...`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
@@ -142,7 +160,7 @@ Other example using a more specific OID list and an additional MIB directory:
 
     /usr/lib64/nagios/plugins/snmp \
         --device switch-fs-s3900.csv \
-        --mibdir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
+        --mib-dir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
         --hide-ok \
         --hostname 10.80.32.109
 
@@ -255,7 +273,7 @@ Parameter Mapping
 ``-r RETRIES``     hard-coded to ``0``
 ``-t TIMEOUT``     ``-t TIMEOUT``, ``--timeout TIMEOUT``
 ``-m MIB[:...]``   ``--mib MIB``
-``-M DIR[:...]``   ``--mibdir MIBDIR``
+``-M DIR[:...]``   ``--mib-dir MIBDIR``
 =================  ========================================================
 
 
@@ -303,7 +321,7 @@ Depending on the OID definitions the check returns
 Perfdata / Metrics
 ------------------
 
-All numeric values are automatically returned.
+All numeric values are automatically returned as perfdata objects.
 
 
 Credits, License
