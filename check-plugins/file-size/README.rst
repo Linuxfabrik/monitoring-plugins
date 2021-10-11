@@ -27,35 +27,35 @@ Help
 
 .. code-block:: text
 
-    usage: file-size [-h] [--always-ok] [--filename FILENAME] [-u URL]
-                     [--timeout TIMEOUT] [--password PASSWORD]
-                     [--pattern PATTERN] [--username USERNAME] [-V] [-c CRIT]
-                     [-w WARN]
+    usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
+                     [--pattern PATTERN] [--password PASSWORD]
+                     [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
 
     Checks the size for a file or directory, in bytes.
 
     optional arguments:
       -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical size threshold in bytes. Default: >=
+                            1073741824 (1G)
       --filename FILENAME   File (or directory) name to check. Supports glob in
-                            accordance with https://docs.python.org/3/library/path
-                            lib.html#pathlib.Path.glob. Beware of using recursive
-                            globs. This is mutually exclusive with -u / --url.
-      -u URL, --url URL     Set the url of the file (or directory) to check,
-                            starting with "smb://". This is mutually exclusive
-                            with --filename.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      --password PASSWORD   SMB Password.
+                            accordance with
+                            https://docs.python.org/2.7/library/glob.html. Beware
+                            of using recursive globs. This is mutually exclusive
+                            with -u / --url.
       --pattern PATTERN     The search string to match against the names of SMB
                             directories or files. This pattern can use '*' as a
                             wildcard for multiple chars and '?' as a wildcard for
                             a single char. Does not support regex patterns.
                             Default: *.
+      --password PASSWORD   SMB Password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      -u URL, --url URL     Set the url of the file (or directory) to check,
+                            starting with "smb://". This is mutually exclusive
+                            with --filename.
       --username USERNAME   SMB Username.
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical size threshold in bytes. Default: >=
-                            1073741824 (1G)
       -w WARN, --warning WARN
                             Set the warning size threshold in bytes. Default: >=
                             26214400 (100M)
@@ -66,8 +66,8 @@ Usage Examples
 
 .. code-block:: bash
 
-    # file is more than 5 bytes old -> warning
-    # file is more than 10 bytes old -> critical
+    # file is more than 5 bytes big -> warning
+    # file is more than 10 bytes big -> critical
     ./file-size --filename '/path/to/file' --warning 5 --critical 10
 
     # same thresholds, but checking multiple files
@@ -80,22 +80,15 @@ Output:
 
 .. code-block:: text
 
-    All 1 file are within the given size range (thresholds 5.0MiB/1.0GiB).
+    1 file is below the given size thresholds (3.8MiB/1.0GiB).
 
-    * /var/log/secure: 443.0KiB
+    * /var/log/firewalld: 28.1KiB
 
 
 States
 ------
 
 TODO
-
-# file is more than 5 bytes old -> warning
-# file is more than 10 bytes old -> critical
-
-# same thresholds, but checking multiple files
-
-# same thresholds, but recursive (might use a lot of memory)
 
 
 Perfdata / Metrics
