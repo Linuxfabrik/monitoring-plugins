@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/sensors-battery"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``"
 
 
@@ -53,7 +53,7 @@ Output:
 
 .. code-block:: text
 
-    100.0% (plugged in and fully charged)
+    94.13%, 4h 40m left (not plugged in and discharging)
 
 
 States
@@ -66,6 +66,7 @@ Perfdata / Metrics
 ------------------
 
 * battery power as a percentage (%)
+* time left (seconds)
 
 
 Credits, License
