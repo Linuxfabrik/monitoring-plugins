@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/sensors-fans"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``"
 
 
@@ -52,7 +52,7 @@ Output:
 
 .. code-block:: text
 
-    dell_smm: dell_smm = 4714 RPM, dell_smm = 4428 RPM;
+    dell_smm: dell_smm = 4714 RPM, dell_smm = 4428 RPM
 
 
 States
