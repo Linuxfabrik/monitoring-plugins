@@ -8,76 +8,89 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.rocket2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101201'
 
-DESCRIPTION = 'This plugin lets you track statistics about a Rocket.Chat server. Requires a user with strong password and (just) "view-statistics" permission.'
+DESCRIPTION = """This plugin lets you track statistics about a Rocket.Chat server. Requires a user
+                 with strong password and (just) "view-statistics" permission."""
 
 DEFAULT_URL      = 'http://localhost:3000/api/v1'
 DEFAULT_USERNAME = 'rocket-stats'
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-import lib.rocket2
-
-import argparse
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
-    parser.add_argument('-p', '--password',
+    parser.add_argument(
+        '-p', '--password',
         help='Rocket.Chat API password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
-    parser.add_argument('--url',
+    parser.add_argument(
+        '--url',
         help='Rocket.Chat API URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
-    parser.add_argument('--username',
+    parser.add_argument(
+        '--username',
         help='Rocket.Chat API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
-    # fetch the data
+    # fetch data
     credentials = lib.base2.coe(lib.rocket2.get_token(args.URL, args.USERNAME, args.PASSWORD))
     authToken, userId = credentials.split(':')
     result = lib.base2.coe(lib.rocket2.get_stats(args.URL, authToken, userId))
@@ -155,11 +168,12 @@ def main():
     perfdata += lib.base2.get_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
     perfdata += lib.base2.get_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
 
+    # over and out
     lib.base2.oao(msg_header + '\n' + msg_body, state, perfdata)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
