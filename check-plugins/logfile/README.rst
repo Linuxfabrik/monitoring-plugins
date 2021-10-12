@@ -4,7 +4,7 @@ Check logfile
 Overview
 --------
 
-Scans a logfile for set of pattern or regex and alarms on the number of findings.
+Scans a logfile for set of pattern or regex and alerts on the number of findings.
 
 Use ``--warning-pattern`` or ``--warning-regex`` to limit which lines will be considered a warning.
 Then use ``-warning`` to set the number of matches that will actually trigger a warning.
@@ -27,7 +27,7 @@ With this check, you can acknowledge the warning in IcingaWeb, so that the check
       }]
     }
 
-If no ``--icinga-callback`` is used, the check alarms for ``--alarm-duration``.
+If no ``--icinga-callback`` is used, the check alerts for ``--alarm-duration``.
 
 For more complex use cases, consider using a logging server like graylog.
 
@@ -51,48 +51,65 @@ Help
 
 .. code-block:: text
 
-    usage: logfile3 [-h] [--always-ok] [--suppress-lines] --filename FILENAME [-V] [-c CRIT] [--critical-pattern CRIT_PATTERN]
-                    [--critical-regex CRIT_REGEX] [-w WARN] [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
-                    [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX] [--icinga-service-name ICINGA_SERVICE_NAME]
-                    [--icinga-password ICINGA_PASSWORD] [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME] [--icinga-callback]
-                    [--alarm-duration ALARM_DURATION]
+    usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
+                   [-c CRIT] [--critical-pattern CRIT_PATTERN]
+                   [--critical-regex CRIT_REGEX] --filename FILENAME
+                   [--icinga-service-name ICINGA_SERVICE_NAME]
+                   [--icinga-password ICINGA_PASSWORD] [--icinga-url ICINGA_URL]
+                   [--icinga-username ICINGA_USERNAME] [--icinga-callback]
+                   [--ignore-pattern IGNORE_PATTERN]
+                   [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
+                   [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
 
-    Scans a logfile for set of pattern or regex and alarms on the number of findings.
+    Scans a logfile for set of pattern or regex and alarms on the number of
+    findings.
 
     optional arguments:
       -h, --help            show this help message and exit
-      --always-ok           Always returns OK.
-      --suppress-lines      Suppress the found lines in the output, only report the number of findings.
-      --filename FILENAME   Set the path of the logfile.
       -V, --version         show program's version number and exit
+      --alarm-duration ALARM_DURATION
+                            How long should this check return an alarm on new
+                            matches (in minutes)? This is overwritten by --icinga-
+                            callback. Default: 60
+      --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of found critical matches. Default: 1
+                            Set the critical threshold for the number of found
+                            critical matches. Default: 1
       --critical-pattern CRIT_PATTERN
-                            Any line containing this pattern will count as a critical.
+                            Any line containing this pattern will count as a
+                            critical.
       --critical-regex CRIT_REGEX
-                            Any line matching this python regex will count as a critical.
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of found warning matches. Default: 1
-      --warning-pattern WARN_PATTERN
-                            Any line containing this pattern will count as a warning.
-      --warning-regex WARN_REGEX
-                            Any line matching this python regex will count as a warning.
+                            Any line matching this python regex will count as a
+                            critical.
+      --filename FILENAME   Set the path of the logfile.
+      --icinga-service-name ICINGA_SERVICE_NAME
+                            Unique name of the service using this check within
+                            Icinga. Take it from the `__name` service attribute,
+                            for example `icinga-server!my-service-name`.
+      --icinga-password ICINGA_PASSWORD
+                            Icinga API password.
+      --icinga-url ICINGA_URL
+                            Icinga API URL, for example https://icinga-
+                            server:5665.
+      --icinga-username ICINGA_USERNAME
+                            Icinga API username.
+      --icinga-callback     Get the service acknowledgement from Icinga. This
+                            overwrites --alarm-duration. Default: False
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern will be ignored.
       --ignore-regex IGNORE_REGEX
                             Any line matching this python regex will be ignored.
-      --icinga-service-name ICINGA_SERVICE_NAME
-                            Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-
-                            server!my-service-name`.
-      --icinga-password ICINGA_PASSWORD
-                            Icinga API password.
-      --icinga-url ICINGA_URL
-                            Icinga API URL, for example https://icinga-server:5665.
-      --icinga-username ICINGA_USERNAME
-                            Icinga API username.
-      --icinga-callback     Get the service acknowledgement from Icinga. This overwrites --alarm-duration. Default: False
-      --alarm-duration ALARM_DURATION
-                            How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: 60
+      --suppress-lines      Suppress the found lines in the output, only report
+                            the number of findings.
+      -w WARN, --warning WARN
+                            Set the warning threshold for the number of found
+                            warning matches. Default: 1
+      --warning-pattern WARN_PATTERN
+                            Any line containing this pattern will count as a
+                            warning.
+      --warning-regex WARN_REGEX
+                            Any line matching this python regex will count as a
+                            warning.
 
 
 Usage Examples
@@ -110,7 +127,8 @@ Usage Examples
     error2
     test4
     EOF
-    ./logfile3 --filename /tmp/test-logfile --critical-pattern 'error' --warning-pattern 'warn'
+
+    ./logfile --filename=/tmp/test-logfile --critical-pattern='error' --warning-pattern='warn'
 
 Output:
 

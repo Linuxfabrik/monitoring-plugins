@@ -38,7 +38,7 @@ from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101201'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -53,7 +53,23 @@ DEFAULT_WARN = 1
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--alarm-duration',
+        help='How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: %(default)s',
+        dest='ALARM_DURATION',
+        type=int,
+        default=DEFAULT_ALARM_DURATION,
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -61,28 +77,6 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-    )
-
-    parser.add_argument(
-        '--suppress-lines',
-        help='Suppress the found lines in the output, only report the number of findings.',
-        dest='SUPPRESS_OUTPUT',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
-        '--filename',
-        help='Set the path of the logfile.',
-        dest='FILENAME',
-        required=True,
-        type=str,
-    )
-
-    parser.add_argument(
-        '-V', '--version',
-        action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
     )
 
     parser.add_argument(
@@ -109,42 +103,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
-        dest='WARN',
-        default=DEFAULT_WARN,
-    )
-
-    parser.add_argument(
-        '--warning-pattern',
-        help='Any line containing this pattern will count as a warning.',
-        action='append',
-        default=[],
-        dest='WARN_PATTERN',
-    )
-
-    parser.add_argument(
-        '--warning-regex',
-        help='Any line matching this python regex will count as a warning.',
-        action='append',
-        dest='WARN_REGEX',
-        default=[],
-    )
-
-    parser.add_argument(
-        '--ignore-pattern',
-        help='Any line containing this pattern will be ignored.',
-        action='append',
-        default=[],
-        dest='IGNORE_PATTERN',
-    )
-
-    parser.add_argument(
-        '--ignore-regex',
-        help='Any line matching this python regex will be ignored.',
-        action='append',
-        default=[],
-        dest='IGNORE_REGEX',
+        '--filename',
+        help='Set the path of the logfile.',
+        dest='FILENAME',
+        required=True,
+        type=str,
     )
 
     parser.add_argument(
@@ -180,17 +143,59 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--alarm-duration',
-        help='How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: %(default)s',
-        dest='ALARM_DURATION',
-        type=int,
-        default=DEFAULT_ALARM_DURATION,
+        '--ignore-pattern',
+        help='Any line containing this pattern will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='Any line matching this python regex will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--suppress-lines',
+        help='Suppress the found lines in the output, only report the number of findings.',
+        dest='SUPPRESS_OUTPUT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line containing this pattern will count as a warning.',
+        action='append',
+        default=[],
+        dest='WARN_PATTERN',
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex will count as a warning.',
+        action='append',
+        dest='WARN_REGEX',
+        default=[],
     )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -252,6 +257,8 @@ def main():
     warn_matches = []
     crit_matches = []
     line_counter = 0
+
+    # fetch data
     try:
         with open(args.FILENAME) as logfile:
             logfile.seek(offset)
@@ -433,11 +440,12 @@ def main():
     perfdata += lib.base2.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
     perfdata += lib.base2.get_perfdata('crit_matches', len(crit_matches), None, args.CRIT, None, None, None)
 
+    # over and out
     lib.base2.oao(msg + '\n\n' + msg_addendum, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
