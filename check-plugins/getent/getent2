@@ -34,7 +34,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101201'
 
 DESCRIPTION = 'Trys to get entries from Name Service Switch (NSS) libraries and warns on errors or no match.'
 
@@ -94,9 +94,11 @@ def main():
     if stderr:
         lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
 
+    count = len(stdout.strip().split('\n'))
+
     # build the message
     if retc == 0:
-        msg = 'Everything is ok. Executed `{}`.\n\n{}'.format(cmd, stdout)
+        msg = 'Everything is ok. Executed `{}`, got {} results.'.format(cmd, count)
         state = STATE_OK
     if retc == 1:
         msg = 'Missing arguments for `{}`, or database "{}" unknown.'.format(cmd, args.DATABASE)

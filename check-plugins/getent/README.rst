@@ -58,7 +58,7 @@ Output:
 
 .. code-block:: text
 
-    Everything is ok. Executed `/usr/bin/getent group`.
+    Everything is ok. Executed `/usr/bin/getent group`, got 7153 results.
 
 
 States
