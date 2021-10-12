@@ -8,24 +8,38 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101201'
 
-DESCRIPTION = 'This plugin lets you check the most common analytics values from Matomo, for one or several websites and for any given date and period.'
+DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
+                 or several websites and for any given date and period."""
 
 DEFAULT_URL      = 'https://demo.matomo.org'
 DEFAULT_IDSITE   = 1
@@ -40,108 +54,115 @@ DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT  = 3
 
 
-#====================
-from lib.globals2 import *
-
-import lib.args2
-import lib.base2
-import lib.url2
-
-import argparse
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('--date',
+    parser.add_argument(
+        '--date',
         help='REST API date, for example "date=last10" or "date="today". Default: %(default)s',
         dest='DATE',
         default=DEFAULT_DATE,
-        )
+    )
 
-    parser.add_argument('--idsite',
+    parser.add_argument(
+        '--idsite',
         help='REST API idSite, for example "idsite=1", "idsite=1,4,5" or "idsite=all". Default: %(default)s',
         dest='IDSITE',
         default=DEFAULT_IDSITE,
-        )
+    )
 
-    parser.add_argument('--insecure',
+    parser.add_argument(
+        '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
-    parser.add_argument('--metric',
+    parser.add_argument(
+        '--metric',
         help='Filter the output and optionally check against thresholds or ranges, for example "--metric nb_visits,100:,50:" (repeating, csv, works with ranges). Default: %(default)s',
         dest='METRIC',
         type=lib.args2.csv,
         action='append',
         default=DEFAULT_METRIC,
-        )
+    )
 
-    parser.add_argument('--no-proxy',
+    parser.add_argument(
+        '--no-proxy',
         help='Do not use a proxy. Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
+    )
 
-    parser.add_argument('--password',
+    parser.add_argument(
+        '--password',
         help='REST API Access Token. Default: %(default)s',
         dest='PASSWORD',
         default=DEFAULT_PASSWORD,
-        )
+    )
 
-    parser.add_argument('--period',
+    parser.add_argument(
+        '--period',
         help='REST API period, for example "period=range" or "period=day". Default: %(default)s',
         dest='PERIOD',
         default=DEFAULT_PERIOD,
-        )
+    )
 
-    parser.add_argument('--timeout',
+    parser.add_argument(
+        '--timeout',
         help='Network timeout in seconds. Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
-    parser.add_argument('-u', '--url',
+    parser.add_argument(
+        '-u', '--url',
         help='Matomo URL. Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
-
+    # fetch data
     url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     if 'result' in result and result['result'] == 'error':
         lib.base2.oao('{}'.format(result['message']), STATE_UNKNOWN)
 
-    state = STATE_OK
+    # init some vars
     msg = ''
+    state = STATE_OK
     perfdata = ''
 
     if args.METRIC:
@@ -174,18 +195,18 @@ def main():
         # print all sensors as perfdata
         for key, value in lib.base2.sort(result, reverse=False, sort_by_key=True):
             perfdata += lib.base2.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
-
     else:
         for key, value in lib.base2.sort(result, reverse=False, sort_by_key=True):
             # print all values
             msg += '{}: {}, '.format(key, lib.base2.number2human(value))
             perfdata += lib.base2.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
+    # over and out
     lib.base2.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
