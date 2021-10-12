@@ -8,35 +8,30 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
-
-
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
-
-DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics (based on MySQL-Tuner).'
-
-DEFAULT_HOSTNAME = '127.0.0.1'
-DEFAULT_PORT = '3306'
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-#====================
-from lib.globals2 import *
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.base2
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
-import argparse
 try:
     import mysql.connector
 except ImportError as e:
@@ -51,44 +46,62 @@ else:
     psutil_found = True
 
 
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101201'
+
+DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
+                (the same way MySQLTuner does)."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '3306'
+
+
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('-H', '--hostname',
+    parser.add_argument(
+        '-H', '--hostname',
         help='MySQL/MariaDB hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
-        )
+    )
 
-    parser.add_argument('-p', '--password',
+    parser.add_argument(
+        '-p', '--password',
         help='Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
         dest='PASSWORD',
         required = True,
-        )
+    )
 
-    parser.add_argument('--port',
+    parser.add_argument(
+        '--port',
         help='MySQL/MariaDB port. Default: %(default)s',
         dest='PORT',
         default=DEFAULT_PORT,
-        )
+    )
 
-    parser.add_argument('-u', '--username',
+    parser.add_argument(
+        '-u', '--username',
         help='MySQL/MariaDB username.',
         dest='USERNAME',
         required = True,
-        )
+    )
 
     return parser.parse_args()
 
@@ -144,11 +157,14 @@ def log_file_recommendations(myvar):
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     if mysql_connector_found is False:
         lib.base2.oao('Python module "mysql.connector" is not installed.', STATE_UNKNOWN)
@@ -198,7 +214,6 @@ def main():
     mysqlvermicro = version[2]
     mysqltype='MariaDB' if 'MariaDB' in mysqlvermicro else 'MySQL'
 
-
     # https://dev.mysql.com/doc/refman/8.0/en/show-variables.html
     query = 'show variables;'
     cursor.execute(query)
@@ -236,7 +251,6 @@ def main():
 
     if len(mystat) <1:
         lib.base2.oao('Your server has not answered any queries - cannot continue.', STATE_UNKNOWN)
-
 
     # calculations as done in mysqltuner.pl
     # https://github.com/major/MySQLTuner-perl/blob/master/mysqltuner.pl
@@ -344,14 +358,11 @@ def main():
     if myvar['log_bin'] != 'OFF':
         mycalc['pct_binlog_cache'] = int((mystat['Binlog_cache_use'] - mystat['Binlog_cache_disk_use']) / mystat['Binlog_cache_use'] * 100)
 
-
-
-
+    # init some vars
     msg = ''
     msg_warn = 'WARN: '
     perfdata = ''
     state = STATE_OK
-
 
     msg += '{} v{}.{}, '.format(mysqltype, mysqlvermajor, mysqlverminor)
     msg += '{}%/{}% r/w, '.format(mycalc['pct_reads'], mycalc['pct_writes'])
@@ -369,7 +380,6 @@ def main():
     msg += '{}/{} (Rx/Tx)\n'.format(lib.base2.bytes2human(mystat['Bytes_received']), lib.base2.bytes2human(mystat['Bytes_sent']))
     perfdata += lib.base2.get_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
     perfdata += lib.base2.get_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
-
 
     msg += log_file_recommendations(myvar)
 
@@ -547,16 +557,15 @@ def main():
         msg_warn += '* Enable concurrent_insert\n'
         state = lib.base2.get_worst(state, STATE_WARN)
 
-
     if msg_warn != 'WARN: ':
         msg = msg_warn.replace('WARN: ', 'There are warnings.\n').strip() + '\n---\n' + msg
 
-
+    # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
