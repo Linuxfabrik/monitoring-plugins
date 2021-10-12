@@ -25,8 +25,8 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nextcloud-stats"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
-    "Requirements",                         "App serverinfo"
+    "Available for",                        "Python 2, Python 3"
+    "Requirements",                         "Nextcloud App 'serverinfo'"
 
 
 Help
