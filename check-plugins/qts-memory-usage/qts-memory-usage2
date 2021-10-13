@@ -41,9 +41,10 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101301'
 
-DESCRIPTION = 'Returns the current system-wide Memory utilization as a percentage from QNAP Appliances running QTS via API.'
+DESCRIPTION = """Returns the current system-wide Memory utilization as a percentage from QNAP
+                 Appliances running QTS via API."""
 
 DEFAULT_WARN = 80      # %
 DEFAULT_CRIT = 90      # %
@@ -54,13 +55,15 @@ DEFAULT_USERNAME = 'admin'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -68,23 +71,15 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
-        '-c',
-        '--critical',
+        '-c', '--critical',
         help='Set the critical threshold Memory Usage Percentage. Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-        )
-
-    parser.add_argument(
-        '--url',
-        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
-        dest='URL',
-        required=True,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -92,7 +87,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -100,21 +95,14 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
-
-    parser.add_argument(
-        '--username',
-        help='QTS User. Default: %(default)s',
-        dest='USERNAME',
-        default=DEFAULT_USERNAME,
-        )
+    )
 
     parser.add_argument(
         '--password',
         help='QTS Password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -122,20 +110,37 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
-        '-w',
-        '--warning',
+        '--url',
+        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='QTS User. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
         help='Set the warning threshold Memory Usage Percentage. Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
-        )
+    )
 
     return parser.parse_args()
 
+
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -147,7 +152,7 @@ def main():
     data = {
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
-        }
+    }
     result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
@@ -174,17 +179,18 @@ def main():
         lib.base2.bytes2human(total),
         lib.base2.bytes2human(used),
         lib.base2.bytes2human(free),
-        )
+    )
     perfdata = lib.base2.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base2.get_perfdata('total', total, 'B', None, None, 0, total)
     perfdata += lib.base2.get_perfdata('used', used, 'B', None, None, 0, total)
     perfdata += lib.base2.get_perfdata('free', free, 'B', None, None, 0, total)
 
+    # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()

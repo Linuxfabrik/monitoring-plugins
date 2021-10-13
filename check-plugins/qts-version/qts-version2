@@ -41,7 +41,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101301'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -52,13 +52,15 @@ DEFAULT_USERNAME = 'admin'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -66,14 +68,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
-
-    parser.add_argument(
-        '--url',
-        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
-        dest='URL',
-        required=True,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -81,7 +76,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -89,21 +84,14 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
-
-    parser.add_argument(
-        '--username',
-        help='QTS User. Default: %(default)s',
-        dest='USERNAME',
-        default=DEFAULT_USERNAME,
-        )
+    )
 
     parser.add_argument(
         '--password',
         help='QTS Password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -111,17 +99,36 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
+
+    parser.add_argument(
+        '--url',
+        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='QTS User. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
 
     return parser.parse_args()
 
+
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     # authenticate and get the authSid
     url = '{}/cgi-bin/authLogin.cgi'.format(args.URL)
     data = {
@@ -161,5 +168,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
