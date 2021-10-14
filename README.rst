@@ -124,10 +124,10 @@ Shell commands like ``./file-age2 --filename='/tmp/*'`` have two basic parts:
 
 Many shell commands may also be followed by one or more arguments, which often indicate a target that the command should operate upon (``useradd linus`` for example) . This does not apply to check-plugins.
 
-To avoid problems when passing parameter values that start with a ``-``, the command line call must look like this:
+To avoid problems when passing *parameter values* that start with a ``-``, the command line call must look like this:
 
-* Long parameters: ``./file-age --warning=-60:3600``. Use ``--param=value`` instead of ``--param value``.
-* Short parameters: ``./file-age -w-60:3600``. So simply not putting any space, nor escaping it in any special way.
+* Long parameters: ``./file-age --warning=-60:3600`` (use ``--param=value`` instead of ``--param value``).
+* Short parameters: ``./file-age -w-60:3600`` (so simply not putting any space nor escaping it in any special way).
 
 
 A few words about Python
@@ -136,9 +136,11 @@ A few words about Python
 Python 2 vs Python 3
 ~~~~~~~~~~~~~~~~~~~~
 
-All check plugins are currently available for Python 2.7. We are gradually migrating them to Python 3.6+ by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
+All check plugins are available for Python 2.7 and Python 3.6+. The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
 
 The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3`` explicitly.
+
+We will stop maintaining the Python 2-based plugins after 2021-12-31.
 
 
 Virtual Environment
@@ -173,14 +175,14 @@ Running the Check Plugins on Linux
 Installation
 ~~~~~~~~~~~~
 
-Install Python 2 (currently preferred) or Python 3 on the client.
+Install Python on the client.
 
-Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
+Get the monitoring check plugins and the associated libraries from our GitLab server:
 
 .. code:: bash
 
-    BRANCH="master"   # or "develop"
-    PYVER=2
+    BRANCH="master"     # or "develop"
+    PYVER=3             # or "2"
 
     cd /tmp
 
@@ -202,7 +204,7 @@ Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
     \cp /tmp/lib-$BRANCH/*.py /usr/lib64/nagios/plugins/lib
 
-Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
+Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
 .. code:: bash
 
@@ -266,14 +268,11 @@ Running the Check Plugins on Windows
 TODO
 
 
-Icinga
-------
-
-Configuration in Icinga Director
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Icinga Director
+---------------
 
 For a single Plugin
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, ``check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json``).
 Import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
@@ -307,23 +306,25 @@ Tab "Fields":
 Now use this command within a Service Template, a Service Set and/or a Single Service.
 
 
-For our complete Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Linuxfabrik's Director Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To use our complete Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
+To use our Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
+
 If you are using our `Fork of the Icinga Director <https://git.linuxfabrik.ch/linuxfabrik/icingaweb2-module-director>`_, you can use the following command:
 
 .. code-block:: bash
 
    ./tools/basket-join
 
-Else, generate a Basket without ``guids``:
+If not, generate a Basket without ``guids``:
 
 .. code-block:: bash
 
    ./tools/basket-join --without-guids
 
-Import the resulting ``icingaweb2-module-director-basket.json`` via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
+Import the resulting ``icingaweb2-module-director-basket.json`` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
+
 
 Grafana
 -------
@@ -352,7 +353,6 @@ Roadmap
 
 Next steps (beside maintaining and writing new check plugins):
 
-* Migrate every Plugin to Python 3.
 * Provide a meaningful Grafana-Panel (where it makes sense).
 * Provide a (unit) test for the majority of the check plugins (where it makes sense).
 * Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
