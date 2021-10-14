@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -20,16 +20,26 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --hostname 127.0.0.1 --test=examples/EXAMPLE01,,0'))
-        self.assertIn('Uptime: 5m 2w', stdout)
+        self.assertIn('BRW38B1DB3B30F4\nBuero\npostmaster@linuxfabrik.ch\nBrother NC-350w, Firmware Ver.N  ,MID 8CA-U29-001\nNone\n262144', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_OK)
+        self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE02(self):
         stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --hostname 127.0.0.2 --test=examples/EXAMPLE02,,0'))
-        self.assertIn('NIC.1 Speed                        1.0Gbps', stdout)
+        self.assertIn('None\nV.01.020|XZ\npostmaster@linuxfabrik.ch\nCisco IOS Software [Gibraltar]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
-    
+    def test_if_check_runs_EXAMPLE03(self):
+        # runs against our local printer
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --device printer-brother-mfcj5720dw.csv --mib-dir +./device-mibs/printer-brother-mfcj5720dw/ --hostname 10.80.32.12 --hide-ok'))
+        self.assertIn('Uptime: ', stdout)
+        self.assertIn('Pages printed: ', stdout)
+        self.assertIn('Display Msg: ', stdout)
+        self.assertIn('Pages scanned (ADF): ', stdout)
+        self.assertIn('Pages scanned (Flatbed): ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
 if __name__ == '__main__':
     unittest.main()

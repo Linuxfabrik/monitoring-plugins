@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,44 +8,58 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import base64
-import sys
-from traceback import print_exc
-import xml.etree.ElementTree as ET
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import xml.etree.ElementTree as ET # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.args2
-import lib.base2
-import lib.url2
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.test2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021101201'
 
 DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PORT = 443
-DEFAULT_STATE = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
 
+
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -53,22 +67,21 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--filter',
         help='Only check services that contain this string in their NickName.',
         dest='FILTER',
         type=str,
-        )
+    )
 
     parser.add_argument(
-        '-H',
-        '--hostname',
+        '-H', '--hostname',
         help='KEMP Appliance address.',
         dest='HOSTNAME',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -77,7 +90,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -85,36 +98,36 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
+    )
 
     parser.add_argument(
         '--password',
         help='API Password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--port',
         help='KEMP Appliance port.',
         dest='PORT',
         default=DEFAULT_PORT,
-        )
+    )
 
     parser.add_argument(
-        '--state',
-        help='The state that has to be returned. Default: %(default)s',
-        dest='STATE',
-        default=DEFAULT_STATE,
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
-        )
+    )
 
     parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args2.csv,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -122,46 +135,44 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     parser.add_argument(
-        '-u',
-        '--username',
+        '-u', '--username',
         help='API Username.',
         dest='USERNAME',
         required=True,
-        )
-
-    parser.add_argument(
-        '-V', '--version',
-        action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     return parser.parse_args()
 
+
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     if args.TEST is None:
         # get the values the normal way
         url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
         header = {
             'Authorization': "Basic {}".format(
                 base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
-                )
+            )
         }
         result = lib.base2.coe(lib.url2.fetch(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT, header=header
-            ))
+        ))
     else:
         # do not call the command, put in test data
-        result, stderr, retc = lib.base2.test(args.TEST)
+        result, stderr, retc = lib.test2.test(args.TEST)
 
     state = STATE_OK
     count = 0
@@ -173,32 +184,32 @@ def main():
             count += 1
             status = service.find('Status').text
             service_state = STATE_OK if status.lower() != 'down' else \
-                STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+                STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
             table.append({
                 'name': name,
                 'state': lib.base2.state2str(service_state, empty_ok=False),
-                })
+            })
             state = lib.base2.get_worst(state, service_state)
 
     # create the message
     msg = '{} {} checked. '.format(
         count,
         lib.base2.pluralize('service', count),
-        )
+    )
 
     if len(table) > 0:
         msg += '\n\n' + lib.base2.get_table(
             table,
             ['name', 'state'],
             header=['NickName', 'State'],
-            )
+        )
 
+    # over and out
     lib.base2.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

@@ -38,7 +38,7 @@ Help
                             updates. Default: 50
       -w WARN, --warning WARN
                             Set the warning threshold for the number of pending
-                            updates. Default: 1
+                            updates. Default: 2
 
 
 Usage Examples

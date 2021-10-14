@@ -1,0 +1,293 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args2 # pylint: disable=C0413
+import lib.base2 # pylint: disable=C0413
+import lib.nodebb2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+try:
+    import psutil # pylint: disable=C0413
+except ImportError:
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021090701'
+
+DESCRIPTION = """Checks the overall health of a NodeBB instance using various API endpoints."""
+
+DEFAULT_CRIT = 90
+DEFAULT_INSECURE = False
+DEFAULT_SERVERITY = 'warn'
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:4567/forum'
+DEFAULT_WARN = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerting. One of "warn" or "crit". Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SERVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args2.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-p', '--token',
+        help='NodeBB API Bearer token.',
+        dest='TOKEN',
+    )
+
+    parser.add_argument(
+        '--url',
+        help='NodeBB API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result_cache = lib.nodebb2.get_data(args, '/api/admin/advanced/cache')
+        result_db = lib.nodebb2.get_data(args, '/api/admin/advanced/database')
+        result_dev = lib.nodebb2.get_data(args, '/api/admin/development/info')
+        result_errors = lib.nodebb2.get_data(args, '/api/admin/advanced/errors')
+        result_events = lib.nodebb2.get_data(args, '/api/admin/advanced/events')
+    else:
+        # do not call the command, put in test data
+        import lib.disk2
+        import json
+        success, stdout = lib.disk2.read_file(args.TEST[0] + '-cache')
+        result_cache = json.loads(stdout)
+        success, stdout = lib.disk2.read_file(args.TEST[0] + '-database')
+        result_db = json.loads(stdout)
+        success, stdout = lib.disk2.read_file(args.TEST[0] + '-info')
+        result_dev = json.loads(stdout)
+        success, stdout = lib.disk2.read_file(args.TEST[0] + '-errors')
+        result_errors = json.loads(stdout)
+        success, stdout = lib.disk2.read_file(args.TEST[0] + '-events')
+        result_events = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data - development/info
+    for proc in result_dev['info']:
+        if proc['process']['title'].endswith('/node'):
+            try:
+                msg += '* NodeBB {}, {} {}\n'.format(
+                    proc['id'],
+                    proc['process']['title'],
+                    proc['process']['version'],
+                )
+                heap_used_percent = round(float(proc['process']['memoryUsage']['heapUsed']) / float(proc['process']['memoryUsage']['heapTotal']) * 100, 1)
+                heap_state = lib.base2.get_state(heap_used_percent, args.WARN, args.CRIT)
+                state = lib.base2.get_worst(state, heap_state)
+                msg += '  Heap {}% used ({} of {}){}, RSS {}\n'.format(
+                    heap_used_percent,
+                    lib.base2.bytes2human(proc['process']['memoryUsage']['heapUsed']),
+                    lib.base2.bytes2human(proc['process']['memoryUsage']['heapTotal']),
+                    lib.base2.state2str(heap_state, prefix=' '),
+                    lib.base2.bytes2human(proc['process']['memoryUsage']['rss']),
+                )
+                perfdata += lib.base2.get_perfdata('nodebb_heap_used_percent', heap_used_percent, '%', args.WARN, args.CRIT, 0, 100)
+                perfdata += lib.base2.get_perfdata('nodebb_heap_used', proc['process']['memoryUsage']['heapUsed'], 'B', None, None, 0, proc['process']['memoryUsage']['heapTotal'])
+                perfdata += lib.base2.get_perfdata('nodebb_rss', proc['process']['memoryUsage']['rss'], 'B', None, None, 0, None)
+            except:
+                pass
+
+    # analyze data - caches
+    for cache in ['postCache', 'groupCache', 'localCache', 'objectCache']:
+        try:
+            cache_enabled_state = STATE_OK if result_cache[cache]['enabled'] == 1 else lib.base2.str2state(args.SEVERITY)
+            state = lib.base2.get_worst(state, cache_enabled_state)
+            cache_full_state = lib.base2.get_state(result_cache[cache]['percentFull'], args.WARN, args.CRIT)
+            state = lib.base2.get_worst(state, cache_full_state)
+            msg += '* {}{}: {} items, {}% used ({}/{}){}, Hit Rate {}% ({} hits, {} misses)\n'.format(
+                cache,
+                '' if result_cache[cache]['enabled'] == 1 else ' not enabled ' + lib.base2.state2str(cache_enabled_state),
+                result_cache[cache]['itemCount'],
+                result_cache[cache]['percentFull'],
+                lib.base2.number2human(result_cache[cache]['length']),
+                lib.base2.number2human(result_cache[cache]['max']),
+                lib.base2.state2str(cache_full_state, prefix=' '),
+                float(result_cache[cache]['hitRatio']) * 100,
+                lib.base2.number2human(result_cache[cache]['hits'].replace(',', '')),
+                lib.base2.number2human(result_cache[cache]['misses'].replace(',', '')),
+            )
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_hitRatio', float(result_cache[cache]['hitRatio']) * 100, '%', None, None, 0, 100)
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_hits', result_cache[cache]['hits'].replace(',', ''), 'c', None, None, 0, None)
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_itemCount', result_cache[cache]['itemCount'], None, None, None, 0, None)
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_length', result_cache[cache]['length'], 'c', None, None, 0, result_cache[cache]['max'])
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_misses', result_cache[cache]['misses'].replace(',', ''), 'c', None, None, 0, None)
+            perfdata += lib.base2.get_perfdata('cache_' + cache + '_percentFull', result_cache[cache]['percentFull'], '%', args.WARN, args.CRIT, 0, 100)
+        except:
+            pass
+
+    # analyze data - analytics
+    err404 = result_errors['analytics']['not-found'][-1]
+    err503 = result_errors['analytics']['toobusy'][-1]
+    analytics_state = STATE_OK if err503 == 0 else lib.base2.str2state(args.SEVERITY)
+    msg += '* HTTP Status today: {}x 503 too busy{}, {}x 404 not found\n'.format(
+        err503,
+        lib.base2.state2str(analytics_state, prefix=' '),
+        err404,
+    )
+    perfdata += lib.base2.get_perfdata('err404', err404, 'c', None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('err503', err503, 'c', None, None, 0, None)
+
+    # analyze data - mongo database
+    try:
+        fs_used_percent = round(float(result_db['mongo']['fsUsedSize']) / float(result_db['mongo']['fsTotalSize']) * 100, 1)
+        db_fs_state = lib.base2.get_state(fs_used_percent, args.WARN, args.CRIT)
+        state = lib.base2.get_worst(state, db_fs_state)
+        db_conn_state = STATE_OK if result_db['mongo']['ok'] == 1 else lib.base2.str2state(args.SEVERITY)
+        state = lib.base2.get_worst(state, db_conn_state)
+        msg += '* MongoDB "{}"{}: {} {}, {} {}, {} {}, {}% Disk Usage ({}/{}){}\n'.format(
+            result_db['mongo']['db'],
+            lib.base2.state2str(db_conn_state, prefix=' '),
+            result_db['mongo']['collections'],
+            lib.base2.pluralize('collection', result_db['mongo']['collections']),
+            result_db['mongo']['indexes'],
+            lib.base2.pluralize('index', result_db['mongo']['indexes'], 'es'),
+            lib.base2.number2human(result_db['mongo']['objects']),
+            lib.base2.pluralize('object', result_db['mongo']['objects']),
+            fs_used_percent,
+            lib.base2.bytes2human(result_db['mongo']['fsUsedSize']),
+            lib.base2.bytes2human(result_db['mongo']['fsTotalSize']),
+            lib.base2.state2str(db_fs_state, prefix=' '),
+        )
+        perfdata += lib.base2.get_perfdata('db_collections', result_db['mongo']['collections'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('db_indexes', result_db['mongo']['indexes'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('db_objects', result_db['mongo']['objects'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('db_fs_used', result_db['mongo']['fsUsedSize'], 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('db_fs_total', result_db['mongo']['fsTotalSize'], 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('db_fs_used_percent', fs_used_percent, '%', args.WARN, args.CRIT, 0, 100)
+    except:
+        pass
+
+    # analyze data - logs/events
+    msg += '* Last log: #{} {} uid={} {} {} ({} ago)'.format(
+        result_events['events'][0]['eid'],
+        result_events['events'][0]['type'],
+        result_events['events'][0]['uid'],
+        result_events['events'][0]['ip'],
+        result_events['events'][0]['user']['username'],
+        lib.base2.seconds2human(lib.base2.now(as_type='epoch') - (result_events['events'][0]['timestamp'] / 1000)),
+    )
+
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n' + msg
+    else:
+        msg = 'There are errors.\n\n' + msg
+
+    # over and out
+    lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

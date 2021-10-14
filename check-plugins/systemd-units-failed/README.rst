@@ -25,16 +25,18 @@ Help
 
 .. code-block:: text
 
-    usage: systemd-units-failed [-h] [-V] [--always-ok] [--test TEST]
+    usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
+                                [--test TEST]
 
     Warns on any failed systemd units.
 
     optional arguments:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
-      --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                     file,expected-retc".
+      -h, --help       show this help message and exit
+      -V, --version    show program's version number and exit
+      --always-ok      Always returns OK.
+      --ignore IGNORE  Ignore a unit, for example "dhcpd.service" (repeating). Default: []
+      --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
+                       file,expected-retc".
 
 
 Usage Examples
@@ -42,7 +44,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./systemd-units-failed
+    ./systemd-units-failed --ignore=openipmi.service --ignore=dhcpd.service
     
 Output:
 
@@ -65,6 +67,16 @@ Perfdata / Metrics
 ------------------
 
 * systemd-units-failed: Number of failed units
+
+
+Troubleshooting
+---------------
+
+If you can't do anything and simply want to reset the status of a failed unit, do this:
+
+.. code-block:: bash
+
+    systemctl reset-failed ipmievd.service
 
 
 Credits, License

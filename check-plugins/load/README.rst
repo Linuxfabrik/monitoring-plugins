@@ -20,7 +20,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/load"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``"
 
 
@@ -72,6 +72,9 @@ Perfdata / Metrics
 * load1
 * load5
 * load15
+
+A value below 1 indicates satisfactory resource utilization and minimal wait times. A
+value above 1 indicates resource saturation and some amount of processing delay.
 
 
 Credits, License

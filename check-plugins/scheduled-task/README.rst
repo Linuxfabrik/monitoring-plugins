@@ -25,21 +25,21 @@ Help
 
 .. code-block:: text
 
-    usage: scheduled-task [-h] [-V] --task TASK [--severity {warn,crit}]
-                       [--status {Disabled,Queued,Ready,Running,Unknown}]
+    usage: scheduled-task [-h] [-V] [--severity {warn,crit}]
+                          [--status {Disabled,Queued,Ready,Running,Unknown}]
+                          --task TASK
 
     Check the status of a scheduled task.
 
     optional arguments:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      --task TASK           Name of the scheduled task.
       --severity {warn,crit}
-                            Severity if something is found. One of "warn" or
-                            "crit". Default: warn
+                            Severity if something is found. Default: warn
       --status {Disabled,Queued,Ready,Running,Unknown}
                             Expected task status (repeating). Default: ['Ready',
                             'Running']
+      --task TASK           Name of the scheduled task.
 
 
 Usage Examples

@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,46 +8,50 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.args3
-import lib.base3
-from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+    import psutil # pylint: disable=C0413
+except ImportError:
+    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021101001'
 
 DESCRIPTION = 'Check the state of a Windows service.'
 
-DEFAULT_SERVERITY = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_STATUS = ['running']
 DEFAULT_STARTTYPE = 'automatic'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -65,19 +69,13 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity if something is found. One of "warn" or "crit". Default: %(default)s',
+        help='Severity if something is found. Default: %(default)s',
         dest='SEVERITY',
-        default=DEFAULT_SERVERITY,
-        choices=['warn', 'crit'],
-    )
-
-    parser.add_argument(
-        '--status',
-        help='Expected service status (repeating). Default: %(default)s',
-        dest='STATUS',
-        default=DEFAULT_STATUS,
-        action='append',
-        choices=['running', 'paused', 'start_pending', 'pause_pending', 'continue_pending', 'stop_pending', 'stopped'],
+        default=DEFAULT_SEVERITY,
+        choices=[
+            'crit',
+            'warn',
+        ],
     )
 
     parser.add_argument(
@@ -85,29 +83,61 @@ def parse_args():
         help='Expected service start type. Default: %(default)s',
         dest='STARTTYPE',
         default=DEFAULT_STARTTYPE,
-        choices=['automatic', 'manual', 'disabled'],
+        choices=[
+            'automatic',
+            'disabled',
+            'manual',
+        ],
+    )
+
+    parser.add_argument(
+        '--status',
+        help='At least one expected service status (repeating). Default: running',
+        dest='STATUS',
+        default=None,   # due to https://bugs.python.org/issue16399, see in main() below
+        action='append',
+        choices=[
+            'continue_pending',
+            'pause_pending',
+            'paused',
+            'running',
+            'start_pending',
+            'stop_pending',
+            'stopped',
+        ],
     )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # due to https://bugs.python.org/issue16399, set the default value here
+    if args.STATUS is None:
+        args.STATUS = DEFAULT_STATUS
+
+    # fetch data
     try:
         service = psutil.win_service_get(args.SERVICE)
     except psutil.NoSuchProcess:
         lib.base3.oao(f'Service {args.SERVICE} not found', STATE_UNKNOWN)
+    except Exception:
+        lib.base3.oao(f'Can\'t fetch Windows Service Attributes - is this check running on Windows?', STATE_UNKNOWN)
 
     start_type = service.start_type()
     status = service.status()
 
-    state = STATE_OK
+    # init some vars
     msg = f'{args.SERVICE} is {status}, {start_type}'
+    state = STATE_OK
 
     # now do the checks
     problem = False
@@ -123,11 +153,12 @@ def main():
         msg = f'{args.SERVICE} - ' + problem_msg[:-2]
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
+    # over and out
     lib.base3.oao(msg, state)
+
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

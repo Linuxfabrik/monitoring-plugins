@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,21 +28,21 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021051001'
+__version__ = '2021090802'
 
 DESCRIPTION = """Fetches the ping monitoring page of PHP-FPM."""
 
 DEFAULT_RESPONSE = 'pong'
-DEFAULT_SERVERITY = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_URL = 'http://localhost/fpm-ping'
 
 
@@ -74,9 +74,9 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity for alerting. One of "warn" or "crit". Default: %(default)s',
+        help='Severity for alerting. Default: %(default)s',
         dest='SEVERITY',
-        default=DEFAULT_SERVERITY,
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
 
@@ -113,19 +113,7 @@ def main():
         result = result.decode()
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r') # pylint: disable=C0103
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r') # pylint: disable=C0103
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test3.test(args.TEST)
         result = stdout
 
     if result != args.RESPONSE:
@@ -143,5 +131,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()

@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,99 +8,114 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import socket # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021101201'
 
 DESCRIPTION = 'Checks whether a network port is reachable.'
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 22
-DEFAULT_STATE = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 2
 DEFAULT_TYPE='tcp'
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-import socket
-from traceback import print_exc
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
-    parser.add_argument('-H', '--hostname', 
+    parser.add_argument(
+        '-H', '--hostname',
         help='The host or ip address to check. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
-        )
+    )
 
-    parser.add_argument('-p', '--port', 
+    parser.add_argument(
+        '-p', '--port',
         help='The port number. Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
-        )
+    )
 
-    parser.add_argument('--portname', 
+    parser.add_argument(
+        '--portname',
         help='The display name of the port.',
         dest='PORTNAME',
-        )
+    )
 
-    parser.add_argument('--state', 
-        help='The state that has to be returned. Default: %(default)s',
-        dest='STATE',
-        default=DEFAULT_STATE,
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
-        )
+    )
 
-    parser.add_argument('-t', '--timeout', 
+    parser.add_argument(
+        '-t', '--timeout',
         help='Network timeout. Default: %(default)s',
         dest='TIMEOUT',
         type=float,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
-    parser.add_argument('--type', 
+    parser.add_argument(
+        '--type',
         help='Connection type. Default: %(default)s',
         dest='TYPE',
         default=DEFAULT_TYPE,
         choices=['tcp', 'tcp6'],
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     if args.TYPE == 'tcp':
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else:
@@ -108,21 +123,31 @@ def main():
     sock.settimeout(args.TIMEOUT)
 
     try:
-        # Works fine for tcp connections, but not for udp. The port response for udp is based on the target application and is not standard like tcp.
+        # Works fine for tcp connections, but not for udp. The port response for udp is based on
+        # the target application and is not standard like tcp.
         if sock.connect_ex((args.HOSTNAME, args.PORT)) == 0:
             state = STATE_OK
         else:
-            state = STATE_WARN if args.STATE == 'warn' else STATE_CRIT
+            state = STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
         sock.close()
     except:
-        lib.base2.oao('Cannot initiate a connection to {}:{}/{}.'.format(args.HOSTNAME, args.PORT, TYPE), STATE_UNKNOWN)
+        lib.base2.oao('Cannot initiate a connection to {}:{}/{}.'.format(
+            args.HOSTNAME,
+            args.PORT,
+            args.TYPE,
+        ), STATE_UNKNOWN)
 
-    lib.base2.oao('{}:{}/{} is {}.'.format(args.HOSTNAME, args.PORTNAME if args.PORTNAME else args.PORT, args.TYPE, 'reachable' if state == STATE_OK else 'unreachable'), state)
+    # over and out
+    lib.base2.oao('{}:{}/{} is {}.'.format(
+        args.HOSTNAME,
+        args.PORTNAME if args.PORTNAME else args.PORT,
+        args.TYPE,
+        'reachable' if state == STATE_OK else 'unreachable',
+    ), state)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

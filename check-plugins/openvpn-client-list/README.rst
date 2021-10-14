@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/openvpn-client-list"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -26,7 +26,7 @@ Help
 .. code-block:: text
 
     usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME]
-                               [-w WARN]
+                               [--test TEST] [-w WARN]
 
     Prints a list of all clients connected to the OpenVPN Server
 
@@ -38,6 +38,8 @@ Help
                             clients. Default: None
       --filename FILENAME   Set the path of the log filename. Default: /var/log
                             /openvpn-status.log
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       -w WARN, --warning WARN
                             Set the warning threshold for the number of connected
                             clients. Default: None

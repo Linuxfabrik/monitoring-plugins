@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fail2ban"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -25,7 +25,7 @@ Help
 
 .. code-block:: text
 
-    usage: fail2ban2 [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
     In fail2ban, checks the amount of banned IP addresses (for a list of jails).
 

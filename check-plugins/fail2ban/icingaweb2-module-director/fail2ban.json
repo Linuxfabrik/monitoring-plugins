@@ -1,0 +1,128 @@
+{
+    "Command": {
+        "cmd-check-fail2ban": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$fail2ban_always_ok$"
+                },
+                "--critical": {
+                    "value": "$fail2ban_critical$"
+                },
+                "--warning": {
+                    "value": "$fail2ban_warning$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/fail2ban",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 242,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 243,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 244,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-fail2ban",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "d8af8163-d00a-4e6c-ad4e-293d3740bc5c"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-fail2ban": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-fail2ban",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "fail2ban.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "In fail2ban, checks the amount of banned IP addresses (for a list of jails).",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fail2ban",
+            "object_name": "tpl-service-fail2ban",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "fail2ban_always_ok": false,
+                "fail2ban_critical": 10000,
+                "fail2ban_warning": 2500
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "4e57737b-3fd7-4067-84eb-7dafbd7b569a"
+        }
+    },
+    "DataList": {},
+    "Datafield": {
+        "242": {
+            "varname": "fail2ban_always_ok",
+            "caption": "Fail2ban: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "fc4647f1-c1e0-46c4-9667-86452089dd69"
+        },
+        "243": {
+            "varname": "fail2ban_critical",
+            "caption": "Fail2ban: Critical",
+            "description": "Set the critical threshold for banned IPs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "e6fb221a-0a24-4c72-b50b-5da6429f4cc5"
+        },
+        "244": {
+            "varname": "fail2ban_warning",
+            "caption": "Fail2ban: Warning",
+            "description": "Set the warning threshold for banned IPs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "37dd87b8-36ef-491f-a1f8-a73528dd63cd"
+        }
+    }
+}

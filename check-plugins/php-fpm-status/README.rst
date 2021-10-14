@@ -9,13 +9,13 @@ This check collects information from the PHP-FPM pool status page and alerts on 
 PHP-FPM config example:
 
 .. code-block:: text
-    :caption: PHP-FPM Config
-
+    
+    ; PHP-FPM Config
     pm.status_path = /fpm-status
 
 .. code-block:: text
-    :caption: Apache Config
-
+    
+    # Apache Config
     Alias /fpm-status /dev/null
     <LocationMatch "/fpm-status">
         Require local
@@ -130,7 +130,7 @@ Perfdata / Metrics
 * queue usage: the number of request in the queue of pending connections, in %
 * req per sec: the number of request accepted by the pool divided by number of seconds since FPM has started
 * slow requests: the number of slow requests
-* up: number of seconds since FPM has started
+* start since: number of seconds since FPM has started
 
 
 Credits, License

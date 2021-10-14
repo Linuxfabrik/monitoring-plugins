@@ -1,0 +1,140 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import datetime # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021100801'
+
+DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
+
+DEFAULT_WARN = 50      # days
+DEFAULT_CRIT = 30      # days
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--input',
+        help='"Display Name 1, yyyy-mm-dd, warn, crit" (repeating)',
+        dest='INPUT',
+        type=lib.args3.csv,
+        required = True,
+        action='append',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    line_state = STATE_OK
+    state = STATE_OK
+
+    try:
+        # ['Supermicro SYS1, 2022-01-10, 50, None', 'Contract XMPL.COM, 2021-12-24, 50, 30']
+        for line in args.INPUT:
+            item, expiration_date, warn, crit = line
+
+            expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
+            today = lib.base3.now(as_type='datetime')
+            delta = expiration_date - today
+            delta = int(delta.days) + 1
+
+            if delta > 0:
+                line = '{} expires in {} {} (thresholds {}/{})\n'.format(item, delta, lib.base3.pluralize('day', delta), warn, crit)
+            elif delta == 0:
+                line = '{} expires today.\n'.format(item)
+            else:
+                line = '{} already expired {} {} ago.\n'.format(item, abs(delta), lib.base3.pluralize('day', abs(delta)))
+
+            if crit.lower() != 'none' and delta < int(crit):
+                msg += '* CRIT ' + line
+                line_state = STATE_CRIT
+            elif delta < int(warn):
+                msg += '* WARN ' + line
+                line_state = STATE_WARN
+            else:
+                msg += '* ' + line
+                line_state = STATE_OK
+
+            state = lib.base3.get_worst(line_state, state)
+
+        if state == STATE_CRIT:
+            msg = 'There are one or more criticals.\n' + msg
+        elif state == STATE_WARN:
+            msg = 'There are one or more warnings.\n' + msg
+        else:
+            msg = 'Everything is ok.\n' + msg
+
+        # over and out
+        lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+    except Exception as e:
+        lib.base3.oao('Something seems to be wrong with the input parameter format or its timestamps. The error was: {}'.format(e), STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

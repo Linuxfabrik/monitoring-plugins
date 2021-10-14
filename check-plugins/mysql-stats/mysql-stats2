@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,86 +8,100 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+try:
+    import mysql.connector
+except ImportError as e:
+    mysql_connector_found = False
+else:
+    mysql_connector_found = True
+try:
+    import psutil
+except ImportError as e:
+    psutil_found = False
+else:
+    psutil_found = True
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052401'
+__version__ = '2021101201'
 
-DESCRIPTION = 'This check tests connections to a mysql server and gets some statistics (based on MySQL-Tuner).'
+DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
+                (the same way MySQLTuner does)."""
 
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-try:
-    import mysql.connector
-except ImportError as e:
-    print('Python module "mysql.connector" is not installed.')
-    exit(STATE_UNKNOWN)
-try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
-from traceback import print_exc
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
+    parser.add_argument(
+        '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
-    parser.add_argument('--always-ok',
+    parser.add_argument(
+        '--always-ok',
         help='Always returns OK.',
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
-    parser.add_argument('-H', '--hostname',
+    parser.add_argument(
+        '-H', '--hostname',
         help='MySQL/MariaDB hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
-        )
+    )
 
-    parser.add_argument('-p', '--password',
+    parser.add_argument(
+        '-p', '--password',
         help='Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
         dest='PASSWORD',
-        required = True,        
-        )
+        required = True,
+    )
 
-    parser.add_argument('--port',
+    parser.add_argument(
+        '--port',
         help='MySQL/MariaDB port. Default: %(default)s',
         dest='PORT',
         default=DEFAULT_PORT,
-        )
+    )
 
-    parser.add_argument('-u', '--username',
+    parser.add_argument(
+        '-u', '--username',
         help='MySQL/MariaDB username.',
         dest='USERNAME',
-        required = True,        
-        )
+        required = True,
+    )
 
     return parser.parse_args()
 
@@ -143,11 +157,19 @@ def log_file_recommendations(myvar):
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if mysql_connector_found is False:
+        lib.base2.oao('Python module "mysql.connector" is not installed.', STATE_UNKNOWN)
+    if psutil_found is False:
+        lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
     try:
         if mysql.connector.__version__ >= '2.1.1':
@@ -167,14 +189,11 @@ def main():
                 )
     except mysql.connector.Error as err:
         if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
-            print('Wrong username or password')
-            exit(STATE_UNKNOWN)
+            lib.base2.oao('Wrong username or password.', STATE_UNKNOWN)
         elif err.errno == mysql.connector.errorcode.ER_BAD_DB_ERROR:
-            print('Unknown database')
-            exit(STATE_UNKNOWN)
+            lib.base2.oao('Unknown database.', STATE_UNKNOWN)
         else:
-            print(err)
-            exit(STATE_UNKNOWN)
+            lib.base2.oao(err, STATE_UNKNOWN)
 
     myvar = {}
     mystat = {}
@@ -187,15 +206,13 @@ def main():
     cursor.execute(query)
     version = cursor.fetchone()
     if len(version) <1:
-        print('You probably did not get enough privileges for running this check.')
-        exit(STATE_UNKNOWN)
-    
+        lib.base2.oao('You probably did not get enough privileges for running this check.', STATE_UNKNOWN)
+
     version = version[0].split('.')
     mysqlvermajor = int(version[0])
     mysqlverminor = int(version[1])
     mysqlvermicro = version[2]
     mysqltype='MariaDB' if 'MariaDB' in mysqlvermicro else 'MySQL'
-
 
     # https://dev.mysql.com/doc/refman/8.0/en/show-variables.html
     query = 'show variables;'
@@ -227,16 +244,13 @@ def main():
         for (ptype, pname, pstatus) in cursor:
             perfschema[pname] = lib.base2.smartcast(pstatus)
     except mysql.connector.Error as err:
-        print('Failed querying performance_schema status. {}'.format(err))
-        exit(STATE_UNKNOWN)
+        lib.base2.oao('Failed querying performance_schema status. {}'.format(err), STATE_UNKNOWN)
 
     cursor.close()
     cnx.close()
 
     if len(mystat) <1:
-        print('Your server has not answered any queries - cannot continue.')
-        exit(STATE_UNKNOWN)
-
+        lib.base2.oao('Your server has not answered any queries - cannot continue.', STATE_UNKNOWN)
 
     # calculations as done in mysqltuner.pl
     # https://github.com/major/MySQLTuner-perl/blob/master/mysqltuner.pl
@@ -294,7 +308,7 @@ def main():
 
     # Aborted Connections
     mycalc['pct_connections_aborted'] = int(mystat['Aborted_connects'] / mystat['Connections'] * 100) if mystat['Connections'] else 0
-    
+
     # Query cache
     if mysqltype == 'MySQL' and (mysqlvermajor >= 8 and mysqlvermajor <= 10):
         mycalc['query_cache_efficiency'] = 0
@@ -344,14 +358,11 @@ def main():
     if myvar['log_bin'] != 'OFF':
         mycalc['pct_binlog_cache'] = int((mystat['Binlog_cache_use'] - mystat['Binlog_cache_disk_use']) / mystat['Binlog_cache_use'] * 100)
 
-
-
-
+    # init some vars
     msg = ''
     msg_warn = 'WARN: '
     perfdata = ''
     state = STATE_OK
-
 
     msg += '{} v{}.{}, '.format(mysqltype, mysqlvermajor, mysqlverminor)
     msg += '{}%/{}% r/w, '.format(mycalc['pct_reads'], mycalc['pct_writes'])
@@ -370,7 +381,6 @@ def main():
     perfdata += lib.base2.get_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
     perfdata += lib.base2.get_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
 
-    
     msg += log_file_recommendations(myvar)
 
     # checks as done in mysqltuner
@@ -442,7 +452,7 @@ def main():
             state = lib.base2.get_worst(state, STATE_WARN)
         msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.base2.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
         perfdata += lib.base2.get_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
-            
+
         if mycalc['query_cache_prunes_per_day'] > 98:
             if myvar['query_cache_size'] >= 128 * 1024 * 1024:
                 msg_warn += '* Increasing the query_cache size over 128M may reduce performance\n'
@@ -473,10 +483,10 @@ def main():
     # Temporary tables
     if mystat['Created_tmp_tables'] > 0:
         if mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] < 256 * 1024 * 1024:
-            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and/or increase tmp_table_size + increase max_heap_table_size (when making adjustments, make tmp_table_size/max_heap_table_size equal)\n' 
+            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and/or increase tmp_table_size + increase max_heap_table_size (when making adjustments, make tmp_table_size/max_heap_table_size equal)\n'
             state = lib.base2.get_worst(state, STATE_WARN)
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
-            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n' 
+            msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n'
             state = lib.base2.get_worst(state, STATE_WARN)
     msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.base2.number2human(mystat['Created_tmp_disk_tables']), lib.base2.number2human(mystat['Created_tmp_tables']))
     perfdata += lib.base2.get_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)
@@ -547,17 +557,15 @@ def main():
         msg_warn += '* Enable concurrent_insert\n'
         state = lib.base2.get_worst(state, STATE_WARN)
 
-
     if msg_warn != 'WARN: ':
         msg = msg_warn.replace('WARN: ', 'There are warnings.\n').strip() + '\n---\n' + msg
 
-
+    # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

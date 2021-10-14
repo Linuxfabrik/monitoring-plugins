@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,39 +8,40 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import base64
-import sys
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-from traceback import print_exc
-
-from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import xmltodict
 except ImportError as e:
-    print('Python module "xmltodict" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+    lib.base2.oao('Python module "xmltodict" is not installed.', STATE_UNKNOWN)
 
-import lib.base2
-import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021101301'
 
 DESCRIPTION = 'Checks the disk SMART values returned by QTS.'
 
@@ -51,13 +52,15 @@ DEFAULT_USERNAME = 'admin'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -65,14 +68,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
-
-    parser.add_argument(
-        '--url',
-        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
-        dest='URL',
-        required=True,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -80,7 +76,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -88,21 +84,14 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
-
-    parser.add_argument(
-        '--username',
-        help='QTS User. Default: %(default)s',
-        dest='USERNAME',
-        default=DEFAULT_USERNAME,
-        )
+    )
 
     parser.add_argument(
         '--password',
         help='QTS Password.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -110,11 +99,29 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
+
+    parser.add_argument(
+        '--url',
+        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='QTS User. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
 
     return parser.parse_args()
 
+
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -126,14 +133,13 @@ def main():
     data = {
         'user': args.USERNAME,
         'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
-        }
+    }
     result = lib.base2.coe(lib.url2.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     auth_passed = data['authPassed']
     if auth_passed is not None and len(auth_passed) == 1 and auth_passed == "0":
-        print('Failed to authenticate.')
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.oao('Failed to authenticate.', STATE_UNKNOWN)
     authSid = data['authSid']
 
     # get the values
@@ -167,7 +173,7 @@ def main():
                 disk['Model'],
                 disk['Serial'],
                 temperature,
-                )
+            )
 
     # build the message
     if disk_count:
@@ -183,10 +189,8 @@ def main():
         lib.base2.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
 
-
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

@@ -1,0 +1,213 @@
+{
+    "Command": {
+        "cmd-check-path-rw-test": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$path_rw_test_always_ok$"
+                },
+                "--path": {
+                    "value": "$path_rw_test_path$",
+                    "repeat_key": true
+                },
+                "--severity": {
+                    "value": "$path_rw_test_severity$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/path-rw-test",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 901,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 902,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 903,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-path-rw-test",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "71dbc89f-6d9e-4c25-aaae-49d423d3c30e"
+        },
+        "cmd-check-path-rw-test-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/path-rw-test",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-path-rw-test"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-path-rw-test-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "db65caee-5c64-4aa4-8a38-7d01c4e9dd44"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-path-rw-test": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-path-rw-test",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "path-rw-test.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Tests whether a file can be written to a specific path and then deleted.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/path-rw-test",
+            "object_name": "tpl-service-path-rw-test",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "path_rw_test_always_ok": false,
+                "path_rw_test_path": [
+                    "/tmp"
+                ],
+                "path_rw_test_severity": "warn"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "5ed167a4-be5a-44a9-9cd1-ce8bedb9a12f"
+        },
+        "tpl-service-path-rw-test-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-path-rw-test-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-path-rw-test"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-path-rw-test-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {},
+            "volatile": null,
+            "zone": null,
+            "guid": "13283d82-a3fd-4088-b76f-7da961427a24"
+        }
+    },
+    "DataList": {
+        "path_rw_test_severity_list": {
+            "list_name": "path_rw_test_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "guid": "e3e060cd-c001-4f7b-be7e-38503362125e"
+        }
+    },
+    "Datafield": {
+        "901": {
+            "varname": "path_rw_test_always_ok",
+            "caption": "Path RW Test: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "3da6dfb3-63b4-4521-b8f6-633edd9fc0e3"
+        },
+        "902": {
+            "varname": "path_rw_test_path",
+            "caption": "Path RW Test: Path",
+            "description": "Path to which the file is to be written and from which it will be deleted (repeating).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "6f80bd32-0b34-4930-a7d1-50863013b047"
+        },
+        "903": {
+            "varname": "path_rw_test_severity",
+            "caption": "Path RW Test: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "path_rw_test_severity_list"
+            },
+            "guid": "24862773-1f7f-415c-bc26-b2d229055b3f"
+        }
+    }
+}

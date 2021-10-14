@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,20 +28,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
-try:
-    import psutil
-except ImportError as e:
-    print('Python module "psutil" is not installed.')
-    exit(STATE_UNKNOWN)
 
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
+try:
+    import psutil
+except ImportError as e:
+    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061401'
+__version__ = '2021083103'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -110,7 +110,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():    
+def main():
     """The main function. Hier spielt die Musik.
     """
 
@@ -125,7 +125,7 @@ def main():
     # create the perfdata table
     definition = '''
             name                TEXT NOT NULL,
-            busy_time           INT NOT NULL, 
+            busy_time           INT NOT NULL,
             read_bytes          INT NOT NULL,
             read_merged_count   INT NOT NULL,
             read_time           INT NOT NULL,
@@ -178,7 +178,7 @@ def main():
     # we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
     for disk in sorted(disks):
         # get all historical data rows for a specific disk, newest item first
-        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn, 
+        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn,
             'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
             {'name': disk}
         ))
@@ -193,6 +193,10 @@ def main():
         read_bytes_per_second1 = int(float(diskdata[0]['read_bytes'] - diskdata[1]['read_bytes']) / timestamp_diff)
         write_bytes_per_second1 = int(float(diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff)
         throughput1 = read_bytes_per_second1 + write_bytes_per_second1
+        if timestamp_diff < 0 or read_bytes_per_second1 < 0 or write_bytes_per_second1 < 0 or throughput1 < 0:
+            # happens after a reboot
+            lib.db_sqlite2.close(conn)
+            lib.base2.oao('Waiting for more data.', state)
 
         # store the max. measured throughput in cache
         throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk))
@@ -227,7 +231,7 @@ def main():
                 )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
-        # calculate read/write rate over the entire period 
+        # calculate read/write rate over the entire period
         if len(diskdata) != args.COUNT:
             # not enough data yet
             continue
@@ -278,5 +282,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+        lib.base3.cu()

@@ -1,7 +1,7 @@
 Linuxfabrik's Check Plugin Developer Guidelines
 ===============================================
 
-Monitoring of an Application 
+Monitoring of an Application
 ----------------------------
 
 Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check.
@@ -15,7 +15,7 @@ Avoid an extensive check that covers a wide variety of aspects:
 Better write three separate checks:
 
 * ``myapp-threading --warning 1500 --critical 2000``
-* ``myapp-memory-usage --warning 80 --critical 90`` 
+* ``myapp-memory-usage --warning 80 --critical 90``
 * ``myapp-deployment-status``
 
 
@@ -39,11 +39,11 @@ Deliverables
 * README file explaining "How?" and Why?"
 * LICENSE file
 * if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_)
+* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
 * optional: Icinga Director Basket Config
 * optional: Icinga Web 2 Grafana Module .ini file
 * optional: sudoers file (see `sudoers File <#sudoers-file>`_)
-* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 
 
 Rules of Thumb
@@ -66,12 +66,25 @@ Rules of Thumb
 * EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
 
 
+Bytes vs. Unicode
+-----------------
+
+* Data coming into your plugins must be bytes, encoded with ``UTF-8``.
+* Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
+* **Use unicode throughout your plugin.**
+* When outputting data, use library functions, they should do output conversions for you. Library functions like ``base.oao`` or ``url.fetch_json`` will take care of the conversion to and from bytes.
+
+See https://nedbatchelder.com/text/unipain.html for details.
+
+
 Names, Naming Conventions, Parameters, Option Processing
 --------------------------------------------------------
 
+The plugin name should match the following regex: ``^[a-zA-Z0-9\-\_]*$``. This allows the plugin name to be used as the grafana dashboard uid (according to `here <https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11>`_).
+
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
-::
+.. code-block:: text
 
     -a, --authentication    authentication password
     -C, --community         SNMP community
@@ -88,64 +101,123 @@ There are a few Nagios-compatible reserved options that should not be used for o
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-For all other options, use long parameters only. We recommend using some of those:
+For all other options, use long parameters only. Separate words using a ``-``. We recommend using some of those:
 
-::
+.. code-block:: text
 
     --activestate
-    --action
+    --alarm-duration
     --always-ok
-    --brief
+    --argument
+    --authtype
     --cache-expire
-    --channel
     --command
+    --community
+    --config
     --count
+    --critical
+    --critical-count
+    --critical-cpu
+    --critical-maxchildren
+    --critical-mem
+    --critical-pattern
+    --critical-regex
+    --critical-slowreq
     --database
-    --depth
+    --date
     --device
+    --donor
     --filename
     --filter
     --full
     --hide-ok
+    --hostname
+    --icinga-callback
+    --icinga-password
+    --icinga-service-name
+    --icinga-url
+    --icinga-username
+    --idsite
     --ignore
+    --ignore-pattern
+    --ignore-regex
     --input
     --insecure
+    --instance
     --interface
     --interval
+    --ipv6
     --key
+    --latest
     --lengthy
     --loadstate
+    --message
+    --message-key
     --metric
+    --mib
+    --mibdir
     --mode
+    --module
     --mount
     --no-kthreads
     --no-proxy
     --no-summary
     --node
+    --only-dirs
+    --only-files
+    --password
     --path
+    --pattern
+    --perfdata
+    --perfdata-key
+    --period
+    --port
     --portname
     --prefix
+    --privlevel
+    --response
+    --service
     --severity
+    --snmp-version
+    --starttype
     --state
+    --state-key
+    --status
     --substate
+    --suppress-lines
+    --task
+    --team
     --test
-    --timespan
+    --timeout
+    --timerange
+    --token
     --trigger
     --type
     --unit
     --unitfilestate
+    --url
     --username
+    --version
+    --virtualenv
+    --warning
+    --warning-count
+    --warning-cpu
+    --warning-maxchildren
+    --warning-mem
+    --warning-pattern
+    --warning-regex
+    --warning-slowreq
 
 `Parameter types <https://docs.python.org/3/library/argparse.html>`_ are usually:
 
-* type=float
-* type=int
-* type=lib.args3.csv
-* type=lib.args3.float_or_none
-* type=lib.args3.int_or_none
-* type=str (the default)
-* choices=['udp', 'udp6', 'tcp', 'tcp6']
-* action='store_true', action='store_false' for switches
+* ``type=float``
+* ``type=int``
+* ``type=lib.args3.csv``
+* ``type=lib.args3.float_or_none``
+* ``type=lib.args3.int_or_none``
+* ``type=str`` (the default)
+* ``choices=['udp', 'udp6', 'tcp', 'tcp6']``
+* ``action='store_true'``, ``action='store_false'`` for switches
 
 Hints:
 
@@ -156,42 +228,45 @@ Hints:
   ``[['1', '2', '3'], ['a', 'b', 'c']]``
 
 
+Git Commits
+-----------
+
+You have to make sure that an issue in the `plugin <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues>`_ or `lib <https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues>`_ project exists. No code fix without issue.
+
+**Fix only one issue per commit.**
+
+The commit message must consist of the issue title followed by "(fixed #issueno)", for example: ``about-me: Add OpenVPN (fixed #341)``. For the first commit, use the message ``initial commit``.
+
+
 Threshold and Ranges
 --------------------
 
 If a threshold has to be handled as a range parameter, this is how to interpret them. Pretty much the same as stated in the `Nagios Development Guidelines <http://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_.
 
 * simple value: a range from 0 up to and including the value
-* ``:``: describes a range
-* empty value before or after ``:``: positive infinity
+* empty value after ``:``: positive infinity
 * ``~``: negative infinity
 * ``@``: if range starts with "@", then alert if inside this range (including endpoints)
 
-+--------+-------------------+-------------------+--------------------------------+
-| -w, -c | OK if result is   | WARN/CRIT if      | lib.base.parse_range() returns |
-+--------+-------------------+-------------------+--------------------------------+
-| 10     | in (0..10)        | not in (0..10)    | (0, 10, False)                 |
-+--------+-------------------+-------------------+--------------------------------+
-| -10    | in (-10..0)       | not in (-10..0)   | (0, -10, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| 10:    | in (10..inf)      | not in (10..inf)  | (10, inf, False)               |
-+--------+-------------------+-------------------+--------------------------------+
-| :      | in (0..inf)       | not in (0..inf)   | (0, inf, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| ~:10   | in (-inf..10)     | not in (-inf..10) | (-inf, 10, False)              |
-+--------+-------------------+-------------------+--------------------------------+
-| 10:20  | in (10..20)       | not in (10..20)   | (10, 20, False)                |
-+--------+-------------------+-------------------+--------------------------------+
-| @10:20 | not in (10..20)   | in 10..20         | (10, 20, True)                 |
-+--------+-------------------+-------------------+--------------------------------+
-| @~:20  | not in (-inf..20) | in (-inf..20)     | (-inf, 20, True)               |
-+--------+-------------------+-------------------+--------------------------------+
-| @      | not in (0..inf)   | in (0..inf)       | (0, inf, True)                 |
-+--------+-------------------+-------------------+--------------------------------+
+Examples:
+
+.. csv-table:: 
+    :header-rows: 1
+
+    "-w, -c",     OK if result is    ,   WARN/CRIT if      
+    10      ,     in (0..10)         ,   not in (0..10)    
+    -10     ,     in (-10..0)        ,   not in (-10..0)   
+    10:     ,     in (10..inf)       ,   not in (10..inf)  
+    :       ,     in (0..inf)        ,   not in (0..inf)   
+    ~:10    ,     in (-inf..10)      ,   not in (-inf..10) 
+    10:20   ,     in (10..20)        ,   not in (10..20)   
+    @10:20  ,     not in (10..20)    ,   in 10..20         
+    @~:20   ,     not in (-inf..20)  ,   in (-inf..20)     
+    @       ,     not in (0..inf)    ,   in (0..inf)       
 
 So, a definition like ``--warning 2:100 --critical 1:150`` should return the states:
 
-::
+.. code-block:: text
 
     val   0   1   2 .. 100 101 .. 150 151
     -w   WA  WA  OK     OK  WA     WA  WA
@@ -200,7 +275,7 @@ So, a definition like ``--warning 2:100 --critical 1:150`` should return the sta
 
 Another example: ``--warning 190: --critical 200:``
 
-::
+.. code-block:: text
 
     val 189 190 191 .. 199 200 201
     -w   WA  OK  OK     OK  OK  OK
@@ -209,7 +284,7 @@ Another example: ``--warning 190: --critical 200:``
 
 Another example: ``--warning ~:0 --critical 10``
 
-::
+.. code-block:: text
 
     val  -2  -1   0   1 ..   910  11
     -w   OK  OK  OK  WA     WA  WA  WA
@@ -241,21 +316,27 @@ Plugin Output
 * Print a short concise message in the first line within the first 80 chars if possible.
 * Use multi-line output for details (``msg_body``), with the most important output in the first line (``msg_header``).
 * Don't print "OK".
-* Print "(WARN)" or "(CRIT)" for clarification next to a specific item.
+* Print "[WARNING]" or "[CRITICAL]" for clarification next to a specific item using ``lib.base3.state2str()``.
 * If possible give a help text to solve the problem.
 * Multiple items checked, and ...
 
-  * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-  * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+    * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
+    * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
 
-* Use short "Units of Measurements" without white spaces:
+* Based on parameters etc. nothing is checked at the end? Print "Nothing checked."
+* Wrong username or password? Print "Failed to authenticate."
 
-  * Percentage: 93.2%
-  * Bytes: 7B, 3.4K, M, G, T
-  * Temperatures: 7.3C, 45F
-  * Network: "Rx/s", "Tx/s", 17.4Mbps (Megabit per Second)
-  * I/O and Throughput: 220.4MB/s (Megabyte per Second)
-  * Read/Write: "R/s", "W/s", "IO/s"
+* Use short "Units of Measurements" without white spaces, including these terms:
+
+    * Bits: use ``base.bits2human()``
+    * Bytes: use ``base.bytes2human()``
+    * I/O and Throughput: ``base.bytes2human() + '/s'`` (Byte per Second)
+    * Network: "Rx/s", "Tx/s", use ``base.bps2human()``
+    * Numbers: use ``base.numer2human()``
+    * Percentage: 93.2%
+    * Read/Write: "R/s", "W/s", "IO/s"
+    * Seconds, Minutes etc.: use ``base.seconds2human()``
+    * Temperatures: 7.3C, 45F.
 
 * Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
 * Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
@@ -266,19 +347,23 @@ Plugin Performance Data, Perfdata
 
 "UOM" means "Unit of Measurement".
 
-Sample::
+Sample:
+
+.. code-block:: text
 
     'label'=value[UOM];[warn];[crit];[min];[max];
 
 ``label``  doesn't need to be machine friendly, so ``Pages scanned=100;;;;;`` is as valuable as ``pages-scanned=100;;;;;``.
 
 
-Suffixes::
+Suffixes:
+
+.. code-block:: text
 
     no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
-    s - seconds (also us, ms)
+    s - seconds (also us, ms etc.)
     % - percentage
-    B - bytes (also KB, MB, TB)
+    B - bytes (also KB, MB, TB etc.). Bytes preferred, they are exact.
     c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
@@ -330,20 +415,20 @@ Implementing tests:
    against stdout, stderr and retc.
 * To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
-Have a look at the ``fs-ro`` plugin on how to do this.
+For example, have a look at the ``fs-ro`` plugin on how to do this.
 
 Running a complete unit test:
 
 .. code:: bash
 
-    # cd into the plugin directory and run:
-    ./test
+    # cd into the plugin directory and run the Python 3 based test:
+    ./test3
 
 
 sudoers File
 ------------
 
-If the plugin requires ``sudo``-permissions to run, please add the plugin to the ``sudoers``-files for all supported operating systems in ``assets/sudoers/``. The OS name should match the ansible variables ``ansible_facts['distribution'] + ansible_facts['distribution_major_version']`` (eg ``CentOS7``).
+If the plugin requires ``sudo``-permissions to run, please add the plugin to the ``sudoers``-files for all supported operating systems in ``assets/sudoers/``. The OS name should match the ansible variables ``ansible_facts['distribution'] + ansible_facts['distribution_major_version']`` (eg ``CentOS7``). Use symbolic links to prevent duplicate files.
 
 .. attention::
 
@@ -353,10 +438,9 @@ If the plugin requires ``sudo``-permissions to run, please add the plugin to the
 Compiling for Windows
 ---------------------
 
-To allow running the check plugins under Windows without installing python, we compile the check plugins using `nuitka <https://nuitka.net/>`_.
-For this, you need a Windows Machine with python3 and nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
+To allow running the check plugins under Windows without installing Python, compile the check plugins using `nuitka <https://nuitka.net/>`_. For this, you need a Windows Machine with Python 3 and Nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
 
-To manually compile a check on the Windows Machine, deploy the python3 variant, then:
+To manually compile a check on the Windows machine, use the Python 3 variant:
 
 .. code-block:: batch
 
@@ -370,8 +454,7 @@ Alternatively, use the ``monitoring-plugins-nuitka-compile``-Ansible-Tag:
 
    ansible-playbook --inventory inventory playbook.yml --tags monitoring-plugins,monitoring-plugins-nuitka-compile --extra-vars 'monitoring_plugins_windows_method=python monitoring_plugins_repo_version=develop' --limit windows-machine
 
-
-Then copy the new folder to a Linux Machine and add zip it:
+Then copy the new folder to a Linux Machine and zip it:
 
 .. code-block:: bash
 
@@ -400,6 +483,15 @@ Exporting for later import via the WebGUI
 * Export for sharing externally: yes
 * Save to file: all-panels-external.json
 
+Afterwards generate the dashboards for each plugin using the
+``grafana-tool``:
+
+.. code:: bash
+
+    ./tools/grafana-tool assets/grafana/all-panels-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
+
+Make sure to adjust the generated ini file if necessary.
+
 
 Exporting for provisioning
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -415,10 +507,109 @@ Afterwards generate the dashboards for each plugin using the
 
 .. code:: bash
 
-    ./tools/grafana-tool assets/grafana/all-panels-external.json --auto --filename-postfix '.grafana-external' --generate-icingaweb2-ini
     ./tools/grafana-tool assets/grafana/all-panels-provisioning.json --auto --filename-postfix '.grafana-provisioning' --generate-icingaweb2-ini
 
 Make sure to adjust the generated ini file if necessary.
+
+
+Icinga Director Basket Config
+-----------------------------
+
+Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
+
+The Icinga Director Basket for one or all plugins can be created using the ``check2basket`` tool. Note that the tool can only create baskets of Python 3 plugins.
+
+.. important:
+
+    **Always review the basket before committing.**
+
+
+Create a Basket File from Scratch
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After writing a new check called ``new-check``, generate a basket file using:
+
+.. code-block::
+
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+
+The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director/new-check.json``. Inspect the basket, paying special attention to:
+
+* Command: ``timeout``
+* ServiceTemplate: ``check_interval``
+* ServiceTemplate: ``enable_notifications``
+* ServiceTemplate: ``enable_perfdata``
+* ServiceTemplate: ``max_check_attempts``
+* ServiceTemplate: ``retry_interval``
+
+
+Fine-tune a Basket File
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Never directly edit a basket.** If adjustments must be made to the basket, create a YML/YAML config file for ``check2basket``.
+
+For example, to set the timeout to 30s, to enable notifications and some other options, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
+
+.. code-block:: yml
+
+    ---
+    overwrites:
+      '["Command"]["cmd-check-new-check"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/new-check'
+      '["Command"]["cmd-check-new-check"]["timeout"]': 30
+      '["ServiceTemplate"]["tpl-service-new-check"]["check_command"]': 'cmd-check-new-check-sudo'
+      '["ServiceTemplate"]["tpl-service-new-check"]["check_interval"]': 3600
+      '["ServiceTemplate"]["tpl-service-new-check"]["enable_notifications"]': true
+      '["ServiceTemplate"]["tpl-service-new-check"]["enable_perfdata"]': true
+      '["ServiceTemplate"]["tpl-service-new-check"]["max_check_attempts"]': 5
+      '["ServiceTemplate"]["tpl-service-new-check"]["retry_interval"]': 30
+      '["ServiceTemplate"]["tpl-service-new-check"]["use_agent"]': false
+
+Then, re-run ``check2basket`` to apply the overwrites:
+
+.. code-block::
+
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+
+If a parameter was added, changed or deleted in the plugin, simply re-run the ``check2basket`` to update the basket file.
+
+
+Basket File for different OS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``check2basket`` tool also offers to generate so-called ``variants`` of the checks (different flavours of the check command call to run on different operating systems):
+
+* ``linux``: This is the default, and will be used if no other variant is defined. It generates a ``cmd-check-...``, ``tpl-service-...`` and the associated datafields.
+* ``windows``: Generates a ``cmd-check-...-windows``, ``cmd-check-...-windows-python``, ``tpl-service-...-windows`` and the associated datafields.
+* ``sudo``: Generates a ``cmd-check-...-sudo`` importing the ``cmd-check-...``, but with ``/usr/bin/sudo`` prepended to the command, and a ``tpl-service...-sudo`` importing the ``tpl-service...``, but with the ``cmd-check-...-sudo`` as the check command.
+* ``no-agent``: Generates a ``tpl-service...-no-agent`` importing the ``tpl-service...``, but with command endpoint set to the Icinga2 master.
+
+Specify them in the ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` configuration as follows:
+
+.. code-block:: yml
+
+    ---
+    variants:
+      - linux
+      - sudo
+      - windows
+      - no-agent
+
+
+Create Basket Files for all Check Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To run ``check2basket`` against all checks, for example due to a change in the script itself, use:
+
+.. code-block:: bash
+
+    ./tools/check2basket --auto
+
+
+Service Sets
+~~~~~~~~~~~~
+
+If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique GUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
+
 
 
 Virtual Environments
@@ -427,17 +618,18 @@ Virtual Environments
 To allow the check plugins to activate a virtual environment as described in the README, place this at the top of the check plugin (do not forget to adjust it to the python version):
 
 .. code-block:: python
-    :caption: Example for Python 3
 
     import os
 
-    activate_this = False
+    # considering a virtual environment
+    ACTIVATE_THIS = False
     venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
     if os.path.exists(venv_path):
-        activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+        ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
     if os.getenv('MONITORING_PLUGINS_VENV3'):
-        activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+        ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-    if activate_this and os.path.isfile(activate_this):
-        exec(open(activate_this).read(), {'__file__': activate_this})
+    if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+        exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+

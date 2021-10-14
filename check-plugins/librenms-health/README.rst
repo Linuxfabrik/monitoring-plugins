@@ -4,7 +4,7 @@ Check librenms-health
 Overview
 --------
 
-Get health details of all devices in LibreNMS (mostly for debugging purposes). Depending on the number of devices and their sensors, the execution can take 300 seconds or longer.
+Get health details of all devices in LibreNMS (mostly for quick debugging purposes). Depending on the number of devices and their sensors, the execution can take 300 seconds or longer.
 
 You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
 
@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-health"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "LibreNMS"
 
 
@@ -79,7 +79,12 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    device_count,                               Number,             Number of devices found
 
 
 Credits, License

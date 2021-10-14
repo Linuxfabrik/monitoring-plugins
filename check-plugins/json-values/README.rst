@@ -4,7 +4,7 @@ Check json-values
 Overview
 --------
 
-This check parses a json array from a file or url and simply returns the message, state and perfdata from the json.
+This check parses a flat json array from a file or url and simply returns the message, state and perfdata from the json.
 
 
 Fact Sheet
@@ -25,23 +25,27 @@ Help
 
 .. code-block:: text
 
-    usage: json-values [-h] [--always-ok] [--filename FILENAME]
-                       [--message-key MESSAGE_KEY] [--password PASSWORD]
-                       [--perfdata-key PERFDATA_KEY] [--state-key STATE_KEY] [-V]
-                       [-u URL] [--username USERNAME] [--insecure] [--no-proxy]
-                       [--timeout TIMEOUT]
+    usage: json-values [-h] [-V] [--always-ok] [--filename FILENAME] [--insecure]
+                       [--message-key MESSAGE_KEY] [--no-proxy]
+                       [--password PASSWORD] [--perfdata-key PERFDATA_KEY]
+                       [--state-key STATE_KEY] [--timeout TIMEOUT] [-u URL]
+                       [--username USERNAME]
 
-    This check parses a json array from a file or url and simply returns the
+    This check parses a flat json array from a file or url and simply returns the
     message, state and perfdata from the json.
 
     optional arguments:
       -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --filename FILENAME   Set the url of the json file. This is mutually
                             exclusive with -u / --url.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --message-key MESSAGE_KEY
                             Name of the json array key containing the output
                             message. Default: message
+      --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   SMB Password.
       --perfdata-key PERFDATA_KEY
                             Name of the json array key containing the perfdata.
@@ -49,15 +53,11 @@ Help
       --state-key STATE_KEY
                             Name of the json array key containing the state.
                             Default: state
-      -V, --version         show program's version number and exit
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u URL, --url URL     Set the url of the json file, either starting with
                             "http://", "https://" or "smb://". This is mutually
                             exclusive with --filename.
       --username USERNAME   SMB Username.
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -65,8 +65,8 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./json-values --url http://example.com/json.out
-    ./json-values --filename /tmp/json.out
+    ./json-values --url=http://example.com/json.out --message-key=output --state-key=state --perfdata-key=perfdata
+    ./json-values --filename=/tmp/json.out
     
 Output:
 

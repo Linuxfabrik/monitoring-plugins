@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/qts-temperatures"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -25,9 +25,9 @@ Help
 
 .. code-block:: text
 
-    usage: qts-temperatures [-h] [-V] [--always-ok] [-c CRIT] --url URL
-                            [--insecure] [--no-proxy] [--username USERNAME]
-                            --password PASSWORD [--timeout TIMEOUT] [-w WARN]
+    usage: qts-temperatures [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+                            [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
+                            --url URL [--username USERNAME] [-w WARN]
 
     Returns the current temperatures from QNAP Appliances running QTS via API.
 
@@ -38,17 +38,18 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold for the sytem and CPU
                             temperature. Default: 80
-      --url URL             QTS-based Appliance URL, for example
-                            https://192.168.1.1:8080.
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
-      --username USERNAME   QTS User. Default: admin
       --password PASSWORD   QTS Password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --url URL             QTS-based Appliance URL, for example
+                            https://192.168.1.1:8080.
+      --username USERNAME   QTS User. Default: admin
       -w WARN, --warning WARN
                             Set the warning threshold for the sytem and CPU
                             temperature. Default: 70
+
 
 
 Usage Examples

@@ -1,0 +1,50 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import unittest
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base2
+
+        
+class TestCheck(unittest.TestCase):
+
+    check = './ipmi-sel2'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        self.assertIn('*    1 ; 03/12/2019 ; 13:10:45 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE02,"SEL has no entries",0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
+        self.assertIn('*   54 ; 08/06/2020 ; 15:05:37 ; System ACPI Power State ACPI_Stat ; S4/S5: soft-off ; Asserted', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check))
+        self.assertIn('Could not open device at /dev/ipmi0 or /dev/ipmi/0 or /dev/ipmidev/0: No such file or directory', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    unittest.main()

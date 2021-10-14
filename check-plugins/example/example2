@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,21 +28,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+import lib.test2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
 except ImportError:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060201'
+__version__ = '2021082501'
 
 DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 2, as a basis for
                 further development, and much more text to help admins get this check up and
@@ -87,6 +86,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--token',
+        help='Software API token',
+        dest='TOKEN',
+        required=True,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
         help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
@@ -112,23 +118,10 @@ def main():
         cmd = 'cat /etc/os-release'
         stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
-            lib.base2.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base2.oao(u'{}'.format(stderr), STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r') # pylint: disable=C0103
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r') # pylint: disable=C0103
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
-
+        stdout, stderr, retc = lib.test2.test(args.TEST)
 
     # init some vars
     msg = ''
@@ -136,11 +129,11 @@ def main():
     perfdata = ''
 
     # analyze data
-    value = str(lib.base2.now())[-2:]
+    value = unicode(lib.base2.now())[-2:]
 
     # build the message
     state = lib.base2.get_state(value, args.WARN, args.CRIT)
-    msg += '{}% used{}'.format(value, lib.base2.state2str(state, prefix=' '))
+    msg += u'{}% used{}'.format(value, lib.base2.state2str(state, prefix=' '))
     perfdata += lib.base2.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
 
     # over and out
@@ -151,5 +144,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -30,7 +30,6 @@ import argparse # pylint: disable=C0413
 import socket # pylint: disable=C0413
 import sys # pylint: disable=C0413
 import time # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base2 # pylint: disable=C0413
 import lib.net2 # pylint: disable=C0413
@@ -38,7 +37,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060101'
+__version__ = '2021082501'
 
 DESCRIPTION = """Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the
                 name servers configured on the machine running this check plugin (for example those
@@ -70,7 +69,7 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Return critical if elapsed time in ms exceeds value. Default: None',
+        help='Return critical if elapsed time in ms exceeds value. Default: %(default)s',
         dest='CRIT',
         type=float,
         default=None,
@@ -100,7 +99,7 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Return warning if elapsed time in ms exceeds value. Default: None',
+        help='Return warning if elapsed time in ms exceeds value. Default: %(default)s',
         dest='WARN',
         type=float,
         default=None,
@@ -120,7 +119,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # https://docs.python.org/2/library/socket.html#socket.getaddrinfo
-    # socket.getaddrinfo(host, port[, family[, socktype[, proto[, flags]]]])¶
+    # socket.getaddrinfo(host, port[, family[, socktype[, proto[, flags]]]])
 
     # The function returns a list of 5-tuples with the following structure:
     # (family, socktype, proto, canonname, sockaddr)
@@ -166,5 +165,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

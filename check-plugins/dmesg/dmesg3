@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,28 +28,30 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061101'
+__version__ = '2021090802'
 
 DESCRIPTION = """Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
                 --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want to
                 clear them), use `dmesg --clear` to clear the Kernel Ring Buffer Messages."""
 
-DEFAULT_SERVERITY = 'crit'
+DEFAULT_SEVERITY = 'crit'
 
 cmd = 'dmesg --level=emerg,alert,crit,err --ctime'
 
-# ignore false positives / bugs:
-ignore = [
+# ignore false positives / bugs / messages without impact on anything:
+DEFAULT_IGNORE = [
     ' Asking for cache data failed',
     ' Assuming drive cache: write through',
+    ' brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio for chip BCM4345/6',  # Raspbian
+    ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',    # Raspbian
     ' CIFS VFS: Free previous auth_key.response = ',
     ' cpufreq: __cpufreq_add_dev: ->get() failed',
     ' ERST: Failed to get Error Log Address Range.',
@@ -86,10 +88,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore a kernel message (case-sensitive, repeating). Default: %(default)s',
+        dest='IGNORE',
+        default=DEFAULT_IGNORE,
+        action='append',
+    )
+
+    parser.add_argument(
         '--severity',
-        help='Severity for alerting. One of "warn" or "crit". Default: %(default)s',
+        help='Severity for alerting. Default: %(default)s',
         dest='SEVERITY',
-        default=DEFAULT_SERVERITY,
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
 
@@ -121,33 +131,21 @@ def main():
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
-        if args.TEST[0] and os.path.isfile(args.TEST[0]):
-            f = open(args.TEST[0], 'r')
-            stdout = f.read()
-            f.close()
-        else:
-            stdout = args.TEST[0]
-        if args.TEST[1] and os.path.isfile(args.TEST[1]):
-            f = open(args.TEST[1], 'r')
-            stderr = f.read()
-            f.close()
-        else:
-            stderr = args.TEST[1]
-        retc = args.TEST[2]
+        stdout, stderr, retc = lib.test3.test(args.TEST)
 
     # analyze data
     result = stdout.strip()
-    result = lib.base3.filter_mltext(result, ignore)
+    result = lib.base3.filter_mltext(result, args.IGNORE).strip()
 
     # build the message
-    cnt = result.count('\n') + 1
     if len(result) > 0:
+        cnt = result.count('\n') + 1
         if cnt > 10:
             # shorten the message
             result = result.split('\n')
             result = result[0:5] + ['...'] + result[-5:]
             result = '\n'.join(result)
-        msg = '{} {} in Kernel Ring Buffer.\n\n{}'.format(cnt, lib.base2.pluralize('error', cnt), result)
+        msg = '{} {} in Kernel Ring Buffer.\n\n{}'.format(cnt, lib.base3.pluralize('error', cnt), result)
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
     else:
         msg = 'Everything is ok.'
@@ -161,5 +159,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()

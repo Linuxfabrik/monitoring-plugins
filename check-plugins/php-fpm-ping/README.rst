@@ -9,14 +9,14 @@ This check fetches the ping monitoring page of PHP-FPM. This could be used to te
 PHP-FPM config example:
 
 .. code-block:: text
-    :caption: PHP-FPM Config
-
+    
+    ; PHP-FPM Config
     ping.path = /fpm-ping
     ping.response = pong
 
 .. code-block:: text
-    :caption: Apache Config
-
+    
+    # Apache Config
     Alias /fpm-ping /dev/null
     <Location "/fpm-ping">
         Require local

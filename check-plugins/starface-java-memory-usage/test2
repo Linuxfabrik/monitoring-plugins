@@ -1,0 +1,32 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+import unittest
+
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base2
+
+        
+class TestCheck(unittest.TestCase):
+
+    check = './starface-java-memory-usage2'
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE01,,'))
+        # self.assertEqual
+        # self.assertIn
+        # self.assertRegexpMatches
+        self.assertIn('Heap used: 4.8% (254.0MiB of 5.2GiB), Non-Heap used: 290.5MiB (unlimited memory usage allowed)', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
+if __name__ == '__main__':
+    unittest.main()

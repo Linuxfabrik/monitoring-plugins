@@ -1,0 +1,241 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101201'
+
+DESCRIPTION = """This plugin lets you track if app updates are available, the number of active
+                users over time, the number of shares in various categories and some storage
+                statistics against a Nextcloud server."""
+
+DEFAULT_URL             = 'http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info'
+DEFAULT_USERNAME        = 'admin'
+DEFAULT_INSECURE        = False
+DEFAULT_NO_PROXY        = False
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Nextcloud API password.',
+        dest='PASSWORD',
+        required = True,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Nextcloud API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Nextcloud API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+    if not args.URL.endswith('/info'):
+        lib.base3.oao('--url parameter has to end in "/info".', STATE_UNKNOWN)
+    URL = args.URL + '?format=json'
+
+    # Add the authentication and api request header
+    credentials = base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
+    header = {
+        'Authorization' : "Basic %s" % credentials,
+        'OCS-APIRequest': 'true',
+    }
+    # and get the info from the API
+    jsonst = lib.base3.coe(lib.url3.fetch(URL, insecure=args.INSECURE, no_proxy=args.NO_PROXY, header=header))
+    try:
+        result = json.loads(jsonst)
+    except:
+        lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+
+    if result['ocs']['meta']['status'] != 'ok':
+        lib.base3.oao('Sorry, something went wrong - no "ok" state returned.', STATE_UNKNOWN)
+
+    # extract some application specific data
+    nc_system_apps_app_updates            = result['ocs']['data']['nextcloud']['system']['apps']['app_updates']
+    nc_system_apps_num_installed          = result['ocs']['data']['nextcloud']['system']['apps']['num_installed']
+    nc_system_apps_num_updates_available  = result['ocs']['data']['nextcloud']['system']['apps']['num_updates_available']
+    nc_system_memcache_local              = result['ocs']['data']['nextcloud']['system']['memcache.local']
+    nc_system_memcache_locking            = result['ocs']['data']['nextcloud']['system']['memcache.locking']
+    nc_system_version                     = result['ocs']['data']['nextcloud']['system']['version']
+
+    nc_storage_num_users                  = result['ocs']['data']['nextcloud']['storage']['num_users']
+    nc_storage_num_files                  = result['ocs']['data']['nextcloud']['storage']['num_files']
+    nc_storage_num_storages               = result['ocs']['data']['nextcloud']['storage']['num_storages']
+    nc_storage_num_storages_local         = result['ocs']['data']['nextcloud']['storage']['num_storages_local']
+    nc_storage_num_storages_home          = result['ocs']['data']['nextcloud']['storage']['num_storages_home']
+    nc_storage_num_storages_other         = result['ocs']['data']['nextcloud']['storage']['num_storages_other']
+
+    nc_shares_num_fed_shares_received     = result['ocs']['data']['nextcloud']['shares']['num_fed_shares_received']
+    nc_shares_num_fed_shares_sent         = result['ocs']['data']['nextcloud']['shares']['num_fed_shares_sent']
+
+    nc_shares_num_shares                  = result['ocs']['data']['nextcloud']['shares']['num_shares']
+    nc_shares_num_shares_groups           = result['ocs']['data']['nextcloud']['shares']['num_shares_groups']
+    nc_shares_num_shares_link             = result['ocs']['data']['nextcloud']['shares']['num_shares_link']
+    nc_shares_num_shares_link_no_password = result['ocs']['data']['nextcloud']['shares']['num_shares_link_no_password']
+    nc_shares_num_shares_mail             = result['ocs']['data']['nextcloud']['shares']['num_shares_mail'] if 'num_shares_mail' in result['ocs']['data']['nextcloud']['shares'] else 'n/a'
+    nc_shares_num_shares_room             = result['ocs']['data']['nextcloud']['shares']['num_shares_room'] if 'num_shares_room' in result['ocs']['data']['nextcloud']['shares'] else 'n/a'
+    nc_shares_num_shares_user             = result['ocs']['data']['nextcloud']['shares']['num_shares_user']
+
+    nc_server_php_max_execution_time      = result['ocs']['data']['server']['php']['max_execution_time']
+    nc_server_php_memory_limit            = result['ocs']['data']['server']['php']['memory_limit']
+    nc_server_php_upload_max_filesize     = result['ocs']['data']['server']['php']['upload_max_filesize']
+    nc_server_php_version                 = result['ocs']['data']['server']['php']['version']
+    nc_server_webserver                   = result['ocs']['data']['server']['webserver']
+
+    nc_server_database_size               = result['ocs']['data']['server']['database']['size']
+    nc_server_database_type               = result['ocs']['data']['server']['database']['type']
+    nc_server_database_version            = result['ocs']['data']['server']['database']['version']
+
+    nc_active_users_last5min              = result['ocs']['data']['activeUsers']['last5minutes']
+    nc_active_users_last1h                = result['ocs']['data']['activeUsers']['last1hour']
+    nc_active_users_last24h               = result['ocs']['data']['activeUsers']['last24hours']
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # let's do some checks
+    if nc_system_apps_app_updates:
+        msg += 'There {} {} app {} available. '.format(lib.base3.pluralize('', nc_system_apps_num_updates_available, 'is,are'), nc_system_apps_num_updates_available, lib.base3.pluralize('update', nc_system_apps_num_updates_available))
+        if not args.ALWAYS_OK:
+            state = STATE_WARN
+
+    # build the (long) multiline message
+    msg += '{} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps, v{}\n'.format(
+        nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h,
+        nc_storage_num_files, nc_system_apps_num_installed,
+        nc_system_version,
+        )
+    msg += '* Shares: {} ({} groups, {} links [{} w/o password], {} mails, {} rooms, {} users, {} federated sent)\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,
+        nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user, nc_shares_num_fed_shares_sent)
+    msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
+    msg += '* Storages: {} ({} home, {} other, {} local)\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
+    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, lib.base3.bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, lib.base3.bytes2human(nc_server_php_memory_limit))
+    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, lib.base3.bytes2human(nc_server_database_size))
+    msg += '* Web: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
+
+    perfdata += lib.base3.get_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('nc_storage_num_users', nc_storage_num_users, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_storage_num_files', nc_storage_num_files, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_storage_num_storages', nc_storage_num_storages, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_storage_num_storages_local', nc_storage_num_storages_local, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_storage_num_storages_home', nc_storage_num_storages_home, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_storage_num_storages_other', nc_storage_num_storages_other, None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('nc_shares_num_fed_shares_received', nc_shares_num_fed_shares_received, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_fed_shares_sent', nc_shares_num_fed_shares_sent, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares', nc_shares_num_shares, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_groups', nc_shares_num_shares_groups, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_link', nc_shares_num_shares_link, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_link_no_password', nc_shares_num_shares_link_no_password, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_mail', nc_shares_num_shares_mail, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_room', nc_shares_num_shares_room, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_shares_num_shares_user', nc_shares_num_shares_user, None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('nc_server_database_size', nc_server_database_size, 'B', None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('nc_active_users_last5min', nc_active_users_last5min, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_active_users_last1h', nc_active_users_last1h, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('nc_active_users_last24h', nc_active_users_last24h, None, None, None, 0, None)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

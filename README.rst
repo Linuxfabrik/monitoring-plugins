@@ -1,29 +1,23 @@
 Python-based Monitoring Check Plugins Collection
 ================================================
 
-.. image:: linuxfabrik-monitoring-check-plugins-logo.png
+.. image:: assets/img/linuxfabrik-monitoring-check-plugins-logo.png
 
 
 This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-These monitoring check plugins
+The check plugins run on
 
-* are only written in Python (your main system language on RHEL / CentOS)
-* ensure easy access to the source code
-* are fast, reliable and use as few system resources as possible 
-* uniformly and consistently report the same metrics briefly and precisely (for example "used"), both on Linux and on Windows
-* use out of the box some sort of automatic detection using useful default settings
-* trigger WARNs and CRITs only where absolutely necessary
-* provide additional information for troubleshooting where possible
-* avoid dependencies on additional system libraries where possible
+* Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
+* Windows Server (some of them)
 
-All check plugins are tested on CentOS 7+ (Minimal), Fedora 30+, Ubuntu Server 16+  and (some of them on) Microsoft Windows.
+All plugins are written in Python and licensed under the UNLICENSE, which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example "used"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
 
 Support
 -------
 
-The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/ueber-uns/kontakt>`_). If you just like to support our work, consider donating by clicking on |Donate|
+The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/kontakt>`_). If you just like to support our work, please consider donating by clicking on |Donate|.
 
 
 Check Plugin Poster
@@ -31,66 +25,109 @@ Check Plugin Poster
 
 See most of our check plugins in action on an Icinga server at a glance:
 
-.. image:: linuxfabrik-monitoring-check-plugins.png
+.. image:: assets/img/linuxfabrik-monitoring-check-plugins.png
 
- 
-If you zoom in, for example in *CPU Usage*:
+If you zoom in, for example on *CPU Usage*:
 
-.. image:: linuxfabrik-monitoring-check-plugins-cpu-usage.png
+.. image:: assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png
 
 
 Human Readable Numbers
 ----------------------
 
-Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other).
+Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other). The plugins display Byte sizes in powers of 2 (KiB, MiB, GiB etc.).
 
 .. csv-table::
     :header-rows: 1
-    
+
     Value,        Symbol, Origin,     Type,            Description
     1000^1,       K,      ,           Number,          Thousand
-    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1` / Million :sup:`2`"
-    1000^3,       G,      SI Symbol,  Number,          "Billion :sup:`1` / Milliard :sup:`2`"
-    1000^4,       T,      SI Symbol,  Number,          "Trillion :sup:`1` / Billion :sup:`2`"
-    1000^5,       P,      SI Symbol,  Number,          "Quadrillion :sup:`1` / Billiard :sup:`2`"
-    1000^6,       E,      SI Symbol,  Number,          "Quintillion :sup:`1` / Trillion :sup:`2`"
-    1000^7,       Z,      SI Symbol,  Number,          "Sextillion :sup:`1` / Trilliard :sup:`2`"
-    1000^8,       Y,      SI Symbol,  Number,          "Septillion :sup:`1` / Quadrillion :sup:`2`"
-    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes :sup:`3`
-    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes :sup:`3`
-    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes :sup:`3`
-    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes :sup:`3`
-    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes :sup:`3`
-    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes :sup:`3`
-    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes :sup:`3`
-    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes :sup:`3`
-    1000^1,       KB,     other,      Bytes,           Kilobytes
-    1000^2,       MB,     other,      Bytes,           Megabytes
-    1000^3,       GB,     other,      Bytes,           Gigabytes
-    1000^4,       TB,     other,      Bytes,           Terrabytes
-    1000^5,       PB,     other,      Bytes,           Petabytes
-    1000^6,       EB,     other,      Bytes,           Exabytes
-    1000^7,       ZB,     other,      Bytes,           Zetabytes
-    1000^8,       YB,     other,      Bytes,           Yottabytes
-    1000^1,       Kbps,   other,      Bits per Second, Kilobits
-    1000^2,       Mbps,   other,      Bits per Second, Megabits
-    1000^3,       Gbps,   other,      Bits per Second, Gigabits
-    1000^4,       Tbps,   other,      Bits per Second, Terrabits
-    1000^5,       Pbps,   other,      Bits per Second, Petabits
-    1000^6,       Ebps,   other,      Bits per Second, Exabits
-    1000^7,       Zbps,   other,      Bits per Second, Zetabits
-    1000^8,       Ybps,   other,      Bits per Second, Yottabits
-    1..59,        s,      other,      Time,            Seconds
-    60,           m,      other,      Time,            Minutes
-    60*60,        h,      other,      Time,            Hours
-    60*60*24,     D,      other,      Time,            Days
-    60*60*24*7,   W,      other,      Time,            Weeks
-    60*60*24*30,  M,      other,      Time,            Months
-    60*60*24*365, Y,      other,      Time,            Years
+    1000^2,       M,      SI Symbol,  Number,          "Million :sup:`1`, Million :sup:`2`"
+    1000^3,       G,      SI Symbol,  Number,          "Milliard :sup:`1`, Billion :sup:`2`"
+    1000^4,       T,      SI Symbol,  Number,          "Billion :sup:`1`, Trillion :sup:`2`"
+    1000^5,       P,      SI Symbol,  Number,          "Billiard :sup:`1`, Quadrillion :sup:`2`"
+    1000^6,       E,      SI Symbol,  Number,          "Trillion :sup:`1`, Quintillion :sup:`2`"
+    1000^7,       Z,      SI Symbol,  Number,          "Trilliard :sup:`1`, Sextillion :sup:`2`"
+    1000^8,       Y,      SI Symbol,  Number,          "Quadrillion :sup:`1`, Septillion :sup:`2`"
+    1024^0,       B,      ,           Bytes,           Bytes
+    1024^1,       KiB,    ISQ Symbol, Bytes,           Kibibytes
+    1024^2,       MiB,    ISQ Symbol, Bytes,           Mebibytes
+    1024^3,       GiB,    ISQ Symbol, Bytes,           Gibibytes
+    1024^4,       TiB,    ISQ Symbol, Bytes,           Tebibytes
+    1024^5,       PiB,    ISQ Symbol, Bytes,           Pebibytes
+    1024^6,       EiB,    ISQ Symbol, Bytes,           Exbibytes
+    1024^7,       ZiB,    ISQ Symbol, Bytes,           Zebibytes
+    1024^8,       YiB,    ISQ Symbol, Bytes,           Yobibytes
+    1000^1,       KB,     ,           Bytes,           Kilobytes
+    1000^2,       MB,     ,           Bytes,           Megabytes
+    1000^3,       GB,     ,           Bytes,           Gigabytes
+    1000^4,       TB,     ,           Bytes,           Terrabytes
+    1000^5,       PB,     ,           Bytes,           Petabytes
+    1000^6,       EB,     ,           Bytes,           Exabytes
+    1000^7,       ZB,     ,           Bytes,           Zetabytes
+    1000^8,       YB,     ,           Bytes,           Yottabytes
+    1000^1,       Kbps,   ,           Bits per Second, Kilobits
+    1000^2,       Mbps,   ,           Bits per Second, Megabits
+    1000^3,       Gbps,   ,           Bits per Second, Gigabits
+    1000^4,       Tbps,   ,           Bits per Second, Terrabits
+    1000^5,       Pbps,   ,           Bits per Second, Petabits
+    1000^6,       Ebps,   ,           Bits per Second, Exabits
+    1000^7,       Zbps,   ,           Bits per Second, Zetabits
+    1000^8,       Ybps,   ,           Bits per Second, Yottabits
+    1..59,        s,      ,           Time,            Seconds
+    60,           m,      ,           Time,            Minutes
+    60*60,        h,      ,           Time,            Hours
+    60*60*24,     D,      ,           Time,            Days
+    60*60*24*7,   W,      ,           Time,            Weeks
+    60*60*24*30,  M,      ,           Time,            Months
+    60*60*24*365, Y,      ,           Time,            Years
 
-* 1: US, Canada and modern British (short scale)
-* 2: Traditional European (Peletier) (long scale)
-* 3: Used in output
+* 1: Traditional European (Peletier, long scale)
+* 2: US, Canada and modern British (short scale)
+
+
+Threshold and Ranges
+--------------------
+
+If a check supports ranges, they can be used as follows:
+
+* Simple value: A range from 0 up to and including the value
+* A "Range" is the same as on `nagios-plugins.org <https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_: "... defined as a start and end point (inclusive) on a numeric scale (possibly negative or positive infinity).", in the format ``start:end``
+* Empty value after ``:``: positive infinity
+* ``~``: negative infinity
+* ``@``: if range starts with ``@``, then alert if inside this range (including endpoints)
+
+Examples:
+
+.. csv-table:: 
+    :header-rows: 1
+
+    "-w, -c",     OK if result is    ,   WARN/CRIT if      
+    10      ,     in (0..10)         ,   not in (0..10)    
+    -10     ,     in (-10..0)        ,   not in (-10..0)   
+    10:     ,     in (10..inf)       ,   not in (10..inf)  
+    :       ,     in (0..inf)        ,   not in (0..inf)   
+    ~:10    ,     in (-inf..10)      ,   not in (-inf..10) 
+    10:20   ,     in (10..20)        ,   not in (10..20)   
+    @10:20  ,     not in (10..20)    ,   in 10..20         
+    @~:20   ,     not in (-inf..20)  ,   in (-inf..20)     
+    @       ,     not in (0..inf)    ,   in (0..inf)       
+
+
+Command, Parameters and Arguments
+---------------------------------
+
+Shell commands like ``./file-age2 --filename='/tmp/*'`` have two basic parts:
+
+* Command name of the program to run (``./file-age2``). May be followed by one or more options, which adjust the behavior of the command or what it will do.
+* Options/Parameters normally start with one or two dashes to distinguish them from arguments (parameter ``--filename``, value ``'/tmp/*'``). They adjust the behavior of the command. Parameters may be short (``-w``) or long (``--warning``). We prefer and often offer only the long version.
+
+Many shell commands may also be followed by one or more arguments, which often indicate a target that the command should operate upon (``useradd linus`` for example) . This does not apply to check-plugins.
+
+To avoid problems when passing *parameter values* that start with a ``-``, the command line call must look like this:
+
+* Long parameters: ``./file-age --warning=-60:3600`` (use ``--param=value`` instead of ``--param value``).
+* Short parameters: ``./file-age -w-60:3600`` (so simply not putting any space nor escaping it in any special way).
 
 
 A few words about Python
@@ -99,9 +136,11 @@ A few words about Python
 Python 2 vs Python 3
 ~~~~~~~~~~~~~~~~~~~~
 
-All check plugins are currently available for Python 2. We are gradually migrating them to Python 3 by 2021-12-31 (at 2021-06 approx. 50% are done). The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
+All check plugins are available for Python 2.7 and Python 3.6+. The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
 
-The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3``. 
+The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3`` explicitly.
+
+We will stop maintaining the Python 2-based plugins after 2021-12-31.
 
 
 Virtual Environment
@@ -136,17 +175,17 @@ Running the Check Plugins on Linux
 Installation
 ~~~~~~~~~~~~
 
-Install Python 2 (currently preferred) or Python 3 on the client.
+Install Python on the client.
 
-Get our monitoring check plugins and the associated libraries from Linuxfabrik's GitLab server:
+Get the monitoring check plugins and the associated libraries from our GitLab server:
 
 .. code:: bash
 
-    BRANCH=master
-    PYVER=2
+    BRANCH="master"     # or "develop"
+    PYVER=3             # or "2"
 
     cd /tmp
-    
+
     curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
     curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
 
@@ -165,13 +204,18 @@ Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
 
     \cp /tmp/lib-$BRANCH/*.py /usr/lib64/nagios/plugins/lib
 
-Copy some or all Python 2 (or Python 3) check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
+Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
 
 .. code:: bash
 
+    BRANCH="master"   # or "develop"
+    PYVER=2
+
     cd /tmp/monitoring-plugins-$BRANCH/check-plugins
+
     find -maxdepth 2 -name 'test2' -delete
     find -maxdepth 2 -name 'test3' -delete
+    find -maxdepth 2 -name '.zip' -delete
     for check in $(find -maxdepth 2 -name "*$PYVER")
     do
         dir=$(dirname $check)
@@ -224,13 +268,16 @@ Running the Check Plugins on Windows
 TODO
 
 
-Icinga
-------
+Icinga Director
+---------------
 
-Configuration in Icinga Director
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For a single Plugin
+~~~~~~~~~~~~~~~~~~~
 
-For each check, you have to create an Icinga Command. We show this using the "cpu-usage" check plugin.
+For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, ``check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json``).
+Import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
+
+Alternatively, you can manually configure the plugin as follows:
 
 Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
@@ -257,6 +304,26 @@ Tab "Fields":
 * Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
 
 Now use this command within a Service Template, a Service Set and/or a Single Service.
+
+
+Linuxfabrik's Director Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To use our Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
+
+If you are using our `Fork of the Icinga Director <https://git.linuxfabrik.ch/linuxfabrik/icingaweb2-module-director>`_, you can use the following command:
+
+.. code-block:: bash
+
+   ./tools/basket-join
+
+If not, generate a Basket without ``guids``:
+
+.. code-block:: bash
+
+   ./tools/basket-join --without-guids
+
+Import the resulting ``icingaweb2-module-director-basket.json`` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
 
 
 Grafana
@@ -286,9 +353,7 @@ Roadmap
 
 Next steps (beside maintaining and writing new check plugins):
 
-* Migrate every Plugin to Python 3.
 * Provide a meaningful Grafana-Panel (where it makes sense).
-* Compile check plugins for Windows using ``nuitka`` (where it makes sense).
 * Provide a (unit) test for the majority of the check plugins (where it makes sense).
 * Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
 
@@ -298,12 +363,8 @@ Reporting Issues
 
 For now, there are two ways:
 
-1. Send an email to info[at]linuxfabrik[dot]ch, describing your problem
-2. Create an account on `https://git.linuxfabrik.ch <https://git.linuxfabrik.ch>`_ and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_.
-
-
-
-
+1. Create an account on https://git.linuxfabrik.ch and `submit an issue <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues/new>`_ (preferred).
+2. `Contact us <https://www.linuxfabrik.ch/kontakt>`_ by email or web form and describe your problem.
 
 
 

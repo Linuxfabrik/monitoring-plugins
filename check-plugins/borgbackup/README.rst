@@ -4,7 +4,8 @@ Check borgbackup
 Overview
 --------
 
-Linuxfabrik in-house check. Known Issue and Limitation is that the calculation of the borg process runtime can be wrong.
+Linuxfabrik in-house check, may not be useful for others. Checks the content of ``/var/log/borg/borg.log``. Known Issue and Limitation is that the calculation of the borg process runtime can be wrong.
+
 
 Fact Sheet
 ----------
@@ -15,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/borgbackup"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -61,7 +62,7 @@ States
 
 * WARN on active borg mounts
 * WARN on Borg return codes > 1
-* WARN if last backup start time > n hours
+* WARN or CRIT if last backup start time > n hours
 
 
 Perfdata / Metrics
@@ -70,6 +71,13 @@ Perfdata / Metrics
 * create_retc
 * prune_retc
 * duration
+
+
+Troubleshooting
+---------------
+
+local variable '...' referenced before assignment
+    Expected behaviour of the check. If either ``starttime``, ``endtime``, ``create_retc`` or ``prune_retc`` is missing (and hence this error message is returned), the backup has failed in any way.
 
 
 Credits, License

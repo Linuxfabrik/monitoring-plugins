@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,62 +8,71 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
-
-#====================
-from lib.globals2 import *
-
-import lib.base2
-
-import argparse
-from traceback import print_exc
+import lib.base2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
 except ImportError:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
+    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101001'
+
+DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('-V', '--version',
-                        action='version',
-                        version='%(prog)s: v{} by {}'.format(
-                            __version__, __author__)
-                        )
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # init some vars
     msg = ''
     cnt = {}
 
+    # fetch data
     try:
         for p in [x.as_dict(attrs=['name', 'io_counters']) for x in psutil.process_iter()]:
             if p['io_counters']:
@@ -82,12 +91,12 @@ def main():
         msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.base2.bytes2human(
             value['r']), lib.base2.bytes2human(value['w']))
 
+    # over and out
     lib.base2.oao(msg[:-2], STATE_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

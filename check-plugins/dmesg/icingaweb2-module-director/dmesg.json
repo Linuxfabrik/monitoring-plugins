@@ -1,0 +1,229 @@
+{
+    "Command": {
+        "cmd-check-dmesg": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$dmesg_always_ok$"
+                },
+                "--ignore": {
+                    "value": "$dmesg_ignore$",
+                    "repeat_key": true
+                },
+                "--severity": {
+                    "value": "$dmesg_severity$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/dmesg",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 607,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 608,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 609,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-dmesg",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "c8f5abbd-73bb-46ff-b230-6e14204a7e1b"
+        },
+        "cmd-check-dmesg-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/dmesg",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-dmesg"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-dmesg-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "5903258e-9da3-4f5d-9d9c-16fa760b37b4"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-dmesg": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-dmesg",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "dmesg.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want to clear them), use `dmesg --clear` to clear the Kernel Ring Buffer Messages.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/dmesg",
+            "object_name": "tpl-service-dmesg",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "dmesg_always_ok": false,
+                "dmesg_ignore": [
+                    " Asking for cache data failed",
+                    " Assuming drive cache: write through",
+                    " brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio for chip BCM4345/6",
+                    " brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6",
+                    " CIFS VFS: Free previous auth_key.response = ",
+                    " cpufreq: __cpufreq_add_dev: ->get() failed",
+                    " ERST: Failed to get Error Log Address Range.",
+                    " i8042: No controller found",
+                    " Ignoring unsafe software power cap!",
+                    " ioctl error in smb2_get_dfs_refer rc=-5",
+                    " kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ",
+                    " No Caching mode page found",
+                    " SMBus Host Controller not enabled!",
+                    " tsc: Fast TSC calibration failed",
+                    " unhandled rdmsr: ",
+                    " unhandled wrmsr: ",
+                    " vcpu0 disabled perfctr wrmsr"
+                ],
+                "dmesg_severity": "crit"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "e261f4e3-431a-4de3-a641-e97a2c40da9c"
+        },
+        "tpl-service-dmesg-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-dmesg-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-dmesg"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-dmesg-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {},
+            "volatile": null,
+            "zone": null,
+            "guid": "ef8a368e-75e4-489e-856a-260814317eae"
+        }
+    },
+    "DataList": {
+        "dmesg_severity_list": {
+            "list_name": "dmesg_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "guid": "5a5fdea8-a481-4c03-a6fd-5d8cccd1de93"
+        }
+    },
+    "Datafield": {
+        "607": {
+            "varname": "dmesg_always_ok",
+            "caption": "Dmesg: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "e513f9c4-c288-4791-8384-9c2d639c2aa7"
+        },
+        "608": {
+            "varname": "dmesg_ignore",
+            "caption": "Dmesg: Ignore",
+            "description": "Ignore a kernel message (case-sensitive, repeating).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "b1799285-43f4-44b5-9bb6-7f37182bddf7"
+        },
+        "609": {
+            "varname": "dmesg_severity",
+            "caption": "Dmesg: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "dmesg_severity_list"
+            },
+            "guid": "a46e1550-630a-407d-9677-7770bedd01c7"
+        }
+    }
+}

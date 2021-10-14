@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/network-bonding"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, python 3"
     "Requirements",                         "None"
 
 
@@ -44,7 +44,7 @@ Usage Examples
 .. code-block:: bash
 
     ./network-bonding
-    
+
 Output:
 
 .. code-block:: text

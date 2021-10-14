@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,36 +8,49 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.base3
-import lib.url3
-from lib.globals3 import STATE_UNKNOWN
+import lib.base3 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021100801'
 
 DESCRIPTION = 'This check just returns the given message, state and perfdata.'
+
+DEFAULT_MSG = 'Everything is ok.'
+DEFAULT_STATE = 'ok'
+DEFAULT_PERFDATA = None
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -45,49 +58,49 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
-
-    parser.add_argument(
-        '-V', '--version',
-        action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--message',
-        help='The message to return.',
+        help='The message to return. Default:  %(default)s',
         dest='MESSAGE',
-        )
-
-    parser.add_argument(
-        '--state',
-        help='The state to return (ok, warn, crit, unk).',
-        choices=['ok', 'warn', 'crit', 'unk'],
-        dest='STATE',
-        )
+        default=DEFAULT_MSG,
+    )
 
     parser.add_argument(
         '--perfdata',
-        help='The perfdata to return, formatted according to the nagios guidelines.',
+        help='The perfdata to return, formatted according to the nagios guidelines. Default:  %(default)s',
         dest='PERFDATA',
-        )
+        default=DEFAULT_PERFDATA,
+    )
+
+    parser.add_argument(
+        '--state',
+        help='The state to return (ok, warn, crit, unk). Default:  %(default)s',
+        choices=['ok', 'warn', 'crit', 'unk'],
+        dest='STATE',
+        default=DEFAULT_STATE,
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    lib.base3.oao(args.MESSAGE or '', lib.base3.str2state(args.STATE or STATE_UNKNOWN), args.PERFDATA or None, always_ok=args.ALWAYS_OK)
+    # over and out
+    lib.base3.oao(args.MESSAGE, lib.base3.str2state(args.STATE), args.PERFDATA, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

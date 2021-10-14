@@ -49,6 +49,10 @@ If ``ntpd`` is used, prints
 * reachability register in octal
 * and the current estimated delay, offset and dispersion of the peer
 
+``ntpd`` is deprecated on RHEL/CentOS 8+.
+
+The stratum of the NTP time source determines its quality. The stratum is equal to the number of hops to a reference clock (which is stratum 0). A NTP server connected directly to the reference clock is Stratum 1, a client connected to this NTP server is Stratum 2, etc.
+
 
 Fact Sheet
 ----------
@@ -59,7 +63,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/ntp-offset"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -68,9 +72,9 @@ Help
 
 .. code-block:: text
 
-    usage: ntp-offset [-h] [-V] [-c CRIT] [-w WARN]
+    usage: ntp-offset2 [-h] [-V] [-c CRIT] [-w WARN]
 
-    This plugin checks the clock offset with the ntp server.
+    This plugin checks the clock offset in milliseconds compared to ntp servers.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -94,19 +98,19 @@ Output:
 
 .. code-block:: text
 
-    NTP offset is 0.515704ms (Stratum 3).
-    Reference ID    : 9C6AD630 (delcatty.itu.ch)
+    chronyd: NTP offset is 0.024477ms (Stratum 3).
+    Reference ID    : C3BA0464 (bwntpz.bluewin.ch)
     Stratum         : 3
-    Ref time (UTC)  : Mon Jun 07 09:29:41 2021
-    System time     : 0.000000042 seconds slow of NTP time
-    Last offset     : +0.000515704 seconds
-    RMS offset      : 0.069175042 seconds
-    Frequency       : 1.998 ppm slow
-    Residual freq   : +0.009 ppm
-    Skew            : 0.221 ppm
-    Root delay      : 0.012637243 seconds
-    Root dispersion : 0.026016071 seconds
-    Update interval : 3106.2 seconds
+    Ref time (UTC)  : Sun Oct 10 12:33:45 2021
+    System time     : 0.000027508 seconds fast of NTP time
+    Last offset     : +0.000024477 seconds
+    RMS offset      : 0.000316547 seconds
+    Frequency       : 0.991 ppm slow
+    Residual freq   : +0.005 ppm
+    Skew            : 0.428 ppm
+    Root delay      : 0.004524656 seconds
+    Root dispersion : 0.002856827 seconds
+    Update interval : 259.2 seconds
     Leap status     : Normal
 
 
@@ -114,6 +118,7 @@ States
 ------
 
 * WARN or CRIT if ntp offset is above a given threshold.
+* WARN if stratum is >= 9.
 
 
 Perfdata / Metrics

@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -29,14 +29,13 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 import argparse # pylint: disable=C0413
 import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060101'
+__version__ = '2021090801'
 
 DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
@@ -60,8 +59,8 @@ DEFAULT_FILES = [
     'graylog:graylog,/etc/graylog/certs',
     'root:root,/etc/group',
     'root:root,/etc/group-',
-    'root:root,/etc/gshadow',
-    'root:root,/etc/gshadow-',
+    #'root:root,/etc/gshadow',      different on Debian and Ubuntu
+    #'root:root,/etc/gshadow-',     different on Debian and Ubuntu
     'root:root,/etc/hosts.allow',
     'root:root,/etc/hosts.deny',
     'root:root,/etc/issue',
@@ -71,11 +70,12 @@ DEFAULT_FILES = [
     'root:named,/etc/named.conf',
     'root:root,/etc/passwd',
     'root:root,/etc/passwd-',
-    'root:root,/etc/shadow',
-    'root:root,/etc/shadow-',
+    #'root:root,/etc/shadow',       different on Debian and Ubuntu
+    #'root:root,/etc/shadow-',      different on SLES (15)
     'root:root,/etc/ssh/sshd_config',
     'vdsm:kvm,/home/ovirt',
     'root:root,/tmp',
+    'icinga:icinga,/tmp/linuxfabrik-plugin-cache.db',
     'hnet:hnet,/var/hnet',
     'unbound:unbound,/var/lib/unbound/root.key',
     'ldap:ldap,/var/run/openldap',
@@ -128,7 +128,7 @@ def main():
         except:
             lib.base3.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
         try:
-            owner, group = file[0].split(':')
+            expected_owner, expected_group = file[0].split(':')
         except:
             lib.base3.oao('--filename parameter seems to be in the wrong format.', STATE_UNKNOWN)
 
@@ -141,9 +141,9 @@ def main():
                 continue
             # Access: (0644/-rw-r--r--)  Uid: (  982/ unbound)   Gid: (  981/ unbound)
             # Access: (0600/-rw-------)  Uid: ( 1000/markus.frei)   Gid: ( 1000/markus.frei)
-            file_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
-            file_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
-            if owner != file_owner or group != file_group:
+            found_owner = re.search(r'Uid: .*?\/(.*)\).*Gid:', line).group(1).strip()
+            found_group = re.search(r'Gid: .*\/(.*)\)', line).group(1).strip()
+            if expected_owner != found_owner or expected_group != found_group:
                 file_state = STATE_WARN
             else:
                 file_state = STATE_OK
@@ -152,15 +152,14 @@ def main():
             state = lib.base3.get_worst(file_state, state)
             table_values.append({
                 'file': path,
-                'owner': file_owner,
-                'group': file_group,
-                'state': lib.base3.state2str(file_state, empty_ok=False)
+                'expected': '{}:{}'.format(expected_owner, expected_group),
+                'found': '{}:{}{}'.format(found_owner, found_group, lib.base3.state2str(file_state, prefix=' ')),
                 })
 
     # create output
     if cnt == 0:
         lib.base3.oao('No files checked.', state)
-    
+
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n'
     else:
@@ -168,8 +167,8 @@ def main():
     if len(table_values) > 0:
         msg += lib.base3.get_table(
             table_values,
-            ['file', 'owner', 'group', 'state'],
-            header=['Path', 'Owner', 'Group', 'State'],
+            ['file', 'expected', 'found'],
+            header=['Path', 'Expected', 'Found'],
             )
 
     # over and out
@@ -180,5 +179,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()

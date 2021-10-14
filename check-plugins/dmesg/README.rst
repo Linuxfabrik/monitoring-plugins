@@ -29,7 +29,8 @@ Help
 
 .. code-block:: text
 
-    usage: dmesg [-h] [-V] [--always-ok] [--severity {warn,crit}] [--test TEST]
+    usage: dmesg [-h] [-V] [--always-ok] [--ignore IGNORE]
+                 [--severity {warn,crit}] [--test TEST]
 
     Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
     --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want
@@ -39,6 +40,22 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --ignore IGNORE       Ignore a kernel message (case-sensitive, repeating).
+                            Default: [' Asking for cache data failed', ' Assuming
+                            drive cache: write through', ' brcmfmac:
+                            brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio
+                            for chip BCM4345/6', ' brcmfmac:
+                            brcmf_c_preinit_dcmds: Firmware: BCM4345/6', ' CIFS
+                            VFS: Free previous auth_key.response = ', ' cpufreq:
+                            __cpufreq_add_dev: ->get() failed', ' ERST: Failed to
+                            get Error Log Address Range.', ' i8042: No controller
+                            found', ' Ignoring unsafe software power cap!', '
+                            ioctl error in smb2_get_dfs_refer rc=-5', '
+                            kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ', ' No
+                            Caching mode page found', ' SMBus Host Controller not
+                            enabled!', ' tsc: Fast TSC calibration failed', '
+                            unhandled rdmsr: ', ' unhandled wrmsr: ', ' vcpu0
+                            disabled perfctr wrmsr']
       --severity {warn,crit}
                             Severity for alerting. One of "warn" or "crit".
                             Default: crit
@@ -51,7 +68,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./dmesg 
+    ./dmesg --ignore ' unhandled wrmsr: ' --severity crit
     
 Output:
 

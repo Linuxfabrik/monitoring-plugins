@@ -1,0 +1,143 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV2'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.cache3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101101'
+
+DESCRIPTION = 'This plugin lets you track if server updates are available.'
+
+DEFAULT_PATH = '/opt/keycloak'
+DEFAULT_CACHE_EXPIRE = 24 # hours
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to your Keycloak installation. Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    # jira/version.php: $OC_Version = array(18,0,2,2);
+    success, version = lib.disk3.grep_file(path + '/version.txt', r'Version\s*(.*\d)')
+    if not success:
+        return (success, version)
+    if version:
+        return (True, version)
+    return (True, False)
+
+
+def get_latest_version(expire):
+    # get version online, but first from cache
+    latest_version = lib.cache3.get('keycloak-version')
+    if latest_version:
+        return (True, latest_version)
+
+    # nothing found in cache, get the latest version
+    success, jsonst = lib.url3.fetch_json('https://api.github.com/repos/keycloak/keycloak/tags')
+    if not success:
+        return (success, jsonst)
+
+    # there is an update available, so result contains xml here
+    latest_version = jsonst[0]['name']
+    if not latest_version[-1].isnumeric():
+        mo = re.match('.+([0-9])[^0-9]*$', latest_version)
+        latest_version = latest_version[:latest_version.rindex(mo.group(1)) + 1]
+
+    lib.cache3.set('keycloak-version', latest_version, lib.base3.now() + expire)
+    return (True, latest_version)
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = lib.base3.coe(get_installed_version(args.PATH))
+    success, latest_version = get_latest_version(args.CACHE_EXPIRE*60*60)
+
+    # over and out
+    if not success:
+        lib.base3.oao('Keycloak v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
+        lib.base3.oao('Keycloak v{} is up to date'.format(installed_version), STATE_OK)
+    lib.base3.oao('Keycloak v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

@@ -27,7 +27,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/feed"
     "Check Interval Recommendation",        "Once an hour, or every 4 hours"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``BeautifulSoup4`` (Version 4) with Python module ``lxml``"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"

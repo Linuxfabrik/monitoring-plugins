@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -11,31 +11,142 @@
 import argparse
 import importlib
 import json
+import os
 import re
 import sys
+import uuid
+import yaml
+
+try:
+    import colorama
+    colorama.init(autoreset=True)
+except ImportError:
+    colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021050501'
+__version__ = '2021090701'
+
+DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
+
+DEFAULT_VARIANTS = [
+    'linux',
+]
+
+
+skip_plugins = [
+    'example',
+    'dummy',
+]
+
 
 skip_params = [
     '--test'
 ]
 
-# always use lowercase, the regex has the ignorecase option
-capitalized_words = [
-    'ok',
-    'url',
-    'xa',
-    'gc',
-]
+
+# case does not matter, the regex uses the ignorecase option
+regex_replace_words = {
+    r'\bAES\b':         'AES',
+    r'\bBorgBackup\b':  'BorgBackup',
+    r'\bCPU\b':         'CPU',
+    r'\bDES\b':         'DES',
+    r'\bDNS\b':         'DNS',
+    r'\bFAH\b':         'FAH',
+    r'\bFQDN\b':        'FQDN',
+    r'\bFS RO\b':       'FS RO',
+    r'\bFS\b':          'FS',
+    r'\bFail2ban\b':    'Fail2ban',
+    r'\bFortiOS\b':     'FortiOS',
+    r'\bGC\b':          'GC',
+    r'\bHAProxy\b':     'HAProxy',
+    r'\bHA\b':          'HA',
+    r'\bIO\b':          'I/O',
+    r'\bIPMI\b':        'IPMI',
+    r'\bJSON\b':        'JSON',
+    r'\bKEMP\b':        'KEMP',
+    r'\bKThreads\b':    'KThreads',
+    r'\bKVM\b':         'KVM',
+    r'\bLibreNMS\b':    'LibreNMS',
+    r'\bMD5\b':         'MD5',
+    r'\bMIB\b':         'MIB',
+    r'\bMIBdir\b':      'MIBdir',
+    r'\bMem\b':         'Memory',
+    r'\bMod Qos\b':     'mod_qos',
+    r'\bMySQL\b':       'MySQL',
+    r'\bNTP\b':         'NTP',
+    r'\bOK\b':          'OK',
+    r'\bOpenVPN\b':     'OpenVPN',
+    r'\bPHP Fpm\b':     'PHP-FPM',
+    r'\bPHP-FPM\b':     'PHP-FPM',
+    r'\bPHP\b':         'PHP',
+    r'\bQTS\b':         'QTS',
+    r'\bRPM\b':         'RPM',
+    r'\bRW\b':          'RW',
+    r'\bRocketchat\b':  'Rocket.Chat',
+    r'\bSEL\b':         'SEL',
+    r'\bSELinux\b':     'SELinux',
+    r'\bSHA\b':         'SHA',
+    r'\bSMART\b':       'SMART',
+    r'\bSNMP\b':        'SNMP',
+    r'\bSNMPversion\b': 'SNMP Version',
+    r'\bSlowReq\b':     'SlowReq',
+    r'\bTCP6\b':        'TCP6',
+    r'\bTCP\b':         'TCP',
+    r'\bUDP6\b':        'UDP6',
+    r'\bUDP\b':         'UDP',
+    r'\bURL\b':         'URL',
+    r'\bV3':            'v3',
+    r'\bVM\b':          'VM',
+    r'\bXA\b':          'XA',
+    r'\bXCA\b':         'XCA',
+    r'\bhttpd\b':       'httpd',
+    r'\bidSite\b':      'idSite',
+    r'\bipv4\b':        'IPv4',
+    r'\bipv6\b':        'IPv6',
+    r'\bmydumper\b':    'mydumper',
+    r'\bpip\b':         'pip',
+    r'\bID\b':         'ID',
+}
+
+
+command_field_id = 1
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--plugin-file',
+        help='Set the plugin file. Use this if you want to generate the basket for only one plugin.',
+        dest='PLUGIN_FILE',
+        type=str,
+    )
+
+    parser.add_argument(
+        '--auto',
+        help='Automatically generate a basket for each plugin.',
+        dest='AUTO',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
 
 
 def save_json_to_file(data, filename):
     try:
         with open(filename, 'w') as file:
             json.dump(data, file, sort_keys=False, indent=4, separators=(',', ': '))
+            file.write('\n')
     except FileNotFoundError as e:
-        print(f'{e}. Ignoring...')
+        err_print(f'{e}. Ignoring...')
 
 
 def find_long_param(params):
@@ -50,13 +161,15 @@ def get_varname(check, param):
 
 
 def help2description(help_text):
-    return re.sub(r' Default: %\(default\)s.*$', '', help_text)
+    help_text = re.sub(r' Default:.*%\(default\)s.*$', '', help_text)
+    help_text = re.sub(r'\n\s*', ' ', help_text)
+    return help_text
 
 
 def lf_title(string):
     string = string.title()
-    for item in capitalized_words:
-        string = re.sub(rf'\b{item}\b', item.upper(), string, flags=re.IGNORECASE)
+    for regex, sub in regex_replace_words.items():
+        string = re.sub(regex, sub, string, flags=re.IGNORECASE)
     return string
 
 
@@ -67,6 +180,7 @@ def get_caption(check, long_param):
 def get_visibility(varname):
     hide_if_present = [
         'password',
+        'token',
     ]
     if any(hide_if_present_string in varname for hide_if_present_string in hide_if_present):
         return 'hidden'
@@ -77,92 +191,53 @@ def _return_parser(self):
     return self
 
 
-def main():
-    try:
-        check = sys.argv[1]
-        output_file = sys.argv[2]
-    except IndexError:
-        print('usage: check2basket.py [check_name] [output_file]')
-        sys.exit(1)
+def warn_print(msg):
+    msg = msg.strip()
+    if colorama:
+        print(colorama.Fore.YELLOW + f'Warning: {msg}')
+    else:
+        print(msg)
+
+
+def err_print(msg):
+    msg = msg.strip()
+    if colorama:
+        print(colorama.Fore.RED + f'Error: {msg}')
+    else:
+        print(msg)
+
+
+def get_plugin_args(plugin_file):
+    check3 = os.path.basename(plugin_file)
 
     # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
     argparse.ArgumentParser.parse_args = _return_parser
 
-    spec = importlib.util.spec_from_loader(f'{check}3', importlib.machinery.SourceFileLoader(f'{check}3', f"./check-plugins/{check}/{check}3"))
-    check_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(check_module)
+    spec = importlib.util.spec_from_loader(check3, importlib.machinery.SourceFileLoader(check3, plugin_file))
+    plugin_module = importlib.util.module_from_spec(spec)
 
-    args = check_module.parse_args()
+    # prevent exit() in the module from closing stdin
+    orig_sys_stdin_close = sys.stdin.close
+    sys.stdin.close = lambda _: None
+    try:
+        spec.loader.exec_module(plugin_module)
+    except Exception as e:
+        err_print(f'Exception during check execution: {e}')
+        return None
+    except SystemExit as e:
+        err_print(f'SystemExit during check execution: {e}')
+        return None
+    finally:
+        sys.stdin.close = orig_sys_stdin_close
 
-    data = {
+    return plugin_module.parse_args()
+
+
+def get_data_template():
+    return {
         "Command": {
-            f"cmd-check-{check}": {
-                "arguments": {
-                },
-                "command": f"/usr/lib64/nagios/plugins/{check}",
-                "disabled": False,
-                "fields": [
-                ],
-                "imports": [],
-                "is_string": None,
-                "methods_execute": "PluginCheck",
-                "object_name": f"cmd-check-{check}",
-                "object_type": "object",
-                "timeout": "10",
-                "vars": {},
-                "zone": None
-            }
         },
         "ServiceTemplate": {
-            f"tpl-service-{check}": {
-                "action_url": None,
-                "apply_for": None,
-                "assign_filter": None,
-                "check_command": f"cmd-check-{check}",
-                "check_interval": None,
-                "check_period": None,
-                "check_timeout": None,
-                "command_endpoint": None,
-                "disabled": False,
-                "display_name": None,
-                "enable_active_checks": None,
-                "enable_event_handler": None,
-                "enable_flapping": None,
-                "enable_notifications": None,
-                "enable_passive_checks": None,
-                "enable_perfdata": None,
-                "event_command": None,
-                "fields": [],
-                "flapping_threshold_high": None,
-                "flapping_threshold_low": None,
-                "groups": [],
-                "host": None,
-                "icon_image": f"{check}.png",
-                "icon_image_alt": None,
-                "imports": [
-                    "tpl-service-generic"
-                ],
-                "max_check_attempts": None,
-                "notes": None,
-                "notes_url": None,
-                "object_name": f"tpl-service-{check}",
-                "object_type": "template",
-                "retry_interval": None,
-                "service_set": None,
-                "template_choice": None,
-                "use_agent": None,
-                "use_var_overrides": None,
-                "vars": {
-                    # "snmp_community": "public",
-                    # "snmp_device": "any-any-any.csv",
-                    # "snmp_hide_ok": false,
-                    # "snmp_mibdir": "$$HOME\/.snmp\/mibs:\/usr\/share\/snmp\/mibs",
-                    # "snmp_snmpversion": "2c",
-                    # "snmp_timeout": "7"
-                },
-                "volatile": None,
-                "zone": None
-            }
         },
         "DataList": {
         },
@@ -170,6 +245,248 @@ def main():
         },
     }
 
+
+def get_command_template(data, object_name, command, imports=None):
+    if imports is None:
+        data["Command"][object_name] = {
+            "arguments": {
+            },
+            "command": command,
+            "disabled": False,
+            "fields": [],
+            "imports": [],
+            "is_string": None,
+            "methods_execute": "PluginCheck",
+            "object_name": object_name,
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": None
+        }
+    else:
+        # only set the required options, the rest will be done by the import
+        data["Command"][object_name] = {
+            "arguments": {
+            },
+            "command": command,
+            "disabled": False,
+            "fields": [],
+            "imports": imports,
+            "is_string": None,
+            "methods_execute": None,
+            "object_name": object_name,
+            "object_type": "object",
+            "timeout": None,
+            "vars": {},
+            "zone": None
+        }
+    return data
+
+
+def get_service_template(data, object_name, check_command, check_name, description, imports=None, use_agent=None):
+    # description = re.sub(r'\n\s*', '\r\n', description) use this for line breaks in icingaweb2
+    description = re.sub(r'\n\s*', ' ', description)
+    if imports is None:
+        data["ServiceTemplate"][object_name] = {
+            "action_url": None,
+            "apply_for": None,
+            "assign_filter": None,
+            "check_command": check_command,
+            "check_interval": 60,
+            "check_period": None,
+            "check_timeout": None,
+            "command_endpoint": None,
+            "disabled": False,
+            "display_name": None,
+            "enable_active_checks": None,
+            "enable_event_handler": None,
+            "enable_flapping": None,
+            "enable_notifications": None,
+            "enable_passive_checks": None,
+            "enable_perfdata": None,
+            "event_command": None,
+            "fields": [],
+            "flapping_threshold_high": None,
+            "flapping_threshold_low": None,
+            "groups": [],
+            "host": None,
+            "icon_image": f"{check_name}.png",
+            "icon_image_alt": None,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": f"{description}",
+            "notes_url": f"https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/{check_name}",
+            "object_name": object_name,
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": None,
+            "template_choice": None,
+            "use_agent": use_agent,
+            "use_var_overrides": None,
+            "vars": {},
+            "volatile": None,
+            "zone": None
+        }
+    else:
+        # only set the required options, the rest will be done by the import
+        data["ServiceTemplate"][object_name] = {
+            "action_url": None,
+            "apply_for": None,
+            "assign_filter": None,
+            "check_command": check_command,
+            "check_interval": None,
+            "check_period": None,
+            "check_timeout": None,
+            "command_endpoint": None,
+            "disabled": False,
+            "display_name": None,
+            "enable_active_checks": None,
+            "enable_event_handler": None,
+            "enable_flapping": None,
+            "enable_notifications": None,
+            "enable_passive_checks": None,
+            "enable_perfdata": None,
+            "event_command": None,
+            "fields": [],
+            "flapping_threshold_high": None,
+            "flapping_threshold_low": None,
+            "groups": [],
+            "host": None,
+            "icon_image": None,
+            "icon_image_alt": None,
+            "imports": imports,
+            "max_check_attempts": None,
+            "notes": None,
+            "notes_url": None,
+            "object_name": object_name,
+            "object_type": "template",
+            "retry_interval": None,
+            "service_set": None,
+            "template_choice": None,
+            "use_agent": use_agent,
+            "use_var_overrides": None,
+            "vars": {},
+            "volatile": None,
+            "zone": None
+        }
+    return data
+
+
+def offer_selection(options):
+    options = list(options)
+    for index, text in enumerate(options):
+        print('{}: {}'.format(index, text))
+
+    print('n: treat as a new object and generate a new guid')
+
+    print('- ' * 40)
+    try:
+        while True:
+            selection = input('Please choose the corresponding object, or type "n" to generate a new guid: ')
+            if selection == 'n':
+                return None
+            try:
+                if int(selection) < len(options):
+                    return options[int(selection)]
+            except ValueError:
+                print('\nFailed to parse selection.')
+    except KeyboardInterrupt:
+        sys.exit()
+
+
+def manage_uuids(data, old_data=None):
+    # TODO: the selection could be improved, filtering out guids that are already used in the new basket. this also prevents accidental duplicate guids
+    if old_data:
+        reused_guid_objects = []
+        for parent_key, parent_value in data.items():
+            if parent_key == 'Datafield':
+                old_varnames = {value['varname']: key for key, value in old_data['Datafield'].items()}
+                for key, value in parent_value.items():
+                    varname = value['varname']
+                    if varname in old_varnames:
+                        try:
+                            data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[varname]]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                        except KeyError as e:
+                            if e.args[0] == 'guid':
+                                # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                                continue
+                            old_guid = None
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{value["varname"]}]".')
+                        selection = offer_selection(old_varnames.keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = old_data[parent_key][old_varnames[selection]]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+
+            else:
+                for key, value in parent_value.items():
+                    try:
+                        old_guid = old_data[parent_key][key]['guid']
+                    except KeyError as e:
+                        if e.args[0] == 'guid':
+                            # could not find the guid in the existing basket, therefore skipping so a new one is generated further down
+                            continue
+                        old_guid = None
+
+                    if old_guid is not None:
+                        data[parent_key][key]['guid'] = old_guid
+                        reused_guid_objects.append(f'[{parent_key}][{key}]')
+                    else:
+                        print(f'\nCould not find the corresponding object for "[{parent_key}][{key}]".')
+                        selection = offer_selection(old_data[parent_key].keys())
+                        if selection:
+                            data[parent_key][key]['guid'] = old_data[parent_key][selection]['guid']
+                            reused_guid_objects.append(f'[{parent_key}][{key}]')
+
+        if reused_guid_objects:
+            print('\nFound an object with the same name in the old basket, reusing the guid for:\n* ', end='')
+            print('\n* '.join(reused_guid_objects))
+
+        warn_print('\nPlease make sure the generated guid mappings are correct using "git diff".')
+
+    new_guid_objects = []
+    guids = []
+    for parent_key, parent_value in data.items():
+        for key, value in parent_value.items():
+            if 'guid' not in value:
+                if parent_key == 'Datafield':
+                    new_guid_objects.append(f'[{parent_key}][{value["varname"]}]')
+                else:
+                    new_guid_objects.append(f'[{parent_key}][{key}]')
+                data[parent_key][key]['guid'] = str(uuid.uuid4())
+            guids.append(value['guid'])
+
+    unique_guids = set(guids)
+    if len(guids) != len(unique_guids):
+        for guid in unique_guids:
+            guids.remove(guid)
+        err_print('There are duplicate guids! Aborting...')
+        print('* ', end='')
+        print('\n* '.join(guids))
+        sys.exit(3)
+
+    if new_guid_objects:
+        print('\nAdding guid to the following items (this means we are assuming they are new):\n* ', end='')
+        print('\n* '.join(new_guid_objects))
+
+    return data
+
+
+def apply_overwrites(data, overwrites):
+    for key, value in overwrites.items():
+        try:
+            exec(f'data{key} = value', {}, {'value': value, 'data': data})
+        except KeyError:
+            err_print(f'Could not apply overwrite "{key}", as the path was not found. Continuing...')
+
+    return data
+
+
+def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix=''):
+    global command_field_id # this prevents command_field_id collisions
 
     # argparse action classes
     # class BooleanOptionalAction(Action):
@@ -183,15 +500,14 @@ def main():
     # class _SubParsersAction(Action):
     #     class _ChoicesPseudoAction(Action):
 
-    command_field_id = 1
-    for action in args._actions:
+    for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
         if not long_param:
-            print(f'Could not find a long parameter for:\n{action}')
+            warn_print(f'Could not find a long parameter for:\n{action}')
             continue
         if long_param in skip_params:
             continue
-        varname = get_varname(check, long_param)
+        varname = get_varname(check_name + varname_suffix, long_param)
 
         if isinstance(action, argparse._VersionAction):
             continue
@@ -199,13 +515,14 @@ def main():
         if isinstance(action, argparse._HelpAction):
             continue
 
-        if isinstance(action, argparse._StoreAction):
-
-            data['Command'][f"cmd-check-{check}"]['arguments'][long_param] = {
+        if isinstance(action, (argparse._StoreAction, argparse._AppendAction)):
+            data['Command'][command_object_name]['arguments'][long_param] = {
                 "value": f"${varname}$"
             }
+            if isinstance(action, argparse._AppendAction):
+                data['Command'][command_object_name]['arguments'][long_param]['repeat_key'] = True
 
-            data['Command'][f"cmd-check-{check}"]['fields'].append({
+            data['Command'][command_object_name]['fields'].append({
                 "datafield_id": command_field_id,
                 "is_required": 'y' if action.required else 'n',
                 "var_filter": None
@@ -213,15 +530,19 @@ def main():
 
             if action.choices is not None:
                 datalist_name = f'{varname}_list'
-                data['Datafield'][command_field_id] = {
+                if isinstance(action, argparse._AppendAction):
+                    target_data_type = 'array'
+                else:
+                    target_data_type = 'string'
+                data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
-                    "caption": get_caption(check, long_param),
+                    "caption": get_caption(check_name, long_param),
                     "description": help2description(action.help),
                     "datatype": r"Icinga\Module\Director\DataType\DataTypeDatalist",
                     "format": None,
                     "settings": {
                         "behavior": "strict",
-                        "data_type": "string",
+                        "data_type": target_data_type,
                         "datalist": datalist_name
                     }
                 }
@@ -236,15 +557,26 @@ def main():
                     data['DataList'][datalist_name]['entries'].append(
                         {
                             "entry_name": choice,
-                            "entry_value": lf_title(choice.replace("-", " ")),
+                            "entry_value": lf_title(choice.replace("-", " ").replace("_", " ")),
                             "format": "string",
                             "allowed_roles": None
                         }
                     )
-            else:
-                data['Datafield'][command_field_id] = {
+            elif isinstance(action, argparse._AppendAction):
+                data['Datafield'][str(command_field_id)] = {
                     "varname": varname,
-                    "caption": get_caption(check, long_param),
+                    "caption": get_caption(check_name, long_param),
+                    "description": help2description(action.help),
+                    "datatype": r"Icinga\Module\Director\DataType\DataTypeArray",
+                    "format": None,
+                    "settings": {
+                        "visibility": get_visibility(varname)
+                    }
+                }
+            else:
+                data['Datafield'][str(command_field_id)] = {
+                    "varname": varname,
+                    "caption": get_caption(check_name, long_param),
                     "description": help2description(action.help),
                     "datatype": r"Icinga\Module\Director\DataType\DataTypeString",
                     "format": None,
@@ -254,25 +586,28 @@ def main():
                 }
 
             if action.default is not None:
-                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] =  str(action.default).replace('$', '$$')
+                if isinstance(action.default, str):
+                    data['ServiceTemplate'][service_object_name]['vars'][varname] = action.default.replace('$', '$$')
+                else:
+                    data['ServiceTemplate'][service_object_name]['vars'][varname] = action.default
 
             command_field_id += 1
             continue
 
         if isinstance(action, argparse._StoreTrueAction):
-            data['Command'][f"cmd-check-{check}"]['arguments'][f'{long_param}'] = {
-                "set_if": f"${get_varname(check, long_param)}$"
+            data['Command'][command_object_name]['arguments'][f'{long_param}'] = {
+                "set_if": f"${get_varname(check_name + varname_suffix, long_param)}$"
             }
 
-            data['Command'][f"cmd-check-{check}"]['fields'].append({
+            data['Command'][command_object_name]['fields'].append({
                 "datafield_id": command_field_id,
                 "is_required": "n",
                 "var_filter": None
             })
 
-            data['Datafield'][command_field_id] = {
+            data['Datafield'][str(command_field_id)] = {
                 "varname": varname,
-                "caption": get_caption(check, long_param) + '?',
+                "caption": get_caption(check_name, long_param) + '?',
                 "description": help2description(action.help),
                 "datatype": r"Icinga\Module\Director\DataType\DataTypeBoolean",
                 "format": None,
@@ -280,14 +615,225 @@ def main():
             }
 
             if action.default is not None:
-                data['ServiceTemplate'][f"tpl-service-{check}"]['vars'][varname] = action.default
+                data['ServiceTemplate'][service_object_name]['vars'][varname] = action.default
 
             command_field_id += 1
             continue
 
-        print(f'Unhandled action class: "{action.__class__.__name__}".')
+        warn_print(f'Unhandled action class: "{action.__class__.__name__}".')
+    return data
 
-    save_json_to_file(data, output_file)
+
+def generate_basket(plugin_file, config=None, old_data=None):
+    if config is None:
+        config = {}
+    if 'variants' not in config:
+        config['variants'] = DEFAULT_VARIANTS
+
+    plugin_args = get_plugin_args(plugin_file)
+    if plugin_args is None:
+        return None
+
+    check_name = os.path.basename(plugin_file).removesuffix('3')
+
+    data = get_data_template()
+
+    if 'linux' in config['variants']:
+        print('Generating "linux" variant.')
+        command_object_name = f'cmd-check-{check_name}'
+        service_object_name = f'tpl-service-{check_name}'
+        command = f'/usr/lib64/nagios/plugins/{check_name}'
+        varname_suffix = ''
+
+        data = get_command_template(
+            data,
+            command_object_name,
+            command
+        )
+
+        data = get_service_template(
+            data,
+            service_object_name,
+            command_object_name,
+            check_name,
+            plugin_args.description
+        )
+
+        data = parse_plugin_args(
+            data,
+            plugin_args,
+            check_name,
+            command_object_name,
+            service_object_name,
+            varname_suffix
+        )
+
+    if 'windows' in config['variants']:
+        print('Generating "windows" variant.')
+        command_object_name = f'cmd-check-{check_name}-windows'
+        service_object_name = f'tpl-service-{check_name}-windows'
+        command = f'C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}\\{check_name}.exe'
+        varname_suffix = '_windows'
+
+        data = get_command_template(
+            data,
+            command_object_name,
+            command
+        )
+
+        data = get_service_template(
+            data,
+            service_object_name,
+            command_object_name,
+            check_name,
+            plugin_args.description
+        )
+
+        data = parse_plugin_args(
+            data,
+            plugin_args,
+            check_name,
+            command_object_name,
+            service_object_name,
+            varname_suffix
+        )
+
+        data = get_command_template(
+            data,
+            f'cmd-check-{check_name}-windows-python',
+            f'C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{check_name}.py',
+            imports=[
+                f'cmd-check-{check_name}-windows',
+            ]
+        )
+
+    if 'variants' in config:
+        if 'sudo' in config['variants']:
+            print('Generating "sudo" variant.')
+            data = get_command_template(
+                data,
+                f'cmd-check-{check_name}-sudo',
+                f'/usr/bin/sudo /usr/lib64/nagios/plugins/{check_name}',
+                imports=[
+                    f'cmd-check-{check_name}',
+                ]
+            )
+            data = get_service_template(
+                data,
+                f'tpl-service-{check_name}-sudo',
+                f'cmd-check-{check_name}-sudo',
+                check_name,
+                plugin_args.description,
+                imports=[
+                    f'tpl-service-{check_name}',
+                ]
+            )
+
+        if 'no-agent' in config['variants']:
+            print('Generating "no-agent" variant.')
+            data = get_service_template(
+                data,
+                f'tpl-service-{check_name}-no-agent',
+                f'cmd-check-{check_name}',
+                check_name,
+                plugin_args.description,
+                imports=[
+                    service_object_name,
+                ],
+                use_agent=False
+            )
+
+    if 'overwrites' in config:
+        print('Applying overwrites.')
+        data = apply_overwrites(data, config['overwrites'])
+
+    return manage_uuids(data, old_data)
+
+
+def main():
+    args = parse_args()
+
+    if args.PLUGIN_FILE:
+        plugin_dir = os.path.dirname(args.PLUGIN_FILE)
+        check = os.path.basename(args.PLUGIN_FILE).removesuffix('3')
+
+        output_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.json')
+        old_data = None
+        if os.path.isfile(output_file):
+            with open(output_file, 'rb') as file:
+                print(f'Found an existing basket at {output_file}, updating it.')
+                try:
+                    old_data = json.load(file)
+                except json.decoder.JSONDecodeError:
+                    err_print('Could not parse existing basket file. Aborting...')
+                    sys.exit(3)
+        else:
+            try:
+                os.mkdir(os.path.join(plugin_dir, 'icingaweb2-module-director'))
+            except FileExistsError:
+                pass
+
+        config_file = os.path.join(plugin_dir, 'icingaweb2-module-director', f'{check}.yml')
+        config = None
+        if os.path.isfile(config_file):
+            with open(config_file, 'rb') as file:
+                print(f'Using config at {config_file}.')
+                try:
+                    config = yaml.safe_load(file)
+                except yaml.scanner.ScannerError:
+                    err_print('Could not parse config file. Aborting...')
+                    sys.exit(3)
+
+        save_json_to_file(generate_basket(args.PLUGIN_FILE, config, old_data), output_file)
+
+    elif args.AUTO:
+        directories = os.listdir('check-plugins')
+        for directory in directories:
+            if directory in skip_plugins:
+                continue
+
+            plugin_file = os.path.join('check-plugins', directory, directory + '3')
+            if os.path.isfile(plugin_file):
+                print('\n' + '- ' * 40)
+                print(f'Check: {directory}')
+                print('- ' * 40)
+                old_data = None
+                output_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+                if os.path.isfile(output_file):
+                    with open(output_file, 'rb') as file:
+                        print(f'Found an existing basket at {output_file}, updating it.')
+                        try:
+                            old_data = json.load(file)
+                        except json.decoder.JSONDecodeError:
+                            err_print('Could not parse existing basket file. Skipping check...')
+                            continue
+                else:
+                    try:
+                        os.mkdir(os.path.join('check-plugins', directory, 'icingaweb2-module-director'))
+                    except FileExistsError:
+                        pass
+
+                config_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.yml')
+                config = None
+                if os.path.isfile(config_file):
+                    with open(config_file, 'rb') as file:
+                        print(f'Using config at {config_file}.')
+                        try:
+                            config = yaml.safe_load(file)
+                        except yaml.scanner.ScannerError:
+                            err_print('Could not parse config file. Skipping check...')
+                            continue
+
+                plugin_data = generate_basket(plugin_file, config, old_data)
+                if plugin_data:
+                    save_json_to_file(plugin_data, output_file)
+                else:
+                    err_print(f'No data for {directory}.')
+
+    else:
+        err_print('Either --auto or --plugin-file is required.')
+        sys.exit(2)
+
 
 if __name__ == '__main__':
     main()

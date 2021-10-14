@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,7 +28,6 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
@@ -36,7 +35,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021061402'
+__version__ = '2021083101'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -74,7 +73,7 @@ def parse_args():
         type=int,
         default=DEFAULT_COUNT,
     )
-    
+
     parser.add_argument(
         '--critical-cpu',
         help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
@@ -107,7 +106,7 @@ def parse_args():
 
 
 def get_cpu_from_db(conn, container, threshold):
-    result = lib.base3.coe(lib.db_sqlite3.select(conn, 
+    result = lib.base3.coe(lib.db_sqlite3.select(conn,
         '''
         SELECT count(*) as cnt
         FROM cpu
@@ -238,5 +237,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()

@@ -76,20 +76,25 @@ Output:
 
 .. code-block:: text
 
-    PHP v7.4.19 (/etc/php.ini), OpCache Mem 52.7% used (52.7MiB/100.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 23.5% used (3816/16229), Hit Rate 100.0% (13.3 Mill. hits, 2.6K misses), Interned Strings 21.4% used (4.5MiB/21.0MiB, 73159 Strings), 0 OOM / 0 manual / 0 key restarts
-
-    Key                         Value         
-    ---                         -----         
-    date.timezone               Europe/Zurich 
-    display_errors              Off           
-    error_reporting             22519         
-    expose_php                  Off           
-    max_execution_time          3600          
-    memory_limit                8G            
-    post_max_size               6G            
-    upload_max_filesize         2G            
-    opcache.validate_timestamps False         
-    opcache.revalidate_freq     30
+    PHP v7.4.22 (/etc/php.ini), Opcache Mem 28.5% used (73.0MiB/256.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 20.8% used (3368/16229), Hit Rate 99.9% (3.0M hits, 3.1K misses), Interned Strings 10.5% used (4.2MiB/40.0MiB, 68202 Strings), 0 OOM / 0 manual / 0 key restarts
+    Key                             ! Value         
+    ------------------------------- ! ------------- 
+    date.timezone                   ! Europe/Zurich 
+    display_errors                  ! 0             
+    display_startup_errors          ! 0             
+    error_reporting                 ! 22519         
+    expose_php                      ! 0             
+    max_execution_time              ! 30            
+    memory_limit                    ! 2200M         
+    post_max_size                   ! 2100M         
+    upload_max_filesize             ! 2000M         
+    opcache.enable                  ! True          
+    opcache.interned_strings_buffer ! 48            
+    opcache.max_accelerated_files   ! 16229         
+    opcache.memory_consumption      ! 268435456     
+    opcache.revalidate_freq         ! 86400         
+    opcache.save_comments           ! True          
+    opcache.validate_timestamps     ! False
 
 
 States
@@ -108,7 +113,6 @@ WARN or CRIT:
 
 * if Opcache Memory usage is above the given percentage thresholds (default 80/90%)
 * if Opcache Key usage is above the given percentage thresholds (default 80/90%)
-* if Opcache Hit Rate is below the given percentage thresholds (default 80/90%)
 * if Opcache interned string usage is above the given percentage thresholds (default 80/90%)
 
 

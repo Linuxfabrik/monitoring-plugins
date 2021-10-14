@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,33 +8,37 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import datetime
-import re
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import datetime # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.base2
-import lib.db_sqlite2
-import lib.icinga2
-from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.base2 # pylint: disable=C0413
+import lib.db_sqlite2 # pylint: disable=C0413
+import lib.icinga2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021022601'
+__version__ = '2021101201'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -47,8 +51,25 @@ DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
 
+
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--alarm-duration',
+        help='How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: %(default)s',
+        dest='ALARM_DURATION',
+        type=int,
+        default=DEFAULT_ALARM_DURATION,
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -56,28 +77,6 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-    )
-
-    parser.add_argument(
-        '--suppress-lines',
-        help='Suppress the found lines in the output, only report the number of findings.',
-        dest='SUPPRESS_OUTPUT',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
-        '--filename',
-        help='Set the path of the logfile.',
-        dest='FILENAME',
-        required=True,
-        type=str,
-    )
-
-    parser.add_argument(
-        '-V', '--version',
-        action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
     )
 
     parser.add_argument(
@@ -104,42 +103,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
-        dest='WARN',
-        default=DEFAULT_WARN,
-    )
-
-    parser.add_argument(
-        '--warning-pattern',
-        help='Any line containing this pattern will count as a warning.',
-        action='append',
-        default=[],
-        dest='WARN_PATTERN',
-    )
-
-    parser.add_argument(
-        '--warning-regex',
-        help='Any line matching this python regex will count as a warning.',
-        action='append',
-        dest='WARN_REGEX',
-        default=[],
-    )
-
-    parser.add_argument(
-        '--ignore-pattern',
-        help='Any line containing this pattern will be ignored.',
-        action='append',
-        default=[],
-        dest='IGNORE_PATTERN',
-    )
-
-    parser.add_argument(
-        '--ignore-regex',
-        help='Any line matching this python regex will be ignored.',
-        action='append',
-        default=[],
-        dest='IGNORE_REGEX',
+        '--filename',
+        help='Set the path of the logfile.',
+        dest='FILENAME',
+        required=True,
+        type=str,
     )
 
     parser.add_argument(
@@ -175,17 +143,59 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--alarm-duration',
-        help='How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: %(default)s',
-        dest='ALARM_DURATION',
-        type=int,
-        default=DEFAULT_ALARM_DURATION,
+        '--ignore-pattern',
+        help='Any line containing this pattern will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='Any line matching this python regex will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--suppress-lines',
+        help='Suppress the found lines in the output, only report the number of findings.',
+        dest='SUPPRESS_OUTPUT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line containing this pattern will count as a warning.',
+        action='append',
+        default=[],
+        dest='WARN_PATTERN',
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex will count as a warning.',
+        action='append',
+        dest='WARN_REGEX',
+        default=[],
     )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -196,8 +206,7 @@ def main():
         lib.base2.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
 
     if args.ICINGA_CALLBACK and not all((args.ICINGA_URL, args.ICINGA_PASSWORD, args.ICINGA_USERNAME, args.ICINGA_SERVICE_NAME)):
-        print('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.')
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.', STATE_UNKNOWN)
 
     # create the db table
     conn = lib.base2.coe(lib.db_sqlite2.connect(filename='logfile.db'))
@@ -248,6 +257,8 @@ def main():
     warn_matches = []
     crit_matches = []
     line_counter = 0
+
+    # fetch data
     try:
         with open(args.FILENAME) as logfile:
             logfile.seek(offset)
@@ -391,25 +402,25 @@ def main():
     if warn_matches:
         msg += ', {} warning {}'.format(
             len(warn_matches),
-            lib.base2.pluralize('match', len(warn_matches)),
+            lib.base2.pluralize('match', len(warn_matches), 'es'),
         )
 
     if crit_matches:
         msg += ', {} critical {}'.format(
             len(crit_matches),
-            lib.base2.pluralize('match', len(crit_matches)),
+            lib.base2.pluralize('match', len(crit_matches), 'es'),
         )
 
     if old_warn_matches:
         msg += ', {} old warning {}'.format(
             len(old_warn_matches),
-            lib.base2.pluralize('match', len(old_warn_matches)),
+            lib.base2.pluralize('match', len(old_warn_matches), 'es'),
         )
 
     if old_crit_matches:
         msg += ', {} old critical {}'.format(
             len(old_crit_matches),
-            lib.base2.pluralize('match', len(old_crit_matches)),
+            lib.base2.pluralize('match', len(old_crit_matches), 'es'),
         )
 
     if not args.SUPPRESS_OUTPUT:
@@ -429,12 +440,12 @@ def main():
     perfdata += lib.base2.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
     perfdata += lib.base2.get_perfdata('crit_matches', len(crit_matches), None, args.CRIT, None, None, None)
 
+    # over and out
     lib.base2.oao(msg + '\n\n' + msg_addendum, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

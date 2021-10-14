@@ -1,0 +1,174 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101201'
+
+DESCRIPTION = '''Reports the state of a channel bonding interface. Channel bonding enables two or
+    more network interfaces to act as one, simultaneously increasing the bandwidth and providing
+    redundancy.'''
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-bonding-file".',
+        dest='TEST',
+        type=str,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        try:
+            bonding_interfaces = os.listdir('/proc/net/bonding/').decode()
+        except OSError:
+            bonding_interfaces = []
+    else:
+        bonding_interfaces = ['bond0']
+
+    if len(bonding_interfaces) == 0:
+        lib.base3.oao('No bonding interfaces found.', STATE_UNKNOWN)
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    for bonding_interface in bonding_interfaces:
+        if args.TEST is None:
+            filename = '/proc/net/bonding/{}'.format(bonding_interface)
+        else:
+            filename = args.TEST
+
+        with open(filename, 'r') as result:
+            submsg = ''
+            substate = STATE_OK
+            # now, check the media-independent interface status (MII)
+            in_interface_section = False
+            for row in result:
+                row = row.strip()
+                if not row:
+                    # empty line after the end of an interface section
+                    if in_interface_section:
+                        perfdata += lib.base3.get_perfdata(
+                            '{}_{}_link_failure_count'.format(bonding_interface, slave_interface),
+                            link_failure_count, None, 1, None, 0, None
+                            )
+                        if mii_status != 'up':
+                            submsg += '    * {} is {} with {} link {}.\n'.format(
+                                slave_interface,
+                                mii_status,
+                                link_failure_count,
+                                lib.base3.pluralize('failure', link_failure_count))
+                            substate = state = STATE_WARN
+                        in_interface_section = False
+                    continue
+                if ': ' not in row:
+                    continue
+                key, value = row.split(': ')
+                if key == 'Bonding Mode':
+                    bonding_mode = value
+                if key == 'Link Failure Count':
+                    link_failure_count = value
+                if key == 'MII Status':
+                    mii_status = value
+                if key == 'Slave Interface':
+                    slave_interface = value
+                    in_interface_section = True
+                if  key == 'Partner Mac Address' \
+                and value == '00:00:00:00:00:00' \
+                and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation':
+                    submsg += '    * Could not detect the MAC Address of the switch. This could indicate that LACP is not configured properly.\n'
+                    substate = state = STATE_WARN
+
+            if in_interface_section:
+                perfdata += lib.base3.get_perfdata(
+                    '{}_{}_link_failure_count'.format(bonding_interface, slave_interface),
+                    link_failure_count, None, 1, None, 0, None
+                    )
+                if mii_status != 'up':
+                    submsg += '    * {} is {} with {} link {}.\n'.format(
+                        slave_interface,
+                        mii_status,
+                        link_failure_count,
+                        lib.base3.pluralize('failure', link_failure_count))
+                    substate = state = STATE_WARN
+
+            msg += '* {}{} ({})\n'.format(lib.base3.state2str(substate, suffix=' '), bonding_interface, bonding_mode) + submsg
+
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n' + msg
+    else:
+        msg = 'One or more errors.\n\n' + msg
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

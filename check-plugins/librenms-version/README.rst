@@ -18,7 +18,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "LibreNMS"
 
 
@@ -54,7 +54,7 @@ Output:
 
 .. code-block:: text
 
-    LibreNMS 21.4.0 (HEAD), DB-Schema 2021_04_08_151101_add_foreign_keys_to_port_group_port_table (208), MariaDB 10.6.0-MariaDB, NET-SNMP 5.8, PHP 8.0.5, Python 3.6.8, RRD-Tool 1.7.0|'librenms-version'=21.4;;;0;
+    LibreNMS 21.6.0 (Git: HEAD), DB-Schema 2021_06_07_123600_create_sessions_table (211), MariaDB 10.6.3-MariaDB, NET-SNMP 5.8, PHP 8.0.8, Python 3.6.8, RRD-Tool 1.7.0
 
 
 States
@@ -66,7 +66,17 @@ States
 Perfdata / Metrics
 ------------------
 
-* librenms-version: Float
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    librenms-version,                           Float,              Version number as a floating point number
+    mysql-version,                              Float,              Version number as a floating point number
+    netsnmp-version,                            Float,              Version number as a floating point number
+    php-version,                                Float,              Version number as a floating point number
+    python-version,                             Float,              Version number as a floating point number
+    rrdtool-version,                            Float,              Version number as a floating point number
 
 
 Credits, License

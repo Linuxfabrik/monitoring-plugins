@@ -1,0 +1,221 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import datetime # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101201'
+
+DESCRIPTION = 'Checks the security of your private Nextcloud server.'
+
+DEFAULT_TIMEOUT = 7
+DEFAULT_TRIGGER = 14
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--trigger',
+        help='Trigger re-scan of the Nextcloud server if result on scan.nextcloud.com is older than n days. Default: %(default)s (days)',
+        dest='TRIGGER',
+        type=int,
+        default=DEFAULT_TRIGGER,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Nextcloud API URL, for example "cloud.linuxfabrik.io".',
+        dest='URL',
+        required = True,
+    )
+
+    return parser.parse_args()
+
+
+def get_uuid_from_scan_nextcloud_com(nc_url, timeout):
+    url = 'https://scan.nextcloud.com/api/queue'
+    data = {'url': nc_url}
+    header = {
+        'Content-type': 'application/x-www-form-urlencoded',
+        'X-CSRF': 'true',
+    }
+    success, result = lib.url3.fetch(url, timeout=timeout, header=header, data=data)
+    if not success:
+        return (success, result)
+    try:
+        return (True, json.loads(result)['uuid'])
+    except Exception:
+        return (False, 'No JSON object could be decoded')
+
+
+def trigger_rescan_nextcloud_com(nc_url, timeout):
+    url = 'https://scan.nextcloud.com/api/requeue'
+    data = {'url': nc_url}
+    header = {
+        'Content-type': 'application/x-www-form-urlencoded',
+        'X-CSRF': 'true',
+    }
+    success, result = lib.url3.fetch(url, timeout=timeout, header=header, data=data)
+    if not success:
+        return (success, result)
+    if not result:
+        return (True, 'Result was outdated. Re-scan triggered. Check again in ~5 minutes to get the newest scan result.')
+    try:
+        return (True, json.loads(result))
+    except Exception:
+        return (False, 'No JSON object could be decoded')
+
+
+def get_scan_result_from_scan_nextcloud_com(nc_uuid, timeout):
+    url = 'https://scan.nextcloud.com/api/result/' + nc_uuid
+    success, result = lib.url3.fetch(url, timeout=timeout)
+    if not success:
+        return (success, result)
+    try:
+        return (True, json.loads(result))
+    except Exception:
+        return (False, 'No JSON object could be decoded')
+
+
+def get_rating_string(rating):
+    grade = ['F', 'E', 'D', 'C', 'A', 'A+']
+    return grade[rating]
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    uuid = lib.base3.coe(get_uuid_from_scan_nextcloud_com(args.URL, args.TIMEOUT))
+    result = lib.base3.coe(get_scan_result_from_scan_nextcloud_com(uuid, args.TIMEOUT))
+
+    msg = ''
+    state = STATE_OK
+    # we just warn if Nextcloud security scanner warns, too
+    if result['rating'] == 0 or result['rating'] == 1:
+        # sorry for being CRIT, but such a state is not acceptable
+        state = STATE_CRIT
+    elif result['rating'] == 2 or result['rating'] == 3:
+        state = STATE_WARN
+
+    # warn if last check is more than 30 days ago, and trigger a rescan
+    scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], "%Y-%m-%d")
+    today = lib.base3.now(as_type='datetime')
+    delta = scan_date - today
+    if abs(delta.days) > args.TRIGGER:
+        tmp = lib.base3.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))
+
+    msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
+
+    # Version
+    msg += '{} v{} '.format(result['product'], result['version'])
+    if not result['latestVersionInBranch']:
+        msg += '(NOT on latest patch level). '
+    else:
+        msg = msg.strip() + '. '
+
+    # Hardenings
+    if not result['hardenings']['appPasswordsScannedForHaveIBeenPwned']:
+        msg += 'Password check against HaveIBeenPwned database missing. '
+    if not result['hardenings']['bruteforceProtection']:
+        msg += 'Bruteforce protection setting missing. '
+    if not result['hardenings']['CSPv3']:
+        msg += 'CSPv3 HTTP feature missing. '
+    if not result['hardenings']['passwordConfirmation']:
+        msg += 'Password confirmation setting missing. '
+    if not result['hardenings']['appPasswordsCanBeRestricted']:
+        msg += 'App passwords cannot be restricted. '
+    if not result['hardenings']['__HostPrefix']:
+        msg += '__HostPrefix missing. '
+    if not result['hardenings']['sameSiteCookies']:
+        msg += 'Same-Site-Cookie Enforcing missing. '
+
+    # Vulnerabilities
+    if result['vulnerabilities']:
+        msg += 'Known vulnerablities: '
+        for vul in result['vulnerabilities']:
+            msg += vul['title'] + '; '
+        msg = msg[:-2] + '. '
+
+    # Setup issues
+    if not result['setup']['headers']['X-Frame-Options']:
+        msg += 'Header X-Frame-Options missing. '
+    if not result['setup']['headers']['X-XSS-Protection']:
+        msg += 'Header X-XSS-Protection missing. '
+    if not result['setup']['headers']['X-Download-Options']:
+        msg += 'Header X-Download-Options missing. '
+    if not result['setup']['headers']['X-Content-Type-Options']:
+        msg += 'Header X-Content-Type-Options missing. '
+    if not result['setup']['headers']['X-Permitted-Cross-Domain-Policies']:
+        msg += 'Header X-Permitted-Cross-Domain-Policies missing. '
+    if not result['setup']['https']['enforced']:
+        msg += 'HTTPS not enforced. '
+    if not result['setup']['https']['used']:
+        msg += 'HTTPS not used. '
+
+    # over and out
+    lib.base3.oao(msg, state)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

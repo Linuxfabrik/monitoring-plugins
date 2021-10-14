@@ -29,7 +29,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/mysql-stats"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``, Python module ``mysql.connector``; User with at least 'PROCESS' (Role 'MonitorAdmin') privileges, locked down to '127.0.0.1' - for example a user ``mariadb-stats@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars."
 
 

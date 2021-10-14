@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,24 +8,41 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import urllib2 # pylint: disable=C0413
+
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021042101'
+__version__ = '2021101401'
 
-DESCRIPTION = 'Returns statistics for members of HA cluster from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. Warns if the number of HA members is more or less than expected (default: 2). The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".'
+DESCRIPTION = """Returns statistics for members of HA cluster from Forti Appliances like FortiGate
+                 running FortiOS via FortiOS REST API. Warns if the number of HA members is more
+                 or less than expected (default: 2). The authentication is done via a single API
+                 token (Token-based authentication), not via Session-based authentication, which
+                 is stated as "legacy"."""
 
 DEFAULT_COUNT = 2
 DEFAULT_INSECURE = False
@@ -33,25 +50,16 @@ DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT  = 3
 
 
-#====================
-from lib.globals2 import *
-
-import lib.base2
-import lib.url2
-
-import argparse
-import urllib2
-from traceback import print_exc
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -59,7 +67,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--count',
@@ -67,14 +75,14 @@ def parse_args():
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
-        )
-    
+    )
+
     parser.add_argument(
-        '-H', '--hostname', 
+        '-H', '--hostname',
         help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
         dest='HOSTNAME',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--insecure',
@@ -82,7 +90,7 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-        )
+    )
 
     parser.add_argument(
         '--no-proxy',
@@ -90,14 +98,14 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
-        )
+    )
 
     parser.add_argument(
         '--password',
         help='FortiOS REST API Single Access Token.',
         dest='PASSWORD',
         required=True,
-        )
+    )
 
     parser.add_argument(
         '--timeout',
@@ -105,18 +113,22 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-        )
+    )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
-        exit(STATE_UNKNOWN)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     url = 'https://{}/api/v2/monitor/system/ha-statistics/select/?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result = lib.base2.coe(lib.url2.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     member_count = len(result['results'])
@@ -128,12 +140,12 @@ def main():
         state = STATE_OK
 
     msg = 'Found {} HA cluster {}{}, which handled {} sessions and {} traffic so far.'.format(
-        member_count, 
+        member_count,
         lib.base2.pluralize('member', member_count),
         lib.base2.state2str(state, prefix= ' (', suffix=')'),
         sum(item['sessions'] for item in result['results']),
         lib.base2.bytes2human(sum(item['tbyte'] for item in result['results']))
-        )
+    )
 
     perfdata = ''
     for sensor in result['results']:
@@ -144,12 +156,13 @@ def main():
         perfdata += lib.base2.get_perfdata('{}_cpu_usage'.format(name), sensor['cpu_usage'], '%', None, None, 0, 100)
         perfdata += lib.base2.get_perfdata('{}_mem_usage'.format(name), sensor['mem_usage'], '%', None, None, 0, 100)
 
+    # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()
+

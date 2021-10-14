@@ -4,7 +4,7 @@ Check wildfly-gc-status
 Overview
 --------
 
-This check plugin monitors the garbage collector of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
+This check plugin prints the garbage collector of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
 
 Tested with WildFly 11 and WildFly 23.
 
@@ -52,18 +52,16 @@ Help
 
 .. code-block:: text
 
-    usage: wildfly-gc-status [-h] [-V] [--always-ok] [--critical CRIT]
-                             [--instance INSTANCE] [--mode {standalone,domain}]
-                             [--node NODE] -p PASSWORD [--timeout TIMEOUT]
-                             [--url URL] --username USERNAME [--warning WARN]
+    usage: wildfly-gc-status [-h] [-V] [--instance INSTANCE]
+                             [--mode {standalone,domain}] [--node NODE] -p
+                             PASSWORD [--timeout TIMEOUT] [--url URL] --username
+                             USERNAME
 
-    Checks the status of the Wildfly/JBossAS garbage collector over HTTP.
+    Prints the status of the Wildfly/JBossAS garbage collector.
 
     optional arguments:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --critical CRIT       Set the critical threshold.
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
@@ -74,7 +72,6 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990
       --username USERNAME   WildFly API username. Default: wildfly-admin
-      --warning WARN        Set the warning threshold.
 
 
 Usage Examples
@@ -82,29 +79,33 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./wildfly-gc-status --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 500 --critical 1000
+    ./wildfly-gc-status --username wildfly-monitoring --password password --url http://wildfly:9990
 
 Output:
 
 .. code-block:: text
 
-    GC Statistics (time/count/avg). PS_MarkSweep: 143/1/143.0, PS_Scavenge: 105/8/13.0
+    MarkSweepCompact: CollectionCount 2.0, CollectionTime 1s; Copy: CollectionCount 32.0, CollectionTime 4s
 
 
 States
 ------
 
-Triggers an alarm on absolute values.
-
-* WARN or CRIT if any Garbage Collector "Average Time" is above certain thresholds (default 500/1000)
+* Always returns OK.
 
 
 Perfdata / Metrics
 ------------------
 
-* garbage-collector-<name>-collection-count
-* garbage-collector-<name>-collection-time
-* garbage-collector-<name>-collection-avgtime: gc_time / gc_count
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    garbage-collector-<name>-collection-count,  Continous Counter,  The total number of collections that have occurred.
+    garbage-collector-<name>-collection-time,   Milliseconds,       The approximate accumulated collection elapsed time in milliseconds.
+
+<name> is the name of the garbage collector.
 
 
 Credits, License

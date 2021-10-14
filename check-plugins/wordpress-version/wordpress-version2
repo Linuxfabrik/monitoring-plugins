@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -8,33 +8,36 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN
+import lib.base2 # pylint: disable=C0413
+import lib.cache2 # pylint: disable=C0413
+import lib.disk2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
-import lib.base2
-import lib.cache2
-import lib.disk2
-import lib.url2
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021021701'
+__version__ = '2021101001'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -42,17 +45,16 @@ DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_CACHE_EXPIRE = 24 # hours
 
 
-#====================
-
-
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -60,7 +62,7 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
         '--cache-expire',
@@ -68,22 +70,22 @@ def parse_args():
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
-        )
+    )
 
     parser.add_argument(
         '--path',
         help='Local path to your WordPress installation. Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
-        )
+    )
 
     return parser.parse_args()
 
 
 def get_installed_version(path):
-    # jira/version.php: $OC_Version = array(18,0,2,2);
-    success, version = lib.disk2.grep_file(path + '/wp-includes/version.php',
-                                          r'wp_version\s*=\s*\'(.*)\'')
+    success, version = lib.disk2.grep_file(
+        path + '/wp-includes/version.php', r'wp_version\s*=\s*\'(.*)\''
+    )
     if not success:
         return (success, version)
     if version:
@@ -102,31 +104,36 @@ def get_latest_version(expire):
     if not success:
         return (success, jsonst)
 
-    # there is an update available, so result contains xml here
+    # there is an update available, so result contains json here
     latest_version = jsonst[0]['name']
     lib.cache2.set('wordpress-version', latest_version, lib.base2.now() + expire)
     return (True, latest_version)
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     installed_version = lib.base2.coe(get_installed_version(args.PATH))
     success, latest_version = get_latest_version(args.CACHE_EXPIRE*60*60)
     if not success:
-        lib.base2.oao('WordPress v{} seems to be up to date (mirror server is not available).'.format(installed_version), STATE_OK)
+        lib.base2.oao('WordPress v{} seems to be up to date (update server is not available)'.format(installed_version), STATE_OK)
     if lib.base2.version(installed_version) >= lib.base2.version(latest_version):
         lib.base2.oao('WordPress v{} is up to date'.format(installed_version), STATE_OK)
+
+    # over and out
     lib.base2.oao('WordPress v{} is available (installed: v{})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base2.cu()

@@ -1,5 +1,5 @@
 #! /usr/bin/env python2
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -29,14 +29,14 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 import argparse # pylint: disable=C0413
 import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
+import lib.test2 # pylint: disable=C0413
 from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021052701'
+__version__ = '2021083102'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -71,7 +71,7 @@ def parse_args():
     parser.add_argument(
         '--full',
         help='If set, also warn on any assumptions (in GSmartControl stated as "notice" messages), '
-        'otherwise just warn on "real" SMART issues. Default: check warnings and alerts only.',
+        'otherwise just warn on "real" SMART issues. Default: %(default)s',
         dest='FULL',
         action='store_true',
         default=False,
@@ -79,8 +79,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'.'
-        'Default: %(default)s',
+        help='A comma-separated list of disks which should be ignored, in the format \'sda,sdb\'. Default: %(default)s',
         dest='IGNORE',
         type=lib.args2.csv,
         default=DEFAULT_IGNORE,
@@ -117,7 +116,7 @@ def get_worst(w1, w2):
 def translate(smartstate, full=False):
     """Warning types in GSmartControl: none  notice   warn  alert
        Mapping in Nagios:              OK    OK/WARN  WARN  CRIT
-    
+
     If full=True, gsmartcontrol.notice is a nagios.WARN, otherwise nagios.OK
     """
     if smartstate == 'alert':
@@ -831,23 +830,11 @@ def main():
             continue
 
         if args.TEST is None:
-            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + str(disk))
+            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + unicode(disk))
             stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
-            if args.TEST[0] and os.path.isfile(args.TEST[0]):
-                f = open(args.TEST[0], 'r')
-                stdout = f.read()
-                f.close()
-            else:
-                stdout = args.TEST[0]
-            if args.TEST[1] and os.path.isfile(args.TEST[1]):
-                f = open(args.TEST[1], 'r')
-                stderr = f.read()
-                f.close()
-            else:
-                stderr = args.TEST[1]
-            retc = int(args.TEST[2])
+            stdout, stderr, retc = lib.test2.test(args.TEST)
 
         # compare the retc using bitmasks according to the man page of smartctl
         if retc & 1:
@@ -878,7 +865,7 @@ def main():
         disk_count += 1
         serial_number = disk_report['general']['serial_number']
 
-        for key, item in disk_report.items(): 
+        for key, item in disk_report.items():
             if item['w'] != 'none':
                 disk_msg +=  item['msg'] + '\n'
                 disk_state = lib.base2.get_worst(translate(item['w'], args.FULL), disk_state)
@@ -920,5 +907,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base2.cu()

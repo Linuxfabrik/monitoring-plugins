@@ -1,0 +1,172 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+try:
+    import xmltodict
+except ImportError as e:
+    lib.base3.oao('Python module "xmltodict" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021101301'
+
+DESCRIPTION = 'This plugin lets you track if server updates are available.'
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_USERNAME = 'admin'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='QTS Password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='QTS-based Appliance URL, for example https://192.168.1.1:8080.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='QTS User. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # authenticate and get the authSid
+    url = '{}/cgi-bin/authLogin.cgi'.format(args.URL)
+    data = {
+        'user': args.USERNAME,
+        'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
+        }
+    result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    data = xmltodict.parse(result)['QDocRoot']
+
+    auth_passed = data['authPassed']
+    if auth_passed is not None and len(auth_passed) == 1 and auth_passed == "0":
+        lib.base3.oao('Failed to authenticate.', STATE_UNKNOWN)
+    authSid = data['authSid']
+
+    # get the current version
+    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
+    result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    data = xmltodict.parse(result)['QDocRoot']
+
+    installed_version = '{}.{} Build {}'.format(data['firmware']['version'], data['firmware']['number'], data['firmware']['build'])
+
+    # check for updates
+    url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, authSid)
+    result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    latest_version = xmltodict.parse(result)['QDocRoot']['func']['ownContent']['newVersion']
+    if latest_version == 'none':
+        latest_version = None
+    elif latest_version == 'error' or len(latest_version) == 0:
+        lib.base3.oao('Got an error from the QNAP API.', STATE_UNKNOWN)
+
+    # build the message
+    if latest_version:
+        lib.base3.oao('QTS {} is available (installed: {})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base3.oao('QTS {} is up to date'.format(installed_version), STATE_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

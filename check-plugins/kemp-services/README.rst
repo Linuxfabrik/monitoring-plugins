@@ -21,7 +21,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/kemp-services"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
@@ -30,15 +30,16 @@ Help
 
 .. code-block:: text
 
-    usage: kemp-services [-h] [--always-ok] [--filter FILTER] -H HOSTNAME
+    usage: kemp-services [-h] [-V] [--always-ok] [--filter FILTER] -H HOSTNAME
                          [--insecure] [--no-proxy] --password PASSWORD
-                         [--port PORT] [--state {warn,crit}] [--test TEST]
-                         [--timeout TIMEOUT] -u USERNAME [-V]
+                         [--port PORT] [--severity {warn,crit}] [--test TEST]
+                         [--timeout TIMEOUT] -u USERNAME
 
     Warns if virtual services provided by a kemp loadbalancer appliance are down.
 
     optional arguments:
       -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --filter FILTER       Only check services that contain this string in their
                             NickName.
@@ -49,13 +50,13 @@ Help
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   API Password.
       --port PORT           KEMP Appliance port.
-      --state {warn,crit}   The state that has to be returned. Default: warn
+      --severity {warn,crit}
+                            Severity for alerting. Default: warn
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u USERNAME, --username USERNAME
                             API Username.
-      -V, --version         show program's version number and exit
 
 
 Usage Examples
@@ -71,7 +72,14 @@ Output:
 
 .. code-block:: text
 
-    TODO
+    4 services checked. 
+
+    NickName               ! State 
+    -----------------------+-------
+    KEMP LoadBalancer PROD ! [OK]  
+    website1 PROD          ! [OK]  
+    website2 PROD          ! [OK]  
+    website01 DEV          ! [OK]
 
 
 States

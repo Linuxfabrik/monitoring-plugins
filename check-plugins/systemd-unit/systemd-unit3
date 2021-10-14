@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
 # Contact: info (at) linuxfabrik (dot) ch
@@ -28,14 +28,13 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
-from traceback import print_exc # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021060201'
+__version__ = '2021090802'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -44,7 +43,7 @@ DESCRIPTION = """Checks the state of a service, socket, device, mount, automount
 
 DEFAULT_ACTIVESTATE  = []
 DEFAULT_LOADSTATE  = 'loaded'
-DEFAULT_SERVERITY = 'warn'
+DEFAULT_SEVERITY = 'warn'
 DEFAULT_SUBSTATE  = []
 
 
@@ -61,22 +60,23 @@ def parse_args():
 
     parser.add_argument(
         '--activestate',
-        help='Expected systemd ActiveState (repeating).',
+        help='Expected systemd ActiveState (repeating). This is the high-level unit activation state(s), i.e. generalization of SUB. If ommited or set to "None", the unit\'s active state will not be checked.',
         dest='ACTIVESTATE',
         default=DEFAULT_ACTIVESTATE,
         action='append',
         choices=[
+            'activating',
             'active',
+            'deactivating',
             'failed',
             'inactive',
-            'activating',
-            'deactivating',
+            'None',
         ],
     )
 
     parser.add_argument(
         '--loadstate',
-        help='Expected systemd LoadState. Default: %(default)s',
+        help='Expected systemd LoadState. Reflects whether the unit definition was properly loaded. If ommited or set to "None", the unit\'s load state will not be checked. Default: %(default)s',
         dest='LOADSTATE',
         default=DEFAULT_LOADSTATE,
         choices=[
@@ -88,6 +88,7 @@ def parse_args():
             'loaded',
             'maintenance',
             'masked',
+            'None',
             'not-found',
             'reloading',
         ],
@@ -95,15 +96,15 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='Severity if something is found. One of "warn" or "crit". Default: %(default)s',
+        help='If something was found, the check returns WARN unless set here. Default: %(default)s',
         dest='SEVERITY',
-        default=DEFAULT_SERVERITY,
+        default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
 
     parser.add_argument(
         '--substate',
-        help='Expected systemd SubState (repeating).',
+        help='Expected systemd SubState (repeating). This is the low-level unit activation state(s); values depend on unit type. If ommited or set to "None", the unit\'s substate will not be checked.',
         dest='SUBSTATE',
         default=DEFAULT_SUBSTATE,
         action='append',
@@ -129,6 +130,7 @@ def parse_args():
             'mounted',
             'mounting',
             'mounting-done',
+            'None',
             'plugged',
             'reload',
             'remounting',
@@ -157,18 +159,19 @@ def parse_args():
 
     parser.add_argument(
         '--unit',
-        help='Systemd unit name, for example "sshd", "sshd.service", "my-samba-mount.mount".',
+        help='The unit name (service, timer, mount etc.). Required. For example "sshd", "sshd.service", "my-samba-mount.mount" etc.',
         dest='UNIT',
         required = True,
     )
 
     parser.add_argument(
         '--unitfilestate',
-        help='Expected systemd UnitFileState.',
+        help='Expected systemd UnitFileState. If ommited or set to "None", the unit\'s unit-file state will not be checked. If "empty", checks exactly for ``UnitFileState=""``.',
         dest='UNITFILESTATE',
         choices=[
             'bad',
             'disabled',
+            'empty',
             'enabled',
             'enabled-runtime',
             'generated',
@@ -177,6 +180,7 @@ def parse_args():
             'linked-runtime',
             'masked',
             'masked-runtime',
+            'None',
             'static',
             'transient',
         ]
@@ -208,26 +212,38 @@ def main():
 
     state = STATE_OK
     msg = '{} is {}, {}, {}'.format(args.UNIT, loadstate, activestate, substate)
-    if args.UNITFILESTATE:
-        msg += ', unit file is {}.'.format(unitfilestate)
+
+    if args.LOADSTATE == 'None':
+        args.LOADSTATE = None
+    if 'None' in args.ACTIVESTATE:
+        args.ACTIVESTATE = None
+    if 'None' in args.SUBSTATE:
+        args.SUBSTATE = None
+    if args.UNITFILESTATE == 'None':
+        args.UNITFILESTATE = None
+
+    if args.UNITFILESTATE is not None:
+        msg += ', UnitFileState is "{}".'.format(unitfilestate)
 
     # now do the checks
     problem = False
     problem_msg = ''
-    if args.LOADSTATE and loadstate == 'not-found':
+    if args.LOADSTATE is not None and loadstate == 'not-found':
         problem = True
         problem_msg += 'Unit {} not found.  '.format(args.UNIT)
     else:
-        if args.LOADSTATE and args.LOADSTATE != loadstate:
+        if args.LOADSTATE is not None and args.LOADSTATE != loadstate:
             problem = True
             problem_msg += 'LoadState is "{}", but supposed to be "{}"; '.format(loadstate, args.LOADSTATE)
         if args.ACTIVESTATE and activestate not in args.ACTIVESTATE:
+            # ACTIVESTATE is not None and not empty
             problem = True
             problem_msg += 'ActiveState is "{}", but supposed to be "{}"; '.format(activestate, args.ACTIVESTATE)
         if args.SUBSTATE and substate not in args.SUBSTATE:
+            # SUBSTATE is not None and not empty
             problem = True
             problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
-        if args.UNITFILESTATE and args.UNITFILESTATE != unitfilestate:
+        if args.UNITFILESTATE is not None and args.UNITFILESTATE != unitfilestate:
             problem = True
             problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
 
@@ -243,5 +259,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+        lib.base3.cu()

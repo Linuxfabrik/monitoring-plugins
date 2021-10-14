@@ -4,14 +4,16 @@ Check ipmi-sensor
 Overview
 --------
 
-The check calls ``ipmitool sensor list`` to fetch detailed sensor information. Running this check just makes sense on hardware using an IPMI interface. Needs sudo.
+The check calls ``ipmitool sensor list`` to fetch detailed sensor information. Running this check just makes sense against or on hardware using an IPMI interface. Needs sudo.
 
 Tested on:
 
-* Supermicro
+* Supermicro BMC
 * HPE iLO
 
-Known Issues and Limitations are: ``Discrete`` sensors support is not implemented.
+Known Issues and Limitations:
+
+* ``Discrete`` sensors support is not implemented.
 
 
 
@@ -24,7 +26,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/ipmi-sensor"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "command-line tool ``ipmitool``"
 
    

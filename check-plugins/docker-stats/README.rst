@@ -94,8 +94,7 @@ Perfdata / Metrics
 
 * cpu: Number of Host CPUs
 * <containername>_cpu_usage: Container's CPU usage (normalized)
-* <containername>_mem_usage: Container's memory usage (Bytes)
-* <containername>_mem_usage_percent: Container's memory usage (Percent)
+* <containername>_mem_usage: Container's memory usage (Percent)
 
 
 Credits, License

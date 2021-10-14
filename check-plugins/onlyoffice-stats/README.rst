@@ -4,7 +4,7 @@ Check onlyoffice-stats
 Overview
 --------
 
-Exports OnlyOffice statistics via HTTP and checks OnlyOffice license usage.
+Checks OnlyOffice statistics and license usage via HTTP.
 
 Pay attention that by default the ``info/info.json`` page is only available from localhost. The OnlyOffice nginx configuration has to be modified if the exporter is not running locally (``/etc/onlyoffice/documentserver/nginx/includes/ds-docservice.conf``: set ``allow ...`` instead of ``deny all`` on ``location ~* ^(\/[\d]+\.[\d]+\.[\d]+[\.|-][\d]+)?\/(info|internal)(\/.*)$``).
 
@@ -16,7 +16,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/onlyoffice-stats"
-    "Check Interval Recommendation",        "Every 15 minutes"
+    "Check Interval Recommendation",        "Every 30 minutes"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
     "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
@@ -27,18 +27,18 @@ Help
 
 .. code-block:: text
 
-    usage: onlyoffice-stats [-h] [-V] [--url URL] [--test TEST]
-                            [--timeout TIMEOUT]
+    usage: onlyoffice-stats [-h] [-V] [--test TEST] [--timeout TIMEOUT]
+                            [--url URL]
 
-    Exports OnlyOffice statistics via HTTP.
+    Checks OnlyOffice statistics and license usage via HTTP.
 
     optional arguments:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
-      --url URL          OnlyOffice API URL. Default: http://localhost
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
+      --url URL          OnlyOffice API URL. Default: http://localhost
 
 
 Usage Examples

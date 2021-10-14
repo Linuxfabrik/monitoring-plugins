@@ -18,7 +18,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/metabase-stats"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Uses SQLite DBs",                      "Yes"
 
 
