@@ -19,22 +19,22 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 641,
+                    "datafield_id": 1014,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 642,
+                    "datafield_id": 1015,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 643,
+                    "datafield_id": 1016,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 644,
+                    "datafield_id": 1017,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -48,6 +48,72 @@
             "vars": {},
             "zone": null,
             "guid": "49f0dbcf-4e63-4e30-b53b-2ca698d26cd0"
+        },
+        "cmd-check-nginx-status-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nginx_status_windows_always_ok$"
+                },
+                "--critical": {
+                    "value": "$nginx_status_windows_critical$"
+                },
+                "--url": {
+                    "value": "$nginx_status_windows_url$"
+                },
+                "--warning": {
+                    "value": "$nginx_status_windows_warning$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\nginx-status\\nginx-status.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1018,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1019,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1020,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1021,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nginx-status-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "ec92bfde-5dbe-441d-9846-2ac187362811"
+        },
+        "cmd-check-nginx-status-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\nginx-status.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-nginx-status-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-nginx-status-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "b195c35d-342b-4594-9910-549ae91901db"
         }
     },
     "ServiceTemplate": {
@@ -98,11 +164,59 @@
             "volatile": null,
             "zone": null,
             "guid": "5c2a3378-50e8-4b85-b7d1-6f7fb4d41699"
+        },
+        "tpl-service-nginx-status-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nginx-status-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nginx-status.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "This check provides NGINX basic status information.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nginx-status",
+            "object_name": "tpl-service-nginx-status-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "nginx_status_windows_always_ok": false,
+                "nginx_status_windows_critical": 486,
+                "nginx_status_windows_url": "http://localhost/server-status",
+                "nginx_status_windows_warning": 460
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "336388a8-e21e-4499-a13d-b435717e95d8"
         }
     },
     "DataList": {},
     "Datafield": {
-        "641": {
+        "1014": {
             "varname": "nginx_status_always_ok",
             "caption": "Nginx Status: Always OK?",
             "description": "Always returns OK.",
@@ -111,7 +225,7 @@
             "settings": {},
             "guid": "1def58cb-5a02-478e-8a2d-04c2f62f2e9f"
         },
-        "642": {
+        "1015": {
             "varname": "nginx_status_critical",
             "caption": "Nginx Status: Critical",
             "description": "Set the CRIT threshold for the number of active connections.",
@@ -122,7 +236,7 @@
             },
             "guid": "6dfe2a7c-4a11-40b9-a312-fa78d5a0302c"
         },
-        "643": {
+        "1016": {
             "varname": "nginx_status_url",
             "caption": "Nginx Status: URL",
             "description": "NGINX Server Status URL.",
@@ -133,7 +247,7 @@
             },
             "guid": "753284b2-4121-4bb6-84de-70ac7dc15d9c"
         },
-        "644": {
+        "1017": {
             "varname": "nginx_status_warning",
             "caption": "Nginx Status: Warning",
             "description": "Set the WARN threshold for the number of active connections.",
@@ -143,6 +257,48 @@
                 "visibility": "visible"
             },
             "guid": "3ba05f28-a07e-4d49-ad64-d8fc08440aec"
+        },
+        "1018": {
+            "varname": "nginx_status_windows_always_ok",
+            "caption": "Nginx Status: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "3e9fd9e9-3c46-434b-8ff3-17e0ebec11c2"
+        },
+        "1019": {
+            "varname": "nginx_status_windows_critical",
+            "caption": "Nginx Status: Critical",
+            "description": "Set the CRIT threshold for the number of active connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "80743f81-ea8e-4439-bcae-e5fcab72f6d3"
+        },
+        "1020": {
+            "varname": "nginx_status_windows_url",
+            "caption": "Nginx Status: URL",
+            "description": "NGINX Server Status URL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "7df4c0d4-36d0-4aa6-9910-ff9c89ed4022"
+        },
+        "1021": {
+            "varname": "nginx_status_windows_warning",
+            "caption": "Nginx Status: Warning",
+            "description": "Set the WARN threshold for the number of active connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "bd17ea2c-0015-4ef8-88d2-99d3043ee543"
         }
     }
 }

@@ -25,32 +25,32 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 635,
+                    "datafield_id": 1002,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 636,
+                    "datafield_id": 1003,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 637,
+                    "datafield_id": 1004,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 638,
+                    "datafield_id": 1005,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 639,
+                    "datafield_id": 1006,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 640,
+                    "datafield_id": 1007,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -64,6 +64,88 @@
             "vars": {},
             "zone": null,
             "guid": "9d5eeabe-6cf4-44de-affc-c6dbb3d8839f"
+        },
+        "cmd-check-dns-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$dns_windows_always_ok$"
+                },
+                "--critical": {
+                    "value": "$dns_windows_critical$"
+                },
+                "--hostname": {
+                    "value": "$dns_windows_hostname$"
+                },
+                "--port": {
+                    "value": "$dns_windows_port$"
+                },
+                "--type": {
+                    "value": "$dns_windows_type$"
+                },
+                "--warning": {
+                    "value": "$dns_windows_warning$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\dns\\dns.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1008,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1009,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1010,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1011,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1012,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 1013,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-dns-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "48129001-85b5-4b96-a93d-9dcadfff51c8"
+        },
+        "cmd-check-dns-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\dns.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-dns-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-dns-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "adcdbe65-97c3-4b2b-9438-8e8b4e106b4b"
         }
     },
     "ServiceTemplate": {
@@ -113,6 +195,53 @@
             "volatile": null,
             "zone": null,
             "guid": "600d0d7f-c0ee-4b6d-961d-18f12c943df7"
+        },
+        "tpl-service-dns-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-dns-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "dns.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Performs a DNS lookup and converts a hostname to one or more IP addresses. Only the name servers configured on the machine running this check plugin (for example those visible in `/etc/resolv.conf`) will be queried - you can't query other DNS servers. This command works with both IPv4 and IPv6.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/dns",
+            "object_name": "tpl-service-dns-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "dns_windows_always_ok": false,
+                "dns_windows_hostname": "localhost",
+                "dns_windows_port": 53
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "392024c6-1c82-4325-af2d-58049bd86a2d"
         }
     },
     "DataList": {
@@ -146,10 +275,41 @@
                 }
             ],
             "guid": "94119e4a-47c4-4b4a-8937-71ddef62acec"
+        },
+        "dns_windows_type_list": {
+            "list_name": "dns_windows_type_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "udp",
+                    "entry_value": "UDP",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "udp6",
+                    "entry_value": "UDP6",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "tcp",
+                    "entry_value": "TCP",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "tcp6",
+                    "entry_value": "TCP6",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "guid": "f17581f9-f239-4341-a3d7-a653453b7705"
         }
     },
     "Datafield": {
-        "635": {
+        "1002": {
             "varname": "dns_always_ok",
             "caption": "DNS: Always OK?",
             "description": "Always returns OK.",
@@ -158,7 +318,7 @@
             "settings": {},
             "guid": "99cc929f-53b3-40bc-8b13-69ce8e8009ad"
         },
-        "636": {
+        "1003": {
             "varname": "dns_critical",
             "caption": "DNS: Critical",
             "description": "Return critical if elapsed time in ms exceeds value.",
@@ -169,7 +329,7 @@
             },
             "guid": "be14e71a-62f8-4c78-964e-654604480cf1"
         },
-        "637": {
+        "1004": {
             "varname": "dns_hostname",
             "caption": "DNS: Hostname",
             "description": "The host or ip address to check.",
@@ -180,7 +340,7 @@
             },
             "guid": "1e87f476-924a-443e-aedd-3be78332fddb"
         },
-        "638": {
+        "1005": {
             "varname": "dns_port",
             "caption": "DNS: Port",
             "description": "The port number.",
@@ -191,7 +351,7 @@
             },
             "guid": "202fabaa-f5db-4769-aeaa-f0f72ec8aba4"
         },
-        "639": {
+        "1006": {
             "varname": "dns_type",
             "caption": "DNS: Type",
             "description": "Connection type. Can be optionally specified in order to narrow the list of addresses returned.",
@@ -204,7 +364,7 @@
             },
             "guid": "960180d0-16d5-4f21-a459-0eb376da55cd"
         },
-        "640": {
+        "1007": {
             "varname": "dns_warning",
             "caption": "DNS: Warning",
             "description": "Return warning if elapsed time in ms exceeds value.",
@@ -214,6 +374,72 @@
                 "visibility": "visible"
             },
             "guid": "9a8ccdb0-dbcf-4b62-b151-9b68a1af72aa"
+        },
+        "1008": {
+            "varname": "dns_windows_always_ok",
+            "caption": "DNS: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "bdc30003-8fa8-4f16-b9b9-322df2768152"
+        },
+        "1009": {
+            "varname": "dns_windows_critical",
+            "caption": "DNS: Critical",
+            "description": "Return critical if elapsed time in ms exceeds value.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "ebcd3114-3d1f-4ca4-b9e9-1a2f721f0399"
+        },
+        "1010": {
+            "varname": "dns_windows_hostname",
+            "caption": "DNS: Hostname",
+            "description": "The host or ip address to check.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "64bfa2b5-1e89-4f1a-b8f5-8a07939778fa"
+        },
+        "1011": {
+            "varname": "dns_windows_port",
+            "caption": "DNS: Port",
+            "description": "The port number.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "b71a8f9c-5e24-412f-accc-386f0229a721"
+        },
+        "1012": {
+            "varname": "dns_windows_type",
+            "caption": "DNS: Type",
+            "description": "Connection type. Can be optionally specified in order to narrow the list of addresses returned.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "dns_windows_type_list"
+            },
+            "guid": "9ac41a5b-950e-43c6-9827-708a51a2ccaf"
+        },
+        "1013": {
+            "varname": "dns_windows_warning",
+            "caption": "DNS: Warning",
+            "description": "Return warning if elapsed time in ms exceeds value.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "bd2fcf2e-da0a-4f47-9560-3ed75ce6faf5"
         }
     }
 }

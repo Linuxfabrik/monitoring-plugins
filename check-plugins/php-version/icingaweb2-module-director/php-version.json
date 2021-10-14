@@ -13,12 +13,12 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 619,
+                    "datafield_id": 984,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 620,
+                    "datafield_id": 985,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -32,6 +32,56 @@
             "vars": {},
             "zone": null,
             "guid": "d4407e95-a77c-4e02-afa1-fe7cb54b55e9"
+        },
+        "cmd-check-php-version-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$php_version_windows_always_ok$"
+                },
+                "--cache-expire": {
+                    "value": "$php_version_windows_cache_expire$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\php-version\\php-version.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 986,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 987,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-php-version-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "4e99edb4-e446-4dac-ba97-ffa7bac32de5"
+        },
+        "cmd-check-php-version-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\php-version.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-php-version-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-php-version-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "4ce9d271-1dd6-4ce4-87d2-a8669f5acf90"
         }
     },
     "ServiceTemplate": {
@@ -80,11 +130,57 @@
             "volatile": null,
             "zone": null,
             "guid": "d3856bb8-2fe8-45e5-b3cd-29e9cde5ab27"
+        },
+        "tpl-service-php-version-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-php-version-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "php-version.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "With this plugin you can check whether a PHP minor *upgrade* is available or whether the installed PHP version is EOL. For example, if you installed PHP 7.3 while PHP 7.4 is available, you will get a warning. If you're running PHP 7.4 and PHP 8 is available (which is a major upgrade), you won't get a warning. To check for available upgrades, this plugin uses https://www.php.net/releases/index.php. To compare against the current/installed version of PHP, the check calls ``php --version``.",
+            "notes_url": "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/php-version",
+            "object_name": "tpl-service-php-version-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "php_version_windows_always_ok": false,
+                "php_version_windows_cache_expire": 24
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "b22c7424-c838-4ce7-b4d4-d54730c6aa5a"
         }
     },
     "DataList": {},
     "Datafield": {
-        "619": {
+        "984": {
             "varname": "php_version_always_ok",
             "caption": "PHP Version: Always OK?",
             "description": "Always returns OK.",
@@ -93,7 +189,7 @@
             "settings": {},
             "guid": "25a76a1b-6f13-4713-9bf6-cf15f82e79ce"
         },
-        "620": {
+        "985": {
             "varname": "php_version_cache_expire",
             "caption": "PHP Version: Cache Expire",
             "description": "The amount of time after which the update check cache expires, in hours.",
@@ -103,6 +199,26 @@
                 "visibility": "visible"
             },
             "guid": "843c7ae1-0894-4425-870f-657226b67678"
+        },
+        "986": {
+            "varname": "php_version_windows_always_ok",
+            "caption": "PHP Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "f74ccd26-7d95-4c1b-85d4-b139d4a98903"
+        },
+        "987": {
+            "varname": "php_version_windows_cache_expire",
+            "caption": "PHP Version: Cache Expire",
+            "description": "The amount of time after which the update check cache expires, in hours.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "2aed56a6-01a8-45e5-b74a-b60a580810d5"
         }
     }
 }
