@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/qts-disk-smart"
     "Check Interval Recommendation",        "Every 8 hours"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2"
+    "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
 
 
