@@ -8,32 +8,40 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV2'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import urllib2
-import sys
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import urllib2 # pylint: disable=C0413
 
-from lib.globals2 import STATE_OK, STATE_UNKNOWN
-import lib.base2
-import lib.url2
+import lib.base2 # pylint: disable=C0413
+import lib.url2 # pylint: disable=C0413
+from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021101401'
 
-DESCRIPTION = 'Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".'
+DESCRIPTION = """Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti
+                 Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication
+                 is done via a single API token (Token-based authentication), not via Session-based
+                 authentication, which is stated as "legacy"."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -41,6 +49,8 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -100,12 +110,16 @@ def parse_args():
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
         args.HOSTNAME, urllib2.quote(args.PASSWORD))
     result4 = lib.base2.coe(lib.url2.fetch_json(
@@ -166,11 +180,13 @@ def main():
     perfdata += lib.base2.get_perfdata('total_nturbo_bytes',
                                       total.get('nturbo_bytes', 0), 'B', None, None, 0, None)
 
+    # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:   # pylint: disable=W0703
         lib.base2.cu()
+

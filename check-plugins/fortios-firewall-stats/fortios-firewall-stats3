@@ -8,33 +8,40 @@
 
 # https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
 
+"""Have a look at the check's README for further details.
+"""
+
 import os
 
-activate_this = False
+# considering a virtual environment
+ACTIVATE_THIS = False
 venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
 if os.getenv('MONITORING_PLUGINS_VENV3'):
-    activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
-if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import urllib.request, urllib.error, urllib.parse
-import sys
-from traceback import print_exc
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import urllib.parse # pylint: disable=C0413
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN
-import lib.base3
-import lib.url3
+import lib.base3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021042101'
+__version__ = '2021101401'
 
-DESCRIPTION = 'Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication is done via a single API token (Token-based authentication), not via Session-based authentication, which is stated as "legacy".'
+DESCRIPTION = """Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti
+                 Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication
+                 is done via a single API token (Token-based authentication), not via Session-based
+                 authentication, which is stated as "legacy"."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -42,6 +49,8 @@ DEFAULT_TIMEOUT = 3
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -101,12 +110,16 @@ def parse_args():
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
-    except SystemExit as e:
+    except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
         args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
     result4 = lib.base3.coe(lib.url3.fetch_json(
@@ -144,10 +157,10 @@ def main():
         total.get('session_count', 0),
         total.get('active_sessions', 0),
         total.get('hit_count', 0),
-        lib.base3.bytes3human(total.get('bytes', 0)),
-        lib.base3.bytes3human(total.get('software_bytes', 0)),
-        lib.base3.bytes3human(total.get('asic_bytes', 0)),
-        lib.base3.bytes3human(total.get('nturbo_bytes', 0)),
+        lib.base3.bytes2human(total.get('bytes', 0)),
+        lib.base3.bytes2human(total.get('software_bytes', 0)),
+        lib.base3.bytes2human(total.get('asic_bytes', 0)),
+        lib.base3.bytes2human(total.get('nturbo_bytes', 0)),
     )
     state = STATE_OK
 
@@ -167,12 +180,13 @@ def main():
     perfdata += lib.base3.get_perfdata('total_nturbo_bytes',
                                       total.get('nturbo_bytes', 0), 'B', None, None, 0, None)
 
+    # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
-        print_exc()
-        sys.exit(STATE_UNKNOWN)
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
+
