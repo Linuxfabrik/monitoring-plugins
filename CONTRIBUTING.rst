@@ -428,7 +428,7 @@ Running a complete unit test:
 sudoers File
 ------------
 
-If the plugin requires ``sudo``-permissions to run, please add the plugin to the ``sudoers``-files for all supported operating systems in ``assets/sudoers/``. The OS name should match the ansible variables ``ansible_facts['distribution'] + ansible_facts['distribution_major_version']`` (eg ``CentOS7``).
+If the plugin requires ``sudo``-permissions to run, please add the plugin to the ``sudoers``-files for all supported operating systems in ``assets/sudoers/``. The OS name should match the ansible variables ``ansible_facts['distribution'] + ansible_facts['distribution_major_version']`` (eg ``CentOS7``). Use symbolic links to prevent duplicate files.
 
 .. attention::
 
