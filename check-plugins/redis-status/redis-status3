@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100601'
+__version__ = '2021101701'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -208,11 +208,13 @@ def main():
     mem_usage_state = lib.base3.get_state(mem_usage, args.WARN, args.CRIT)
     state = lib.base3.get_worst(state, mem_usage_state)
     
-    msg += '{}% memory usage{} ({}/{}), maxmemory-policy={}, '.format(
+    msg += '{}% memory usage{} ({}/{}, {} peak, {} RSS), maxmemory-policy={}, '.format(
         mem_usage,
         lib.base3.state2str(mem_usage_state, prefix=' '),
         lib.base3.bytes2human(result['used_memory']),
         lib.base3.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.base3.bytes2human(result['total_system_memory']),
+        lib.base3.bytes2human(result['used_memory_peak']),
+        lib.base3.bytes2human(result['used_memory_rss']),
         result['maxmemory_policy'],
     )
 
@@ -269,9 +271,10 @@ def main():
         )
         state = lib.base3.get_worst(state, mem_frag_state)
 
-    if result['mem_fragmentation_ratio'] > 1.5:
+    if result['mem_fragmentation_ratio'] > 1.5 and result['used_memory_rss'] >= 100*1024*1024:
         mem_frag_state = STATE_WARN
-        msg += 'part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation{}, '.format(
+        msg += 'part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation (ratio {}){}, '.format(
+            result['mem_fragmentation_ratio'],
             lib.base3.state2str(mem_frag_state, prefix=' '),
         )
         state = lib.base3.get_worst(state, mem_frag_state)

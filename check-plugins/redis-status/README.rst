@@ -8,7 +8,7 @@ Returns information and statistics about the Redis server. Alerts on memory cons
 
 Hints:
 
-* Tested on Redis 3.2 and Redis 6.0.
+* Tested on Redis 3.2, 6.0 and 6.2.
 
 
 Fact Sheet
@@ -137,6 +137,22 @@ Latest info can be found `here <https://redis.io/commands/INFO>`_.
     stats_total_connections_received,           Number,             Total number of connections accepted by the server
     stats_total_net_input_bytes,                Bytes,              The total number of bytes read from the network
     stats_total_net_output_bytes,               Bytes,              The total number of bytes written to the network
+
+
+Troubleshooting
+---------------
+
+``part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation``
+    You'll get this if 100M or more RSS memory has been detected, and the memory fragmentation ratio is above 1.5. Have a look at https://redis.io/topics/memory-optimization, last section called "Memory allocation".
+
+    In short, what might help:
+
+    * run ``redis-cli memory doctor`` (always a good idea)
+    * set ``activedefrag yes``
+    * or run ``redis-cli memory purge``
+    * or run ``redis-cli flushall``
+    * or ``reboot``
+
 
 
 Credits, License
