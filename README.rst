@@ -208,8 +208,8 @@ Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, and remo
 
 .. code:: bash
 
-    BRANCH="master"   # or "develop"
-    PYVER=2
+    BRANCH="master"     # or "develop"
+    PYVER=3             # or "2"
 
     cd /tmp/monitoring-plugins-$BRANCH/check-plugins
 
