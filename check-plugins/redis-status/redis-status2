@@ -306,6 +306,14 @@ def main():
         )
         state = lib.base2.get_worst(state, os_state)
 
+    somaxconn = lib.base2.coe(lib.disk2.read_file('/proc/sys/net/core/somaxconn'))
+    tcp_max_syn_backlog = lib.base2.coe(lib.disk2.read_file('/proc/sys/net/ipv4/tcp_max_syn_backlog'))
+    if somaxconn > 0 and somaxconn < tcp_max_syn_backlog:
+        os_state = STATE_WARN
+        msg += 'net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog{}, '.format(
+            lib.base2.state2str(os_state, prefix=' '),
+        )
+        state = lib.base2.get_worst(state, os_state)
 
     # prepare perfdata
     perfdata += lib.base2.get_perfdata('mem_usage', mem_usage, '%', args.WARN, args.CRIT, 0, 100)
