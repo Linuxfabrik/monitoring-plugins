@@ -77,6 +77,21 @@ def err_print(msg, **kwargs):
         print(msg, **kwargs)
 
 
+class DuplicateKeyError(ValueError):
+    pass
+
+
+def raise_on_duplicate_keys(ordered_pairs):
+    """Raise DuplicateKeyError if a duplicate key exists in provided ordered list of pairs, otherwise return a dict."""
+    dict_out = {}
+    for key, val in ordered_pairs:
+        if key in dict_out:
+            raise DuplicateKeyError(f'Duplicate key: {key}')
+        else:
+            dict_out[key] = val
+    return dict_out
+
+
 class BasketJoiner:
     def __init__(self):
         self.data = collections.defaultdict(dict)
@@ -101,9 +116,12 @@ class BasketJoiner:
             print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
                 try:
-                    basket_data = json.load(file)
+                    basket_data = json.load(file, object_pairs_hook=raise_on_duplicate_keys)
                 except json.decoder.JSONDecodeError:
-                    err_print('Could not parse basket file. Skipping check...')
+                    err_print('Could not parse basket file. Skipping...')
+                    return False
+                except DuplicateKeyError as e:
+                    err_print(str(e))
                     return False
 
             for key, value in basket_data['Datafield'].items():
@@ -140,6 +158,7 @@ class BasketJoiner:
             for key, value in parent_value.items():
                 if 'guid' in value:
                     del self.data[parent_key][key]['guid']
+
 
     def validate_guids(self):
         guids = []
@@ -182,7 +201,8 @@ def main():
     args = parse_args()
 
     basket_joiner = BasketJoiner()
-    basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json')
+    if basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json') is False:
+        sys.exit(3)
 
     directories = os.listdir('check-plugins')
     for directory in directories:
