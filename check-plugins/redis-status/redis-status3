@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101701'
+__version__ = '2021101901'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -287,6 +287,26 @@ def main():
         )
         state = lib.base3.get_worst(state, sync_state)
 
+    # in the end, check the OS config
+    # see https://redis.io/topics/admin for details
+    overcommit_memory = lib.base3.coe(lib.disk2.read_file('/proc/sys/vm/overcommit_memory'))
+    overcommit_memory = int(overcommit_memory)
+    if overcommit_memory != 1:
+        os_state = STATE_WARN
+        msg += 'vm.overcommit_memory is not set to 1{}, '.format(
+            lib.base3.state2str(os_state, prefix=' '),
+        )
+        state = lib.base3.get_worst(state, os_state)
+
+    thp_enabled = lib.base3.coe(lib.disk2.read_file('/sys/kernel/mm/transparent_hugepage/enabled'))
+    if '[madvise]' not in thp_enabled:
+        os_state = STATE_WARN
+        msg += 'kernel transparent_hugepage is not set to "madvise"{}, '.format(
+            lib.base3.state2str(os_state, prefix=' '),
+        )
+        state = lib.base3.get_worst(state, os_state)
+
+
     # prepare perfdata
     perfdata += lib.base3.get_perfdata('mem_usage', mem_usage, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base3.get_perfdata('keyspace_hit_rate', keyspace_hit_rate, '%', None, None, 0, 100)
@@ -349,3 +369,4 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
+

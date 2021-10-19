@@ -76,6 +76,7 @@ States
 * WARN on memory overusage
 * WARN on memory fragmentation
 * WARN on partial sync errors
+* WARN on bad OS configuration
 
 
 Perfdata / Metrics
@@ -153,6 +154,11 @@ Troubleshooting
     * or run ``redis-cli flushall``
     * or ``reboot``
 
+``vm.overcommit_memory is not set to 1``
+    ``sysctl -w vm.overcommit_memory=1``
+
+``kernel transparent_hugepage is not set to "madvise"``
+    ``echo madvise > /sys/kernel/mm/transparent_hugepage/enabled``
 
 
 Credits, License
