@@ -159,6 +159,12 @@ class BasketJoiner:
                 if 'guid' in value:
                     del self.data[parent_key][key]['guid']
 
+                # descent into services of Service Sets
+                if 'services' in value and value['services']:
+                    for service_key, service_value in value['services'].items():
+                        if 'guid' in service_value:
+                            del self.data[parent_key][key]['services'][service_key]['guid']
+
 
     def validate_guids(self):
         guids = []
@@ -173,7 +179,7 @@ class BasketJoiner:
                     else:
                         objects_without_guids.append(f'[{parent_key}][{key}]')
 
-                # decent into services of Service Sets
+                # descent into services of Service Sets
                 if 'services' in value and value['services']:
                     for service_key, service_value in value['services'].items():
                         if 'guid' in service_value:
