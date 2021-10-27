@@ -38,7 +38,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2021102701'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -128,7 +128,7 @@ def main():
     #   server accepts handled requests
     #    2 2 3
     #   Reading: 0 Writing: 1 Waiting: 1
-    tmp, active_connections = result[0].strip().split(':')
+    tmp, active_connections = result[0].strip().split(': ')
     total_connections_accepted, total_connections_handled, total_requests = result[2].strip().split(' ')
     requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
     tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
@@ -152,7 +152,7 @@ def main():
         connections_waiting, lib.base3.pluralize('conn', connections_waiting),
         )
     perfdata += lib.base3.get_perfdata('nginx_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('nginx_connections_active', active_connections, None, None, None, 0, args.CRIT)
+    perfdata += lib.base3.get_perfdata('nginx_connections_active', active_connections, None, args.WARN, args.CRIT, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_handled', total_connections_handled, 'c', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_reading', connections_reading, None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_waiting', connections_waiting, None, None, None, 0, None)
