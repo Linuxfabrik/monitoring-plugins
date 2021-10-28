@@ -35,7 +35,7 @@ from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021102801'
 
 DESCRIPTION = """This check provides some internal XFS statistics to user's view,
                 which can be helpful on debugging/understanding IO characteristics and optimizing
@@ -65,6 +65,9 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if not os.path.exists('/proc/fs/xfs/stat'):
+        lib.base2.oao('No mounted XFS filesystem found.', STATE_UNKNOWN)
 
     # init some vars
     msg = ''
