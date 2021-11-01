@@ -9,8 +9,8 @@ This check provides nginx basic status information from the stub status module.
 For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
 
 .. code-block::
-    :caption: /etc/nginx/nginx.conf
-
+    
+    # /etc/nginx/nginx.conf
     server {
         location /server-status {
             stub_status;
