@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2021110301'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -235,18 +235,15 @@ def get_plugin_args(plugin_file):
 
 def get_data_template():
     return {
-        "Command": {
-        },
-        "ServiceTemplate": {
-        },
-        "DataList": {
-        },
-        "Datafield": {
-        },
+        "Command": {},
+        "ServiceTemplate": {},
+        "Notification": {},
+        "DataList": {},
+        "Datafield": {},
     }
 
 
-def get_command_template(data, object_name, command, imports=None):
+def get_command_template(data, object_name, command, imports=None, methods_execute='PluginCheck'):
     if imports is None:
         data["Command"][object_name] = {
             "arguments": {
@@ -256,7 +253,7 @@ def get_command_template(data, object_name, command, imports=None):
             "fields": [],
             "imports": [],
             "is_string": None,
-            "methods_execute": "PluginCheck",
+            "methods_execute": methods_execute,
             "object_name": object_name,
             "object_type": "object",
             "timeout": "10",
@@ -374,6 +371,41 @@ def get_service_template(data, object_name, check_command, check_name, descripti
     return data
 
 
+def get_notification_template(data, object_name, check_command):
+    data["Notification"][object_name] = {
+        "apply_to": None,
+        "assign_filter": None,
+        "command": check_command,
+        "disabled": False,
+        "fields": [],
+        "host": None,
+        "imports": [],
+        "notification_interval": 0,
+        "object_name": object_name,
+        "object_type": "template",
+        "period": "7x24",
+        "service": None,
+        "states": [
+            "Critical",
+            "OK",
+            "Unknown",
+            "Warning"
+        ],
+        "times_begin": 10,
+        "times_end": None,
+        "types": [
+            "Acknowledgement",
+            "Custom",
+            "Problem",
+            "Recovery"
+        ],
+        "user_groups": [],
+        "users": [],
+        "vars": {},
+        "zone": None
+    }
+    return data
+
 def offer_selection(options):
     options = list(options)
     for index, text in enumerate(options):
@@ -485,7 +517,7 @@ def apply_overwrites(data, overwrites):
     return data
 
 
-def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix=''):
+def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix='', service_object_parent_key='ServiceTemplate', explicitly_set_fields_in_service_object=False):
     global command_field_id # this prevents command_field_id collisions
 
     # argparse action classes
@@ -527,6 +559,14 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                 "is_required": 'y' if action.required else 'n',
                 "var_filter": None
             })
+
+            if explicitly_set_fields_in_service_object:
+                # needed as a workaround, as the inheritance of fields from command to notification template does not work in the icinga director
+                data[service_object_parent_key][service_object_name]['fields'].append({
+                    "datafield_id": command_field_id,
+                    "is_required": 'y' if action.required else 'n',
+                    "var_filter": None
+                })
 
             if action.choices is not None:
                 datalist_name = f'{varname}_list'
@@ -707,6 +747,37 @@ def generate_basket(plugin_file, config=None, old_data=None):
             ]
         )
 
+    if 'notification-plugin' in config['variants']:
+        print('Generating "notification-plugin" variant.')
+        command_object_name = f'cmd-notification-{check_name}'
+        notification_object_name = f'tpl-notification-{check_name}'
+        command = f'/usr/lib64/nagios/plugins/{check_name}'
+        varname_suffix = ''
+
+        data = get_command_template(
+            data,
+            command_object_name,
+            command,
+            methods_execute='PluginNotification'
+        )
+
+        data = get_notification_template(
+            data,
+            notification_object_name,
+            command_object_name,
+        )
+
+        data = parse_plugin_args(
+            data,
+            plugin_args,
+            check_name,
+            command_object_name,
+            notification_object_name,
+            varname_suffix,
+            service_object_parent_key='Notification',
+            explicitly_set_fields_in_service_object=True,
+        )
+
     if 'variants' in config:
         if 'sudo' in config['variants']:
             print('Generating "sudo" variant.')
@@ -746,6 +817,11 @@ def generate_basket(plugin_file, config=None, old_data=None):
     if 'overwrites' in config:
         print('Applying overwrites.')
         data = apply_overwrites(data, config['overwrites'])
+
+    # delete empty parent keys, using a list to prevent "RuntimeError: dictionary changed size during iteration"
+    for key in list(data.keys()):
+        if not data[key]:
+            del data[key]
 
     return manage_uuids(data, old_data)
 
