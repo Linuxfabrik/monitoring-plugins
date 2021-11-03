@@ -1,12 +1,15 @@
 Notification notify-service-zoom
 ================================
 
+
 Overview
 --------
 Sends notifications for services using the Zoom Incoming Webhook API.
 
 For this to work the `Incoming Webhook (by Zoom) <https://marketplace.zoom.us/apps/eH_dLuquRd-VYcOsNGy-hQ>`_ app needs to be installed.
 Then create a new Connection using ``/inc connect <connectionName>`` (according to `the documentation <https://zoomappdocs.docs.stoplight.io/incoming-webhook-chatbot#configuring-the-incoming-webhook-chatbot>`_).
+
+Note: We do not send markdown as this is currently not supported by the Incoming Webhook app. Zoom also displays the message differently depending on the Operating System. This can for example lead to missing newlines.
 
 
 Fact Sheet
