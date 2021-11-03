@@ -1,22 +1,12 @@
-Check example
-=============
+Notification notify-service-zoom
+================================
 
 Overview
 --------
+Sends notifications for services using the Zoom Incoming Webhook API.
 
-Help text from check command.
-
-Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-Hints:
-
-* Might be useful.
-* Could help.
+For this to work the `Incoming Webhook (by Zoom) <https://marketplace.zoom.us/apps/eH_dLuquRd-VYcOsNGy-hQ>`_ app needs to be installed.
+Then create a new Connection using ``/inc connect <connectionName>`` (according to https://zoomappdocs.docs.stoplight.io/incoming-webhook-chatbot#configuring-the-incoming-webhook-chatbot).
 
 
 Fact Sheet
@@ -24,24 +14,11 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
-    "Check Interval Recommendation",        "Once a minute"
-    "Can be called without parameters",     "Yes|No"
-    "Available for",                        "Python 2, Python 3, Windows"
+
+    "Notification Plugin Download",         "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/notification-plugins/notify-service-zoom"
+    "Can be called without parameters",     "No"
+    "Available for",                        "Python 3"
     "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
-    "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
-    "Perfdata compatible with Prometheus",  "Yes"
-
-Hints for the Author (delete those):
-
-* Check Interval Recommendation: other texts are "Every 15 minutes", "Once a day" etc.
-* Available for: delete inappropriate ones
-* Requirements: "None" if none
-* Handles Periods: delete if not
-* Uses SQLite DBs: delete if not
-* Perfdata compatible with Prometheus: delete if not
 
 
 Help
@@ -49,67 +26,46 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: notify-service-zoom [-h] [-V] [--datetime DATETIME]
+                                [--host-displayname HOST_DISPLAYNAME]
+                                [--hostname HOSTNAME]
+                                [--icingaweb2-url ICINGAWEB2_URL]
+                                [--notification-author NOTIFICATION_AUTHOR]
+                                [--notification-comment NOTIFICATION_COMMENT]
+                                [--service-displayname SERVICE_DISPLAYNAME]
+                                [--service-output SERVICE_OUTPUT]
+                                [--service-state SERVICE_STATE]
+                                [--servicename SERVICENAME] [--token TOKEN]
+                                [--url URL]
 
-    Example Check.
+    Sends notifications for services using the Zoom Incoming Webhook API.
 
     optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
-
-
-Usage Examples
---------------
-
-.. code-block:: bash
-
-    ./example --warning 80 --critical 90 --count 5
-
-Output:
-
-.. code-block:: text
-
-    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
-    quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
-    consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
-    cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-    proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-
-States
-------
-
-* Always returns OK.
-* WARN or CRIT if any condition.
-
-
-Perfdata / Metrics
-------------------
-
-There is no perfdata.
-
-OR
-
-.. csv-table::
-    :widths: 25, 15, 60
-    :header-rows: 1
-    
-    Name,                                       Type,               Description                                           
-    allocation_btree_compares_total,            Continous Counter,  Number of allocation B-tree compares for a filesystem.
-    allocation_btree_lookups_total,             Bytes,              Number of allocation B-tree lookups for a filesystem.
-    allocation_btree_lookups_total,             Percentage,         Number of allocation B-tree lookups for a filesystem.
-    allocation_btree_lookups_total,             None,               Number of allocation B-tree lookups for a filesystem.
-
-
-Troubleshooting
----------------
-
-My Error Message 1
-    My Solution goes here.
-
-My Error Message 2
-    My Solution goes here.
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --datetime DATETIME   Set the message timestamp ($icinga.short_date_time$).
+      --host-displayname HOST_DISPLAYNAME
+                            Set the display name of the host
+                            ($host.display_name$).
+      --hostname HOSTNAME   Set the hostname ($host.name$).
+      --icingaweb2-url ICINGAWEB2_URL
+                            Set the Icinga Web 2 URL, for example
+                            "https://example.com/icingaweb2".
+      --notification-author NOTIFICATION_AUTHOR
+                            Set the author of the comment ($notification.author$).
+      --notification-comment NOTIFICATION_COMMENT
+                            Set the comment ($notification.comment$).
+      --service-displayname SERVICE_DISPLAYNAME
+                            Set the display name of the service
+                            ($service.display_name$).
+      --service-output SERVICE_OUTPUT
+                            Set the service output ($service.output$).
+      --service-state SERVICE_STATE
+                            Set the service state ($service.state$).
+      --servicename SERVICENAME
+                            Set the servicename ($service.name$).
+      --token TOKEN         Set the Zoom verification token.
+      --url URL             Set the URL of the Zoom Incoming Webhook API.
 
 
 Credits, License
