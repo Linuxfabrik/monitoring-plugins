@@ -21,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090803'
+__version__ = '2021110301'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -124,19 +124,20 @@ class BasketJoiner:
                     err_print(str(e))
                     return False
 
-            for key, value in basket_data['Datafield'].items():
-                guid = value.get('guid')
-                if guid in self.guids2datafields:
-                    current_value = self.data['Datafield'][self.guids2datafields[guid]]
-                    if current_value != value:
-                        err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
-                        return False
-                else:
-                    self.highest_datafield_id += 1
-                    if guid:
-                        self.guids2datafields[guid] = str(self.highest_datafield_id)
-                    self.data['Datafield'][str(self.highest_datafield_id)] = value
-                    new_datafield_ids[key] = self.highest_datafield_id
+            if 'Datafield' in basket_data:
+                for key, value in basket_data['Datafield'].items():
+                    guid = value.get('guid')
+                    if guid in self.guids2datafields:
+                        current_value = self.data['Datafield'][self.guids2datafields[guid]]
+                        if current_value != value:
+                            err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
+                            return False
+                    else:
+                        self.highest_datafield_id += 1
+                        if guid:
+                            self.guids2datafields[guid] = str(self.highest_datafield_id)
+                        self.data['Datafield'][str(self.highest_datafield_id)] = value
+                        new_datafield_ids[key] = self.highest_datafield_id
 
             for parent_key, parent_value in basket_data.items():
                 if parent_key == 'Datafield':
