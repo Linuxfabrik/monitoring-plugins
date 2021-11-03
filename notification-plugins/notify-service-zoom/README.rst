@@ -18,7 +18,7 @@ Fact Sheet
     "Notification Plugin Download",         "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/notification-plugins/notify-service-zoom"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 3"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
+    "Requirements",                         "None"
 
 
 Help
