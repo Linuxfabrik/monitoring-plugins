@@ -6,7 +6,7 @@ Overview
 Sends notifications for services using the Zoom Incoming Webhook API.
 
 For this to work the `Incoming Webhook (by Zoom) <https://marketplace.zoom.us/apps/eH_dLuquRd-VYcOsNGy-hQ>`_ app needs to be installed.
-Then create a new Connection using ``/inc connect <connectionName>`` (according to https://zoomappdocs.docs.stoplight.io/incoming-webhook-chatbot#configuring-the-incoming-webhook-chatbot).
+Then create a new Connection using ``/inc connect <connectionName>`` (according to `the documentation <https://zoomappdocs.docs.stoplight.io/incoming-webhook-chatbot#configuring-the-incoming-webhook-chatbot>`_).
 
 
 Fact Sheet
