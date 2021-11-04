@@ -27,6 +27,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import urllib # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base2 # pylint: disable=C0413
@@ -35,7 +36,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2021110401'
 
 DESCRIPTION = 'This check fetches unacknowledged alerts from a LibreNMS instance, using its API.'
 
@@ -63,6 +64,12 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--device-group',
+        help='Filter by LibreNMS Device Group.',
+        dest='DEVICE_GROUP',
     )
 
     parser.add_argument(
@@ -132,17 +139,21 @@ def main():
     alerts = {}
 
     # return a list of devices from LibreNMS
-    result = lib.librenms2.get_data(args, '/api/v0/devices')
+    result = lib.librenms2.get_data(args, '/api/v0/devices?type=active')
+
+    if args.DEVICE_GROUP:
+        device_group = lib.librenms2.get_data(args, '/api/v0/devicegroups/' + urllib.quote(args.DEVICE_GROUP))
+        device_group_device_ids = [device['device_id'] for device in device_group['devices']]
 
     # build an internal device list with some valuable properties
-    device_count = result['count']
     for device in result['devices']:
-        if device['disabled']:
-            continue
         if device['disable_notify']:
             continue
 
         device_id = lib.librenms2.get_prop(device, 'device_id', 'int')
+        if args.DEVICE_GROUP and device_id not in device_group_device_ids:
+            continue
+
         devtype = lib.librenms2.get_prop(device, 'type')
         hardware = lib.librenms2.get_prop(device, 'hardware')
         hostname = lib.librenms2.get_prop(device, 'hostname')
@@ -182,18 +193,20 @@ def main():
     alert_list = lib.librenms2.get_data(args, '/api/v0/alerts?state=1')
 
     # check the state of each device and compute the overall state
-    alert_count = result['count']
+    alert_count = 0
     for alert in alert_list['alerts']:
         device_id = lib.librenms2.get_prop(alert, 'device_id', 'int')
-        old_device_state = devices[device_id]['state']
-        new_device_state = lib.librenms2.get_state(alert['severity'])
-        devices[device_id]['state'] = lib.base2.get_worst(old_device_state, new_device_state)
-        state = lib.base2.get_worst(devices[device_id]['state'], state)
-        devices[device_id]['alert_count'] += 1
-        if old_device_state != devices[device_id]['state']:
-            # report the newest/latest worst message only
-            devices[device_id]['alert_rule'] = alerts[alert['rule_id']]
-            devices[device_id]['timestamp'] = alert['timestamp']
+        if device_id in devices:
+            alert_count += 1
+            old_device_state = devices[device_id]['state']
+            new_device_state = lib.librenms2.get_state(alert['severity'])
+            devices[device_id]['state'] = lib.base2.get_worst(old_device_state, new_device_state)
+            state = lib.base2.get_worst(devices[device_id]['state'], state)
+            devices[device_id]['alert_count'] += 1
+            if old_device_state != devices[device_id]['state']:
+                # report the newest/latest worst message only
+                devices[device_id]['alert_rule'] = alerts[alert['rule_id']]
+                devices[device_id]['timestamp'] = alert['timestamp']
 
     # create output
     table_values = []
@@ -233,7 +246,7 @@ def main():
                 header=['Hostname', 'SysName', 'Alerts', 'Worst State', 'Hardware', 'Type', 'OS', 'Location', 'Uptime', 'Alert Timestamp', 'Latest & Worst Msg'],
                 )
 
-    perfdata += lib.base2.get_perfdata('device_count', device_count, None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('device_count', len(devices), None, None, None, 0, None)
     perfdata += lib.base2.get_perfdata('alert_count', alert_count, None, None, None, 0, None)
 
     # over and out
