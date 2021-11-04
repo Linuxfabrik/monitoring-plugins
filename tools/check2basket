@@ -640,6 +640,14 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                 "var_filter": None
             })
 
+            if explicitly_set_fields_in_service_object:
+                # needed as a workaround, as the inheritance of fields from command to notification template does not work in the icinga director
+                data[service_object_parent_key][service_object_name]['fields'].append({
+                    "datafield_id": command_field_id,
+                    "is_required": "n",
+                    "var_filter": None
+                })
+
             data['Datafield'][str(command_field_id)] = {
                 "varname": varname,
                 "caption": get_caption(check_name, long_param) + '?',
