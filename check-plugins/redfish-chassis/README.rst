@@ -6,7 +6,11 @@ Overview
 
 Checks the state of the Chassis collection containing resources that represent the physical aspects of the infrastructure. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components. 
 
-This check runs with both http and https. No additional Python Redfish modules need to be installed.
+Hints:
+
+* A check takes up to 10 seconds. Increasing runtime timout to 30 seconds is recommended.
+* This check runs with both http and https. It just uses GET requests.
+* No additional Python Redfish modules need to be installed.
 
 
 Fact Sheet
@@ -41,8 +45,7 @@ Help
       --always-ok          Always returns OK.
       --password PASSWORD  Redfish API password.
       --url URL            Redfish API URL. Default: https://localhost:5000
-      --username USERNAME  Redfish API username. Default: redfish-monitoring
-
+      --username USERNAME  Redfish API username.
 
 
 Usage Examples
@@ -56,29 +59,38 @@ Output:
 
 .. code-block:: text
 
-    Dell Inc. Precision 7920 Rack, Power: On, LED: Lit, SKU: ABCDEFG, SerNo: ABCDE12345678C, PartNumber: ABCDEFGH
+    Contoso 3500RX, Power: On, LED: Lit, SKU: 8675309, SerNo: 437XR1138R2, PartNumber: 224071-J23
 
-    Fan               ! Location    ! Reading ! Unit ! Value ! State 
-    ------------------+-------------+---------+------+-------+-------
-    System Board Fan1 ! SystemBoard ! 7560    ! RPM  ! [OK]  ! [OK]  
-    System Board Fan2 ! SystemBoard ! 7560    ! RPM  ! [OK]  ! [OK]  
-    System Board Fan3 ! SystemBoard ! 7680    ! RPM  ! [OK]  ! [OK]  
-    System Board Fan4 ! SystemBoard ! 7440    ! RPM  ! [OK]  ! [OK]  
-    System Board Fan5 ! SystemBoard ! 7560    ! RPM  ! [OK]  ! [OK]  
-    System Board Fan6 ! SystemBoard ! 7560    ! RPM  ! [OK]  ! [OK]  
+    Sensor                             ! Location    ! Reading ! Unit ! Value ! State 
+    -----------------------------------+-------------+---------+------+-------+-------
+    Ambient Temperature                ! Room        ! 22.5    ! Cel  ! [OK]  ! [OK]  
+    CPU #1 Fan Speed                   ! CPU         ! 80      ! %    ! [OK]  ! [OK]  
+    CPU #2 Fan Speed                   ! CPU         ! 60      ! %    ! [OK]  ! [OK]  
+    CPU #1 Temperature                 ! CPU         ! 37      ! Cel  ! [OK]  ! [OK]  
+    DIMM #1 Temperature                ! Memory      ! 44      ! Cel  ! [OK]  ! [OK]  
+    DIMM #2 Temperature                ! Memory      ! 44      ! Cel  ! [OK]  ! [OK]  
+    DIMM #3 Temperature                ! Memory      ! 44      ! Cel  ! [OK]  ! [OK]  
+    Fan Bay #1 Exhaust Temperature     ! Exhaust     ! 40.5    ! Cel  ! [OK]  ! [OK]  
+    Chassis Fan #1                     ! Chassis     ! 45      ! %    ! [OK]  ! [OK]  
+    Chassis Fan #2                     ! Chassis     ! 45      ! %    ! [OK]  ! [OK]  
+    Front Panel Intake Temperature     ! Intake      ! 24.8    ! Cel  ! [OK]  ! [OK]  
+    Power Supply #1 Energy             ! PowerSupply ! 7855    ! kW.h ! [OK]  ! [OK]  
+    Power Supply #1 Frequency          ! PowerSupply ! 60.1    ! Hz   ! [OK]  ! [OK]  
+    Power Supply #1 Input Current      ! PowerSupply ! 8.92    ! A    ! [OK]  ! [OK]  
+    Power Supply #1 Input Power        ! PowerSupply ! 374     ! W    ! [OK]  ! [OK]  
+    Power Supply #1 Input Voltage      ! PowerSupply ! 119.27  ! V    ! [OK]  ! [OK]  
+    Power Supply #1 12V Output Voltage ! PowerSupply ! 12.08   ! V    ! [OK]  ! [OK]  
+    Power Supply #1 12V Output Current ! Chassis     ! 2.79    ! A    ! [OK]  ! [OK]  
+    Power Supply #1 3V Output Voltage  ! PowerSupply ! 3.32    ! V    ! [OK]  ! [OK]  
+    Power Supply #1 3V Output Current  ! PowerSupply ! 8.92    ! A    ! [OK]  ! [OK]  
+    Power Supply #1 5V Output Voltage  ! PowerSupply ! 5.04    ! V    ! [OK]  ! [OK]  
+    Power Supply #1 5V Output Current  ! PowerSupply ! 3.41    ! A    ! [OK]  ! [OK]  
+    Total Energy                       ! Chassis     ! 325675  ! kW.h ! [OK]  ! [OK]  
+    Power reading for the Chassis      ! Chassis     ! 374     ! W    ! [OK]  ! [OK]
 
-
-    Temperature               ! Location    ! Reading ! Value ! State 
-    --------------------------+-------------+---------+-------+-------
-    CPU1 Temp                 ! CPU         ! 32      ! [OK]  ! [OK]  
-    CPU2 Temp                 ! CPU         ! 33      ! [OK]  ! [OK]  
-    System Board Inlet Temp   ! SystemBoard ! 24      ! [OK]  ! [OK]  
-    System Board Exhaust Temp ! SystemBoard ! 27      ! [OK]  ! [OK]  
-
-
-    Redundancy                  ! Mode ! State 
-    ----------------------------+------+-------
-    System Board Fan Redundancy ! N+m  ! [OK]
+    Redundancy            ! Mode ! State 
+    ----------------------+------+-------
+    BaseBoard System Fans ! N+m  ! [OK]
 
 
 States
@@ -86,10 +98,10 @@ States
 
 * CRIT if an enabled sensor health rollup state is equal to "Critical".
 * CRIT if an enabled sensor health state is equal to "Critical".
-* CRIT if sensor value is above/below critical threshold given by Redfish (``UpperThresholdCritical`` and ``LowerThresholdCritical``).
+* CRIT if sensor value is above/below critical threshold given by Redfish (``Thresholds_UpperCritical`` and ``Thresholds_LowerCritical``).
 * WARN if an enabled sensor health rollup state is equal to "Warning".
 * WARN if an enabled sensor health state is equal to "Warning".
-* WARN if sensor value is above/below Redfish non-critical threshold (``UpperThresholdNonCritical`` and ``LowerThresholdNonCritical``).
+* WARN if sensor value is above/below Redfish non-critical threshold (``Thresholds_UpperCaution`` and ``Thresholds_LowerCaution``).
 
 
 Perfdata / Metrics
@@ -97,16 +109,30 @@ Perfdata / Metrics
 
 Depends on your hardware - as an example:
 
-* System Board Fan1
-* System Board Fan2
-* System Board Fan3
-* System Board Fan4
-* System Board Fan5
-* System Board Fan6
-* CPU1 Temp
-* CPU2 Temp
-* System Board Inlet Temp
-* System Board Exhaust Temp
+* Chassis_Chassis_Fan_#1
+* Chassis_Chassis_Fan_#2
+* Chassis_Power_reading_for_the_Chassis
+* Chassis_Power_Supply_#1_12V_Output_Current
+* Chassis_Total_Energy
+* CPU_CPU_#1_Fan_Speed
+* CPU_CPU_#1_Temperature
+* CPU_CPU_#2_Fan_Speed
+* Exhaust_Fan_Bay_#1_Exhaust_Temperature
+* Intake_Front_Panel_Intake_Temperature
+* Memory_DIMM_#1_Temperature
+* Memory_DIMM_#2_Temperature
+* Memory_DIMM_#3_Temperature
+* PowerSupply_Power_Supply_#1_12V_Output_Voltage
+* PowerSupply_Power_Supply_#1_3V_Output_Current
+* PowerSupply_Power_Supply_#1_3V_Output_Voltage
+* PowerSupply_Power_Supply_#1_5V_Output_Current
+* PowerSupply_Power_Supply_#1_5V_Output_Voltage
+* PowerSupply_Power_Supply_#1_Energy
+* PowerSupply_Power_Supply_#1_Frequency
+* PowerSupply_Power_Supply_#1_Input_Current
+* PowerSupply_Power_Supply_#1_Input_Power
+* PowerSupply_Power_Supply_#1_Input_Voltage
+* Room_Ambient_Temperature
 
 
 Credits, License
