@@ -26,13 +26,20 @@ Free workers are:
 
 * ``.``: Open slot with no current process
 
-Apache httpd config example - for httpd.conf:
+Load the Apache module:
 
 .. code-block:: text
 
-    # the alias prevents the processing of .htaccess files, which could contain RewriteRules that interfere with server-status
-    Alias /server-status /dev/null
+    LoadModule status_module modules/mod_status.so
+
+If you want to configure ``/server-status`` in your main Apache config file:
+
+.. code-block:: text
+
     <IfModule status_module>
+        # the alias prevents the processing of .htaccess files, which could contain RewriteRules
+        # that interfere with server-status
+        Alias /server-status /dev/null
         ExtendedStatus On
         <Location /server-status>
             SetHandler server-status
@@ -40,16 +47,19 @@ Apache httpd config example - for httpd.conf:
         </Location>
     </IfModule>
 
-Apache httpd config example - virtual host:
+If you want to configure ``/server-status`` in a virtual host:
 
 .. code-block:: text
 
     <IfModule status_module>
         ExtendedStatus On
     </IfModule>
+
     <VirtualHost *:80>
         ServerName localhost
         <IfModule status_module>
+            # the alias prevents the processing of .htaccess files, which could contain RewriteRules
+            # that interfere with server-status
             Alias /server-status /dev/null
             <Location /server-status>
                 SetHandler server-status
@@ -68,7 +78,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/apache-httpd-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Enable ``mod_status`` and set ``ExtendedStatus`` to ``On``"
 
 
