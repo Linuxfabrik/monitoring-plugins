@@ -1,0 +1,206 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.redfish3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021110701'
+
+DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
+                 physical aspects of the infrastructure. A Chassis is roughly defined as a physical
+                 view of a computer system as seen by a human. A single Chassis resource can house
+                 sensors, fans, and other components."""
+
+DEFAULT_URL = 'https://localhost:5000'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Redfish API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Redfish API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Redfish API username.',
+        dest='USERNAME',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    base_url = args.URL
+    if not args.URL.startswith('http'):
+        lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+
+    # Authorization (if needed)
+    header = {}
+    header['Accept'] = 'application/json'
+    if args.USERNAME and args.PASSWORD:
+        auth = args.USERNAME + ':' + args.PASSWORD
+        encoded_auth = base64.b64encode(auth.encode()).decode()
+        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+
+    # Entry point: Get the main data
+    url = '{}/redfish/v1/Chassis'.format(base_url)
+    result = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+    # "Members": [
+    #     {
+    #         "@odata.id": "/redfish/v1/Chassis/1U"
+    #     }
+    # ],
+    if len(result.get('Members', [])) == 0:
+        lib.base3.oao('Nothing to check, no Redfish members found.', STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # fetch and analyze data by following the "Members" found
+    for member in result.get('Members', []):
+        url = '{}{}'.format(base_url, member['@odata.id'])
+        chassis = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+        chassis = lib.redfish3.get_chassis(chassis)
+        if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
+            continue
+        chassis_state = lib.redfish3.get_state(chassis)
+        state = lib.base3.get_worst(state, chassis_state)
+
+        msg += '{} {}, Power: {}, LED: {}, SKU: {}, SerNo: {}, PartNumber: {}{}'.format(
+            chassis['Manufacturer'],
+            chassis['Model'],
+            chassis['PowerState'],
+            chassis['IndicatorLED'],
+            chassis['SKU'],
+            chassis['SerialNumber'],
+            chassis['PartNumber'],
+            lib.base3.state2str(chassis_state, prefix=' '),
+        )
+
+        # get all available sensor links for the member
+        url = '{}{}/Sensors'.format(base_url, member['@odata.id'])
+        sensors = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+        table_data = []
+        for sensor in sensors.get('Members', []):
+            url = '{}{}'.format(base_url, sensor['@odata.id'])
+            sensor_data = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+            sensor_data = lib.redfish3.get_chassis_sensors(sensor_data)
+            if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            perfdata += lib.redfish3.get_perfdata(sensor_data, 'Reading')
+            # is the sensor reading within its thresholds?
+            sensor_data_value_state = lib.redfish3.get_sensor_state(sensor_data, 'Reading')
+            state = lib.base3.get_worst(state, sensor_data_value_state)
+            sensor_data['Value'] = lib.base3.state2str(sensor_data_value_state, empty_ok=False)
+            # is the sensor_data state healthy at all?
+            sensor_data_state = lib.redfish3.get_state(sensor_data)
+            state = lib.base3.get_worst(state, sensor_data_state)
+            sensor_data['State'] = lib.base3.state2str(sensor_data_state, empty_ok=False)
+            table_data.append(sensor_data)
+        if table_data:
+            keys = ['Name', 'PhysicalContext', 'Reading', 'ReadingUnits', 'Value', 'State' ]
+            headers = ['Sensor', 'Location', 'Reading', 'Unit', 'Value', 'State' ]
+            msg += '\n\n' + lib.base3.get_table(table_data, keys, header=headers)
+
+        # get thermal values for the member
+        url = '{}{}/Thermal'.format(base_url, member['@odata.id'])
+        thermal = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+
+        # redundancy
+        table_data = []
+        for redundancy in thermal.get('Redundancy', []):
+            redundancy = lib.redfish3.get_chassis_thermal_redundancy(redundancy)
+            if redundancy['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            perfdata += lib.redfish3.get_perfdata(redundancy)
+            # is the redundancy state healthy at all?
+            redundancy_state = lib.redfish3.get_state(redundancy)
+            state = lib.base3.get_worst(state, redundancy_state)
+            redundancy['State'] = lib.base3.state2str(redundancy_state, empty_ok=False)
+            table_data.append(redundancy)
+        if table_data:
+            keys = ['Name', 'Mode', 'State' ]
+            headers = ['Redundancy', 'Mode', 'State' ]
+            msg += '\n' + lib.base3.get_table(table_data, keys, header=headers)
+
+        msg += '\n\n'
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
