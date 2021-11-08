@@ -38,7 +38,7 @@ except ImportError:
     lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021110801'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -104,17 +104,19 @@ def main():
         lib.base3.bytes2human(swap.used),
         lib.base3.bytes2human(swap.free),
     )
-    msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-        lib.base3.bytes2human(getattr(swap, 'sin', 0)),
-        lib.base3.bytes2human(getattr(swap, 'sout', 0)),
-    )
 
     perfdata =  lib.base3.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base3.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
     perfdata += lib.base3.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base3.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
-    perfdata += lib.base3.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
+
+    if not lib.base3.WINDOWS:
+        msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
+            lib.base3.bytes2human(getattr(swap, 'sin', 0)),
+            lib.base3.bytes2human(getattr(swap, 'sout', 0)),
+        )
+        perfdata += lib.base3.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
 
     # calculating the final check state
     state = lib.base3.get_state(swap_usage_percent, args.WARN, args.CRIT)
