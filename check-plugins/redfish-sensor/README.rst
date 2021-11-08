@@ -6,6 +6,11 @@ Overview
 
 Checks the state of the Chassis collection containing resources that represent the physical aspects of the infrastructure. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components. 
 
+Tested on:
+
+* DELL iDRAC
+* DMTF Simulator
+
 Hints:
 
 * A check takes up to 10 seconds. Increasing runtime timout to 30 seconds is recommended.

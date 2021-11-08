@@ -1,0 +1,168 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.redfish3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021110801'
+
+DESCRIPTION = """Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an
+                 alert based on the severity of the messages."""
+
+DEFAULT_URL = 'https://localhost:5000'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Redfish API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Redfish API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Redfish API username.',
+        dest='USERNAME',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    base_url = args.URL
+    if not args.URL.startswith('http'):
+        lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+
+    # Authorization (if needed)
+    header = {}
+    header['Accept'] = 'application/json'
+    if args.USERNAME and args.PASSWORD:
+        auth = args.USERNAME + ':' + args.PASSWORD
+        encoded_auth = base64.b64encode(auth.encode()).decode()
+        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+
+    # get the vendor to know which entry point to use
+    url = '{}/redfish/v1/'.format(base_url)
+    result = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+    vendor = lib.redfish3.get_vendor(result)
+
+    # Entry point: Get the main data
+    url = '{}/redfish/v1/Managers'.format(base_url)
+    result = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+    # "Members": [
+    #     {
+    #         "@odata.id": "/redfish/v1/Managers/BMC"
+    #     }
+    # ],
+    if len(result.get('Members', [])) == 0:
+        lib.base3.oao('Nothing to check, no Redfish members found.', STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    if vendor == 'generic':
+        sel_path = '/LogServices/Log/Entries'
+    if vendor in ['ami']:
+        sel_path = '/LogServices/BIOS/Entries'
+    if vendor in ['cisco']:
+        sel_path = '/LogServices/SEL/Entries'
+    if vendor in ['dell']:
+        sel_path = '/LogServices/Sel/Entries'
+    if vendor in ['hpe', 'hp']:
+        sel_path = '/LogServices/IML/Entries'
+    if vendor in ['lenovo']:
+        sel_path = '/LogServices/ActiveLog/Entries'
+    if vendor in ['ts_fujitsu']:
+        sel_path = '/LogServices/SystemEventLog/Entries'
+
+    # fetch and analyze data by following the "Members" found
+    for member in result.get('Members', []):
+        # For example {https://localhost:5000/redfish/v1/Managers/} {BMC} {/LogServices/Log/Entries}
+        url = '{}{}{}'.format(base_url, member['@odata.id'], sel_path)
+        sel = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
+        member_msg, member_state = lib.redfish3.get_manager_logservices_sel_entries(sel)
+        if member_msg:
+            msg += '{}\n{}\n\n'.format(member['@odata.id'], member_msg)
+            state = lib.base3.get_worst(state, member_state)
+
+    # everything is ok
+    if not msg:
+        lib.base3.oao('Everything is ok.', STATE_OK)
+
+    # over and out
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
