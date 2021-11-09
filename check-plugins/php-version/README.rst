@@ -75,6 +75,13 @@ Perfdata / Metrics
 * php-version: Installed PHP version as a float. "7.4.16" becomes "7.416".
 
 
+Troubleshooting
+---------------
+
+PHP.net does not know anything about PHP v8.0.
+    The message comes even though the latest php version is installed? php.net should know about that version, but it has simply not been updated in this case. Wait and see if ``https://www.php.net/releases/index.php?json&version={}`` is updated.
+
+
 Credits, License
 ----------------
 
