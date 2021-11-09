@@ -711,6 +711,41 @@ def generate_basket(plugin_file, config=None, old_data=None):
             varname_suffix
         )
 
+    if 'sudo' in config['variants']:
+        print('Generating "sudo" variant.')
+        data = get_command_template(
+            data,
+            f'cmd-check-{check_name}-sudo',
+            f'/usr/bin/sudo /usr/lib64/nagios/plugins/{check_name}',
+            imports=[
+                f'cmd-check-{check_name}',
+            ]
+        )
+        data = get_service_template(
+            data,
+            f'tpl-service-{check_name}-sudo',
+            f'cmd-check-{check_name}-sudo',
+            check_name,
+            plugin_args.description,
+            imports=[
+                f'tpl-service-{check_name}',
+            ]
+        )
+
+    if 'no-agent' in config['variants']:
+        print('Generating "no-agent" variant.')
+        data = get_service_template(
+            data,
+            f'tpl-service-{check_name}-no-agent',
+            f'cmd-check-{check_name}',
+            check_name,
+            plugin_args.description,
+            imports=[
+                service_object_name,
+            ],
+            use_agent=False
+        )
+
     if 'windows' in config['variants']:
         print('Generating "windows" variant.')
         command_object_name = f'cmd-check-{check_name}-windows'
@@ -780,42 +815,6 @@ def generate_basket(plugin_file, config=None, old_data=None):
             service_object_parent_key='Notification',
             explicitly_set_fields_in_service_object=True,
         )
-
-    if 'variants' in config:
-        if 'sudo' in config['variants']:
-            print('Generating "sudo" variant.')
-            data = get_command_template(
-                data,
-                f'cmd-check-{check_name}-sudo',
-                f'/usr/bin/sudo /usr/lib64/nagios/plugins/{check_name}',
-                imports=[
-                    f'cmd-check-{check_name}',
-                ]
-            )
-            data = get_service_template(
-                data,
-                f'tpl-service-{check_name}-sudo',
-                f'cmd-check-{check_name}-sudo',
-                check_name,
-                plugin_args.description,
-                imports=[
-                    f'tpl-service-{check_name}',
-                ]
-            )
-
-        if 'no-agent' in config['variants']:
-            print('Generating "no-agent" variant.')
-            data = get_service_template(
-                data,
-                f'tpl-service-{check_name}-no-agent',
-                f'cmd-check-{check_name}',
-                check_name,
-                plugin_args.description,
-                imports=[
-                    service_object_name,
-                ],
-                use_agent=False
-            )
 
     if 'overwrites' in config:
         print('Applying overwrites.')
