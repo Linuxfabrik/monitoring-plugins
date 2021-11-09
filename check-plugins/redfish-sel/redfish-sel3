@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110801'
+__version__ = '2021110901'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an
                  alert based on the severity of the messages."""
@@ -143,8 +143,10 @@ def main():
     if vendor in ['ts_fujitsu']:
         sel_path = '/LogServices/SystemEventLog/Entries'
 
+    member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
+        member_count += 1
         # For example {https://localhost:5000/redfish/v1/Managers/} {BMC} {/LogServices/Log/Entries}
         url = '{}{}{}'.format(base_url, member['@odata.id'], sel_path)
         sel = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
@@ -153,9 +155,12 @@ def main():
             msg += '{}\n{}\n\n'.format(member['@odata.id'], member_msg)
             state = lib.base3.get_worst(state, member_state)
 
-    # everything is ok
-    if not msg:
-        lib.base3.oao('Everything is ok.', STATE_OK)
+    if state == STATE_CRIT:
+        msg = 'Checked SEL on {} {}. There are critical errors.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+    elif state == STATE_WARN:
+        msg = 'Checked SEL on {} {}. There are warnings.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+    else:
+        msg = 'Everything is ok, checked SEL on {} {}.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
 
     # over and out
     lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)

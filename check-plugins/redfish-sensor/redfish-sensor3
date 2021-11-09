@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110701'
+__version__ = '2021110901'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -126,8 +126,10 @@ def main():
     state = STATE_OK
     perfdata = ''
 
+    member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
+        member_count += 1
         url = '{}{}'.format(base_url, member['@odata.id'])
         chassis = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
         chassis = lib.redfish3.get_chassis(chassis)
@@ -194,6 +196,13 @@ def main():
             msg += '\n' + lib.base3.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
+
+    if state == STATE_CRIT:
+        msg = 'Checked sensors on {} {}. There are critical errors.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+    elif state == STATE_WARN:
+        msg = 'Checked sensors on {} {}. There are warnings.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+    else:
+        msg = 'Everything is ok, checked sensors on {} {}.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
