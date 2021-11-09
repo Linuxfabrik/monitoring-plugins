@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101901'
+__version__ = '2021110901'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -309,9 +309,13 @@ def main():
 
     somaxconn = lib.base3.coe(lib.disk2.read_file('/proc/sys/net/core/somaxconn'))
     tcp_max_syn_backlog = lib.base3.coe(lib.disk2.read_file('/proc/sys/net/ipv4/tcp_max_syn_backlog'))
+    somaxconn = int(somaxconn)
+    tcp_max_syn_backlog = int(tcp_max_syn_backlog)
     if somaxconn > 0 and somaxconn < tcp_max_syn_backlog:
         os_state = STATE_WARN
-        msg += 'net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog{}, '.format(
+        msg += 'net.core.somaxconn ({}) is lower than net.ipv4.tcp_max_syn_backlog ({}){}, '.format(
+            somaxconn,
+            tcp_max_syn_backlog,
             lib.base3.state2str(os_state, prefix=' '),
         )
         state = lib.base3.get_worst(state, os_state)
