@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110801'
+__version__ = '2021110901'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -111,6 +111,7 @@ def main():
     perfdata += lib.base2.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base2.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
 
+    msg_body = ''
     if not lib.base2.WINDOWS:
         msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
             lib.base2.bytes2human(getattr(swap, 'sin', 0)),

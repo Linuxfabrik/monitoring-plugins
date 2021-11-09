@@ -38,7 +38,7 @@ except ImportError:
     lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110801'
+__version__ = '2021110901'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -110,6 +110,7 @@ def main():
     perfdata += lib.base3.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base3.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
 
+    msg_body = ''
     if not lib.base3.WINDOWS:
         msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
             lib.base3.bytes2human(getattr(swap, 'sin', 0)),
