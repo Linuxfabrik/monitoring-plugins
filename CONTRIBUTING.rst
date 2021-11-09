@@ -332,7 +332,7 @@ Plugin Output
     * Bytes: use ``base.bytes2human()``
     * I/O and Throughput: ``base.bytes2human() + '/s'`` (Byte per Second)
     * Network: "Rx/s", "Tx/s", use ``base.bps2human()``
-    * Numbers: use ``base.numer2human()``
+    * Numbers: use ``base.number2human()``
     * Percentage: 93.2%
     * Read/Write: "R/s", "W/s", "IO/s"
     * Seconds, Minutes etc.: use ``base.seconds2human()``
