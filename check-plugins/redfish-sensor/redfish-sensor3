@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110901'
+__version__ = '2021111001'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -130,7 +130,7 @@ def main():
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
         member_count += 1
-        url = '{}{}'.format(base_url, member['@odata.id'])
+        url = '{}{}'.format(base_url, member['@odata.id'])  # "/redfish/v1/Chassis/1U"
         chassis = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
         chassis = lib.redfish3.get_chassis(chassis)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
@@ -138,19 +138,23 @@ def main():
         chassis_state = lib.redfish3.get_state(chassis)
         state = lib.base3.get_worst(state, chassis_state)
 
-        msg += '{} {}, Power: {}, LED: {}, SKU: {}, SerNo: {}, PartNumber: {}{}'.format(
-            chassis['Manufacturer'],
-            chassis['Model'],
-            chassis['PowerState'],
-            chassis['IndicatorLED'],
-            chassis['SKU'],
-            chassis['SerialNumber'],
-            chassis['PartNumber'],
-            lib.base3.state2str(chassis_state, prefix=' '),
-        )
+        msg += 'Member: '
+        msg += '{} '.format(chassis['Manufacturer']) if chassis['Manufacturer'] else ''
+        msg += '{} '.format(chassis['Model']) if chassis['Model'] else ''
+        msg += ', '
+        msg += 'Power: {}, '.format(chassis['PowerState']) if chassis['PowerState'] else ''
+        msg += 'LED: {}, '.format(chassis['IndicatorLED']) if chassis['IndicatorLED'] else ''
+        msg += 'SKU: {}, '.format(chassis['SKU']) if chassis['SKU'] else ''
+        msg += 'SerNo: {}, '.format(chassis['SerialNumber']) if chassis['SerialNumber'] else ''
+        msg += 'PartNumber: {}, '.format(chassis['PartNumber']) if chassis['PartNumber'] else ''
+        msg = msg[:-2] + lib.base3.state2str(chassis_state, prefix=' ')
 
         # get all available sensor links for the member
-        url = '{}{}/Sensors'.format(base_url, member['@odata.id'])
+        if not chassis['Sensors_@odata.id']:
+            msg += '\n\n'
+            continue
+
+        url = '{}{}'.format(base_url, chassis['Sensors_@odata.id'])
         sensors = lib.base3.coe(lib.url3.fetch_json(url, insecure=True, header=header))
         table_data = []
         for sensor in sensors.get('Members', []):
@@ -193,16 +197,25 @@ def main():
         if table_data:
             keys = ['Name', 'Mode', 'State' ]
             headers = ['Redundancy', 'Mode', 'State' ]
-            msg += '\n' + lib.base3.get_table(table_data, keys, header=headers)
+            msg += '\n\n' + lib.base3.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
 
     if state == STATE_CRIT:
-        msg = 'Checked sensors on {} {}. There are critical errors.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+        msg = 'Checked sensors on {} {}. There are critical errors.\n\n'.format(
+            member_count,
+            lib.base3.pluralize('member', member_count)
+        ) + msg
     elif state == STATE_WARN:
-        msg = 'Checked sensors on {} {}. There are warnings.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+        msg = 'Checked sensors on {} {}. There are warnings.\n\n'.format(
+            member_count,
+            lib.base3.pluralize('member', member_count)
+        ) + msg
     else:
-        msg = 'Everything is ok, checked sensors on {} {}.\n\n'.format(member_count, lib.base3.pluralize('member', member_count)) + msg
+        msg = 'Everything is ok, checked sensors on {} {}.\n\n'.format(
+            member_count,
+            lib.base3.pluralize('member', member_count)
+        ) + msg
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
