@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090801'
+__version__ = '2021111001'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -120,7 +120,7 @@ def get_startup_errors():
     return stderr
 
 
-def get_config(args):
+def get_config_errors(args):
     success, result = lib.base3.shell_exec('php --info 2> /dev/null')
     if not success:
         lib.base3.oao('PHP not found', STATE_UNKNOWN)
@@ -136,6 +136,8 @@ def get_config(args):
             continue
         if '{} => {}'.format(key.lower(), value.lower()) not in php_config:
             result += '{} = {}, '.format(key, value)
+    if result:
+        result = result[:-2] + ' (did you run the check with sudo?), '
     return result
 
 
@@ -163,7 +165,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # init some vars
-    msg = ''
+    if args.URL:
+        msg = ''
+    else:
+        msg = 'No URL to a monitoring.php specified. '
     state = STATE_OK
     perfdata = ''
     php = {}
@@ -338,7 +343,7 @@ def main():
     else:
         perfdata += lib.base3.get_perfdata('php-startup-errors', 0, None, 1, 2, 0, 3)
 
-    config_errors = get_config(args)
+    config_errors = get_config_errors(args)
     if config_errors:
         msg += 'Config expected but not found: {}, '.format(config_errors[:-2])
         state = lib.base3.get_worst(state, STATE_WARN)
@@ -355,8 +360,8 @@ def main():
         perfdata += lib.base3.get_perfdata('php-module-errors', 0, None, 1, 2, 0, 3)
 
     # get the message
-    if msg == '':
-        msg = 'Everything is ok.\n\n'
+    if state == STATE_OK:
+        msg = 'Everything is ok. {}\n\n'.format(msg)
     else:
         msg = msg[:-2] + '\n\n'
     if len(table_values) > 0:
