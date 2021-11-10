@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111001'
+__version__ = '2021111002'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -127,18 +127,18 @@ def main():
     member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
-        member_count += 1
         url = '{}{}'.format(base_url, member['@odata.id'])  # "/redfish/v1/Chassis/1U"
         chassis = lib.base2.coe(lib.url2.fetch_json(url, insecure=True, header=header))
         chassis = lib.redfish2.get_chassis(chassis)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
+        member_count += 1
         chassis_state = lib.redfish2.get_state(chassis)
         state = lib.base2.get_worst(state, chassis_state)
 
-        msg += 'Member: '
-        msg += '{} '.format(chassis['Manufacturer']) if chassis['Manufacturer'] else ''
-        msg += '{} '.format(chassis['Model']) if chassis['Model'] else ''
+        msg += 'Member:'
+        msg += ' {}'.format(chassis['Manufacturer']) if chassis['Manufacturer'] else ''
+        msg += ' {}'.format(chassis['Model']) if chassis['Model'] else ''
         msg += ', '
         msg += 'Power: {}, '.format(chassis['PowerState']) if chassis['PowerState'] else ''
         msg += 'LED: {}, '.format(chassis['IndicatorLED']) if chassis['IndicatorLED'] else ''
