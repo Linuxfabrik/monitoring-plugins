@@ -28,6 +28,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
+import urllib.parse # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.librenms3 # pylint: disable=C0413
@@ -35,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2021111002'
 
 DESCRIPTION = 'This check fetches sensor information from a LibreNMS instance, using its API.'
 
@@ -53,6 +54,40 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--device-group',
+        help='Filter by LibreNMS Device Group.',
+        dest='DEVICE_GROUP',
+    )
+
+    parser.add_argument(
+        '--device-hostname',
+        help='Filter by LibreNMS Hostname (repeating).',
+        dest='DEVICE_HOSTNAME',
+        action='append',
+    )
+
+    parser.add_argument(
+        '--device-type',
+        help='Filter by LibreNMS Device Type (repeating).',
+        dest='DEVICE_TYPE',
+        action='append',
+        choices=[ # taken from the librenms source file: misc/config_definitions.json
+            'appliance',
+            'collaboration',
+            'environment',
+            'firewall',
+            'loadbalancer',
+            'network',
+            'power',
+            'printer',
+            'server',
+            'storage',
+            'wireless',
+            'workstation',
+        ],
     )
 
     parser.add_argument(
@@ -105,32 +140,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_sensor_data(args, devices, hgraph='health'):
-    for device in devices.values():
-        device_id = lib.librenms3.get_prop(device, 'device_id', 'int')
-        graphs = lib.librenms3.get_data(args, '/api/v0/devices/{}/{}'.format(device['device_id'], hgraph))
-        if graphs['count'] == 0:
-            continue
-        for graph in graphs['graphs']:
-            sensors = lib.librenms3.get_data(args, '/api/v0/devices/{}/{}/{}'.format(device['device_id'], hgraph, graph['name']))
-            if sensors['count'] == 0:
-                continue
-            for sensor in sensors['graphs']:
-                values = lib.librenms3.get_data(args, '/api/v0/devices/{}/{}/{}/{}'.format(device['device_id'], hgraph, graph['name'], sensor['sensor_id']))
-                if values['count'] == 0:
-                    continue
-                for value in values['graphs']:
-                    devices[device_id]['sensors'].append({
-                        'sensor_current': value['sensor_current'],
-                        'sensor_descr': value['sensor_descr'],
-                        'sensor_lastupdate': value['lastupdate'],
-                        'sensor_limit': value['sensor_limit'],
-                        'sensor_limit_low': value['sensor_limit_low'],
-                        'sensor_prev': value['sensor_prev'],
-                        })
-    return devices
-
-
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -148,20 +157,30 @@ def main():
     devices = {}
 
     # return a list of devices from LibreNMS
-    result = lib.librenms3.get_data(args, '/api/v0/devices')
+    result = lib.librenms3.get_data(args, '/api/v0/devices?type=active')
+
+    if args.DEVICE_GROUP:
+        device_group = lib.librenms3.get_data(args, '/api/v0/devicegroups/' + urllib.parse.quote(args.DEVICE_GROUP))
+        device_group_device_ids = [device['device_id'] for device in device_group['devices']]
 
     # build an internal device list with some valuable properties
-    device_count = result['count']
     for device in result['devices']:
-        if device['disabled']:
-            continue
         if device['disable_notify']:
             continue
 
-        device_id = lib.librenms3.get_prop(device, 'device_id', 'int')
-        devtype = lib.librenms3.get_prop(device, 'type')
-        hardware = lib.librenms3.get_prop(device, 'hardware')
         hostname = lib.librenms3.get_prop(device, 'hostname')
+        if args.DEVICE_HOSTNAME and hostname not in args.DEVICE_HOSTNAME:
+            continue
+
+        devtype = lib.librenms3.get_prop(device, 'type')
+        if args.DEVICE_TYPE and devtype not in args.DEVICE_TYPE:
+            continue
+
+        device_id = lib.librenms3.get_prop(device, 'device_id', 'int')
+        if args.DEVICE_GROUP and device_id not in device_group_device_ids:
+            continue
+
+        hardware = lib.librenms3.get_prop(device, 'hardware')
         location = lib.librenms3.get_prop(device, 'location')
         sysos = lib.librenms3.get_prop(device, 'os')
         sysname = lib.librenms3.get_prop(device, 'sysName')
@@ -179,9 +198,23 @@ def main():
 
         devices[device_id]['sensors'] = []
 
+    # return a list of sensors from LibreNMS
+    result = lib.librenms3.get_data(args, '/api/v0/resources/sensors')
+
     # enrich devices by sensor data
-    devices = get_sensor_data(args, devices, 'health')
-    devices = get_sensor_data(args, devices, 'wireless')
+    for sensor in result['sensors']:
+        device_id = lib.librenms3.get_prop(sensor, 'device_id', 'int')
+        if device_id not in devices:
+            continue
+
+        devices[device_id]['sensors'].append({
+            'sensor_current': sensor['sensor_current'],
+            'sensor_descr': sensor['sensor_descr'],
+            'sensor_lastupdate': sensor['lastupdate'],
+            'sensor_limit': sensor['sensor_limit'],
+            'sensor_limit_low': sensor['sensor_limit_low'],
+            'sensor_prev': sensor['sensor_prev'],
+            })
 
     # create output
     table_values = []
@@ -216,7 +249,7 @@ def main():
             )
     else:
         msg = 'Everything is ok (although no health data returned).'
-    perfdata += lib.base3.get_perfdata('device_count', device_count, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('device_count', len(devices), None, None, None, 0, None)
 
     # over and out
     lib.base3.oao(msg, state, perfdata)

@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110401'
+__version__ = '2021111001'
 
 DESCRIPTION = 'This check fetches unacknowledged alerts from a LibreNMS instance, using its API.'
 
@@ -70,6 +70,34 @@ def parse_args():
         '--device-group',
         help='Filter by LibreNMS Device Group.',
         dest='DEVICE_GROUP',
+    )
+
+    parser.add_argument(
+        '--device-hostname',
+        help='Filter by LibreNMS Hostname (repeating).',
+        dest='DEVICE_HOSTNAME',
+        action='append',
+    )
+
+    parser.add_argument(
+        '--device-type',
+        help='Filter by LibreNMS Device Type (repeating).',
+        dest='DEVICE_TYPE',
+        action='append',
+        choices=[ # taken from the librenms source file: misc/config_definitions.json
+            'appliance',
+            'collaboration',
+            'environment',
+            'firewall',
+            'loadbalancer',
+            'network',
+            'power',
+            'printer',
+            'server',
+            'storage',
+            'wireless',
+            'workstation',
+        ],
     )
 
     parser.add_argument(
@@ -150,13 +178,19 @@ def main():
         if device['disable_notify']:
             continue
 
+        hostname = lib.librenms3.get_prop(device, 'hostname')
+        if args.DEVICE_HOSTNAME and hostname not in args.DEVICE_HOSTNAME:
+            continue
+
+        devtype = lib.librenms3.get_prop(device, 'type')
+        if args.DEVICE_TYPE and devtype not in args.DEVICE_TYPE:
+            continue
+
         device_id = lib.librenms3.get_prop(device, 'device_id', 'int')
         if args.DEVICE_GROUP and device_id not in device_group_device_ids:
             continue
 
-        devtype = lib.librenms3.get_prop(device, 'type')
         hardware = lib.librenms3.get_prop(device, 'hardware')
-        hostname = lib.librenms3.get_prop(device, 'hostname')
         location = lib.librenms3.get_prop(device, 'location')
         sysos = lib.librenms3.get_prop(device, 'os')
         sysname = lib.librenms3.get_prop(device, 'sysName')

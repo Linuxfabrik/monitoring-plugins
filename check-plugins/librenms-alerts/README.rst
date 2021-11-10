@@ -30,6 +30,8 @@ Help
 .. code-block:: text
 
     usage: librenms-alerts  [-h] [-V] [--always-ok] [--device-group DEVICE_GROUP]
+                            [--device-hostname DEVICE_HOSTNAME]
+                            [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
                             [--insecure] [--lengthy] [--no-proxy]
                             [--timeout TIMEOUT] --token TOKEN [--url URL]
 
@@ -42,6 +44,10 @@ Help
       --always-ok           Always returns OK.
       --device-group DEVICE_GROUP
                             Filter by LibreNMS Device Group.
+      --device-hostname DEVICE_HOSTNAME
+                            Filter by LibreNMS Hostname (repeating).
+      --device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}
+                            Filter by LibreNMS Device Type (repeating).
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --lengthy             Extended reporting.
@@ -49,6 +55,7 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --token TOKEN         LibreNMS API token
       --url URL             LibreNMS API URL. Default: http://localhost
+
 
 Usage Examples
 --------------
