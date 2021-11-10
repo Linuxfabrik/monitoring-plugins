@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/librenms-health"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
@@ -31,21 +31,30 @@ Help
 
 .. code-block:: text
 
-    usage: librenms-health [-h] [-V] [--insecure] [--lengthy] [--no-proxy]
-                           [--timeout TIMEOUT] --token TOKEN [--url URL]
+    usage: librenms-health  [-h] [-V] [--device-group DEVICE_GROUP]
+                            [--device-hostname DEVICE_HOSTNAME]
+                            [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
+                            [--insecure] [--lengthy] [--no-proxy]
+                            [--timeout TIMEOUT] --token TOKEN [--url URL]
 
-    This check fetches information from a LibreNMS instance, using its API.
+    This check fetches sensor information from a LibreNMS instance, using its API.
 
     optional arguments:
-      -h, --help         show this help message and exit
-      -V, --version      show program's version number and exit
-      --insecure         This option explicitly allows to perform "insecure" SSL
-                         connections. Default: False
-      --lengthy          Extended reporting.
-      --no-proxy         Do not use a proxy. Default: False
-      --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
-      --token TOKEN      LibreNMS API token
-      --url URL          LibreNMS API URL. Default: http://localhost
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --device-group DEVICE_GROUP
+                            Filter by LibreNMS Device Group.
+      --device-hostname DEVICE_HOSTNAME
+                            Filter by LibreNMS Hostname (repeating).
+      --device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}
+                            Filter by LibreNMS Device Type (repeating).
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --lengthy             Extended reporting.
+      --no-proxy            Do not use a proxy. Default: False
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --token TOKEN         LibreNMS API token
+      --url URL             LibreNMS API URL. Default: http://localhost
 
 
 Usage Examples
@@ -61,12 +70,12 @@ Output:
 
     Everything is ok.
 
-    Hostname     SysName         Sensor                      Val (prev)  Limit low/high 
-    --------     -------         ------                      ----------  -------------- 
-    10.80.32.109 S3900-48T4S     Oper State                  3 (None)    None/None      
-    10.80.32.109 S3900-48T4S     Temperature Unit 1 sensor 1 37 (38)     27/57          
-    10.80.32.12  brw38b1db3b30f4 Life time sheets            3492 (None) None/None      
-    10.80.32.12  brw38b1db3b30f4 Sheets since powered on     0 (286)     None/None      
+    Hostname     SysName         Sensor                      Val (prev)  Limit low/high
+    --------     -------         ------                      ----------  --------------
+    10.80.32.109 S3900-48T4S     Oper State                  3 (None)    None/None
+    10.80.32.109 S3900-48T4S     Temperature Unit 1 sensor 1 37 (38)     27/57
+    10.80.32.12  brw38b1db3b30f4 Life time sheets            3492 (None) None/None
+    10.80.32.12  brw38b1db3b30f4 Sheets since powered on     0 (286)     None/None
     10.80.32.12  brw38b1db3b30f4 Printer Device Status       3 (5)       None/None
 
 
@@ -82,8 +91,8 @@ Perfdata / Metrics
 .. csv-table::
     :widths: 25, 15, 60
     :header-rows: 1
-    
-    Name,                                       Type,               Description                                           
+
+    Name,                                       Type,               Description
     device_count,                               Number,             Number of devices found
 
 
