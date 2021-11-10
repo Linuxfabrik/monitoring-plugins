@@ -61,7 +61,9 @@ Output:
 
 .. code-block:: text
 
-    /redfish/v1/Managers/iDRAC.Embedded.1
+    Checked SEL on 1 member. There are critical errors.
+
+    Member: /redfish/v1/Managers/iDRAC.Embedded.1
     * 2021-10-14T10:32:20+02:00: The system inlet temperature is greater than the upper warning threshold. [WARNING]
     * 2021-10-14T09:52:27+02:00: The system inlet temperature is greater than the upper warning threshold. [WARNING]
     * 2021-10-14T02:02:47+02:00: The system inlet temperature is greater than the upper critical threshold. [CRITICAL]
