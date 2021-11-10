@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110701'
+__version__ = '2021110901'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -124,8 +124,10 @@ def main():
     state = STATE_OK
     perfdata = ''
 
+    member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
+        member_count += 1
         url = '{}{}'.format(base_url, member['@odata.id'])
         chassis = lib.base2.coe(lib.url2.fetch_json(url, insecure=True, header=header))
         chassis = lib.redfish2.get_chassis(chassis)
@@ -134,7 +136,7 @@ def main():
         chassis_state = lib.redfish2.get_state(chassis)
         state = lib.base2.get_worst(state, chassis_state)
 
-        msg += '{} {}, Power: {}, LED: {}, SKU: {}, SerNo: {}, PartNumber: {}{}'.format(
+        msg += 'Member: {} {}, Power: {}, LED: {}, SKU: {}, SerNo: {}, PartNumber: {}{}'.format(
             chassis['Manufacturer'],
             chassis['Model'],
             chassis['PowerState'],
@@ -189,9 +191,16 @@ def main():
         if table_data:
             keys = ['Name', 'Mode', 'State' ]
             headers = ['Redundancy', 'Mode', 'State' ]
-            msg += '\n' + lib.base2.get_table(table_data, keys, header=headers)
+            msg += '\n\n' + lib.base2.get_table(table_data, keys, header=headers)
 
         msg += '\n\n'
+
+    if state == STATE_CRIT:
+        msg = 'Checked sensors on {} {}. There are critical errors.\n\n'.format(member_count, lib.base2.pluralize('member', member_count)) + msg
+    elif state == STATE_WARN:
+        msg = 'Checked sensors on {} {}. There are warnings.\n\n'.format(member_count, lib.base2.pluralize('member', member_count)) + msg
+    else:
+        msg = 'Everything is ok, checked sensors on {} {}.\n\n'.format(member_count, lib.base2.pluralize('member', member_count)) + msg
 
     # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
