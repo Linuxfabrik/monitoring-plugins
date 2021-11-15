@@ -30,7 +30,7 @@ Help
 .. code-block:: text
 
     usage: sap-open-concur-com [-h] [--always-ok] [-V]
-                               [--datacenter {north_america,emea,china,public_sector}]
+                               [--datacenter {us,us2,eu,eu2,cn,pscc}]
                                [--no-proxy] [--service SERVICE]
                                [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
