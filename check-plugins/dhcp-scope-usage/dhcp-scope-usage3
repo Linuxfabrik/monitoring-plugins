@@ -1,0 +1,173 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.powershell3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021111501'
+
+DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
+
+DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_WARN = 80
+DEFAULT_CRIT = 90
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Specifies the DNS name, or IPv4 or IPv6 address, of the target computer that runs the DHCP server service. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        if lib.base3.LINUX:
+            lib.base3.oao('Linux is currently not supported.', STATE_UNKNOWN)
+        # https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics
+        cmd = 'Get-DhcpServerv4ScopeStatistics -ComputerName "{}"'.format(args.HOSTNAME)
+        result = lib.powershell3.run_cmdlet(cmd)
+        stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+
+    if retc != 0:
+        lib.base3.oao(stderr, STATE_WARN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # ScopeId          Free            InUse           PercentageInUse  Reserved        Pending         SuperscopeName
+    # -------          ----            -----           ---------------  --------        -------         --------------
+    # 192.168.120.0    3               0               0                0               0
+
+    # get state and build the message
+    data_section = False
+    for line in stdout.splitlines():
+        # ignore all header lines including "----"
+        if not line:
+            continue
+        if not data_section:
+            data_section = line.startswith('----')
+            continue
+
+        scope = line.split()
+        scope_id = scope[0]
+        scope_used = scope[3]
+
+        scope_state = lib.base3.get_state(scope_used, args.WARN, args.CRIT)
+        state = lib.base3.get_worst(scope_state, state)
+        msg += '* {}: {}% used{}\n'.format(
+            scope_id,
+            scope_used,
+            lib.base3.state2str(scope_state, prefix=' '),
+        )
+        perfdata += lib.base3.get_perfdata('scope_{}'.format(scope_id), scope_used, '%', args.WARN, args.CRIT, 0, 100)
+
+    # over and out
+    if state == STATE_CRIT:
+        msg = 'There are one or more criticals.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are one or more warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
