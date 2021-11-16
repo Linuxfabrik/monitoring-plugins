@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111601'
+__version__ = '2021111602'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -342,7 +342,6 @@ def get_sw():
     sw += find_command('TeamViewer',                'teamviewer --version',               version_regex =r'.* (\S*)  ')
     sw += find_command('tmate',                     'tmate -V',                           version_regex =r' (.*)')
     sw += find_command('Veeam',                     'veeamagent --version',               version_regex =r'(.*)')
-    sw += find_command('vsftpd',                    '/usr/sbin/vsftpd -version 0>&1',     version_regex =r'n (\S*)')
 
     return sw
 
@@ -493,7 +492,11 @@ def main():
             os_version_perfdata = re_search.group(0).replace('.', '')
 
     sys_dimensions = get_sys_dimensions()
-    msg += '{} {}, {}'.format(sys_dimensions['cpu'], lib.base3.pluralize('CPU', sys_dimensions['cpu']), lib.base3.bytes2human(sys_dimensions['ram']))
+    msg += '{} {}, {} RAM'.format(
+        sys_dimensions['cpu'],
+        lib.base3.pluralize('CPU', sys_dimensions['cpu']),
+        lib.base3.bytes2human(sys_dimensions['ram'])
+    )
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
