@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092904'
+__version__ = '2021111601'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -366,13 +366,16 @@ def get_os_info():
 
 def get_interfaces():
     msg = ''
-    for name, interface in sorted(psutil.net_if_addrs().items()):
-        if name == 'lo':
-            continue
+    try:
+        for name, interface in sorted(psutil.net_if_addrs().items()):
+            if name == 'lo':
+                continue
 
-        for addr in interface:
-            if addr.family == lib.net2.AF_INET:
-                msg += '* {} {}/{}\n'.format(name, addr.address, lib.net2.ip_to_cidr(addr.netmask))
+            for addr in interface:
+                if addr.family == lib.net2.AF_INET:
+                    msg += '* {} {}/{}\n'.format(name, addr.address, lib.net2.ip_to_cidr(addr.netmask))
+    except:
+        pass
 
     return msg
 
