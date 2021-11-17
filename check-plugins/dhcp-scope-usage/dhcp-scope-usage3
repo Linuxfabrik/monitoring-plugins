@@ -33,12 +33,13 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.powershell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.winrm3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111501'
+__version__ = '2021111701'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
@@ -96,6 +97,42 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--winrm-domain',
+        help='WinRM Domain Name. Default: %(default)s',
+        dest='WINRM_DOMAIN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--winrm-hostname',
+        help='Target Windows computer on which the Windows commands are to be executed. Default: %(default)s',
+        dest='WINRM_HOSTNAME',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--winrm-password',
+        help='WinRM Account Password. Default: %(default)s',
+        dest='WINRM_PASSWORD',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--winrm-transport',
+        help='WinRM transport type. Default: %(default)s',
+        dest='WINRM_TRANSPORT',
+        choices=['basic', 'ntlm', 'kerberos'],
+        default='ntlm',
+    )
+
+    parser.add_argument(
+        '--winrm-username',
+        help='WinRM Account Name. Default: %(default)s',
+        dest='WINRM_USERNAME',
+        default=None,
+    )
+
     return parser.parse_args()
 
 
@@ -111,11 +148,16 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        if lib.base3.LINUX:
-            lib.base3.oao('Linux is currently not supported.', STATE_UNKNOWN)
         # https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics
         cmd = 'Get-DhcpServerv4ScopeStatistics -ComputerName "{}"'.format(args.HOSTNAME)
-        result = lib.powershell3.run_cmdlet(cmd)
+        if args.WINRM_HOSTNAME:
+            result = lib.winrm3.run_ps(cmd, args)
+        else:
+            if lib.base3.LINUX:
+                lib.base3.oao('Running this check plugin directly on Linux is not supported. Use the --winrm parameters.', STATE_UNKNOWN)
+            result = lib.powershell3.run_ps(cmd)
+        if not result:
+            lib.base3.oao('Got nothing back.', STATE_UNKNOWN)
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data
