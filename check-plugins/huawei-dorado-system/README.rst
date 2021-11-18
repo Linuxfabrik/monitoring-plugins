@@ -99,7 +99,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    FREEDISKSCAPACITY,                          Sectors,            "Total raw capacity of all free disks (If no free disks exist in the system, the value is 0.).""
+    FREEDISKSCAPACITY,                          Sectors,            "Total raw capacity of all free disks (If no free disks exist in the system, the value is 0.)."
     HEALTHSTATUS,                               Number,             "1: Normal, 2: Faulty"
     HOTSPAREDISKSCAPACITY,                      Sectors,            "Total raw capacity of all hot spare disks (If no hot spare disks exist in the system, the value is 0. The value is fixed to 0 for systems built based on the XVE architecture.)."
     mappedLunsCountCapacity,                    Sectors,            "Total capacity of mapped LUNs."
