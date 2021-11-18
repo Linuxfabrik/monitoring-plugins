@@ -1,0 +1,408 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import time # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.cache3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021111801'
+
+DESCRIPTION = """Query basic status and performance data about a Huawei OceanStor Dorado storage
+                 system via the REST Interface, using the ``/system/`` endpoint."""
+
+DEFAULT_WARN = 90
+DEFAULT_CRIT = 95
+
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 3
+
+DEFAULT_SCOPE = 0
+DEFAULT_CACHE_EXPIRE = 15 # minutes; default session timeout period is 20 minutes
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the credential cache expires, in minutes. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API Device ID.',
+        dest='DEVICE_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API Password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API Scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API Username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def get_health_status(hs):
+    if int(hs) == 1:
+        return 'Normal'
+    if int(hs) == 2:
+        return 'Faulty'
+    return 'Unknown'
+
+
+def get_running_status(rs):
+    if int(rs) == 1:
+        return 'Normal'
+    if int(rs) == 3:
+        return 'Not running'
+    if int(rs) == 12:
+        return 'Powering on'
+    if int(rs) == 47:
+        return 'Powering off'
+    if int(rs) == 51:
+        return 'Upgrading'
+    return 'Unknown'
+
+
+def get_product_mode(pm):
+    if int(pm) == 812:
+        return 'Dorado 5000 V6 (NVMe)'
+    if int(pm) == 813:
+        return 'Dorado 6000 V6 (SAS)'
+    if int(pm) == 814:
+        return 'Dorado 6000 V6 (NVMe)'
+    if int(pm) == 815:
+        return 'Dorado 8000 V6 (SAS)'
+    if int(pm) == 816:
+        return 'Dorado 8000 V6 (NVMe)'
+    if int(pm) == 817:
+        return 'Dorado 18000 V6 (SAS)'
+    if int(pm) == 818:
+        return 'Dorado 18000 V6 (NVMe)'
+    if int(pm) == 819:
+        return 'Dorado 3000 V6 (SAS)'
+    if int(pm) == 821:
+        return 'Dorado 5000 V6 (IP SAS)'
+    if int(pm) == 822:
+        return 'Dorado 6000 V6 (IP SAS)'
+    if int(pm) == 823:
+        return 'Dorado 8000 V6 (IP SAS)'
+    if int(pm) == 824:
+        return 'Dorado 18000 V6 (IP SAS)'
+    if int(pm) == 825:
+        return 'Dorado 3000 V6 '
+    if int(pm) == 826:
+        return 'Dorado 5000 V6'
+    if int(pm) == 827:
+        return 'Dorado 6000 V6'
+    if int(pm) == 828:
+        return 'Dorado 6000 V6'
+    if int(pm) == 829:
+        return 'Dorado 8000 V6'
+    if int(pm) == 830:
+        return 'Dorado 18000 V6'
+    if int(pm) == 831:
+        return 'Dorado 18000 V6'
+    if int(pm) == 832:
+        return 'Dorado 18000 V6'
+    return 'Unknown'
+
+
+def get_creds(args):
+    # we cache credentials to reuse them until they expire, because logins might be
+    # rate-limited for security reasons
+    ibasetoken = lib.cache3.get('huawei-{}-ibasetoken'.format(args.DEVICE_ID))
+    cookie = lib.cache3.get('huawei-{}-cookie'.format(args.DEVICE_ID))
+    if ibasetoken:
+        return ibasetoken, cookie
+
+    url = '{}/deviceManager/rest/{}/sessions'.format(args.URL, args.DEVICE_ID)
+    header = {
+        'Content-Type': 'application/json',
+    }
+    data = {
+        'username': args.USERNAME,
+        'password': args.PASSWORD,
+        'scope': args.SCOPE,
+    }
+    result = lib.base3.coe(lib.url3.fetch_json(
+        url,
+        data=data,
+        encoding='serialized-json',
+        extended=True,
+        header=header,
+        insecure=True,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
+    ibasetoken = result['response_json'].get('data').get('iBaseToken')
+    cookie = result['response_header'].getheader('Set-Cookie')
+    expire = lib.base3.now() + args.CACHE_EXPIRE*60
+    lib.cache3.set('huawei-{}-ibasetoken'.format(args.DEVICE_ID), ibasetoken, expire)
+    lib.cache3.set('huawei-{}-cookie'.format(args.DEVICE_ID), cookie, expire)
+    return ibasetoken, cookie
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+
+    # fetch data
+    counter = 0
+    if args.TEST is None:
+        # login and get iBaseToken and Cookie
+        ibasetoken, cookie = get_creds(args)
+
+        # fetch data
+        # Do not miss the last slash (/) at the end of the URL.
+        url = '{}/deviceManager/rest/{}/system/'.format(args.URL, args.DEVICE_ID)
+        header = {
+            'Content-Type': 'application/json',
+            'iBaseToken' : ibasetoken,
+            'Cookie': cookie,
+        }
+
+        # Sometimes we get "-401: This operation fails to be performed because of the unauthorized
+        # REST.", and shortly after that everything works as expected. Crap. So try to fetch
+        # info multiple times, but limit the queries to a certain amount.
+        while True:
+            counter += 1
+            result = lib.base3.coe(lib.url3.fetch_json(
+                url,
+                header=header,
+                insecure=True,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ))
+            if result.get('error').get('code') == 0:
+                break
+            if counter == 9:
+                break
+            time.sleep(1)
+
+    else:
+        # do not call the command, put in test data
+        import json
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base3.oao('Got no valuable response from {}.'.format(args.URL), STATE_UNKNOWN)
+    if result.get('error').get('code') != 0:
+        lib.base3.oao('{} {}'.format(
+            result.get('error').get('description'),
+            result.get('error').get('suggestion'),
+        ), STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze the data
+    health_state = STATE_OK
+    if get_health_status(result.get('data').get('HEALTHSTATUS')) != 'Normal':
+        health_state = STATE_CRIT
+        state = lib.base3.get_worst(state, health_state)
+
+    running_state = STATE_OK
+    if get_running_status(result.get('data').get('RUNNINGSTATUS')) != 'Normal':
+        running_state = STATE_WARN
+        state = lib.base3.get_worst(state, running_state)
+
+    sp_used = round(float(result.get('data').get('STORAGEPOOLUSEDCAPACITY')) / float(result.get('data').get('STORAGEPOOLCAPACITY')) * 100)
+    sp_state = lib.base3.get_state(sp_used, args.WARN, args.CRIT)
+    state = lib.base3.get_worst(state, sp_state)
+
+    capa_used = round(float(result.get('data').get('USEDCAPACITY')) / float(result.get('data').get('TOTALCAPACITY')) * 100)
+    capa_state = lib.base3.get_state(capa_used, args.WARN, args.CRIT)
+    state = lib.base3.get_worst(state, capa_state)
+
+    # build the message
+    msg += '{} {}, Name: {}, ID: {}, Location: {}, Health Status: {}{}, Running Status: {}{}\n'.format(
+        result.get('data').get('productModeString'),
+        result.get('data').get('pointRelease'),
+        result.get('data').get('NAME'),
+        result.get('data').get('ID'),
+        result.get('data').get('LOCATION'),
+        get_health_status(result.get('data').get('HEALTHSTATUS')),
+        lib.base3.state2str(health_state, prefix=' ', empty_ok=True),
+        get_running_status(result.get('data').get('RUNNINGSTATUS')),
+        lib.base3.state2str(running_state, prefix=' ', empty_ok=True),
+    )
+    msg += 'Sectors: Total {}% used ({}/{}){}, Storage Pool {}% used ({}/{}){}\n'.format(
+        capa_used,
+        lib.base3.number2human(result.get('data').get('USEDCAPACITY')),
+        lib.base3.number2human(result.get('data').get('TOTALCAPACITY')),
+        lib.base3.state2str(capa_state, prefix=' '),
+        sp_used,
+        lib.base3.number2human(result.get('data').get('STORAGEPOOLUSEDCAPACITY')),
+        lib.base3.number2human(result.get('data').get('STORAGEPOOLCAPACITY')),
+        lib.base3.state2str(sp_state, prefix=' '),
+    )
+    msg += 'Fetched API {} {}'.format(
+        counter,
+        lib.base3.pluralize('time', counter),
+    )
+
+    perfdata += lib.base3.get_perfdata('sectors-capacity-percent', capa_used, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base3.get_perfdata('sectors-storagepool-percent', sp_used, '%', args.WARN, args.CRIT, 0, 100)
+
+    perfdata += lib.base3.get_perfdata('HEALTHSTATUS', result.get('data').get('HEALTHSTATUS'), None, None, 2, 0, 2)
+    perfdata += lib.base3.get_perfdata('RUNNINGSTATUS', result.get('data').get('RUNNINGSTATUS'), None, 2, None, 0, 51)
+
+    perfdata += lib.base3.get_perfdata('FREEDISKSCAPACITY', result.get('data').get('FREEDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
+    perfdata += lib.base3.get_perfdata('HOTSPAREDISKSCAPACITY', result.get('data').get('HOTSPAREDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
+    perfdata += lib.base3.get_perfdata('UNAVAILABLEDISKSCAPACITY', result.get('data').get('UNAVAILABLEDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
+    perfdata += lib.base3.get_perfdata('USEDCAPACITY', result.get('data').get('USEDCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
+
+    perfdata += lib.base3.get_perfdata('STORAGEPOOLFREECAPACITY', result.get('data').get('STORAGEPOOLFREECAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
+    perfdata += lib.base3.get_perfdata('STORAGEPOOLHOSTSPARECAPACITY', result.get('data').get('STORAGEPOOLHOSTSPARECAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
+    perfdata += lib.base3.get_perfdata('STORAGEPOOLRAWCAPACITY', result.get('data').get('STORAGEPOOLRAWCAPACITY'), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('STORAGEPOOLUSEDCAPACITY', result.get('data').get('STORAGEPOOLUSEDCAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
+
+    perfdata += lib.base3.get_perfdata('THICKLUNSALLOCATECAPACITY', result.get('data').get('THICKLUNSALLOCATECAPACITY'), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('THICKLUNSUSEDCAPACITY', result.get('data').get('THICKLUNSUSEDCAPACITY'), None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('THINLUNSALLOCATECAPACITY', result.get('data').get('THINLUNSALLOCATECAPACITY'), None, None, None, 0, result.get('data').get('THINLUNSMAXCAPACITY'))
+    perfdata += lib.base3.get_perfdata('THINLUNSUSEDCAPACITY', result.get('data').get('THINLUNSUSEDCAPACITY'), None, None, None, 0, result.get('data').get('THINLUNSMAXCAPACITY'))
+
+    perfdata += lib.base3.get_perfdata('mappedLunsCountCapacity', result.get('data').get('mappedLunsCountCapacity'), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('unMappedLunsCountCapacity', result.get('data').get('unMappedLunsCountCapacity'), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('userFreeCapacity', result.get('data').get('userFreeCapacity'), None, None, None, 0, None)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
