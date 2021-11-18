@@ -32,14 +32,13 @@ import time # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
-import lib.cache2 # pylint: disable=C0413
+import lib.huawei2 # pylint: disable=C0413
 import lib.test2 # pylint: disable=C0413
-import lib.url2 # pylint: disable=C0413
 from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111801'
+__version__ = '2021111802'
 
 DESCRIPTION = """Query basic status and performance data about a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/system/`` endpoint."""
@@ -158,107 +157,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_health_status(hs):
-    if int(hs) == 1:
-        return 'Normal'
-    if int(hs) == 2:
-        return 'Faulty'
-    return 'Unknown'
-
-
-def get_running_status(rs):
-    if int(rs) == 1:
-        return 'Normal'
-    if int(rs) == 3:
-        return 'Not running'
-    if int(rs) == 12:
-        return 'Powering on'
-    if int(rs) == 47:
-        return 'Powering off'
-    if int(rs) == 51:
-        return 'Upgrading'
-    return 'Unknown'
-
-
-def get_product_mode(pm):
-    if int(pm) == 812:
-        return 'Dorado 5000 V6 (NVMe)'
-    if int(pm) == 813:
-        return 'Dorado 6000 V6 (SAS)'
-    if int(pm) == 814:
-        return 'Dorado 6000 V6 (NVMe)'
-    if int(pm) == 815:
-        return 'Dorado 8000 V6 (SAS)'
-    if int(pm) == 816:
-        return 'Dorado 8000 V6 (NVMe)'
-    if int(pm) == 817:
-        return 'Dorado 18000 V6 (SAS)'
-    if int(pm) == 818:
-        return 'Dorado 18000 V6 (NVMe)'
-    if int(pm) == 819:
-        return 'Dorado 3000 V6 (SAS)'
-    if int(pm) == 821:
-        return 'Dorado 5000 V6 (IP SAS)'
-    if int(pm) == 822:
-        return 'Dorado 6000 V6 (IP SAS)'
-    if int(pm) == 823:
-        return 'Dorado 8000 V6 (IP SAS)'
-    if int(pm) == 824:
-        return 'Dorado 18000 V6 (IP SAS)'
-    if int(pm) == 825:
-        return 'Dorado 3000 V6 '
-    if int(pm) == 826:
-        return 'Dorado 5000 V6'
-    if int(pm) == 827:
-        return 'Dorado 6000 V6'
-    if int(pm) == 828:
-        return 'Dorado 6000 V6'
-    if int(pm) == 829:
-        return 'Dorado 8000 V6'
-    if int(pm) == 830:
-        return 'Dorado 18000 V6'
-    if int(pm) == 831:
-        return 'Dorado 18000 V6'
-    if int(pm) == 832:
-        return 'Dorado 18000 V6'
-    return 'Unknown'
-
-
-def get_creds(args):
-    # we cache credentials to reuse them until they expire, because logins might be
-    # rate-limited for security reasons
-    ibasetoken = lib.cache2.get('huawei-{}-ibasetoken'.format(args.DEVICE_ID))
-    cookie = lib.cache2.get('huawei-{}-cookie'.format(args.DEVICE_ID))
-    if ibasetoken:
-        return ibasetoken, cookie
-
-    url = '{}/deviceManager/rest/{}/sessions'.format(args.URL, args.DEVICE_ID)
-    header = {
-        'Content-Type': 'application/json',
-    }
-    data = {
-        'username': args.USERNAME,
-        'password': args.PASSWORD,
-        'scope': args.SCOPE,
-    }
-    result = lib.base2.coe(lib.url2.fetch_json(
-        url,
-        data=data,
-        encoding='serialized-json',
-        extended=True,
-        header=header,
-        insecure=True,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
-    ibasetoken = result['response_json'].get('data').get('iBaseToken')
-    cookie = result['response_header'].getheader('Set-Cookie')
-    expire = lib.base2.now() + args.CACHE_EXPIRE*60
-    lib.cache2.set('huawei-{}-ibasetoken'.format(args.DEVICE_ID), ibasetoken, expire)
-    lib.cache2.set('huawei-{}-cookie'.format(args.DEVICE_ID), cookie, expire)
-    return ibasetoken, cookie
-
-
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -273,38 +171,8 @@ def main():
         lib.base2.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
 
     # fetch data
-    counter = 0
     if args.TEST is None:
-        # login and get iBaseToken and Cookie
-        ibasetoken, cookie = get_creds(args)
-
-        # fetch data
-        # Do not miss the last slash (/) at the end of the URL.
-        url = '{}/deviceManager/rest/{}/system/'.format(args.URL, args.DEVICE_ID)
-        header = {
-            'Content-Type': 'application/json',
-            'iBaseToken' : ibasetoken,
-            'Cookie': cookie,
-        }
-
-        # Sometimes we get "-401: This operation fails to be performed because of the unauthorized
-        # REST.", and shortly after that everything works as expected. Crap. So try to fetch
-        # info multiple times, but limit the queries to a certain amount.
-        while True:
-            counter += 1
-            result = lib.base2.coe(lib.url2.fetch_json(
-                url,
-                header=header,
-                insecure=True,
-                no_proxy=args.NO_PROXY,
-                timeout=args.TIMEOUT,
-            ))
-            if result.get('error').get('code') == 0:
-                break
-            if counter == 9:
-                break
-            time.sleep(1)
-
+        result = lib.huawei2.get_data(args)
     else:
         # do not call the command, put in test data
         import json
@@ -327,12 +195,12 @@ def main():
 
     # analyze the data
     health_state = STATE_OK
-    if get_health_status(result.get('data').get('HEALTHSTATUS')) != 'Normal':
+    if lib.huawei2.get_health_status(result.get('data').get('HEALTHSTATUS')) != 'Normal':
         health_state = STATE_CRIT
         state = lib.base2.get_worst(state, health_state)
 
     running_state = STATE_OK
-    if get_running_status(result.get('data').get('RUNNINGSTATUS')) != 'Normal':
+    if lib.huawei2.get_running_status(result.get('data').get('RUNNINGSTATUS')) != 'Normal':
         running_state = STATE_WARN
         state = lib.base2.get_worst(state, running_state)
 
@@ -351,9 +219,9 @@ def main():
         result.get('data').get('NAME'),
         result.get('data').get('ID'),
         result.get('data').get('LOCATION'),
-        get_health_status(result.get('data').get('HEALTHSTATUS')),
+        lib.huawei2.get_health_status(result.get('data').get('HEALTHSTATUS')),
         lib.base2.state2str(health_state, prefix=' ', empty_ok=True),
-        get_running_status(result.get('data').get('RUNNINGSTATUS')),
+        lib.huawei2.get_running_status(result.get('data').get('RUNNINGSTATUS')),
         lib.base2.state2str(running_state, prefix=' ', empty_ok=True),
     )
     msg += 'Sectors: Total {}% used ({}/{}){}, Storage Pool {}% used ({}/{}){}\n'.format(
@@ -367,8 +235,8 @@ def main():
         lib.base2.state2str(sp_state, prefix=' '),
     )
     msg += 'Fetched API {} {}'.format(
-        counter,
-        lib.base2.pluralize('time', counter),
+        result.get('counter', 0),
+        lib.base2.pluralize('time', result.get('counter', 0),),
     )
 
     perfdata += lib.base2.get_perfdata('sectors-capacity-percent', capa_used, '%', args.WARN, args.CRIT, 0, 100)
