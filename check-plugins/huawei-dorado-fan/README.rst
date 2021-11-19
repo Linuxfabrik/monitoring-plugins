@@ -99,15 +99,9 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    <UUID>_ABRASIONRATE,                        Percentage,         "Wear (Wear is the percentage of used service life to total service life.)."
-    <UUID>_CAPACITYUSAGE,                       Percentage,         "Capacity usage."
-    <UUID>_HEALTHMARK,                          Number,             "Health score of the fan."
-    <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 17: single link"
-    <UUID>_PROGRESS,                            Percentage,         "Progresses of reconstruction, copyback, pre-copy, and destruction."
-    <UUID>_REMAINLIFE,                          Seconds,            "Remaining service life."
-    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 14: pre-copy, 16: reconstruction, 27: online, 28: offline, 114: erasing, 115: verifying"
-    <UUID>_RUNTIME,                             Seconds,            "Operating time."
-    <UUID>_TEMPERATURE,                         Number,             "Temperature."
+    <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty"
+    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 3: not running, 8: spin down, 27: online, 28: offline"
+    <UUID>_RUNLEVEL,                            Numer,              "0: low, 1: normal, 2: high"
 
 Have a look at the `API documentation <https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview>`_ for details.
 
