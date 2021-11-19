@@ -73,11 +73,13 @@ Output:
 
     Everything is ok.
 
-    Manufacturer ! Model            ! SerialNumber         ! Location ! Abrasion% ! Progress% ! Runtime ! Temp ! Health ! Running 
-    -------------+------------------+----------------------+----------+-----------+-----------+---------+------+--------+---------
-    HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! DAE000.0 ! 67        ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]    
-    HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! DAE000.1 ! 70        ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]    
-    Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! CTE0.0   ! 0         ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]
+    UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Abrasion% ! Progress% ! Runtime ! Temp ! Health ! Running 
+    -------------+----------+--------------+------------------+----------------------+-----------+-----------+---------+------+--------+---------
+    10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! 67        ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]    
+    10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! 70        ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]    
+    10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! 0         ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]    
+
+    Fetched API 2 times
 
 
 States
@@ -96,15 +98,15 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    <Disk>_ABRASIONRATE,                        Percentage,         "Wear (Wear is the percentage of used service life to total service life.)."
-    <Disk>_CAPACITYUSAGE,                       Percentage,         "Capacity usage."
-    <Disk>_HEALTHMARK,                          Number,             "Health score of the disk."
-    <Disk>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 17: single link"
-    <Disk>_PROGRESS,                            Percentage          "Progresses of reconstruction, copyback, pre-copy, and destruction."
-    <Disk>_REMAINLIFE,                          Seconds,            "Remaining service life."
-    <Disk>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 14: pre-copy, 16: reconstruction, 27: online, 28: offline, 114: erasing, 115: verifying"
-    <Disk>_RUNTIME,                             Seconds,            "Operating time."
-    <Disk>_TEMPERATURE,                         Number,             "Temperature."
+    <UUID>_ABRASIONRATE,                        Percentage,         "Wear (Wear is the percentage of used service life to total service life.)."
+    <UUID>_CAPACITYUSAGE,                       Percentage,         "Capacity usage."
+    <UUID>_HEALTHMARK,                          Number,             "Health score of the disk."
+    <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 17: single link"
+    <UUID>_PROGRESS,                            Percentage          "Progresses of reconstruction, copyback, pre-copy, and destruction."
+    <UUID>_REMAINLIFE,                          Seconds,            "Remaining service life."
+    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 14: pre-copy, 16: reconstruction, 27: online, 28: offline, 114: erasing, 115: verifying"
+    <UUID>_RUNTIME,                             Seconds,            "Operating time."
+    <UUID>_TEMPERATURE,                         Number,             "Temperature."
 
 Have a look at the `API documentation <https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview>`_ for details.
 

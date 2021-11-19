@@ -38,7 +38,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111901'
+__version__ = '2021111903'
 
 DESCRIPTION = """Batch query basic information about disks on a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/disk`` endpoint."""
@@ -178,37 +178,40 @@ def main():
     table_data = []
     for disk in result.get('data'):
         health_state = STATE_OK
-        if lib.huawei2.get_health_status(disk.get('HEALTHSTATUS')) != 'Normal':
+        if lib.huawei2.get_health_status(disk.get('HEALTHSTATUS')) != 'Normal (1)':
             health_state = STATE_WARN
             state = lib.base2.get_worst(state, health_state)
-        disk['health_state'] = lib.base2.state2str(health_state, empty_ok=False)
+
+        disk['UUID'] = lib.huawei2.get_uuid(disk)
 
         running_state = STATE_OK
-        if lib.huawei2.get_running_status(disk.get('RUNNINGSTATUS')) != 'Normal' and lib.huawei2.get_running_status(disk.get('RUNNINGSTATUS')) != 'Online':
+        if lib.huawei2.get_running_status(disk.get('RUNNINGSTATUS')) != 'Normal (1)' and \
+           lib.huawei2.get_running_status(disk.get('RUNNINGSTATUS')) != 'Online (27)':
             running_state = STATE_WARN
             state = lib.base2.get_worst(state, running_state)
-        disk['running_state'] = lib.base2.state2str(running_state, empty_ok=False)
 
         disk['REMAINLIFE'] = int(disk['REMAINLIFE']) * 24*60*60
         disk['RUNTIME'] = int(disk['RUNTIME']) * 24*60*60
 
-        perfdata += lib.base2.get_perfdata('{}_ABRASIONRATE'.format(disk['SERIALNUMBER']), disk['ABRASIONRATE'], '%', None, None, 0, 100)
-        perfdata += lib.base2.get_perfdata('{}_CAPACITYUSAGE'.format(disk['SERIALNUMBER']), disk['CAPACITYUSAGE'], '%', None, None, 0, 100)
-        perfdata += lib.base2.get_perfdata('{}_HEALTHMARK'.format(disk['SERIALNUMBER']), disk['HEALTHMARK'], None, None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_HEALTHSTATUS'.format(disk['SERIALNUMBER']), disk['HEALTHSTATUS'], None, None, 2, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_PROGRESS'.format(disk['SERIALNUMBER']), disk['PROGRESS'], '%', None, None, 0, 100)
-        perfdata += lib.base2.get_perfdata('{}_REMAINLIFE'.format(disk['SERIALNUMBER']), disk['REMAINLIFE'], 's', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_RUNNINGSTATUS'.format(disk['SERIALNUMBER']), disk['RUNNINGSTATUS'], None, None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_RUNTIME'.format(disk['SERIALNUMBER']), disk['RUNTIME'], 's', None, None, 0, None)
-        perfdata += lib.base2.get_perfdata('{}_TEMPERATURE'.format(disk['SERIALNUMBER']), disk['TEMPERATURE'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_HEALTHSTATUS'.format(disk['UUID']), disk['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base2.get_perfdata('{}_RUNNINGSTATUS'.format(disk['UUID']), disk['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_ABRASIONRATE'.format(disk['UUID']), disk['ABRASIONRATE'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_CAPACITYUSAGE'.format(disk['UUID']), disk['CAPACITYUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_HEALTHMARK'.format(disk['UUID']), disk['HEALTHMARK'], None, None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_PROGRESS'.format(disk['UUID']), disk['PROGRESS'], '%', None, None, 0, 100)
+        perfdata += lib.base2.get_perfdata('{}_REMAINLIFE'.format(disk['UUID']), disk['REMAINLIFE'], 's', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_RUNTIME'.format(disk['UUID']), disk['RUNTIME'], 's', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('{}_TEMPERATURE'.format(disk['UUID']), disk['TEMPERATURE'], None, None, None, 0, None)
 
+        disk['health_state'] = lib.base2.state2str(health_state, empty_ok=False)
+        disk['running_state'] = lib.base2.state2str(running_state, empty_ok=False)
         disk['RUNTIME'] = lib.base2.seconds2human(disk['RUNTIME'])
 
         table_data.append(disk)
 
     if table_data:
-        keys = ['MANUFACTURER', 'MODEL', 'SERIALNUMBER', 'LOCATION', 'ABRASIONRATE', 'PROGRESS', 'RUNTIME', 'TEMPERATURE', 'health_state', 'running_state']
-        headers = ['Manufacturer', 'Model', 'SerialNumber', 'Location', 'Abrasion%', 'Progress%', 'Runtime', 'Temp', 'Health', 'Running']
+        keys = ['UUID', 'LOCATION', 'MANUFACTURER', 'MODEL', 'SERIALNUMBER', 'ABRASIONRATE', 'PROGRESS', 'RUNTIME', 'TEMPERATURE', 'health_state', 'running_state']
+        headers = ['UUID', 'Location', 'Manufacturer', 'Model', 'SerialNumber', 'Abrasion%', 'Progress%', 'Runtime', 'Temp', 'Health', 'Running']
         msg += lib.base2.get_table(table_data, keys, header=headers)
 
     msg += '\nFetched API {} {}'.format(
