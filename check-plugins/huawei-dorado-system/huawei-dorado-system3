@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111802'
+__version__ = '2021111901'
 
 DESCRIPTION = """Query basic status and performance data about a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/system/`` endpoint."""
@@ -172,7 +172,8 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.huawei3.get_data(args)
+        # Do not miss the last slash (/) at the end of the URL.
+        result = lib.huawei3.get_data('system/', args)
     else:
         # do not call the command, put in test data
         import json
