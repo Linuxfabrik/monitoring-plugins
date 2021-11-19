@@ -102,7 +102,7 @@ Perfdata / Metrics
     <UUID>_CAPACITYUSAGE,                       Percentage,         "Capacity usage."
     <UUID>_HEALTHMARK,                          Number,             "Health score of the disk."
     <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 17: single link"
-    <UUID>_PROGRESS,                            Percentage          "Progresses of reconstruction, copyback, pre-copy, and destruction."
+    <UUID>_PROGRESS,                            Percentage,         "Progresses of reconstruction, copyback, pre-copy, and destruction."
     <UUID>_REMAINLIFE,                          Seconds,            "Remaining service life."
     <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 14: pre-copy, 16: reconstruction, 27: online, 28: offline, 114: erasing, 115: verifying"
     <UUID>_RUNTIME,                             Seconds,            "Operating time."
