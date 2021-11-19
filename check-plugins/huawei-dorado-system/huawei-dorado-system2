@@ -38,7 +38,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111901'
+__version__ = '2021111902'
 
 DESCRIPTION = """Query basic status and performance data about a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/system/`` endpoint."""
@@ -193,49 +193,50 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    data = result.get('data')
 
     # analyze the data
     health_state = STATE_OK
-    if lib.huawei2.get_health_status(result.get('data').get('HEALTHSTATUS')) != 'Normal':
+    if lib.huawei2.get_health_status(data.get('HEALTHSTATUS')) != 'Normal (1)':
         health_state = STATE_CRIT
         state = lib.base2.get_worst(state, health_state)
 
     running_state = STATE_OK
-    if lib.huawei2.get_running_status(result.get('data').get('RUNNINGSTATUS')) != 'Normal':
+    if lib.huawei2.get_running_status(data.get('RUNNINGSTATUS')) != 'Normal (1)':
         running_state = STATE_WARN
         state = lib.base2.get_worst(state, running_state)
 
-    sp_used = round(float(result.get('data').get('STORAGEPOOLUSEDCAPACITY')) / float(result.get('data').get('STORAGEPOOLCAPACITY')) * 100)
+    sp_used = round(float(data.get('STORAGEPOOLUSEDCAPACITY')) / float(data.get('STORAGEPOOLCAPACITY')) * 100)
     sp_state = lib.base2.get_state(sp_used, args.WARN, args.CRIT)
     state = lib.base2.get_worst(state, sp_state)
 
-    capa_used = round(float(result.get('data').get('USEDCAPACITY')) / float(result.get('data').get('TOTALCAPACITY')) * 100)
+    capa_used = round(float(data.get('USEDCAPACITY')) / float(data.get('TOTALCAPACITY')) * 100)
     capa_state = lib.base2.get_state(capa_used, args.WARN, args.CRIT)
     state = lib.base2.get_worst(state, capa_state)
 
     # build the message
-    msg += '{} {}, Name: {}, ID: {}, Location: {}, Health Status: {}{}, Running Status: {}{}\n'.format(
-        result.get('data').get('productModeString'),
-        result.get('data').get('pointRelease'),
-        result.get('data').get('NAME'),
-        result.get('data').get('ID'),
-        result.get('data').get('LOCATION'),
-        lib.huawei2.get_health_status(result.get('data').get('HEALTHSTATUS')),
+    msg += '{} {}, UUID: {}, Name: {}, Location: {}, Health Status: {}{}, Running Status: {}{}\n'.format(
+        data.get('productModeString'),
+        data.get('pointRelease'),
+        lib.huawei2.get_uuid(data),
+        data.get('NAME'),
+        data.get('LOCATION'),
+        lib.huawei2.get_health_status(data.get('HEALTHSTATUS')),
         lib.base2.state2str(health_state, prefix=' ', empty_ok=True),
-        lib.huawei2.get_running_status(result.get('data').get('RUNNINGSTATUS')),
+        lib.huawei2.get_running_status(data.get('RUNNINGSTATUS')),
         lib.base2.state2str(running_state, prefix=' ', empty_ok=True),
     )
     msg += 'Sectors: Total {}% used ({}/{}){}, Storage Pool {}% used ({}/{}){}\n'.format(
         capa_used,
-        lib.base2.number2human(result.get('data').get('USEDCAPACITY')),
-        lib.base2.number2human(result.get('data').get('TOTALCAPACITY')),
+        lib.base2.number2human(data.get('USEDCAPACITY')),
+        lib.base2.number2human(data.get('TOTALCAPACITY')),
         lib.base2.state2str(capa_state, prefix=' '),
         sp_used,
-        lib.base2.number2human(result.get('data').get('STORAGEPOOLUSEDCAPACITY')),
-        lib.base2.number2human(result.get('data').get('STORAGEPOOLCAPACITY')),
+        lib.base2.number2human(data.get('STORAGEPOOLUSEDCAPACITY')),
+        lib.base2.number2human(data.get('STORAGEPOOLCAPACITY')),
         lib.base2.state2str(sp_state, prefix=' '),
     )
-    msg += 'Fetched API {} {}'.format(
+    msg += '\nFetched API {} {}'.format(
         result.get('counter', 0),
         lib.base2.pluralize('time', result.get('counter', 0),),
     )
@@ -243,28 +244,23 @@ def main():
     perfdata += lib.base2.get_perfdata('sectors-capacity-percent', capa_used, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base2.get_perfdata('sectors-storagepool-percent', sp_used, '%', args.WARN, args.CRIT, 0, 100)
 
-    perfdata += lib.base2.get_perfdata('HEALTHSTATUS', result.get('data').get('HEALTHSTATUS'), None, None, 2, 0, 2)
-    perfdata += lib.base2.get_perfdata('RUNNINGSTATUS', result.get('data').get('RUNNINGSTATUS'), None, 2, None, 0, 51)
-
-    perfdata += lib.base2.get_perfdata('FREEDISKSCAPACITY', result.get('data').get('FREEDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
-    perfdata += lib.base2.get_perfdata('HOTSPAREDISKSCAPACITY', result.get('data').get('HOTSPAREDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
-    perfdata += lib.base2.get_perfdata('UNAVAILABLEDISKSCAPACITY', result.get('data').get('UNAVAILABLEDISKSCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
-    perfdata += lib.base2.get_perfdata('USEDCAPACITY', result.get('data').get('USEDCAPACITY'), None, None, None, 0, result.get('data').get('TOTALCAPACITY'))
-
-    perfdata += lib.base2.get_perfdata('STORAGEPOOLFREECAPACITY', result.get('data').get('STORAGEPOOLFREECAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
-    perfdata += lib.base2.get_perfdata('STORAGEPOOLHOSTSPARECAPACITY', result.get('data').get('STORAGEPOOLHOSTSPARECAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
-    perfdata += lib.base2.get_perfdata('STORAGEPOOLRAWCAPACITY', result.get('data').get('STORAGEPOOLRAWCAPACITY'), None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('STORAGEPOOLUSEDCAPACITY', result.get('data').get('STORAGEPOOLUSEDCAPACITY'), None, None, None, 0, result.get('data').get('STORAGEPOOLCAPACITY'))
-
-    perfdata += lib.base2.get_perfdata('THICKLUNSALLOCATECAPACITY', result.get('data').get('THICKLUNSALLOCATECAPACITY'), None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('THICKLUNSUSEDCAPACITY', result.get('data').get('THICKLUNSUSEDCAPACITY'), None, None, None, 0, None)
-
-    perfdata += lib.base2.get_perfdata('THINLUNSALLOCATECAPACITY', result.get('data').get('THINLUNSALLOCATECAPACITY'), None, None, None, 0, result.get('data').get('THINLUNSMAXCAPACITY'))
-    perfdata += lib.base2.get_perfdata('THINLUNSUSEDCAPACITY', result.get('data').get('THINLUNSUSEDCAPACITY'), None, None, None, 0, result.get('data').get('THINLUNSMAXCAPACITY'))
-
-    perfdata += lib.base2.get_perfdata('mappedLunsCountCapacity', result.get('data').get('mappedLunsCountCapacity'), None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('unMappedLunsCountCapacity', result.get('data').get('unMappedLunsCountCapacity'), None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('userFreeCapacity', result.get('data').get('userFreeCapacity'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('HEALTHSTATUS', data.get('HEALTHSTATUS'), None, None, 2, 0, 2)
+    perfdata += lib.base2.get_perfdata('RUNNINGSTATUS', data.get('RUNNINGSTATUS'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('FREEDISKSCAPACITY', data.get('FREEDISKSCAPACITY'), None, None, None, 0, data.get('TOTALCAPACITY'))
+    perfdata += lib.base2.get_perfdata('HOTSPAREDISKSCAPACITY', data.get('HOTSPAREDISKSCAPACITY'), None, None, None, 0, data.get('TOTALCAPACITY'))
+    perfdata += lib.base2.get_perfdata('UNAVAILABLEDISKSCAPACITY', data.get('UNAVAILABLEDISKSCAPACITY'), None, None, None, 0, data.get('TOTALCAPACITY'))
+    perfdata += lib.base2.get_perfdata('USEDCAPACITY', data.get('USEDCAPACITY'), None, None, None, 0, data.get('TOTALCAPACITY'))
+    perfdata += lib.base2.get_perfdata('STORAGEPOOLFREECAPACITY', data.get('STORAGEPOOLFREECAPACITY'), None, None, None, 0, data.get('STORAGEPOOLCAPACITY'))
+    perfdata += lib.base2.get_perfdata('STORAGEPOOLHOSTSPARECAPACITY', data.get('STORAGEPOOLHOSTSPARECAPACITY'), None, None, None, 0, data.get('STORAGEPOOLCAPACITY'))
+    perfdata += lib.base2.get_perfdata('STORAGEPOOLRAWCAPACITY', data.get('STORAGEPOOLRAWCAPACITY'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('STORAGEPOOLUSEDCAPACITY', data.get('STORAGEPOOLUSEDCAPACITY'), None, None, None, 0, data.get('STORAGEPOOLCAPACITY'))
+    perfdata += lib.base2.get_perfdata('THICKLUNSALLOCATECAPACITY', data.get('THICKLUNSALLOCATECAPACITY'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('THICKLUNSUSEDCAPACITY', data.get('THICKLUNSUSEDCAPACITY'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('THINLUNSALLOCATECAPACITY', data.get('THINLUNSALLOCATECAPACITY'), None, None, None, 0, data.get('THINLUNSMAXCAPACITY'))
+    perfdata += lib.base2.get_perfdata('THINLUNSUSEDCAPACITY', data.get('THINLUNSUSEDCAPACITY'), None, None, None, 0, data.get('THINLUNSMAXCAPACITY'))
+    perfdata += lib.base2.get_perfdata('mappedLunsCountCapacity', data.get('mappedLunsCountCapacity'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('unMappedLunsCountCapacity', data.get('unMappedLunsCountCapacity'), None, None, None, 0, None)
+    perfdata += lib.base2.get_perfdata('userFreeCapacity', data.get('userFreeCapacity'), None, None, None, 0, None)
 
     # over and out
     lib.base2.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
