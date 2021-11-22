@@ -86,7 +86,7 @@ States
 ------
 
 * UNKNOWN on invalid responses or responses with error codes.
-* CRIT if disk health status is not equal to "Normal".
+* WARN if disk health status is not equal to "Normal".
 * WARN if disk running status is not equal to "Normal" or "Online".
 
 

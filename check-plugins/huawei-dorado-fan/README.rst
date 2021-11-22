@@ -82,12 +82,14 @@ Output:
     211:211.64.0.01 ! DAE000.A.FAN1 ! FAN1  ! low (0)    ! [OK]   ! [OK]    
     211:0.0B.0      ! CTE0.PSU 0    ! PSU 0 ! low (0)    ! [OK]   ! [OK]    
 
+    Fetched API 2 times
+
 
 States
 ------
 
 * UNKNOWN on invalid responses or responses with error codes.
-* CRIT if fan health status is not equal to "Normal".
+* WARN if fan health status is not equal to "Normal".
 * WARN if fan running status is not equal to "Normal", "Running" or "Online".
 
 
@@ -100,8 +102,8 @@ Perfdata / Metrics
     
     Name,                                       Type,               Description                                           
     <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty"
-    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 3: not running, 8: spin down, 27: online, 28: offline"
     <UUID>_RUNLEVEL,                            Numer,              "0: low, 1: normal, 2: high"
+    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 3: not running, 8: spin down, 27: online, 28: offline"
 
 Have a look at the `API documentation <https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview>`_ for details.
 

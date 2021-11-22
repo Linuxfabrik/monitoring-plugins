@@ -89,7 +89,7 @@ States
 ------
 
 * UNKNOWN on invalid responses or responses with error codes.
-* CRIT if BBU health status is not equal to "Normal".
+* WARN if BBU health status is not equal to "Normal".
 * WARN if BBU running status is not equal to "Normal", "Running", "Online", "Charging" or "Charging completed".
 
 
@@ -101,11 +101,11 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery"
-    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging"
     <UUID>_CHARGETIMES,                         Number,             Discharge count.
+    <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery"
     <UUID>_REMAINLIFEDAYS,                      Seconds,            Remaining service life.
-    <UUID>_VOLTAGE,                             Volts,              Current voltage.
+    <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging"
+    <UUID>_VOLTAGE,                             Number,             Current voltage.
 
 Have a look at the `API documentation <https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview>`_ for details.
 
