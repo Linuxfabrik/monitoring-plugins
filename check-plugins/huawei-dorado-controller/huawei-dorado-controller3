@@ -1,0 +1,237 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import time # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.huawei3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021111901'
+
+DESCRIPTION = """Batch querying controllers of a Huawei OceanStor Dorado storage
+                 system via the REST Interface, using the ``/controller`` endpoint."""
+
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 3
+
+DEFAULT_SCOPE = 0
+DEFAULT_CACHE_EXPIRE = 15 # minutes; default session timeout period is 20 minutes
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help='The amount of time after which the credential cache expires, in minutes. Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API Device ID.',
+        dest='DEVICE_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API Password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API Scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API Username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.URL.startswith('http'):
+        lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.huawei3.get_data('controller', args)
+    else:
+        # do not call the command, put in test data
+        import json
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    if not result:
+        lib.base3.oao('Got no valuable response from {}.'.format(args.URL), STATE_UNKNOWN)
+    if result.get('error').get('code') != 0:
+        lib.base3.oao('{} {}'.format(
+            result.get('error').get('description'),
+            result.get('error').get('suggestion'),
+        ), STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze the data
+    table_data = []
+    for controller in result.get('data'):
+        health_state = STATE_OK
+        if lib.huawei3.get_health_status(controller.get('HEALTHSTATUS')) != 'Normal (1)':
+            health_state = STATE_CRIT
+            state = lib.base3.get_worst(state, health_state)
+
+        running_state = STATE_OK
+        if lib.huawei3.get_running_status(controller.get('RUNNINGSTATUS')) != 'Normal (1)' and \
+           lib.huawei3.get_running_status(controller.get('RUNNINGSTATUS')) != 'Running (2)' and \
+           lib.huawei3.get_running_status(controller.get('RUNNINGSTATUS')) != 'Online (27)':
+            running_state = STATE_WARN
+            state = lib.base3.get_worst(state, running_state)
+
+        controller['UUID'] = lib.huawei3.get_uuid(controller)
+        controller['TEMPERATURE'] = int(controller['TEMPERATURE'])
+
+        perfdata += lib.base3.get_perfdata('{}_HEALTHSTATUS'.format(controller['UUID']), controller['HEALTHSTATUS'], None, None, 2, 0, 2)
+        perfdata += lib.base3.get_perfdata('{}_RUNNINGSTATUS'.format(controller['UUID']), controller['RUNNINGSTATUS'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_CPUUSAGE'.format(controller['UUID']), controller['CPUUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base3.get_perfdata('{}_DIRTYDATARATE'.format(controller['UUID']), controller['DIRTYDATARATE'], '%', None, None, 0, 100)
+        perfdata += lib.base3.get_perfdata('{}_LIGHT_STATUS'.format(controller['UUID']), controller['LIGHT_STATUS'], None, None, None, 0, 2)
+        perfdata += lib.base3.get_perfdata('{}_MEMORYUSAGE'.format(controller['UUID']), controller['MEMORYUSAGE'], '%', None, None, 0, 100)
+        perfdata += lib.base3.get_perfdata('{}_TEMPERATURE'.format(controller['UUID']), controller['TEMPERATURE'], None, None, None, 0, None) if controller['TEMPERATURE'] > 0 else ''
+        perfdata += lib.base3.get_perfdata('{}_VOLTAGE'.format(controller['UUID']), controller['VOLTAGE'], None, None, None, 0, None)
+
+        controller['health_state'] = lib.base3.state2str(health_state, empty_ok=False)
+        controller['running_state'] = lib.base3.state2str(running_state, empty_ok=False)
+        controller['ISMASTER'] = 'x' if controller['ISMASTER'] == 'true' else '-'
+        controller['MODEL'] = lib.huawei3.get_controller_model(controller['MODEL'])
+        controller['ROLE'] = lib.huawei3.get_role(controller['ROLE'])
+
+        table_data.append(controller)
+
+    if table_data:
+        keys = ['UUID', 'LOCATION', 'MODEL', 'ROLE', 'ISMASTER', 'CPUUSAGE', 'MEMORYUSAGE', 'VOLTAGE', 'health_state', 'running_state']
+        headers = ['UUID', 'Location', 'Model', 'Role', 'Master', 'CPU (%)', 'Mem (%)', 'Volt', 'Health', 'Running']
+        msg += lib.base3.get_table(table_data, keys, header=headers)
+
+    msg += '\nFetched API {} {}'.format(
+        result.get('counter', 0),
+        lib.base3.pluralize('time', result.get('counter', 0),),
+    )
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
