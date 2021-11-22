@@ -87,7 +87,7 @@ States
 ------
 
 * UNKNOWN on invalid responses or responses with error codes.
-* WARN if HyperMetrodomain running status is not equal to "Normal".
+* WARN if HyperMetroDomain running status is not equal to "Normal".
 
 
 Perfdata / Metrics
