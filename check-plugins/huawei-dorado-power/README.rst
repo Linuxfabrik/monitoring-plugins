@@ -107,8 +107,8 @@ Perfdata / Metrics
     
     Name,                                       Type,               Description                                           
     <UUID>_HEALTHSTATUS,                        Number,             "0: unknown, 1: normal, 2: faulty, 9: inconsistent, 11: no input"
-    <UUID>_INPUTVOLTAGE,                        Number,             "Output voltage. (MV)"
-    <UUID>_OUTPUTVOLTAGE,                       Number,             "Input voltage. (MV)"
+    <UUID>_INPUTVOLTAGE,                        Volts,              "Output voltage. (MV)"
+    <UUID>_OUTPUTVOLTAGE,                       Volts,              "Input voltage. (MV)"
     <UUID>_RUNNINGSTATUS,                       Number,             "0: unknown, 1: normal, 2: running, 27: online, 28: offline"
     <UUID>_TEMPERATURE,                         Number,             "Temperature."
 
