@@ -109,9 +109,9 @@ States
 * UNKNOWN on invalid responses or responses with error codes.
 * WARN if HyperMetroPair health status is not equal to "Normal".
 * WARN if HyperMetroPair running status is not equal to "Normal" or "Synchronizing.
-* WARN if link status is not qual to "connected"
-* WARN if local data status is not qual to "consistent"
-* WARN if remote data status is not qual to "consistent"
+* WARN if link status is not equal to "connected"
+* WARN if local data status is not equal to "consistent"
+* WARN if remote data status is not equal to "consistent"
 
 
 Perfdata / Metrics
