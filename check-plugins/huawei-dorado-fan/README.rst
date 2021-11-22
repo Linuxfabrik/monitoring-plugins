@@ -4,7 +4,7 @@ Check huawei-dorado-fan
 Overview
 --------
 
-Batch query basic information about fans on a Huawei OceanStor Dorado storage fan via the REST Interface, using the ``https://${ip}:${port}/deviceManager/rest/${deviceId}/fan`` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Batch query basic information about fans of a Huawei OceanStor Dorado storage system via the REST Interface, using the ``https://${ip}:${port}/deviceManager/rest/${deviceId}/fan`` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
 
 Hints:
 
@@ -74,13 +74,13 @@ Output:
 
     Everything is ok.
 
-    UUID            ! Location      ! Name  ! Runlevel   ! Health ! Running 
-    ----------------+---------------+-------+------------+--------+---------
-    211:211.0.0.00  ! CTE0.A.FAN0   ! FAN0  ! normal (1) ! [OK]   ! [OK]    
-    211:211.0.0.01  ! CTE0.A.FAN1   ! FAN1  ! normal (1) ! [OK]   ! [OK]    
-    211:211.64.0.00 ! DAE000.A.FAN0 ! FAN0  ! low (0)    ! [OK]   ! [OK]    
-    211:211.64.0.01 ! DAE000.A.FAN1 ! FAN1  ! low (0)    ! [OK]   ! [OK]    
-    211:0.0B.0      ! CTE0.PSU 0    ! PSU 0 ! low (0)    ! [OK]   ! [OK]    
+    UUID            ! Location      ! Runlevel   ! Health ! Running 
+    ----------------+---------------+------------+--------+---------
+    211:211.0.0.00  ! CTE0.A.FAN0   ! normal (1) ! [OK]   ! [OK]    
+    211:211.0.0.01  ! CTE0.A.FAN1   ! normal (1) ! [OK]   ! [OK]    
+    211:211.64.0.00 ! DAE000.A.FAN0 ! low (0)    ! [OK]   ! [OK]    
+    211:211.64.0.01 ! DAE000.A.FAN1 ! low (0)    ! [OK]   ! [OK]    
+    211:0.0B.0      ! CTE0.PSU 0    ! low (0)    ! [OK]   ! [OK]    
 
     Fetched API 2 times
 

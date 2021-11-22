@@ -4,7 +4,7 @@ Check huawei-dorado-disk
 Overview
 --------
 
-Batch query basic status and performance data about a Huawei OceanStor Dorado storage disk via the REST Interface, using the ``https://${ip}:${port}/deviceManager/rest/${deviceId}/disk`` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
+Batch query basic status and performance data of a Huawei OceanStor Dorado storage system via the REST Interface, using the ``https://${ip}:${port}/deviceManager/rest/${deviceId}/disk`` endpoint. Cookies and iBaseTokens are stored and re-used (the session timeout period is usually 20 minutes).
 
 Hints:
 
