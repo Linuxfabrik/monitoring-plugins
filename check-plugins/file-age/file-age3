@@ -42,7 +42,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092001'
+__version__ = '2021112301'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -181,7 +181,6 @@ def main():
         if proto != 'smb':
             lib.base3.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
 
-    now = lib.base3.now()
     msg = ''
     file_count = 0
     crit_count = 0
@@ -195,7 +194,7 @@ def main():
             if item.is_dir() and args.ONLY_FILES:
                 continue
 
-            age = (now - item.stat().st_mtime)
+            age = (lib.base3.now() - item.stat().st_mtime)
             item_state = STATE_OK
             # not using elif, as the item could contribute to both the warn_count and crit_count
             if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):
@@ -216,7 +215,7 @@ def main():
                 if item.is_dir() and args.ONLY_FILES:
                     continue
 
-                age = (now - item.stat().st_mtime)
+                age = (lib.base3.now() - item.stat().st_mtime)
                 item_state = STATE_OK
                 # not using elif, as the item could contribute to both the warn_count and crit_count
                 if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):
