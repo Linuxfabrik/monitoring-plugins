@@ -348,10 +348,10 @@ def get_sw():
 
 def get_os_info():
     release_files = [
-        '/etc/system-release',
         '/etc/centos-release',
-        '/etc/redhat-release',
         '/etc/fedora-release',
+        '/etc/redhat-release',
+        '/etc/system-release',
     ]
     for release_file in release_files:
         if os.path.isfile(release_file):
@@ -361,6 +361,15 @@ def get_os_info():
     if success:
         stdout, stderr, retc = result
         return stdout.strip()
+    return ''
+
+
+def get_virt_info():
+    success, result = lib.base3.shell_exec('systemd-detect-virt')
+    if success:
+        stdout, stderr, retc = result
+        return stdout.strip()
+    return 'Unknown'
 
 
 def get_interfaces():
@@ -486,10 +495,16 @@ def main():
     os_info = get_os_info()
     os_version_perfdata = ''
     if os_info:
-        msg += os_info + ', '
+        msg += os_info
         re_search = re.search(r'[\d\.]+', os_info)
         if re_search:
             os_version_perfdata = re_search.group(0).replace('.', '')
+
+    virt = get_virt_info()
+    if virt == 'none':
+        msg += ' on bare-metal, '
+    else:
+        msg += ' virtualized on {}, '.format(virt)
 
     sys_dimensions = get_sys_dimensions()
     msg += '{} {}, {} RAM'.format(
