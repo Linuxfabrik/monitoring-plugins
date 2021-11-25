@@ -604,12 +604,6 @@ To run ``check2basket`` against all checks, for example due to a change in the `
 
     ./tools/check2basket --auto
 
-.. note::
-
-    When running ``check2basket --auto`` and there is a new check, all ``datafield_ids`` of the later processed checks are adjusted, since currently the ``datafield_id`` is just a global incrementing number. This leads to a lot of changes which are not needed (ie the only change in the json file is the ``datafield_ids``).
-
-    The easiest is probably to start with ``datafield_id = 0`` for each file (since ``basket-join`` renumbers them anyway during joining).
-
 
 Service Sets
 ~~~~~~~~~~~~
