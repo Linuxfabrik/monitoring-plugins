@@ -72,7 +72,7 @@ States
 
 * WARN on ``maxmemory 0`` (can be disabled by ``--maxmemory0-ok``)
 * WARN or CRIT in case of memory usage above the specified thresholds
-* WARN in case of keyspace hit ratio below the specified thresholds
+* WARN in case of keyspace hit ratio below 10%
 * WARN on memory overusage
 * WARN on memory fragmentation
 * WARN on partial sync errors

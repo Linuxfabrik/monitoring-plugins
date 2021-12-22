@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110901'
+__version__ = '2021122201'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -252,7 +252,8 @@ def main():
         keyspace_hit_rate = round(result['keyspace_hits'] / (result['keyspace_hits'] + result['keyspace_misses']) * 100, 1)
     else:
         keyspace_hit_rate = 0
-    keyspace_hit_state = lib.base3.get_state(keyspace_hit_rate, args.WARN, None, operator='lt')
+    # hard-coded "10" because we can't do anything on bad hit rates
+    keyspace_hit_state = lib.base3.get_state(keyspace_hit_rate, 10, None, operator='lt')
     msg += '{} evicted {}, {} expired {}, hit rate {}%{} ({} hits, {} misses), '.format(
         lib.base3.number2human(result['evicted_keys']),
         lib.base3.pluralize('key', result['evicted_keys']),
