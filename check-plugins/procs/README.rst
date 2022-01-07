@@ -130,6 +130,19 @@ Other examples:
     # warn if at least 1 zombie process exists
     ./procs --status=zombie --warning=0
 
+    # count Firefox processes (Firefox's process name is "Web Content")
+    ./procs --command='web content'
+
+
+How to get process names
+------------------------
+
+Some process names in Python's psutil do not match the ones from ``ps aux``. To get a list with all processes, their names and details from a Python point of view, do:
+
+.. code-block:: python
+
+    (echo "import psutil"; echo "processes = psutil.process_iter()"; echo "for process in processes: print(process)") | python
+
 
 States
 ------
