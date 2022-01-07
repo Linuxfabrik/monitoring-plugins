@@ -147,8 +147,7 @@ Some process names in Python's psutil do not match the ones from ``ps aux``. To 
 States
 ------
 
-* WARN or CRIT depending on your parameters.
-* Returns OK if no processes can be found (this is usually positive: e.g. we cannot find a process running for more than n seconds).
+* WARN or CRIT depending on your parameters, or if no processes can be found.
 
 
 Perfdata / Metrics
