@@ -4,7 +4,7 @@ Check nginx-status
 Overview
 --------
 
-This check provides nginx basic status information from the stub status module.
+This check provides global nginx basic status information from the stub_status module.
 
 For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
 
@@ -18,6 +18,8 @@ For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/
             deny all;           # deny all other hosts   
         }
     }
+
+Due to the fact that the `stub_status <https://github.com/nginx/nginx/blob/master/src/http/modules/ngx_http_stub_status_module.c>` module increments each counter at the exact moment a new request "object" is created, even before any request header (including the URI) is parsed, there is unfortunately no way to tell Nginx not to count requests for a given URI. In other words: It is not possible to get stats only for a specific server block.
 
 
 Fact Sheet
