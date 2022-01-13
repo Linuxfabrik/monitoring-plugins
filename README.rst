@@ -4,20 +4,36 @@ Python-based Monitoring Check Plugins Collection
 .. image:: assets/img/linuxfabrik-monitoring-check-plugins-logo.png
 
 
-This Enterprise Class Check Plugin Collection offers a package of more than a hundred Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection offers a package of more than 140 Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of verification. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
 * Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
-* Windows Server (some of them)
+* Windows (all those who have a zip file)
 
-All plugins are written in Python and licensed under the UNLICENSE, which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example "used"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
+All plugins are written in Python and licensed under the UNLICENSE, which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
 
 Support
 -------
 
 The source is published here without support. Enterprise Support can be obtained from https://www.linuxfabrik.ch/angebot/service-und-support (or simply `contact us <https://www.linuxfabrik.ch/kontakt>`_). If you just like to support our work, please consider donating by clicking on |Donate|.
+
+
+Feedback from our Community
+---------------------------
+
+A few comments on our monitoring plugins:
+
+.. epigraph::
+
+    A well engineered, regularly updated and maintained collection of plugins. Specially focused on Linux servers/VMs and used at large scale by the company developing it.
+
+   -- `straessler <https://exchange.icinga.com/straessler>`_
+
+   Hello, I stumbled across your collection and am thrilled! Especially the extensive documentary and the Director Baskets are a dream.
+
+   -- Stefan Beining
 
 
 Check Plugin Poster
@@ -35,7 +51,7 @@ If you zoom in, for example on *CPU Usage*:
 Human Readable Numbers
 ----------------------
 
-Check Plugin Output: This is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_ and other). The plugins display Byte sizes in powers of 2 (KiB, MiB, GiB etc.).
+Regarding the check plugin output, this is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia `Names of large numbers <https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers>`_, and other). The plugins display Byte sizes in powers of 2 (KiB, MiB, GiB etc.).
 
 .. csv-table::
     :header-rows: 1
@@ -133,14 +149,14 @@ To avoid problems when passing *parameter values* that start with a ``-``, the c
 A few words about Python
 ------------------------
 
-Python 2 vs Python 3
+Python 3 vs Python 2
 ~~~~~~~~~~~~~~~~~~~~
 
-All check plugins are available for Python 2.7 and Python 3.6+. The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
+We stopped maintaining the Python 2-based plugins on 2021-12-31.
+
+All check plugins are available for Python 3.6+, and most of them also for Python 2.7. The Python 2 check plugins have the suffix "2" (for example ``cpu-usage2``), the Python 3 plugins have the suffix "3" (for example ``cpu-usage3``).
 
 The Python 2-based check plugins use ``#!/usr/bin/env python2``, while the Python 3-based check plugins use ``#!/usr/bin/env python3`` explicitly.
-
-We will stop maintaining the Python 2-based plugins after 2021-12-31.
 
 
 Virtual Environment
@@ -151,8 +167,12 @@ If you want to use a virtual environment for Python (optional, but recommended),
 .. code-block:: bash
 
     cd /usr/lib64/nagios/plugins
-    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
+
+    # Python 3
     python3 -m venv --system-site-packages monitoring-plugins-venv3
+
+    # Python 2
+    python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
 
 If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV2`` or ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence over the virtual environment above.
 
