@@ -35,7 +35,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022012001'
 
 DESCRIPTION = 'Returns metrics about Non-XA Datasources of a Wildfly/JBossAS over HTTP.'
 
@@ -70,6 +70,14 @@ def parse_args():
         help='Set the critical threshold.',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--datasource',
+        help='The name of a specific datasource (repeating). Default: %(default)s',
+        dest='DATASOURCE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -155,13 +163,13 @@ def check_non_xa_datasource(args):
         'InUseCount',
         'MaxWaitCount',
         'WaitCount',
-        'XACommitCount',
-        'XAEndCount',
-        'XAForgetCount',
-        'XAPrepareCount',
-        'XARecoverCount',
-        'XARollbackCount',
-        'XAStartCount',
+        # 'XACommitCount',
+        # 'XAEndCount',
+        # 'XAForgetCount',
+        # 'XAPrepareCount',
+        # 'XARecoverCount',
+        # 'XARollbackCount',
+        # 'XAStartCount',
     ]
 
     for ds in res:
@@ -171,6 +179,11 @@ def check_non_xa_datasource(args):
             if 'data-source' in v:
                 name = v['data-source']
                 break
+
+        if args.DATASOURCE is not None:
+            # filter for specific datasource
+            if not name in args.DATASOURCE:
+                continue
 
         available = int(ds['result']['AvailableCount'])
         if available == 0:
@@ -196,10 +209,11 @@ def check_non_xa_datasource(args):
         msg += '{}% max used ({}/{}){}, '.format(max_used_pct, max_used, available, lib.base3.state2str(local_state, prefix=' '))
         state = lib.base3.get_worst(local_state, state)
 
+        perfdata += lib.base3.get_perfdata('non-xa-ds-{}-available'.format(name), available, None, None, None, 0, available)
+        perfdata += lib.base3.get_perfdata('non-xa-ds-{}-active'.format(name), active, None, None, None, 0, active)
         perfdata += lib.base3.get_perfdata('non-xa-ds-{}-active-pct'.format(name), active_pct, '%', args.WARN, args.CRIT, 0, 100)
-        perfdata += lib.base3.get_perfdata('non-xa-ds-{}-active'.format(name), active, None, None, None, 0, available)
-        perfdata += lib.base3.get_perfdata('non-xa-ds-{}-maxused-pct'.format(name), max_used_pct, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base3.get_perfdata('non-xa-ds-{}-maxused'.format(name), max_used, None, None, None, 0, available)
+        perfdata += lib.base3.get_perfdata('non-xa-ds-{}-maxused-pct'.format(name), max_used_pct, '%', args.WARN, args.CRIT, 0, 100)
 
         for metric in ds_stat_types:
             if metric in ds['result']:

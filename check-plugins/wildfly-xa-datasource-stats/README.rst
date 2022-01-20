@@ -6,7 +6,7 @@ Overview
 
 This check plugin returns metrics of XA datasources of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
 
-Tested with WildFly 11 and WildFly 23.
+Tested with WildFly 11 and WildFly 23+.
 
 The check recognizes if a datasource does not support statistics.
 
@@ -35,6 +35,13 @@ To create a monitoring user, do this:
     e.g. for a slave host controller connecting to the master or for a Remoting connection for server to server Jakarta Enterprise Beans calls.
     yes/no? no
 
+To enable database statistics:
+
+* Open the WildFly Admin Console
+* Go to Configuration > Subsystems > Datasources & Drivers > Datasources
+* Select your datasource
+* Click on View > Tab Attributes > Edit "Statistics Enabled"
+
 
 Fact Sheet
 ----------
@@ -55,19 +62,23 @@ Help
 .. code-block:: text
 
     usage: wildfly-xa-datasource-stats [-h] [-V] [--always-ok] [--critical CRIT]
-                                       [--instance INSTANCE]
-                                       [--mode {standalone,domain}] [--node NODE]
-                                       -p PASSWORD [--timeout TIMEOUT]
-                                       [--url URL] --username USERNAME
-                                       [--warning WARN]
+                                      [--datasource DATASOURCE]
+                                      [--instance INSTANCE]
+                                      [--mode {standalone,domain}] [--node NODE]
+                                      -p PASSWORD [--timeout TIMEOUT]
+                                      [--url URL] --username USERNAME
+                                      [--warning WARN]
 
     Returns metrics about XA Datasources of a Wildfly/JBossAS over HTTP.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --critical CRIT       Set the critical threshold.
+      --datasource DATASOURCE
+                            The name of a specific datasource (repeating).
+                            Default: None
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
@@ -77,8 +88,9 @@ Help
                             WildFly API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990
-      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --username USERNAME   WildFly API username. Default: wildfly-monitoring
       --warning WARN        Set the warning threshold.
+
 
 
 Usage Examples
@@ -86,7 +98,11 @@ Usage Examples
 
 .. code-block:: bash
 
+    # return stats on all datasources
     ./wildfly-xa-datasource-stats --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+
+    # return stats on specific datasources
+    ./wildfly-xa-datasource-stats --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90 --datasource MyFirstDS --datasource MySecondDS
 
 Output:
 
@@ -106,24 +122,32 @@ Triggers an alarm on usage in percent.
 Perfdata / Metrics
 ------------------
 
-* xa-ds-<name>-active
-* xa-ds-<name>-active-pct: Usage in Percent
-* xa-ds-<name>-blockingfailurecount
-* xa-ds-<name>-createdcount
-* xa-ds-<name>-destroyedcount
-* xa-ds-<name>-idlecount
-* xa-ds-<name>-inusecount
-* xa-ds-<name>-maxused
-* xa-ds-<name>-maxused-pct: Usage in Percent
-* xa-ds-<name>-maxwaitcount
-* xa-ds-<name>-waitcount
-* xa-ds-<name>-xacommitcount
-* xa-ds-<name>-xaendcount
-* xa-ds-<name>-xaforgetcount
-* xa-ds-<name>-xapreparecount
-* xa-ds-<name>-xarecovercount
-* xa-ds-<name>-xarollbackcount
-* xa-ds-<name>-xastartcount
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    xa-ds-<name>-active,                        Number,             The number of active connections. Each of the connections is either in use by an application or available in the pool.
+    xa-ds-<name>-active-pct                     Percentage,         ``xa-ds-<name>-active / xa-ds-<name>-available * 100``
+    xa-ds-<name>-available,                     Number,             The number of available connections in the pool.
+    xa-ds-<name>-blockingfailurecount,          Number
+    xa-ds-<name>-createdcount,                  Number,             The number of connections created.
+    xa-ds-<name>-destroyedcount,                Number,             The number of connections destroyed.
+    xa-ds-<name>-idlecount,                     Number
+    xa-ds-<name>-inusecount,                    Number,             The number of connections currently in use.
+    xa-ds-<name>-maxused,                       Number,             The maximum number of connections used.
+    xa-ds-<name>-maxused-pct,                   Percentage,         ``xa-ds-<name>-maxused / xa-ds-<name>-available * 100``
+    xa-ds-<name>-maxwaitcount,                  Number,             The maximum number of requests waiting for a connection at the same time.
+    xa-ds-<name>-waitcount,                     Number,             The number of requests that had to wait for a connection.
+    xa-ds-<name>-xacommitcount,                 Number
+    xa-ds-<name>-xaendcount,                    Number
+    xa-ds-<name>-xaforgetcount,                 Number
+    xa-ds-<name>-xapreparecount,                Number
+    xa-ds-<name>-xarecovercount,                Number
+    xa-ds-<name>-xarollbackcount,               Number
+    xa-ds-<name>-xastartcount,                  Number
+
+Also have a look at https://access.redhat.com/documentation/en-us/jboss_enterprise_application_platform/6.2/html/administration_and_configuration_guide/datasource_statistics.
 
 
 Credits, License
