@@ -35,7 +35,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022012001'
 
 DESCRIPTION = 'Checks the deployment status of a Wildfly/JBossAS over HTTP.'
 
@@ -61,6 +61,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--deployment',
+        help='The name of an application whose deployment status is to be checked (repeating). Default: %(default)s',
+        dest='DEPLOYMENT',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -133,6 +141,12 @@ def check_deployment_status(args):
 
     for result in res:
         deployment = { k: v for d in result.get('address') for k, v in d.items() }.get('deployment')
+
+        if args.DEPLOYMENT is not None:
+            # filter for specific datasource
+            if not deployment in args.DEPLOYMENT:
+                continue
+
         deployments += 1
         if result.get('result') in ['OK', 'RUNNING']:
             local_state = STATE_OK

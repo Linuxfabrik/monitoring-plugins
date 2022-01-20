@@ -6,7 +6,7 @@ Overview
 
 This check plugin monitors the deployment status of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
 
-Tested with WildFly 11 and WildFly 23.
+Tested with WildFly 11 and WildFly 23+.
 
 To create a monitoring user, do this:
 
@@ -53,6 +53,7 @@ Help
 .. code-block:: text
 
     usage: wildfly-deployment-status [-h] [-V] [--always-ok]
+                                     [--deployment DEPLOYMENT]
                                      [--instance INSTANCE]
                                      [--mode {standalone,domain}] [--node NODE]
                                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
@@ -60,10 +61,13 @@ Help
 
     Checks the deployment status of a Wildfly/JBossAS over HTTP.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --deployment DEPLOYMENT
+                            The name of an application whose deployment status is
+                            to be checked (repeating). Default: None
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
@@ -73,7 +77,7 @@ Help
                             WildFly API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990
-      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --username USERNAME   WildFly API username. Default: wildfly-monitoring
 
 
 Usage Examples
@@ -81,7 +85,11 @@ Usage Examples
 
 .. code-block:: bash
 
+    # check all deployments
     ./wildfly-deployment-status --username wildfly-monitoring --password password --url http://wildfly:9990
+
+    # just check specific deployments
+    ./wildfly-deployment-status --username wildfly-monitoring --password password --url http://wildfly:9990 --deployment MyFirstApp --deployment MySecondApp
 
 Output:
 
@@ -89,8 +97,8 @@ Output:
 
     2 Deployments checked, everything is ok.
 
-    * myapp1.war is OK
-    * myapp2.war is RUNNING
+    * MyFirstApp is OK
+    * MySecondApp is RUNNING
 
 
 States
@@ -106,7 +114,12 @@ Triggers an alarm on its own.
 Perfdata / Metrics
 ------------------
 
-* deployment-state-<name>: 0 (STATE_OK), 1 (STATE_WARN), 2 (STATE_CRIT)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    deployment-state-<name>,                    Number,             "0 (STATE_OK), 1 (STATE_WARN), 2 (STATE_CRIT)"
 
 
 Credits, License
