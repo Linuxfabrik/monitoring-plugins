@@ -124,6 +124,7 @@ For all other options, use long parameters only. Separate words using a ``-``. W
     --critical-regex
     --critical-slowreq
     --database
+    --datasource
     --date
     --device
     --donor
