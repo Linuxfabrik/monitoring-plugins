@@ -34,7 +34,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2022020101'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -243,6 +243,8 @@ def main():
             # SUBSTATE is not None and not empty
             problem = True
             problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
+        if unitfilestate == '':
+            unitfilestate = 'empty'
         if args.UNITFILESTATE is not None and args.UNITFILESTATE != unitfilestate:
             problem = True
             problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)
