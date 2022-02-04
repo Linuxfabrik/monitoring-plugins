@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022012001'
+__version__ = '2022020401'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -234,7 +234,7 @@ def main():
         lib.base3.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.base3.bytes2human(result['total_system_memory']),
         lib.base3.bytes2human(result['used_memory_peak']),
         lib.base3.bytes2human(result['used_memory_rss']),
-        result['maxmemory_policy'],
+        result.get('maxmemory_policy', 'N/A'),
     )
 
     # search for {'db0': 'keys=20489,expires=20489,avg_ttl=47954'}
@@ -347,7 +347,7 @@ def main():
 
     perfdata += lib.base3.get_perfdata('memory_maxmemory', result['maxmemory'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_mem_fragmentation_ratio', result['mem_fragmentation_ratio'], None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('memory_total_system_memory', result['total_system_memory'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('memory_total_system_memory', result.get('total_system_memory', 0), 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory', result['used_memory'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory_lua', result['used_memory_lua'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory_rss', result['used_memory_rss'], 'B', None, None, 0, None)
