@@ -47,7 +47,7 @@ else:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021001'
 
 DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
                 (the same way MySQLTuner does)."""
@@ -179,14 +179,14 @@ def main():
                 user = args.USERNAME,
                 password = args.PASSWORD,
                 use_pure = False,
-                )
+            )
         else:
             cnx = mysql.connector.connect(
                 host = args.HOSTNAME,
                 port = args.PORT,
                 user = args.USERNAME,
                 password = args.PASSWORD,
-                )
+            )
     except mysql.connector.Error as err:
         if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
             lib.base3.oao('Wrong username or password.', STATE_UNKNOWN)
@@ -194,6 +194,15 @@ def main():
             lib.base3.oao('Unknown database.', STATE_UNKNOWN)
         else:
             lib.base3.oao(err, STATE_UNKNOWN)
+    except ImportError as err:
+        # ImportError: MySQL Connector/Python C Extension not available
+        cnx = mysql.connector.connect(
+            host = args.HOSTNAME,
+            port = args.PORT,
+            user = args.USERNAME,
+            password = args.PASSWORD,
+            use_pure = True,
+        )
 
     myvar = {}
     mystat = {}
