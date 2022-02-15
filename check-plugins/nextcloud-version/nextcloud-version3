@@ -35,7 +35,7 @@ from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021501'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
@@ -71,11 +71,21 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_owner(file):
+    """Returns the user ID of the owner of a file (for example "0" for "root").
+    Returns -1 on failure.
+    """
+    try:
+        return os.stat(file).st_uid
+    except:
+        return -1
+
+
 def run_occ(path, cmd, format='json'):
     """Run the Nextcloud OCC command.
     """
     # get the owner of config.php
-    user = lib.base3.get_owner(os.path.join(path, 'config/config.php'))
+    user = get_owner(os.path.join(path, 'config/config.php'))
     occ = os.path.join(path, 'occ')
     # When running a command as a UID, many shells require that the `#` be escaped with a backslash (`\`).
     stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
