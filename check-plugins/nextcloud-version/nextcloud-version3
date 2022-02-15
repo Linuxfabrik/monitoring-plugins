@@ -31,11 +31,12 @@ import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
@@ -88,7 +89,7 @@ def run_occ(path, cmd, format='json'):
     user = get_owner(os.path.join(path, 'config/config.php'))
     occ = os.path.join(path, 'occ')
     # When running a command as a UID, many shells require that the `#` be escaped with a backslash (`\`).
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:

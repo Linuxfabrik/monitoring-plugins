@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
         
 class TestCheck(unittest.TestCase):
@@ -23,13 +24,13 @@ class TestCheck(unittest.TestCase):
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --username=test --password=test --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --username=test --password=test --test=examples/EXAMPLE01,,0'))
         self.assertIn('1 VM failed [CRITICAL], 2 VMs with warnings [WARNING], 5 Jobs failed [CRITICAL], 3 Jobs with warnings [WARNING]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --username=test --password=test --test=examples/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --username=test --password=test --test=examples/EXAMPLE02,,0'))
         self.assertIn('"Backup Volume 01" 18.3% used - total: 1005.5GiB, used: 184.2GiB, free: 821.3GiB', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

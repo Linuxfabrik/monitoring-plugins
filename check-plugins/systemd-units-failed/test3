@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
         
 class TestCheck(unittest.TestCase):
@@ -19,37 +20,37 @@ class TestCheck(unittest.TestCase):
     check = './systemd-units-failed3'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
         self.assertRegex(stdout, r'Everything is ok.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
         self.assertRegex(stdout, r'There is 1 failed unit.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
         self.assertRegex(stdout, r'There are 2 failed units.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03_ignore1(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --ignore=openipmi.service --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --ignore=openipmi.service --test=examples/EXAMPLE03,,0'))
         self.assertRegex(stdout, r'There is 1 failed unit.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03_ignore2(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --ignore=openipmi.service --ignore=smartd.service --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --ignore=openipmi.service --ignore=smartd.service --test=examples/EXAMPLE03,,0'))
         self.assertRegex(stdout, r'Everything is ok.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE03_ignore3(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --ignore=openipmi.service --ignore=smartd.service --ignore=fantasy.mount --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --ignore=openipmi.service --ignore=smartd.service --ignore=fantasy.mount --test=examples/EXAMPLE03,,0'))
         self.assertRegex(stdout, r'Everything is ok.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

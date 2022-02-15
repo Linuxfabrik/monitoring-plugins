@@ -30,11 +30,12 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101301'
+__version__ = '2022021501'
 
 DESCRIPTION = 'This plugin checks the clock offset in milliseconds compared to ntp servers.'
 
@@ -91,12 +92,12 @@ def main():
     # fetch data
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='ntpd')
-    stdout, stderr, ntp_retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    stdout, stderr, ntp_retc = lib.base3.coe(lib.shell3.shell_exec(formatted_systemctl_command))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     formatted_systemctl_command = systemctl_command.format(service='ntp')
-    stdout, stderr, ntpd_retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    stdout, stderr, ntpd_retc = lib.base3.coe(lib.shell3.shell_exec(formatted_systemctl_command))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
@@ -104,14 +105,14 @@ def main():
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='chronyd')
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(formatted_systemctl_command))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     chronyd_present = bool(retc == 0)
 
     # execute the shell command and return its result and exit code
     formatted_systemctl_command = systemctl_command.format(service='systemd-timesyncd')
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(formatted_systemctl_command))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(formatted_systemctl_command))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     systemd_timesyncd_present = bool(retc == 0)
@@ -120,7 +121,7 @@ def main():
         lib.base3.oao('Neither ntpd nor chronyd nor systemd-timesyncd found.', STATE_UNKNOWN)
 
     if chronyd_present:
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(chronyc_command))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(chronyc_command))
         if stderr: # todo check retc?
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_header = 'chronyd: '
@@ -141,7 +142,7 @@ def main():
                 continue
 
     if ntpd_present:
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(ntpq_command))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(ntpq_command))
         if stderr: # todo check retc?
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
         msg_header = 'ntpd: '
@@ -161,7 +162,7 @@ def main():
             lib.base3.oao('No NTP server used.', STATE_UNKNOWN)
 
     if systemd_timesyncd_present:
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(systemd_timesyncd_command))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(systemd_timesyncd_command))
         if stderr:
             if 'Unknown operation' in stderr:
                 lib.base3.oao('sytemd-timesyncd found. No further information can be extracted.', STATE_UNKNOWN)

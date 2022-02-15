@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2022021501'
 
 DESCRIPTION = """Checks if there are updates for python packages installed via `pip`."""
 
@@ -110,10 +111,10 @@ def main():
     if args.TEST is None:
         if args.VIRTUALENV:
             cmd = '. {} && {}'.format(args.VIRTUALENV, 'pip list --outdated')
-            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
         else:
             cmd = 'pip list --outdated'
-            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)

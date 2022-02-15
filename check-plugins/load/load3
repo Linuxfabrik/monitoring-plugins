@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -39,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Return the average system load per cpu over the last 1, 5 and 15 minutes. In short, "load" is the average sum of the number of processes waiting in the run-queue plus the number currently executing over 1, 5, and 15 minute time periods.'
 
@@ -99,7 +100,7 @@ def main():
 
     # we could get the load natively with psutil >= 5.6.2
     # but until then, we do this here:
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD))
     if retc != 0:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 

@@ -31,11 +31,12 @@ import sys
 
 import lib.args3
 import lib.base3
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021501'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -106,7 +107,7 @@ def main():
     # execute the shell command and return its result and exit code
     if lib.base3.LINUX:
         cmd = '/usr/bin/w'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         if stderr or retc != 0:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
         result = stdout.strip()
@@ -126,7 +127,7 @@ def main():
         CRIT_DISC = lib.args3.int_or_none(args.CRIT[2])
 
         cmd = 'query user'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         # Could not find any documentation in the return codes of 'query user' (%ERRORLEVEL% is always 1).
         result = stdout.strip()
         lines = result.splitlines()

@@ -31,11 +31,12 @@ import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021501'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses (for a list of jails).'
 
@@ -95,12 +96,12 @@ def main():
 
     # fetch data
     # fail2ban-client ping
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd + ' ping'))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd + ' ping'))
     if retc:
         lib.base3.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
 
     # fail2ban-client status
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd + ' status'))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd + ' status'))
     if (retc != 0):
         lib.base3.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
 
@@ -118,7 +119,7 @@ def main():
     #     fail2ban-client status jail_name
     for jail in jail_list:
 
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd + ' status {}'.format(jail)))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd + ' status {}'.format(jail)))
         if (retc != 0):
             lib.base3.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
 

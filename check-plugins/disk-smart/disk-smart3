@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021503'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -803,7 +804,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.TEST is None:
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD_LIST_DISKS))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD_LIST_DISKS))
         if stderr:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
@@ -833,7 +834,7 @@ def main():
 
         if args.TEST is None:
             cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
-            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd_smartctl))
+            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
             stdout, stderr, retc = lib.test3.test(args.TEST)

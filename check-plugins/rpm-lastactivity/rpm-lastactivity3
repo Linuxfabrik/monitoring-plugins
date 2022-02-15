@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021503'
 
 DESCRIPTION = """Checks the timespan since the last rpm activity, for example due to a yum/dnf
                 install/update."""
@@ -86,7 +87,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(
         'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n" | sort | tail -1'
     ))
     if stderr:

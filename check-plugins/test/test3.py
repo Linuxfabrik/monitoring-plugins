@@ -33,17 +33,10 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
-import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
-try:
-    import psutil # pylint: disable=C0413
-except ImportError:
-    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021501'
 
 DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
                 further development, and much more text to help admins get this check up and
@@ -72,36 +65,6 @@ def parse_args():
         default=False,
     )
 
-    parser.add_argument(
-        '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
-        dest='CRIT',
-        type=int,
-        default=DEFAULT_CRIT,
-    )
-
-    parser.add_argument(
-        '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
-        dest='TEST',
-        type=lib.args3.csv,
-    )
-
-    parser.add_argument(
-        '--token',
-        help='Software API token',
-        dest='TOKEN',
-        required=True,
-    )
-
-    parser.add_argument(
-        '-w', '--warning',
-        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
-        dest='WARN',
-        type=int,
-        default=DEFAULT_WARN,
-    )
-
     return parser.parse_args()
 
 
@@ -116,30 +79,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    if args.TEST is None:
-        cmd = 'cat /etc/os-release'
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
-        if stderr:
-            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
-    else:
-        # do not call the command, put in test data
-        stdout, stderr, retc = lib.test3.test(args.TEST)
-
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
-    # analyze data
-    value = str(lib.time3.now())[-2:]
-
-    # build the message
-    state = lib.base3.get_state(value, args.WARN, args.CRIT)
-    msg += '{}% used{}'.format(value, lib.base3.state2str(state, prefix=' '))
-    perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
-
-    # over and out
-    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    cmd = 'dmesg   --level emerg,alert,crit,err --ctime   '
+    cmd = '. /etc/os-release && echo $NAME $VERSION'
+    print(lib.shell3.shell_exec(cmd, shell=True)) 
+    exit()
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.run_cmd(cmd)) # pylint: disable=W0612
+    if stderr:
+        lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
 
 if __name__ == '__main__':

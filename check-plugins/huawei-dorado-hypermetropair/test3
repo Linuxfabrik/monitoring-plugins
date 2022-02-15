@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
 
 class TestCheck(unittest.TestCase):
@@ -23,7 +24,7 @@ class TestCheck(unittest.TestCase):
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=examples/EXAMPLE01,,0'))
         self.assertIn('Everything is ok.\n\nUUID                                   ! Link ! Last Sync                       ! Duration ! Progr (%) ! LocalJob  ! DataState ! Access ! RemoteJob ! DataState ! Access ! Health ! Running \n---------------------------------------+------+---------------------------------+----------+-----------+-----------+-----------+--------+-----------+-----------+--------+--------+---------\n15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47 (', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

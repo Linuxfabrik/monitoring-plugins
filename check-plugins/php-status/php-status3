@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -114,7 +115,7 @@ def parse_args():
 
 
 def get_startup_errors():
-    success, result = lib.base3.shell_exec('php --version 1> /dev/null')
+    success, result = lib.shell3.shell_exec('php --version 1> /dev/null')
     if not success:
         lib.base3.oao('PHP not found', STATE_UNKNOWN)
     stdout, stderr, retc = result
@@ -122,7 +123,7 @@ def get_startup_errors():
 
 
 def get_config_errors(args):
-    success, result = lib.base3.shell_exec('php --info 2> /dev/null')
+    success, result = lib.shell3.shell_exec('php --info 2> /dev/null')
     if not success:
         lib.base3.oao('PHP not found', STATE_UNKNOWN)
     stdout, stderr, retc = result
@@ -143,7 +144,7 @@ def get_config_errors(args):
 
 
 def get_module(args):
-    success, result = lib.base3.shell_exec('php --modules 2> /dev/null')
+    success, result = lib.shell3.shell_exec('php --modules 2> /dev/null')
     if not success:
         lib.base3.oao('PHP not found', STATE_UNKNOWN)
     stdout, stderr, retc = result

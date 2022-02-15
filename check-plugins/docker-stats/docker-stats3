@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -131,7 +132,7 @@ def main():
 
     # we need cpu and memory from docker perspective
     cmd = 'docker info'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
     if not stdout:
         lib.base3.oao('{}'.format('Unable to fetch docker info.'), STATE_UNKNOWN)
     try:
@@ -158,7 +159,7 @@ def main():
     # b48543f756e6   mongo           0.27%     73.84MiB / 3.702GiB   1.95%     760B / 116B   6.59MB / 480kB   33
 
     cmd = 'docker stats --no-stream'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
     if (stderr or retc != 0):
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
