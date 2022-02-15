@@ -33,10 +33,11 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021121401'
+__version__ = '2022021502'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -360,7 +361,7 @@ def parse_section_info(section):
                 p['w'] = get_worst('notice', p['w'])
                 p['msg'] = p.get('msg', '') + '  - Info: SMART is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
 
-    p['model'] = lib.base3.uniq(p['model'].strip())
+    p['model'] = lib.txt3.uniq(p['model'].strip())
 
     if warning:
         p['msg'] += '  - There are warnings, your drive may be affected:\n{}'.format(warning)
@@ -891,7 +892,7 @@ def main():
 
 
     if disk_count:
-        msg_header = 'Checked {} {}.'.format(disk_count, lib.base3.pluralize('disk', disk_count))
+        msg_header = 'Checked {} {}.'.format(disk_count, lib.txt3.pluralize('disk', disk_count))
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:

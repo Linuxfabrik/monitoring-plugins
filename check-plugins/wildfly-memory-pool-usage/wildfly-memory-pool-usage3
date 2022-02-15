@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.wildfly3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -198,9 +199,9 @@ def check_memory_pool_usage(args):
         perfdata += lib.base3.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
 
     if state == STATE_OK:
-        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base3.pluralize('Pool', pools))
+        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.txt3.pluralize('Pool', pools))
     else:
-        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base3.pluralize('Pool', pools))
+        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.txt3.pluralize('Pool', pools))
     msg += msg_heap + msg_non_heap
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

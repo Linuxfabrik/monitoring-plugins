@@ -32,6 +32,7 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -41,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                 counts or process memory usage. You may filter the process list by process name,
@@ -344,7 +345,7 @@ def main():
     state = lib.base3.get_worst(state, local_state)
     msg = '{} {}{}{}'.format(
         procs_count,
-        lib.base3.pluralize('proc', procs_count),
+        lib.txt3.pluralize('proc', procs_count),
         msg_filter,
         lib.base3.state2str(local_state, prefix=' '),
     )
@@ -379,7 +380,7 @@ def main():
         msg += '{} dead, '.format(proc_states[psutil.STATUS_DEAD])
 
     if proc_states[psutil.STATUS_DISK_SLEEP]:
-        msg += '{} {} ('.format(proc_states[psutil.STATUS_DISK_SLEEP], lib.base3.pluralize('uninterruptible', proc_states[psutil.STATUS_DISK_SLEEP]))
+        msg += '{} {} ('.format(proc_states[psutil.STATUS_DISK_SLEEP], lib.txt3.pluralize('uninterruptible', proc_states[psutil.STATUS_DISK_SLEEP]))
         for name, cnt in uninterruptibles.items():
             msg += '{}x {}, '.format(cnt, name)
         msg = msg[:-2] + '), '
@@ -397,7 +398,7 @@ def main():
         msg += '{} stopped, '.format(proc_states[psutil.STATUS_STOPPED])
 
     if proc_states[psutil.STATUS_ZOMBIE]:
-        msg += '{} {} ('.format(proc_states[psutil.STATUS_ZOMBIE], lib.base3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]))
+        msg += '{} {} ('.format(proc_states[psutil.STATUS_ZOMBIE], lib.txt3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]))
         for name, cnt in zombies.items():
             msg += '{}x {}, '.format(cnt, name)
         msg = msg[:-2] + '), '

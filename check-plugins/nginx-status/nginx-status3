@@ -34,12 +34,13 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021503'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -143,14 +144,14 @@ def main():
 
     # build the message
     msg += '{} active concurrent {}{}; {} accepted {}, {} handled {}, {} {}; {} req per conn; currently {} receiving {}, {} sending {}, {} keep-alive {}'.format(
-        active_connections, lib.base3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
-        lib.human3.number2human(total_connections_accepted), lib.base3.pluralize('conn', total_connections_accepted),
-        lib.human3.number2human(total_connections_handled), lib.base3.pluralize('conn', total_connections_handled),
-        lib.human3.number2human(total_requests), lib.base3.pluralize('req', total_requests),
+        active_connections, lib.txt3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
+        lib.human3.number2human(total_connections_accepted), lib.txt3.pluralize('conn', total_connections_accepted),
+        lib.human3.number2human(total_connections_handled), lib.txt3.pluralize('conn', total_connections_handled),
+        lib.human3.number2human(total_requests), lib.txt3.pluralize('req', total_requests),
         requests_per_connection,
-        connections_reading, lib.base3.pluralize('req', connections_reading),
-        connections_writing, lib.base3.pluralize('response', connections_writing),
-        connections_waiting, lib.base3.pluralize('conn', connections_waiting),
+        connections_reading, lib.txt3.pluralize('req', connections_reading),
+        connections_writing, lib.txt3.pluralize('response', connections_writing),
+        connections_waiting, lib.txt3.pluralize('conn', connections_waiting),
         )
     perfdata += lib.base3.get_perfdata('nginx_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_active', active_connections, None, args.WARN, args.CRIT, 0, None)

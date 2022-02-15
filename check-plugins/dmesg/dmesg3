@@ -32,11 +32,12 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2022021502'
 
 DESCRIPTION = """Checks dmesg for emerg, alert, crit and err messages. Executes `dmesg
                 --level=emerg,alert,crit,err --ctime `. If you fixed the issues (or just want to
@@ -135,7 +136,7 @@ def main():
 
     # analyze data
     result = stdout.strip()
-    result = lib.base3.filter_mltext(result, args.IGNORE).strip()
+    result = lib.txt3.filter_mltext(result, args.IGNORE).strip()
 
     # build the message
     if len(result) > 0:
@@ -145,7 +146,7 @@ def main():
             result = result.split('\n')
             result = result[0:5] + ['...'] + result[-5:]
             result = '\n'.join(result)
-        msg = '{} {} in Kernel Ring Buffer.\n\n{}'.format(cnt, lib.base3.pluralize('error', cnt), result)
+        msg = '{} {} in Kernel Ring Buffer.\n\n{}'.format(cnt, lib.txt3.pluralize('error', cnt), result)
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
     else:
         msg = 'Everything is ok.'

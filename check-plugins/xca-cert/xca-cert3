@@ -31,10 +31,11 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.db_mysql3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
@@ -218,22 +219,22 @@ def main():
     # create the message
     msg = '{} {} and {} {} checked. '.format(
         crt_count,
-        lib.base3.pluralize('Certificate', crt_count),
+        lib.txt3.pluralize('Certificate', crt_count),
         crl_count,
-        lib.base3.pluralize('CRL', crl_count)
+        lib.txt3.pluralize('CRL', crl_count)
         )
 
     if expiring_crt_count > 0:
         msg += '{} {} {} expiring. '.format(
             expiring_crt_count,
-            lib.base3.pluralize('Certificate', expiring_crt_count),
-            lib.base3.pluralize('', expiring_crt_count, 'is,are')
+            lib.txt3.pluralize('Certificate', expiring_crt_count),
+            lib.txt3.pluralize('', expiring_crt_count, 'is,are')
             )
     if expiring_crl_count > 0:
         msg += '{} {} {} expiring.'.format(
             expiring_crl_count,
-            lib.base3.pluralize('CRL', expiring_crl_count),
-            lib.base3.pluralize('', expiring_crl_count, 'is,are')
+            lib.txt3.pluralize('CRL', expiring_crl_count),
+            lib.txt3.pluralize('', expiring_crl_count, 'is,are')
             )
 
     if len(table_crts) > 0:

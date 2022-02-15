@@ -33,13 +33,14 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 import lib.veeam3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -190,7 +191,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} failed{}, '.format(
             val,
-            lib.base3.pluralize('VM', val),
+            lib.txt3.pluralize('VM', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['overview']['WarningVmLastestStates']
@@ -199,7 +200,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} with warnings{}, '.format(
             val,
-            lib.base3.pluralize('VM', val),
+            lib.txt3.pluralize('VM', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
 
@@ -209,7 +210,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} failed{}, '.format(
             val,
-            lib.base3.pluralize('Job', val),
+            lib.txt3.pluralize('Job', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['job_statistics']['WarningsJobRuns']
@@ -218,7 +219,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} with warnings{}, '.format(
             val,
-            lib.base3.pluralize('Job', val),
+            lib.txt3.pluralize('Job', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['job_statistics']['MaxBackupJobDuration']

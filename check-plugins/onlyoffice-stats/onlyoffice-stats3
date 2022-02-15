@@ -34,12 +34,13 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -117,7 +118,7 @@ def main():
     max_conn_crit = max_conn * 0.95
 
     # build the message and perfdata
-    msg += 'Max {} {}, '.format(max_conn, lib.base3.pluralize('connection', max_conn))
+    msg += 'Max {} {}, '.format(max_conn, lib.txt3.pluralize('connection', max_conn))
 
     # license; expired?
     now = lib.base3.now(as_type='iso')
@@ -157,7 +158,7 @@ def main():
     perfdata += lib.base3.get_perfdata('conn_hour_edit_max', result['connectionsStat']['hour']['edit']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
     if 'usersInfo' in result:
-        msg += '{} unique {}, '.format(result['usersInfo']['uniqueUserCount'], lib.base3.pluralize('user', result['usersInfo']['uniqueUserCount']))
+        msg += '{} unique {}, '.format(result['usersInfo']['uniqueUserCount'], lib.txt3.pluralize('user', result['usersInfo']['uniqueUserCount']))
         perfdata += lib.base3.get_perfdata('unique_users', result['usersInfo']['uniqueUserCount'], None, None, None, 0, None)
 
     msg += 'v{}, '.format(result['serverInfo']['buildVersion'])

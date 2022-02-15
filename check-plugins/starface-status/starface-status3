@@ -34,11 +34,12 @@ import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2022021502'
 
 DESCRIPTION = """Checks the overall health of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -164,7 +165,7 @@ def main():
         lib.base3.oao('Got no valuable response from {}:{}.'.format(host, port), STATE_UNKNOWN)
 
     # extract data
-    result = lib.base3.extract_str(data, '<<<starface>>>', '<<<').splitlines()
+    result = lib.txt3.extract_str(data, '<<<starface>>>', '<<<').splitlines()
 
     # init some vars
     msg_header, msg_body = '', ''
@@ -203,7 +204,7 @@ def main():
 
         if row.startswith('license_max_users'):
             value = row.replace('license_max_users ', '')
-            msg_body += '{} licensed {}, '.format(value, lib.base3.pluralize('user', value))
+            msg_body += '{} licensed {}, '.format(value, lib.txt3.pluralize('user', value))
 
         if row.startswith('raid_diagnosis'):
             value = row.replace('raid_diagnosis ', '')
@@ -216,12 +217,12 @@ def main():
 
         if row.startswith('blacklisted_hosts'):
             value = row.replace('blacklisted_hosts ', '')
-            msg_header += '{} blacklisted {}, '.format(value, lib.base3.pluralize('host', value))
+            msg_header += '{} blacklisted {}, '.format(value, lib.txt3.pluralize('host', value))
             perfdata += lib.base3.get_perfdata('blacklisted_hosts', value, None, None, None, 0, None)
 
         if row.startswith('whitelisted_hosts'):
             value = row.replace('whitelisted_hosts ', '')
-            msg_body += '{} whitelisted {}, '.format(value, lib.base3.pluralize('host', value))
+            msg_body += '{} whitelisted {}, '.format(value, lib.txt3.pluralize('host', value))
             perfdata += lib.base3.get_perfdata('whitelisted_hosts', value, None, None, None, 0, None)
 
         if row.startswith('sip_status_localhost'):
@@ -235,17 +236,17 @@ def main():
 
         if row.startswith('known_phones'):
             value = row.replace('known_phones ', '')
-            msg_body += '{} {} known, '.format(value, lib.base3.pluralize('phone', value))
+            msg_body += '{} {} known, '.format(value, lib.txt3.pluralize('phone', value))
             perfdata += lib.base3.get_perfdata('known_phones', value, None, None, None, 0, None)
 
         if row.startswith('online_phones'):
             value = row.replace('online_phones ', '')
-            msg_header += '{} {} online, '.format(value, lib.base3.pluralize('phone', value))
+            msg_header += '{} {} online, '.format(value, lib.txt3.pluralize('phone', value))
             perfdata += lib.base3.get_perfdata('online_phones', value, None, None, None, 0, None)
 
         if row.startswith('ip_changed_phones'):
             value = row.replace('ip_changed_phones ', '')
-            msg_body += '{} {} changed IP, '.format(value, lib.base3.pluralize('phone', value))
+            msg_body += '{} {} changed IP, '.format(value, lib.txt3.pluralize('phone', value))
             perfdata += lib.base3.get_perfdata('ip_changed_phones', value, None, None, None, 0, None)
 
         if row.startswith('asterisk_uptime'):

@@ -33,6 +33,7 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.smb3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 missing_smb_lib = False
@@ -43,7 +44,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -243,12 +244,12 @@ def main():
         if warn_count == 0 and crit_count == 0:
             msg = 'Everything is ok. {} {} checked, all within the specified count and time range.\n\n'.format(
                 file_count,
-                lib.base3.pluralize("item", file_count),
+                lib.txt3.pluralize("item", file_count),
             ) + msg
         else:
             msg = 'Everything is ok. {} {} checked. All within the specified count range, but {} outside "{}" time range, and {} outside "{}" time range.\n\n'.format(
                 file_count,
-                lib.base3.pluralize("item", file_count),
+                lib.txt3.pluralize("item", file_count),
                 warn_count,
                 lib.human3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
                 crit_count,
@@ -257,15 +258,15 @@ def main():
     else:
         msg = '{} {} outside count range "{}" and outside "{}" time range. {} {} outside count range "{}" and outside "{}" time range. {} {} checked. \n\n'.format(
             warn_count,
-            lib.base3.pluralize("item", warn_count),
+            lib.txt3.pluralize("item", warn_count),
             args.WARN_COUNT,
             lib.human3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
             crit_count,
-            lib.base3.pluralize("item", crit_count),
+            lib.txt3.pluralize("item", crit_count),
             args.CRIT_COUNT,
             lib.human3.seconds2human(args.CRIT) if isinstance(lib.base3.guess_type(args.CRIT), int) else args.CRIT,
             file_count,
-            lib.base3.pluralize("item", file_count),
+            lib.txt3.pluralize("item", file_count),
         ) + msg
 
     # over and out

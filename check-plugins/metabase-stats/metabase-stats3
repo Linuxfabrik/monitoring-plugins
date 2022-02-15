@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -184,12 +185,12 @@ def main():
     msg += '{} on '.format(settings)
     msg += 'Metabase {}; '.format(stats['version'])
 
-    msg += '{} {}, '.format(stats['stats']['user']['users']['total'], lib.base3.pluralize('user', stats['stats']['user']['users']['total']))
-    msg += '{} {} analyzed, '.format(stats['stats']['database']['databases']['analyzed'], lib.base3.pluralize('DB', stats['stats']['database']['databases']['analyzed']))
-    msg += '{} {} (GUI), '.format(stats['stats']['question']['questions']['gui'], lib.base3.pluralize('question', stats['stats']['question']['questions']['gui']))
-    msg += '{} {}, '.format(stats['stats']['alert']['alerts'], lib.base3.pluralize('alert', stats['stats']['alert']['alerts']))
-    msg += '{} {}, '.format(stats['stats']['pulse']['pulses'], lib.base3.pluralize('pulse', stats['stats']['pulse']['pulses']))
-    msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.base3.pluralize('collection', stats['stats']['collection']['collections']))
+    msg += '{} {}, '.format(stats['stats']['user']['users']['total'], lib.txt3.pluralize('user', stats['stats']['user']['users']['total']))
+    msg += '{} {} analyzed, '.format(stats['stats']['database']['databases']['analyzed'], lib.txt3.pluralize('DB', stats['stats']['database']['databases']['analyzed']))
+    msg += '{} {} (GUI), '.format(stats['stats']['question']['questions']['gui'], lib.txt3.pluralize('question', stats['stats']['question']['questions']['gui']))
+    msg += '{} {}, '.format(stats['stats']['alert']['alerts'], lib.txt3.pluralize('alert', stats['stats']['alert']['alerts']))
+    msg += '{} {}, '.format(stats['stats']['pulse']['pulses'], lib.txt3.pluralize('pulse', stats['stats']['pulse']['pulses']))
+    msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.txt3.pluralize('collection', stats['stats']['collection']['collections']))
     msg += '{} CPUs, {} MiB RAM'.format(stats['stats']['system']['processors'], stats['stats']['system']['max_memory'])
 
     msg += u'\nLast activity: "{}{}" by {} ({} ago)'.format(
