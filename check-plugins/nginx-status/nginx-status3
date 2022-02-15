@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022020801'
+__version__ = '2022021501'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -143,9 +143,9 @@ def main():
     # build the message
     msg += '{} active concurrent {}{}; {} accepted {}, {} handled {}, {} {}; {} req per conn; currently {} receiving {}, {} sending {}, {} keep-alive {}'.format(
         active_connections, lib.base3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
-        total_connections_accepted, lib.base3.pluralize('conn', total_connections_accepted),
-        total_connections_handled, lib.base3.pluralize('conn', total_connections_handled),
-        total_requests, lib.base3.pluralize('req', total_requests),
+        lib.base3.number2human(total_connections_accepted), lib.base3.pluralize('conn', total_connections_accepted),
+        lib.base3.number2human(total_connections_handled), lib.base3.pluralize('conn', total_connections_handled),
+        lib.base3.number2human(total_requests), lib.base3.pluralize('req', total_requests),
         requests_per_connection,
         connections_reading, lib.base3.pluralize('req', connections_reading),
         connections_writing, lib.base3.pluralize('response', connections_writing),
