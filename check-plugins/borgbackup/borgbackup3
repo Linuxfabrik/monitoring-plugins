@@ -31,11 +31,12 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021503'
 
 DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
 `cat /var/log/borg/borg-prune.log`
@@ -146,13 +147,13 @@ def main():
     state = lib.base3.get_worst(state, prune_retc_state)
     perfdata += lib.base3.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
-    now = lib.base3.now(as_type='iso')
-    delta = lib.base3.timestrdiff(now, starttime)
+    now = lib.time3.now(as_type='iso')
+    delta = lib.time3.timestrdiff(now, starttime)
 
     last_starttime_state = lib.base3.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
     state = lib.base3.get_worst(state, last_starttime_state)
 
-    duration = lib.base3.timestrdiff(endtime, starttime)     # in seconds
+    duration = lib.time3.timestrdiff(endtime, starttime)     # in seconds
     perfdata += lib.base3.get_perfdata('duration', duration, 's', None, None, 0, None)
 
     msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.human3.seconds2human(duration))

@@ -31,11 +31,12 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.db_mysql3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
@@ -166,8 +167,8 @@ def main():
         for line in stdout.splitlines():
             if line.startswith('notAfter='):
                 timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
-                timestr = lib.base3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
-                delta = timestr - lib.base3.now(as_type='datetime')
+                timestr = lib.time3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+                delta = timestr - lib.time3.now(as_type='datetime')
                 crt_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
                 table_crts.append({
                     'name': name,
@@ -203,8 +204,8 @@ def main():
         for line in stdout.splitlines():
             if line.startswith('nextUpdate='):
                 timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
-                timestr = lib.base3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
-                delta = timestr - lib.base3.now(as_type='datetime')
+                timestr = lib.time3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+                delta = timestr - lib.time3.now(as_type='datetime')
                 crl_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
                 table_crls.append({
                     'name': name,

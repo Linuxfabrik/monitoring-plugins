@@ -34,12 +34,13 @@ import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021502'
 
 DESCRIPTION = """Returns the peer statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -131,7 +132,7 @@ def main():
         data = lib.cache3.get(args.HOSTNAME, filename=DEFAULT_CACHE_FILE)
         if not data:
             data = lib.base3.coe(lib.net3.fetch(args.HOSTNAME, args.PORT, timeout=args.TIMEOUT))
-            lib.cache3.set(args.HOSTNAME, data, lib.base3.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
+            lib.cache3.set(args.HOSTNAME, data, lib.time3.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)

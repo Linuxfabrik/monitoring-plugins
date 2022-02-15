@@ -33,6 +33,7 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.smb3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
@@ -44,7 +45,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021503'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -196,7 +197,7 @@ def main():
             if item.is_dir() and args.ONLY_FILES:
                 continue
 
-            age = (lib.base3.now() - item.stat().st_mtime)
+            age = (lib.time3.now() - item.stat().st_mtime)
             item_state = STATE_OK
             # not using elif, as the item could contribute to both the warn_count and crit_count
             if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):
@@ -217,7 +218,7 @@ def main():
                 if item.is_dir() and args.ONLY_FILES:
                     continue
 
-                age = (lib.base3.now() - item.stat().st_mtime)
+                age = (lib.time3.now() - item.stat().st_mtime)
                 item_state = STATE_OK
                 # not using elif, as the item could contribute to both the warn_count and crit_count
                 if not lib.base3.coe(lib.base3.match_range(age, args.WARN)):

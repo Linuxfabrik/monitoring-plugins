@@ -34,13 +34,14 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021504'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -121,13 +122,13 @@ def main():
     msg += 'Max {} {}, '.format(max_conn, lib.txt3.pluralize('connection', max_conn))
 
     # license; expired?
-    now = lib.base3.now(as_type='iso')
+    now = lib.time3.now(as_type='iso')
     msg += 'licensed' if result['licenseInfo']['hasLicense'] else 'no license'
     if result['licenseInfo']['endDate']:
         if result['licenseInfo']['endDate'][0:10] <= now[0:10]:
             msg += ' (expired) [WARNING]'
             state = lib.base3.get_worst(STATE_WARN, state)
-        expires_in = lib.base3.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
+        expires_in = lib.time3.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
         if expires_in <= 10 * 24 * 60 * 60:
             msg += ' (expires in {}) [WARNING]'.format(lib.human3.seconds2human(expires_in))
             state = lib.base3.get_worst(STATE_WARN, state)
