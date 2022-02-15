@@ -16,47 +16,48 @@ import lib.base3
         
 class TestCheck(unittest.TestCase):
 
-    check = './sap-open-concur-com2'
+    check = './sap-open-concur-com3'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
-    def test_if_check_runs_china_ok_all(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=All --utc-offset=+0200 --test=examples/china-ok,,0'))
-        self.assertIn('Everything is ok. (@china, UTC+0200)', stdout)
+    def test1(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=us --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@us, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_china_ok_expense(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=Expense --utc-offset=+0200 --test=examples/china-ok,,0'))
-        self.assertIn('Expense: normal (@china, UTC+0200)', stdout)
+    def test2(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=us2 --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@us2, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_china_ok_xyservice(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=xy --utc-offset=+0200 --test=examples/china-ok,,0'))
-        self.assertIn('No result for xy@china.', stdout)
+    def test3(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=eu --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@eu, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_china_nok_all(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=All --utc-offset=+0200 --test=examples/china-nok,,0'))
-        self.assertIn('Analysis/Intelligence: disruption [CRITICAL], Expense: degradation [WARNING], Imaging: degradation [WARNING], Request: degradation [WARNING] (@china, UTC+0200)', stdout)
+    def test4(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=eu2 --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@eu2, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
+        self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_china_nok_expense(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=Expense --utc-offset=+0200 --test=examples/china-nok,,0'))
-        self.assertIn('Expense: degradation (@china, UTC+0200)', stdout)
+    def test5(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=cn --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@cn, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_WARN)
+        self.assertEqual(retc, STATE_OK)
 
-    def test_if_check_runs_china_nok_xyservice(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=china --service=xy --utc-offset=+0200 --test=examples/china-nok,,0'))
-        self.assertIn('No result for xy@china.', stdout)
+    def test6(self):
+        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --datacenter=pscc --service=All --utc-offset=+0200'))
+        self.assertIn('Everything is ok. (@pscc, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertEqual(retc, STATE_OK)
+
 
 
 if __name__ == '__main__':

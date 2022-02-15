@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -39,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090201'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -142,16 +143,16 @@ def main():
             msg = '{} {}% - total: {}, used: {}, free: {}'.format(
                 part.mountpoint,
                 usage.percent,
-                lib.base3.bytes2human(usage.total),
-                lib.base3.bytes2human(usage.used),
-                lib.base3.bytes2human(usage.free),
+                lib.human3.bytes2human(usage.total),
+                lib.human3.bytes2human(usage.used),
+                lib.human3.bytes2human(usage.free),
             )
 
         table_data.append({
             'mountpoint': '{} {}'.format(part.mountpoint, lib.base3.state2str(disk_state)),
             'type': '{}'.format(part.fstype),
-            'used': lib.base3.bytes2human(usage.used),
-            'total': lib.base3.bytes2human(usage.total),
+            'used': lib.human3.bytes2human(usage.used),
+            'total': lib.human3.bytes2human(usage.total),
             'percent': '{}%'.format(usage.percent),
             })
 

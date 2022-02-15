@@ -33,12 +33,13 @@ import time # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.huawei3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111901'
+__version__ = '2022021501'
 
 DESCRIPTION = """Batch query basic information about HyperMetroPairs of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/hypermetropair`` endpoint."""
@@ -218,11 +219,11 @@ def main():
         hypermetropair['health_state'] = lib.base3.state2str(health_state, empty_ok=False)
         hypermetropair['running_state'] = lib.base3.state2str(running_state, empty_ok=False)
         hypermetropair['sync_duration'] = '{}'.format(
-            lib.base3.seconds2human(hypermetropair['sync_duration']),
+            lib.human3.seconds2human(hypermetropair['sync_duration']),
         )
         hypermetropair['sync_last'] = '{} ({} ago)'.format(
             lib.base3.epoch2iso(int(hypermetropair['ENDTIME'])),
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - int(hypermetropair['ENDTIME'])),
+            lib.human3.seconds2human(lib.base3.now(as_type='epoch') - int(hypermetropair['ENDTIME'])),
         )
         hypermetropair['LINKSTATUS'] = lib.base3.state2str(linkstatus_state, empty_ok=False)
         hypermetropair['LOCALDATASTATE'] = lib.base3.state2str(localdata_state, empty_ok=False)

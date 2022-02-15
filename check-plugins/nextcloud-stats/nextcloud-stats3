@@ -32,12 +32,13 @@ import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021001'
+__version__ = '2022021501'
 
 DESCRIPTION = """This plugin lets you track if app updates are available, the number of active
                 users over time, the number of shares in various categories and some storage
@@ -201,8 +202,8 @@ def main():
         nc_shares_num_shares_mail, nc_shares_num_shares_room, nc_shares_num_shares_user, nc_shares_num_fed_shares_sent)
     msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
     msg += '* Storages: {} ({} home, {} other, {} local)\n'.format(nc_storage_num_storages, nc_storage_num_storages_home, nc_storage_num_storages_other, nc_storage_num_storages_local)
-    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, lib.base3.bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, lib.base3.bytes2human(nc_server_php_memory_limit))
-    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, lib.base3.bytes2human(nc_server_database_size))
+    msg += '* PHP: v{}, upload_max_filesize={}, max_execution_time={}s, memory_limit={}\n'.format(nc_server_php_version, lib.human3.bytes2human(nc_server_php_upload_max_filesize), nc_server_php_max_execution_time, lib.human3.bytes2human(nc_server_php_memory_limit))
+    msg += '* DB: {} v{}, size={}\n'.format(nc_server_database_type, nc_server_database_version, lib.human3.bytes2human(nc_server_database_size))
     msg += '* Web: {}, local memcache: {}, locking memcache: {}'.format(nc_server_webserver, nc_system_memcache_local.replace('\\OC\\', ''), nc_system_memcache_locking.replace('\\OC\\', ''))
 
     perfdata += lib.base3.get_perfdata('nc_system_apps_num_installed', nc_system_apps_num_installed, None, None, None, 0, None)

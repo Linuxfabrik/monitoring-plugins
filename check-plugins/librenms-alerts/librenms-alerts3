@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 import urllib.parse # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.librenms3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111001'
+__version__ = '2022021501'
 
 DESCRIPTION = 'This check fetches unacknowledged alerts from a LibreNMS instance, using its API.'
 
@@ -197,7 +198,7 @@ def main():
         if not sysname:
             sysname = lib.librenms3.get_prop(device, 'sysDescr')
         uptime = lib.librenms3.get_prop(device, 'uptime', 'int')
-        uptime = lib.base3.seconds2human(uptime) if uptime is not None else ''
+        uptime = lib.human3.seconds2human(uptime) if uptime is not None else ''
 
         devices[device_id] = {}
         devices[device_id]['device_id'] = device_id

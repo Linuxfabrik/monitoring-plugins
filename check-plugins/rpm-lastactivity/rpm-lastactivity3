@@ -30,11 +30,12 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021501'
 
 DESCRIPTION = """Checks the timespan since the last rpm activity, for example due to a yum/dnf
                 install/update."""
@@ -100,7 +101,7 @@ def main():
     if delta >= args.WARN * 24 * 60 * 60:
         lib.base3.oao('Last rpm/yum/dnf activity is more than {} days ago.'.format(args.WARN), STATE_WARN)
     lib.base3.oao('Last rpm/yum/dnf activity is {} ago (so below the given thresholds {}D/{}D).'.format(
-        lib.base3.seconds2human(delta),args.WARN, args.CRIT), STATE_OK)
+        lib.human3.seconds2human(delta),args.WARN, args.CRIT), STATE_OK)
 
 
 if __name__ == '__main__':

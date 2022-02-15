@@ -31,6 +31,7 @@ from collections import Counter # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021501'
 
 DESCRIPTION = """Displays amount of free and used memory in the system, checks against used memory
                 in percent."""
@@ -109,16 +110,16 @@ def main():
     state = lib.base3.get_state(getattr(virt, 'percent', 0), args.WARN, args.CRIT, operator='ge')
 
     msg_header += '{}% - '.format(getattr(virt, 'percent', 0))
-    msg_header += '{}: {}, '.format('total', lib.base3.bytes2human(getattr(virt, 'total', 0)))
-    msg_header += '{}: {}, '.format('used', lib.base3.bytes2human(getattr(virt, 'used', 0)))
-    msg_header += '{}: {}, '.format('available', lib.base3.bytes2human(getattr(virt, 'available', 0)))
-    msg_header += '{}: {}, '.format('free', lib.base3.bytes2human(getattr(virt, 'free', 0)))
+    msg_header += '{}: {}, '.format('total', lib.human3.bytes2human(getattr(virt, 'total', 0)))
+    msg_header += '{}: {}, '.format('used', lib.human3.bytes2human(getattr(virt, 'used', 0)))
+    msg_header += '{}: {}, '.format('available', lib.human3.bytes2human(getattr(virt, 'available', 0)))
+    msg_header += '{}: {}, '.format('free', lib.human3.bytes2human(getattr(virt, 'free', 0)))
     if msg_header:
         msg_header = msg_header[:-2] + '\n'
 
-    msg_body += '{}: {}, '.format('shared', lib.base3.bytes2human(getattr(virt, 'shared', 0)))
-    msg_body += '{}: {}, '.format('buffers',lib.base3.bytes2human(getattr(virt, 'buffers', 0)))
-    msg_body += '{}: {}, '.format('cached',lib.base3.bytes2human(getattr(virt, 'cached', 0)))
+    msg_body += '{}: {}, '.format('shared', lib.human3.bytes2human(getattr(virt, 'shared', 0)))
+    msg_body += '{}: {}, '.format('buffers',lib.human3.bytes2human(getattr(virt, 'buffers', 0)))
+    msg_body += '{}: {}, '.format('cached',lib.human3.bytes2human(getattr(virt, 'cached', 0)))
     if msg_body:
         msg_body = msg_body[:-2] + '\n'
 

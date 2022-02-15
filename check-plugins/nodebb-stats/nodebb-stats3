@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.nodebb3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2022021501'
 
 DESCRIPTION = """Gets some statistics from the /api/admin/settings/post and
                  /api/admin/manage/users endpoints for debugging purposes."""
@@ -132,7 +133,7 @@ def main():
         msg += 'Last user: {} <{}> (online {} ago), '.format(
             result_users['users'][0]['username'],
             result_users['users'][0]['email'],
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - last_online),
+            lib.human3.seconds2human(lib.base3.now(as_type='epoch') - last_online),
         )
     except:
         pass
@@ -145,7 +146,7 @@ def main():
             result_posts['groupsExemptFromPostQueue'][0]['name'],
             'private' if result_posts['groupsExemptFromPostQueue'][0]['private'] else 'public',
             result_posts['groupsExemptFromPostQueue'][0]['memberCount'],
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - create_time),
+            lib.human3.seconds2human(lib.base3.now(as_type='epoch') - create_time),
             )
     except:
         pass

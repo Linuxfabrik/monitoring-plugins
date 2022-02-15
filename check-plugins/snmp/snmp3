@@ -33,12 +33,13 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.disk3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101101'
+__version__ = '2022021501'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -384,29 +385,29 @@ def main():
             perfdata_unit = unit
         if unit == 's':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.seconds2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.human3.seconds2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.seconds2human(value), ''),
+                    'value': '{}{}'.format(lib.human3.seconds2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'b':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.bytes2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.human3.bytes2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.bytes2human(value), ''),
+                    'value': '{}{}'.format(lib.human3.bytes2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'bps':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.bps2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.hhuman3.bps2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.bps2human(value), ''),
+                    'value': '{}{}'.format(lib.hhuman3.bps2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         else:

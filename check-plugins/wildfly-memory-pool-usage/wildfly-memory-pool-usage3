@@ -30,12 +30,13 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.wildfly3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -175,8 +176,8 @@ def check_memory_pool_usage(args):
         if value['type'] == 'HEAP':
             msg_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
                 name, used_percent,
-                lib.base3.bytes2human(mem_used), lib.base3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.base3.bytes2human(mem_committed),
+                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
+                lib.human3.bytes2human(mem_committed),
                 )
             if threshold_state != STATE_OK:
                 msg_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))
@@ -184,8 +185,8 @@ def check_memory_pool_usage(args):
         else:
             msg_non_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
                 name, used_percent,
-                lib.base3.bytes2human(mem_used), lib.base3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.base3.bytes2human(mem_committed),
+                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
+                lib.human3.bytes2human(mem_committed),
                 )
             if threshold_state != STATE_OK:
                 msg_non_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))

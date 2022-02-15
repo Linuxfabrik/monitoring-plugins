@@ -31,6 +31,7 @@ from pathlib import Path
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.smb3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
@@ -42,7 +43,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021112301'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -205,7 +206,7 @@ def main():
                 crit_count += 1
 
             file_count += 1
-            msg += f'* {item}: {lib.base3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+            msg += f'* {item}: {lib.human3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
 
     if args.URL:
         for item in lib.base3.coe(lib.smb3.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
@@ -226,7 +227,7 @@ def main():
                     crit_count += 1
 
                 file_count += 1
-                msg += f'* {item.name}: {lib.base3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+                msg += f'* {item.name}: {lib.human3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
             except smbprotocol.exceptions.SMBOSError:
                 # it is normal that files disappear while reading
                 pass
@@ -249,20 +250,20 @@ def main():
                 file_count,
                 lib.base3.pluralize("item", file_count),
                 warn_count,
-                lib.base3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
+                lib.human3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
                 crit_count,
-                lib.base3.seconds2human(args.CRIT) if isinstance(lib.base3.guess_type(args.CRIT), int) else args.CRIT,
+                lib.human3.seconds2human(args.CRIT) if isinstance(lib.base3.guess_type(args.CRIT), int) else args.CRIT,
             ) + msg
     else:
         msg = '{} {} outside count range "{}" and outside "{}" time range. {} {} outside count range "{}" and outside "{}" time range. {} {} checked. \n\n'.format(
             warn_count,
             lib.base3.pluralize("item", warn_count),
             args.WARN_COUNT,
-            lib.base3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
+            lib.human3.seconds2human(args.WARN) if isinstance(lib.base3.guess_type(args.WARN), int) else args.WARN,
             crit_count,
             lib.base3.pluralize("item", crit_count),
             args.CRIT_COUNT,
-            lib.base3.seconds2human(args.CRIT) if isinstance(lib.base3.guess_type(args.CRIT), int) else args.CRIT,
+            lib.human3.seconds2human(args.CRIT) if isinstance(lib.base3.guess_type(args.CRIT), int) else args.CRIT,
             file_count,
             lib.base3.pluralize("item", file_count),
         ) + msg

@@ -32,13 +32,14 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -127,7 +128,7 @@ def main():
             state = lib.base3.get_worst(STATE_WARN, state)
         expires_in = lib.base3.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
         if expires_in <= 10 * 24 * 60 * 60:
-            msg += ' (expires in {}) [WARNING]'.format(lib.base3.seconds2human(expires_in))
+            msg += ' (expires in {}) [WARNING]'.format(lib.human3.seconds2human(expires_in))
             state = lib.base3.get_worst(STATE_WARN, state)
     msg += ', '
 

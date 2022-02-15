@@ -31,6 +31,7 @@ from collections import defaultdict # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021121401'
+__version__ = '2022021501'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                 counts or process memory usage. You may filter the process list by process name,
@@ -352,7 +353,7 @@ def main():
     local_state = lib.base3.get_state(procs_mem, args.WARN_MEM, args.CRIT_MEM, 'range')
     state = lib.base3.get_worst(state, local_state)
     msg += ' using {} RAM{}, '.format(
-        lib.base3.bytes2human(procs_mem),
+        lib.human3.bytes2human(procs_mem),
         lib.base3.state2str(local_state, prefix=' '),
     )
 
@@ -370,7 +371,7 @@ def main():
     if procs_count > 1:
         msg += 'oldest proc '
     msg += 'created {} ago{}, '.format(
-        lib.base3.seconds2human(procs_age),
+        lib.human3.seconds2human(procs_age),
         lib.base3.state2str(local_state, prefix=' '),
     )
 

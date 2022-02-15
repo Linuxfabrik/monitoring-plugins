@@ -32,6 +32,7 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -41,7 +42,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2022021501'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -226,8 +227,8 @@ def main():
         if throughput1 > max_rw:
             msg = '{}: {}/s read, {}/s write (current)'.format(
                 disk,
-                lib.base3.bytes2human(read_bytes_per_second1),
-                lib.base3.bytes2human(write_bytes_per_second1),
+                lib.human3.bytes2human(read_bytes_per_second1),
+                lib.human3.bytes2human(write_bytes_per_second1),
                 )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
@@ -257,12 +258,12 @@ def main():
         if throughput15:
             table_values.append({
                 'name': disk,
-                'max': lib.base3.bytes2human(throughput_max),
-                'r1': lib.base3.bytes2human(read_bytes_per_second1),
-                'w1': lib.base3.bytes2human(write_bytes_per_second1),
-                'r15': lib.base3.bytes2human(read_bytes_per_second15),
-                'w15': lib.base3.bytes2human(write_bytes_per_second15),
-                't15': lib.base3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
+                'max': lib.human3.bytes2human(throughput_max),
+                'r1': lib.human3.bytes2human(read_bytes_per_second1),
+                'w1': lib.human3.bytes2human(write_bytes_per_second1),
+                'r15': lib.human3.bytes2human(read_bytes_per_second15),
+                'w15': lib.human3.bytes2human(write_bytes_per_second15),
+                't15': lib.human3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
                 })
 
     lib.db_sqlite3.close(conn)

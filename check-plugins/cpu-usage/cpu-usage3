@@ -32,6 +32,7 @@ import sys # pylint: disable=C0413
 
 import lib.db_sqlite3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -41,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021501'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -215,7 +216,7 @@ def main():
     if extstats:
         msg += '\n'
         for key in extstats:
-            msg += '{}: {}, '.format(key, lib.base3.number2human(extstats[key]))
+            msg += '{}: {}, '.format(key, lib.human3.number2human(extstats[key]))
             perfdata += lib.base3.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2] + '\n'
 
@@ -236,7 +237,7 @@ def main():
             pass
 
     for i, p in enumerate(cnt.most_common(3)):
-        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.base3.seconds2human(p[1]))
+        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.human3.seconds2human(p[1]))
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

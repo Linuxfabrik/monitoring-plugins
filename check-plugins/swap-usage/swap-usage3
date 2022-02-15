@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -100,9 +101,9 @@ def main():
 
     msg_header = '{}% - total: {}, used: {}, free: {}'.format(
         swap_usage_percent,
-        lib.base3.bytes2human(swap.total),
-        lib.base3.bytes2human(swap.used),
-        lib.base3.bytes2human(swap.free),
+        lib.human3.bytes2human(swap.total),
+        lib.human3.bytes2human(swap.used),
+        lib.human3.bytes2human(swap.free),
     )
 
     perfdata =  lib.base3.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
@@ -113,8 +114,8 @@ def main():
     msg_body = ''
     if not lib.base3.WINDOWS:
         msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-            lib.base3.bytes2human(getattr(swap, 'sin', 0)),
-            lib.base3.bytes2human(getattr(swap, 'sout', 0)),
+            lib.human3.bytes2human(getattr(swap, 'sin', 0)),
+            lib.human3.bytes2human(getattr(swap, 'sout', 0)),
         )
         perfdata += lib.base3.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
         perfdata += lib.base3.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)

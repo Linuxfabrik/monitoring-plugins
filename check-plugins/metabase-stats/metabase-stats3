@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2022021501'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -195,7 +196,7 @@ def main():
         activity['topic'],
         '/' + activity['details']['name'] if 'name' in activity['details'] else '',
         activity['user']['common_name'],
-        lib.base3.seconds2human(lib.base3.timestrdiff(lib.base3.now(as_type='iso'), activity['timestamp'].replace('T', ' '))),
+        lib.human3.seconds2human(lib.base3.timestrdiff(lib.base3.now(as_type='iso'), activity['timestamp'].replace('T', ' '))),
         )
 
     perfdata += lib.base3.get_perfdata('alerts', stats['stats']['alert']['alerts'], None, None, None, 0, None)

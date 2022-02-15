@@ -31,6 +31,7 @@ import base64
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
@@ -41,7 +42,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101301'
+__version__ = '2022021501'
 
 DESCRIPTION = """Returns the current system-wide Memory utilization as a percentage from QNAP
                  Appliances running QTS via API."""
@@ -176,9 +177,9 @@ def main():
     # build the message
     msg = '{}% - total: {}, used: {}, free: {}'.format(
         memory_usage,
-        lib.base3.bytes2human(total),
-        lib.base3.bytes2human(used),
-        lib.base3.bytes2human(free),
+        lib.human3.bytes2human(total),
+        lib.human3.bytes2human(used),
+        lib.human3.bytes2human(free),
     )
     perfdata = lib.base3.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base3.get_perfdata('total', total, 'B', None, None, 0, total)

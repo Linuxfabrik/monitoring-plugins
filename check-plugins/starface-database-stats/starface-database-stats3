@@ -32,13 +32,14 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2022021501'
 
 DESCRIPTION = """Returns the database connection statistics of the Starface PBX.
                 It uses the data output of the Starface Monitoring Module, which was
@@ -153,18 +154,18 @@ def main():
             continue
         key, value = row.split(' ')
         if key == 'opened_connections':
-            msg += '{} opened, '.format(lib.base3.number2human(value))
+            msg += '{} opened, '.format(lib.human3.number2human(value))
             perfdata += lib.base3.get_perfdata(key, value, 'c', None, None, 0, None)
         if key == 'closed_connections':
-            msg += '{} closed, '.format(lib.base3.number2human(value))
+            msg += '{} closed, '.format(lib.human3.number2human(value))
             perfdata += lib.base3.get_perfdata(key, value, 'c', None, None, 0, None)
         if key == 'active_connections':
-            msg += '{} active, '.format(lib.base3.number2human(value))
+            msg += '{} active, '.format(lib.human3.number2human(value))
             perfdata += lib.base3.get_perfdata(key, value, None, None, None, 0, None)
         if key == 'idle_connections':
             if value == '':
                 value = 0
-            msg += '{} idle, '.format(lib.base3.number2human(value))
+            msg += '{} idle, '.format(lib.human3.number2human(value))
             perfdata += lib.base3.get_perfdata(key, value, None, None, None, 0, None)
 
     # over and out

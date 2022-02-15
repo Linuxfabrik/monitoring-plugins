@@ -60,7 +60,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./sap-open-concur-com --datacenter=emea --service=All --utc-offset=+0200
+    ./sap-open-concur-com --datacenter=eu2 --service=All --utc-offset=+0200
 
 Output:
 

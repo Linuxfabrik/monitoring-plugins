@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -152,7 +153,7 @@ def main():
                 logging_driver = lcrow.replace('logging driver: ', '').strip()
             if ' total memory: ' in lcrow:
                 memory = row.replace('Total Memory: ', '').strip()
-                perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(memory), 'B', None, None, 0, None)
+                perfdata += lib.base3.get_perfdata('ram', lib.human3.human2bytes(memory), 'B', None, None, 0, None)
             if ' registry: ' in lcrow:
                 registry = lcrow.replace('registry: ', '').strip()
             if ' storage driver: ' in lcrow:
@@ -196,7 +197,7 @@ def main():
     msg += ' v{}'.format(ver)
     msg += ', {} CPUs'.format(cpus)
     if podman_found:
-        msg += ', {} Memory'.format(lib.base3.bytes2human(memory))
+        msg += ', {} Memory'.format(lib.human3.bytes2human(memory))
     else:
         msg += ', {} Memory'.format(memory)
 

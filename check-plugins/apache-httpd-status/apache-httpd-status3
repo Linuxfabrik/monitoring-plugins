@@ -32,13 +32,14 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021102801'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -273,13 +274,13 @@ def main():
             workers['finishing'],
             apache['IdleWorkers'],
             workers['free'],
-            lib.base3.number2human(apache['Total Accesses']),
-            lib.base3.bytes2human(apache['Total Bytes']),
+            lib.human3.number2human(apache['Total Accesses']),
+            lib.human3.bytes2human(apache['Total Bytes']),
             round(apache['ReqPerSec'], 1),
-            lib.base3.bytes2human(apache['BytesPerSec']),
-            lib.base3.bytes2human(apache['BytesPerReq']),
-            lib.base3.seconds2human(uptime_diff),
-            lib.base3.seconds2human(apache['Uptime']),
+            lib.human3.bytes2human(apache['BytesPerSec']),
+            lib.human3.bytes2human(apache['BytesPerReq']),
+            lib.human3.seconds2human(uptime_diff),
+            lib.human3.seconds2human(apache['Uptime']),
         )
 
         # over and out
@@ -325,32 +326,32 @@ def main():
         workers['finishing'],
         apache['IdleWorkers'],
         workers['free'],
-        lib.base3.number2human(apache['Total Accesses']),
-        lib.base3.bytes2human(apache['Total Bytes']),
+        lib.human3.number2human(apache['Total Accesses']),
+        lib.human3.bytes2human(apache['Total Bytes']),
         round(apache['ReqPerSec'], 1),
-        lib.base3.seconds2human(apache['DurationPerReq']),
-        lib.base3.bytes2human(apache['BytesPerSec']),
-        lib.base3.bytes2human(apache['BytesPerReq']),
-        lib.base3.seconds2human(uptime_diff),
-        lib.base3.seconds2human(apache['Uptime']),
+        lib.human3.seconds2human(apache['DurationPerReq']),
+        lib.human3.bytes2human(apache['BytesPerSec']),
+        lib.human3.bytes2human(apache['BytesPerReq']),
+        lib.human3.seconds2human(uptime_diff),
+        lib.human3.seconds2human(apache['Uptime']),
     )
 
     table_values = []
     table_values.append({'key': 'Current Time', 'value': apache['CurrentTime']})
     table_values.append({'key': 'Restart Time', 'value': apache['RestartTime']})
-    table_values.append({'key': 'Interval', 'value': lib.base3.seconds2human(uptime_diff)})
-    table_values.append({'key': 'Uptime', 'value': lib.base3.seconds2human(apache['Uptime'])})
+    table_values.append({'key': 'Interval', 'value': lib.human3.seconds2human(uptime_diff)})
+    table_values.append({'key': 'Uptime', 'value': lib.human3.seconds2human(apache['Uptime'])})
     table_values.append({'key': 'Connections', 'value': apache['ConnsTotal']}) if 'ConnsTotal' in apache else ''
     table_values.append({'key': '  Async Writing', 'value': apache['ConnsAsyncWriting']}) if 'ConnsAsyncWriting' in apache else ''
     table_values.append({'key': '  Async KeepAlive', 'value': apache['ConnsAsyncKeepAlive']}) if 'ConnsAsyncKeepAlive' in apache else ''
     table_values.append({'key': '  Async Closing', 'value': apache['ConnsAsyncClosing']}) if 'ConnsAsyncClosing' in apache else ''
     table_values.append({'key': 'Requests per Second', 'value': round(apache['ReqPerSec'], 1)})
-    table_values.append({'key': 'Bytes per Second', 'value': lib.base3.bytes2human(apache['BytesPerSec'])})
-    table_values.append({'key': 'Bytes per Request', 'value': lib.base3.bytes2human(apache['BytesPerReq'])})
+    table_values.append({'key': 'Bytes per Second', 'value': lib.human3.bytes2human(apache['BytesPerSec'])})
+    table_values.append({'key': 'Bytes per Request', 'value': lib.human3.bytes2human(apache['BytesPerReq'])})
     table_values.append({'key': 'Seconds per Request', 'value': round(apache['DurationPerReq'], 2)}) if 'DurationPerReq' in apache else ''
-    table_values.append({'key': 'Requests', 'value': lib.base3.number2human(apache['Total Accesses'])})
-    table_values.append({'key': 'Bytes', 'value': lib.base3.bytes2human(apache['Total Bytes'])})
-    table_values.append({'key': 'Request Duration', 'value': lib.base3.seconds2human(duration_diff)})
+    table_values.append({'key': 'Requests', 'value': lib.human3.number2human(apache['Total Accesses'])})
+    table_values.append({'key': 'Bytes', 'value': lib.human3.bytes2human(apache['Total Bytes'])})
+    table_values.append({'key': 'Request Duration', 'value': lib.human3.seconds2human(duration_diff)})
     table_values.append({'key': 'Load1', 'value': apache['Load1']}) if 'Load1' in apache else ''
     table_values.append({'key': 'Load5', 'value': apache['Load5']}) if 'Load15' in apache else ''
     table_values.append({'key': 'Load15', 'value': apache['Load15']}) if 'Load15' in apache else ''

@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -47,7 +48,7 @@ else:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021001'
+__version__ = '2022021501'
 
 DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
                 (the same way MySQLTuner does)."""
@@ -375,18 +376,18 @@ def main():
 
     msg += '{} v{}.{}, '.format(mysqltype, mysqlvermajor, mysqlverminor)
     msg += '{}%/{}% r/w, '.format(mycalc['pct_reads'], mycalc['pct_writes'])
-    msg += 'up {}, '.format(lib.base3.seconds2human(mystat['Uptime']))
+    msg += 'up {}, '.format(lib.human3.seconds2human(mystat['Uptime']))
     perfdata += lib.base3.get_perfdata('uptime', mystat['Uptime'], 's', None, None, 0, None)
 
     qps = round(mystat['Questions'] / mystat['Uptime'], 1)
-    msg += '{} Questions, {} QPS, '.format(lib.base3.number2human(mystat['Questions']), qps)
+    msg += '{} Questions, {} QPS, '.format(lib.human3.number2human(mystat['Questions']), qps)
     perfdata += lib.base3.get_perfdata('questions', mystat['Questions'], 'c', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('qps', qps, 'c', None, None, 0, None)
 
-    msg += '{} Connections, '.format(lib.base3.number2human(mystat['Connections']))
+    msg += '{} Connections, '.format(lib.human3.number2human(mystat['Connections']))
     perfdata += lib.base3.get_perfdata('connections', mystat['Connections'], 'c', None, None, 0, None)
 
-    msg += '{}/{} (Rx/Tx)\n'.format(lib.base3.bytes2human(mystat['Bytes_received']), lib.base3.bytes2human(mystat['Bytes_sent']))
+    msg += '{}/{} (Rx/Tx)\n'.format(lib.human3.bytes2human(mystat['Bytes_received']), lib.human3.bytes2human(mystat['Bytes_sent']))
     perfdata += lib.base3.get_perfdata('bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
 
@@ -402,13 +403,13 @@ def main():
     elif mycalc['pct_max_physical_memory'] > 85:
         msg_warn += '* Maximum possible memory usage > 85% (reduce your overall MySQL memory footprint or increase RAM >= 2GB for system stability)\n'
         state = lib.base3.get_worst(state, STATE_WARN)
-    msg += '* Maximum possible memory usage: {} ({}% of installed RAM)\n'.format(lib.base3.bytes2human(mycalc['max_peak_memory']), mycalc['pct_max_physical_memory'])
+    msg += '* Maximum possible memory usage: {} ({}% of installed RAM)\n'.format(lib.human3.bytes2human(mycalc['max_peak_memory']), mycalc['pct_max_physical_memory'])
     perfdata += lib.base3.get_perfdata('pct_max_physical_memory', mycalc['pct_max_physical_memory'], '%', 85, None, 0, None)
 
     if mycalc['pct_max_used_memory'] > 85:
         msg_warn += '* Maximum reached memory usage > 85%\n'
         state = lib.base3.get_worst(state, STATE_WARN)
-    msg += '* Maximum reached memory usage: {} ({}% of installed RAM)\n'.format(lib.base3.bytes2human(mycalc['max_used_memory']), mycalc['pct_max_used_memory'])
+    msg += '* Maximum reached memory usage: {} ({}% of installed RAM)\n'.format(lib.human3.bytes2human(mycalc['max_used_memory']), mycalc['pct_max_used_memory'])
     perfdata += lib.base3.get_perfdata('pct_max_used_memory', mycalc['pct_max_used_memory'], '%', 85, None, 0, 100)
 
     if physical_memory < mycalc['max_peak_memory'] + get_other_process_memory():
@@ -419,7 +420,7 @@ def main():
     if mycalc['pct_slow_queries'] > 5:
         msg_warn += '* Slow Queries > 5% (use the slow query log to troubleshoot bad queries)\n'
         state = lib.base3.get_worst(state, STATE_WARN)
-    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], lib.base3.number2human(mystat['Questions']))
+    msg += '* Slow queries: {}% ({}/{})\n'.format(mycalc['pct_slow_queries'], mystat['Slow_queries'], lib.human3.number2human(mystat['Questions']))
     perfdata += lib.base3.get_perfdata('pct_slow_queries', mycalc['pct_slow_queries'], '%', 5, None, 0, 100)
 
     # Connections
@@ -459,7 +460,7 @@ def main():
         if mycalc['query_cache_efficiency'] < 20:
             msg_warn += '* Query cache efficiency < 20% (increase query_cache_limit or use smaller result sets)\n'
             state = lib.base3.get_worst(state, STATE_WARN)
-        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.base3.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
+        msg += '* Query cache efficiency: {}% ({} cached / {} selects)\n'.format(mycalc['query_cache_efficiency'], mystat['Qcache_hits'], lib.human3.number2human(mystat['Qcache_hits'] + mystat['Com_select']))
         perfdata += lib.base3.get_perfdata('query_cache_efficiency', mycalc['query_cache_efficiency'], '%', None, None, 0, 100)
 
         if mycalc['query_cache_prunes_per_day'] > 98:
@@ -479,7 +480,7 @@ def main():
         if mycalc['pct_temp_sort_table'] > 10:
             msg_warn += '* Sorts are requiring temporary tables (increase sort_buffer_size, increase read_rnd_buffer_size)\n'
             state = lib.base3.get_worst(state, STATE_WARN)
-        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], lib.base3.number2human(mycalc['total_sorts']))
+        msg += '* Sorts requiring temporary tables: {}% ({} temp sorts / {} sorts)\n'.format(mycalc['pct_temp_sort_table'], mystat['Sort_merge_passes'], lib.human3.number2human(mycalc['total_sorts']))
         perfdata += lib.base3.get_perfdata('pct_temp_sort_table', mycalc['pct_temp_sort_table'], '%', 10, None, 0, 100)
 
     # Joins
@@ -497,7 +498,7 @@ def main():
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
             msg_warn += '* Reduce your SELECT DISTINCT queries without LIMIT clause, and reduce result set size (temporary table size is already large)\n'
             state = lib.base3.get_worst(state, STATE_WARN)
-    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.base3.number2human(mystat['Created_tmp_disk_tables']), lib.base3.number2human(mystat['Created_tmp_tables']))
+    msg += '* Temporary tables created on disk: {}% ({} on disk / {} total)\n'.format(mycalc['pct_temp_disk'], lib.human3.number2human(mystat['Created_tmp_disk_tables']), lib.human3.number2human(mystat['Created_tmp_tables']))
     perfdata += lib.base3.get_perfdata('pct_temp_disk', mycalc['pct_temp_disk'], '%', None, None, 0, 100)
 
     # Thread cache

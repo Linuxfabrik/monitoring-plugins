@@ -33,12 +33,13 @@ import time # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.huawei3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111903'
+__version__ = '2022021501'
 
 DESCRIPTION = """Batch querying all backup power modules of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/backup_power`` endpoint."""
@@ -207,7 +208,7 @@ def main():
         power['health_state'] = lib.base3.state2str(health_state, empty_ok=False)
         power['running_state'] = lib.base3.state2str(running_state, empty_ok=False)
         if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = lib.base3.seconds2human(power['REMAINLIFEDAYS'])
+            power['REMAINLIFEDAYS'] = lib.human3.seconds2human(power['REMAINLIFEDAYS'])
 
         table_data.append(power)
 
