@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -185,7 +185,7 @@ def main():
 
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base3.coe(lib.db_sqlite3.insert(conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'))
-        lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(containers), table='cpu'))
+        lib.base3.coe(lib.db_sqlite3.cut(conn, _max=args.COUNT*len(containers), table='cpu'))
 
         # alert when container cpu_usage is exceeded
         # my container state is not ok, if in every of my historic rows the cpu value is above the threshold
