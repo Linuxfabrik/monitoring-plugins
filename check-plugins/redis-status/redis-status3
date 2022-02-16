@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021602'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -229,7 +229,7 @@ def main():
             state = lib.base3.get_worst(state, STATE_WARN)
     mem_usage_state = lib.base3.get_state(mem_usage, args.WARN, args.CRIT)
     state = lib.base3.get_worst(state, mem_usage_state)
-    
+
     msg += '{}% memory usage{} ({}/{}, {} peak, {} RSS), maxmemory-policy={}, '.format(
         mem_usage,
         lib.base3.state2str(mem_usage_state, prefix=' '),
@@ -291,7 +291,7 @@ def main():
     if not result['memory_doctor'].startswith('Hi Sam'):
         # have a look at https://github.com/redis/redis/blob/unstable/src/object.c
         mem_state = STATE_WARN
-        msg += '{}{}, '.format(result['memory_doctor'], 
+        msg += '{}{}, '.format(result['memory_doctor'],
             lib.base3.state2str(mem_state, prefix=' '),
         )
         state = lib.base3.get_worst(state, mem_state)
@@ -327,7 +327,7 @@ def main():
     tcp_max_syn_backlog = lib.base3.coe(lib.disk3.read_file('/proc/sys/net/ipv4/tcp_max_syn_backlog'))
     somaxconn = int(somaxconn)
     tcp_max_syn_backlog = int(tcp_max_syn_backlog)
-    if somaxconn > 0 and somaxconn < tcp_max_syn_backlog:
+    if 0 < somaxconn < tcp_max_syn_backlog:
         os_state = STATE_WARN
         msg += 'net.core.somaxconn ({}) is lower than net.ipv4.tcp_max_syn_backlog ({}){}, '.format(
             somaxconn,
@@ -398,4 +398,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-

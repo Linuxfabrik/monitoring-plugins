@@ -27,6 +27,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
@@ -40,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021601'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -172,8 +173,6 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
-
-        import json
         result = json.loads(stdout)
 
     # init some vars

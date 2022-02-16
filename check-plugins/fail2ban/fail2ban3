@@ -102,7 +102,7 @@ def main():
 
     # fail2ban-client status
     stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd + ' status'))
-    if (retc != 0):
+    if retc != 0:
         lib.base3.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
 
     # extract the jail list
@@ -120,7 +120,7 @@ def main():
     for jail in jail_list:
 
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd + ' status {}'.format(jail)))
-        if (retc != 0):
+        if retc != 0:
             lib.base3.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
 
         f2b_filelist = re.search(r'File list:\t(.*)\n', stdout)

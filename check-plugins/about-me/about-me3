@@ -117,8 +117,7 @@ def find_command(return_text, cmd, version_regex=None, ignore_output=False):
     if ignore_output:
         if retc == 0:
             return '* {}\n'.format(return_text.strip())
-        else:
-            return ''
+        return ''
     if stdout == '' and stderr != '':
         # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
         # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
@@ -153,7 +152,7 @@ def get_disks():
         # we cannot do anything useful with them
         if disk.startswith('zram'):
             continue
-        msg += '* {}\n'.format(disk)
+        msg = '{}* {}\n'.format(msg, disk)
 
     return msg
 
@@ -387,7 +386,7 @@ def get_interfaces():
 
             for addr in interface:
                 if addr.family == lib.net3.AF_INET:
-                    msg += '* {} {}/{}\n'.format(name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
+                    msg = '{}* {} {}/{}\n'.format(msg, name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
     except:
         pass
 
@@ -397,17 +396,17 @@ def get_interfaces():
 def get_python_modules():
     pm = ''
     try:
-        import bs4
+        import bs4 # pylint: disable=C0415
         pm += '* BeautifulSoup {}\n'.format(bs4.__version__)
     except ImportError:
         pass
     try:
-        import mysql.connector
+        import mysql.connector # pylint: disable=C0415
         pm += '* mysql.connector {}\n'.format(mysql.connector.__version__)
     except ImportError:
         pass
     try:
-        import psutil
+        import psutil # pylint: disable=C0415,W0621
         pm += '* psutil {}\n'.format(psutil.__version__)
     except ImportError:
         pass
@@ -430,7 +429,7 @@ def get_systemd_timers():
             start_pos = line.find('UNIT')
             end_pos = line.find('ACTIVATES', start_pos)
         if '.timer' in line:
-            msg += '* {}\n'.format(line[start_pos:end_pos].strip())
+            msg = '{}* {}\n'.format(msg, line[start_pos:end_pos].strip())
     return msg
 
 
@@ -452,7 +451,7 @@ def get_systemd_units(cmd):
 
     msg = ''
     for line in stdout.splitlines():
-        msg += '* {}\n'.format(line.split()[0])
+        msg = '{}* {}\n'.format(msg, line.split()[0])
     return msg
 
 
@@ -464,7 +463,7 @@ def get_crontabs():
     for line in stdout.splitlines():
         line = line.strip()
         if len(line) > 0 and re.match(line_regex, line) is None:
-            msg += line + '\n'
+            msg = '{}{}\n'.format(msg, line)
     return msg
 
 
@@ -496,7 +495,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     perfdata = ''
-    msg = socket.gethostname() + ' - '
+    msg = '{} - '.format(socket.gethostname())
 
     os_info = get_os_info()
     os_version_perfdata = ''
@@ -513,7 +512,8 @@ def main():
         msg += ' virtualized on {}, '.format(virt)
 
     sys_dimensions = get_sys_dimensions()
-    msg += '{} {}, {} RAM'.format(
+    msg = '{}{} {}, {} RAM'.format(
+        msg,
         sys_dimensions['cpu'],
         lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
         lib.human3.bytes2human(sys_dimensions['ram'])
@@ -521,59 +521,59 @@ def main():
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
-        msg += ', Public IP {}'.format(pub_ip)
+        msg = '{}, Public IP {}'.format(msg, pub_ip)
 
     disks = get_disks()
     if disks:
-        msg += '\n\n# Disks\n' + disks
+        msg = '{}\n\n# Disks\n{}'.format(msg, disks)
 
     interfaces = get_interfaces()
     if interfaces:
-        msg += '\n\n# Interfaces (IPv4)\n' + interfaces
+        msg = '{}\n\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
 
     sw = get_sw()
     if sw:
-        msg += '\n\n# Software\n' + sw
+        msg = '{}\n\n# Software\n{}'.format(msg, sw)
 
     apps = get_apps()
     if apps:
-        msg += '\n\n# Apps\n' + apps
+        msg = '{}\n\n# Apps\n{}'.format(msg, apps)
 
     tools = get_tools()
     if tools:
-        msg += '\n\n# Tools\n' + tools
+        msg = '{}\n\n# Tools\n{}'.format(msg, tools)
 
     pm = get_python_modules()
     if pm:
-        msg += '\n\n# Python modules\n' + pm
+        msg = '{}\n\n# 3rd Party Python modules\n{}'.format(msg, pm)
 
     systemd_default_target = get_systemd_default_target()
     if systemd_default_target:
-        msg += '\n\n# systemd default target\n' + systemd_default_target
+        msg = '{}\n\n# systemd default target\n{}'.format(msg, systemd_default_target)
 
     timers = get_systemd_timers()
     if timers:
-        msg += '\n\n# systemd timers\n' + timers
+        msg = '{}\n\n# systemd timers\n{}'.format(msg, timers)
 
     enabled_units = get_systemd_units('systemctl list-unit-files --type service --state enabled --no-legend')
     if enabled_units:
-        msg += '\n\n# systemd enabled units\n' + enabled_units
+        msg = '{}\n\n# systemd enabled units\n{}'.format(msg, enabled_units)
 
     mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend')
     if mounts:
-        msg += '\n\n# systemd mounts\n' + mounts
+        msg = '{}\n\n# systemd mounts\n{}'.format(msg, mounts)
 
     automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
     if automounts:
-        msg += '\n\n# systemd automounts\n' + automounts
+        msg = '{}\n\n# systemd automounts\n{}'.format(msg, automounts)
 
     nondefault_users = get_nondefault_users()
     if nondefault_users:
-        msg += '\n\n# non-default users\n' + nondefault_users
+        msg = '{}\n\n# non-default users\n{}'.format(msg, nondefault_users)
 
     crontabs = get_crontabs()
     if crontabs:
-        msg += '\n\n# crontabs\n' + crontabs
+        msg = '{}\n\n# crontabs\n{}'.format(msg, crontabs)
 
     perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)

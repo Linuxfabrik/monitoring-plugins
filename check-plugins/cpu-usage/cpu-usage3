@@ -42,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021603'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -178,7 +178,7 @@ def main():
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
     if lib.base3.version(psutil.__version__) >= lib.base3.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
-        extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches', 0)
+        extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches')
         extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
         extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts', 0)
 
@@ -215,7 +215,7 @@ def main():
 
     if extstats:
         msg += '\n'
-        for key in extstats:
+        for key in extstats.keys():
             msg += '{}: {}, '.format(key, lib.human3.number2human(extstats[key]))
             perfdata += lib.base3.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2] + '\n'

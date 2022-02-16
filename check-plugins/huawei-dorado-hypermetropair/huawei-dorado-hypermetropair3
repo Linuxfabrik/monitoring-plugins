@@ -27,8 +27,8 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
-import time # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021504'
+__version__ = '2022021601'
 
 DESCRIPTION = """Batch query basic information about HyperMetroPairs of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/hypermetropair`` endpoint."""
@@ -159,7 +159,6 @@ def main():
         result = lib.huawei3.get_data('hypermetropair', args)
     else:
         # do not call the command, put in test data
-        import json
         stdout, stderr, retc = lib.test3.test(args.TEST)
         result = json.loads(stdout)
 
@@ -232,7 +231,7 @@ def main():
         hypermetropair['LOCALHOSTACCESSSTATE'] = lib.huawei3.get_host_access_state(hypermetropair['LOCALHOSTACCESSSTATE'])
         hypermetropair['REMOTEDATASTATE'] = lib.base3.state2str(remotedata_state, empty_ok=False)
         hypermetropair['REMOTEHOSTACCESSSTATE'] = lib.huawei3.get_host_access_state(hypermetropair['REMOTEHOSTACCESSSTATE'])
-        
+
         table_data.append(hypermetropair)
 
     if table_data:

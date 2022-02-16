@@ -262,7 +262,7 @@ def main():
         #   (on duplex lines and 1 gbps alert if saturation is >= 80/90% on each rx/tx compared to loadn)
         sensor_state = lib.base3.get_state(rxnbps, args.WARN, args.CRIT, _operator='ge')
         sensor_state = lib.base3.get_worst(sensor_state, lib.base3.get_state(txnbps, args.WARN, args.CRIT, _operator='ge'))
-        if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+        if sensor_state in (STATE_WARN, STATE_CRIT):
             msg_saturation += 'Bandwidth saturation for {}: {}/{} bps (rx/tx) is too high{}. '.format(
                 interface['interface'],
                 lib.human3.bits2human(rxnbps),
@@ -303,4 +303,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-

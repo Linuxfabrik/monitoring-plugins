@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -136,7 +136,7 @@ def get_token(metabase_url, user, password, expire):
         return (success, result)
     if not result:
         return (False, 'There was no result from {}.'.format(metabase_url))
-    if not 'id' in result:
+    if 'id' not in result:
         return (False, 'Something went wrong, maybe wrong username/password.')
     token = result['id']
     lib.cache3.set('metabase-token', token, lib.time3.now() + expire)

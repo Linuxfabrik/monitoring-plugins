@@ -48,7 +48,7 @@ else:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
                 (the same way MySQLTuner does)."""
@@ -145,7 +145,7 @@ def get_log_file_real_path(file, hostname, datadir):
 
 
 def log_file_recommendations(myvar):
-    log_error = get_log_file_real_path(myvar['log_error'], myvar['hostname'], myvar['datadir']);
+    log_error = get_log_file_real_path(myvar['log_error'], myvar['hostname'], myvar['datadir'])
     if not log_error:
         return '* No log file set (set log_error)\n'
     if not os.path.isfile(log_error):
@@ -276,7 +276,7 @@ def main():
             mycalc['pct_writes'] = 100
         else:
             mycalc['pct_reads'] = int(mycalc['total_reads'] / (mycalc['total_reads'] + mycalc['total_writes']) * 100)
-            mycalc['pct_writes'] = 100 - mycalc['pct_reads'];
+            mycalc['pct_writes'] = 100 - mycalc['pct_reads']
 
     # Per-thread memory
     if mysqlvermajor >= 4:
@@ -320,7 +320,7 @@ def main():
     mycalc['pct_connections_aborted'] = int(mystat['Aborted_connects'] / mystat['Connections'] * 100) if mystat['Connections'] else 0
 
     # Query cache
-    if mysqltype == 'MySQL' and (mysqlvermajor >= 8 and mysqlvermajor <= 10):
+    if mysqltype == 'MySQL' and (8 <= mysqlvermajor <= 10):
         mycalc['query_cache_efficiency'] = 0
     elif mysqlvermajor >= 4:
         mycalc['query_cache_efficiency'] = mystat['Qcache_hits'] / (mystat['Com_select'] + mystat['Qcache_hits']) * 100

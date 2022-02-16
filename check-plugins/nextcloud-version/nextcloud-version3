@@ -36,7 +36,7 @@ from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021502'
+__version__ = '2022021601'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
@@ -82,7 +82,7 @@ def get_owner(file):
         return -1
 
 
-def run_occ(path, cmd, format='json'):
+def run_occ(path, cmd, _format='json'):
     """Run the Nextcloud OCC command.
     """
     # get the owner of config.php
@@ -93,10 +93,9 @@ def run_occ(path, cmd, format='json'):
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:
-        if format == 'json':
+        if _format == 'json':
             return json.loads(stdout)
-        else:
-            return stdout.strip()
+        return stdout.strip()
     except:
         lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
 
@@ -123,7 +122,7 @@ def main():
     # there to check for updates. Instead, if you have the app "updatenotification" enabled, you can
     # use "occ update:check" and parse the output to check the state. See
     # https://github.com/nextcloud/server/blob/master/apps/updatenotification/lib/Command/Check.php#L92
-    result = run_occ(args.PATH, 'update:check', format='text')
+    result = run_occ(args.PATH, 'update:check', _format='text')
 
     if result == 'Everything up to date':
         lib.base3.oao('Nextcloud v{} is up to date'.format(config['system']['version']), STATE_OK)

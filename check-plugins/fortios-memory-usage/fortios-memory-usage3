@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021602'
 
 DESCRIPTION = """Displays amount of used memory in percent, and checks against configured or given
                  thresholds."""
@@ -144,7 +144,7 @@ def main():
 
     # try to get the global configured memory warning thresholds from Forti OS
     # if success, use them, otherwise our from args.WARN etc.
-    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, urllib2.quote(args.PASSWORD))
+    url = 'https://{}/api/v2/cmdb/system/global?access_token={}'.format(args.HOSTNAME, urllib.quote(args.PASSWORD))
     thresholds = lib.base3.coe(lib.url3.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     warn = thresholds['results'].get('memory-use-threshold-green', args.WARN)
     crit = thresholds['results'].get('memory-use-threshold-red', args.CRIT)
@@ -164,4 +164,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-
