@@ -34,12 +34,13 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021602'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
@@ -152,13 +153,16 @@ def main():
 
         # fetch the url
         if args.USERNAME and args.PASSWORD:
-            auth = args.USERNAME + ':' + args.PASSWORD
-            encoded_auth = base64.b64encode(auth.encode()).decode()
-            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT,
-                header={'Authorization': 'Basic {}'.format(encoded_auth)}))
+            auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+            encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
+            result = lib.base3.coe(
+                lib.url3.fetch(
+                    url,
+                    timeout=args.TIMEOUT,
+                    header={'Authorization': 'Basic {}'.format(encoded_auth)},
+            ))
         else:
             result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT))
-        result = result.decode()
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)

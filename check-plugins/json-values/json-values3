@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.smb3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101101'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check parses a flat json array from a file or url and simply returns the
                  message, state and perfdata from the json."""
@@ -179,7 +180,7 @@ def main():
         elif proto == 'smb':
             with lib.base3.coe(lib.smb3.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
-                    result = json.loads(fd.read().decode('utf-8'))
+                    result = json.loads(lib.txt3.to_text(fd.read()))
                 except:
                     lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
         else:

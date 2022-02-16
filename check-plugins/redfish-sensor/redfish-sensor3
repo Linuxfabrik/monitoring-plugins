@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021601'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
@@ -107,8 +107,8 @@ def main():
     header = {}
     header['Accept'] = 'application/json'
     if args.USERNAME and args.PASSWORD:
-        auth = args.USERNAME + ':' + args.PASSWORD
-        encoded_auth = base64.b64encode(auth.encode()).decode()
+        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+        encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
         header['Authorization'] = 'Basic {}'.format(encoded_auth)
 
     # Entry point: Get the main data
