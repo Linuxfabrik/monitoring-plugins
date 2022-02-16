@@ -134,7 +134,7 @@ No NTP server used.
     This message occurs when
 
     * ntpd is running, and ntpd does not returns any ntp server
-    * any of chrony, ntpd or systemd-timesyncd use the LOCAL clock
+    * any of chrony, ntpd or systemd-timesyncd uses the LOCAL clock
 
     In both cases UNKNOWN is returned.
 
