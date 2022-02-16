@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083001'
+__version__ = '2022021601'
 
 DESCRIPTION = """Checks the Jitsi Videobridge health state."""
 
@@ -126,7 +126,8 @@ def main():
     if args.TEST is None:
         # Fetch the `/about/health` endpoint. If status_code == 200, everything is ok.
         args.URL += '/about/health'
-        healthy = lib.base3.coe(lib.jitsi3.get_data(args, _type='raw'))['status_code'] == 200
+        result = lib.base3.coe(lib.jitsi3.get_data(args, _type='raw'))
+        healthy = result['status_code'] == 200
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
