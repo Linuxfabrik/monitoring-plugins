@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021603'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -87,7 +87,6 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-
     # init some vars
     msg = ''
     perfdata = ''
@@ -110,7 +109,7 @@ def main():
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         if stderr or retc != 0:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
-        result = stdout.strip()
+        result = stdout.strip().replace('|', '!') # quote pipes in output, otherwise we will get problems with perfdata
 
         lines = result.splitlines()[1:] # ignore the first line
         for line in lines:
@@ -162,7 +161,6 @@ def main():
 
     perfdata += lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
     perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
-
 
     # over and out
     lib.base3.oao(msg, state, perfdata)
