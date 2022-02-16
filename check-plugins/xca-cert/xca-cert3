@@ -37,7 +37,7 @@ import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
@@ -170,7 +170,7 @@ def main():
                 timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
                 timestr = lib.time3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
                 delta = timestr - lib.time3.now(as_type='datetime')
-                crt_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
+                crt_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
                 table_crts.append({
                     'name': name,
                     'ca': 'y' if ca == 1 else 'n',
@@ -207,7 +207,7 @@ def main():
                 timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
                 timestr = lib.time3.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
                 delta = timestr - lib.time3.now(as_type='datetime')
-                crl_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, operator='le')
+                crl_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
                 table_crls.append({
                     'name': name,
                     'state': lib.base3.state2str(crl_state, empty_ok=False),

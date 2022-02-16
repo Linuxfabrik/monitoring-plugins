@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021504'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -134,7 +134,7 @@ def main():
             state = lib.base3.get_worst(STATE_WARN, state)
     msg += ', '
 
-    view_state = lib.base3.get_state(result['connectionsStat']['hour']['view']['max'], max_conn_warn, max_conn_crit, operator='ge')
+    view_state = lib.base3.get_state(result['connectionsStat']['hour']['view']['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base3.get_worst(view_state, state)
     msg += 'last hour: {}/{}/{} views{} '.format(
         result['connectionsStat']['hour']['view']['min'],
@@ -146,7 +146,7 @@ def main():
     perfdata += lib.base3.get_perfdata('conn_hour_view_avr', result['connectionsStat']['hour']['view']['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
     perfdata += lib.base3.get_perfdata('conn_hour_view_max', result['connectionsStat']['hour']['view']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
-    edit_state = lib.base3.get_state(result['connectionsStat']['hour']['edit']['max'], max_conn_warn, max_conn_crit, operator='ge')
+    edit_state = lib.base3.get_state(result['connectionsStat']['hour']['edit']['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base3.get_worst(edit_state, state)
     msg += 'and {}/{}/{} edits{} (min/avr/max), '.format(
         result['connectionsStat']['hour']['edit']['min'],

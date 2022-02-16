@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks FortiOS sensor information in detail.'
 
@@ -159,12 +159,12 @@ def main():
 
         sensor_state = STATE_OK
         if 'lower_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], operator='le')
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], _operator='le')
             state = lib.base3.get_worst(sensor_state, state)
             if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
                 msg_body += '\n* {} ({} {}) is less or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'])
         if 'upper_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], operator='ge')
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], _operator='ge')
             state = lib.base3.get_worst(sensor_state, state)
             if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
                 msg_body += '\n* {} ({} {}) is greater or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'])

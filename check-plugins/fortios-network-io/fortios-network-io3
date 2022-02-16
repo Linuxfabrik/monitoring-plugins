@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021602'
 
 DESCRIPTION = """This plugin checks network I/O and link states on all interfaces found on a Forti
                  Appliance like FortiGate running FortiOS, using the FortiOS REST API."""
@@ -260,8 +260,8 @@ def main():
         # we want to be informed if
         # * link saturation is above a certain threshold
         #   (on duplex lines and 1 gbps alert if saturation is >= 80/90% on each rx/tx compared to loadn)
-        sensor_state = lib.base3.get_state(rxnbps, args.WARN, args.CRIT, operator='ge')
-        sensor_state = lib.base3.get_worst(sensor_state, lib.base3.get_state(txnbps, args.WARN, args.CRIT, operator='ge'))
+        sensor_state = lib.base3.get_state(rxnbps, args.WARN, args.CRIT, _operator='ge')
+        sensor_state = lib.base3.get_worst(sensor_state, lib.base3.get_state(txnbps, args.WARN, args.CRIT, _operator='ge'))
         if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
             msg_saturation += 'Bandwidth saturation for {}: {}/{} bps (rx/tx) is too high{}. '.format(
                 interface['interface'],

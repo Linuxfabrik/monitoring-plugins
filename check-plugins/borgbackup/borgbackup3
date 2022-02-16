@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022021601'
 
 DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
 `cat /var/log/borg/borg-prune.log`
@@ -139,11 +139,11 @@ def main():
 
     # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
-    create_retc_state = lib.base3.get_state(create_retc, 2, None, operator='ge')
+    create_retc_state = lib.base3.get_state(create_retc, 2, None, _operator='ge')
     state = lib.base3.get_worst(state, create_retc_state)
     perfdata += lib.base3.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
 
-    prune_retc_state = lib.base3.get_state(prune_retc, 2, None, operator='ge')
+    prune_retc_state = lib.base3.get_state(prune_retc, 2, None, _operator='ge')
     state = lib.base3.get_worst(state, prune_retc_state)
     perfdata += lib.base3.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
