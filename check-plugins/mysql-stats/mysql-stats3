@@ -35,20 +35,18 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 try:
     import mysql.connector
-except ImportError as e:
-    mysql_connector_found = False
-else:
-    mysql_connector_found = True
+    HAVE_MYSQL_CONNECTOR = True
+except ImportError:
+    HAVE_MYSQL_CONNECTOR = False
 try:
     import psutil
-except ImportError as e:
-    psutil_found = False
-else:
-    psutil_found = True
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021602'
+__version__ = '2022021701'
 
 DESCRIPTION = """This check tests connections to a mysql server and gets some statistics
                 (the same way MySQLTuner does)."""
@@ -167,9 +165,9 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if mysql_connector_found is False:
+    if HAVE_MYSQL_CONNECTOR is False:
         lib.base3.oao('Python module "mysql.connector" is not installed.', STATE_UNKNOWN)
-    if psutil_found is False:
+    if HAVE_PSUTIL is False:
         lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
     try:

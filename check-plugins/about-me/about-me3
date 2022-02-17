@@ -41,12 +41,13 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
+    HAVE_PSUTIL = True
 except ImportError:
-    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    HAVE_PSUTIL = False
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022021703'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -140,8 +141,9 @@ def get_sys_dimensions():
     """
 
     sys_dimensions = {}
-    sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
-    sys_dimensions['ram'] = psutil.virtual_memory().total
+    if HAVE_PSUTIL:
+        sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
+        sys_dimensions['ram'] = psutil.virtual_memory().total
     return sys_dimensions
 
 
@@ -512,17 +514,20 @@ def main():
 
     virt = get_virt_info()
     if virt == 'none':
-        msg += ' on bare-metal, '
+        msg += ' on bare-metal,'
     else:
-        msg += ' virtualized on {}, '.format(virt)
+        msg += ' virtualized on {},'.format(virt)
 
     sys_dimensions = get_sys_dimensions()
-    msg = '{}{} {}, {} RAM'.format(
-        msg,
-        sys_dimensions['cpu'],
-        lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
-        lib.human3.bytes2human(sys_dimensions['ram'])
-    )
+    if sys_dimensions:
+        msg = '{} {} {}, {} RAM'.format(
+            msg,
+            sys_dimensions['cpu'],
+            lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
+            lib.human3.bytes2human(sys_dimensions['ram'])
+        )
+    else:
+        msg = '{} no sys dimensions (consider installing psutil)'.format(msg)
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
@@ -580,8 +585,9 @@ def main():
     if crontabs:
         msg = '{}\n\n# crontabs\n{}'.format(msg, crontabs)
 
-    perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    if sys_dimensions:
+        perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('disks', disks.count('\n'), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('osversion', os_version_perfdata, None, None, None, None, None)
 
