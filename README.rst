@@ -195,7 +195,7 @@ Running the Check Plugins on Linux
 Installation
 ~~~~~~~~~~~~
 
-Install Python 3 (or Python 2, if needed) on the client.
+Install Python 3 (or Python 2, if needed) on the remote host.
 
 Get the monitoring check plugins and the associated libraries from our GitLab server to your local machine or deployment host:
 
@@ -225,7 +225,7 @@ Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, an
     scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
     for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 
-That's it. After that your directory on the client should now look like this:
+That's it. After that your directory on the remote host should now look like this:
 
 .. code:: text
 
