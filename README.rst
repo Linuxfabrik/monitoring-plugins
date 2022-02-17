@@ -223,7 +223,7 @@ Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, an
 
     ssh $REMOTE_USER@$REMOTE_HOST 'mkdir -p $TARGET_DIR/lib'
     scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
-    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
+    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 
 That's it. After that your directory on the remote host should now look like this:
 
