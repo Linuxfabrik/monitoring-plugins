@@ -195,16 +195,14 @@ Running the Check Plugins on Linux
 Installation
 ~~~~~~~~~~~~
 
-Install Python on the client.
+Install Python 3 (or Python 2, if needed) on the client.
 
-Get the monitoring check plugins and the associated libraries from our GitLab server:
+Get the monitoring check plugins and the associated libraries from our GitLab server to your local machine or deployment host:
 
 .. code:: bash
 
     BRANCH="master"     # or "develop"
     PYVER=3             # or "2"
-
-    cd /tmp
 
     curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
     curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
@@ -212,28 +210,20 @@ Get the monitoring check plugins and the associated libraries from our GitLab se
     tar xf lib.tar.gz
     tar xf monitoring-plugins.tar.gz
 
-Prepare the directory tree:
+Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, and copy some or all Python check plugins to ``/usr/lib64/nagios/plugins`` while removing the Python version suffix, for example by doing the following:
 
 .. code:: bash
 
-    mkdir -p /usr/lib64/nagios/plugins/lib
+    REMOTE_USER=root
+    REMOTE_HOST=192.0.2.74
+    PYVER=3
+    SOURCE_LIBS=~/git/linuxfabrik/lib
+    SOURCE_PLUGINS=~/git/linuxfabrik/monitoring-plugins/check-plugins
+    TARGET_DIR=/usr/lib64/nagios/plugins
 
-Copy the libraries to ``/usr/lib64/nagios/plugins/lib``:
-
-.. code:: bash
-
-    \cp /tmp/lib-$BRANCH/*.py /usr/lib64/nagios/plugins/lib
-
-Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, and remove the Python version suffix, for example by doing the following:
-
-.. code:: bash
-
-    cd /tmp/monitoring-plugins-$BRANCH/check-plugins
-
-    for dir in */; do
-        check=$(basename "$dir")
-        \cp "$check$PYVER" "/usr/lib64/nagios/plugins/$check"
-    done
+    ssh $REMOTE_USER@$REMOTE_HOST 'mkdir -p $TARGET_DIR/lib'
+    scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
+    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 
 That's it. After that your directory on the client should now look like this:
 
