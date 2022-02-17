@@ -367,7 +367,7 @@ Next steps (beside maintaining and writing new check plugins):
 
 * Provide a meaningful Grafana-Panel (where it makes sense).
 * Provide a (unit) test for the majority of the check plugins (where it makes sense).
-* Automate the testing pipeline (CentOS, Ubuntu, Debian, OpenSUSE, Windows).
+* Automate the testing pipeline (RHEL and compatible, Ubuntu, Debian, OpenSUSE, Windows).
 
 
 Reporting Issues
