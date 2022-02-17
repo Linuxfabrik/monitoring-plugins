@@ -84,6 +84,13 @@ Perfdata / Metrics
 * used: Memory used, calculated differently depending on the platform and designed for informational purposes only. ``total - free`` does not necessarily match ``used``.
 
 
+Troubleshooting
+---------------
+
+This checks sometimes reports > 100% memory usage
+    That's fine, the RES column in ``top`` says the same if you sum up all values for a process (attention: the values in top's RES column are KB by default), and compare process memory to total physical system memory. The machine does not swap, so this is kind of Linux memory management mystery.
+
+
 Credits, License
 ----------------
 
