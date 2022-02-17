@@ -228,19 +228,11 @@ Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, and remo
 
 .. code:: bash
 
-    BRANCH="master"     # or "develop"
-    PYVER=3             # or "2"
-
     cd /tmp/monitoring-plugins-$BRANCH/check-plugins
 
-    find -maxdepth 2 -name 'test2' -delete
-    find -maxdepth 2 -name 'test3' -delete
-    find -maxdepth 2 -name '.zip' -delete
-    for check in $(find -maxdepth 2 -name "*$PYVER")
-    do
-        dir=$(dirname $check)
-        file=${dir:2}
-        \cp $check /usr/lib64/nagios/plugins/$file
+    for dir in */; do
+        check=$(basename "$dir")
+        \cp "$check$PYVER" "/usr/lib64/nagios/plugins/$check"
     done
 
 That's it. After that your directory on the client should now look like this:
