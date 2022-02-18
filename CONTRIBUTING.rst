@@ -232,11 +232,9 @@ Hints:
 Git Commits
 -----------
 
-You have to make sure that an issue in the `plugin <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/issues>`_ or `lib <https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues>`_ project exists. No code fix without issue.
-
-**Fix only one issue per commit.**
-
-The commit message must consist of the issue title followed by "(fixed #issueno)", for example: ``about-me: Add OpenVPN (fixed #341)``. For the first commit, use the message ``initial commit``.
+* Commit messages must start with "plugin-name: " and clearly and precisely state what has changed. Example: ``about-me: Should be able to run even if psutil is or cannot be installed``.
+* If there is an issue, the commit message must consist of the issue title followed by "(#issueno)", for example: ``about-me: Add OpenVPN (#341)``. It's ok to close the issue afterwards (do not wait until the next merge).
+* For the first commit, use the message ``initial commit``.
 
 
 Threshold and Ranges
