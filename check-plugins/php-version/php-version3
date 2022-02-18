@@ -39,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022021801'
 
 DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
                 whether the installed PHP version is EOL. For example, if you installed PHP 7.3
@@ -171,7 +171,27 @@ def main():
 
     # check EOL
     # unfortunately, the "museum" tag in json response doesn't help here, so we have to maintain
-    # this list manually (see https://en.wikipedia.org/wiki/PHP for details)
+    # this list manually (available on https://en.wikipedia.org/wiki/PHP)
+
+    # old version
+    if installed_major + '.' + installed_minor == '5.0':
+        msg += ', EOL since 2005-09-05'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.1':
+        msg += ', EOL since 2006-08-24'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.2':
+        msg += ', EOL since 2011-01-06'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.3':
+        msg += ', EOL since 2014-08-14'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.4':
+        msg += ', EOL since 2015-09-03'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.5':
+        msg += ', EOL since 2016-07-10'
+        state = STATE_WARN
     if installed_major + '.' + installed_minor == '5.6':
         msg += ', EOL since 2018-12-31'
         state = STATE_WARN
@@ -184,10 +204,11 @@ def main():
     if installed_major + '.' + installed_minor == '7.2':
         msg += ', EOL since 2020-11-30'
         state = STATE_WARN
-
-    if installed_major + '.' + installed_minor == '7.3' and lib.time3.now(as_type='iso') > '2021-12-06':
+    if installed_major + '.' + installed_minor == '7.3':
         msg += ', EOL since 2021-12-06'
         state = STATE_WARN
+
+    # latest or older version, still maintained
     if installed_major + '.' + installed_minor == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
         msg += ', EOL since 2022-11-28'
         state = STATE_WARN
@@ -195,7 +216,7 @@ def main():
         msg += ', EOL since 2023-11-26'
         state = STATE_WARN
     if installed_major + '.' + installed_minor == '8.1' and lib.time3.now(as_type='iso') > '2024-11-30':
-        msg += ', EOL since 2024-11-30'
+        msg += ', EOL since 2024-11-25'
         state = STATE_WARN
 
     if lib.base3.version(installed_version) >= lib.base3.version(latest_minor_version):
