@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022021801'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                 counts or process memory usage. You may filter the process list by process name,
@@ -270,7 +270,10 @@ def main():
         # procs_cpu: Do this over a time period together with --count
         procs_mem += process_info['memory_info'].rss
         procs_mem_percent += process_info['memory_percent']
-        procs_age = max(procs_age, lib.time3.now() - process_info['create_time'])
+        # on Windows, the "System Idle Process" always returns 0 - do not calculate the age
+        # of such processes, otherwise we get `max(0, Seconds since 1970)`, which is 52Y+.
+        if process_info['create_time']:
+            procs_age = max(procs_age, lib.time3.now() - process_info['create_time'])
 
         # count processes per status ("83x sleeping, 5x running")
         # plus group and summarize some states
