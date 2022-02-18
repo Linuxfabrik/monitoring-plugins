@@ -103,6 +103,20 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
+    def test_if_check_runs_EXAMPLE08_without_CPULoad(self):
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec('rm -f /tmp/linuxfabrik-plugin-cache.db'))
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE08a,,'))
+        self.assertIn('Waiting for more data (1).',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE08b,,'))
+        self.assertIn('Waiting for more data (3).',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+        stdout, stderr, retc = lib.base2.coe(lib.base2.shell_exec(self.check + ' --test=examples/EXAMPLE08c,,'))
+        self.assertIn('192.168.122.97: 1/400 workers busy (0.3%; 0 "G"), 99 idle, 300 free; 10.0K accesses, 976.6MiB traffic, 100.0 req/s, 0.00s/req, 9.8MiB/s, 100.0KiB/req in the last 1m 40s; Up 1W 1D',stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
 
 if __name__ == '__main__':
