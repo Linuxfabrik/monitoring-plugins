@@ -162,6 +162,7 @@ If you get a warning on
 * Hit Rate: Cache has to warm up, so wait and see.
 * Interned Strings: Increase ``opcache.interned_strings_buffer``, in megabytes. The actual value is always lower than what is configured in ``opcache.interned_strings_buffer``.
 * OOM: Increase any of the above values and restart Apache or PHP-FPM.
+* display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
 
 
 Credits, License
