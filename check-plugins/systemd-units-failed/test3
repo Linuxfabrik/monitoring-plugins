@@ -61,6 +61,16 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE05,,0'))
+        self.assertRegex(stdout, r'There are 3 failed units.')
+        self.assertRegex(stdout, r'unit               ! load      ! active ! sub    ! description')
+        self.assertRegex(stdout, r'tomcat8.service    ! not-found ! failed ! failed ! tomcat8.service')
+        self.assertRegex(stdout, r'varnish.service    ! loaded    ! failed ! failed ! Varnish HTTP accelerator')
+        self.assertRegex(stdout, r'varnishlog.service ! loaded    ! failed ! failed ! Varnish HTTP accelerator log daemon')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
 
 if __name__ == '__main__':
     unittest.main()
