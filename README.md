@@ -91,7 +91,7 @@ scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
 for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 ```
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutils](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries. The easiest way is to install them as well:
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries. The easiest way is to install them as well:
 
 * BeautifulSoup4
 * lxml
