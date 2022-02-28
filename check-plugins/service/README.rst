@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/service"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -48,13 +48,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./service --task Schedule --status running --severity crit
-    
+    service.exe --service Schedule --status running --severity crit
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    Schedule is running, automatic
 
 
 States

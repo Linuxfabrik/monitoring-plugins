@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-firewall-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -55,12 +55,12 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-firewall-stats --hostname fortigate-cluster.linuxfabrik.io --password mypass
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    2 policies, 0 sessions (0 active), 21 hits, 1.8KiB bytes (1.8KiB software, 0.0B asic, 0.0B nturbo)
 
 
 States

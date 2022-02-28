@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/file-size"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -75,7 +75,7 @@ Usage Examples
 
     # same thresholds, but recursive (might use a lot of memory)
     ./file-size --filename '/path/to/files/**/*' --warning 5 --critical 10
-    
+
 Output:
 
 .. code-block:: text
@@ -88,7 +88,10 @@ Output:
 States
 ------
 
-TODO
+* OK if all the found files are below the given size thresholds.
+* Otherwise CRIT or WARN.
+
+
 
 
 Perfdata / Metrics

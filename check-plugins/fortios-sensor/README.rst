@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-sensor"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "No"
@@ -50,12 +50,6 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-sensor --hostname fortigate-cluster.linuxfabrik.io --password mypass
-    
-Output:
-
-.. code-block:: text
-
-    TODO
 
 
 States

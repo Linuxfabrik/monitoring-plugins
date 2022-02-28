@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/updates"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
@@ -46,13 +46,17 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./updates --critical 10
-    
+    updates.exe --critical 10
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    There are 3 pending updates:
+
+    * Windows Malicious Software Removal Tool x64 - v5.98 (KB890830) [2/8/2022 12:00:00 AM]
+    * 2022-02 Cumulative Update Preview for .NET Framework 3.5, 4.7.2 and 4.8 for Windows Server 2019 for x64 (KB5011267) [2/15/2022 12:00:00 AM]
+    * 2022-02 Cumulative Update for Windows Server 2019 (1809) for x64-based Systems (KB5010351) [2/8/2022 12:00:00 AM]
 
 
 States

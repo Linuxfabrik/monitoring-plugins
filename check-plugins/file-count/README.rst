@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/file-count"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -81,25 +81,26 @@ Usage Examples
     ./file-count --filename '/path/to/*.md' --warning 5
 
     # check that there are at least 5 files modified in the last 10 seconds, else warn
-    ./file-count --filename '/path/to/file/*' --warning 5 --timerange 5 
+    ./file-count --filename '/path/to/file/*' --warning 5 --timerange 5
 
 Output:
 
 .. code-block:: text
 
-    TODO
+    Found 1 matching file (thresholds 1/None)|'file_count'=1;1;;0;
 
 
 States
 ------
 
-TODO States
+* OK if all the found files (in accordance with the filtering parameters) are within the given thresholds (ranges).
+* Otherwise CRIT or WARN.
 
 
 Perfdata / Metrics
 ------------------
 
-TODO Perfdata
+* ``file_count``: Number. Count of the files that were found in accordance with the filtering parameters.
 
 
 Credits, License

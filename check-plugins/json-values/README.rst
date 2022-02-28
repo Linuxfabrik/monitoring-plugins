@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/json-values"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -65,14 +65,22 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./json-values --url=http://example.com/json.out --message-key=output --state-key=state --perfdata-key=perfdata
-    ./json-values --filename=/tmp/json.out
-    
+    ./json-values --url=http://example.com/example.json --message-key=output --state-key=state --perfdata-key=perfdata
+
+    cat > /tmp/example.json2 << 'EOF'
+    {
+        "state": 2,
+        "message": "This is a test message",
+        "perfdata": "'cpu-usage'=5.6%;80;90;0;100"
+    }
+    EOF
+    ./json-values --filename=/tmp/example.json
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    This is a test message|'cpu-usage'=5.6%;80;90;0;100
 
 
 States

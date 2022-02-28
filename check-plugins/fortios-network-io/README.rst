@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-network-io"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -65,12 +65,20 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 5 --warning 800000000 --critical 900000000
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    port8: 338.9KiB/33.4KiB bps (rx/tx, current).
+    interface   ! rx1bps   ! tx1bps  ! rx5bps   ! tx5bps
+    ------------+----------+---------+----------+---------
+    mgmt1       ! 2.6KiB   ! 2.5KiB  ! 2.6KiB   ! 2.5KiB
+    modem       ! 0.0B     ! 0.0B    ! 0.0B     ! 0.0B
+    npu0_vlink0 ! 0.0B     ! 0.0B    ! 0.0B     ! 0.0B
+    npu1_vlink0 ! 0.0B     ! 0.0B    ! 0.0B     ! 0.0B
+    npu1_vlink1 ! 0.0B     ! 0.0B    ! 0.0B     ! 0.0B
+    port8       ! 338.9KiB ! 33.4KiB ! 334.0KiB ! 33.3KiB
 
 
 States
