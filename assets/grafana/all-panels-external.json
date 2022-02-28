@@ -1,20 +1,20 @@
 {
   "__inputs": [
     {
-      "name": "DS_INFLUXDB",
-      "label": "InfluxDB",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "influxdb",
-      "pluginName": "InfluxDB"
-    },
-    {
       "name": "DS_ICINGA_DIRECTOR",
       "label": "icinga_director",
       "description": "",
       "type": "datasource",
       "pluginId": "mysql",
       "pluginName": "MySQL"
+    },
+    {
+      "name": "DS_INFLUXDB",
+      "label": "InfluxDB",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
     }
   ],
   "__requires": [
@@ -22,12 +22,12 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "7.3.6"
+      "version": "8.2.5"
     },
     {
       "type": "panel",
       "id": "graph",
-      "name": "Graph",
+      "name": "Graph (old)",
       "version": ""
     },
     {
@@ -58,20 +58,32 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1610030406831,
+  "iteration": 1646056468876,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -411,7 +423,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1216,7 +1232,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3203,7 +3223,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3488,7 +3512,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -5166,7 +5194,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -6569,7 +6601,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7018,7 +7054,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7295,7 +7335,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7397,7 +7441,7 @@
               "orderByTime": "ASC",
               "policy": "default",
               "query": "SELECT \"value\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage') AND $timeFilter GROUP BY \"metric\"",
-              "rawQuery": false,
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -7438,7 +7482,7 @@
               "measurement": "/^cmd-check-disk-usage.*$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"crit\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^.*-percent$/) AND $timeFilter GROUP BY \"metric\"",
+              "query": "SELECT \"value\" FROM \"cmd-check-disk-usage\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^diskUsageDisk-.*$/) AND $timeFilter GROUP BY \"metric\"",
               "rawQuery": false,
               "refId": "B",
               "resultFormat": "time_series",
@@ -7485,7 +7529,7 @@
               "measurement": "/^cmd-check-disk-usage.*$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"warn\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^.*-percent$/) AND $timeFilter GROUP BY \"metric\"",
+              "query": "SELECT \"value\" FROM \"cmd-check-disk-usage\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^diskUsageDisk-.*$/) AND $timeFilter GROUP BY \"metric\"",
               "rawQuery": false,
               "refId": "C",
               "resultFormat": "time_series",
@@ -7846,7 +7890,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7903,13 +7951,6 @@
           "renderer": "flot",
           "repeat": null,
           "repeatDirection": "h",
-          "scopedVars": {
-            "diskUsageDisksWindows": {
-              "selected": false,
-              "text": "C:\\",
-              "value": "C:\\"
-            }
-          },
           "seriesOverrides": [
             {
               "$$hashKey": "object:356",
@@ -8485,7 +8526,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -8751,7 +8796,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -9201,7 +9250,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -9638,7 +9691,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -10075,7 +10132,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -10528,7 +10589,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -10983,7 +11048,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -11432,7 +11501,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -11887,7 +11960,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12342,7 +12419,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12795,7 +12876,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12809,7 +12894,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14047,7 +14136,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14500,7 +14593,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14761,7 +14858,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14775,7 +14876,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15036,7 +15141,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15473,7 +15582,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15934,7 +16047,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -17185,7 +17302,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -18166,7 +18287,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -20363,7 +20488,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21022,7 +21151,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21453,7 +21586,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21720,7 +21857,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21987,7 +22128,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -24662,7 +24807,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -25130,7 +25279,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -26418,7 +26571,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -26865,7 +27022,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -27312,7 +27473,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -27786,7 +27951,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -28058,7 +28227,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -28949,7 +29122,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -29519,7 +29696,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -29972,7 +30153,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -31645,7 +31830,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32119,7 +32308,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32557,7 +32750,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32995,7 +33192,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34068,7 +34269,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34434,7 +34639,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34694,7 +34903,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34954,7 +35167,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -35118,7 +35335,11 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -35362,7 +35583,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 26,
+  "schemaVersion": 32,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -35372,6 +35593,7 @@
         "current": {},
         "datasource": "${DS_ICINGA_DIRECTOR}",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "description": null,
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -35385,7 +35607,6 @@
         "skipUrlSync": false,
         "sort": 0,
         "tagValuesQuery": "",
-        "tags": [],
         "tagsQuery": "",
         "type": "query",
         "useTags": false
@@ -35396,6 +35617,7 @@
           "text": "",
           "value": ""
         },
+        "description": null,
         "error": null,
         "hide": 0,
         "label": null,
@@ -35417,6 +35639,7 @@
           "text": "",
           "value": ""
         },
+        "description": null,
         "error": null,
         "hide": 0,
         "label": null,
@@ -35454,5 +35677,5 @@
   "timezone": "",
   "title": "All Panels",
   "uid": "all-panels",
-  "version": 6
+  "version": 2
 }
