@@ -4,13 +4,13 @@ Check nginx-status
 Overview
 --------
 
-This check provides nginx basic status information from the stub status module.
+This check provides global nginx basic status information from the stub_status module.
 
 For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/ngx_http_stub_status_module.html>`_ module:
 
 .. code-block::
-    :caption: /etc/nginx/nginx.conf
-
+    
+    # /etc/nginx/nginx.conf
     server {
         location /server-status {
             stub_status;
@@ -18,6 +18,8 @@ For this check to work, enable the `stub_status <https://nginx.org/en/docs/http/
             deny all;           # deny all other hosts   
         }
     }
+
+Due to the fact that the `stub_status <https://github.com/nginx/nginx/blob/master/src/http/modules/ngx_http_stub_status_module.c>` module increments each counter at the exact moment a new request "object" is created, even before any request header (including the URI) is parsed, there is unfortunately no way to tell Nginx not to count requests for a given URI. In other words: It is not possible to get stats only for a specific server block.
 
 
 Fact Sheet
@@ -29,7 +31,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nginx-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Enable ``stub_status``"
     "Perfdata compatible to Prometheus",    "Yes"
 
@@ -84,14 +86,19 @@ States
 Perfdata / Metrics
 ------------------
 
-* nginx_connections_accepted: The total number of accepted client connections. 
-* nginx_connections_active: The current number of active client connections including Waiting connections. 
-* nginx_connections_handled: The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the worker_connections limit).
-* nginx_connections_reading: The current number of connections where nginx is reading the request header.
-* nginx_connections_waiting: The current number of idle client connections waiting for a request.
-* nginx_connections_writing: The current number of connections where nginx is writing the response back to the client.
-* nginx_http_requests_total: The total number of client requests. 
-* nginx_requests_per_connection: The number of handled requests per connection.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    nginx_connections_accepted,                 Continous Counter,  "The total number of accepted client connections."
+    nginx_connections_active,                   None,               "The current number of active client connections including ``Waiting`` connections. One user can have several concurrent connections to a server."
+    nginx_connections_handled,                  Continous Counter,  "The total number of handled connections. Generally both values are the same unless some resource limits have been reached (for example, the ``worker_connections`` limit)."
+    nginx_connections_reading,                  None,               "The current number of connections where nginx is reading the request header."
+    nginx_connections_waiting,                  None,               "The current number of idle client connections waiting for a request. This number depends on the ``keepalive_timeout``."
+    nginx_connections_writing,                  None,               "The current number of connections where nginx is writing the response back to the client."
+    nginx_http_requests_total,                  Continous Counter,  "The total number of client requests."
+    nginx_requests_per_connection,              None,               "The number of handled requests per connection."
 
 
 Credits, License

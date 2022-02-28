@@ -38,7 +38,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022012101'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -86,6 +86,7 @@ def parse_args():
         '-p', '--password',
         help='Veeam API password.',
         dest='PASSWORD',
+        required=True,
     )
 
     parser.add_argument(
@@ -115,6 +116,7 @@ def parse_args():
         help='Veeam API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
+        required=True,
     )
 
     parser.add_argument(
@@ -140,12 +142,12 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        success, result, token = lib.veeam2.get_token(args)
+        success, result = lib.veeam2.get_token(args)
         if not success:
             lib.base2.oao(result, STATE_UNKNOWN)
 
         header = {
-            'X-RestSvcSessionId': token,
+            'X-RestSvcSessionId': result['X-RestSvcSessionId'],
             'Accept': 'application/json',
         }
         result = {}

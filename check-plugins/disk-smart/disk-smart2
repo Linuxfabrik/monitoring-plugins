@@ -36,7 +36,7 @@ import lib.test2 # pylint: disable=C0413
 from lib.globals2 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2021121401'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -45,7 +45,8 @@ DESCRIPTION = '''This check is some kind of user interface for smartctl, which i
 
 DEFAULT_IGNORE = []
 
-CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --include 8,252,259 | grep -v 'zram'"
+# exclude some block devices with their numbers according to `/proc/devices`
+CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,252,253,254"
 CMD_SMARTCTL = 'smartctl --xall {disk_path}'
 
 

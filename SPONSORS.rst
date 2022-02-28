@@ -11,6 +11,7 @@ Sponsors
 
 We are happy to mention you as a sponsor.
 
+* `Universitätsspital Basel, Schweiz <https://www.unispital-basel.ch/>`_
 * `Sopra Steria AG, Schweiz <https://www.soprasteria.ch/de>`_
 * `Linuxfabrik GmbH, Schweiz <https://www.linuxfabrik.ch/>`_
 

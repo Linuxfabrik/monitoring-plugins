@@ -58,7 +58,7 @@ Output:
 
 .. code-block:: text
 
-    myhostname - Fedora release 34 (Thirty Four), 8 CPUs, 15.2GiB, Public IP 1.2.3.4
+    myhostname - Fedora release 34 (Thirty Four) on bare-metal, 8 CPUs, 15.2GiB RAM, Public IP 1.2.3.4
 
     # Disks
     * nvme0n1 953.9G

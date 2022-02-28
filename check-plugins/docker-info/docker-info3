@@ -32,12 +32,15 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021503'
 
 DESCRIPTION = 'Displays system-wide docker information.'
 
@@ -82,10 +85,10 @@ def main():
     # fetch data, get docker or podman info
     if args.TEST is None:
         cmd = 'podman info --format json'
-        success, result = lib.base3.shell_exec(cmd)
+        success, result = lib.shell3.shell_exec(cmd)
         if not success:
             cmd = 'docker info'
-            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         else:
             stdout, stderr, retc = result
         if retc != 0:
@@ -152,7 +155,7 @@ def main():
                 logging_driver = lcrow.replace('logging driver: ', '').strip()
             if ' total memory: ' in lcrow:
                 memory = row.replace('Total Memory: ', '').strip()
-                perfdata += lib.base3.get_perfdata('ram', lib.base3.human2bytes(memory), 'B', None, None, 0, None)
+                perfdata += lib.base3.get_perfdata('ram', lib.human3.human2bytes(memory), 'B', None, None, 0, None)
             if ' registry: ' in lcrow:
                 registry = lcrow.replace('registry: ', '').strip()
             if ' storage driver: ' in lcrow:
@@ -185,7 +188,7 @@ def main():
     if logging_driver != '':
         msg += ', Logging Driver: {}'.format(logging_driver)
     if podman_found:
-        msg += ', {} {}'.format(registry, lib.base3.pluralize('Registr', registry, 'y,ies'))
+        msg += ', {} {}'.format(registry, lib.txt3.pluralize('Registr', registry, 'y,ies'))
     else:
         if registry != '':
             msg += ', Registry: {}'.format(registry)
@@ -196,7 +199,7 @@ def main():
     msg += ' v{}'.format(ver)
     msg += ', {} CPUs'.format(cpus)
     if podman_found:
-        msg += ', {} Memory'.format(lib.base3.bytes2human(memory))
+        msg += ', {} Memory'.format(lib.human3.bytes2human(memory))
     else:
         msg += ', {} Memory'.format(memory)
 

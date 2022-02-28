@@ -27,18 +27,19 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
-import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
-from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021602'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -128,7 +129,7 @@ def main():
     #   server accepts handled requests
     #    2 2 3
     #   Reading: 0 Writing: 1 Waiting: 1
-    tmp, active_connections = result[0].strip().split(':')
+    tmp, active_connections = result[0].strip().split(': ')
     total_connections_accepted, total_connections_handled, total_requests = result[2].strip().split(' ')
     requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
     tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
@@ -137,22 +138,22 @@ def main():
     if total_connections_handled != total_connections_accepted:
         state = STATE_WARN
         msg += 'Some resource limits have been reached (for example, the worker_connections limit). '
-    conn_state = lib.base3.get_state(active_connections, args.WARN, args.CRIT, operator='ge')
+    conn_state = lib.base3.get_state(active_connections, args.WARN, args.CRIT, _operator='ge')
     state = lib.base3.get_worst(conn_state, state)
 
     # build the message
     msg += '{} active concurrent {}{}; {} accepted {}, {} handled {}, {} {}; {} req per conn; currently {} receiving {}, {} sending {}, {} keep-alive {}'.format(
-        active_connections, lib.base3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
-        total_connections_accepted, lib.base3.pluralize('conn', total_connections_accepted),
-        total_connections_handled, lib.base3.pluralize('conn', total_connections_handled),
-        total_requests, lib.base3.pluralize('req', total_requests),
+        active_connections, lib.txt3.pluralize('conn', active_connections), lib.base3.state2str(conn_state, prefix=' '),
+        lib.human3.number2human(total_connections_accepted), lib.txt3.pluralize('conn', total_connections_accepted),
+        lib.human3.number2human(total_connections_handled), lib.txt3.pluralize('conn', total_connections_handled),
+        lib.human3.number2human(total_requests), lib.txt3.pluralize('req', total_requests),
         requests_per_connection,
-        connections_reading, lib.base3.pluralize('req', connections_reading),
-        connections_writing, lib.base3.pluralize('response', connections_writing),
-        connections_waiting, lib.base3.pluralize('conn', connections_waiting),
+        connections_reading, lib.txt3.pluralize('req', connections_reading),
+        connections_writing, lib.txt3.pluralize('response', connections_writing),
+        connections_waiting, lib.txt3.pluralize('conn', connections_waiting),
         )
     perfdata += lib.base3.get_perfdata('nginx_connections_accepted', total_connections_accepted, 'c', None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('nginx_connections_active', active_connections, None, None, None, 0, args.CRIT)
+    perfdata += lib.base3.get_perfdata('nginx_connections_active', active_connections, None, args.WARN, args.CRIT, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_handled', total_connections_handled, 'c', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_reading', connections_reading, None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('nginx_connections_waiting', connections_waiting, None, None, None, 0, None)

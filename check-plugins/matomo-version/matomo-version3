@@ -32,12 +32,13 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.disk3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2022021601'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -90,8 +91,7 @@ def get_installed_version(path):
     if matomo_version:
         # 3.13.4
         return (True, matomo_version)
-    else:
-        return (True, False)
+    return (True, False)
 
 
 def get_latest_version(expire):
@@ -110,7 +110,7 @@ def get_latest_version(expire):
         # version is better, and don't save this pre-release to the cache
         return (True, '0.0.0')
 
-    lib.cache3.set('matomo-version', latest_version, lib.base3.now() + expire)
+    lib.cache3.set('matomo-version', latest_version, lib.time3.now() + expire)
     return (True, latest_version)
 
 

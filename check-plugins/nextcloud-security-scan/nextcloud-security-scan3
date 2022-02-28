@@ -32,12 +32,13 @@ import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
@@ -157,7 +158,7 @@ def main():
 
     # warn if last check is more than 30 days ago, and trigger a rescan
     scan_date = datetime.datetime.strptime(result['scannedAt']['date'][:10], "%Y-%m-%d")
-    today = lib.base3.now(as_type='datetime')
+    today = lib.time3.now(as_type='datetime')
     delta = scan_date - today
     if abs(delta.days) > args.TRIGGER:
         tmp = lib.base3.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))

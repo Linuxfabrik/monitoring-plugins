@@ -27,16 +27,18 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
-from pathlib import Path
+from pathlib import Path # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.smb3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks the number of matching files.'
 
@@ -154,7 +156,7 @@ def main():
     if args.FILENAME and args.URL:
         lib.base3.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
 
-    now = lib.base3.now()
+    now = lib.time3.now()
     msg = ''
     file_count = 0
 
@@ -200,7 +202,7 @@ def main():
     else:
         state = STATE_OK
 
-    msg = f'Found {file_count} matching {lib.base3.pluralize("file", file_count)} (thresholds {args.WARN}/{args.CRIT})'
+    msg = f'Found {file_count} matching {lib.txt3.pluralize("file", file_count)} (thresholds {args.WARN}/{args.CRIT})'
     perfdata = lib.base3.get_perfdata('file_count', file_count, None, args.WARN, args.CRIT, 0, None)
 
     # over and out
@@ -212,4 +214,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-

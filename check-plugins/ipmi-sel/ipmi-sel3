@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks the IPMI System Event Log (SEL) and returns WARN if there are entries. Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'
 
@@ -136,12 +137,12 @@ def main():
             cmd += '-P {} '.format(args.PASSWORD) if args.PASSWORD else ''
             cmd += '-U {} '.format(args.USERNAME) if args.USERNAME else ''
         # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
 
-    if (retc != 0):
+    if retc != 0:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     # everything is ok

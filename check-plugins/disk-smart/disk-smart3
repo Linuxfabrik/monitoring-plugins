@@ -32,11 +32,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021503'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -45,7 +47,8 @@ DESCRIPTION = '''This check is some kind of user interface for smartctl, which i
 
 DEFAULT_IGNORE = []
 
-CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --include 8,252,259 | grep -v 'zram'"
+# exclude some block devices with their numbers according to `/proc/devices`
+CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,252,253,254"
 CMD_SMARTCTL = 'smartctl --xall {disk_path}'
 
 
@@ -359,7 +362,7 @@ def parse_section_info(section):
                 p['w'] = get_worst('notice', p['w'])
                 p['msg'] = p.get('msg', '') + '  - Info: SMART is not supported. You won\'t be able to read any SMART information from this drive. Consider adding it to the ignore list.\n'
 
-    p['model'] = lib.base3.uniq(p['model'].strip())
+    p['model'] = lib.txt3.uniq(p['model'].strip())
 
     if warning:
         p['msg'] += '  - There are warnings, your drive may be affected:\n{}'.format(warning)
@@ -801,7 +804,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.TEST is None:
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(CMD_LIST_DISKS))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD_LIST_DISKS))
         if stderr:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     else:
@@ -831,7 +834,7 @@ def main():
 
         if args.TEST is None:
             cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
-            stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd_smartctl))
+            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
             stdout, stderr, retc = lib.test3.test(args.TEST)
@@ -864,7 +867,7 @@ def main():
         disk_count += 1
         serial_number = disk_report['general']['serial_number']
 
-        for key, item in disk_report.items():
+        for item in disk_report.values():
             if item['w'] != 'none':
                 disk_msg +=  item['msg'] + '\n'
                 disk_state = lib.base3.get_worst(translate(item['w'], args.FULL), disk_state)
@@ -890,7 +893,7 @@ def main():
 
 
     if disk_count:
-        msg_header = 'Checked {} {}.'.format(disk_count, lib.base3.pluralize('disk', disk_count))
+        msg_header = 'Checked {} {}.'.format(disk_count, lib.txt3.pluralize('disk', disk_count))
         if state == STATE_CRIT:
             msg_header += ' There are critical errors.'
         elif state == STATE_WARN:

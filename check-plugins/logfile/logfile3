@@ -19,21 +19,23 @@ if os.getenv('MONITORING_PLUGINS_VENV3'):
     activate_this = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if activate_this and os.path.isfile(activate_this):
-    exec(open(activate_this).read(), {'__file__': activate_this})
+    exec(open(activate_this).read(), {'__file__': activate_this}) # pylint: disable=W0122
 
 
-import argparse
-import datetime
-import re
-import sys
+import argparse # pylint: disable=C0413
+import datetime # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.base3
-import lib.db_sqlite3
-import lib.icinga3
+import lib.base3 # pylint: disable=C0413
+import lib.db_sqlite3 # pylint: disable=C0413
+import lib.icinga3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021601'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -45,6 +47,7 @@ DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -284,7 +287,7 @@ def main():
     lib.base3.coe(lib.db_sqlite3.replace(conn, new_file_stats, table='file_stats'))
 
     # if we are using the alarm duration (aka not using the icinga callback), remove all outdated matches from the db now
-    now = lib.base3.now(as_type='datetime')
+    now = lib.time3.now(as_type='datetime')
     if not args.ICINGA_CALLBACK:
         outdated = now - datetime.timedelta(minutes=args.ALARM_DURATION)
         lib.base3.coe(lib.db_sqlite3.delete(
@@ -389,25 +392,25 @@ def main():
     if warn_matches:
         msg += ', {} warning {}'.format(
             len(warn_matches),
-            lib.base3.pluralize('match', len(warn_matches), 'es'),
+            lib.txt3.pluralize('match', len(warn_matches), 'es'),
         )
 
     if crit_matches:
         msg += ', {} critical {}'.format(
             len(crit_matches),
-            lib.base3.pluralize('match', len(crit_matches), 'es'),
+            lib.txt3.pluralize('match', len(crit_matches), 'es'),
         )
 
     if old_warn_matches:
         msg += ', {} old warning {}'.format(
             len(old_warn_matches),
-            lib.base3.pluralize('match', len(old_warn_matches), 'es'),
+            lib.txt3.pluralize('match', len(old_warn_matches), 'es'),
         )
 
     if old_crit_matches:
         msg += ', {} old critical {}'.format(
             len(old_crit_matches),
-            lib.base3.pluralize('match', len(old_crit_matches), 'es'),
+            lib.txt3.pluralize('match', len(old_crit_matches), 'es'),
         )
 
     if not args.SUPPRESS_OUTPUT:

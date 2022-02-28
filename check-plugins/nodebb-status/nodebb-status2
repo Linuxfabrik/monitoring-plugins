@@ -27,21 +27,18 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args2 # pylint: disable=C0413
 import lib.base2 # pylint: disable=C0413
+import lib.disk2 # pylint: disable=C0413
 import lib.nodebb2 # pylint: disable=C0413
 from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
-try:
-    import psutil # pylint: disable=C0413
-except ImportError:
-    lib.base2.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
-
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2022021601'
 
 DESCRIPTION = """Checks the overall health of a NodeBB instance using various API endpoints."""
 
@@ -154,8 +151,6 @@ def main():
         result_events = lib.nodebb2.get_data(args, '/api/admin/advanced/events')
     else:
         # do not call the command, put in test data
-        import lib.disk2
-        import json
         success, stdout = lib.disk2.read_file(args.TEST[0] + '-cache')
         result_cache = json.loads(stdout)
         success, stdout = lib.disk2.read_file(args.TEST[0] + '-database')

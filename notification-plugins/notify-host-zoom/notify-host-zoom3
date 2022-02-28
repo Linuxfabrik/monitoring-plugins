@@ -1,0 +1,208 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse     # pylint: disable=C0413
+import sys          # pylint: disable=C0413
+import textwrap     # pylint: disable=C0413
+import urllib.parse # pylint: disable=C0413
+
+import lib.args3    # pylint: disable=C0413
+import lib.base3    # pylint: disable=C0413
+import lib.url3     # pylint: disable=C0413
+from lib.globals3 import STATE_UNKNOWN # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021110401'
+
+DESCRIPTION = 'Sends notifications for hosts using the Zoom Incoming Webhook API.'
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--datetime',
+        help='Set the message timestamp ($icinga.short_date_time$).',
+        default=None,
+        type=str,
+        dest='DATETIME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-displayname',
+        help='Set the display name of the host ($host.display_name$).',
+        default=None,
+        type=str,
+        dest='HOST_DISPLAYNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-output',
+        help='Set the host output ($host.output$).',
+        default=None,
+        type=str,
+        dest='HOST_OUTPUT',
+    )
+
+    parser.add_argument(
+        '--host-state',
+        help='Set the host state ($host.state$).',
+        default=None,
+        type=str,
+        dest='HOST_STATE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help='Set the hostname ($host.name$).',
+        default=None,
+        type=str,
+        dest='HOSTNAME',
+    )
+
+    parser.add_argument(
+        '--icingaweb2-url',
+        help='Set the Icinga Web 2 URL, for example "https://example.com/icingaweb2".',
+        default=None,
+        type=str,
+        dest='ICINGAWEB2_URL',
+    )
+
+    parser.add_argument(
+        '--notification-author',
+        help='Set the author of the comment ($notification.author$).',
+        default=None,
+        type=str,
+        dest='NOTIFICATION_AUTHOR',
+    )
+
+    parser.add_argument(
+        '--notification-comment',
+        help='Set the comment ($notification.comment$).',
+        default=None,
+        type=str,
+        dest='NOTIFICATION_COMMENT',
+    )
+
+    parser.add_argument(
+        '--token',
+        help='Set the Zoom verification token.',
+        dest='TOKEN',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Set the URL of the Zoom Incoming Webhook API.',
+        dest='URL',
+        required=True,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    head = textwrap.dedent('''
+        {HOST_STATE:.4}: {HOST_DISPLAYNAME} ({DATETIME})
+    ''').strip().format(
+        HOST_STATE=args.HOST_STATE,
+        HOST_DISPLAYNAME=args.HOST_DISPLAYNAME,
+        DATETIME=args.DATETIME,
+    )
+
+    if args.NOTIFICATION_COMMENT:
+        head += '\nCOMMENT: {NOTIFICATION_COMMENT} ({NOTIFICATION_AUTHOR})'.format(
+            NOTIFICATION_AUTHOR=args.NOTIFICATION_AUTHOR,
+            NOTIFICATION_COMMENT=args.NOTIFICATION_COMMENT,
+        )
+
+    link = None
+    if args.ICINGAWEB2_URL and args.HOSTNAME:
+        params = urllib.parse.urlencode(
+            {
+                'host': args.HOSTNAME,
+            },
+            quote_via=urllib.parse.quote
+        )
+
+        link = urllib.parse.urljoin(f'{args.ICINGAWEB2_URL}/', f'monitoring/host/show?{params}')
+
+    body = args.HOST_OUTPUT
+
+    url = args.URL + '?format=full'
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': args.TOKEN,
+    }
+
+    data = {
+        "head": {
+            "text": head,
+        },
+        "body": [{
+            "type": "message",
+            "text": body,
+            "link": link
+        }]
+    }
+
+    result = lib.base3.coe(lib.url3.fetch(url,
+        header=headers,
+        data=data,
+        encoding='serialized-json',
+        extended=True,
+    ))
+
+    if result['status_code'] != 200 or result['response'] != 'OK':
+        sys.exit(STATE_UNKNOWN)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

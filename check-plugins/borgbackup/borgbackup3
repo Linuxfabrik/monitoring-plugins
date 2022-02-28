@@ -30,11 +30,13 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021601'
 
 DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
 `cat /var/log/borg/borg-prune.log`
@@ -114,7 +116,6 @@ def main():
 
     logfile = open(path, 'r')
     for line in logfile:
-        line = line.decode()
         if line.startswith('start'):
             starttime = line.split(": ")[1].strip()
 
@@ -127,7 +128,8 @@ def main():
         if line.startswith('prune_retc'):
             prune_retc = int(line.split(": ")[1])
 
-    # check if all variables are defined
+    # check if all variables are defined (looks a little bit weird, pylint complains:
+    # Statement seems to have no effect (pointless-statement) ;-)
     try:
         starttime
         endtime
@@ -138,24 +140,24 @@ def main():
 
     # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
-    create_retc_state = lib.base3.get_state(create_retc, 2, None, operator='ge')
+    create_retc_state = lib.base3.get_state(create_retc, 2, None, _operator='ge')
     state = lib.base3.get_worst(state, create_retc_state)
     perfdata += lib.base3.get_perfdata('create_retc', create_retc, None, 1, 2, 0, None)
 
-    prune_retc_state = lib.base3.get_state(prune_retc, 2, None, operator='ge')
+    prune_retc_state = lib.base3.get_state(prune_retc, 2, None, _operator='ge')
     state = lib.base3.get_worst(state, prune_retc_state)
     perfdata += lib.base3.get_perfdata('prune_retc', prune_retc, None, 1, 2, 0, None)
 
-    now = lib.base3.now(as_type='iso')
-    delta = lib.base3.timestrdiff(now, starttime)
+    now = lib.time3.now(as_type='iso')
+    delta = lib.time3.timestrdiff(now, starttime)
 
     last_starttime_state = lib.base3.get_state(delta, args.WARN * 60 * 60 if args.WARN is not None else None, args.CRIT * 60 * 60 if args.CRIT is not None else None)
     state = lib.base3.get_worst(state, last_starttime_state)
 
-    duration = lib.base3.timestrdiff(endtime, starttime)     # in seconds
+    duration = lib.time3.timestrdiff(endtime, starttime)     # in seconds
     perfdata += lib.base3.get_perfdata('duration', duration, 's', None, None, 0, None)
 
-    msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.base3.seconds2human(duration))
+    msg = 'Last Backup started {}, ended {}, took {}.\n'.format(starttime, endtime, lib.human3.seconds2human(duration))
     if state != STATE_OK:
         if last_starttime_state != STATE_OK:
             msg = 'Last backup is too long ago. ' + msg

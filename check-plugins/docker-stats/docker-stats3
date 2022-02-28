@@ -31,11 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021602'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -130,7 +132,7 @@ def main():
 
     # we need cpu and memory from docker perspective
     cmd = 'docker info'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
     if not stdout:
         lib.base3.oao('{}'.format('Unable to fetch docker info.'), STATE_UNKNOWN)
     try:
@@ -157,12 +159,12 @@ def main():
     # b48543f756e6   mongo           0.27%     73.84MiB / 3.702GiB   1.95%     760B / 116B   6.59MB / 480kB   33
 
     cmd = 'docker stats --no-stream'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd, shell=True))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
     if (stderr or retc != 0):
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
     # init some vars
-    msg, msg_header = '', ''
+    msg = ''
     state = STATE_OK
     perfdata = ''
     table_values = []
@@ -170,7 +172,7 @@ def main():
     # evaluate results
     perfdata += lib.base3.get_perfdata('cpu', host_cpus, None, None, None, 0, None)
 
-    containers = lib.base3.mltext2array(stdout, skip_header=True, sort_key=1)
+    containers = lib.txt3.mltext2array(stdout, skip_header=True, sort_key=1)
     for container in containers:
         try:
             container_id, name, cpu_percent, mem_usage, tmp, mem_limit, mem_percent, net_in, tmp, net_out, block_in, tmp, block_out, pids = container
@@ -183,7 +185,7 @@ def main():
 
         # save trend data to local sqlite database, limited to "count" rows max.
         lib.base3.coe(lib.db_sqlite3.insert(conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'))
-        lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(containers), table='cpu'))
+        lib.base3.coe(lib.db_sqlite3.cut(conn, _max=args.COUNT*len(containers), table='cpu'))
 
         # alert when container cpu_usage is exceeded
         # my container state is not ok, if in every of my historic rows the cpu value is above the threshold

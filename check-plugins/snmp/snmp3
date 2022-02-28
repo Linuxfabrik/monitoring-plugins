@@ -23,7 +23,7 @@ if os.getenv('MONITORING_PLUGINS_VENV3'):
     ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0123
 
 
 import argparse # pylint: disable=C0413
@@ -33,12 +33,14 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.disk3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101101'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -265,7 +267,7 @@ def main():
     if args.TEST is None:
         for oid in oids:
             tmp, stderr, retc = lib.base3.coe(
-                lib.base3.shell_exec(cmd.replace('_OIDS_', oid)))
+                lib.shell3.shell_exec(cmd.replace('_OIDS_', oid)))
             if (stderr or retc != 0):
                 lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
             stdout += tmp
@@ -337,11 +339,11 @@ def main():
         if recalc:
             # we got a formula
             try:
-                value = eval(recalc, {}, {'value': value, 'values': values})
+                value = eval(recalc, {}, {'value': value, 'values': values}) # pylint: disable=W0123
             except Exception as e:
                 table_values.append({
                     'name': name,
-                    'value': "The recalc in {} failed with {}: '{}'.".format(args.DEVICE, type(e).__name__, e.message),
+                    'value': "The recalc in {} failed with {}: '{}'.".format(args.DEVICE, type(e).__name__, e),
                     'state': lib.base3.state2str(STATE_UNKNOWN),
                     })
                 state = lib.base3.get_worst(state, STATE_UNKNOWN)
@@ -352,12 +354,12 @@ def main():
         check_state = True
         value_state = STATE_OK
         if check_state and crit:
-            if eval(crit, {}, {'value': value, 'values': values}):
+            if eval(crit, {}, {'value': value, 'values': values}): # pylint: disable=W0123
                 value_state = STATE_CRIT
                 msg_header += '{}: {}{} (CRIT), '.format(name, value, unit)
                 check_state = False   # no more checks for this value necessary
         if check_state and warn:
-            if eval(warn, {}, {'value': value, 'values': values}):
+            if eval(warn, {}, {'value': value, 'values': values}): # pylint: disable=W0123
                 value_state = STATE_WARN
                 msg_header += '{}: {}{} (WARN), '.format(name, value, unit)
                 check_state = False
@@ -384,29 +386,29 @@ def main():
             perfdata_unit = unit
         if unit == 's':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.seconds2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.human3.seconds2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.seconds2human(value), ''),
+                    'value': '{}{}'.format(lib.human3.seconds2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'b':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.bytes2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.human3.bytes2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.bytes2human(value), ''),
+                    'value': '{}{}'.format(lib.human3.bytes2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         elif unit.lower() == 'bps':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.base3.bps2human(value), lib.base3.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(name, lib.human3.bps2human(value), lib.base3.state2str(value_state))
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
-                    'value': '{}{}'.format(lib.base3.bps2human(value), ''),
+                    'value': '{}{}'.format(lib.human3.bps2human(value), ''),
                     'state': lib.base3.state2str(value_state, empty_ok=False),
                     })
         else:
@@ -421,7 +423,7 @@ def main():
 
         # create perfdata for numeric values
         value_type = lib.base3.guess_type(value)
-        if isinstance(value_type, int) or isinstance(value_type, float):
+        if isinstance(value_type, (int, float)):
             if perfdata_unit == '%':
                 perfdata += lib.base3.get_perfdata(name, value, '%', None, None, 0, 100)
             elif perfdata_unit.upper() in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:

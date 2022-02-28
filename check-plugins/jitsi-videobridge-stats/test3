@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
         
 class TestCheck(unittest.TestCase):
@@ -23,13 +24,13 @@ class TestCheck(unittest.TestCase):
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --warning 2 --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --warning 2 --test=examples/EXAMPLE01,,0'))
         self.assertIn('2 participants [WARNING] in 1 conference (2 participants in the largest conference), 2 Video Channels, Stress Level 0.01092, 93 JVM threads, 1.3Mbps download, 603.4Kbps upload', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
         self.assertIn('0 participants in 1 conference', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
 
 class TestCheck(unittest.TestCase):
@@ -23,24 +24,24 @@ class TestCheck(unittest.TestCase):
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
         self.assertIn('*    1 ; 03/12/2019 ; 13:10:45 ; Physical Security Chassis Intru ; General Chassis intrusion () ; Asserted', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,"SEL has no entries",0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,"SEL has no entries",0'))
         self.assertIn('Everything is ok.', stdout)
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
         self.assertIn('*   54 ; 08/06/2020 ; 15:05:37 ; System ACPI Power State ACPI_Stat ; S4/S5: soft-off ; Asserted', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check))
         self.assertIn('Could not open device at /dev/ipmi0 or /dev/ipmi/0 or /dev/ipmidev/0: No such file or directory', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)

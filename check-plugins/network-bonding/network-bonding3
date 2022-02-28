@@ -30,11 +30,12 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021601'
 
 DESCRIPTION = '''Reports the state of a channel bonding interface. Channel bonding enables two or
     more network interfaces to act as one, simultaneously increasing the bandwidth and providing
@@ -83,7 +84,7 @@ def main():
     # fetch data
     if args.TEST is None:
         try:
-            bonding_interfaces = os.listdir('/proc/net/bonding/').decode()
+            bonding_interfaces = os.listdir('/proc/net/bonding/')
         except OSError:
             bonding_interfaces = []
     else:
@@ -121,7 +122,7 @@ def main():
                                 slave_interface,
                                 mii_status,
                                 link_failure_count,
-                                lib.base3.pluralize('failure', link_failure_count))
+                                lib.txt3.pluralize('failure', link_failure_count))
                             substate = state = STATE_WARN
                         in_interface_section = False
                     continue
@@ -153,7 +154,7 @@ def main():
                         slave_interface,
                         mii_status,
                         link_failure_count,
-                        lib.base3.pluralize('failure', link_failure_count))
+                        lib.txt3.pluralize('failure', link_failure_count))
                     substate = state = STATE_WARN
 
             msg += '* {}{} ({})\n'.format(lib.base3.state2str(substate, suffix=' '), bonding_interface, bonding_mode) + submsg

@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2021110901'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -105,17 +105,20 @@ def main():
         lib.base2.bytes2human(swap.used),
         lib.base2.bytes2human(swap.free),
     )
-    msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
-        lib.base2.bytes2human(getattr(swap, 'sin', 0)),
-        lib.base2.bytes2human(getattr(swap, 'sout', 0)),
-    )
 
     perfdata =  lib.base2.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base2.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
     perfdata += lib.base2.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base2.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
-    perfdata += lib.base2.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
+
+    msg_body = ''
+    if not lib.base2.WINDOWS:
+        msg_body = 'swapped in: {}, swapped out: {} (both cumulative)'.format(
+            lib.base2.bytes2human(getattr(swap, 'sin', 0)),
+            lib.base2.bytes2human(getattr(swap, 'sout', 0)),
+        )
+        perfdata += lib.base2.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
+        perfdata += lib.base2.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
 
     # calculating the final check state
     state = lib.base2.get_state(swap_usage_percent, args.WARN, args.CRIT)

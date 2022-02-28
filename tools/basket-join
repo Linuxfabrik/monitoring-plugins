@@ -21,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090803'
+__version__ = '2021110301'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -77,6 +77,21 @@ def err_print(msg, **kwargs):
         print(msg, **kwargs)
 
 
+class DuplicateKeyError(ValueError):
+    pass
+
+
+def raise_on_duplicate_keys(ordered_pairs):
+    """Raise DuplicateKeyError if a duplicate key exists in provided ordered list of pairs, otherwise return a dict."""
+    dict_out = {}
+    for key, val in ordered_pairs:
+        if key in dict_out:
+            raise DuplicateKeyError(f'Duplicate key: {key}')
+        else:
+            dict_out[key] = val
+    return dict_out
+
+
 class BasketJoiner:
     def __init__(self):
         self.data = collections.defaultdict(dict)
@@ -101,24 +116,28 @@ class BasketJoiner:
             print(f'File: {basket_file}')
             with open(basket_file, 'rb') as file:
                 try:
-                    basket_data = json.load(file)
+                    basket_data = json.load(file, object_pairs_hook=raise_on_duplicate_keys)
                 except json.decoder.JSONDecodeError:
-                    err_print('Could not parse basket file. Skipping check...')
+                    err_print('Could not parse basket file. Skipping...')
+                    return False
+                except DuplicateKeyError as e:
+                    err_print(str(e))
                     return False
 
-            for key, value in basket_data['Datafield'].items():
-                guid = value.get('guid')
-                if guid in self.guids2datafields:
-                    current_value = self.data['Datafield'][self.guids2datafields[guid]]
-                    if current_value != value:
-                        err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
-                        return False
-                else:
-                    self.highest_datafield_id += 1
-                    if guid:
-                        self.guids2datafields[guid] = str(self.highest_datafield_id)
-                    self.data['Datafield'][str(self.highest_datafield_id)] = value
-                    new_datafield_ids[key] = self.highest_datafield_id
+            if 'Datafield' in basket_data:
+                for key, value in basket_data['Datafield'].items():
+                    guid = value.get('guid')
+                    if guid in self.guids2datafields:
+                        current_value = self.data['Datafield'][self.guids2datafields[guid]]
+                        if current_value != value:
+                            err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
+                            return False
+                    else:
+                        self.highest_datafield_id += 1
+                        if guid:
+                            self.guids2datafields[guid] = str(self.highest_datafield_id)
+                        self.data['Datafield'][str(self.highest_datafield_id)] = value
+                        new_datafield_ids[key] = self.highest_datafield_id
 
             for parent_key, parent_value in basket_data.items():
                 if parent_key == 'Datafield':
@@ -141,6 +160,13 @@ class BasketJoiner:
                 if 'guid' in value:
                     del self.data[parent_key][key]['guid']
 
+                # descent into services of Service Sets
+                if 'services' in value and value['services']:
+                    for service_key, service_value in value['services'].items():
+                        if 'guid' in service_value:
+                            del self.data[parent_key][key]['services'][service_key]['guid']
+
+
     def validate_guids(self):
         guids = []
         objects_without_guids = []
@@ -154,7 +180,7 @@ class BasketJoiner:
                     else:
                         objects_without_guids.append(f'[{parent_key}][{key}]')
 
-                # decent into services of Service Sets
+                # descent into services of Service Sets
                 if 'services' in value and value['services']:
                     for service_key, service_value in value['services'].items():
                         if 'guid' in service_value:
@@ -182,7 +208,8 @@ def main():
     args = parse_args()
 
     basket_joiner = BasketJoiner()
-    basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json')
+    if basket_joiner.join_with_file('assets/icingaweb2-module-director/all-the-rest.json') is False:
+        sys.exit(3)
 
     directories = os.listdir('check-plugins')
     for directory in directories:

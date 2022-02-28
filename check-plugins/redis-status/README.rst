@@ -8,7 +8,7 @@ Returns information and statistics about the Redis server. Alerts on memory cons
 
 Hints:
 
-* Tested on Redis 3.2 and Redis 6.0.
+* Tested on Redis 3.0, 3.2, 6.0 and 6.2.
 
 
 Fact Sheet
@@ -64,7 +64,7 @@ Output:
 
 .. code-block:: text
 
-    Redis v3.2.12, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 55m 34s, 1.7% memory usage (816.9KiB/47.7MiB), maxmemory-policy=allkeys-lru, 1 DB (db0) with 22 keys, 0.0 evicted keys, 20.0 expired keys, hit rate 0% [WARNING] (0.0 hits, 0.0 misses), part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation [WARNING]
+    Redis v6.2.6, standalone mode on 127.0.0.1:6379, /etc/redis/redis.conf, up 1D 6h, 13.9% memory usage (132.6MiB/953.7MiB, 133.4MiB peak, 131.1MiB RSS), maxmemory-policy=volatile-lru, 1 DB (db0) with 1236 keys, 0.0 evicted keys, 7.5K expired keys, hit rate 88.1% (577.9K hits, 77.7K misses)
 
 
 States
@@ -72,10 +72,10 @@ States
 
 * WARN on ``maxmemory 0`` (can be disabled by ``--maxmemory0-ok``)
 * WARN or CRIT in case of memory usage above the specified thresholds
-* WARN in case of keyspace hit ratio below the specified thresholds
-* WARN on memory overusage
-* WARN on memory fragmentation
+* WARN in case of keyspace hit ratio below 10%
+* WARN on any memory issues
 * WARN on partial sync errors
+* WARN on bad OS configuration
 
 
 Perfdata / Metrics
@@ -137,6 +137,19 @@ Latest info can be found `here <https://redis.io/commands/INFO>`_.
     stats_total_connections_received,           Number,             Total number of connections accepted by the server
     stats_total_net_input_bytes,                Bytes,              The total number of bytes read from the network
     stats_total_net_output_bytes,               Bytes,              The total number of bytes written to the network
+
+
+Troubleshooting
+---------------
+
+vm.overcommit_memory is not set to 1
+    ``sysctl -w vm.overcommit_memory=1``
+
+kernel transparent_hugepage is not set to "madvise"
+    ``echo madvise > /sys/kernel/mm/transparent_hugepage/enabled``
+
+net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog
+    ``tcp_max_syn_backlog`` represents the maximal number of connections in ``SYN_RECV`` queue. ``somaxconn`` represents the maximal size of ``ESTABLISHED`` queue and should be greater than ``tcp_max_syn_backlog``, so do something like this: ``sysctl -w net.core.somaxconn=1024; sysctl -w net.ipv4.tcp_max_syn_backlog=512``
 
 
 Credits, License

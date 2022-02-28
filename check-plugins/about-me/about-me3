@@ -33,17 +33,21 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.disk3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
+    HAVE_PSUTIL = True
 except ImportError:
-    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    HAVE_PSUTIL = False
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021092904'
+__version__ = '2022021703'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -107,15 +111,14 @@ def parse_args():
 
 
 def find_command(return_text, cmd, version_regex=None, ignore_output=False):
-    success, result = lib.base3.shell_exec(cmd)
+    success, result = lib.shell3.shell_exec(cmd)
     if not success:
         return ''
     stdout, stderr, retc = result
     if ignore_output:
         if retc == 0:
             return '* {}\n'.format(return_text.strip())
-        else:
-            return ''
+        return ''
     if stdout == '' and stderr != '':
         # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
         # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
@@ -138,19 +141,21 @@ def get_sys_dimensions():
     """
 
     sys_dimensions = {}
-    sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
-    sys_dimensions['ram'] = psutil.virtual_memory().total
+    if HAVE_PSUTIL:
+        sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
+        sys_dimensions['ram'] = psutil.virtual_memory().total
     return sys_dimensions
+
 
 def get_disks():
     msg = ''
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
     for disk in stdout.strip().splitlines():
         # zRAM devices can appear in the output of lsblk, but
         # we cannot do anything useful with them
         if disk.startswith('zram'):
             continue
-        msg += '* {}\n'.format(disk)
+        msg = '{}* {}\n'.format(msg, disk)
 
     return msg
 
@@ -199,7 +204,10 @@ def get_apps():
     apps += '* MediaWiki\n'                       if os.path.isdir('/var/www/html/mediawiki') else ''
     apps += '* Medidata (eFaktura)\n'             if os.path.isdir('/opt/MPCommunicator') else ''
     apps += '* Metabase\n'                        if os.path.isdir('/opt/metabase') else ''
+    apps += '* Nextcloud\n'                       if os.path.isdir('/var/www/nextcloud') else ''
     apps += '* Nextcloud\n'                       if os.path.isdir('/var/www/html/nextcloud') else ''
+    apps += '* ownCloud\n'                        if os.path.isdir('/var/www/owncloud') else ''
+    apps += '* ownCloud\n'                        if os.path.isdir('/var/www/html/owncloud') else ''
     apps += '* NodeBB\n'                          if os.path.isdir('/opt/nodebb') else ''
     apps += '* PHP 7.0 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php70') else ''
     apps += '* PHP 7.1 (RH)\n'                    if os.path.isdir('/opt/rh/rh-php71') else ''
@@ -274,7 +282,7 @@ def get_sw():
 
     sw = ''
 
-    sw += find_command('Apache httpd',              'httpd -v',                           version_regex =r'Apache/(.*) ')
+    sw += find_command('Apache httpd',              'httpd -v',                           version_regex =r'/(\d+\.\d+\.\d+)')
     sw += find_command('Apache Tomcat',             'tomcat version',                     version_regex =r'Server version: Apache Tomcat/(.*)')
     sw += find_command('BIND',                      'named -v',                           version_regex =r'^BIND (.*?)-')
     sw += find_command('Borg',                      'borg --version',                     version_regex =r' (.*)')
@@ -320,7 +328,11 @@ def get_sw():
     sw += find_command('OpenSSL',                   'openssl version',                    version_regex =r' (.*?) ')
     sw += find_command('OpenVAS',                   'openvas version',                    version_regex =r' (.*?)$')
     sw += find_command('OpenVPN',                   'openvpn --version',                  version_regex =r'N (\d+\.\d+(\.\d+)?)')
-    sw += find_command('Open Virtual Machine Tools','vmtoolsd --version',                 version_regex =r'n ([\d\.]+)')
+    tmp += find_command('Open Virtual Machine Tools','vmtoolsd --version',                version_regex =r'n ([\d\.]+)')
+    if 'error' in tmp.lower():
+        sw += '* Open Virtual Machine Tools are installed, but throw an error.\n  Maybe tools virtualization condition "vmware" is not met.\n'
+    else:
+        sw += tmp
     sw += find_command('Perl',                      'perl --version',                     version_regex =r' \(v(.*?)\) ')
     sw += find_command('PHP',                       'php --version',                      version_regex =r'PHP (.*?) \(.*')
     sw += find_command('PHP-FPM',                   'php-fpm --version',                  version_regex =r'PHP (.*?) \(.*')
@@ -342,37 +354,48 @@ def get_sw():
     sw += find_command('TeamViewer',                'teamviewer --version',               version_regex =r'.* (\S*)  ')
     sw += find_command('tmate',                     'tmate -V',                           version_regex =r' (.*)')
     sw += find_command('Veeam',                     'veeamagent --version',               version_regex =r'(.*)')
-    sw += find_command('vsftpd',                    '/usr/sbin/vsftpd -version 0>&1',     version_regex =r'n (\S*)')
 
     return sw
 
 
 def get_os_info():
     release_files = [
-        '/etc/system-release',
         '/etc/centos-release',
-        '/etc/redhat-release',
         '/etc/fedora-release',
+        '/etc/redhat-release',
+        '/etc/system-release',
     ]
     for release_file in release_files:
         if os.path.isfile(release_file):
             return lib.base3.coe(lib.disk3.read_file(release_file)).strip()
 
-    success, result = lib.base3.shell_exec('. /etc/os-release && echo $NAME $VERSION', shell=True)
+    success, result = lib.shell3.shell_exec('. /etc/os-release && echo $NAME $VERSION', shell=True)
     if success:
         stdout, stderr, retc = result
         return stdout.strip()
+    return ''
+
+
+def get_virt_info():
+    success, result = lib.shell3.shell_exec('systemd-detect-virt')
+    if success:
+        stdout, stderr, retc = result
+        return stdout.strip()
+    return 'Unknown'
 
 
 def get_interfaces():
     msg = ''
-    for name, interface in sorted(psutil.net_if_addrs().items()):
-        if name == 'lo':
-            continue
+    try:
+        for name, interface in sorted(psutil.net_if_addrs().items()):
+            if name == 'lo':
+                continue
 
-        for addr in interface:
-            if addr.family == lib.net3.AF_INET:
-                msg += '* {} {}/{}\n'.format(name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
+            for addr in interface:
+                if addr.family == lib.net3.AF_INET:
+                    msg = '{}* {} {}/{}\n'.format(msg, name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
+    except:
+        pass
 
     return msg
 
@@ -380,17 +403,17 @@ def get_interfaces():
 def get_python_modules():
     pm = ''
     try:
-        import bs4
+        import bs4 # pylint: disable=C0415
         pm += '* BeautifulSoup {}\n'.format(bs4.__version__)
     except ImportError:
         pass
     try:
-        import mysql.connector
+        import mysql.connector # pylint: disable=C0415
         pm += '* mysql.connector {}\n'.format(mysql.connector.__version__)
     except ImportError:
         pass
     try:
-        import psutil
+        import psutil # pylint: disable=C0415,W0621
         pm += '* psutil {}\n'.format(psutil.__version__)
     except ImportError:
         pass
@@ -401,7 +424,7 @@ def get_systemd_timers():
     # using `--output=json` sadly does not work with older systemd versions (eg systemd 239 on CentOS 7), therefore we have to parse the human output
     # in order to list for a different user (`--user`), we would need to sudo to that user first - we will skip that for now
     cmd = 'systemctl list-timers'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     if stderr or retc != 0:
         return ''
 
@@ -413,13 +436,13 @@ def get_systemd_timers():
             start_pos = line.find('UNIT')
             end_pos = line.find('ACTIVATES', start_pos)
         if '.timer' in line:
-            msg += '* {}\n'.format(line[start_pos:end_pos].strip())
+            msg = '{}* {}\n'.format(msg, line[start_pos:end_pos].strip())
     return msg
 
 
 def get_systemd_default_target():
     cmd = 'systemctl get-default'
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     if stderr or retc != 0:
         return ''
 
@@ -429,25 +452,25 @@ def get_systemd_default_target():
 def get_systemd_units(cmd):
     # using `--output=json` sadly does not work with older systemd versions (eg systemd 239 on CentOS 7), therefore we have to parse the human output
     # in order to list for a different user (`--user`), we would need to sudo to that user first - we will skip that for now
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     if stderr or retc != 0:
         return ''
 
     msg = ''
     for line in stdout.splitlines():
-        msg += '* {}\n'.format(line.split()[0])
+        msg = '{}* {}\n'.format(msg, line.split()[0])
     return msg
 
 
 def get_crontabs():
     cmd = r"grep --dereference-recursive --no-filename --invert-match '\s*#' /etc/crontab /etc/cron.d/ /etc/anacrontab /var/spool/cron"
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     msg = ''
     line_regex = re.compile(r'\S+=')
     for line in stdout.splitlines():
         line = line.strip()
         if len(line) > 0 and re.match(line_regex, line) is None:
-            msg += line + '\n'
+            msg = '{}{}\n'.format(msg, line)
     return msg
 
 
@@ -479,77 +502,92 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     perfdata = ''
-    msg = socket.gethostname() + ' - '
+    msg = '{} - '.format(socket.gethostname())
 
     os_info = get_os_info()
     os_version_perfdata = ''
     if os_info:
-        msg += os_info + ', '
+        msg += os_info
         re_search = re.search(r'[\d\.]+', os_info)
         if re_search:
             os_version_perfdata = re_search.group(0).replace('.', '')
 
+    virt = get_virt_info()
+    if virt == 'none':
+        msg += ' on bare-metal,'
+    else:
+        msg += ' virtualized on {},'.format(virt)
+
     sys_dimensions = get_sys_dimensions()
-    msg += '{} {}, {}'.format(sys_dimensions['cpu'], lib.base3.pluralize('CPU', sys_dimensions['cpu']), lib.base3.bytes2human(sys_dimensions['ram']))
+    if sys_dimensions:
+        msg = '{} {} {}, {} RAM'.format(
+            msg,
+            sys_dimensions['cpu'],
+            lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
+            lib.human3.bytes2human(sys_dimensions['ram'])
+        )
+    else:
+        msg = '{} no sys dimensions (consider installing psutil)'.format(msg)
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
-        msg += ', Public IP {}'.format(pub_ip)
+        msg = '{}, Public IP {}'.format(msg, pub_ip)
 
     disks = get_disks()
     if disks:
-        msg += '\n\n# Disks\n' + disks
+        msg = '{}\n\n# Disks\n{}'.format(msg, disks)
 
     interfaces = get_interfaces()
     if interfaces:
-        msg += '\n\n# Interfaces (IPv4)\n' + interfaces
+        msg = '{}\n\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
 
     sw = get_sw()
     if sw:
-        msg += '\n\n# Software\n' + sw
+        msg = '{}\n\n# Software\n{}'.format(msg, sw)
 
     apps = get_apps()
     if apps:
-        msg += '\n\n# Apps\n' + apps
+        msg = '{}\n\n# Apps\n{}'.format(msg, apps)
 
     tools = get_tools()
     if tools:
-        msg += '\n\n# Tools\n' + tools
+        msg = '{}\n\n# Tools\n{}'.format(msg, tools)
 
     pm = get_python_modules()
     if pm:
-        msg += '\n\n# Python modules\n' + pm
+        msg = '{}\n\n# 3rd Party Python modules\n{}'.format(msg, pm)
 
     systemd_default_target = get_systemd_default_target()
     if systemd_default_target:
-        msg += '\n\n# systemd default target\n' + systemd_default_target
+        msg = '{}\n\n# systemd default target\n{}'.format(msg, systemd_default_target)
 
     timers = get_systemd_timers()
     if timers:
-        msg += '\n\n# systemd timers\n' + timers
+        msg = '{}\n\n# systemd timers\n{}'.format(msg, timers)
 
     enabled_units = get_systemd_units('systemctl list-unit-files --type service --state enabled --no-legend')
     if enabled_units:
-        msg += '\n\n# systemd enabled units\n' + enabled_units
+        msg = '{}\n\n# systemd enabled units\n{}'.format(msg, enabled_units)
 
     mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend')
     if mounts:
-        msg += '\n\n# systemd mounts\n' + mounts
+        msg = '{}\n\n# systemd mounts\n{}'.format(msg, mounts)
 
     automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
     if automounts:
-        msg += '\n\n# systemd automounts\n' + automounts
+        msg = '{}\n\n# systemd automounts\n{}'.format(msg, automounts)
 
     nondefault_users = get_nondefault_users()
     if nondefault_users:
-        msg += '\n\n# non-default users\n' + nondefault_users
+        msg = '{}\n\n# non-default users\n{}'.format(msg, nondefault_users)
 
     crontabs = get_crontabs()
     if crontabs:
-        msg += '\n\n# crontabs\n' + crontabs
+        msg = '{}\n\n# crontabs\n{}'.format(msg, crontabs)
 
-    perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
+    if sys_dimensions:
+        perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('disks', disks.count('\n'), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('osversion', os_version_perfdata, None, None, None, None, None)
 

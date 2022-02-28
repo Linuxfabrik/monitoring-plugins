@@ -32,12 +32,14 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021801'
 
 DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
                 whether the installed PHP version is EOL. For example, if you installed PHP 7.3
@@ -81,7 +83,7 @@ def parse_args():
 
 
 def get_installed_version():
-    success, result = lib.base3.shell_exec('php --version')
+    success, result = lib.shell3.shell_exec('php --version')
     if not success:
         return ''
     stdout, stderr, retc = result
@@ -106,7 +108,7 @@ def get_latest_version(expire, major, minor=None):
         jsonst = lib.base3.coe(lib.url3.fetch_json('https://www.php.net/releases/index.php?json&version={}'.format(major)))
         try:
             latest_version = jsonst['version']
-            lib.cache3.set('latest-version-php-{}'.format(major), latest_version, lib.base3.now() + expire)
+            lib.cache3.set('latest-version-php-{}'.format(major), latest_version, lib.time3.now() + expire)
             return latest_version
         except:
             lib.base3.oao('PHP.net does not know anything about PHP v{}.'.format(major), STATE_UNKNOWN)
@@ -119,7 +121,7 @@ def get_latest_version(expire, major, minor=None):
     jsonst = lib.base3.coe(lib.url3.fetch_json('https://www.php.net/releases/index.php?json&version={}.{}'.format(major, minor)))
     try:
         latest_version = jsonst['version']
-        lib.cache3.set('latest-version-php-{}-{}'.format(major, minor), latest_version, lib.base3.now() + expire)
+        lib.cache3.set('latest-version-php-{}-{}'.format(major, minor), latest_version, lib.time3.now() + expire)
         return latest_version
     except:
         lib.base3.oao('PHP.net does not know anything about PHP v{}.{}.'.format(major, minor), STATE_UNKNOWN)
@@ -144,14 +146,14 @@ def main():
 
     # we got a "normal" version number like "5.4.0" or 7.3.38"
     installed_major, installed_minor, installed_patch = installed_version.split('.')
-    latest_patch_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major, installed_minor)
+    #latest_patch_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major, installed_minor)
     latest_minor_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major)
     latest_major, latest_minor, latest_patch = latest_minor_version.split('.')
 
-    # for example:
-    #   installed_version: 7.3.10
-    #   latest_patch_version: 7.3.29 as of 2021-07-05
-    #   latest_minor_version: 7.4.21 as of 2021-07-05
+    # for example as of 2021-07-05:
+    #   installed_version:    7.3.10
+    #   latest_patch_version: 7.3.29
+    #   latest_minor_version: 7.4.21
     # ==> raises a warning because 7.4 is available
 
     # init some vars
@@ -169,7 +171,27 @@ def main():
 
     # check EOL
     # unfortunately, the "museum" tag in json response doesn't help here, so we have to maintain
-    # this list manually
+    # this list manually (available on https://en.wikipedia.org/wiki/PHP)
+
+    # old version
+    if installed_major + '.' + installed_minor == '5.0':
+        msg += ', EOL since 2005-09-05'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.1':
+        msg += ', EOL since 2006-08-24'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.2':
+        msg += ', EOL since 2011-01-06'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.3':
+        msg += ', EOL since 2014-08-14'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.4':
+        msg += ', EOL since 2015-09-03'
+        state = STATE_WARN
+    if installed_major + '.' + installed_minor == '5.5':
+        msg += ', EOL since 2016-07-10'
+        state = STATE_WARN
     if installed_major + '.' + installed_minor == '5.6':
         msg += ', EOL since 2018-12-31'
         state = STATE_WARN
@@ -182,18 +204,19 @@ def main():
     if installed_major + '.' + installed_minor == '7.2':
         msg += ', EOL since 2020-11-30'
         state = STATE_WARN
-
-    if installed_major + '.' + installed_minor == '7.3' and lib.base3.now(as_type='iso') > '2021-12-06':
+    if installed_major + '.' + installed_minor == '7.3':
         msg += ', EOL since 2021-12-06'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '7.4' and lib.base3.now(as_type='iso') > '2022-11-28':
+
+    # latest or older version, still maintained
+    if installed_major + '.' + installed_minor == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
         msg += ', EOL since 2022-11-28'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '8.0' and lib.base3.now(as_type='iso') > '2023-11-26':
+    if installed_major + '.' + installed_minor == '8.0' and lib.time3.now(as_type='iso') > '2023-11-26':
         msg += ', EOL since 2023-11-26'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '8.1' and lib.base3.now(as_type='iso') > '2024-11-30':
-        msg += ', EOL since 2024-11-30'
+    if installed_major + '.' + installed_minor == '8.1' and lib.time3.now(as_type='iso') > '2024-11-30':
+        msg += ', EOL since 2024-11-25'
         state = STATE_WARN
 
     if lib.base3.version(installed_version) >= lib.base3.version(latest_minor_version):

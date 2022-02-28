@@ -25,7 +25,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/nodebb-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "NodeBB v1.14.4+"
 
 

@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
         
 class TestCheck(unittest.TestCase):
@@ -19,28 +20,34 @@ class TestCheck(unittest.TestCase):
     check = './php-fpm-status2'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,'))
         self.assertIn('Pool www (dynamic): 128.8K connections, 10.3 req/s, 23 processes (4 active, 19 idle), Up 3h 27m (since 2021-05-08 09:18:11)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02_warn(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,'))
         self.assertIn('Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129.1K connections, 10.3 req/s, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_crit(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --critical-slowreq 40 --test=examples/EXAMPLE02,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --critical-slowreq 40 --test=examples/EXAMPLE02,,'))
         self.assertIn('Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [CRITICAL], 129.1K connections, 10.3 req/s, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,'))
         self.assertIn('ValueError: No JSON object could be decoded', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE04,,'))
+        self.assertIn('Pool HealthCheck (static): 35.0 connections, 0.0 req/s, 2 processes (1 active, 1 idle), Up ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
     
 if __name__ == '__main__':

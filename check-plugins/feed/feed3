@@ -32,12 +32,14 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.feedparser3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.icinga3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2022021602'
 
 DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
     if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
@@ -181,7 +183,7 @@ def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     prev_delta = None
     idx = 0
     for i, item in enumerate(myfeed['entries']):
-        delta = lib.base3.now(as_type='datetime') - item.get('updated_parsed', lib.base3.now(as_type='datetime'))
+        delta = lib.time3.now(as_type='datetime') - item.get('updated_parsed', lib.time3.now(as_type='datetime'))
         if delta.total_seconds() < 0:
             continue
         if prev_delta is None or delta < prev_delta:
@@ -229,10 +231,9 @@ def get_feed_state(feed_id, delta, args):
             if icinga['results'][0]['attrs']['acknowledgement']:
                 lib.cache3.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'])
                 return STATE_OK
-            else:
-                return STATE_WARN
+            return STATE_WARN
         else:
-            lib.cache3.set('feed-{}'.format(feed_id), 'unacked', lib.base3.now() + args.WARN*60)
+            lib.cache3.set('feed-{}'.format(feed_id), 'unacked', lib.time3.now() + args.WARN*60)
             return STATE_WARN
     else:
         return STATE_OK
@@ -259,21 +260,21 @@ def main():
     if not feed_item:
         lib.base3.oao('No news are good news.', STATE_OK)
 
-    delta = abs(lib.base3.now(as_type='datetime') - feed_item.get('updated_parsed', lib.base3.now(as_type='datetime')))
+    delta = abs(lib.time3.now(as_type='datetime') - feed_item.get('updated_parsed', lib.time3.now(as_type='datetime')))
     delta = delta.total_seconds()   # this is the age of the newest feed item, in seconds
 
     state = get_feed_state(feed_item['id'], delta, args)
 
     if args.NO_SUMMARY:
         msg = '{} ({} ago)'.format(
-            feed_item.get('title', 'No title').encode('utf-8').strip(),
-            lib.base3.seconds2human(delta)
+            feed_item.get('title', 'No title').strip(),
+            lib.human3.seconds2human(delta)
         )
     else:
         msg = '{}. {} ({} ago)'.format(
-            feed_item.get('title', 'No title').encode('utf-8').strip(),
-            feed_item.get('summary', 'No summary').encode('utf-8').strip(),
-            lib.base3.seconds2human(delta)
+            feed_item.get('title', 'No title').strip(),
+            feed_item.get('summary', 'No summary').strip(),
+            lib.human3.seconds2human(delta)
         )
 
     lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)

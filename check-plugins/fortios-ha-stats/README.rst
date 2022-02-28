@@ -12,11 +12,11 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-ha-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
     "Handles Periods",                      "Yes"
 
@@ -57,12 +57,12 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-ha-stats --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 2
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    Found 2 HA cluster members, which handled 87458 sessions and 187.0TiB traffic so far.
 
 
 States

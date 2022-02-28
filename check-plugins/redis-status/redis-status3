@@ -31,12 +31,15 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100601'
+__version__ = '2022021602'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -140,7 +143,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
+    # fetch data using `redis-cli info default`
     if args.TEST is None:
         if not args.SOCKET:
             cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
@@ -148,8 +151,9 @@ def main():
             cmd = 'redis-cli -s {} '.format(args.SOCKET)
         if args.PASSWORD:
             cmd += '-a {} '.format(args.PASSWORD)
+            cmd += '--no-auth-warning '
         cmd += 'info default'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base3.oao(u'{}'.format(stderr), STATE_UNKNOWN)
     else:
@@ -174,6 +178,24 @@ def main():
         except:
             continue
 
+    # fetch data using `redis-cli memory doctor`
+    result['memory_doctor'] = 'Hi Sam'
+    if args.TEST is None:
+        if not args.SOCKET:
+            cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
+        else:
+            cmd = 'redis-cli -s {} '.format(args.SOCKET)
+        if args.PASSWORD:
+            cmd += '-a {} '.format(args.PASSWORD)
+            cmd += '--no-auth-warning '
+        cmd += 'memory doctor'
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base3.oao(u'{}'.format(stderr), STATE_UNKNOWN)
+        if not stdout.startswith('ERR '):
+            result['memory_doctor'] = stdout.strip()
+
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -193,7 +215,7 @@ def main():
         msg += 'connected via socket, '
     msg += '{}, up {}, '.format(
         result['config_file'],
-        lib.base3.seconds2human(result['uptime_in_seconds']),
+        lib.human3.seconds2human(result['uptime_in_seconds']),
     )
 
     if result['maxmemory'] != 0:
@@ -207,13 +229,15 @@ def main():
             state = lib.base3.get_worst(state, STATE_WARN)
     mem_usage_state = lib.base3.get_state(mem_usage, args.WARN, args.CRIT)
     state = lib.base3.get_worst(state, mem_usage_state)
-    
-    msg += '{}% memory usage{} ({}/{}), maxmemory-policy={}, '.format(
+
+    msg += '{}% memory usage{} ({}/{}, {} peak, {} RSS), maxmemory-policy={}, '.format(
         mem_usage,
         lib.base3.state2str(mem_usage_state, prefix=' '),
-        lib.base3.bytes2human(result['used_memory']),
-        lib.base3.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.base3.bytes2human(result['total_system_memory']),
-        result['maxmemory_policy'],
+        lib.human3.bytes2human(result['used_memory']),
+        lib.human3.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.human3.bytes2human(result['total_system_memory']),
+        lib.human3.bytes2human(result['used_memory_peak']),
+        lib.human3.bytes2human(result['used_memory_rss']),
+        result.get('maxmemory_policy', 'N/A'),
     )
 
     # search for {'db0': 'keys=20489,expires=20489,avg_ttl=47954'}
@@ -238,7 +262,7 @@ def main():
     if db_count:
         msg += '{} {} ({}) with {} keys, '.format(
             db_count,
-            lib.base3.pluralize('DB', db_count),
+            lib.txt3.pluralize('DB', db_count),
             db_names.strip(),
             key_count
         )
@@ -249,32 +273,28 @@ def main():
         keyspace_hit_rate = round(result['keyspace_hits'] / (result['keyspace_hits'] + result['keyspace_misses']) * 100, 1)
     else:
         keyspace_hit_rate = 0
-    keyspace_hit_state = lib.base3.get_state(keyspace_hit_rate, args.WARN, None, operator='lt')
+    # hard-coded "10" because we can't do anything on bad hit rates
+    keyspace_hit_state = lib.base3.get_state(keyspace_hit_rate, 10, None, _operator='lt')
     msg += '{} evicted {}, {} expired {}, hit rate {}%{} ({} hits, {} misses), '.format(
-        lib.base3.number2human(result['evicted_keys']),
-        lib.base3.pluralize('key', result['evicted_keys']),
-        lib.base3.number2human(result['expired_keys']),
-        lib.base3.pluralize('key', result['expired_keys']),
+        lib.human3.number2human(result['evicted_keys']),
+        lib.txt3.pluralize('key', result['evicted_keys']),
+        lib.human3.number2human(result['expired_keys']),
+        lib.txt3.pluralize('key', result['expired_keys']),
         keyspace_hit_rate,
         lib.base3.state2str(keyspace_hit_state, prefix=' '),
-        lib.base3.number2human(result['keyspace_hits']),
-        lib.base3.number2human(result['keyspace_misses']),
+        lib.human3.number2human(result['keyspace_hits']),
+        lib.human3.number2human(result['keyspace_misses']),
     )
     state = lib.base3.get_worst(state, keyspace_hit_state)
 
-    if result['mem_fragmentation_ratio'] < 1:
-        mem_frag_state = STATE_WARN
-        msg += 'Redis requires more memory than available and is forced to use swap{}, '.format(
-            lib.base3.state2str(mem_frag_state, prefix=' '),
+    # memory state
+    if not result['memory_doctor'].startswith('Hi Sam'):
+        # have a look at https://github.com/redis/redis/blob/unstable/src/object.c
+        mem_state = STATE_WARN
+        msg += '{}{}, '.format(result['memory_doctor'],
+            lib.base3.state2str(mem_state, prefix=' '),
         )
-        state = lib.base3.get_worst(state, mem_frag_state)
-
-    if result['mem_fragmentation_ratio'] > 1.5:
-        mem_frag_state = STATE_WARN
-        msg += 'part of Redis memory has been swapped off by the OS - expect latencies due to memory fragmentation{}, '.format(
-            lib.base3.state2str(mem_frag_state, prefix=' '),
-        )
-        state = lib.base3.get_worst(state, mem_frag_state)
+        state = lib.base3.get_worst(state, mem_state)
 
     if result['sync_partial_err'] > 0:
         sync_state = STATE_WARN
@@ -283,6 +303,38 @@ def main():
             lib.base3.state2str(sync_state, prefix=' '),
         )
         state = lib.base3.get_worst(state, sync_state)
+
+    # in the end, check the OS config
+    # see https://redis.io/topics/admin for details
+    overcommit_memory = lib.base3.coe(lib.disk3.read_file('/proc/sys/vm/overcommit_memory'))
+    overcommit_memory = int(overcommit_memory)
+    if overcommit_memory != 1:
+        os_state = STATE_WARN
+        msg += 'vm.overcommit_memory is not set to 1{}, '.format(
+            lib.base3.state2str(os_state, prefix=' '),
+        )
+        state = lib.base3.get_worst(state, os_state)
+
+    thp_enabled = lib.base3.coe(lib.disk3.read_file('/sys/kernel/mm/transparent_hugepage/enabled'))
+    if '[madvise]' not in thp_enabled:
+        os_state = STATE_WARN
+        msg += 'kernel transparent_hugepage is not set to "madvise"{}, '.format(
+            lib.base3.state2str(os_state, prefix=' '),
+        )
+        state = lib.base3.get_worst(state, os_state)
+
+    somaxconn = lib.base3.coe(lib.disk3.read_file('/proc/sys/net/core/somaxconn'))
+    tcp_max_syn_backlog = lib.base3.coe(lib.disk3.read_file('/proc/sys/net/ipv4/tcp_max_syn_backlog'))
+    somaxconn = int(somaxconn)
+    tcp_max_syn_backlog = int(tcp_max_syn_backlog)
+    if 0 < somaxconn < tcp_max_syn_backlog:
+        os_state = STATE_WARN
+        msg += 'net.core.somaxconn ({}) is lower than net.ipv4.tcp_max_syn_backlog ({}){}, '.format(
+            somaxconn,
+            tcp_max_syn_backlog,
+            lib.base3.state2str(os_state, prefix=' '),
+        )
+        state = lib.base3.get_worst(state, os_state)
 
     # prepare perfdata
     perfdata += lib.base3.get_perfdata('mem_usage', mem_usage, '%', args.WARN, args.CRIT, 0, 100)
@@ -298,7 +350,7 @@ def main():
 
     perfdata += lib.base3.get_perfdata('memory_maxmemory', result['maxmemory'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_mem_fragmentation_ratio', result['mem_fragmentation_ratio'], None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('memory_total_system_memory', result['total_system_memory'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('memory_total_system_memory', result.get('total_system_memory', 0), 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory', result['used_memory'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory_lua', result['used_memory_lua'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('memory_used_memory_rss', result['used_memory_rss'], 'B', None, None, 0, None)

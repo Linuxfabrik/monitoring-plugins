@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -39,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
 DESCRIPTION = """Return battery status information. If no battery is installed or metrics can't
                  be determined OK is returned."""
@@ -108,7 +109,7 @@ def main():
     if batt.power_plugged:
         msg += ' (plugged in and {})'.format('charging' if batt.percent < 100 else 'fully charged')
     else:
-        msg += ', {} left '.format(lib.base3.seconds2human(batt.secsleft))
+        msg += ', {} left '.format(lib.human3.seconds2human(batt.secsleft))
         msg += '(not plugged in and discharging)'
 
     perfdata = ''

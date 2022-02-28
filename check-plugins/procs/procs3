@@ -31,6 +31,9 @@ from collections import defaultdict # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021091403'
+__version__ = '2022021801'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                 counts or process memory usage. You may filter the process list by process name,
@@ -267,57 +270,62 @@ def main():
         # procs_cpu: Do this over a time period together with --count
         procs_mem += process_info['memory_info'].rss
         procs_mem_percent += process_info['memory_percent']
-        procs_age = max(procs_age, lib.base3.now() - process_info['create_time'])
+        # on Windows, the "System Idle Process" always returns 0 - do not calculate the age
+        # of such processes, otherwise we get `max(0, Seconds since 1970)`, which is 52Y+.
+        if process_info['create_time']:
+            procs_age = max(procs_age, lib.time3.now() - process_info['create_time'])
 
         # count processes per status ("83x sleeping, 5x running")
         # plus group and summarize some states
         # handle far most status' first
-        if process_info['status'] == psutil.STATUS_SLEEPING:
-            proc_states[psutil.STATUS_SLEEPING] += 1
-        elif process_info['status'] == psutil.STATUS_RUNNING:
-            proc_states[psutil.STATUS_RUNNING] += 1
-            name = process_info['name']
-            if name in running:
-                running[name] += 1
+        try:
+            if process_info['status'] == psutil.STATUS_SLEEPING:
+                proc_states[psutil.STATUS_SLEEPING] += 1
+            elif process_info['status'] == psutil.STATUS_RUNNING:
+                proc_states[psutil.STATUS_RUNNING] += 1
+                name = process_info['name']
+                if name in running:
+                    running[name] += 1
+                else:
+                    running[name] = 1
+            elif process_info['status'] == psutil.STATUS_DISK_SLEEP:    # == uninterruptible
+                proc_states[psutil.STATUS_DISK_SLEEP] += 1
+                name = process_info['name']
+                if name in uninterruptibles:
+                    uninterruptibles[name] += 1
+                else:
+                    uninterruptibles[name] = 1
+            elif process_info['status'] == psutil.STATUS_ZOMBIE:
+                proc_states[psutil.STATUS_ZOMBIE] += 1
+                name = process_info['name'].replace(' <defunct>', '')
+                if name in zombies:
+                    zombies[name] += 1
+                else:
+                    zombies[name] = 1
+            elif process_info['status'] == psutil.STATUS_DEAD:
+                proc_states[psutil.STATUS_DEAD] += 1
+            elif process_info['status'] == psutil.STATUS_IDLE:
+                proc_states[psutil.STATUS_SLEEPING] += 1                # !!!!!!!!!!!!!!!!!
+            elif process_info['status'] == psutil.STATUS_LOCKED:
+                proc_states[psutil.STATUS_LOCKED] += 1
+            elif process_info['status'] == psutil.STATUS_PARKED:
+                proc_states[psutil.STATUS_PARKED] += 1
+            elif process_info['status'] == psutil.STATUS_STOPPED:
+                proc_states[psutil.STATUS_STOPPED] += 1
+            elif process_info['status'] == psutil.STATUS_TRACING_STOP:
+                proc_states[psutil.STATUS_STOPPED] += 1                 # !!!!!!!!!!!!!!!!!
+            elif process_info['status'] == psutil.STATUS_WAITING:
+                proc_states[psutil.STATUS_WAITING] += 1
+            elif process_info['status'] == psutil.STATUS_WAKING:
+                proc_states[psutil.STATUS_WAKING] += 1
             else:
-                running[name] = 1
-        elif process_info['status'] == psutil.STATUS_DISK_SLEEP:    # == uninterruptible
-            proc_states[psutil.STATUS_DISK_SLEEP] += 1
-            name = process_info['name']
-            if name in uninterruptibles:
-                uninterruptibles[name] += 1
-            else:
-                uninterruptibles[name] = 1
-        elif process_info['status'] == psutil.STATUS_ZOMBIE:
-            proc_states[psutil.STATUS_ZOMBIE] += 1
-            name = process_info['name'].replace(' <defunct>', '')
-            if name in zombies:
-                zombies[name] += 1
-            else:
-                zombies[name] = 1
-        elif process_info['status'] == psutil.STATUS_DEAD:
-            proc_states[psutil.STATUS_DEAD] += 1
-        elif process_info['status'] == psutil.STATUS_IDLE:
-            proc_states[psutil.STATUS_SLEEPING] += 1                # !!!!!!!!!!!!!!!!!
-        elif process_info['status'] == psutil.STATUS_LOCKED:
-            proc_states[psutil.STATUS_LOCKED] += 1
-        elif process_info['status'] == psutil.STATUS_PARKED:
-            proc_states[psutil.STATUS_PARKED] += 1
-        elif process_info['status'] == psutil.STATUS_STOPPED:
-            proc_states[psutil.STATUS_STOPPED] += 1
-        elif process_info['status'] == psutil.STATUS_TRACING_STOP:
-            proc_states[psutil.STATUS_STOPPED] += 1                 # !!!!!!!!!!!!!!!!!
-        elif process_info['status'] == psutil.STATUS_WAITING:
-            proc_states[psutil.STATUS_WAITING] += 1
-        elif process_info['status'] == psutil.STATUS_WAKING:
-            proc_states[psutil.STATUS_WAKING] += 1
-        else:
-            # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
-            proc_states['other'] += 1
+                # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
+                proc_states['other'] += 1
+        except:
+            # specific psutil version does not have such an attribute from above
+            continue
 
     # analyze data, build the message
-    if not procs_count:
-        lib.base3.oao('Everything is ok.', STATE_OK)
 
     # list used filters
     msg_filter = ''
@@ -341,7 +349,7 @@ def main():
     state = lib.base3.get_worst(state, local_state)
     msg = '{} {}{}{}'.format(
         procs_count,
-        lib.base3.pluralize('proc', procs_count),
+        lib.txt3.pluralize('proc', procs_count),
         msg_filter,
         lib.base3.state2str(local_state, prefix=' '),
     )
@@ -350,7 +358,7 @@ def main():
     local_state = lib.base3.get_state(procs_mem, args.WARN_MEM, args.CRIT_MEM, 'range')
     state = lib.base3.get_worst(state, local_state)
     msg += ' using {} RAM{}, '.format(
-        lib.base3.bytes2human(procs_mem),
+        lib.human3.bytes2human(procs_mem),
         lib.base3.state2str(local_state, prefix=' '),
     )
 
@@ -368,7 +376,7 @@ def main():
     if procs_count > 1:
         msg += 'oldest proc '
     msg += 'created {} ago{}, '.format(
-        lib.base3.seconds2human(procs_age),
+        lib.human3.seconds2human(procs_age),
         lib.base3.state2str(local_state, prefix=' '),
     )
 
@@ -376,7 +384,7 @@ def main():
         msg += '{} dead, '.format(proc_states[psutil.STATUS_DEAD])
 
     if proc_states[psutil.STATUS_DISK_SLEEP]:
-        msg += '{} {} ('.format(proc_states[psutil.STATUS_DISK_SLEEP], lib.base3.pluralize('uninterruptible', proc_states[psutil.STATUS_DISK_SLEEP]))
+        msg += '{} {} ('.format(proc_states[psutil.STATUS_DISK_SLEEP], lib.txt3.pluralize('uninterruptible', proc_states[psutil.STATUS_DISK_SLEEP]))
         for name, cnt in uninterruptibles.items():
             msg += '{}x {}, '.format(cnt, name)
         msg = msg[:-2] + '), '
@@ -394,7 +402,7 @@ def main():
         msg += '{} stopped, '.format(proc_states[psutil.STATUS_STOPPED])
 
     if proc_states[psutil.STATUS_ZOMBIE]:
-        msg += '{} {} ('.format(proc_states[psutil.STATUS_ZOMBIE], lib.base3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]))
+        msg += '{} {} ('.format(proc_states[psutil.STATUS_ZOMBIE], lib.txt3.pluralize('zombie', proc_states[psutil.STATUS_ZOMBIE]))
         for name, cnt in zombies.items():
             msg += '{}x {}, '.format(cnt, name)
         msg = msg[:-2] + '), '

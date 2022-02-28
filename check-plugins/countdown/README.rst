@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/countdown"
     "Check Interval Recommendation",        "Twice a day"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
 
 

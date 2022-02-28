@@ -27,18 +27,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
-import base64
+import base64 # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2022021602'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
@@ -151,13 +153,16 @@ def main():
 
         # fetch the url
         if args.USERNAME and args.PASSWORD:
-            auth = args.USERNAME + ':' + args.PASSWORD
-            encoded_auth = base64.b64encode(auth.encode()).decode()
-            result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT,
-                header={'Authorization': 'Basic {}'.format(encoded_auth)}))
+            auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+            encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
+            result = lib.base3.coe(
+                lib.url3.fetch(
+                    url,
+                    timeout=args.TIMEOUT,
+                    header={'Authorization': 'Basic {}'.format(encoded_auth)},
+            ))
         else:
             result = lib.base3.coe(lib.url3.fetch(url, timeout=args.TIMEOUT))
-        result = result.decode()
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
@@ -180,9 +185,9 @@ def main():
             ha_pxname = values[0]
             ha_svname = values[1]
             ha_qcur = values[2]
-            ha_qmax = values[3]
+            ha_qmax = values[3] # pylint: disable=W0612
             ha_scur = values[4]
-            ha_smax = values[5]
+            ha_smax = values[5] # pylint: disable=W0612
             ha_slim = values[6]
             ha_stot = values[7]
             ha_bin = values[8]
@@ -203,19 +208,19 @@ def main():
             ha_lastchg = values[23]
             ha_downtime = values[24]
             ha_qlimit = values[25]
-            ha_pid = values[26]
-            ha_iid = values[27]
-            ha_sid = values[28]
-            ha_throttle = values[29]
+            ha_pid = values[26] # pylint: disable=W0612
+            ha_iid = values[27] # pylint: disable=W0612
+            ha_sid = values[28] # pylint: disable=W0612
+            ha_throttle = values[29] # pylint: disable=W0612
             ha_lbtot = values[30]
             ha_tracked = values[31]
-            ha_type = values[32]
+            ha_type = values[32] # pylint: disable=W0612
             ha_rate = values[33]
             ha_rate_lim = values[34]
-            ha_rate_max = values[35]
-            ha_check_status = values[36]
-            ha_check_code = values[37]
-            ha_check_duration = values[38]
+            ha_rate_max = values[35] # pylint: disable=W0612
+            ha_check_status = values[36] # pylint: disable=W0612
+            ha_check_code = values[37] # pylint: disable=W0612
+            ha_check_duration = values[38] # pylint: disable=W0612
             ha_hrsp_1xx = values[39]
             ha_hrsp_2xx = values[40]
             ha_hrsp_3xx = values[41]
@@ -224,7 +229,7 @@ def main():
             ha_hrsp_other = values[44]
             ha_hanafail = values[45]
             ha_req_rate = values[46]
-            ha_req_rate_max = values[47]
+            ha_req_rate_max = values[47] # pylint: disable=W0612
             ha_req_tot = values[48]
             ha_cli_abrt = values[49]
             ha_srv_abrt = values[50]
@@ -234,7 +239,7 @@ def main():
             ha_comp_rsp = values[54]
             ha_lastsess = values[55]
             ha_last_chk = values[56]
-            ha_last_agt = values[57]
+            ha_last_agt = values[57] # pylint: disable=W0612
             ha_qtime = values[58]
             ha_ctime = values[59]
             ha_rtime = values[60]
@@ -286,17 +291,17 @@ def main():
             'pxname': ha_pxname,
             'svname': ha_svname,
             'qcur': '{}{}{}'.format(ha_qcur, '/' + ha_qlimit if ha_qlimit else '', lib.base3.state2str(q_state, prefix=' ')),
-            'scur': '{}{}{}'.format(lib.base3.number2human(ha_scur), '/' + lib.base3.number2human(ha_slim) if ha_slim else '', lib.base3.state2str(s_state, prefix=' ')),
-            'bin': lib.base3.bytes2human(int(ha_bin)),
-            'bout':  lib.base3.bytes2human(int(ha_bout)),
+            'scur': '{}{}{}'.format(lib.human3.number2human(ha_scur), '/' + lib.human3.number2human(ha_slim) if ha_slim else '', lib.base3.state2str(s_state, prefix=' ')),
+            'bin': lib.human3.bytes2human(int(ha_bin)),
+            'bout':  lib.human3.bytes2human(int(ha_bout)),
             'status': '{}{}'.format(ha_status, lib.base3.state2str(status_state, prefix=' ')),
-            'lbtot': lib.base3.number2human(ha_lbtot),
+            'lbtot': lib.human3.number2human(ha_lbtot),
             'rate': '{}{}{}'.format(ha_rate, '/' + ha_rate_lim if ha_rate_lim else '', lib.base3.state2str(r_state, prefix=' ')),
-            'hrsp_2xx': lib.base3.number2human(ha_hrsp_2xx),
-            'hrsp_4xx': lib.base3.number2human(ha_hrsp_4xx),
-            'hrsp_5xx': lib.base3.number2human(ha_hrsp_5xx),
+            'hrsp_2xx': lib.human3.number2human(ha_hrsp_2xx),
+            'hrsp_4xx': lib.human3.number2human(ha_hrsp_4xx),
+            'hrsp_5xx': lib.human3.number2human(ha_hrsp_5xx),
             'req_rate': ha_req_rate,
-            'lastsess': lib.base3.seconds2human(int(ha_lastsess)) if ha_lastsess != '' and ha_lastsess != '-1' else '',
+            'lastsess': lib.human3.seconds2human(int(ha_lastsess)) if ha_lastsess not in ('', '-1') else '',
             'ttime': ha_ttime,
             })
 

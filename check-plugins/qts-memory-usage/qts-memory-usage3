@@ -27,10 +27,12 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
-import base64
+import base64 # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
@@ -41,7 +43,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101301'
+__version__ = '2022021603'
 
 DESCRIPTION = """Returns the current system-wide Memory utilization as a percentage from QNAP
                  Appliances running QTS via API."""
@@ -151,7 +153,7 @@ def main():
     url = '{}/cgi-bin/authLogin.cgi'.format(args.URL)
     data = {
         'user': args.USERNAME,
-        'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
+        'pwd': lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(args.PASSWORD))),
     }
     result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
@@ -171,14 +173,14 @@ def main():
     used = total - free
     memory_usage = round(used / total * 100, 2)
 
-    state = lib.base3.get_state(memory_usage, args.WARN, args.CRIT, operator='gt')
+    state = lib.base3.get_state(memory_usage, args.WARN, args.CRIT, _operator='gt')
 
     # build the message
     msg = '{}% - total: {}, used: {}, free: {}'.format(
         memory_usage,
-        lib.base3.bytes2human(total),
-        lib.base3.bytes2human(used),
-        lib.base3.bytes2human(free),
+        lib.human3.bytes2human(total),
+        lib.human3.bytes2human(used),
+        lib.human3.bytes2human(free),
     )
     perfdata = lib.base3.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
     perfdata += lib.base3.get_perfdata('total', total, 'B', None, None, 0, total)

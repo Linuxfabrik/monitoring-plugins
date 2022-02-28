@@ -23,19 +23,20 @@ if os.getenv('MONITORING_PLUGINS_VENV3'):
     ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS})
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
-import argparse
-import sys
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
 
-import lib.args3
-import lib.base3
-from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021603'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -86,7 +87,6 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-
     # init some vars
     msg = ''
     perfdata = ''
@@ -106,10 +106,10 @@ def main():
     # execute the shell command and return its result and exit code
     if lib.base3.LINUX:
         cmd = '/usr/bin/w'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         if stderr or retc != 0:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
-        result = stdout.strip()
+        result = stdout.strip().replace('|', '!') # quote pipes in output, otherwise we will get problems with perfdata
 
         lines = result.splitlines()[1:] # ignore the first line
         for line in lines:
@@ -126,7 +126,7 @@ def main():
         CRIT_DISC = lib.args3.int_or_none(args.CRIT[2])
 
         cmd = 'query user'
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
         # Could not find any documentation in the return codes of 'query user' (%ERRORLEVEL% is always 1).
         result = stdout.strip()
         lines = result.splitlines()
@@ -161,7 +161,6 @@ def main():
 
     perfdata += lib.base3.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
     perfdata += lib.base3.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
-
 
     # over and out
     lib.base3.oao(msg, state, perfdata)

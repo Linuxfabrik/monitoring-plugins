@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/scheduled-task"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -47,13 +47,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./scheduled-task --task Schedule --status Disabled  --severity crit
-    
+    scheduled-task.exe --task \Microsoft\Windows\DiskCleanup\SilentCleanup --status Disabled  --severity crit
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    \Microsoft\Windows\DiskCleanup\SilentCleanup is Ready
 
 
 States

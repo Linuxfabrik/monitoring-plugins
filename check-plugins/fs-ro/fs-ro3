@@ -33,11 +33,12 @@ import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.disk3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021601'
 
 DESCRIPTION = """Warns if a file system is mounted read-only."""
 
@@ -93,7 +94,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.TEST == None:
+    if args.TEST is None:
         # get the values the normal way
         mounts = lib.base3.coe(lib.disk3.read_file('/proc/mounts'))
     else:
@@ -122,14 +123,14 @@ def main():
     if len(ros) > 0:
         msg = '{} read-only mount {} found: '.format(
             len(ros),
-            lib.base3.pluralize('point', len(ros)),
+            lib.txt3.pluralize('point', len(ros)),
             )
         for item in ros:
             msg += '{}, '.format(item)
         msg = msg[:-2]
         state = STATE_WARN
     else:
-        msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.base3.pluralize('point', cnt))
+        msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.txt3.pluralize('point', cnt))
         state = STATE_OK
 
     # over and out

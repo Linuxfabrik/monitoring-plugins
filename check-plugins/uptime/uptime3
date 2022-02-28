@@ -31,6 +31,8 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Tell how long the system has been running.'
 
@@ -106,9 +108,9 @@ def main():
     else:
         WARN = args.WARN*24*60*60
 
-    delta = lib.base3.now() - psutil.boot_time()
+    delta = lib.time3.now() - psutil.boot_time()
 
-    msg = 'Up {}'.format(lib.base3.seconds2human(delta))
+    msg = 'Up {}'.format(lib.human3.seconds2human(delta))
     perfdata = lib.base3.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
     state = lib.base3.get_state(delta, WARN, CRIT)
 

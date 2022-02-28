@@ -22,12 +22,12 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "7.3.6"
+      "version": "8.2.5"
     },
     {
       "type": "panel",
       "id": "graph",
-      "name": "Graph",
+      "name": "Graph (old)",
       "version": ""
     },
     {
@@ -47,6 +47,12 @@
       "id": "table",
       "name": "Table",
       "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
     }
   ],
   "annotations": {
@@ -58,20 +64,28 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "gnetId": null,
   "graphTooltip": 0,
   "id": null,
-  "iteration": 1610030406831,
+  "iteration": 1646056879758,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -411,7 +425,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1216,7 +1230,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3203,7 +3217,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3488,7 +3502,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -5166,7 +5180,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -6569,7 +6583,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -6579,66 +6593,137 @@
       "id": 113,
       "panels": [
         {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": "${DS_INFLUXDB}",
           "description": "",
           "fieldConfig": {
             "defaults": {
-              "custom": {}
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/crit/"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#C4162A",
+                      "mode": "fixed"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/warn/"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#FA6400",
+                      "mode": "fixed"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  }
+                ]
+              }
+            ]
           },
-          "fill": 0,
-          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 5
+            "y": 7
           },
-          "hiddenSeries": false,
           "id": 12,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "percentage": false,
-          "pluginVersion": "7.1.5",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "$$hashKey": "object:356",
-              "alias": "/crit/",
-              "color": "#C4162A",
-              "dashes": true,
-              "fill": 0
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
             },
-            {
-              "$$hashKey": "object:393",
-              "alias": "/warn/",
-              "color": "#FA6400",
-              "dashes": true,
-              "fill": 0
+            "tooltip": {
+              "mode": "single"
             }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          },
+          "pluginVersion": "8.2.5",
           "targets": [
             {
               "alias": "lookup time",
@@ -6776,49 +6861,10 @@
               ]
             }
           ],
-          "thresholds": [],
           "timeFrom": null,
-          "timeRegions": [],
           "timeShift": null,
           "title": "DNS - Lookup Time",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "$$hashKey": "object:336",
-              "decimals": null,
-              "format": "ms",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": "0",
-              "show": true
-            },
-            {
-              "$$hashKey": "object:337",
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
+          "type": "timeseries"
         },
         {
           "datasource": "${DS_INFLUXDB}",
@@ -6826,7 +6872,8 @@
           "fieldConfig": {
             "defaults": {
               "custom": {
-                "align": null
+                "align": null,
+                "displayMode": "auto"
               },
               "mappings": [],
               "thresholds": {
@@ -6842,7 +6889,7 @@
                   }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             },
             "overrides": []
           },
@@ -6850,13 +6897,13 @@
             "h": 3,
             "w": 12,
             "x": 0,
-            "y": 13
+            "y": 15
           },
           "id": 178,
           "options": {
             "showHeader": true
           },
-          "pluginVersion": "7.1.5",
+          "pluginVersion": "8.2.5",
           "targets": [
             {
               "alias": "lookup time",
@@ -7018,7 +7065,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7295,7 +7342,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7311,12 +7358,6 @@
           "dashes": false,
           "datasource": "${DS_INFLUXDB}",
           "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {}
-            },
-            "overrides": []
-          },
           "fill": 0,
           "fillGradient": 0,
           "gridPos": {
@@ -7346,7 +7387,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "8.2.5",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -7397,7 +7438,7 @@
               "orderByTime": "ASC",
               "policy": "default",
               "query": "SELECT \"value\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage') AND $timeFilter GROUP BY \"metric\"",
-              "rawQuery": false,
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -7438,7 +7479,7 @@
               "measurement": "/^cmd-check-disk-usage.*$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"crit\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^.*-percent$/) AND $timeFilter GROUP BY \"metric\"",
+              "query": "SELECT \"value\" FROM \"cmd-check-disk-usage\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^diskUsageDisk-.*$/) AND $timeFilter GROUP BY \"metric\"",
               "rawQuery": false,
               "refId": "B",
               "resultFormat": "time_series",
@@ -7485,7 +7526,7 @@
               "measurement": "/^cmd-check-disk-usage.*$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"warn\" FROM /^cmd-check-disk-usage.*$/ WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^.*-percent$/) AND $timeFilter GROUP BY \"metric\"",
+              "query": "SELECT \"value\" FROM \"cmd-check-disk-usage\" WHERE (\"hostname\" =~ /^$hostname$/ AND \"service\" = 'Disk Usage' AND \"metric\" =~ /^diskUsageDisk-.*$/) AND $timeFilter GROUP BY \"metric\"",
               "rawQuery": false,
               "refId": "C",
               "resultFormat": "time_series",
@@ -7572,6 +7613,7 @@
             "defaults": {
               "custom": {
                 "align": null,
+                "displayMode": "auto",
                 "filterable": false
               },
               "mappings": [],
@@ -7602,7 +7644,7 @@
           "options": {
             "showHeader": true
           },
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "8.2.5",
           "repeat": null,
           "repeatDirection": "h",
           "targets": [
@@ -7679,6 +7721,7 @@
             "defaults": {
               "custom": {
                 "align": null,
+                "displayMode": "auto",
                 "filterable": false
               },
               "mappings": [],
@@ -7723,7 +7766,7 @@
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "7.3.6",
+          "pluginVersion": "8.2.5",
           "repeat": null,
           "repeatDirection": "h",
           "targets": [
@@ -7846,7 +7889,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -7903,13 +7946,6 @@
           "renderer": "flot",
           "repeat": null,
           "repeatDirection": "h",
-          "scopedVars": {
-            "diskUsageDisksWindows": {
-              "selected": false,
-              "text": "C:\\",
-              "value": "C:\\"
-            }
-          },
           "seriesOverrides": [
             {
               "$$hashKey": "object:356",
@@ -8485,7 +8521,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -8751,7 +8787,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -9201,7 +9237,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -9638,7 +9674,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -9648,69 +9684,141 @@
       "id": 144,
       "panels": [
         {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": "${DS_INFLUXDB}",
           "description": "",
           "fieldConfig": {
             "defaults": {
-              "custom": {}
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "none"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/crit/"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#C4162A",
+                      "mode": "fixed"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/warn/"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "#FA6400",
+                      "mode": "fixed"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  }
+                ]
+              }
+            ]
           },
-          "fill": 0,
-          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 11
+            "y": 14
           },
-          "hiddenSeries": false,
           "id": 32,
-          "legend": {
-            "alignAsTable": false,
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "percentage": false,
-          "pluginVersion": "7.1.5",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [
-            {
-              "$$hashKey": "object:356",
-              "alias": "/crit/",
-              "color": "#C4162A",
-              "dashes": true,
-              "fill": 0
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
             },
-            {
-              "$$hashKey": "object:393",
-              "alias": "/warn/",
-              "color": "#FA6400",
-              "dashes": true,
-              "fill": 0
+            "tooltip": {
+              "mode": "single"
             }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          },
+          "pluginVersion": "8.2.5",
           "targets": [
             {
-              "alias": "Banned IPs",
+              "alias": "Banned IPs in $tag_metric",
               "groupBy": [
                 {
                   "params": [
@@ -9839,49 +9947,10 @@
               ]
             }
           ],
-          "thresholds": [],
           "timeFrom": null,
-          "timeRegions": [],
           "timeShift": null,
           "title": "Fail2Ban - Banned IPs",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "buckets": null,
-            "mode": "time",
-            "name": null,
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "$$hashKey": "object:336",
-              "decimals": 0,
-              "format": "none",
-              "label": "",
-              "logBase": 1,
-              "max": null,
-              "min": "0",
-              "show": true
-            },
-            {
-              "$$hashKey": "object:337",
-              "format": "short",
-              "label": null,
-              "logBase": 1,
-              "max": null,
-              "min": null,
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false,
-            "alignLevel": null
-          }
+          "type": "timeseries"
         },
         {
           "datasource": "${DS_INFLUXDB}",
@@ -9889,7 +9958,8 @@
           "fieldConfig": {
             "defaults": {
               "custom": {
-                "align": null
+                "align": null,
+                "displayMode": "auto"
               },
               "mappings": [],
               "thresholds": {
@@ -9913,16 +9983,16 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 19
+            "y": 22
           },
           "id": 187,
           "options": {
             "showHeader": true
           },
-          "pluginVersion": "7.1.5",
+          "pluginVersion": "8.2.5",
           "targets": [
             {
-              "alias": "Banned IPs",
+              "alias": "Banned IPs in $tag_metric",
               "groupBy": [
                 {
                   "params": [
@@ -10075,7 +10145,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -10528,7 +10598,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -10983,7 +11053,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -11432,7 +11502,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -11887,7 +11957,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12342,7 +12412,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12795,7 +12865,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -12809,7 +12879,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14047,7 +14117,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14500,7 +14570,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14761,7 +14831,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -14775,7 +14845,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15036,7 +15106,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15473,7 +15543,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -15934,7 +16004,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -17185,7 +17255,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -18166,7 +18236,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -20363,7 +20433,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21022,7 +21092,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21453,7 +21523,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21720,7 +21790,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -21987,7 +22057,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -24662,7 +24732,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -25130,7 +25200,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -26418,7 +26488,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -26865,7 +26935,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -27312,7 +27382,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -27786,7 +27856,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -28058,7 +28128,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -28949,7 +29019,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -29519,7 +29589,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -29972,7 +30042,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -31645,7 +31715,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32119,7 +32189,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32557,7 +32627,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -32995,7 +33065,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34068,7 +34138,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34434,7 +34504,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34694,7 +34764,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -34954,7 +35024,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -35118,7 +35188,7 @@
     },
     {
       "collapsed": true,
-      "datasource": "${DS_INFLUXDB}",
+      "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -35362,7 +35432,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 26,
+  "schemaVersion": 32,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -35372,6 +35442,7 @@
         "current": {},
         "datasource": "${DS_ICINGA_DIRECTOR}",
         "definition": "SELECT object_name FROM icinga_director.icinga_host where object_type='object';",
+        "description": null,
         "error": null,
         "hide": 0,
         "includeAll": false,
@@ -35385,7 +35456,6 @@
         "skipUrlSync": false,
         "sort": 0,
         "tagValuesQuery": "",
-        "tags": [],
         "tagsQuery": "",
         "type": "query",
         "useTags": false
@@ -35396,6 +35466,7 @@
           "text": "",
           "value": ""
         },
+        "description": null,
         "error": null,
         "hide": 0,
         "label": null,
@@ -35417,6 +35488,7 @@
           "text": "",
           "value": ""
         },
+        "description": null,
         "error": null,
         "hide": 0,
         "label": null,
@@ -35454,5 +35526,5 @@
   "timezone": "",
   "title": "All Panels",
   "uid": "all-panels",
-  "version": 6
+  "version": 3
 }

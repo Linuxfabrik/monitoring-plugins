@@ -30,11 +30,12 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 
@@ -72,7 +73,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('virsh list --all'))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('virsh list --all'))
     if stderr or retc != 0:
         lib.base3.oao('{}'.format(stderr), STATE_WARN)
     # we got a VM list and their states - strip first two header and last two empty rows

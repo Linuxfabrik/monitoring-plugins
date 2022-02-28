@@ -12,6 +12,7 @@ import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
+import lib.shell3
 
 
 class TestCheck(unittest.TestCase):
@@ -23,13 +24,13 @@ class TestCheck(unittest.TestCase):
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
         self.assertIn('There are errors.\n\n* NodeBB nodebb:4567, /usr/bin/node v14.17.5\n  Heap 85.9% used (92.5MiB of 107.6MiB) [WARNING], RSS 263.8MiB', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
         self.assertIn('Everything is ok.\n\n* HTTP Status today: 0x 503 too busy, 0x 404 not found\n* Last log: #770', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)

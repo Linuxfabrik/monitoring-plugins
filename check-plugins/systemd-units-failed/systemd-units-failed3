@@ -31,12 +31,14 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022022301'
 
 DESCRIPTION = """Warns on any failed systemd units."""
 
@@ -92,7 +94,7 @@ def main():
 
     if args.TEST is None:
         # get the values the normal way
-        stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(
             'systemctl --state=failed --no-pager --no-legend'))
     else:
         # do not call the command, put in test data
@@ -109,33 +111,35 @@ def main():
     failed_units = stdout.splitlines()
     if len(failed_units) > 0:
         table_data = []
+        offset = 0
         for line in failed_units:
+            if line.startswith('*'):
+                offset = 1
             unit = line.split()
-            if unit[0] in args.IGNORE:
+            if unit[0 + offset] in args.IGNORE:
                 continue
             count += 1
             table_data.append({
-                'unit': unit[0],
-                'load': unit[1],
-                'active': unit[2],
-                'sub': unit[3],
-                'description': ' '.join(unit[4:]),
-                })
+                'unit': unit[0 + offset],
+                'load': unit[1 + offset],
+                'active': unit[2 + offset],
+                'sub': unit[3 + offset],
+                'description': ' '.join(unit[4 + offset:]),
+            })
         if count > 0:
             state = STATE_WARN
             msg = 'There {} {} failed {}.\n'.format(
-                lib.base3.pluralize('', count, 'is,are'),
+                lib.txt3.pluralize('', count, 'is,are'),
                 count,
-                lib.base3.pluralize('unit', count),
-                )
+                lib.txt3.pluralize('unit', count),
+            )
             table = lib.base3.get_table(
                 table_data,
                 ['unit', 'load', 'active', 'sub', 'description'],
                 ['unit', 'load', 'active', 'sub', 'description'],
-                )
+            )
 
-    perfdata = lib.base3.get_perfdata(
-        'systemd-units-failed', count, None, 1, None, 0, None)
+    perfdata = lib.base3.get_perfdata('systemd-units-failed', count, None, 1, None, 0, None)
 
     # over and out
     lib.base3.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)

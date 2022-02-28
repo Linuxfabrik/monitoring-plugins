@@ -37,7 +37,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021701'
 
 DESCRIPTION = """This plugin lets you track if app updates are available, the number of active
                 users over time, the number of shares in various categories and some storage
@@ -172,7 +172,7 @@ def main():
     nc_server_php_version                 = result['ocs']['data']['server']['php']['version']
     nc_server_webserver                   = result['ocs']['data']['server']['webserver']
 
-    nc_server_database_size               = result['ocs']['data']['server']['database']['size']
+    nc_server_database_size               = int(result['ocs']['data']['server']['database']['size'])
     nc_server_database_type               = result['ocs']['data']['server']['database']['type']
     nc_server_database_version            = result['ocs']['data']['server']['database']['version']
 
@@ -194,7 +194,7 @@ def main():
     # build the (long) multiline message
     msg += '{} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps, v{}\n'.format(
         nc_storage_num_users, nc_active_users_last5min, nc_active_users_last1h, nc_active_users_last24h,
-        nc_storage_num_files, nc_system_apps_num_installed,
+        lib.base2.number2human(nc_storage_num_files), nc_system_apps_num_installed,
         nc_system_version,
         )
     msg += '* Shares: {} ({} groups, {} links [{} w/o password], {} mails, {} rooms, {} users, {} federated sent)\n'.format(nc_shares_num_shares, nc_shares_num_shares_groups, nc_shares_num_shares_link, nc_shares_num_shares_link_no_password,

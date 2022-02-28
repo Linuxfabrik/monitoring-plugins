@@ -23,7 +23,7 @@ if os.getenv('MONITORING_PLUGINS_VENV3'):
     ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0132
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
 import argparse # pylint: disable=C0413
@@ -31,11 +31,12 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.wildfly3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks the deployment status of a Wildfly/JBossAS over HTTP.'
 
@@ -61,6 +62,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--deployment',
+        help='The name of an application whose deployment status is to be checked (repeating). Default: %(default)s',
+        dest='DEPLOYMENT',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -133,6 +142,12 @@ def check_deployment_status(args):
 
     for result in res:
         deployment = { k: v for d in result.get('address') for k, v in d.items() }.get('deployment')
+
+        if args.DEPLOYMENT is not None:
+            # filter for specific datasource
+            if not deployment in args.DEPLOYMENT:
+                continue
+
         deployments += 1
         if result.get('result') in ['OK', 'RUNNING']:
             local_state = STATE_OK
@@ -147,9 +162,9 @@ def check_deployment_status(args):
         msg += '* {} is {}{}\n'.format(deployment, result.get('result'), lib.base3.state2str(local_state, prefix=' '))
 
     if state == STATE_OK:
-        msg = '{} {} checked, everything is ok.'.format(deployments, lib.base3.pluralize('Deployment', deployments)) + msg
+        msg = '{} {} checked, everything is ok.'.format(deployments, lib.txt3.pluralize('Deployment', deployments)) + msg
     else:
-        msg = '{} {} checked, there are errors.'.format(deployments, lib.base3.pluralize('Deployment', deployments)) + msg
+        msg = '{} {} checked, there are errors.'.format(deployments, lib.txt3.pluralize('Deployment', deployments)) + msg
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

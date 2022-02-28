@@ -32,11 +32,12 @@ import urllib.parse # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101401'
+__version__ = '2022021602'
 
 DESCRIPTION = 'Checks FortiOS sensor information in detail.'
 
@@ -158,25 +159,25 @@ def main():
 
         sensor_state = STATE_OK
         if 'lower_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], operator='le')
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'], _operator='le')
             state = lib.base3.get_worst(sensor_state, state)
-            if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+            if sensor_state in (STATE_WARN, STATE_CRIT):
                 msg_body += '\n* {} ({} {}) is less or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['lower_non_critical'], sensor['thresholds']['lower_critical'])
         if 'upper_non_critical' in sensor['thresholds']:
-            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], operator='ge')
+            sensor_state = lib.base3.get_state(sensor['value'], sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], _operator='ge')
             state = lib.base3.get_worst(sensor_state, state)
-            if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+            if sensor_state in (STATE_WARN, STATE_CRIT):
                 msg_body += '\n* {} ({} {}) is greater or equal to a certain threshold ({}/{})'.format(sensor['name'], sensor['value'], shorten_uom(sensor['type']), sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'])
 
         perfdata += lib.base3.get_perfdata(sensor['id'], sensor['value'], None, sensor['thresholds']['upper_non_critical'], sensor['thresholds']['upper_critical'], sensor['thresholds'].get('lower_non_recoverable', 0), sensor['thresholds']['upper_non_recoverable'])
         sensor_counter += 1
 
     if state == STATE_CRIT:
-        msg_header = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+        msg_header = 'Checked {} {}. There are critical errors.'.format(sensor_counter, lib.txt3.pluralize('sensor', sensor_counter))
     elif state == STATE_WARN:
-        msg_header = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+        msg_header = 'Checked {} {}. There are warnings.'.format(sensor_counter, lib.txt3.pluralize('sensor', sensor_counter))
     else:
-        msg_header = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.base3.pluralize('sensor', sensor_counter))
+        msg_header = 'Checked {} {}, all are ok.'.format(sensor_counter, lib.txt3.pluralize('sensor', sensor_counter))
 
     # over and out
     lib.base3.oao(msg_header + msg_body, state, perfdata)

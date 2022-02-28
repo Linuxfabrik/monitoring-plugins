@@ -12,11 +12,11 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
 
 
@@ -48,12 +48,12 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-version --hostname fortigate-cluster.linuxfabrik.io --password mypass
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    FortiOS v6.2.7 is up to date
 
 
 States

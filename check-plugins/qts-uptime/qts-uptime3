@@ -31,6 +31,8 @@ import base64 # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
@@ -41,7 +43,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101301'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Tells how long the system has been running.'
 
@@ -125,7 +127,7 @@ def main():
     url = '{}/cgi-bin/authLogin.cgi'.format(args.URL)
     data = {
         'user': args.USERNAME,
-        'pwd': base64.b64encode(args.PASSWORD.encode('utf-8')).decode('ascii'),
+        'pwd': lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(args.PASSWORD))),
         }
     result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
@@ -147,7 +149,7 @@ def main():
             + int(data['uptime_sec'])
 
     # build the message
-    msg = 'Up {}'.format(lib.base3.seconds2human(uptime))
+    msg = 'Up {}'.format(lib.human3.seconds2human(uptime))
     perfdata = lib.base3.get_perfdata('uptime', uptime, 's', None, None, 0, None)
     # over and out
     lib.base3.oao(msg, STATE_OK, perfdata)

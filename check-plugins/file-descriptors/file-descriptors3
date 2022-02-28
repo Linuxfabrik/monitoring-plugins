@@ -31,6 +31,7 @@ from collections import Counter # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
@@ -110,8 +111,8 @@ def main():
 
     msg = '{}% file descriptors used ({}/{})\n'.format(
         files_percent,
-        lib.base3.number2human(files_allocated),
-        lib.base3.number2human(files_max)
+        lib.human3.number2human(files_allocated),
+        lib.human3.number2human(files_max)
     )
     perfdata += lib.base3.get_perfdata('fd', files_percent, '%', args.WARN, args.CRIT, 0, 100)
     state = lib.base3.get_state(files_percent, args.WARN, args.CRIT, 'ge')

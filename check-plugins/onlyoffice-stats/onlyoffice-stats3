@@ -32,13 +32,16 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks OnlyOffice statistics and license usage via HTTP.'
 
@@ -116,22 +119,22 @@ def main():
     max_conn_crit = max_conn * 0.95
 
     # build the message and perfdata
-    msg += 'Max {} {}, '.format(max_conn, lib.base3.pluralize('connection', max_conn))
+    msg += 'Max {} {}, '.format(max_conn, lib.txt3.pluralize('connection', max_conn))
 
     # license; expired?
-    now = lib.base3.now(as_type='iso')
+    now = lib.time3.now(as_type='iso')
     msg += 'licensed' if result['licenseInfo']['hasLicense'] else 'no license'
     if result['licenseInfo']['endDate']:
         if result['licenseInfo']['endDate'][0:10] <= now[0:10]:
             msg += ' (expired) [WARNING]'
             state = lib.base3.get_worst(STATE_WARN, state)
-        expires_in = lib.base3.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
+        expires_in = lib.time3.timestrdiff(result['licenseInfo']['endDate'][0:10], now[0:10], pattern1='%Y-%m-%d', pattern2='%Y-%m-%d')
         if expires_in <= 10 * 24 * 60 * 60:
-            msg += ' (expires in {}) [WARNING]'.format(lib.base3.seconds2human(expires_in))
+            msg += ' (expires in {}) [WARNING]'.format(lib.human3.seconds2human(expires_in))
             state = lib.base3.get_worst(STATE_WARN, state)
     msg += ', '
 
-    view_state = lib.base3.get_state(result['connectionsStat']['hour']['view']['max'], max_conn_warn, max_conn_crit, operator='ge')
+    view_state = lib.base3.get_state(result['connectionsStat']['hour']['view']['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base3.get_worst(view_state, state)
     msg += 'last hour: {}/{}/{} views{} '.format(
         result['connectionsStat']['hour']['view']['min'],
@@ -143,7 +146,7 @@ def main():
     perfdata += lib.base3.get_perfdata('conn_hour_view_avr', result['connectionsStat']['hour']['view']['avr'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
     perfdata += lib.base3.get_perfdata('conn_hour_view_max', result['connectionsStat']['hour']['view']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
-    edit_state = lib.base3.get_state(result['connectionsStat']['hour']['edit']['max'], max_conn_warn, max_conn_crit, operator='ge')
+    edit_state = lib.base3.get_state(result['connectionsStat']['hour']['edit']['max'], max_conn_warn, max_conn_crit, _operator='ge')
     state = lib.base3.get_worst(edit_state, state)
     msg += 'and {}/{}/{} edits{} (min/avr/max), '.format(
         result['connectionsStat']['hour']['edit']['min'],
@@ -156,7 +159,7 @@ def main():
     perfdata += lib.base3.get_perfdata('conn_hour_edit_max', result['connectionsStat']['hour']['edit']['max'], None, max_conn_warn, max_conn_crit, 0, result['licenseInfo']['connections'])
 
     if 'usersInfo' in result:
-        msg += '{} unique {}, '.format(result['usersInfo']['uniqueUserCount'], lib.base3.pluralize('user', result['usersInfo']['uniqueUserCount']))
+        msg += '{} unique {}, '.format(result['usersInfo']['uniqueUserCount'], lib.txt3.pluralize('user', result['usersInfo']['uniqueUserCount']))
         perfdata += lib.base3.get_perfdata('unique_users', result['usersInfo']['uniqueUserCount'], None, None, None, 0, None)
 
     msg += 'v{}, '.format(result['serverInfo']['buildVersion'])

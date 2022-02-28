@@ -1,0 +1,240 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+
+import lib.base3
+import lib.shell3
+
+import unittest
+import tempfile
+
+class TestCheck(unittest.TestCase):
+
+    def test_case1_success(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '3 seconds ago' {tmpdir}/file
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/file' --warning 5 --critical 10"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_case1_empty(self):
+        tmpdir = tempfile.mkdtemp()
+
+        cmd = f"./file-age3 --filename '{tmpdir}/file' --warning 5 --critical 10"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_case1_warning(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '7 seconds ago' {tmpdir}/file
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/file' --warning 5 --critical 10"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_case1_critical(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '12 seconds ago' {tmpdir}/file
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/file' --warning 5 --critical 10"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+
+    # Scenario 1
+    # Check if an application creates at least 2 files every 10s, else throw a warning.
+    # If it is missing for more than 20s, throw a critical.
+    # warn, if there are less than 2 files in the last 15s
+    # crit, if there are less than 1 files in the last 20s
+
+    # Application working correctly
+    def test_scenario1_success(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '5 seconds ago' {tmpdir}/file1
+        touch -d '2 seconds ago' {tmpdir}/file2
+        touch -d '12 seconds ago' {tmpdir}/file3
+        touch -d '18 seconds ago' {tmpdir}/file4
+        touch -d '25 seconds ago' {tmpdir}/file5
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_scenario1_empty(self):
+        tmpdir = tempfile.mkdtemp()
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    # Application not working correctly, should result in a warning
+    def test_scenario1_warning(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '10 seconds ago' {tmpdir}/file1
+        touch -d '18 seconds ago' {tmpdir}/file2
+        touch -d '25 seconds ago' {tmpdir}/file3
+        touch -d '28 seconds ago' {tmpdir}/file4
+        touch -d '30 seconds ago' {tmpdir}/file5
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    # Application not working correctly, should result in a critical
+    def test_scenario1_critical(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '18 seconds ago' {tmpdir}/file1
+        touch -d '25 seconds ago' {tmpdir}/file2
+        touch -d '28 seconds ago' {tmpdir}/file3
+        touch -d '30 seconds ago' {tmpdir}/file4
+        touch -d '40 seconds ago' {tmpdir}/file5
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:'"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    # Scenario 2
+    # Check if an application removes files fast enough.
+    # If there are more than 2 files in the last 10s, throw a warning.
+    # If there are more than 3 files in the last 15s, throw a critical.
+    # No files are ok.
+
+    # Application working correctly
+    def test_scenario2_success(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '6 seconds ago' {tmpdir}/file1
+        touch -d '7 seconds ago' {tmpdir}/file2
+        touch -d '18 seconds ago' {tmpdir}/file3
+        touch -d '25 seconds ago' {tmpdir}/file5
+        touch -d '28 seconds ago' {tmpdir}/file7
+        touch -d '30 seconds ago' {tmpdir}/file9
+        touch -d '40 seconds ago' {tmpdir}/file11
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_scenario2_empty(self):
+        tmpdir = tempfile.mkdtemp()
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning 15 --warning-count 2 --critical 20 --critical-count 2"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    # Application not working correctly, should result in a warning
+    def test_scenario2_warning(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '6 seconds ago' {tmpdir}/file1
+        touch -d '7 seconds ago' {tmpdir}/file2
+        touch -d '8 seconds ago' {tmpdir}/file3
+        touch -d '18 seconds ago' {tmpdir}/file4
+        touch -d '25 seconds ago' {tmpdir}/file6
+        touch -d '28 seconds ago' {tmpdir}/file8
+        touch -d '30 seconds ago' {tmpdir}/file10
+        touch -d '40 seconds ago' {tmpdir}/file12
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    # Application not working correctly, should result in a critical
+    def test_scenario2_critical(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f'''
+        touch -d '6 seconds ago' {tmpdir}/file1
+        touch -d '7 seconds ago' {tmpdir}/file2
+        touch -d '10 seconds ago' {tmpdir}/file3
+        touch -d '14 seconds ago' {tmpdir}/file4
+        touch -d '18 seconds ago' {tmpdir}/file5
+        touch -d '25 seconds ago' {tmpdir}/file6
+        touch -d '28 seconds ago' {tmpdir}/file7
+        touch -d '30 seconds ago' {tmpdir}/file8
+        '''
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
+
+        cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '10:' --warning-count 2 --critical '15:' --critical-count 3"
+        # print(f'Runnning {cmd}')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        # print(stdout)
+        # self.assertRegexpMatches(stdout, r'1 mail to deliver\.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+if __name__ == '__main__':
+    unittest.main()

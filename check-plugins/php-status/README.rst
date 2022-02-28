@@ -4,7 +4,7 @@ Check php-status
 Overview
 --------
 
-This plugin checks for PHP Opcache status, startup errors using ``php --version``, missing modules using ``php --modules`` or misconfigured directives using ``php --info``.
+This plugin checks for PHP Opcache status, startup errors using ``php --version``, missing modules using ``php --modules`` or misconfigured directives using ``php --info``. Needs sudo.
 
 So that the check can call up the Opcache data in the context of a web server, first put the ``monitoring.php`` file to the web server's document root directory. The check can then call up additional PHP information, such as the PHP Opcache statistics. On the subject of Opcache see also:
 
@@ -16,6 +16,7 @@ Apache httpd config example:
 
 .. code-block:: text
 
+    Alias /monitoring.php /dev/null
     <Location /monitoring.php>
         Require local
         # if using php-fpm, two examples:
@@ -76,25 +77,26 @@ Output:
 
 .. code-block:: text
 
-    PHP v7.4.22 (/etc/php.ini), Opcache Mem 28.5% used (73.0MiB/256.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 20.8% used (3368/16229), Hit Rate 99.9% (3.0M hits, 3.1K misses), Interned Strings 10.5% used (4.2MiB/40.0MiB, 68202 Strings), 0 OOM / 0 manual / 0 key restarts
+    Everything is ok. PHP v8.0.12 (/etc/php.ini), Opcache Mem 6.8% used (8.7MiB/128.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 0.0% used (1/16229), Hit Rate 0.0% (0.0 hits, 1.0 misses), Interned Strings 4.1% used (250.8KiB/6.0MiB, 5482 Strings), 0 OOM / 0 manual / 0 key restarts, 
+
     Key                             ! Value         
-    ------------------------------- ! ------------- 
+    --------------------------------+---------------
     date.timezone                   ! Europe/Zurich 
-    display_errors                  ! 0             
-    display_startup_errors          ! 0             
+    display_errors                  ! Off           
+    display_startup_errors          ! Off           
     error_reporting                 ! 22519         
-    expose_php                      ! 0             
+    expose_php                      ! Off           
     max_execution_time              ! 30            
-    memory_limit                    ! 2200M         
-    post_max_size                   ! 2100M         
-    upload_max_filesize             ! 2000M         
+    memory_limit                    ! 64M           
+    post_max_size                   ! 50M           
+    upload_max_filesize             ! 20M           
     opcache.enable                  ! True          
-    opcache.interned_strings_buffer ! 48            
-    opcache.max_accelerated_files   ! 16229         
-    opcache.memory_consumption      ! 268435456     
-    opcache.revalidate_freq         ! 86400         
+    opcache.interned_strings_buffer ! 8             
+    opcache.max_accelerated_files   ! 10000         
+    opcache.memory_consumption      ! 134217728     
+    opcache.revalidate_freq         ! 1             
     opcache.save_comments           ! True          
-    opcache.validate_timestamps     ! False
+    opcache.validate_timestamps     ! True
 
 
 States
@@ -119,30 +121,35 @@ WARN or CRIT:
 Perfdata / Metrics
 ------------------
 
-* php-config-errors: 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT
-* php-module-errors: 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT
-* php-startup-errors: 0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT
-* php-opcache-interned_strings_usage-free_memory: Bytes
-* php-opcache-interned_strings_usage-number_of_strings: Number
-* php-opcache-interned_strings_usage-percentage: %
-* php-opcache-interned_strings_usage-used_memory: Bytes
-* php-opcache-memory_usage-current_wasted_percentage: %
-* php-opcache-memory_usage-free_memory: Bytes
-* php-opcache-memory_usage-percentage: %
-* php-opcache-memory_usage-used_memory: Bytes
-* php-opcache-memory_usage-wasted_memory: Bytes
-* php-opcache-opcache_statistics-blacklist_miss_ratio: %
-* php-opcache-opcache_statistics-blacklist_misses: Number
-* php-opcache-opcache_statistics-hash_restarts: Number
-* php-opcache-opcache_statistics-hits: Continous Counter
-* php-opcache-opcache_statistics-manual_restarts: Number
-* php-opcache-opcache_statistics-misses: Continous Counter
-* php-opcache-opcache_statistics-num_cached_keys-percentage: %
-* php-opcache-opcache_statistics-num_cached_keys: Number
-* php-opcache-opcache_statistics-num_cached_scripts: Number
-* php-opcache-opcache_statistics-num_free_keys: Number
-* php-opcache-opcache_statistics-oom_restarts: Number
-* php-opcache-opcache_statistics-opcache_hit_rate: %
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                                       Type,               Description                                           
+    php-config-errors,                                          Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
+    php-module-errors                                           Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
+    php-startup-errors                                          Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
+    php-opcache-interned_strings_usage-free_memory,             Bytes,
+    php-opcache-interned_strings_usage-number_of_strings,       Number,
+    php-opcache-interned_strings_usage-percentage,              Percentage,
+    php-opcache-interned_strings_usage-used_memory,             Bytes,
+    php-opcache-memory_usage-current_wasted_percentage,         Percentage,
+    php-opcache-memory_usage-free_memory,                       Bytes,
+    php-opcache-memory_usage-percentage,                        Percentage,
+    php-opcache-memory_usage-used_memory,                       Bytes,
+    php-opcache-memory_usage-wasted_memory,                     Bytes,
+    php-opcache-opcache_statistics-blacklist_miss_ratio,        Percentage,
+    php-opcache-opcache_statistics-blacklist_misses,            Number,
+    php-opcache-opcache_statistics-hash_restarts,               Number,
+    php-opcache-opcache_statistics-hits,                        Continous Counter,
+    php-opcache-opcache_statistics-manual_restarts,             Number,
+    php-opcache-opcache_statistics-misses,                      Continous Counter,
+    php-opcache-opcache_statistics-num_cached_keys-percentage,  Percentage,
+    php-opcache-opcache_statistics-num_cached_keys,             Number,
+    php-opcache-opcache_statistics-num_cached_scripts,          Number,
+    php-opcache-opcache_statistics-num_free_keys,               Number,
+    php-opcache-opcache_statistics-oom_restarts,                Number,
+    php-opcache-opcache_statistics-opcache_hit_rate,            Percentage,
 
 
 Troubleshooting
@@ -155,6 +162,7 @@ If you get a warning on
 * Hit Rate: Cache has to warm up, so wait and see.
 * Interned Strings: Increase ``opcache.interned_strings_buffer``, in megabytes. The actual value is always lower than what is configured in ``opcache.interned_strings_buffer``.
 * OOM: Increase any of the above values and restart Apache or PHP-FPM.
+* display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
 
 
 Credits, License

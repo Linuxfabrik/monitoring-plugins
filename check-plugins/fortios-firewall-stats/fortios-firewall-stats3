@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 import urllib.parse # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101401'
+__version__ = '2022021601'
 
 DESCRIPTION = """Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti
                  Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication
@@ -157,10 +158,10 @@ def main():
         total.get('session_count', 0),
         total.get('active_sessions', 0),
         total.get('hit_count', 0),
-        lib.base3.bytes2human(total.get('bytes', 0)),
-        lib.base3.bytes2human(total.get('software_bytes', 0)),
-        lib.base3.bytes2human(total.get('asic_bytes', 0)),
-        lib.base3.bytes2human(total.get('nturbo_bytes', 0)),
+        lib.human3.bytes2human(total.get('bytes', 0)),
+        lib.human3.bytes2human(total.get('software_bytes', 0)),
+        lib.human3.bytes2human(total.get('asic_bytes', 0)),
+        lib.human3.bytes2human(total.get('nturbo_bytes', 0)),
     )
     state = STATE_OK
 
@@ -189,4 +190,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-

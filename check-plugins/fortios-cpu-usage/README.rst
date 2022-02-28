@@ -17,11 +17,11 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-cpu-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"
@@ -73,12 +73,12 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-cpu-usage --hostname fortigate-cluster.linuxfabrik.io --password mypass --count=15 --warning=50 --critical=70
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    0%
 
 
 States

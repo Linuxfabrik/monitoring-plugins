@@ -27,21 +27,21 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.nodebb3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
-try:
-    import psutil # pylint: disable=C0413
-except ImportError:
-    lib.base3.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2022022301'
 
 DESCRIPTION = """Checks the overall health of a NodeBB instance using various API endpoints."""
 
@@ -154,17 +154,15 @@ def main():
         result_events = lib.nodebb3.get_data(args, '/api/admin/advanced/events')
     else:
         # do not call the command, put in test data
-        import lib.disk2
-        import json
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-cache')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-cache')
         result_cache = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-database')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-database')
         result_db = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-info')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-info')
         result_dev = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-errors')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-errors')
         result_errors = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-events')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-events')
         result_events = json.loads(stdout)
 
     # init some vars
@@ -186,10 +184,10 @@ def main():
                 state = lib.base3.get_worst(state, heap_state)
                 msg += '  Heap {}% used ({} of {}){}, RSS {}\n'.format(
                     heap_used_percent,
-                    lib.base3.bytes2human(proc['process']['memoryUsage']['heapUsed']),
-                    lib.base3.bytes2human(proc['process']['memoryUsage']['heapTotal']),
+                    lib.human3.bytes2human(proc['process']['memoryUsage']['heapUsed']),
+                    lib.human3.bytes2human(proc['process']['memoryUsage']['heapTotal']),
                     lib.base3.state2str(heap_state, prefix=' '),
-                    lib.base3.bytes2human(proc['process']['memoryUsage']['rss']),
+                    lib.human3.bytes2human(proc['process']['memoryUsage']['rss']),
                 )
                 perfdata += lib.base3.get_perfdata('nodebb_heap_used_percent', heap_used_percent, '%', args.WARN, args.CRIT, 0, 100)
                 perfdata += lib.base3.get_perfdata('nodebb_heap_used', proc['process']['memoryUsage']['heapUsed'], 'B', None, None, 0, proc['process']['memoryUsage']['heapTotal'])
@@ -209,12 +207,12 @@ def main():
                 '' if result_cache[cache]['enabled'] == 1 else ' not enabled ' + lib.base3.state2str(cache_enabled_state),
                 result_cache[cache]['itemCount'],
                 result_cache[cache]['percentFull'],
-                lib.base3.number2human(result_cache[cache]['length']),
-                lib.base3.number2human(result_cache[cache]['max']),
+                lib.human3.number2human(result_cache[cache]['length']),
+                lib.human3.number2human(result_cache[cache]['max']),
                 lib.base3.state2str(cache_full_state, prefix=' '),
-                float(result_cache[cache]['hitRatio']) * 100,
-                lib.base3.number2human(result_cache[cache]['hits'].replace(',', '')),
-                lib.base3.number2human(result_cache[cache]['misses'].replace(',', '')),
+                round(float(result_cache[cache]['hitRatio']), 1) * 100,
+                lib.human3.number2human(result_cache[cache]['hits'].replace(',', '')),
+                lib.human3.number2human(result_cache[cache]['misses'].replace(',', '')),
             )
             perfdata += lib.base3.get_perfdata('cache_' + cache + '_hitRatio', float(result_cache[cache]['hitRatio']) * 100, '%', None, None, 0, 100)
             perfdata += lib.base3.get_perfdata('cache_' + cache + '_hits', result_cache[cache]['hits'].replace(',', ''), 'c', None, None, 0, None)
@@ -248,14 +246,14 @@ def main():
             result_db['mongo']['db'],
             lib.base3.state2str(db_conn_state, prefix=' '),
             result_db['mongo']['collections'],
-            lib.base3.pluralize('collection', result_db['mongo']['collections']),
+            lib.txt3.pluralize('collection', result_db['mongo']['collections']),
             result_db['mongo']['indexes'],
-            lib.base3.pluralize('index', result_db['mongo']['indexes'], 'es'),
-            lib.base3.number2human(result_db['mongo']['objects']),
-            lib.base3.pluralize('object', result_db['mongo']['objects']),
+            lib.txt3.pluralize('index', result_db['mongo']['indexes'], 'es'),
+            lib.human3.number2human(result_db['mongo']['objects']),
+            lib.txt3.pluralize('object', result_db['mongo']['objects']),
             fs_used_percent,
-            lib.base3.bytes2human(result_db['mongo']['fsUsedSize']),
-            lib.base3.bytes2human(result_db['mongo']['fsTotalSize']),
+            lib.human3.bytes2human(result_db['mongo']['fsUsedSize']),
+            lib.human3.bytes2human(result_db['mongo']['fsTotalSize']),
             lib.base3.state2str(db_fs_state, prefix=' '),
         )
         perfdata += lib.base3.get_perfdata('db_collections', result_db['mongo']['collections'], None, None, None, 0, None)
@@ -274,7 +272,7 @@ def main():
         result_events['events'][0]['uid'],
         result_events['events'][0]['ip'],
         result_events['events'][0]['user']['username'],
-        lib.base3.seconds2human(lib.base3.now(as_type='epoch') - (result_events['events'][0]['timestamp'] / 1000)),
+        lib.human3.seconds2human(lib.time3.now(as_type='epoch') - (result_events['events'][0]['timestamp'] / 1000)),
     )
 
     if state == STATE_OK:

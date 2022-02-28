@@ -30,15 +30,15 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
-DESCRIPTION = 'Trys to get entries from Name Service Switch (NSS) libraries and warns on errors or no match.'
-
-bash_command = '/usr/bin/getent'
+DESCRIPTION = """Attempts to obtain entries from Name Service Switch (NSS) libraries and warns of
+                 errors or missing matches."""
 
 DEFAULT_DATABASE = 'group'
 
@@ -64,8 +64,8 @@ def parse_args():
     parser.add_argument(
         '--key',
         help="""If one or more key arguments are provided, then only the entries that match the
-                supplied keys will be fetched. Otherwise, if no key is provided, all entries will be
-                fetched (unless the database does not support enumeration). (repeating)""",
+                supplied keys will be fetched. Otherwise, if no key is provided, all entries
+                will be fetched (unless the database does not support enumeration). (repeating)""",
         dest='KEY',
         action='append',
     )
@@ -84,13 +84,13 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # build the getent command
-    cmd = bash_command + ' {}'.format(args.DATABASE)
+    cmd = '/usr/bin/getent {}'.format(args.DATABASE)
     if args.KEY:
         for key in args.KEY:
             cmd += ' {}'.format(key)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 

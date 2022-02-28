@@ -20,7 +20,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
 
 
@@ -30,7 +30,7 @@ Help
 .. code-block:: text
 
     usage: sap-open-concur-com [-h] [--always-ok] [-V]
-                               [--datacenter {north_america,emea,china,public_sector}]
+                               [--datacenter {us,us2,eu,eu2,cn,pscc}]
                                [--no-proxy] [--service SERVICE]
                                [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
@@ -60,7 +60,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./sap-open-concur-com --datacenter=emea --service=All --utc-offset=+0200
+    ./sap-open-concur-com --datacenter=eu2 --service=All --utc-offset=+0200
 
 Output:
 

@@ -31,11 +31,12 @@ import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022021601'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
@@ -71,21 +72,30 @@ def parse_args():
     return parser.parse_args()
 
 
-def run_occ(path, cmd, format='json'):
+def get_owner(file):
+    """Returns the user ID of the owner of a file (for example "0" for "root").
+    Returns -1 on failure.
+    """
+    try:
+        return os.stat(file).st_uid
+    except:
+        return -1
+
+
+def run_occ(path, cmd, _format='json'):
     """Run the Nextcloud OCC command.
     """
     # get the owner of config.php
-    user = lib.base3.get_owner(os.path.join(path, 'config/config.php'))
+    user = get_owner(os.path.join(path, 'config/config.php'))
     occ = os.path.join(path, 'occ')
     # When running a command as a UID, many shells require that the `#` be escaped with a backslash (`\`).
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:
-        if format == 'json':
+        if _format == 'json':
             return json.loads(stdout)
-        else:
-            return stdout.strip()
+        return stdout.strip()
     except:
         lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
 
@@ -112,7 +122,7 @@ def main():
     # there to check for updates. Instead, if you have the app "updatenotification" enabled, you can
     # use "occ update:check" and parse the output to check the state. See
     # https://github.com/nextcloud/server/blob/master/apps/updatenotification/lib/Command/Check.php#L92
-    result = run_occ(args.PATH, 'update:check', format='text')
+    result = run_occ(args.PATH, 'update:check', _format='text')
 
     if result == 'Everything up to date':
         lib.base3.oao('Nextcloud v{} is up to date'.format(config['system']['version']), STATE_OK)

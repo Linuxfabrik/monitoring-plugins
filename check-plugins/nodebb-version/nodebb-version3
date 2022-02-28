@@ -27,17 +27,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.nodebb3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090702'
+__version__ = '2022021601'
 
 DESCRIPTION = """This plugin lets you track if a NodeBB update is available."""
 
@@ -120,7 +123,6 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
-        import json
         result = json.loads(stdout)
 
     # init some vars
@@ -142,10 +144,10 @@ def main():
     if result['lastrestart']['timestamp']:
         last_restart = result['lastrestart']['timestamp'] / 1000
         msg += ', Last restart: {} by {} <{}> ({} ago)'.format(
-            lib.base3.epoch2iso(last_restart),
+            lib.time3.epoch2iso(last_restart),
             result['lastrestart']['user']['username'],
             result['lastrestart']['user']['email'],
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - last_restart),
+            lib.human3.seconds2human(lib.time3.now(as_type='epoch') - last_restart),
         )
 
     # over and out

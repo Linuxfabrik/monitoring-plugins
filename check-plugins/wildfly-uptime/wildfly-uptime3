@@ -30,12 +30,13 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.wildfly3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Checks the uptime of a Wildfly/JBossAS over HTTP.'
 
@@ -147,7 +148,7 @@ def check_uptime(args):
     WARN = int(args.WARN)*24*60*60
     uptime = res['uptime'] / 1000
 
-    msg = 'Up {}'.format(lib.base3.seconds2human(uptime))
+    msg = 'Up {}'.format(lib.human3.seconds2human(uptime))
     perfdata = lib.base3.get_perfdata('uptime', uptime, 's', WARN, CRIT, 0, None)
     state = lib.base3.get_state(uptime, WARN, CRIT)
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

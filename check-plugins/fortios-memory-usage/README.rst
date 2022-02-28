@@ -16,11 +16,11 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/fortios-memory-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "None"
 
 
@@ -62,12 +62,12 @@ Usage Examples
 .. code-block:: bash
 
     ./fortios-memory-usage --hostname fortigate-cluster.linuxfabrik.io --password mypass --warning=50 --critical=70
-    
+
 Output:
 
 .. code-block:: text
 
-    TODO
+    1%
 
 
 States

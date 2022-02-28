@@ -32,11 +32,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021100801'
+__version__ = '2022021502'
 
 DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
 
@@ -96,16 +98,16 @@ def main():
             item, expiration_date, warn, crit = line
 
             expiration_date = datetime.datetime.strptime(expiration_date, "%Y-%m-%d")
-            today = lib.base3.now(as_type='datetime')
+            today = lib.time3.now(as_type='datetime')
             delta = expiration_date - today
             delta = int(delta.days) + 1
 
             if delta > 0:
-                line = '{} expires in {} {} (thresholds {}/{})\n'.format(item, delta, lib.base3.pluralize('day', delta), warn, crit)
+                line = '{} expires in {} {} (thresholds {}/{})\n'.format(item, delta, lib.txt3.pluralize('day', delta), warn, crit)
             elif delta == 0:
                 line = '{} expires today.\n'.format(item)
             else:
-                line = '{} already expired {} {} ago.\n'.format(item, abs(delta), lib.base3.pluralize('day', abs(delta)))
+                line = '{} already expired {} {} ago.\n'.format(item, abs(delta), lib.txt3.pluralize('day', abs(delta)))
 
             if crit.lower() != 'none' and delta < int(crit):
                 msg += '* CRIT ' + line

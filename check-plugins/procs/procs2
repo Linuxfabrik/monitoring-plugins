@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021091403'
+__version__ = '2021121401'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                 counts or process memory usage. You may filter the process list by process name,
@@ -272,52 +272,54 @@ def main():
         # count processes per status ("83x sleeping, 5x running")
         # plus group and summarize some states
         # handle far most status' first
-        if process_info['status'] == psutil.STATUS_SLEEPING:
-            proc_states[psutil.STATUS_SLEEPING] += 1
-        elif process_info['status'] == psutil.STATUS_RUNNING:
-            proc_states[psutil.STATUS_RUNNING] += 1
-            name = process_info['name']
-            if name in running:
-                running[name] += 1
+        try:
+            if process_info['status'] == psutil.STATUS_SLEEPING:
+                proc_states[psutil.STATUS_SLEEPING] += 1
+            elif process_info['status'] == psutil.STATUS_RUNNING:
+                proc_states[psutil.STATUS_RUNNING] += 1
+                name = process_info['name']
+                if name in running:
+                    running[name] += 1
+                else:
+                    running[name] = 1
+            elif process_info['status'] == psutil.STATUS_DISK_SLEEP:    # == uninterruptible
+                proc_states[psutil.STATUS_DISK_SLEEP] += 1
+                name = process_info['name']
+                if name in uninterruptibles:
+                    uninterruptibles[name] += 1
+                else:
+                    uninterruptibles[name] = 1
+            elif process_info['status'] == psutil.STATUS_ZOMBIE:
+                proc_states[psutil.STATUS_ZOMBIE] += 1
+                name = process_info['name'].replace(' <defunct>', '')
+                if name in zombies:
+                    zombies[name] += 1
+                else:
+                    zombies[name] = 1
+            elif process_info['status'] == psutil.STATUS_DEAD:
+                proc_states[psutil.STATUS_DEAD] += 1
+            elif process_info['status'] == psutil.STATUS_IDLE:
+                proc_states[psutil.STATUS_SLEEPING] += 1                # !!!!!!!!!!!!!!!!!
+            elif process_info['status'] == psutil.STATUS_LOCKED:
+                proc_states[psutil.STATUS_LOCKED] += 1
+            elif process_info['status'] == psutil.STATUS_PARKED:
+                proc_states[psutil.STATUS_PARKED] += 1
+            elif process_info['status'] == psutil.STATUS_STOPPED:
+                proc_states[psutil.STATUS_STOPPED] += 1
+            elif process_info['status'] == psutil.STATUS_TRACING_STOP:
+                proc_states[psutil.STATUS_STOPPED] += 1                 # !!!!!!!!!!!!!!!!!
+            elif process_info['status'] == psutil.STATUS_WAITING:
+                proc_states[psutil.STATUS_WAITING] += 1
+            elif process_info['status'] == psutil.STATUS_WAKING:
+                proc_states[psutil.STATUS_WAKING] += 1
             else:
-                running[name] = 1
-        elif process_info['status'] == psutil.STATUS_DISK_SLEEP:    # == uninterruptible
-            proc_states[psutil.STATUS_DISK_SLEEP] += 1
-            name = process_info['name']
-            if name in uninterruptibles:
-                uninterruptibles[name] += 1
-            else:
-                uninterruptibles[name] = 1
-        elif process_info['status'] == psutil.STATUS_ZOMBIE:
-            proc_states[psutil.STATUS_ZOMBIE] += 1
-            name = process_info['name'].replace(' <defunct>', '')
-            if name in zombies:
-                zombies[name] += 1
-            else:
-                zombies[name] = 1
-        elif process_info['status'] == psutil.STATUS_DEAD:
-            proc_states[psutil.STATUS_DEAD] += 1
-        elif process_info['status'] == psutil.STATUS_IDLE:
-            proc_states[psutil.STATUS_SLEEPING] += 1                # !!!!!!!!!!!!!!!!!
-        elif process_info['status'] == psutil.STATUS_LOCKED:
-            proc_states[psutil.STATUS_LOCKED] += 1
-        elif process_info['status'] == psutil.STATUS_PARKED:
-            proc_states[psutil.STATUS_PARKED] += 1
-        elif process_info['status'] == psutil.STATUS_STOPPED:
-            proc_states[psutil.STATUS_STOPPED] += 1
-        elif process_info['status'] == psutil.STATUS_TRACING_STOP:
-            proc_states[psutil.STATUS_STOPPED] += 1                 # !!!!!!!!!!!!!!!!!
-        elif process_info['status'] == psutil.STATUS_WAITING:
-            proc_states[psutil.STATUS_WAITING] += 1
-        elif process_info['status'] == psutil.STATUS_WAKING:
-            proc_states[psutil.STATUS_WAKING] += 1
-        else:
-            # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
-            proc_states['other'] += 1
+                # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
+                proc_states['other'] += 1
+        except:
+            # specific psutil version does not have such an attribute from above
+            continue
 
     # analyze data, build the message
-    if not procs_count:
-        lib.base2.oao('Everything is ok.', STATE_OK)
 
     # list used filters
     msg_filter = ''

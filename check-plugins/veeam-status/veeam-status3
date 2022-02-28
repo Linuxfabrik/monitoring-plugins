@@ -27,18 +27,21 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 import lib.veeam3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2022021601'
 
 DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too long, and overuse of
                  the backup repositories. In addition, the check provides information about backup
@@ -86,6 +89,7 @@ def parse_args():
         '-p', '--password',
         help='Veeam API password.',
         dest='PASSWORD',
+        required=True,
     )
 
     parser.add_argument(
@@ -115,6 +119,7 @@ def parse_args():
         help='Veeam API username. Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
+        required=True,
     )
 
     parser.add_argument(
@@ -140,12 +145,12 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        success, result, token = lib.veeam3.get_token(args)
+        success, result = lib.veeam3.get_token(args)
         if not success:
             lib.base3.oao(result, STATE_UNKNOWN)
 
         header = {
-            'X-RestSvcSessionId': token,
+            'X-RestSvcSessionId': result['X-RestSvcSessionId'],
             'Accept': 'application/json',
         }
         result = {}
@@ -168,8 +173,6 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
-
-        import json
         result = json.loads(stdout)
 
     # init some vars
@@ -187,7 +190,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} failed{}, '.format(
             val,
-            lib.base3.pluralize('VM', val),
+            lib.txt3.pluralize('VM', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['overview']['WarningVmLastestStates']
@@ -196,7 +199,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} with warnings{}, '.format(
             val,
-            lib.base3.pluralize('VM', val),
+            lib.txt3.pluralize('VM', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
 
@@ -206,7 +209,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} failed{}, '.format(
             val,
-            lib.base3.pluralize('Job', val),
+            lib.txt3.pluralize('Job', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['job_statistics']['WarningsJobRuns']
@@ -215,7 +218,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} with warnings{}, '.format(
             val,
-            lib.base3.pluralize('Job', val),
+            lib.txt3.pluralize('Job', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['job_statistics']['MaxBackupJobDuration']
@@ -225,7 +228,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '"{}" ran for {}{}, '.format(
             result['job_statistics']['MaxDurationBackupJobName'],
-            lib.base3.seconds2human(val),
+            lib.human3.seconds2human(val),
             lib.base3.state2str(local_state, prefix=' ')
         )
     val = result['job_statistics']['MaxReplicaJobDuration']
@@ -235,7 +238,7 @@ def main():
         state = lib.base3.get_worst(state, local_state)
         msg += '{} ran for {}{}, '.format(
             result['job_statistics']['MaxDurationReplicaJobName'],
-            lib.base3.seconds2human(val),
+            lib.human3.seconds2human(val),
             lib.base3.state2str(local_state, prefix=' ')
         )
 
@@ -247,9 +250,9 @@ def main():
             repo['Name'],
             val,
             lib.base3.state2str(local_state, prefix=' '),
-            lib.base3.bytes2human(repo['Capacity']),
-            lib.base3.bytes2human(repo['BackupSize']),
-            lib.base3.bytes2human(repo['FreeSpace']),
+            lib.human3.bytes2human(repo['Capacity']),
+            lib.human3.bytes2human(repo['BackupSize']),
+            lib.human3.bytes2human(repo['FreeSpace']),
         )
         perfdata += lib.base3.get_perfdata('Repo Usage ' + repo['Name'], val, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base3.get_perfdata('Repo Capacity ' + repo['Name'], repo['Capacity'], 'B', None, None, 0, None)
@@ -290,16 +293,16 @@ def main():
     table_values.append({'key': 'BackupServers', 'value': result['overview']['BackupServers']})
     table_values.append({'key': 'FailedJobRuns', 'value': result['job_statistics']['FailedJobRuns']})
     table_values.append({'key': 'FailedVmLastestStates', 'value': result['overview']['FailedVmLastestStates']})
-    table_values.append({'key': 'FullBackupPointsSize', 'value': lib.base3.bytes2human(result['vms_overview']['FullBackupPointsSize'])})
-    table_values.append({'key': 'IncrementalBackupPointsSize', 'value': lib.base3.bytes2human(result['vms_overview']['IncrementalBackupPointsSize'])})
-    table_values.append({'key': 'MaxBackupJobDuration', 'value': lib.base3.seconds2human(result['job_statistics']['MaxBackupJobDuration'])})
+    table_values.append({'key': 'FullBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['FullBackupPointsSize'])})
+    table_values.append({'key': 'IncrementalBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['IncrementalBackupPointsSize'])})
+    table_values.append({'key': 'MaxBackupJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxBackupJobDuration'])})
     table_values.append({'key': 'MaxDurationBackupJobName', 'value': result['job_statistics']['MaxDurationBackupJobName']})
     table_values.append({'key': 'MaxDurationReplicaJobName', 'value': result['job_statistics']['MaxDurationReplicaJobName']})
-    table_values.append({'key': 'MaxJobDuration', 'value': lib.base3.seconds2human(result['job_statistics']['MaxJobDuration'])})
-    table_values.append({'key': 'MaxReplicaJobDuration', 'value': lib.base3.seconds2human(result['job_statistics']['MaxReplicaJobDuration'])})
+    table_values.append({'key': 'MaxJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxJobDuration'])})
+    table_values.append({'key': 'MaxReplicaJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxReplicaJobDuration'])})
     table_values.append({'key': 'ProtectedVms', 'value': result['vms_overview']['ProtectedVms']})
     table_values.append({'key': 'ProxyServers', 'value': result['overview']['ProxyServers']})
-    table_values.append({'key': 'ReplicaRestorePointsSize', 'value': lib.base3.bytes2human(result['vms_overview']['ReplicaRestorePointsSize'])})
+    table_values.append({'key': 'ReplicaRestorePointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['ReplicaRestorePointsSize'])})
     table_values.append({'key': 'ReplicatedVms', 'value': result['vms_overview']['ReplicatedVms']})
     table_values.append({'key': 'RepositoryServers', 'value': result['overview']['RepositoryServers']})
     table_values.append({'key': 'RestorePoints', 'value': result['vms_overview']['RestorePoints']})
@@ -307,7 +310,7 @@ def main():
     table_values.append({'key': 'ScheduledBackupJobs', 'value': result['job_statistics']['ScheduledBackupJobs']})
     table_values.append({'key': 'ScheduledJobs', 'value': result['job_statistics']['ScheduledJobs']})
     table_values.append({'key': 'ScheduledReplicaJobs', 'value': result['job_statistics']['ScheduledReplicaJobs']})
-    table_values.append({'key': 'SourceVmsSize', 'value': lib.base3.bytes2human(result['vms_overview']['SourceVmsSize'])})
+    table_values.append({'key': 'SourceVmsSize', 'value': lib.human3.bytes2human(result['vms_overview']['SourceVmsSize'])})
     table_values.append({'key': 'SuccessBackupPercents', 'value': str(result['vms_overview']['SuccessBackupPercents']) + '%'})
     table_values.append({'key': 'SuccessfulJobRuns', 'value': result['job_statistics']['SuccessfulJobRuns']})
     table_values.append({'key': 'SuccessfulVmLastestStates', 'value': result['overview']['SuccessfulVmLastestStates']})

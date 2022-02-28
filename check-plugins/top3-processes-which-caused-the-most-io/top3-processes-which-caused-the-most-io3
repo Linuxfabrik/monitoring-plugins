@@ -30,6 +30,7 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 try:
@@ -39,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101001'
+__version__ = '2022021501'
 
 DESCRIPTION = 'Displays the top 3 processes which cause the most IO.'
 
@@ -88,8 +89,8 @@ def main():
     for i, (key, value) in enumerate(cnt):
         if i > 2:
             break
-        msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.base3.bytes2human(
-            value['r']), lib.base3.bytes2human(value['w']))
+        msg += '{}. {}: {}/{} (r/w), '.format(i + 1, key, lib.human3.bytes2human(
+            value['r']), lib.human3.bytes2human(value['w']))
 
     # over and out
     lib.base3.oao(msg[:-2], STATE_OK)

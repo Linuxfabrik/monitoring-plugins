@@ -31,12 +31,15 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021082501'
+__version__ = '2022021601'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -133,10 +136,10 @@ def get_token(metabase_url, user, password, expire):
         return (success, result)
     if not result:
         return (False, 'There was no result from {}.'.format(metabase_url))
-    if not 'id' in result:
+    if 'id' not in result:
         return (False, 'Something went wrong, maybe wrong username/password.')
     token = result['id']
-    lib.cache3.set('metabase-token', token, lib.base3.now() + expire)
+    lib.cache3.set('metabase-token', token, lib.time3.now() + expire)
     return (True, token)
 
 
@@ -183,19 +186,19 @@ def main():
     msg += '{} on '.format(settings)
     msg += 'Metabase {}; '.format(stats['version'])
 
-    msg += '{} {}, '.format(stats['stats']['user']['users']['total'], lib.base3.pluralize('user', stats['stats']['user']['users']['total']))
-    msg += '{} {} analyzed, '.format(stats['stats']['database']['databases']['analyzed'], lib.base3.pluralize('DB', stats['stats']['database']['databases']['analyzed']))
-    msg += '{} {} (GUI), '.format(stats['stats']['question']['questions']['gui'], lib.base3.pluralize('question', stats['stats']['question']['questions']['gui']))
-    msg += '{} {}, '.format(stats['stats']['alert']['alerts'], lib.base3.pluralize('alert', stats['stats']['alert']['alerts']))
-    msg += '{} {}, '.format(stats['stats']['pulse']['pulses'], lib.base3.pluralize('pulse', stats['stats']['pulse']['pulses']))
-    msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.base3.pluralize('collection', stats['stats']['collection']['collections']))
+    msg += '{} {}, '.format(stats['stats']['user']['users']['total'], lib.txt3.pluralize('user', stats['stats']['user']['users']['total']))
+    msg += '{} {} analyzed, '.format(stats['stats']['database']['databases']['analyzed'], lib.txt3.pluralize('DB', stats['stats']['database']['databases']['analyzed']))
+    msg += '{} {} (GUI), '.format(stats['stats']['question']['questions']['gui'], lib.txt3.pluralize('question', stats['stats']['question']['questions']['gui']))
+    msg += '{} {}, '.format(stats['stats']['alert']['alerts'], lib.txt3.pluralize('alert', stats['stats']['alert']['alerts']))
+    msg += '{} {}, '.format(stats['stats']['pulse']['pulses'], lib.txt3.pluralize('pulse', stats['stats']['pulse']['pulses']))
+    msg += '{} {}; '.format(stats['stats']['collection']['collections'], lib.txt3.pluralize('collection', stats['stats']['collection']['collections']))
     msg += '{} CPUs, {} MiB RAM'.format(stats['stats']['system']['processors'], stats['stats']['system']['max_memory'])
 
     msg += u'\nLast activity: "{}{}" by {} ({} ago)'.format(
         activity['topic'],
         '/' + activity['details']['name'] if 'name' in activity['details'] else '',
         activity['user']['common_name'],
-        lib.base3.seconds2human(lib.base3.timestrdiff(lib.base3.now(as_type='iso'), activity['timestamp'].replace('T', ' '))),
+        lib.human3.seconds2human(lib.time3.timestrdiff(lib.time3.now(as_type='iso'), activity['timestamp'].replace('T', ' '))),
         )
 
     perfdata += lib.base3.get_perfdata('alerts', stats['stats']['alert']['alerts'], None, None, None, 0, None)

@@ -32,7 +32,7 @@ Fact Sheet
     "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/php-fpm-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
+    "Available for",                        "Python 2, Python 3, Windows"
     "Requirements",                         "Configure a status page like ``/fpm-status``, ``/<poolname>-fpm-status`` or similar in ``/etc/php-fpm.d/<poolname>.conf``"
 
 

@@ -27,16 +27,20 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.nodebb3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090701'
+__version__ = '2022021602'
 
 DESCRIPTION = """Gets some statistics from the /api/admin/settings/post and
                  /api/admin/manage/users endpoints for debugging purposes."""
@@ -112,11 +116,9 @@ def main():
         result_users = lib.nodebb3.get_data(args, '/api/admin/manage/users')
     else:
         # do not call the command, put in test data
-        import lib.disk2
-        import json
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-posts')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-posts')
         result_posts = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-users')
+        success, stdout = lib.disk3.read_file(args.TEST[0] + '-users')
         result_users = json.loads(stdout)
 
     # init some vars
@@ -132,7 +134,7 @@ def main():
         msg += 'Last user: {} <{}> (online {} ago), '.format(
             result_users['users'][0]['username'],
             result_users['users'][0]['email'],
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - last_online),
+            lib.human3.seconds2human(lib.time3.now(as_type='epoch') - last_online),
         )
     except:
         pass
@@ -145,7 +147,7 @@ def main():
             result_posts['groupsExemptFromPostQueue'][0]['name'],
             'private' if result_posts['groupsExemptFromPostQueue'][0]['private'] else 'public',
             result_posts['groupsExemptFromPostQueue'][0]['memberCount'],
-            lib.base3.seconds2human(lib.base3.now(as_type='epoch') - create_time),
+            lib.human3.seconds2human(lib.time3.now(as_type='epoch') - create_time),
             )
     except:
         pass

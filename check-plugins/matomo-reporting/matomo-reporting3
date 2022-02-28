@@ -31,12 +31,13 @@ import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021501'
 
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
@@ -189,7 +190,7 @@ def main():
             else:
                 sensor_state = STATE_OK
 
-            msg += '{}: {}{}, '.format(key, lib.base3.number2human(value), lib.base3.state2str(sensor_state, prefix=' (', suffix=')'))
+            msg += '{}: {}{}, '.format(key, lib.human3.number2human(value), lib.base3.state2str(sensor_state, prefix=' (', suffix=')'))
             state = lib.base3.get_worst(state, sensor_state)
 
         # print all sensors as perfdata
@@ -198,7 +199,7 @@ def main():
     else:
         for key, value in lib.base3.sort(result, reverse=False, sort_by_key=True):
             # print all values
-            msg += '{}: {}, '.format(key, lib.base3.number2human(value))
+            msg += '{}: {}, '.format(key, lib.human3.number2human(value))
             perfdata += lib.base3.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
 
     # over and out

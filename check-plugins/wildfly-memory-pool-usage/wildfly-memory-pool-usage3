@@ -30,12 +30,14 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 import lib.wildfly3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101201'
+__version__ = '2022021601'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
@@ -166,7 +168,7 @@ def check_memory_pool_usage(args):
                 used_state = lib.base3.get_state(used_percent, args.WARN, args.CRIT, 'ge')
                 state = lib.base3.get_worst(state, used_state)
 
-        if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] == True:
+        if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] is True:
             threshold_state = STATE_WARN
         else:
             threshold_state = STATE_OK
@@ -175,8 +177,8 @@ def check_memory_pool_usage(args):
         if value['type'] == 'HEAP':
             msg_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
                 name, used_percent,
-                lib.base3.bytes2human(mem_used), lib.base3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.base3.bytes2human(mem_committed),
+                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
+                lib.human3.bytes2human(mem_committed),
                 )
             if threshold_state != STATE_OK:
                 msg_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))
@@ -184,8 +186,8 @@ def check_memory_pool_usage(args):
         else:
             msg_non_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
                 name, used_percent,
-                lib.base3.bytes2human(mem_used), lib.base3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.base3.bytes2human(mem_committed),
+                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
+                lib.human3.bytes2human(mem_committed),
                 )
             if threshold_state != STATE_OK:
                 msg_non_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))
@@ -197,9 +199,9 @@ def check_memory_pool_usage(args):
         perfdata += lib.base3.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
 
     if state == STATE_OK:
-        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.base3.pluralize('Pool', pools))
+        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.txt3.pluralize('Pool', pools))
     else:
-        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.base3.pluralize('Pool', pools))
+        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.txt3.pluralize('Pool', pools))
     msg += msg_heap + msg_non_heap
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 

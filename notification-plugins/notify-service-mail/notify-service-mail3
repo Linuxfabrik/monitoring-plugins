@@ -1,0 +1,517 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://git.linuxfabrik.ch/linuxfabrik-icinga-plugins/checks-linux/-/blob/master/CONTRIBUTING.md
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+import argparse     # pylint: disable=C0413
+import base64       # pylint: disable=C0413
+import smtplib      # pylint: disable=C0413
+import sys          # pylint: disable=C0413
+import textwrap     # pylint: disable=C0413
+import urllib.parse # pylint: disable=C0413
+
+from email.message import EmailMessage # pylint: disable=C0413
+from email.utils   import make_msgid   # pylint: disable=C0413
+from socket        import gethostname  # pylint: disable=C0413
+from string        import Template     # pylint: disable=C0413
+
+import lib.args3    # pylint: disable=C0413
+import lib.base3    # pylint: disable=C0413
+import lib.url3     # pylint: disable=C0413
+from lib.globals3 import STATE_UNKNOWN # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2021110401'
+
+DESCRIPTION = 'Sends notifications for services using mail.'
+
+TIMEOUT = 8 # seconds
+DEFAULT_MAIL_SERVER = 'localhost'
+DEFAULT_MAIL_PORT = 25
+
+img = '''
+iVBORw0KGgoAAAANSUhEUgAAAGQAAAAjCAQAAADItmcLAAAAAmJLR0QA/4ePzL8AAAAJcEhZcwAA
+CxMAAAsTAQCanBgAAAAHdElNRQfhChAQLB+jeuiSAAAFCklEQVRYw9WYf0yVVRjHP5d7uYAo6JKf
+Ggm4NtY0S1PyF6FLW239wRICLfmnQEv+snJmtbExwVzRD2eWs5xDpQbD5la2tlolRKHJQmqZrulF
+B1oKBMiFe5/+uIeX9733fbkX18a95/3jfc/zPOc553vOeX69MHGzU0MPLrYT4W0Xop5NkQ3krAak
+IbwXGhWE/4/JV0S2fG4jCH3khPdCbUElDjKTTg7xV2SfSBYNREfCQn02kk4dW035m6hnJHL2/UsE
+YV0AfS5NxEYGBN+J9ABeHjQ5jwZum47L5DFmhJ+xR1POJZ7gGjW4iWMj84nnHAUUMmAyqoB6HHSx
+lKvheDpOdnKAzXRpQbCXFaaSrYq/I3yv2mt4NBiCMOwHZTrL2cIVxS0L3zhykSw/SjMrgAQWsohF
+pNNBOwPsYT4nKLawoCkHspB2E5lqUkimg3bO8QceRY1hOJyuksPQW2AqM0oNF/D6UYdNPKAd8ARI
+ms16D9Pp4obl9kZhwxuCJou2zmAfY89aE8lCPiDbsAVNuJX8D6zRcZbxIXm6fgy7+VtJ/sTKAM2z
+qeWG4p+l2AJoFXUkWgNJZSgARj8xAXJJjCLUa/1nGDaM8fKqxvsT4ZLWu48Og6SHaoPmB3Q+0/cc
+87s1ACUIwpGJzmRvAJAaE6l7EYQ21VvNCILgpplmBtS4ZxX3FoKowBvL74p7mZ81yS2a3hSuKlon
+LfSq79qA+X9UHjXVGkiCSlfGnlPYgwJpVxdqrroajQhCt1q8Hohvm1zkAxDHOwjCv5qn3I8gXCEX
+gHjF95BpmH2ptro3JjqT9bTRgeDlIictClw9kFS17ESdKXciCNP8gDjpQ/CySqfpMwShSjkLH/8h
+Hb8BQXjSMPsRDcg168w8mSaygVk4gFROkBQEyP0IwnsG/jJ+4ZBy7eNAFqhLE+hevlK3QX/OY2lr
+M98YzDqFYYQRLiAIJVZAanna0C81PT49kFwE4WXLEx4H8ohJ7T9Pp+kuBKExiGd9HUE4TimC0GJe
+sxdh0/kigKPkU2tqJ8YmIQdfj4Hm1XFsIWiKphyAtznGdSCXJeMBcQbrmcdNfqOE5/0Uuckmj4N0
+TEGwXsIGHMAA++hWtKdIA1poBQ6wC6jw+UcHGZxW/sZDpTZgvG0jh/NTkjx9wWz1PYtt2mp8BuDz
+ca8QTRHb6YEo3lIwwM6LJr+Hmtgd0sX5v5vofkAlq/diHlbnUkcdb9IHOH05uMNQ4CaRwK2wyQNX
+s5Y57NFRKtR7g0GunGpGovyMb/J7P6LqFH2L5QVDvhVa8/hp6uYopwAYUttcZDounQJw0ESpRrpM
+/6Sn912Axw1uej+leIifZKI/iGBjOYn0arRHAXABUEYM8DXvGqK8z+DrIYlftcJ2ZYhT6uOIXeWq
+42niRgRhFKdfHMlHED41aMpAEM6o3ncqRkRr9dFNBGEN4MCFIIZMGpx0I4jvx4mdLBaTQ1zIe2fM
+tSrURnzLVspoxIsgfBQQEIMDyVNjz/MSm9nHIILQig0oRBCTwq8SQfjkzswwE0H4XnOUxwNy5jMk
+KO51hCFswCoE4bBBU5pKOMfajgBNLjIAOIwgPGdiIW7EskQL6uNP4tblOVHspF9XjXysM9lKPOwF
+YBptDAY4gUZGdFYKxVoqLwifk6ZlZW5Om/4urMLD+7Y7do52P38Xw93MxE4/LvosJf1HmdHszCEJ
+BwO4DMHAidvyR5b7P+7cOe8ELUP1AAAAAElFTkSuQmCC'''
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--datetime',
+        help='Set the message timestamp.',
+        default=None,
+        type=str,
+        dest='DATETIME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-displayname',
+        help='Set the display name of the host.',
+        default=None,
+        type=str,
+        dest='HOST_DISPLAYNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--host-address',
+        help='Set the IPv4 address of the host.',
+        default=None,
+        type=str,
+        dest='HOST_ADDRESS',
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help='Set the hostname.',
+        default=None,
+        type=str,
+        dest='HOSTNAME',
+    )
+
+    parser.add_argument(
+        '--icingaweb2-url',
+        help='Set the Icinga Web 2 URL, for example "https://example.com/icingaweb2".',
+        default=None,
+        type=str,
+        dest='ICINGAWEB2_URL',
+    )
+
+    parser.add_argument(
+        '--mail-port',
+        help='Set the mail server port. Default: %(default)s.',
+        dest='MAIL_PORT',
+        default=DEFAULT_MAIL_PORT,
+    )
+
+    parser.add_argument(
+        '--mail-password',
+        help='Set the mail server login password.',
+        dest='MAIL_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--mail-user',
+        help='Set the mail server login user.',
+        dest='MAIL_USER',
+    )
+
+    parser.add_argument(
+        '--mail-recipient',
+        help='Set the mail recipient.',
+        dest='MAIL_RECIPIENT',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--mail-sender',
+        help='Set the mail sender.',
+        dest='MAIL_SENDER',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--mail-server',
+        help='Set the mail server. Default: %(default)s.',
+        dest='MAIL_SERVER',
+        default=DEFAULT_MAIL_SERVER,
+    )
+
+    parser.add_argument(
+        '--notes',
+        help='Set the notes.',
+        dest='NOTES',
+    )
+
+    parser.add_argument(
+        '--notes-url',
+        help='Set the notes url.',
+        dest='NOTES_URL',
+    )
+
+    parser.add_argument(
+        '--notification-author',
+        help='Set the author of the comment.',
+        default=None,
+        type=str,
+        dest='NOTIFICATION_AUTHOR',
+    )
+
+    parser.add_argument(
+        '--notification-comment',
+        help='Set the comment.',
+        default=None,
+        type=str,
+        dest='NOTIFICATION_COMMENT',
+    )
+
+    parser.add_argument(
+        '--notification-type',
+        help='Set the type of notification like "PROBLEM" or "RECOVERY".',
+        default=None,
+        type=str,
+        dest='NOTIFICATION_TYPE',
+    )
+
+    parser.add_argument(
+        '--perfdata',
+        help='Set the perfdata.',
+        dest='PERFDATA',
+    )
+
+    parser.add_argument(
+        '--short',
+        help='Send a short message. This can be useful when using a SMS relay, for example.',
+        dest='SHORT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--service-displayname',
+        help='Set the display name of the service.',
+        default=None,
+        type=str,
+        dest='SERVICE_DISPLAYNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--service-output',
+        help='Set the service output.',
+        default=None,
+        type=str,
+        dest='SERVICE_OUTPUT',
+    )
+
+    parser.add_argument(
+        '--service-state',
+        help='Set the service state.',
+        default=None,
+        type=str,
+        dest='SERVICE_STATE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--servicename',
+        help='Set the servicename.',
+        default=None,
+        type=str,
+        dest='SERVICENAME',
+    )
+
+    return parser.parse_args()
+
+
+def generate_mail_content(args, logo_cid):
+    colors = {
+        'FLAPPINGDISABLED': '#FFFF80',
+        'ACKNOWLEDGEMENT': '#FFFF80',
+        'CRITICAL': '#FF99AA',
+        'DOWNTIMECANCELLED': '#FFFF80',
+        'DOWNTIMEEND': '#80FF80',
+        'DOWNTIMESTART': '#80FFFF',
+        'FLAPPINGSTART': '#FF8080',
+        'FLAPPINGSTOP': '#80FF80',
+        'OK': '#80FF80',
+        'PROBLEM': '#FF8080',
+        'RECOVERY': '#80FF80',
+        'TEST': '#80FFFF',
+        'UNKNOWN': '#CC77FF',
+        'WARNING': '#FFFF80',
+    }
+
+    rows = []
+
+    if args.NOTIFICATION_TYPE:
+        rows += [
+            {
+                'left_column': 'Notification Type:',
+                'right_column': args.NOTIFICATION_TYPE,
+                'right_column_attributes': f'style="background-color: {colors.get(args.NOTIFICATION_TYPE)}"',
+            },
+        ]
+
+    rows += [
+        {
+            'left_column': 'Host:',
+            'right_column': args.HOST_DISPLAYNAME,
+        }
+    ]
+
+    rows += [
+        {
+            'left_column': 'Service:',
+            'right_column': args.SERVICE_DISPLAYNAME,
+        },
+        {
+            'left_column': 'Service State:',
+            'right_column': args.SERVICE_STATE,
+            'right_column_attributes': f'style="background-color: {colors.get(args.SERVICE_STATE)}"',
+        },
+    ]
+
+    if args.SERVICE_OUTPUT:
+        rows += [
+            {
+                'left_column': 'Service Output:',
+                'right_column': args.SERVICE_OUTPUT,
+            },
+        ]
+
+    if args.HOSTNAME:
+        rows += [
+            {
+                'left_column': 'Hostname:',
+                'right_column': args.HOSTNAME,
+            },
+        ]
+
+    if args.HOST_ADDRESS:
+        rows += [
+            {
+                'left_column': 'IP Address:',
+                'right_column': args.HOST_ADDRESS,
+            },
+        ]
+
+    rows += [
+        {
+            'left_column': 'Event Time:',
+            'right_column': args.DATETIME,
+        },
+    ]
+
+    if args.PERFDATA:
+        rows += [
+        {
+            'left_column': 'Perfdata:',
+            'right_column': args.PERFDATA,
+        },
+    ]
+
+    if args.NOTIFICATION_COMMENT:
+        rows += [
+            {
+                'left_column': 'Author:',
+                'right_column': args.NOTIFICATION_AUTHOR,
+            },
+            {
+                'left_column': 'Comment:',
+                'right_column': args.NOTIFICATION_COMMENT,
+            },
+        ]
+
+    if args.ICINGAWEB2_URL and args.HOSTNAME and args.SERVICENAME:
+        params = urllib.parse.urlencode({
+            'host': args.HOSTNAME,
+            'service': args.SERVICENAME,
+        }, quote_via=urllib.parse.quote)
+        rows += [
+            {
+                'left_column': 'IcingaWeb2 URL:',
+                'right_column': urllib.parse.urljoin(f'{args.ICINGAWEB2_URL}/', f'monitoring/service/show?{params}')
+            },
+        ]
+
+    if args.NOTES:
+        rows += [
+            {
+                'left_column': 'Notes:',
+                'right_column': args.NOTES,
+            },
+        ]
+
+    if args.NOTES_URL:
+        rows += [
+            {
+                'left_column': 'Notes URL:',
+                'right_column': args.NOTES_URL,
+            },
+        ]
+
+    row_template = Template('''
+                <tr>
+                    <th width="180px" class="$row_class">$left_column</th><td class="$row_class" $right_column_attributes>$right_column</td>
+                </tr>
+''')
+
+    plain_template = Template('$left_column $right_column\n')
+
+    table = ''
+    plain = ''
+    row_count = 1
+    for row in rows:
+        plain += plain_template.substitute(row)
+
+        row_count += 1
+        row['row_class'] = 'even' if row_count % 2 == 0 else 'odd'
+        if row['right_column']:
+            row['right_column'] = row['right_column'].replace('\n', '<br>')
+
+            if row['right_column'].startswith('http'):
+                url = row['right_column']
+                row['right_column'] = f'<a href="{url}">{url}</a>'
+
+        # make sure right_column_attributes is always set
+        if 'right_column_attributes' not in row:
+            row['right_column_attributes'] = ''
+        table += row_template.substitute(row)
+
+    html_template = Template('''
+<html><head><style type="text/css">
+body {text-align: center; font-family: Verdana, sans-serif; font-size: 10pt;}
+img.logo {float: left; margin: 10px 10px 10px; vertical-align: middle}
+img.link {float: right;  margin: 0px 1px; vertical-align: middle}
+span {font-family: Verdana, sans-serif; font-size: 12pt;}
+table {text-align:center; margin-left: auto; margin-right: auto; border: 1px solid black;}
+th {white-space: nowrap;}
+th.even {background-color: #D9D9D9;}
+td.even {background-color: #F2F2F2;}
+th.odd {background-color: #F2F2F2;}
+td.odd {background-color: #FFFFFF;}
+th,td {font-family: Verdana, sans-serif; font-size: 10pt; text-align:left;}
+th.customer {width: 600px; background-color: #004488; color: #ffffff;}
+p.foot {width: 1002px; background-color: #004488; color: #ffffff; margin-left: auto; margin-right: auto;};
+    </style></head>
+        <body>
+            <table width="1000px">
+                <tr>
+                    <td><img class="logo" src="cid:$logo_cid"></td><td><span>Icinga Monitoring System Notification</span></td>
+                </tr>
+                $table
+            </table>
+
+            <p class="foot">Generated by Icinga2 on $icinga_host, the OpenSource monitoring solution.</p>
+        </body>
+</html>
+''')
+
+    # note that we needed to peel the <> off the logo_cid for use in the html
+    return plain, html_template.substitute(table=table, icinga_host=gethostname(), logo_cid=logo_cid[1:-1])
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mail_msg = EmailMessage()
+    mail_msg['From'] = args.MAIL_SENDER
+    mail_msg['To'] = args.MAIL_RECIPIENT
+
+    if args.SHORT:
+        plain = textwrap.dedent('''
+            {SERVICE_STATE:.4}: {SERVICE_DISPLAYNAME}
+            HOST: {HOST_DISPLAYNAME} ({DATETIME})
+        ''').strip().format(
+            SERVICE_DISPLAYNAME=args.SERVICE_DISPLAYNAME,
+            SERVICE_STATE=args.SERVICE_STATE,
+            HOST_DISPLAYNAME=args.HOST_DISPLAYNAME,
+            DATETIME=args.DATETIME,
+        )
+
+        if args.NOTIFICATION_COMMENT:
+            plain += '\nCOMMENT: {NOTIFICATION_COMMENT} ({NOTIFICATION_AUTHOR})'.format(
+                NOTIFICATION_AUTHOR=args.NOTIFICATION_AUTHOR,
+                NOTIFICATION_COMMENT=args.NOTIFICATION_COMMENT,
+            )
+        mail_msg.set_content(plain)
+
+    else: # no args.SHORT
+        logo_cid =  make_msgid()
+        plain, html = generate_mail_content(args, logo_cid)
+
+        subject = f'Service "{args.SERVICE_DISPLAYNAME}" on "{args.HOST_DISPLAYNAME}" is {args.SERVICE_STATE}'
+        if args.NOTIFICATION_TYPE:
+            subject = f'[{args.NOTIFICATION_TYPE}] {subject}'
+        mail_msg['Subject'] = subject
+
+        mail_msg.set_content(plain)
+        mail_msg.add_alternative(html, subtype='html')
+
+        mail_msg.get_payload()[1].add_related(base64.b64decode(img), 'icinga', 'png',
+                                     cid=logo_cid)
+
+    s = smtplib.SMTP(
+        host=args.MAIL_SERVER,
+        port=args.MAIL_PORT,
+        timeout=TIMEOUT
+    )
+
+    if args.MAIL_PASSWORD:
+        if args.MAIL_USER:
+            s.login(args.MAIL_USER, args.MAIL_PASSWORD)
+        else:
+            s.login(args.MAIL_SENDER, args.MAIL_PASSWORD)
+
+    s.send_message(mail_msg)
+    s.quit()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

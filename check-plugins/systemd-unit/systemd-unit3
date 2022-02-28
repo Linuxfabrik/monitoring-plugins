@@ -30,11 +30,12 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021090802'
+__version__ = '2022021501'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -200,7 +201,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
-    stdout, stderr, retc = lib.base3.coe(lib.base3.shell_exec(command + args.UNIT))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(command + args.UNIT))
     if (stderr or retc != 0):
         lib.base3.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr), STATE_UNKNOWN)
     result = stdout.split('\n')
@@ -243,6 +244,8 @@ def main():
             # SUBSTATE is not None and not empty
             problem = True
             problem_msg += 'SubState is "{}", but supposed to be "{}"; '.format(substate, args.SUBSTATE)
+        if unitfilestate == '':
+            unitfilestate = 'empty'
         if args.UNITFILESTATE is not None and args.UNITFILESTATE != unitfilestate:
             problem = True
             problem_msg += 'UnitFileState is "{}", but supposed to be "{}"; '.format(unitfilestate, args.UNITFILESTATE)

@@ -32,6 +32,8 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.cache3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -41,7 +43,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083103'
+__version__ = '2022021602'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -143,7 +145,7 @@ def main():
     except ValueError as e:
         lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
-    now = lib.base3.now()
+    now = lib.time3.now()
 
     disks = []
     for disk, values in disk_io_counters.items():
@@ -165,7 +167,7 @@ def main():
         disks.append(disk)
         lib.base3.coe(lib.db_sqlite3.insert(conn, data))
 
-    lib.base3.coe(lib.db_sqlite3.cut(conn, max=args.COUNT*len(disks)))
+    lib.base3.coe(lib.db_sqlite3.cut(conn, _max=args.COUNT*len(disks)))
     lib.base3.coe(lib.db_sqlite3.commit(conn))
 
     # init some vars
@@ -200,7 +202,7 @@ def main():
 
         # store the max. measured throughput in cache
         throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk))
-        if throughput_db == False:
+        if throughput_db is False:
             # unknown disk, no value
             throughput_max = 10 * 1024 * 1024      # Disk should be capable of 10 MB/sec
             lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
@@ -226,8 +228,8 @@ def main():
         if throughput1 > max_rw:
             msg = '{}: {}/s read, {}/s write (current)'.format(
                 disk,
-                lib.base3.bytes2human(read_bytes_per_second1),
-                lib.base3.bytes2human(write_bytes_per_second1),
+                lib.human3.bytes2human(read_bytes_per_second1),
+                lib.human3.bytes2human(write_bytes_per_second1),
                 )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
@@ -239,11 +241,9 @@ def main():
         if timestamp_diff == 0:
             timestamp_diff = 1
         read_bytes_per_second15 = float((diskdata[0]['read_bytes'] - diskdata[args.COUNT - 1]['read_bytes']) / timestamp_diff)
-        if read_bytes_per_second15 < 0:
-            read_bytes_per_second15 = 0
+        read_bytes_per_second15 = max(read_bytes_per_second15, 0)
         write_bytes_per_second15 = float((diskdata[0]['write_bytes'] - diskdata[args.COUNT - 1]['write_bytes']) / timestamp_diff)
-        if write_bytes_per_second15 < 0:
-            write_bytes_per_second15 = 0
+        write_bytes_per_second15 = max(write_bytes_per_second15, 0)
         throughput15 = read_bytes_per_second15 + write_bytes_per_second15   # let's just call it like in cpu-usage
 
         perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second15'.format(disk), read_bytes_per_second15, 'B', None, None, 0, throughput_max)
@@ -257,12 +257,12 @@ def main():
         if throughput15:
             table_values.append({
                 'name': disk,
-                'max': lib.base3.bytes2human(throughput_max),
-                'r1': lib.base3.bytes2human(read_bytes_per_second1),
-                'w1': lib.base3.bytes2human(write_bytes_per_second1),
-                'r15': lib.base3.bytes2human(read_bytes_per_second15),
-                'w15': lib.base3.bytes2human(write_bytes_per_second15),
-                't15': lib.base3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
+                'max': lib.human3.bytes2human(throughput_max),
+                'r1': lib.human3.bytes2human(read_bytes_per_second1),
+                'w1': lib.human3.bytes2human(write_bytes_per_second1),
+                'r15': lib.human3.bytes2human(read_bytes_per_second15),
+                'w15': lib.human3.bytes2human(write_bytes_per_second15),
+                't15': lib.human3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
                 })
 
     lib.db_sqlite3.close(conn)

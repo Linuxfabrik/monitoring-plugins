@@ -31,13 +31,15 @@ import sys # pylint: disable=C0413
 import urllib.parse # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101401'
+__version__ = '2022021602'
 
 DESCRIPTION = """This plugin checks network I/O and link states on all interfaces found on a Forti
                  Appliance like FortiGate running FortiOS, using the FortiOS REST API."""
@@ -186,7 +188,7 @@ def main():
 
     msg_link = ''
     state = STATE_OK
-    timestamp = lib.base3.now()
+    timestamp = lib.time3.now()
 
     # save the data to the database
     # and get the link/duplex/speed state of the interface
@@ -226,7 +228,7 @@ def main():
             success, retc = lib.db_sqlite3.insert(conn, data, table='state_{}'.format(args.HOSTNAME))
 
     max_count = args.COUNT*len(result['results'])
-    lib.base3.coe(lib.db_sqlite3.cut(conn, table='perfdata_{}'.format(args.HOSTNAME), max=max_count))
+    lib.base3.coe(lib.db_sqlite3.cut(conn, table='perfdata_{}'.format(args.HOSTNAME), _max=max_count))
     lib.base3.coe(lib.db_sqlite3.commit(conn))
 
     # compute the load1 and loadn (load-n is what we want to alert about later on)
@@ -250,21 +252,21 @@ def main():
         if sum1bps > max_load:
             msg_header = '{}: {}/{} bps (rx/tx, current).'.format(
                 interface['interface'],
-                lib.base3.bits2human(rx1bps),
-                lib.base3.bits2human(tx1bps),
+                lib.human3.bits2human(rx1bps),
+                lib.human3.bits2human(tx1bps),
                 )
             max_load = sum1bps
 
         # we want to be informed if
         # * link saturation is above a certain threshold
         #   (on duplex lines and 1 gbps alert if saturation is >= 80/90% on each rx/tx compared to loadn)
-        sensor_state = lib.base3.get_state(rxnbps, args.WARN, args.CRIT, operator='ge')
-        sensor_state = lib.base3.get_worst(sensor_state, lib.base3.get_state(txnbps, args.WARN, args.CRIT, operator='ge'))
-        if sensor_state == STATE_WARN or sensor_state == STATE_CRIT:
+        sensor_state = lib.base3.get_state(rxnbps, args.WARN, args.CRIT, _operator='ge')
+        sensor_state = lib.base3.get_worst(sensor_state, lib.base3.get_state(txnbps, args.WARN, args.CRIT, _operator='ge'))
+        if sensor_state in (STATE_WARN, STATE_CRIT):
             msg_saturation += 'Bandwidth saturation for {}: {}/{} bps (rx/tx) is too high{}. '.format(
                 interface['interface'],
-                lib.base3.bits2human(rxnbps),
-                lib.base3.bits2human(txnbps),
+                lib.human3.bits2human(rxnbps),
+                lib.human3.bits2human(txnbps),
                 lib.base3.state2str(sensor_state, prefix=' (', suffix=')')
                 )
 
@@ -275,10 +277,10 @@ def main():
 
         table_data.append({
             'interface': '{}{}'.format(interface['interface'], lib.base3.state2str(sensor_state, prefix=' (', suffix=')')),
-            'rx1': lib.base3.bits2human(rx1bps),
-            'tx1': lib.base3.bits2human(tx1bps),
-            'rx{}'.format(args.COUNT): lib.base3.bits2human(rxnbps),
-            'tx{}'.format(args.COUNT): lib.base3.bits2human(txnbps),
+            'rx1': lib.human3.bits2human(rx1bps),
+            'tx1': lib.human3.bits2human(tx1bps),
+            'rx{}'.format(args.COUNT): lib.human3.bits2human(rxnbps),
+            'tx{}'.format(args.COUNT): lib.human3.bits2human(txnbps),
             })
         state = lib.base3.get_worst(state, sensor_state)
 
@@ -301,4 +303,3 @@ if __name__ == '__main__':
         main()
     except Exception:   # pylint: disable=W0703
         lib.base3.cu()
-
