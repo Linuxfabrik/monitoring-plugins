@@ -1,4 +1,4 @@
-2022030101Check memory-usage
+Check memory-usage
 ==================
 
 Overview
