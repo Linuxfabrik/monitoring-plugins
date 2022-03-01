@@ -1,7 +1,5 @@
 # Python-based Monitoring Check Plugins Collection
 
-[![GitHub Sponsors badge](https://img.shields.io/github/sponsors/linuxfabrik)](https://img.shields.io/github/sponsors/linuxfabrik)
-
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-logo.png)
 
 This Enterprise Class Check Plugin Collection offers a package of more than 130 Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
@@ -21,7 +19,7 @@ The source code is published here without support, but [Enterprise Support can b
 In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
 
 * Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/polls/s/JzDlcG7nNKhNIriQ) and also [if and how you would support the project financially](https://cloud.linuxfabrik.io/index.php/apps/polls/s/P3N8mouDnvR7yWJv).
-* Donate: If you like to support our work, please consider donating by clicking on [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url). 
+* Donate: If you like to support our work, please consider donating by clicking on [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url). [![GitHub Sponsors badge](https://img.shields.io/github/sponsors/linuxfabrik)](https://img.shields.io/github/sponsors/linuxfabrik)
 
 
 
