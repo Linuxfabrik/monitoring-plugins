@@ -1,6 +1,6 @@
 # Python-based Monitoring Check Plugins Collection
 
-[![GitHub Sponsors badge](https://img.shields.io/github/sponsors/linuxfabrik)](https://img.shields.io/github/sponsors/linuxfabrik) [![GitHub followers badge](https://img.shields.io/github/followers/linuxfabrik)](https://img.shields.io/github/followers/linuxfabrik) [![GitHub all releases badge](https://img.shields.io/github/downloads/linuxfabrik/monitoring-plugins/total)](https://img.shields.io/github/downloads/linuxfabrik/monitoring-plugins/total)
+[![GitHub Sponsors badge](https://img.shields.io/github/sponsors/linuxfabrik)](https://img.shields.io/github/sponsors/linuxfabrik)
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-logo.png)
 
@@ -8,8 +8,8 @@ This Enterprise Class Check Plugin Collection offers a package of more than 130 
 
 The check plugins run on
 
-* Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+.
-* Windows. Tested on Windows 10+ and Windows Server 2019+.
+* Linux - Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
+* Windows - Tested on Windows 10+ and Windows Server 2019+
 
 All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
