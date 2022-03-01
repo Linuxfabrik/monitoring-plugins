@@ -26,7 +26,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/check-plugins/mysql-stats"
+    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-stats"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 2, Python 3, Windows"
@@ -123,7 +123,7 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.
+* License: The Unlicense, see `LICENSE file <https://unlicense.org/>`_.
 * Credits:
 
     * heavily inspired by MySQLTuner (https://github.com/major/MySQLTuner-perl)

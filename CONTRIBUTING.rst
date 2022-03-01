@@ -26,8 +26,8 @@ Simply clone the libraries and monitoring plugins:
 
 .. code:: bash
 
-    git clone https://git.linuxfabrik.ch/linuxfabrik/lib
-    git clone https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins
+    git clone git@github.com:Linuxfabrik/lib.git
+    git clone git@github.com:Linuxfabrik/monitoring-plugins.git
     cd monitoring-plugins
 
 
@@ -35,10 +35,10 @@ Deliverables
 ------------
 
 * The plugin itself.
-* A nice 16x16 transparent PNG icon, for example based on font-awesome.
+* A nice 16x16 transparent PNG icon, for example based on font-awesome (not in Git, will be placed on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
 * LICENSE file
-* if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_)
+* if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_;  not in Git, will be placed on https://download.linuxfabrik.ch).
 * optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
 * optional: Icinga Director Basket Config

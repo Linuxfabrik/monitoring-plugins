@@ -18,7 +18,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
 
-    "Notification Plugin Download",         "https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/tree/master/notification-plugins/notify-service-zoom"
+    "Notification Plugin Download",         "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-zoom"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 3"
     "Requirements",                         "None"
@@ -75,4 +75,4 @@ Credits, License
 ----------------
 
 * Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
-* License: The Unlicense, see `LICENSE file <https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/blob/master/LICENSE>`_.
+* License: The Unlicense, see `LICENSE file <https://unlicense.org/>`_.
