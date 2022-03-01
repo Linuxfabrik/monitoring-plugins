@@ -2,25 +2,26 @@
 
 [![GitHub Sponsors badge](https://img.shields.io/github/sponsors/linuxfabrik)](https://img.shields.io/github/sponsors/linuxfabrik) [![GitHub followers badge](https://img.shields.io/github/followers/linuxfabrik)](https://img.shields.io/github/followers/linuxfabrik) [![GitHub all releases badge](https://img.shields.io/github/downloads/linuxfabrik/monitoring-plugins/total)](https://img.shields.io/github/downloads/linuxfabrik/monitoring-plugins/total)
 
-![image](assets/img/linuxfabrik-monitoring-check-plugins-logo.png)
+![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-logo.png)
 
 This Enterprise Class Check Plugin Collection offers a package of more than 130 Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
-* Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+,
-    SLES 15+
-* Windows (those who have a zip file, containing a .exe file)
+* Linux. Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+.
+* Windows. Tested on Windows 10+ and Windows Server 2019+.
 
-All plugins are written in Python and licensed under the UNLICENSE, which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
-
-In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your feedback. [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/polls/s/JzDlcG7nNKhNIriQ) and also [if and how you would support the project financially](https://cloud.linuxfabrik.io/index.php/apps/polls/s/P3N8mouDnvR7yWJv).
+All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain. The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
 
+## Support, Feedback
 
-## Support
+The source code is published here without support, but [Enterprise Support can be obtained via a Service Contract](https://www.linuxfabrik.ch/en/offer/service-and-support/).
 
-The source code is published here without support. [Enterprise Support can be obtained via a Service Contract](https://www.linuxfabrik.ch/angebot/service-und-support), or simply [contact us](https://www.linuxfabrik.ch/kontakt). If you just like to support our work, please consider donating by clicking on [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url). 
+In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
+
+* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/polls/s/JzDlcG7nNKhNIriQ) and also [if and how you would support the project financially](https://cloud.linuxfabrik.io/index.php/apps/polls/s/P3N8mouDnvR7yWJv).
+* Donate: If you like to support our work, please consider donating by clicking on [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url). 
 
 
 
@@ -54,19 +55,18 @@ If you prefer to place the virtual environment somewhere else, you can point the
 
 ### Installation
 
-Get the monitoring check plugins from our Git repository to your local machine or deployment host:
+Get the monitoring check plugins from our Git repository to your local machine or deployment host, using `git clone git@github.com:Linuxfabrik/monitoring-plugins.git`, or by downloading the `tar.gz` using `curl`:
 
 ``` bash
-BRANCH="main"       # or "develop"
-PYVER=3             # or "2"
-
-curl --output monitoring-plugins.tar.gz https://git.linuxfabrik.ch/linuxfabrik/monitoring-plugins/-/archive/$BRANCH/monitoring-plugins-$BRANCH.tar.gz
+REPO='linuxfabrik/monitoring-plugins'
+curl --output monitoring-plugins.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.name')
 ```
 
-The check plugins require our own [Python libraries](https://git.linuxfabrik.ch/linuxfabrik/lib). The libraries are in a separate Git repository, as we also use them in other projects.
+The check plugins require our [Python libraries](https://github.com/linuxfabrik/lib). The libraries are in a separate Git repository, as we also use them in other projects. Use `git clone git@github.com:Linuxfabrik/lib.git`, or by downloading the `tar.gz` using `curl`:
 
 ``` bash
-curl --output lib.tar.gz https://git.linuxfabrik.ch/linuxfabrik/lib/-/archive/$BRANCH/lib-$BRANCH.tar.gz
+REPO='linuxfabrik/lib'
+curl --output lib.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.name')
 ```
 
 Extract:
@@ -82,8 +82,8 @@ Copy the libraries onto the remote host to `/usr/lib64/nagios/plugins/lib`, and 
 REMOTE_USER=root
 REMOTE_HOST=192.0.2.74
 PYVER=3
-SOURCE_LIBS=~/git/linuxfabrik/lib
-SOURCE_PLUGINS=~/git/linuxfabrik/monitoring-plugins/check-plugins
+SOURCE_LIBS=/path/to/lib
+SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
 TARGET_DIR=/usr/lib64/nagios/plugins
 
 ssh $REMOTE_USER@$REMOTE_HOST 'mkdir -p $TARGET_DIR/lib'
@@ -91,14 +91,14 @@ scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
 for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 ```
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries. The easiest way is to install them as well:
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries, so the easiest way is to install them as well:
 
 * BeautifulSoup4
 * lxml
 * mysql.connector
 * psutil
 
-That's it. After that your directory on the remote host should now look like this:
+That's it. After that your directory on the remote host should look like this:
 
 ``` text
 /usr/lib64/nagios/plugins/
@@ -141,12 +141,12 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 
 ### Installation
 
-Simply download the latest zip file containing all plugins from https://packages.linuxfabrik.ch/windows/monitoring-plugins/latest.zip.
+Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip.
 
 
 ### Upgrade
 
-Download the new zip file and overwrite your installation directory.
+Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and overwrite your installation directory.
 
 
 
@@ -154,11 +154,11 @@ Download the new zip file and overwrite your installation directory.
 
 See most of our check plugins at a glance on an Icinga server:
 
-![image](assets/img/linuxfabrik-monitoring-check-plugins.png)
+![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins.png)
 
 If you zoom in, for example on *CPU Usage*:
 
-![image](assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png)
+![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png)
 
 
 
@@ -359,5 +359,5 @@ If you want to create a custom dashboards that contains a different selection of
 
 For now, there are two ways:
 
-1.  [Submit an issue](https://github.com/linuxfabrik/monitoring-plugins/issues) (preferred).
+1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new) (preferred).
 2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
