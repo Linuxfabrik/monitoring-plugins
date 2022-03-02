@@ -18,8 +18,10 @@ The source code is published here without support, but [Enterprise Support can b
 
 In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
 
-* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/polls/s/JzDlcG7nNKhNIriQ) and also [if and how you would support the project financially](https://cloud.linuxfabrik.io/index.php/apps/polls/s/P3N8mouDnvR7yWJv).
-* Donate: If you like to support our work, please consider donating by clicking on [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/polls/s/JzDlcG7nNKhNIriQ).
+* Become a sponsor: If you like to support our work, please consider donating
+    * [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
+    * [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Running the Check Plugins on Linux
