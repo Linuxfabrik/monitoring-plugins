@@ -233,7 +233,7 @@ Git Commits
 -----------
 
 * Commit messages must start with "plugin-name: " and clearly and precisely state what has changed. Example: ``about-me: Should be able to run even if psutil is or cannot be installed``.
-* If there is an issue, the commit message must consist of the issue title followed by "(#issueno)", for example: ``about-me: Add OpenVPN (#341)``. It's ok to close the issue afterwards (do not wait until the next merge).
+* If there is an issue, the commit message must consist of the issue title followed by "(#issueno)", for example: ``about-me: Add OpenVPN (fix #341)``. It's ok to close the issue afterwards (do not wait until the next merge).
 * For the first commit, use the message ``initial commit``.
 
 
