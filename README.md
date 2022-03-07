@@ -163,7 +163,7 @@ If you zoom in, for example on *CPU Usage*:
 
 ## Feedback from our Community
 
-A few comments on our monitoring plugins:
+A few comments about our monitoring plugins:
 
 > A well engineered, regularly updated and maintained collection of plugins. Specially focused on Linux servers/VMs and used at large scale by the company developing it.
 
