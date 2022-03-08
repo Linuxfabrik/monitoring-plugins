@@ -36,7 +36,7 @@ from lib.globals2 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111001'
+__version__ = '2022030801'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -85,7 +85,7 @@ def parse_args():
         help='"key=value" pairs to check (startswith), for example `--config "memory_limit=128M"` (repeating)',
         dest='CONFIG',
         action='append',
-        default=DEFAULT_CONFIG,
+        default=None,
     )
 
     parser.add_argument(
@@ -93,7 +93,7 @@ def parse_args():
         help='"modulename" to check (startswith), for example `--module json --module mbstring` (repeating)',
         dest='MODULES',
         action='append',
-        default=DEFAULT_MODULES,
+        default=None,
     )
 
     parser.add_argument('--url',
@@ -163,6 +163,12 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # if after parsing the value is None, put the desired defaults there
+    if args.CONFIG is None:
+        args.CONFIG = DEFAULT_CONFIG
+    if args.MODULES is None:
+        args.MODULES = DEFAULT_MODULES
 
     # init some vars
     if args.URL:
