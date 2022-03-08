@@ -70,9 +70,11 @@ Bytes vs. Unicode
 -----------------
 
 Short:
+
 * Use ``txt3.to_text()`` and ``txt3.to_bytes()``.
 
 The theory:
+
 * Data coming into your plugins must be bytes, encoded with ``UTF-8``.
 * Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
 * **Use unicode throughout your plugin.**
