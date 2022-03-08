@@ -39,13 +39,14 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021602'
+__version__ = '2022030801'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
 DEFAULT_URL = 'http://localhost/server-status'
 DEFAULT_WARN = 80       # %
 DEFAULT_CRIT = 95       # %
+DEFAULT_INSECURE = False
 
 
 def parse_args():
@@ -97,6 +98,14 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
     return parser.parse_args()
 
 
@@ -118,7 +127,7 @@ def main():
         URL = URL + '?auto'
 
         # fetch the URL
-        result = lib.base3.coe(lib.url3.fetch(URL))
+        result = lib.base3.coe(lib.url3.fetch(URL, insecure=args.INSECURE))
         if 'Scoreboard: ' not in result:
             lib.base3.oao('Malformed Apache server info.', STATE_UNKNOWN)
     else:
