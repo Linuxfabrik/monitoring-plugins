@@ -69,6 +69,10 @@ Rules of Thumb
 Bytes vs. Unicode
 -----------------
 
+Short:
+* Use ``txt3.to_text()`` and ``txt3.to_bytes()``.
+
+The theory:
 * Data coming into your plugins must be bytes, encoded with ``UTF-8``.
 * Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
 * **Use unicode throughout your plugin.**
@@ -225,8 +229,8 @@ Hints:
 * For complex parameter tupels, use the ``csv`` type.
   ``--input='Name, Value, Warn, Crit'`` results in ``[ 'Name', 'Value', 'Warn', 'Crit' ]``
 * For repeating parameters, use the ``append`` action. A ``default`` variable has to be a list then. ``--input=a --input=b`` results in ``[ 'a', 'b' ]``
-* If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in
-  ``[['1', '2', '3'], ['a', 'b', 'c']]``
+* If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in ``[['1', '2', '3'], ['a', 'b', 'c']]``
+* If you want to provide default values together with ``append``, in ``parser.add_argument()``, leave the ``default`` as ``None``. If after ``main:parse_args()`` the value is still ``None``, put the desired default list (or any other object) there. The primary purpose of the parser is to parse the commandline - to figure out what the user wants to tell you. There's nothing wrong with tweaking (and checking) the ``args`` Namespace after parsing. (According to https://bugs.python.org/issue16399)
 
 
 Git Commits
