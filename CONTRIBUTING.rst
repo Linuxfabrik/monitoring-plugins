@@ -451,6 +451,7 @@ To manually compile a check on the Windows machine, use the Python 3 variant:
 
     cd C:\ProgramData\icinga2\usr\lib64\nagios\plugins\
     py -3 -m nuitka --mingw64 --follow-imports --recurse-all --output-dir C:\nuitka-compile-temp --remove-output --standalone about-me.py
+    # rename the folder
     rename about-me.dist about-me
 
 To compile using Ansible, use the [Linuxfabrik lfops monitoring-plugins role](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins) like so:
