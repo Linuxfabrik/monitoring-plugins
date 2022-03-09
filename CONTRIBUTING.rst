@@ -453,11 +453,13 @@ To manually compile a check on the Windows machine, use the Python 3 variant:
     py -3 -m nuitka --mingw64 --follow-imports --recurse-all --output-dir C:\nuitka-compile-temp --remove-output --standalone about-me.py
     rename about-me.dist about-me
 
-Alternatively, use the ``monitoring-plugins-nuitka-compile``-Ansible-Tag:
+To compile using Ansible, use the [Linuxfabrik lfops monitoring-plugins role](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins) like so:
 
 .. code-block:: bash
 
-   ansible-playbook --inventory inventory playbook.yml --tags monitoring-plugins,monitoring-plugins-nuitka-compile --extra-vars 'monitoring_plugins_windows_method=python monitoring_plugins_repo_version=develop' --limit windows-machine
+   ansible-playbook --inventory inventory playbook.yml --tags monitoring-plugins,monitoring_plugins::nuitka_compile --limit windows-machine
+
+To let the Ansible role know which check-plugin to compile for Windows, create an empty `.windows` file in the check-plugin folder.
 
 Then copy the new folder to a Linux Machine and zip it:
 
