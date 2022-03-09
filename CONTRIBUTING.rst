@@ -454,7 +454,7 @@ To manually compile a check on the Windows machine, use the Python 3 variant:
     # rename the folder
     rename about-me.dist about-me
 
-To compile using Ansible, use the [Linuxfabrik lfops monitoring-plugins role](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins) like so:
+To compile using Ansible, use the `Linuxfabrik lfops monitoring-plugins role <https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins>`_ like so:
 
 .. code-block:: bash
 
