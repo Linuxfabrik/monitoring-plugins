@@ -165,6 +165,10 @@ If you zoom in, for example on *CPU Usage*:
 
 A few comments about our monitoring plugins:
 
+> Nachdem ich beim Versuch, Nagios-Plugins auf VMwares Photon-OS zum laufen zu kriegen, graue Haare gekriegt habe, haben mir eure Plugins zum Ziel verholfen.
+
+-- [MajorTwip](https://twitter.com/MajorTwip)
+
 > A well engineered, regularly updated and maintained collection of plugins. Specially focused on Linux servers/VMs and used at large scale by the company developing it.
 
 -- [straessler](https://exchange.icinga.com/straessler)
