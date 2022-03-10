@@ -58,14 +58,14 @@ Get the monitoring check plugins from our Git repository to your local machine o
 
 ``` bash
 REPO='linuxfabrik/monitoring-plugins'
-curl --output monitoring-plugins.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.name')
+curl --output monitoring-plugins.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.tag_name')
 ```
 
 The check plugins require our [Python libraries](https://github.com/linuxfabrik/lib). The libraries are in a separate Git repository, as we also use them in other projects. Use `git clone git@github.com:Linuxfabrik/lib.git`, or by downloading the `tar.gz` using `curl`:
 
 ``` bash
 REPO='linuxfabrik/lib'
-curl --output lib.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.name')
+curl --output lib.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.tag_name')
 ```
 
 Extract:
@@ -114,7 +114,7 @@ That's it. After that your directory on the remote host should look like this:
 
 **Tipp**
 
-> We also provide an [Ansible "monitoring-plugins" role](https://git.linuxfabrik.ch/linuxfabrik-ansible/roles/monitoring-plugins). This role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
+> We also provide an [Linuxfabrik lfops monitoring-plugins role ](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins). This role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
 
 
 
@@ -140,7 +140,7 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 
 ### Installation
 
-Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip.
+Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and unzip it to `C:/ProgramData/icinga2/usr/lib64/nagios/plugins/`.
 
 
 ### Upgrade
