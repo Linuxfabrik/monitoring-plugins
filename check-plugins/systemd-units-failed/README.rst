@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-units-failed"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -25,16 +25,18 @@ Help
 
 .. code-block:: text
 
-    usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
-                                [--test TEST]
+    usage: systemd-units-failed  [-h] [-V] [--always-ok] [--ignore IGNORE]
+                                 [--test TEST]
 
     Warns on any failed systemd units.
 
-    optional arguments:
+    options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
-      --ignore IGNORE  Ignore a unit, for example "dhcpd.service" (repeating). Default: []
+      --ignore IGNORE  Ignore a unit, for example "dhcpd.service" (repeating).
+                       Supports glob according to
+                       https://docs.python.org/3/library/fnmatch.html. Default: []
       --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                        file,expected-retc".
 
@@ -45,15 +47,16 @@ Usage Examples
 .. code-block:: bash
 
     ./systemd-units-failed --ignore=openipmi.service --ignore=dhcpd.service
-    
+    ./systemd-units-failed --ignore=sshd@*.service
+
 Output:
 
 .. code-block:: text
 
     There is 1 failed unit.
 
-    unit            load   active sub    description    
-    ----            ----   ------ ---    -----------    
+    unit            load   active sub    description
+    ----            ----   ------ ---    -----------
     ipmievd.service loaded failed failed Ipmievd Daemon
 
 
