@@ -27,6 +27,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import fnmatch # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
@@ -38,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022022301'
+__version__ = '2022031001'
 
 DESCRIPTION = """Warns on any failed systemd units."""
 
@@ -116,7 +117,7 @@ def main():
             if line.startswith('*'):
                 offset = 1
             unit = line.split()
-            if unit[0 + offset] in args.IGNORE:
+            if any([fnmatch.fnmatchcase(unit[0 + offset], ignore) for ignore in args.IGNORE]):
                 continue
             count += 1
             table_data.append({
