@@ -94,10 +94,10 @@ for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $
 
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries, so the easiest way is to install them as well:
 
-* BeautifulSoup4
+* BeautifulSoup4 (on RHEL: from EPEL repo)
 * lxml
-* mysql.connector
-* psutil
+* mysql.connector (on RHEL: only up to RHEL 7, from EPEL repo)
+* psutil (on RHEL: from EPEL repo)
 
 That's it. After that your directory on the remote host should look like this:
 
