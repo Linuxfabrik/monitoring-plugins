@@ -33,15 +33,15 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
+import lib.infomaniak3 # pylint: disable=C0413
 import lib.test3 # pylint: disable=C0413
 import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
-import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022031401'
+__version__ = '2022031402'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
@@ -127,27 +127,13 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    base_url = 'https://api.infomaniak.com'
-
-    # Authorization
-    header = {}
-    header['Accept'] = 'application/json'
-    header['Authorization'] = 'Bearer {}'.format(args.TOKEN)
-
     # fetch data
     if args.TEST is None:
-        url = '{}/1/swiss-backup?account_id={}'.format(base_url, args.ACCOUNT_ID)
-        result = lib.base3.coe(lib.url3.fetch_json(url, header=header))
+        result = lib.base3.coe(lib.infomaniak3.get_products(args.ACCOUNT_ID, args.TOKEN))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
         result = json.loads(stdout)
-
-    # error handling
-    if not result:
-        lib.base3.oao('Empty response', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
-    if result.get('result') != 'success':
-        lib.base3.oao(result.get('error').get('description'), STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
 
     # init some vars
     msg = ''
@@ -158,9 +144,7 @@ def main():
     # analyze data
     for product in result.get('data', {}):
 
-        expired_at = lib.time3.timestrdiff(
-            lib.time3.epoch2iso(product.get('expired_at')), lib.time3.now(as_type='iso')
-        )
+        expired_at = product.get('expired_at') - lib.time3.now(as_type='epoch')
         expired_at_state = lib.base3.get_state(expired_at / 24 / 60 / 60, args.WARN, args.CRIT, _operator='le')
         state = lib.base3.get_worst(state, expired_at_state)
 
@@ -182,23 +166,23 @@ def main():
             busy_state = lib.base3.get_state(product.get('operation_in_progress', False), None, True, _operator='eq')
         state = lib.base3.get_worst(state, busy_state)
 
-        perfdata += lib.base3.get_perfdata('{}_busy'.format(product.get('id')), int(product.get('busy', False)), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_locked'.format(product.get('id')), int(product.get('locked', False)), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_maintenance'.format(product.get('id')), int(product.get('maintenance', False)), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_size'.format(product.get('id')), product.get('size'), 'B', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_storage_reserved'.format(product.get('id')), product.get('storage_reserved'), 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-busy'.format(product.get('id')), int(product.get('busy', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-locked'.format(product.get('id')), int(product.get('locked', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-maintenance'.format(product.get('id')), int(product.get('maintenance', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-size'.format(product.get('id')), product.get('size'), 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-storage_reserved'.format(product.get('id')), product.get('storage_reserved'), 'B', None, None, 0, None)
 
         table_data.append({
-            'id': product.get('id'),
+            'busy': '{}{}'.format(product.get('operation_in_progress', False), lib.base3.state2str(busy_state, prefix=' ')),
             'customer_name': product.get('customer_name'),
-            'tags': ', '.join([i['name'] for i in product.get('tags')]),
             'expires_in': '{}{}'.format(lib.human3.seconds2human(expired_at), lib.base3.state2str(expired_at_state, prefix=' ')),
+            'id': product.get('id'),
             'locked': '{}{}'.format(product.get('locked', False), lib.base3.state2str(locked_state, prefix=' ')),
             'maintenance': '{}{}'.format(product.get('maintenance', False), lib.base3.state2str(maintenance_state, prefix=' ')),
             'max_slots': product.get('max_slots'),
             'nb_slots': product.get('nb_slots'),
-            'busy': '{}{}'.format(product.get('operation_in_progress', False), lib.base3.state2str(busy_state, prefix=' ')),
             'size': '{} / {}'.format(lib.human3.bytes2human(product.get('storage_reserved')), lib.human3.bytes2human(product.get('size'))),
+            'tags': ', '.join([i['name'] for i in product.get('tags')]),
         })
 
     # build the message
