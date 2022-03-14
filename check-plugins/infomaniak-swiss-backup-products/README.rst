@@ -66,7 +66,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./infomaniak-swiss-backup-products --token=TOKEN --account-id=200999 --warning=21 --severity=rit
+    ./infomaniak-swiss-backup-products --token=TOKEN --account-id=200999 --warning=21 --severity=crit
 
 Output:
 
@@ -98,11 +98,11 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    <ID>_busy,                                  Number,             "0 = not busy, 1 = operation in progress"
-    <ID>_locked,                                Number,             "0 = unlocked, 1 = locked"
-    <ID>_maintenance,                           Number,             "0 = not in maintenance, 1 = in maintenance"
-    <ID>_size,                                  Bytes,              Allocated Storage Space
-    <ID>_storage_reserved,                      Bytes,              Allocated Storage Space
+    <ID>-busy,                                  Number,             "0 = not busy, 1 = operation in progress"
+    <ID>-locked,                                Number,             "0 = unlocked, 1 = locked"
+    <ID>-maintenance,                           Number,             "0 = not in maintenance, 1 = in maintenance"
+    <ID>-size,                                  Bytes,              Allocated Storage Space
+    <ID>-storage_reserved,                      Bytes,              Allocated Storage Space
 
 
 Credits, License
