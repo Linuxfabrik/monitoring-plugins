@@ -16,7 +16,6 @@ import lib.shell3
 
 import unittest
 import tempfile
-import datetime
 
 class TestCheck(unittest.TestCase):
 
@@ -238,62 +237,44 @@ class TestCheck(unittest.TestCase):
 
     def test_scenario3_perfdata(self):
         tmpdir = tempfile.mkdtemp()
-        date_now = datetime.datetime.now()
         bash = f'''
-        touch -d '{date_now - datetime.timedelta(0, 10)}' {tmpdir}/file1
-        touch -d '{date_now - datetime.timedelta(0, 25)}' {tmpdir}/file2
-        touch -d '{date_now - datetime.timedelta(0, 100)}' {tmpdir}/file3
+        touch -d '10 seconds ago' {tmpdir}/file1
+        touch -d '25 seconds ago' {tmpdir}/file2
+        touch -d '100 seconds ago' {tmpdir}/file3
         '''
         lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
 
-        # the multiple if's serve as a super ugly workaround since assertTrue doesn't support multiple conditions that
-        # are OR-ed against each other and there are some precision problems with touch and certain file systems
+        # the output is being checked against a range as there's some time derivation from touch caused by certain file systems
 
         # check mean uneven
         cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-        is_valid = False
-        if "Mean: Ages'=44." in stdout:
-            is_valid = True
-        if "Mean: Ages'=45." in stdout:
-            is_valid = True
-        self.assertTrue(is_valid)
+        age = float(stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0])  # extract age from perfdata string
+        self.assertTrue(43.0 < age < 46.0)
 
         # check median uneven
         cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-        is_valid = False
-        if "Median: Ages'=24." in stdout:
-            is_valid = True
-        if "Median: Ages'=25." in stdout:
-            is_valid = True
-        self.assertTrue(is_valid)
+        age = float(stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0])  # extract age from perfdata string
+        self.assertTrue(23.0 < age < 26.0)
 
         # add one file to make it an even file list
         bash = f'''
-        touch -d '{date_now - datetime.timedelta(0, 200)}' {tmpdir}/file4
+        touch -d '200 seconds ago' {tmpdir}/file4
         '''
         lib.base3.coe(lib.shell3.shell_exec('bash', stdin=bash.encode()))
 
         # check mean even
         cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=mean"
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-        is_valid = False
-        if "Mean: Ages'=83." in stdout:
-            is_valid = True
-        if "Mean: Ages'=82." in stdout:
-            is_valid = True
-        self.assertTrue(is_valid)
+        age = float(stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0])  # extract age from perfdata string
+        self.assertTrue(81.0 < age < 84.0)
 
         # check median even
         cmd = f"./file-age3 --filename '{tmpdir}/*' --warning '15:' --warning-count '3:' --critical '20:' --critical-count '2:' --perfdata-mode=median"
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-        is_valid = False
-        if "Median: Ages'=62." in stdout:
-            is_valid = True
-        if "Median: Ages'=61." in stdout:
-            is_valid = True
-        self.assertTrue(is_valid)
+        age = float(stdout.rpartition('|')[2].rpartition('=')[2].split('s')[0])  # extract age from perfdata string
+        self.assertTrue(60.0 < age < 63.0)
 
 
 if __name__ == '__main__':
