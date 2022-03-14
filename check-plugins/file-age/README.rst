@@ -136,9 +136,11 @@ States
 Perfdata / Metrics
 ------------------
 
-There is perfdata. The --perfdata-mode decides which aggregation mode is going to be used.
-This check currently supports the mean, also known as average, and median aggregation.
+The ``--perfdata-mode`` decides which aggregation mode is going to be used.
 The check won't return any performance data for empty directories (even with the flag being set).
+
+* ``mean-ages``: Seconds. The mean, also known as the average (the sum divided by the number of elements).
+* ``median-ages``: Seconds. The median, the "middle" element in a sorted list.
 
 
 Credits, License
