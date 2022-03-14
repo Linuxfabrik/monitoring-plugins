@@ -30,7 +30,8 @@ Help
     usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
                     [--critical-count CRIT_COUNT] [--filename FILENAME]
                     [--only-dirs] [--only-files] [--password PASSWORD]
-                    [--pattern PATTERN] [--timeout TIMEOUT] [-u URL]
+                    [--pattern PATTERN] [--perfdata-mode PERFDATA_MODE]
+                    [--timeout TIMEOUT] [-u URL]
                     [--username USERNAME] [-w WARN] [--warning-count WARN_COUNT]
 
     Checks the time of last data modification for a file or directory, in seconds.
@@ -58,6 +59,9 @@ Help
                             a wildcard for multiple chars and '?' as a wildcard
                             for a single char. Does not support regex patterns.
                             Default: *.
+      --perfdata-mode       Set the performance data aggregation mode.
+                            Valid modes: ['mean', 'median']. It is disabled by
+                            default.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u URL, --url URL     SMB: Set the url of the file (or directory) to check,
                             starting with "smb://". This is mutually exclusive
@@ -132,7 +136,9 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+There is perfdata. The --perfdata-mode decides which aggregation mode is going to be used.
+This check currently supports the mean, also known as average, and median aggregation.
+The check won't return any performance data for empty directories (even with the flag being set).
 
 
 Credits, License
