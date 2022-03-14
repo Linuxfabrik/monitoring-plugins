@@ -96,9 +96,9 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    <ID>-percent                                Percentage,         Usage in percent
-    <ID>-total                                  Bytes,              Total device size
-    <ID>-usage                                  Bytes,              Usage in Bytes
+    <ID>-percent,                               Percentage,         Usage in percent
+    <ID>-total,                                 Bytes,              Total device size
+    <ID>-usage,                                 Bytes,              Usage in Bytes
     <ID>-locked,                                Number,             "0 = unlocked, 1 = locked"
 
 
