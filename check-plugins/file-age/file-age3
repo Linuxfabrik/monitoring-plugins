@@ -45,7 +45,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022031101'
+__version__ = '2022031401'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -57,9 +57,6 @@ DEFAULT_WARN_COUNT = 0
 DEFAULT_PATTERN = '*'
 DEFAULT_TIMEOUT = 3
 DEFAULT_PERFDATA_MODE = None
-
-
-PERFDATA_SUPPORTED_MODES = ['mean', 'median']
 
 
 def parse_args():
@@ -132,10 +129,14 @@ def parse_args():
 
     parser.add_argument(
         '--perfdata-mode',
-        help='Set the performance data aggregation mode. Valid modes: "{}". It is disabled by default.'.format(PERFDATA_SUPPORTED_MODES),
+        help='Set the performance data aggregation mode. Default: %(default)s.',
         dest='PERFDATA_MODE',
-        type=str,
-        default=DEFAULT_PERFDATA_MODE
+        default=DEFAULT_PERFDATA_MODE,
+        choices=[
+            'mean',
+            'median',
+            'None',
+        ],
     )
 
     parser.add_argument(
@@ -195,8 +196,6 @@ def main():
         proto, url = split_url
         if proto != 'smb':
             lib.base3.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
-    if args.PERFDATA_MODE and args.PERFDATA_MODE not in PERFDATA_SUPPORTED_MODES:
-        lib.base3.oao('Invalid performance data aggregation mode specified: "{}". Please use one of the following modes: "{}".'.format(args.PERFDATA_MODE, PERFDATA_SUPPORTED_MODES))
 
     msg = ''
     file_count = 0
