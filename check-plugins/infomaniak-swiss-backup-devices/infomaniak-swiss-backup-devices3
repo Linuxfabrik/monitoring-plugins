@@ -149,7 +149,7 @@ def main():
                 used = round(slot_data.get('storage_used') / slot_data.get('size') * 100, 1)
                 used_state = lib.base3.get_state(used, args.WARN, args.CRIT)
             else:
-                # Swiss Backup ordered, but not used / no backups found - throw a warning
+                # Swiss Backup ordered / paid, but not used / no backups found - throw a warning
                 used = 0
                 used_state = STATE_WARN
             state = lib.base3.get_worst(state, used_state)
@@ -181,20 +181,21 @@ def main():
                 'usage_last_check': '{} ago'.format(
                     lib.human3.seconds2human(lib.time3.now(as_type='epoch') - slot_data.get('usage_last_check')),
                 ),
-                'used': '{}% ({} / {}){}'.format(
-                    used,
+                'used': '{} / {}'.format(
                     lib.human3.bytes2human(slot_data.get('storage_used')),
                     lib.human3.bytes2human(slot_data.get('size')),
+                ),
+                'used_percent': '{}%{}'.format(
+                    used,
                     lib.base3.state2str(used_state, prefix=' '),
                 ),
                 'username': slot_data.get('username'),
-
             })
 
     # build the message
     if table_data:
-        keys = ['id', 'product_customer_name', 'product_tags', 'username', 'customer_name', 'connection_type', 'used', 'usage_last_check', 'locked']
-        headers = ['ID', 'Customer', 'Tags', 'User', 'Name', 'Type', 'Usage', 'Checked', 'Locked']
+        keys = ['id', 'product_customer_name', 'product_tags', 'username', 'customer_name', 'connection_type', 'used_percent', 'used', 'usage_last_check', 'locked']
+        headers = ['ID', 'Customer', 'Tags', 'User', 'Name', 'Type', 'Used %', 'Used', 'Usage Upd.', 'Locked']
         msg += lib.base3.get_table(table_data, keys, header=headers)
 
     if state == STATE_CRIT:

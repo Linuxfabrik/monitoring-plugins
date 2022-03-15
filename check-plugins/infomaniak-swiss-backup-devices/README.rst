@@ -73,7 +73,7 @@ Output:
 
     There are critical errors.
 
-    ID    ! Customer     ! Tags  ! User         ! Name   ! Type  ! Usage                                  ! Checked    ! Locked 
+    ID    ! Customer     ! Tags  ! User         ! Name   ! Type  ! Usage                                  ! Usage Upd. ! Locked
     ------+--------------+-------+--------------+--------+-------+----------------------------------------+------------+--------
     99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! 9.4% (13.2GiB / 139.7GiB)              ! 2h 18m ago ! False  
     99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! 7.1% (3.3GiB / 46.6GiB)                ! 2h 18m ago ! False  
@@ -86,6 +86,7 @@ States
 * CRIT if ``--severity=crit`` and "Locked" is ``True``.
 * WARN if ``--severity=warn`` (default) and "Locked" is ``True``.
 * WARN or CRIT if a device / slot is above a given threshold.
+* WARN if a device is not used at all (0 bytes), which means that no backups are made and you waste money.
 
 
 Perfdata / Metrics
