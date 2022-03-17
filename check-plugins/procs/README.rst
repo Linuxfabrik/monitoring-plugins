@@ -124,8 +124,8 @@ Other examples:
     # crit if there are less than one or more than 150 httpd processes
     ./procs --command=httpd --warning=2:100 --critical=1:150
 
-    # warn if "soffice" conversion consumes too much memory or was created more than 50 seconds ago
-    ./procs --command=soffice --warning-mem-percent=10 --warning-age=50
+    # warn if a "duplicity" backup process runs longer than 8 hours or uses more than 50% RAM
+    ./procs --command=duplicity --warning-age=28800 --warning-mem-percent=50 
 
     # warn if at least 1 zombie process exists
     ./procs --status=zombie --warning=0
@@ -147,7 +147,7 @@ Some process names in Python's psutil do not match the ones from ``ps aux``. To 
 States
 ------
 
-* WARN or CRIT depending on your parameters, or if no processes can be found.
+* WARN or CRIT depending on your parameters, or if no process can be found.
 
 
 Perfdata / Metrics
