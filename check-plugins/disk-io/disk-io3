@@ -43,7 +43,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021602'
+__version__ = '2022031701'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -197,8 +197,8 @@ def main():
         throughput1 = read_bytes_per_second1 + write_bytes_per_second1
         if timestamp_diff < 0 or read_bytes_per_second1 < 0 or write_bytes_per_second1 < 0 or throughput1 < 0:
             # happens after a reboot
-            lib.db_sqlite2.close(conn)
-            lib.base2.oao('Waiting for more data.', state)
+            lib.db_sqlite3.close(conn)
+            lib.base3.oao('Waiting for more data.', state)
 
         # store the max. measured throughput in cache
         throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk))
