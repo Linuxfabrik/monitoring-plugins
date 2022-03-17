@@ -116,7 +116,7 @@ That's it. After that your directory on the remote host should look like this:
 
 **Tipp**
 
-> We also provide an [Linuxfabrik lfops monitoring-plugins role ](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins). This role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
+> We also provide a Monitoring-Plugins Role within our [LFOps Ansible Collection](https://galaxy.ansible.com/linuxfabrik/lfops). This Ansible role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
 
 
 
