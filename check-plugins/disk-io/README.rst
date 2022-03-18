@@ -126,6 +126,13 @@ Per disk:
     <disk>_throughput15,                None,                   Bytes per second. read_bytes_per_second15 + write_bytes_per_second15.
 
 
+Troubleshooting
+---------------
+
+psutil raised error "not sure how to interpret line '...'"
+    Update the ``psutil`` library.
+
+
 Credits, License
 ----------------
 
