@@ -14,16 +14,13 @@ All plugins are written in Python and licensed under the [UNLICENSE](https://unl
 The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
 
-## Support, Feedback
+## Support & Sponsoring
 
 The source code is published here without support, but [Enterprise Support can be obtained via a Service Contract](https://www.linuxfabrik.ch/en/offer/service-and-support/).
 
-In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
-
-* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/forms/WQRMnkYTW3j8Aaa6).
-* Become a sponsor: If you like to support our work, please consider donating
-    * [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
-    * [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+If you like to support our work, please consider donating and become a sponsor:
+* [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
+* [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Running the Check Plugins on Linux
@@ -167,6 +164,10 @@ If you zoom in, for example on *CPU Usage*:
 
 A few comments about our monitoring plugins:
 
+> ... many thanks for your great collection of monitoring plugins! I've just found them - clean structure and output, cross-platform, Icinga Directory Basket configurations - loving it and currently migrating step by step most of my checks to use them where possible. 😍
+
+-- [Bernd Bestel](https://github.com/berrnd)
+
 > Nachdem ich beim Versuch, Nagios-Plugins auf VMwares Photon-OS zum laufen zu kriegen, graue Haare gekriegt habe, haben mir eure Plugins zum Ziel verholfen.
 
 -- [MajorTwip](https://twitter.com/MajorTwip)
@@ -178,6 +179,11 @@ A few comments about our monitoring plugins:
 > Hello, I stumbled across your collection and am thrilled! Especially the extensive documentary and the Director Baskets are a dream.
 
 -- Stefan Beining
+
+
+In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
+
+* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/forms/WQRMnkYTW3j8Aaa6).
 
 
 
