@@ -18,7 +18,7 @@ If you like to support our work, please consider donating
 GitHub Sponsors
 ---------------
 
-* [MajorTwip](https://github.com/MajorTwip)
+* `MajorTwip <https://github.com/MajorTwip>
 
 
 Enterprise Sponsors
