@@ -15,9 +15,14 @@ If you like to support our work, please consider donating
    :target: https://github.com/sponsors/Linuxfabrik
 
 
+GitHub Sponsors
+---------------
 
-Sponsors
---------
+* [MajorTwip](https://github.com/MajorTwip)
+
+
+Enterprise Sponsors
+-------------------
 
 We are happy to mention you as a sponsor.
 
