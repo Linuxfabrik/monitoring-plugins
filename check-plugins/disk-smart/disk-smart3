@@ -542,7 +542,12 @@ def parse_section_data_subsection_attributes(section):
         if line.startswith('4 Start') \
         or line.startswith('9 Power') \
         or line.startswith('12 Power'):
-            raw_value = int(raw_value)
+            if raw_value.isnumeric():
+                raw_value = int(raw_value)
+            else:
+                # some drives report something like "45449h+00m+00.000s", for example some SanDisk SSDs
+                raw_value = int(raw_value.split('h', 1)[0])
+
             p['perfdata'][sensor_name] = raw_value
 
     if p['msg']:
