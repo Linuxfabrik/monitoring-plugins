@@ -6,11 +6,7 @@ Overview
 
 This plugin checks for PHP Opcache status, startup errors using ``php --version``, missing modules using ``php --modules`` or misconfigured directives using ``php --info``. Needs sudo.
 
-So that the check can call up the Opcache data in the context of a web server, first put the ``monitoring.php`` file to the web server's document root directory. The check can then call up additional PHP information, such as the PHP Opcache statistics. On the subject of Opcache see also:
-
-* `Opcache Runtime Configuration <https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.interned-strings-buffer>`_
-* `A one-page opcache status page <https://github.com/rlerdorf/opcache-status>`_
-* `Fine-Tune Your Opcache Configuration to Avoid Caching Suprises <https://tideways.com/profiler/blog/fine-tune-your-opcache-configuration-to-avoid-caching-suprises>`_.
+So that the check can call up the Opcache data in the context of a web server, first put the ``monitoring.php`` file to the web server's document root directory. 
 
 Apache httpd config example:
 
@@ -24,6 +20,14 @@ Apache httpd config example:
         #SetHandler "proxy:unix:/run/php-fpm/www.sock|fcgi://localhost/monitoring.php"
     </Location>
 
+The check can then call up additional PHP information, such as the PHP Opcache statistics.
+
+On the subject of Opcache see also:
+
+* `Opcache Runtime Configuration <https://www.php.net/manual/en/opcache.configuration.php#ini.opcache.interned-strings-buffer>`_
+* `A one-page opcache status page <https://github.com/rlerdorf/opcache-status>`_
+* `Fine-Tune Your Opcache Configuration to Avoid Caching Suprises <https://tideways.com/profiler/blog/fine-tune-your-opcache-configuration-to-avoid-caching-suprises>`_.
+
 
 Fact Sheet
 ----------
@@ -35,7 +39,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Callable ``monitoring.php`` (optional)"
+    "Requirements",                         "PHP monitoring script `monitoring.php <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/php-status/monitoring.php>`_ (optional, callable via HTTP(S))"
 
 
 Help
@@ -127,8 +131,8 @@ Perfdata / Metrics
     
     Name,                                                       Type,               Description                                           
     php-config-errors,                                          Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
-    php-module-errors                                           Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
-    php-startup-errors                                          Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
+    php-module-errors,                                          Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
+    php-startup-errors,                                         Number,             "0 = STATE_OK, 1 = STATE_WARN, 2 = STATE_CRIT"
     php-opcache-interned_strings_usage-free_memory,             Bytes,
     php-opcache-interned_strings_usage-number_of_strings,       Number,
     php-opcache-interned_strings_usage-percentage,              Percentage,
@@ -140,15 +144,15 @@ Perfdata / Metrics
     php-opcache-memory_usage-wasted_memory,                     Bytes,
     php-opcache-opcache_statistics-blacklist_miss_ratio,        Percentage,
     php-opcache-opcache_statistics-blacklist_misses,            Number,
-    php-opcache-opcache_statistics-hash_restarts,               Number,
+    php-opcache-opcache_statistics-hash_restarts,               Number,             "number of restarts because of hash overflow"
     php-opcache-opcache_statistics-hits,                        Continous Counter,
-    php-opcache-opcache_statistics-manual_restarts,             Number,
+    php-opcache-opcache_statistics-manual_restarts,             Number,             "number of restarts scheduled by opcache_reset()"
     php-opcache-opcache_statistics-misses,                      Continous Counter,
     php-opcache-opcache_statistics-num_cached_keys-percentage,  Percentage,
     php-opcache-opcache_statistics-num_cached_keys,             Number,
     php-opcache-opcache_statistics-num_cached_scripts,          Number,
     php-opcache-opcache_statistics-num_free_keys,               Number,
-    php-opcache-opcache_statistics-oom_restarts,                Number,
+    php-opcache-opcache_statistics-oom_restarts,                Number,             "number of restarts because of out of memory"
     php-opcache-opcache_statistics-opcache_hit_rate,            Percentage,
 
 
@@ -157,10 +161,10 @@ Troubleshooting
 
 If you get a warning on
 
-* OpCache Mem: Increase ``opcache.memory_consumption``, in megabytes. The minimum permissible value is "8", which is enforced if a smaller value is set.
-* Keys: Increase ``opcache.max_accelerated_files``. The actual value used will be the first number in the set of prime numbers {223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793} that is greater than or equal to ``opcache.max_accelerated_files``. The minimum value is 200. The maximum value is 1000000.
+* OpCache Mem used: Increase ``opcache.memory_consumption``, in megabytes. The minimum permissible value is ``8``, which is enforced if a smaller value is set.
+* Keys used: Increase ``opcache.max_accelerated_files``. The actual value used will be the first number in the set of prime numbers ``{223, 463, 983, 1979, 3907, 7963, 16229, 32531, 65407, 130987, 262237, 524521, 1048793}`` that is greater than or equal to ``opcache.max_accelerated_files``. The minimum value is ``223``. The maximum value is ``1048793``.
 * Hit Rate: Cache has to warm up, so wait and see.
-* Interned Strings: Increase ``opcache.interned_strings_buffer``, in megabytes. The actual value is always lower than what is configured in ``opcache.interned_strings_buffer``.
+* Interned Strings used: Increase ``opcache.interned_strings_buffer``, in megabytes. The actual value is always lower than what is configured in ``opcache.interned_strings_buffer``.
 * OOM: Increase any of the above values and restart Apache or PHP-FPM.
 * display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
 
