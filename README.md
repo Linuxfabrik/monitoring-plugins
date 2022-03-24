@@ -343,6 +343,22 @@ If not, generate a Basket without `guids`:
 
 Import the resulting `icingaweb2-module-director-basket.json` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
 
+As stated in [Cant Upload Director Basket](https://github.com/Icinga/icingaweb2-module-director/issues/2458) if the basket is to big `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.` the following variables in the `php.ini` need to be increased.
+
+```
+upload_max_filesize
+post_max_size
+```
+
+To activate the changes a restart of the `php-fpm` service could be required.
+
+Alternatively the basket can be loaded from the command line.
+
+```
+icingacli director basket restore < /tmp/icingaweb2-module-director-basket.json
+```
+
+Also the MySQL `server.conf` could need a changed of the `max_allowed_packet` variable.
 
 
 ## Grafana
