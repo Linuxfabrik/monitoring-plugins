@@ -47,9 +47,17 @@ DESCRIPTION = '''This check is some kind of user interface for smartctl, which i
 
 DEFAULT_IGNORE = []
 
-# exclude some block devices with their numbers according to `/proc/devices`
-CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,230,252,253,254"
-CMD_SMARTCTL = 'smartctl --xall {disk_path}'
+if lib.base3.WINDOWS:
+    CMD_LIST_DISKS = "smartctl --scan"
+else:
+    # exclude some block devices with their numbers according to `/proc/devices`
+    CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,230,252,253,254"
+
+if lib.base3.WINDOWS:
+    # Without forcing the device type (-d option), smartctl often fails with "Unable to read device ID" (especially for external / USB drives) on Windows
+    CMD_SMARTCTL = 'smartctl -d sat --xall {disk_path}'
+else:
+    CMD_SMARTCTL = 'smartctl --xall {disk_path}'
 
 
 def parse_args():
@@ -833,12 +841,16 @@ def main():
     disk_count = 0
 
     for line in stdout.splitlines():
-        disk, disk_type = line.strip().split()
-        if not disk or disk in args.IGNORE or 'disk' not in disk_type:
+        disk, disk_type = line.strip().split(maxsplit=1)
+        if not disk or disk in args.IGNORE or ('disk' not in disk_type and lib.base3.LINUX):
             continue
 
         if args.TEST is None:
-            cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
+            if lib.base3.WINDOWS:
+                cmd_smartctl = CMD_SMARTCTL.format(disk_path=disk)
+            else:
+                cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
+
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
