@@ -38,7 +38,7 @@ import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2022032401'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -47,17 +47,15 @@ DESCRIPTION = '''This check is some kind of user interface for smartctl, which i
 
 DEFAULT_IGNORE = []
 
-if lib.base3.WINDOWS:
-    CMD_LIST_DISKS = "smartctl --scan"
-else:
+if lib.base3.LINUX:
     # exclude some block devices with their numbers according to `/proc/devices`
     CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,230,252,253,254"
-
-if lib.base3.WINDOWS:
-    # Without forcing the device type (-d option), smartctl often fails with "Unable to read device ID" (especially for external / USB drives) on Windows
-    CMD_SMARTCTL = 'smartctl -d sat --xall {disk_path}'
-else:
     CMD_SMARTCTL = 'smartctl --xall {disk_path}'
+else:
+    CMD_LIST_DISKS = "smartctl --scan"
+    # Without forcing the device type (-d option), smartctl often fails with "Unable to read
+    # device ID" (especially for external / USB drives) on Windows
+    CMD_SMARTCTL = 'smartctl --device=sat --xall {disk_path}'
 
 
 def parse_args():
@@ -842,15 +840,14 @@ def main():
 
     for line in stdout.splitlines():
         disk, disk_type = line.strip().split(maxsplit=1)
-        if not disk or disk in args.IGNORE or ('disk' not in disk_type and lib.base3.LINUX):
+        if not disk or disk in args.IGNORE or (lib.base3.LINUX and 'disk' not in disk_type):
             continue
 
         if args.TEST is None:
-            if lib.base3.WINDOWS:
-                cmd_smartctl = CMD_SMARTCTL.format(disk_path=disk)
-            else:
+            if lib.base3.LINUX:
                 cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
-
+            else:
+                cmd_smartctl = CMD_SMARTCTL.format(disk_path=disk)
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
