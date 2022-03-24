@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022032401'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -104,12 +104,16 @@ def get_latest_version(expire):
     success, jsonst = lib.url3.fetch_json('https://api.github.com/repos/keycloak/keycloak/tags')
     if not success:
         return (success, jsonst)
+    if not jsonst:
+        return (False, '')
 
     # there is an update available, so result contains xml here
+    # take the next one if version tag startswith any alpha character, for example "nightly" build
     latest_version = jsonst[0]['name']
-    if not latest_version[-1].isnumeric():
-        mo = re.match('.+([0-9])[^0-9]*$', latest_version)
-        latest_version = latest_version[:latest_version.rindex(mo.group(1)) + 1]
+    if not latest_version[0].isnumeric():
+        latest_version = jsonst[1]['name']
+    mo = re.match('.+([0-9])[^0-9]*$', latest_version)
+    latest_version = latest_version[:latest_version.rindex(mo.group(1)) + 1]
 
     lib.cache3.set('keycloak-version', latest_version, lib.time3.now() + expire)
     return (True, latest_version)
