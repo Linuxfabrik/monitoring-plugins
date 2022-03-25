@@ -449,7 +449,7 @@ Use the `Linuxfabrik lfops monitoring-plugins role <https://github.com/Linuxfabr
 
 .. code-block:: bash
 
-   ansible-playbook --inventory inventory linuxfabrik.lfops.monitoring_plugins --tags monitoring_plugins,monitoring_plugins::nuitka_compile --extra-vars 'monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' --limit windows-machine
+   ansible-playbook --inventory inventory linuxfabrik.lfops.monitoring_plugins --tags monitoring_plugins,monitoring_plugins:nuitka_compile --extra-vars 'monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' --limit windows-machine
 
 To let the Ansible role know which check-plugin to compile for Windows, create an empty `.windows` file in the check-plugin folder.
 
