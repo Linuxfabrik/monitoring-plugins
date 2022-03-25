@@ -116,6 +116,10 @@ That's it. After that your directory on the remote host should look like this:
 > We also provide a Monitoring-Plugins Role within our [LFOps Ansible Collection](https://galaxy.ansible.com/linuxfabrik/lfops). This Ansible role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
 
 
+### Icons
+
+You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
+
 
 ### sudoers
 
