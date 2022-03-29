@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -99,7 +99,7 @@ Usage Examples
     # If there are more than 3 files in the last 15s, throw a critical.
     # No files are ok.
     ./file-age --filename='/path/to/files/*' --warning='10:' --warning-count=2 --critical='15:' --critical-count=3
-    
+
 Output:
 
 .. code-block:: text
@@ -120,7 +120,7 @@ Output:
 
 .. code-block:: text
 
-    1 item outside count range "0" and outside "@86400" time range. 2 items outside count range "0" and outside "0:86400" time range. 3 items checked. 
+    1 item outside count range "0" and outside "@86400" time range. 2 items outside count range "0" and outside "0:86400" time range. 3 items checked.
 
     * /tmp/test/file-1d-ago: 1D 55m [CRITICAL]
     * /tmp/test/file-2d-ago: 2D 55m [CRITICAL]
