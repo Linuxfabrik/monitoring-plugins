@@ -35,7 +35,7 @@ Changes in existing functionality:
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 * Icinga: Adjust windows director definitions to the new folder structure
 * Icinga: Increase windows service check intervals
-* Revert Python 3.6+ f-strings to use .format() to be more conservative
+* Revert Python 3.6+ `f`-strings to use `.format() to be more conservative
 
 
 ### Fixed
