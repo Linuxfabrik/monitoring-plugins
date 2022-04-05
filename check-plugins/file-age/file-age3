@@ -45,7 +45,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022032901'
+__version__ = '2022040501'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -224,7 +224,11 @@ def main():
 
             file_count += 1
             if item_state != STATE_OK:
-                file_msg += f'* {item}: {lib.human3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+                file_msg += '* {}: {}{}\n'.format(
+                    item,
+                    lib.human3.seconds2human(age),
+                    lib.base3.state2str(item_state, prefix=" "),
+                )
 
     if args.URL:
         for item in lib.base3.coe(lib.smb3.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
@@ -247,7 +251,11 @@ def main():
 
                 file_count += 1
                 if item_state != STATE_OK:
-                    file_msg += f'* {item.name}: {lib.human3.seconds2human(age)}{lib.base3.state2str(item_state, prefix=" ")}\n'
+                    file_msg += '* {}: {}{}\n'.format(
+                        item.name,
+                        lib.human3.seconds2human(age),
+                        lib.base3.state2str(item_state, prefix=" "),
+                    )
             except smbprotocol.exceptions.SMBOSError:
                 # it is normal that files disappear while reading
                 pass

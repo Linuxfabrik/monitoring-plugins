@@ -43,7 +43,7 @@ import lib.url3     # pylint: disable=C0413
 from lib.globals3 import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110401'
+__version__ = '2022040501'
 
 DESCRIPTION = 'Sends notifications for services using mail.'
 
@@ -284,7 +284,7 @@ def generate_mail_content(args, logo_cid):
             {
                 'left_column': 'Notification Type:',
                 'right_column': args.NOTIFICATION_TYPE,
-                'right_column_attributes': f'style="background-color: {colors.get(args.NOTIFICATION_TYPE)}"',
+                'right_column_attributes': 'style="background-color: {}"'.format(colors.get(args.NOTIFICATION_TYPE)),
             },
         ]
 
@@ -303,7 +303,7 @@ def generate_mail_content(args, logo_cid):
         {
             'left_column': 'Service State:',
             'right_column': args.SERVICE_STATE,
-            'right_column_attributes': f'style="background-color: {colors.get(args.SERVICE_STATE)}"',
+            'right_column_attributes': 'style="background-color: {}"'.format(colors.get(args.SERVICE_STATE)),
         },
     ]
 
@@ -366,7 +366,7 @@ def generate_mail_content(args, logo_cid):
         rows += [
             {
                 'left_column': 'IcingaWeb2 URL:',
-                'right_column': urllib.parse.urljoin(f'{args.ICINGAWEB2_URL}/', f'monitoring/service/show?{params}')
+                'right_column': urllib.parse.urljoin('{}/'.format(args.ICINGAWEB2_URL), 'monitoring/service/show?{}'.format(params))
             },
         ]
 
@@ -407,7 +407,7 @@ def generate_mail_content(args, logo_cid):
 
             if row['right_column'].startswith('http'):
                 url = row['right_column']
-                row['right_column'] = f'<a href="{url}">{url}</a>'
+                row['right_column'] = '<a href="{}">{}</a>'.format(url, url)
 
         # make sure right_column_attributes is always set
         if 'right_column_attributes' not in row:
@@ -483,9 +483,9 @@ def main():
         logo_cid =  make_msgid()
         plain, html = generate_mail_content(args, logo_cid)
 
-        subject = f'Service "{args.SERVICE_DISPLAYNAME}" on "{args.HOST_DISPLAYNAME}" is {args.SERVICE_STATE}'
+        subject = 'Service "{}" on "{}" is {}'.format(args.SERVICE_DISPLAYNAME, args.HOST_DISPLAYNAME, args.SERVICE_STATE)
         if args.NOTIFICATION_TYPE:
-            subject = f'[{args.NOTIFICATION_TYPE}] {subject}'
+            subject = '[{}] {}'.format(args.NOTIFICATION_TYPE, subject)
         mail_msg['Subject'] = subject
 
         mail_msg.set_content(plain)

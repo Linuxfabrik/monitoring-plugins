@@ -17,7 +17,7 @@ import os
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2020102201'
+__version__ = '2022040501'
 
 DESCRIPTION = 'A tool to split up Grafana dashboards panels into their own dashboard.'
 
@@ -38,19 +38,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--filename-postfix',
-        help='Set the postfix of the output filename. \'.json\' will always be added as the extension. Can only be used in combination with `--auto`',
-        dest='FILENAME_POSTFIX',
-        type=str,
-        default='',
-    )
-
-    parser.add_argument(
         '--auto',
         help='Automatically split the panels into dashboards according to the row title.',
         dest='AUTO',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--filename-postfix',
+        help='Set the postfix of the output filename. \'.json\' will always be added as the extension. Can only be used in combination with `--auto`',
+        dest='FILENAME_POSTFIX',
+        type=str,
+        default='',
     )
 
     parser.add_argument(
@@ -62,6 +62,7 @@ def parse_args():
     )
 
     return parser.parse_args()
+
 
 def get_panels(panels):
     panel_list = []
@@ -90,36 +91,36 @@ def save_dashboard_to_file(data, filename):
         with open(filename, 'w') as file:
             json.dump(data, file, sort_keys=True, indent=4, separators=(',', ': '))
     except FileNotFoundError as e:
-        print(f'{e}. Ignoring...')
+        print('{}. Ignoring...'.format(e))
 
 def generate_icingaweb_ini(filename, title, uid, panel_ids=['1'], repeatable=False, windows=False):
     def get_template(check_name, title, uid, panel_ids):
-        template = f'''[{check_name}]
-dashboard = "{title}"
-panelId = "{','.join(panel_ids)}"
+        template = '''[{}]
+dashboard = "{}"
+panelId = "{}"
 orgId = ""
-repeatable = "{'yes' if repeatable else 'no'}"
-dashboarduid = "{uid}"'''
+repeatable = "{}"
+dashboarduid = "{}"'''.format(check_name, title, ','.join(panel_ids), 'yes' if repeatable else 'no', uid)
 
         if repeatable:
-            template += f'\nnmetrics={len(panel_ids)}'
+            template += '\nnmetrics={}'.format(len(panel_ids))
         return template
 
     if windows:
-        ini = get_template(f'cmd-check-{uid}', title, uid, panel_ids)
+        ini = get_template('cmd-check-{}'.format(uid), title, uid, panel_ids)
         ini += '\n\n'
-        ini += get_template(f'cmd-check-{uid}-python', title, uid, panel_ids)
+        ini += get_template('cmd-check-{}-python'.format(uid), title, uid, panel_ids)
     else:
-        ini = get_template(f'cmd-check-{uid}', title, uid, panel_ids)
+        ini = get_template('cmd-check-{}'.format(uid), title, uid, panel_ids)
         ini += '\n\n'
-        ini += get_template(f'cmd-check-{uid}-sudo', title, uid, panel_ids)
+        ini += get_template('cmd-check-{}-sudo'.format(uid), title, uid, panel_ids)
 
     if not os.path.isfile(filename):
         try:
             with open(filename, 'w') as file:
                 file.write(ini)
         except FileNotFoundError as e:
-            print(f'{e}. Ignoring...')
+            print('{}. Ignoring...'.format(e))
 
 def main():
     # parse the command line, exit with UNKNOWN if it fails
@@ -138,9 +139,9 @@ def main():
                 uid = row_title.lower().replace(' ', '-').replace('/', '').replace('---', '-').replace('_', '-')
                 windows = bool('windows' in uid)
                 if uid == 'default':
-                    out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                    out_filename = 'assets/grafana/{}{}.json'.format(uid, args.FILENAME_POSTFIX)
                 else:
-                    out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}{args.FILENAME_POSTFIX}.json'
+                    out_filename = 'check-plugins/{}/{}{}.json'.format(uid.replace("-windows", ""), uid, args.FILENAME_POSTFIX)
                 new_panels = get_panels(row['panels'])
 
                 # re-read the json, as orig_data should not be a reference to data, and copy.deepcopy() is slower than json.load().
@@ -152,9 +153,9 @@ def main():
                     panel_ids = [str(panel['id']) for panel in new_dashboard['panels']]
                     repeatable = any([panel.get('repeat') for panel in new_dashboard['panels']])
                     if uid == 'default':
-                        out_filename = f'assets/grafana/{uid}{args.FILENAME_POSTFIX}.json'
+                        out_filename = 'assets/grafana/{}{}.json'.format(uid, args.FILENAME_POSTFIX)
                     else:
-                        out_filename = f'check-plugins/{uid.replace("-windows", "")}/{uid}.icingaweb2-grafana.ini'
+                        out_filename = 'check-plugins/{}/{}.icingaweb2-grafana.ini'.format(uid.replace("-windows", ""), uid)
                     generate_icingaweb_ini(out_filename, row_title, uid, panel_ids, repeatable, windows)
         sys.exit()
 
@@ -185,6 +186,7 @@ def main():
     new_panels = [panel for panel in get_panels(data['panels']) if panel['id'] in new_panel_ids]
     new_dashboard = generate_new_dashboards(data, new_panels, new_title, new_uid)
     save_dashboard_to_file(new_dashboard, out_filename)
+
 
 if __name__ == '__main__':
     main()
