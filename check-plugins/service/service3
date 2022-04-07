@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022040501'
 
 DESCRIPTION = 'Check the state of a Windows service.'
 
@@ -128,7 +128,7 @@ def main():
     try:
         service = psutil.win_service_get(args.SERVICE)
     except psutil.NoSuchProcess:
-        lib.base3.oao('Service {args.SERVICE} not found', STATE_UNKNOWN)
+        lib.base3.oao('Service {} not found'.format(args.SERVICE), STATE_UNKNOWN)
     except Exception:
         lib.base3.oao('Can\'t fetch Windows Service Attributes - is this check running on Windows?', STATE_UNKNOWN)
 
@@ -136,7 +136,7 @@ def main():
     status = service.status()
 
     # init some vars
-    msg = f'{args.SERVICE} is {status}, {start_type}'
+    msg = '{} is {}, {}'.format(args.SERVICE, status, start_type)
     state = STATE_OK
 
     # now do the checks
@@ -144,13 +144,13 @@ def main():
     problem_msg = ''
     if args.STATUS and status not in args.STATUS:
         problem = True
-        problem_msg += f'Status is "{status}", but supposed to be "{args.STATUS}"; '
+        problem_msg += 'Status is "{}", but supposed to be "{}"; '.format(status, args.STATUS)
     if args.STARTTYPE and start_type != args.STARTTYPE:
         problem = True
-        problem_msg += f'Start Type is "{start_type}", but supposed to be "{args.STARTTYPE}"; '
+        problem_msg += 'Start Type is "{}", but supposed to be "{}"; '.format(start_type, args.STARTTYPE)
 
     if problem:
-        msg = f'{args.SERVICE} - ' + problem_msg[:-2]
+        msg = '{} - '.format(args.SERVICE) + problem_msg[:-2]
         state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 
     # over and out

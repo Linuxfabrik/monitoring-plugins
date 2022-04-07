@@ -239,7 +239,7 @@ Git Commits
 -----------
 
 * Commit messages must start with "plugin-name: " and clearly and precisely state what has changed. Example: ``about-me: Should be able to run even if psutil is or cannot be installed``.
-* If there is an issue, the commit message must consist of the issue title followed by "(#issueno)", for example: ``about-me: Add OpenVPN (fix #341)``. It's ok to close the issue afterwards (do not wait until the next merge).
+* If there is an issue, the commit message must consist of the issue title followed by "(fix #issueno)", for example: ``about-me: Add OpenVPN (fix #341)``.
 * For the first commit, use the message ``Add <plugin-name>``.
 
 
@@ -449,7 +449,7 @@ Use the `Linuxfabrik lfops monitoring-plugins role <https://github.com/Linuxfabr
 
 .. code-block:: bash
 
-   ansible-playbook --inventory inventory linuxfabrik.lfops.monitoring_plugins --tags monitoring_plugins,monitoring_plugins::nuitka_compile --extra-vars 'monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' --limit windows-machine
+   ansible-playbook --inventory inventory linuxfabrik.lfops.monitoring_plugins --tags monitoring_plugins,monitoring_plugins:nuitka_compile --extra-vars 'monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' --limit windows-machine
 
 To let the Ansible role know which check-plugin to compile for Windows, create an empty `.windows` file in the check-plugin folder.
 

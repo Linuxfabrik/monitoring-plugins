@@ -6,7 +6,7 @@ Overview
 
 This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, still takes a few seconds.
 
-To access the serverinfo API you will need the credentials of an admin user. It is recommended to create a separate user for that purpose.
+To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (or a separate user) for that purpose.
 
 Hints:
 
@@ -104,6 +104,16 @@ Perfdata / Metrics
 * nc_storage_num_storages_other
 * nc_storage_num_users: For num_users, the Nexctloud serverinfo app (NC21) returns the number of users that have ever existed, and not those that are enabled. See https://github.com/nextcloud/serverinfo/issues/311
 * nc_system_apps_num_installed
+
+
+Troubleshooting
+---------------
+
+Unknown error while fetching http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info?format=json, maybe timeout or error on webserver
+    Check the Nextcloud API endpoint URL. Maybe change from http(s)://localhost to http(s)://127.0.0.1.
+
+HTTP error "401 Unauthorized" while fetching http://...
+    Password is correct? Maybe you enabled 2FA. Use an app password for your monitoring server.
 
 
 Credits, License

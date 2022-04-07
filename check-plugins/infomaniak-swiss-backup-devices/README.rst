@@ -9,6 +9,7 @@ Checks each device / slot of all your Infomaniak Swiss backup products via the I
 Hints:
 
 * The check takes 10 seconds or more. Increasing runtime timout to 30 seconds is recommended.
+* Be aware of the fact that you may retrieve values while Infomaniak's API is still compiling the usage statistic. This may cause you to think that you have lost a certain amount of data without doing anything. The next time you run the check, usage statistic will be back to normal.
 
 Links:
 

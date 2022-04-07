@@ -116,6 +116,10 @@ That's it. After that your directory on the remote host should look like this:
 > We also provide a Monitoring-Plugins Role within our [LFOps Ansible Collection](https://galaxy.ansible.com/linuxfabrik/lfops). This Ansible role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
 
 
+### Icons
+
+You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
+
 
 ### sudoers
 
@@ -123,7 +127,7 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 
 **Note**
 
-> We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/` there. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+> We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
 ### Upgrade
@@ -343,6 +347,10 @@ If not, generate a Basket without `guids`:
 
 Import the resulting `icingaweb2-module-director-basket.json` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
 
+If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, you must either load the basket from the command line with `icingacli director basket restore < /tmp/icingaweb2-module-director-basket.json`, or adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket](https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
+
+* PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service)
+* MariaDB/MySQL: increase `max_allowed_packet`
 
 
 ## Grafana

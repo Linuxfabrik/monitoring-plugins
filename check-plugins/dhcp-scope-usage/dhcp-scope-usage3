@@ -27,6 +27,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import locale # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
@@ -39,7 +40,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021111702'
+__version__ = '2022032401'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
@@ -173,7 +174,7 @@ def main():
 
     # ScopeId          Free            InUse           PercentageInUse  Reserved        Pending         SuperscopeName
     # -------          ----            -----           ---------------  --------        -------         --------------
-    # 192.168.120.0    3               0               0                0               0
+    # 192.0.2.120      3               0               0                0               0
 
     # get state and build the message
     data_section = False
@@ -187,7 +188,14 @@ def main():
 
         scope = line.split()
         scope_id = scope[0]
-        scope_used = scope[3]
+        
+        # "PercentageInUse" is a floating point number and uses the user's preferred locale
+        # number format, so this needs to be parsed locale-aware
+        
+        # use user's preferred locale
+        locale.setlocale(locale.LC_ALL, '')
+        # convert the string to a floating point number, following the LC_NUMERIC settings
+        scope_used = locale.atof(scope[3])
 
         scope_state = lib.base3.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base3.get_worst(scope_state, state)

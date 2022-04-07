@@ -25,7 +25,10 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
-        self.assertIn('There are one or more criticals.\n\n* 192.168.120.0: 0% used\n* 192.168.121.0: 83% used [WARNING]\n* 192.168.122.0: 91% used [CRITICAL]', stdout)
+        self.assertIn('There are one or more criticals.', stdout)
+        self.assertIn('* 192.0.2.120: 0.0% used', stdout)
+        self.assertIn('* 192.0.2.121: 83.0% used [WARNING]', stdout)
+        self.assertIn('* 192.0.2.122: 91.0% used [CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 

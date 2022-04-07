@@ -21,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021110301'
+__version__ = '2022040501'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -64,7 +64,7 @@ def parse_args():
 def warn_print(msg, **kwargs):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.YELLOW + f'Warning: {msg}', **kwargs)
+        print(colorama.Fore.YELLOW + 'Warning: {}'.format(msg), **kwargs)
     else:
         print(msg, **kwargs)
 
@@ -72,7 +72,7 @@ def warn_print(msg, **kwargs):
 def err_print(msg, **kwargs):
     msg = msg.strip()
     if colorama:
-        print(colorama.Fore.RED + f'Error: {msg}', **kwargs)
+        print(colorama.Fore.RED + 'Error: {}'.format(msg), **kwargs)
     else:
         print(msg, **kwargs)
 
@@ -86,7 +86,7 @@ def raise_on_duplicate_keys(ordered_pairs):
     dict_out = {}
     for key, val in ordered_pairs:
         if key in dict_out:
-            raise DuplicateKeyError(f'Duplicate key: {key}')
+            raise DuplicateKeyError('Duplicate key: {}'.format(key))
         else:
             dict_out[key] = val
     return dict_out
@@ -105,7 +105,7 @@ class BasketJoiner:
                 json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
                 file.write('\n')
         except FileNotFoundError as e:
-            err_print(f'{e}.')
+            err_print('{}.'.format(e))
             return False
         return True
 
@@ -113,7 +113,7 @@ class BasketJoiner:
     def join_with_file(self, basket_file):
         new_datafield_ids = {} # this is reset for each file
         if os.path.isfile(basket_file):
-            print(f'File: {basket_file}')
+            print('File: {}'.format(basket_file))
             with open(basket_file, 'rb') as file:
                 try:
                     basket_data = json.load(file, object_pairs_hook=raise_on_duplicate_keys)
@@ -130,7 +130,11 @@ class BasketJoiner:
                     if guid in self.guids2datafields:
                         current_value = self.data['Datafield'][self.guids2datafields[guid]]
                         if current_value != value:
-                            err_print(f'The objects "[Datafield][{value["varname"]}]" and "[Datafield][{current_value["varname"]}]" have the same guid ("{guid}") but not the same content. Please fix this, aborting...')
+                            err_print('The objects "[Datafield][{}]" and "[Datafield][{}]" have the same guid ("{}") but not the same content. Please fix this, aborting...'.format(
+                                value["varname"],
+                                current_value["varname"],
+                                guid,
+                            ))
                             return False
                     else:
                         self.highest_datafield_id += 1
@@ -176,9 +180,9 @@ class BasketJoiner:
                     guids.append(value['guid'])
                 else:
                     if parent_key == 'Datafield':
-                        objects_without_guids.append(f'[{parent_key}][{value["varname"]}]')
+                        objects_without_guids.append('[{}][{}]'.format(parent_key, value["varname"]))
                     else:
-                        objects_without_guids.append(f'[{parent_key}][{key}]')
+                        objects_without_guids.append('[{}][{}]'.format(parent_key, key))
 
                 # descent into services of Service Sets
                 if 'services' in value and value['services']:
@@ -186,7 +190,7 @@ class BasketJoiner:
                         if 'guid' in service_value:
                             guids.append(service_value['guid'])
                         else:
-                            objects_without_guids.append(f'[{parent_key}][{key}][{service_key}]')
+                            objects_without_guids.append('[{}][{}][{}]'.format(parent_key, key, service_key))
 
         if objects_without_guids:
             warn_print('\nFound objects without guids:')
@@ -216,7 +220,7 @@ def main():
         if directory in skip_plugins:
             continue
 
-        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', f'{directory}.json')
+        basket_file = os.path.join('check-plugins', directory, 'icingaweb2-module-director', '{}.json'.format(directory))
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
 

@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022040501'
 
 DESCRIPTION = 'Check the status of a scheduled task.'
 
@@ -104,10 +104,14 @@ def main():
         task_name, next_run_time, status = row
         if task_name == args.TASK:
             if status in args.STATUS:
-                lib.base3.oao(f'{args.TASK} is {status}', STATE_OK)
-            lib.base3.oao(f'{args.TASK} is {status}, but supposed to be {args.STATUS}', problem_state)
+                lib.base3.oao('{} is {}'.format(args.TASK, status), STATE_OK)
+            lib.base3.oao('{} is {}, but supposed to be {}'.format(
+                args.TASK,
+                status,
+                args.STATUS,
+            ), problem_state)
 
-    lib.base3.oao(f'Scheduled Task {args.TASK} not found', STATE_UNKNOWN)
+    lib.base3.oao('Scheduled Task {} not found'.format(args.TASK), STATE_UNKNOWN)
 
 
 if __name__ == '__main__':
