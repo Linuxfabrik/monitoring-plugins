@@ -41,7 +41,7 @@ Help
       --no-proxy           Do not use a proxy. Default: False
       --username USERNAME  QTS User. Default: admin
       --password PASSWORD  QTS Password.
-      --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
+      --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
 
 
 Usage Examples
