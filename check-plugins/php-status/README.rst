@@ -167,6 +167,7 @@ If you get a warning on
 * Interned Strings used: Increase ``opcache.interned_strings_buffer``, in megabytes. The actual value is always lower than what is configured in ``opcache.interned_strings_buffer``.
 * OOM: Increase any of the above values and restart Apache or PHP-FPM.
 * display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
+* ``No entry for terminal type "unknown"; using dump terminal settings.``: maybe you are using a too old PHP version.
 
 
 Credits, License
