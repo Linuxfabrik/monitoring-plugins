@@ -32,6 +32,7 @@ Changes in existing functionality:
 * file-age: Improve perfdata labels
 * file-age: shorten the message ([fix 559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
 * php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 * Icinga: Adjust windows director definitions to the new folder structure
 * Icinga: Increase windows service check intervals

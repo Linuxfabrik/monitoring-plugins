@@ -42,7 +42,7 @@ Help
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   QTS Password.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --timeout TIMEOUT     Network timeout in seconds. Default: 6 (seconds)
       --url URL             QTS-based Appliance URL, for example
                             https://192.168.1.1:8080.
       --username USERNAME   QTS User. Default: admin
