@@ -51,14 +51,14 @@ Help
                             Infomaniak Account-ID
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 90
+                            Set the CRIT threshold as a percentage. Default: >= 95
       --severity {warn,crit}
                             Severity for alerting other values. Default: warn
       --token TOKEN         Infomaniak API token
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+                            Set the WARN threshold as a percentage. Default: >= 90
 
 
 Usage Examples
@@ -74,11 +74,11 @@ Output:
 
     There are critical errors.
 
-    ID    ! Customer     ! Tags  ! User         ! Name   ! Type  ! Usage                                  ! Usage Upd. ! Locked
-    ------+--------------+-------+--------------+--------+-------+----------------------------------------+------------+--------
-    99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! 9.4% (13.2GiB / 139.7GiB)              ! 2h 18m ago ! False  
-    99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! 7.1% (3.3GiB / 46.6GiB)                ! 2h 18m ago ! False  
-    99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! 92.0% (856.6GiB / 931.3GiB) [CRITICAL] ! 2h 18m ago ! False
+    ID    ! Customer     ! Tags  ! User         ! Name   ! Type  ! Usage                                 ! Usage Upd. ! Locked
+    ------+--------------+-------+--------------+--------+-------+---------------------------------------+------------+--------
+    99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! 9.4% (13.2GiB / 139.7GiB)             ! 2h 18m ago ! False  
+    99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! 7.1% (3.3GiB / 46.6GiB)               ! 2h 18m ago ! False  
+    99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! 92.0% (856.6GiB / 931.3GiB) [WARNING] ! 2h 18m ago ! False
 
 
 States
