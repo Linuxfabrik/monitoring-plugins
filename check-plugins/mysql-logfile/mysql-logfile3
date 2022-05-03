@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022050301'
+__version__ = '2022050302'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -247,7 +247,7 @@ def main():
     lastErrs, lastWarns, lastShutdowns, lastStarts = [], [], [], []
     for logLi in logfile.splitlines():
         haystack = logLi.lower()
-        if 'error' in haystack  and 'logging to' not in haystack:
+        if 'error' in haystack  and 'logging to' not in haystack and ' [warning] ' not in haystack:
             lastErrs.append(logLi)
         if 'warning' in haystack:
             lastWarns.append(logLi)
