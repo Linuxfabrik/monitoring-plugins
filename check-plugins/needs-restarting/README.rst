@@ -4,7 +4,13 @@ Check needs-restarting
 Overview
 --------
 
-Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. May take more than 10 seconds to execute.
+Checks for processes that started running before they or some component that they use were updated. Returns WARN if a full reboot is required or if services might need a restart, and in any other case OK. May take more than 10 seconds on Red Hat to execute.
+
+Hints:
+
+* Linux only
+* ``needs-restarting3`` runs on Red Hat- and Debian-based OS's
+* ``needs-restarting2`` runs on Red Hat-based OS's only
 
 
 Fact Sheet
@@ -14,10 +20,10 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting"
-    "Check Interval Recommendation",        "Once a day (or after a ``yum update`` only)"
+    "Check Interval Recommendation",        "Once a day (or after a system update only)"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "None"
+    "Requirements",                         "Red Hat: ``needs-restarting``, Debian: None, optional ``needrestart``"
 
 
 Help
@@ -44,18 +50,32 @@ Usage Examples
 
     ./needs-restarting
     
-Output:
+Output on Red Hat:
 
 .. code-block:: text
 
-    No system or service restart needed, but Invalid configuration value: failovermethod=priority in /etc/yum.repos.d/teamviewer.repo; Configuration: OptionBinding with id "failovermethod" does not exist
+    Found 17 running processes that have been updated and may need a restart:
+    1595 : /usr/lib/systemd/systemd-udevd
+    1483 : sshd: root@pts/1
+    1223 : qmgr -l -t unix -u
+    1222 : pickup -l -t unix -u
+    ...
+
+Output on Debian:
+
+.. code-block:: text
+
+    A system reboot may be required. Running Kernel 4.19.0-20-amd64 != Installed Kernel 5.10.0-13-amd64 (version upgrade pending). Found 3 running processes that have been updated and may need a restart:
+    * dbus.service
+    * getty@tty1.service
+    * systemd-logind.service
 
 
 States
 ------
 
 * WARN on needed service or system restarts.
-* Does not WARN or CRIT on other problems like ``Modular dependency problem`` etc.
+* Does not alert on other problems like ``Modular dependency problem`` (yum/dnf) etc.
 
 
 Perfdata / Metrics
