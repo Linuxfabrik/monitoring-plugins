@@ -1,4 +1,4 @@
-Check example
+Check wsdl
 =============
 
 Overview
