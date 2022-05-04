@@ -81,5 +81,6 @@ There is no perfdata.
 Credits, License
 ----------------
 
-* Authors: `Linuxfabrik GmbH, Zurich <https://www.linuxfabrik.ch>`_
+* Authors: `Linuxfabrik GmbH, Zurich/Switzerland <https://www.linuxfabrik.ch>`_;
+            originally written by Simon Wunderlin and adapted by Dominik Riva, Universitätsspital Basel/Switzerland
 * License: The Unlicense, see `LICENSE file <https://unlicense.org/>`_.
