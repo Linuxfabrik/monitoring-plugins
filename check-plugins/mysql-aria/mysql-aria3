@@ -1,0 +1,224 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022050501'
+
+DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '3306'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection.',
+        dest='PASSWORD',
+        required = True,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username.',
+        dest='USERNAME',
+        required = True,
+    )
+
+    return parser.parse_args()
+
+
+def get_vars(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # With the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # new connections to MariaDB.
+    sql = """
+        show variables
+        where variable_name like 'aria_pagecache_buffer_size';
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def get_status(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # With the GLOBAL modifier, SHOW STATUS displays the values that are used for
+    # new connections to MariaDB.
+    sql = """
+        show status
+        where variable_name like 'Aria_pagecache_reads'
+            or variable_name like 'Aria_pagecache_read_requests';
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:mariadb_aria(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+        'raise_on_warnings':  True
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+    myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+
+    # have_* for engines is deprecated and is removed since MySQL 5.6;
+    # check SHOW ENGINES and set corresponding old style variables.
+    # Also works around MySQL bug #59393 wrt. skip-innodb
+    sql = 'show engines'
+    mysqlenginelist = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+    for line in mysqlenginelist:
+        engine = line['Engine'].lower()
+        if line['Engine'] == 'federated' or line['Engine'] == 'blackhole':
+            engine += '_engine'
+        elif line['Engine'] == 'berkeleydb':
+            engine = 'bdb'
+        myvar['have_{}'.format(engine)] = 'YES' if line['Support'] == 'DEFAULT' else 'YES'
+    
+    if not myvar.get('have_aria', ''):
+        lib.base3.oao('Aria Storage Engine not available.', STATE_UNKNOWN)
+    if myvar['have_aria'] != 'YES':
+        lib.base3.oao('Aria Storage Engine is disabled.', STATE_UNKNOWN)
+
+    # Aria pagecache
+    sql = "select ifnull(sum(index_length),0) as total_aria_indexes from information_schema.tables where table_schema not in ('information_schema') and engine = 'aria';"
+    result  = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+    total_aria_indexes = result[0].get('total_aria_indexes', 0)
+    if not total_aria_indexes:
+        lib.base3.oao('Unable to calculate Aria index size on MySQL/MariaDB server.', STATE_WARN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # calculations
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    if mystat.get('Aria_pagecache_read_requests', 0) and int(mystat['Aria_pagecache_read_requests']) > 0:
+        pct_aria_keys_from_mem = 100 - round(int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100, 1)
+    else:
+        pct_aria_keys_from_mem = 0
+
+    if int(myvar['aria_pagecache_buffer_size']) < total_aria_indexes and pct_aria_keys_from_mem < 95:
+        aria_pagecache_buffer_size_state = STATE_WARN
+        state = lib.base3.get_worst(state, aria_pagecache_buffer_size_state)
+        msg += ' (adjust aria_pagecache_buffer_size > {}){}'.format(
+            total_aria_indexes,
+            lib.base3.state2str(aria_pagecache_buffer_size_state, prefix=' '),
+        )
+    else:
+        aria_pagecache_buffer_size_state = STATE_OK
+    msg = 'Aria pagecache size / total Aria indexes: {}/{}{}, '.format(
+        lib.human3.bytes2human(int(myvar['aria_pagecache_buffer_size'])),
+        lib.human3.bytes2human(total_aria_indexes),
+        msg,
+    )
+    perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_buffer_size', myvar['aria_pagecache_buffer_size'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_total_aria_indexes', total_aria_indexes, None, None, None, 0, None)
+
+    if int(mystat['Aria_pagecache_read_requests']) > 0:
+        if pct_aria_keys_from_mem < 95:
+            pct_aria_keys_from_mem_state = STATE_WARN
+            state = lib.base3.get_worst(state, pct_aria_keys_from_mem_state)
+        else:
+            pct_aria_keys_from_mem_state = STATE_OK
+        msg += 'Aria pagecache hit rate: {}% ({} cached / {} reads){}, '.format(
+            pct_aria_keys_from_mem,
+            lib.human3.number2human(int(mystat['Aria_pagecache_read_requests'])),
+            lib.human3.number2human(int(mystat['Aria_pagecache_reads'])),
+            lib.base3.state2str(pct_aria_keys_from_mem_state, prefix=' '),
+        )
+        perfdata += lib.base3.get_perfdata('mysql_pct_aria_keys_from_mem', pct_aria_keys_from_mem, '%', 95, None, 0, 100)
+        perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_read_requests', mystat['Aria_pagecache_read_requests'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_reads', mystat['Aria_pagecache_reads'], 'c', None, None, 0, None)
+
+    # over and out
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
