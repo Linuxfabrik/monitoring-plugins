@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project does NOT adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 ## [Unreleased]
@@ -17,6 +17,8 @@ New features:
 * Icinga: duplicity Service Set
 * New check infomaniak-swiss-backup-devices
 * New check infomaniak-swiss-backup-products
+* New check mysql-aria
+* New check mysql-kernel
 * New check mysql-logfile
 
 
@@ -38,8 +40,8 @@ Changes in existing functionality:
 * php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
-* lib/disk3.py: Add file_exists() function
 * lib/db_mysql3.py: Enhanced for new mysql-checks
+* lib/disk3.py: Add file_exists() function
 * Icinga: Adjust windows director definitions to the new folder structure
 * Icinga: Increase windows service check intervals
 * Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
@@ -49,7 +51,7 @@ Changes in existing functionality:
 
 Bug fixes:
 
-* disk-io: Fix python3 lib calls
+* disk-io3: Fix python3 lib calls
 * keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([fix #555](https://github.com/Linuxfabrik/monitoring-plugins/issues/))
 
 

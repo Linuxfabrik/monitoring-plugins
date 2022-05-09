@@ -29,7 +29,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``mysql.connector``; User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring-log@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Requirements",                         "Python module ``mysql.connector``; User with no privileges, locked down to ``127.0.0.1`` - for example ``mon-log@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "Uses SQLite DBs",                      "Yes"
 
 
@@ -56,8 +56,7 @@ Help
                             MySQL/MariaDB hostname. Default: 127.0.0.1
       -p PASSWORD, --password PASSWORD
                             Use the indicated password to authenticate the
-                            connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS
-                            NOT SECURE.
+                            connection.
       --port PORT           MySQL/MariaDB port. Default: 3306
       --server-log SERVER_LOG
                             One of: Path to error log file (including filename);
@@ -73,7 +72,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-logfile --username monitor-log --password mypassword
+    ./mysql-logfile --username mon-log --password mypassword
     ./mysql-logfile --server-log=systemd:mariadb
     ./mysql-logfile --server-log=docker:mariadb
     
