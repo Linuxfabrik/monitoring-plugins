@@ -46,7 +46,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022051102'
+__version__ = '2022051103'
 
 DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
                  to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
@@ -101,22 +101,22 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_possible_connections(session):
-    possible_connections = []
+def get_possible_connection_keys(session):
+    possible_connection_keys = []
     for conn in session.list_conns():
         for key in conn:
-            possible_connections.append(key)
-    possible_connections.sort()
-    return possible_connections
+            possible_connection_keys.append(key)
+    possible_connection_keys.sort()
+    return possible_connection_keys
 
 
-def get_active_connections(session):
-    active_connections = []
+def get_active_connection_keys(session):
+    active_connection_keys = []
     for conn in session.list_sas():
         for key in conn:
-            active_connections.append(key)
-    active_connections.sort()
-    return active_connections
+            active_connection_keys.append(key)
+    active_connection_keys.sort()
+    return active_connection_keys
 
 
 # connname:
@@ -246,15 +246,22 @@ def main():
         except Exception as e:
             lib.base3.oao('{}'.format(e), STATE_UNKNOWN)
         session = vici.Session(s)
-        possible_connections = get_possible_connections(session)
-        active_connections = get_active_connections(session)
+        possible_connection_keys = get_possible_connection_keys(session)
+        active_connection_keys = get_active_connection_keys(session)
+        list_sas = session.list_sas()
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test3.test(args.TEST)
+        import json
+        possible_connection_keys, stderr, retc = lib.test3.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
+        possible_connection_keys = json.loads(possible_connection_keys)
+        active_connection_keys, stderr, retc = lib.test3.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
+        active_connection_keys = json.loads(active_connection_keys)
+        list_sas, stderr, retc = lib.test3.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
+        list_sas = json.loads(list_sas)
 
-    if not possible_connections:
+    if not possible_connection_keys:
         lib.base3.oao('No connections configured.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
-    if not active_connections:
+    if not active_connection_keys:
         lib.base3.oao('There are no active connections at all.', STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # init some vars
@@ -263,7 +270,7 @@ def main():
     perfdata = ''
     table_data = []
 
-    if possible_connections != active_connections:
+    if possible_connection_keys != active_connection_keys:
         conf_state = STATE_WARN
         state = lib.base3.get_worst(state, conf_state)
         msg += 'One or more connections are configured but not active{}. '.format(
@@ -271,8 +278,8 @@ def main():
         )
 
     # analyze data
-    for sas in session.list_sas(): # generator object, which has no attribute 'items'
-        for key in active_connections:
+    for sas in list_sas: # generator object, which has no attribute 'items'
+        for key in active_connection_keys:
             try:
                 row = format_sas_data(sas[key])
             except:
