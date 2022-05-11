@@ -1,0 +1,392 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import socket # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+try:
+    import vici # pylint: disable=C0413
+except ImportError:
+    lib.base3.oao('Python module "vici" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022051102'
+
+DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
+                 to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
+                 to monitor the IKE daemon 'charon'. The most prominent user of the VICI interface
+                 is strongSwan/swanctl.
+              """
+
+DEFAULT_LENGTHY = False
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--socket',
+        help='Path to Versatile IKE Control Interface (VICI) Socket. Default: %(default)s',
+        dest='SOCKET',
+        default='/var/run/charon.vici',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    return parser.parse_args()
+
+
+def get_possible_connections(session):
+    possible_connections = []
+    for conn in session.list_conns():
+        for key in conn:
+            possible_connections.append(key)
+    possible_connections.sort()
+    return possible_connections
+
+
+def get_active_connections(session):
+    active_connections = []
+    for conn in session.list_sas():
+        for key in conn:
+            active_connections.append(key)
+    active_connections.sort()
+    return active_connections
+
+
+# connname:
+# OrderedDict([('uniqueid', b'307'), ('version', b'2'), ('state', b'ESTABLISHED'), ('local-host', b'local-ip'), ('local-port', b'500'), ('local-id', b'local-ip'), ('remote-host', b'remote-ip'), ('remote-port', b'500'), ('remote-id', b'remote-ip'), ('initiator-spi', b'62030f8c83f1adb3'), ('responder-spi', b'3b1e135425ddf93e'), ('encr-alg', b'AES_CBC'), ('encr-keysize', b'256'), ('integ-alg', b'HMAC_SHA2_256_128'), ('prf-alg', b'PRF_HMAC_SHA2_256'), ('dh-group', b'MODP_2048'), ('established', b'924'), ('reauth-time', b'9083'), ('child-sas', OrderedDict([('customer-596', OrderedDict([('name', b'some-name'), ('uniqueid', b'596'), ('reqid', b'155'), ('state', b'INSTALLED'), ('mode', b'TUNNEL'), ('protocol', b'ESP'), ('spi-in', b'c13ff4b5'), ('spi-out', b'cfaa60fc'), ('encr-alg', b'AES_CBC'), ('encr-keysize', b'256'), ('integ-alg', b'HMAC_SHA2_256_128'), ('dh-group', b'MODP_2048'), ('bytes-in', b'67804'), ('packets-in', b'285'), ('use-in', b'3'), ('bytes-out', b'48956'), ('packets-out', b'346'), ('use-out', b'3'), ('rekey-time', b'1818'), ('life-time', b'2679'), ('install-time', b'921'), ('local-ts', [b'192.0.2.19/32']), ('remote-ts', [b'10.0.2.17/32'])]))]))])
+
+
+def format_sas_data(sas):
+    """Re-format SAS connection details for a single connection.
+    Also handle different VICI versions.
+    """
+    data = {}
+    for key, value in sas.items():
+        if isinstance(value, bytes):
+            data[key] = lib.txt3.to_text(value)
+        if isinstance(value, bytearray):
+            data[key] = lib.txt3.to_text(b', '.join(value))
+        if key == 'integ-alg' and not value:
+            value = 'None'
+        # handle different versions:
+        if key == 'reauth-time': # v5.7
+            data['rekey-time'] = data['reauth-time'] # v5.9
+
+    data['encr'] = '{}-{}/{}/{}/{}'.format(
+        data['encr-alg'],
+        data['encr-keysize'],
+        data['integ-alg'],
+        data['prf-alg'],
+        data['dh-group'],
+    )
+    data['established-hr'] = lib.time3.epoch2iso(
+        lib.time3.now(as_type='epoch') - int(data['established'])
+    )
+    if data['local-id'] != data['local-host']:
+        data['local'] = '{}:{} ("{}")'.format(
+            data['local-host'],
+            data['local-port'],
+            data['local-id'],
+        )
+    else:
+        data['local'] = '{}:{}'.format(
+            data['local-host'],
+            data['local-port'],
+        )
+    data['rekey-time-hr'] = lib.time3.epoch2iso(
+        lib.time3.now(as_type='epoch') + int(data['rekey-time'])
+    )
+    if data['remote-id'] != data['remote-host']:
+        data['remote'] = '{}:{} ("{}")'.format(
+            data['remote-host'],
+            data['remote-port'],
+            data['remote-id'],
+        )
+    else:
+        data['remote'] = '{}:{}'.format(
+            data['remote-host'],
+            data['remote-port'],
+        )
+    data['state'] = data['state'].replace('ESTABLISHED', 'EST')
+    data['version'] = 'v{}'.format(data['version'])
+
+    return data
+
+
+def format_child_data(child):
+    """Re-format child connection details for a single sub connection.
+    This is much more volatile (depending on the conn state), so list all expected keys manually
+    and return empty defaults if necessary.
+    """
+    data = {}
+    data['child-bytes-in'] = int(lib.txt3.to_text(child.get('bytes-in', 0)))
+    data['child-bytes-out'] = int(lib.txt3.to_text(child.get('bytes-out', 0)))
+    data['child-dh-group'] = lib.txt3.to_text(child.get('dh-group', ''))
+    data['child-encr-alg'] = lib.txt3.to_text(child.get('encr-alg', ''))
+    data['child-encr-keysize'] = lib.txt3.to_text(child.get('encr-keysize', ''))
+    data['child-install-time'] = int(lib.txt3.to_text(child.get('install-time', 0)))
+    data['child-integ-alg'] = lib.txt3.to_text(child.get('integ-alg', 'None'))
+    data['child-life-time'] = int(lib.txt3.to_text(child.get('life-time', 0)))
+    data['child-local-ts'] = lib.txt3.to_text(b', '.join(child.get('local-ts', '')))
+    data['child-mode'] = lib.txt3.to_text(child.get('mode', ''))
+    data['child-name'] = lib.txt3.to_text(child.get('name', ''))
+    data['child-protocol'] = lib.txt3.to_text(child.get('protocol', ''))
+    data['child-rekey-time'] = int(lib.txt3.to_text(child.get('rekey-time', 0)))
+    data['child-remote-ts'] = lib.txt3.to_text(b', '.join(child.get('remote-ts', '')))
+    data['child-state'] = lib.txt3.to_text(child.get('state', ''))
+
+    data['child-bytes-in-hr'] = lib.human3.bytes2human(data['child-bytes-in'])
+    data['child-bytes-out-hr'] = lib.human3.bytes2human(data['child-bytes-out'])
+    data['child-encr'] = '{}:{}-{}/{}/{}'.format(
+        data['child-protocol'],
+        data['child-encr-alg'],
+        data['child-encr-keysize'],
+        data['child-integ-alg'],
+        data['child-dh-group'],
+    )
+    data['child-install-time-hr'] = lib.time3.epoch2iso(
+        lib.time3.now(as_type='epoch') - data['child-install-time']
+    )
+    data['child-life-time-hr'] = lib.time3.epoch2iso(
+        lib.time3.now(as_type='epoch') + data['child-life-time']
+    )
+    data['child-mode-state'] = '{}:{}'.format(
+        data['child-mode'],
+        data['child-state'],
+    )
+    data['child-rekey-time-hr'] = lib.time3.epoch2iso(
+        lib.time3.now(as_type='epoch') + data['child-rekey-time']
+    )
+
+    return data
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        s = socket.socket(socket.AF_UNIX)
+        try:
+            s.connect(args.SOCKET)
+        except Exception as e:
+            lib.base3.oao('{}'.format(e), STATE_UNKNOWN)
+        session = vici.Session(s)
+        possible_connections = get_possible_connections(session)
+        active_connections = get_active_connections(session)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+
+    if not possible_connections:
+        lib.base3.oao('No connections configured.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+    if not active_connections:
+        lib.base3.oao('There are no active connections at all.', STATE_WARN, always_ok=args.ALWAYS_OK)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    if possible_connections != active_connections:
+        conf_state = STATE_WARN
+        state = lib.base3.get_worst(state, conf_state)
+        msg += 'One or more connections are configured but not active{}. '.format(
+            lib.base3.state2str(conf_state, prefix=' '),
+        )
+
+    # analyze data
+    for sas in session.list_sas(): # generator object, which has no attribute 'items'
+        for key in active_connections:
+            try:
+                row = format_sas_data(sas[key])
+            except:
+                continue
+            row['conn'] = key
+            perfdata += lib.base3.get_perfdata('{}_established'.format(key), row['established'], 's', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('{}_rekey-time'.format(key), row['rekey-time'], 's', None, None, 0, None)
+
+            children = None
+            try:
+                children = sas[key]['child-sas']
+                if children == {}:
+                    children = None
+            except:
+                pass
+
+            if children is not None:
+                for child_key in children:
+                    child_row = format_child_data(children[child_key])
+                    # combine two dictionaries using dictionary comprehension
+                    table_data.append({k:v for d in (row, child_row) for k,v in d.items()})
+                    perfdata += lib.base3.get_perfdata('{}_{}_bytes-in'.format(key, child_row['child-name']), child_row['child-bytes-in'], 'B', None, None, 0, None)
+                    perfdata += lib.base3.get_perfdata('{}_{}_bytes-out'.format(key, child_row['child-name']), child_row['child-bytes-out'], 'B', None, None, 0, None)
+                    perfdata += lib.base3.get_perfdata('{}_{}_install-time'.format(key, child_row['child-name']), child_row['child-install-time'], 's', None, None, 0, None)
+                    perfdata += lib.base3.get_perfdata('{}_{}_life-time'.format(key, child_row['child-name']), child_row['child-life-time'], 's', None, None, 0, None)
+                    perfdata += lib.base3.get_perfdata('{}_{}_rekey-time'.format(key, child_row['child-name']), child_row['child-rekey-time'], 's', None, None, 0, None)
+            else:
+                child_state = STATE_WARN
+                state = lib.base3.get_worst(state, child_state)
+                msg += '{} not connected at child level{}. '.format(
+                    key,
+                    lib.base3.state2str(child_state, prefix=' '),
+                )
+
+    # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
+
+    # over and out
+    if table_data:
+        if not args.LENGTHY:
+            keys = [
+                'conn',
+                'state',
+                'rekey-time-hr',
+                'child-name',
+                'child-mode-state',
+                'child-rekey-time-hr',
+                'child-life-time-hr',
+                'child-bytes-in-hr',
+                'child-bytes-out-hr',
+            ]
+            headers = [
+                'Conn.',
+                'State',
+                'Re-Authentication',
+                'Child',
+                'Mode:State',
+                'Re-Keying',
+                'Expires',
+                'Rx',
+                'Tx',
+            ]
+        else:
+            keys = [
+                'conn',
+                'state',
+                'established-hr',
+                'rekey-time-hr',
+                'version',
+                'local',
+                'remote',
+                'encr',
+                'child-name',
+                'child-mode-state',
+                'child-local-ts',
+                'child-remote-ts',
+                'child-encr',
+                'child-install-time-hr',
+                'child-rekey-time-hr',
+                'child-life-time-hr',
+                'child-bytes-in-hr',
+                'child-bytes-out-hr',
+            ]
+            headers = [
+                'Conn.',
+                'State',
+                'Established',
+                'Re-Authentication',
+                'IKE',
+                'Local',
+                'Remote',
+                'Encryption/Integrity/Pseudo Random/DH',
+                'Child',
+                'Mode:State',
+                'Local',
+                'Remote',
+                'Prot:Encryption/Integrity/DH',
+                'Installed',
+                'Re-Keying',
+                'Expires',
+                'Rx',
+                'Tx',
+            ]
+        lib.base3.oao('{}\n\n{}'.format(
+            msg,
+            lib.base3.get_table(table_data, keys, header=headers),
+        ), state, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

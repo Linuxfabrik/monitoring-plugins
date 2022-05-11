@@ -1,0 +1,34 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+import lib.shell3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './example3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        self.assertIn('There are critical errors.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+
+if __name__ == '__main__':
+    unittest.main()
