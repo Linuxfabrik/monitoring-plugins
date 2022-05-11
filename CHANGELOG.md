@@ -20,6 +20,7 @@ New features:
 * New check mysql-aria
 * New check mysql-kernel
 * New check mysql-logfile
+* New check strongswan-connections
 
 
 ### Changed
