@@ -22,7 +22,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "None"
+    "Requirements",                         "Python module ``mysql.connector``; User with SELECT privileges on the XCA database, locked down to ``127.0.0.1`` - for example ``mon-xca@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
 
 
 Help
@@ -63,8 +63,8 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./xca-cert --hostname localhost --database xca --username dbuser --password dbpass --prefix xca_prefix_ --warning 14 --critical 5 
-    
+    ./xca-cert --hostname localhost --database xca --username dbuser --password dbpass --prefix xca_prefix_ --warning 14 --critical 5
+
 Output:
 
 .. code-block:: text

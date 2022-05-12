@@ -54,6 +54,7 @@ Bug fixes:
 
 * disk-io3: Fix python3 lib calls
 * keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([fix #555](https://github.com/Linuxfabrik/monitoring-plugins/issues/))
+* xca-cert3: Checks expiry date again
 
 
 ### Removed
