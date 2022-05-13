@@ -41,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022051301'
+__version__ = '2022051302'
 
 DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
 
@@ -69,7 +69,7 @@ def parse_args():
 
     parser.add_argument(
         '--maxportsallowed',
-        help='Number of ports opened allowed on this host. Default: <= %(default)s',
+        help='Number of ports opened allowed on this host. Default: 0 (check disabled)',
         dest='MAXPORTSALLOWED',
         type=int,
         default=DEFAULT_MAXPORTSALLOWED,
@@ -105,6 +105,8 @@ def main():
     # count ports
     opened_ports = get_opened_ports()
     if args.MAXPORTSALLOWED > 0:
+        if opened_ports == 0:
+            msg += 'No ports checked (psutil missing). '
         if opened_ports > args.MAXPORTSALLOWED:
             state = STATE_WARN
             msg += ('There are too many listening ports: {} opened > {} allowed '
