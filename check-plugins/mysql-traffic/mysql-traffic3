@@ -1,0 +1,189 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022051401'
+
+DESCRIPTION = """Collects uptime, queries per second, connections and traffic stats for
+                 MySQL/MariaDB."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '3306'
+DEFAULT_PASSWORD = ''
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def get_status(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global status
+        where variable_name like 'Bytes_received'
+            or variable_name like 'Bytes_sent'
+            or variable_name like 'Com_delete'
+            or variable_name like 'Com_insert'
+            or variable_name like 'Com_replace'
+            or variable_name like 'Com_select'
+            or variable_name like 'Com_update'
+            or variable_name like 'Connections'
+            or variable_name like 'Questions'
+            or variable_name like 'Uptime'
+            ;
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:mariadb_stats(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+        'raise_on_warnings':  True
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    mycalc = {}
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+
+    # calculations
+    qps = round(float(mystat['Questions']) / float(mystat.get('Uptime', 1)), 1)
+    mycalc['total_reads'] = int(mystat['Com_select'])
+    mycalc['total_writes'] = int(mystat['Com_delete']) + int(mystat['Com_insert']) + int(mystat['Com_update']) + int(mystat['Com_replace'])
+    if mycalc['total_reads'] == 0:
+        mycalc['pct_reads']  = 0
+        mycalc['pct_writes'] = 100
+    else:
+        mycalc['pct_reads'] = mycalc['total_reads'] / (mycalc['total_reads'] + mycalc['total_writes']) * 100
+        mycalc['pct_writes'] = 100 - mycalc['pct_reads']
+
+    # build the message
+    msg += 'Up {} ({} q [{} qps], {} conn, TX: {}, RX: {}); Reads / Writes: {}% / {}%'.format(
+        lib.human3.seconds2human(int(mystat['Uptime'])),
+        lib.human3.number2human(int(mystat['Questions'])),
+        lib.human3.number2human(qps),
+        lib.human3.number2human(int(mystat['Connections'])),
+        lib.human3.number2human(int(mystat['Bytes_sent'])),
+        lib.human3.number2human(int(mystat['Bytes_received'])),
+        mycalc['pct_reads'],
+        mycalc['pct_writes'],
+    )
+
+    perfdata += lib.base3.get_perfdata('mysql_bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_bytes_sent', mystat['Bytes_sent'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_com_delete', mystat['Com_delete'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_com_insert', mystat['Com_insert'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_com_replace', mystat['Com_replace'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_com_select', mystat['Com_select'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_com_update', mystat['Com_update'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_connections', mystat['Connections'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_questions', mystat['Questions'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_uptime', mystat['Uptime'], 's', None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('mysql_qps', qps, None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_pct_reads', mycalc['pct_reads'], '%', None, None, 0, 100)
+    perfdata += lib.base3.get_perfdata('mysql_pct_writes', mycalc['pct_writes'], '%', None, None, 0, 100)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
