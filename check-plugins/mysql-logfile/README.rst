@@ -4,7 +4,12 @@ Check mysql-logfile
 Overview
 --------
 
-Checks MySQL/MariaDB log content. The check plugin caches the location of the log in case the DB goes down. The log inspection logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:log_file_recommendations(), v1.9.8.
+Checks MySQL/MariaDB log content. The check plugin caches the location of the log in case the DB goes down. The log inspection logic is more or less taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:log_file_recommendations(), v1.9.8, and later on enhanced.
+
+Depending on your site's policy for DB management, you could ignore lines matching the following patterns:
+
+* "aborted connection" (happens pretty often, and might not be worth alerting)
+* "access denied for user" (could be handled automatically by Fail2ban)
 
 Installing the Python MySQL Connector:
 
@@ -13,10 +18,12 @@ Installing the Python MySQL Connector:
 Hints:
 
 * Must be running locally on the MySQL/MariaDB server to be able to check the log.
-* Compared to MySQLTuner this check currently:
+* Compared to MySQLTuner this check
 
-    * supports only simple login with username/password
-    * does not support a connection via socket
+    * is able to ignore log lines using simple lowercase string patterns or Python regular expressions.
+    * even checks the log if MySQL/MariaDB is down.
+    * currently supports only simple login with username/password.
+    * currently does not support a connection via socket.
 
   
 Fact Sheet
@@ -39,13 +46,14 @@ Help
 .. code-block:: text
 
     usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                         [-H HOSTNAME] -p PASSWORD [--port PORT]
-                         [--server-log SERVER_LOG] -u USERNAME
+                         [-H HOSTNAME] [--ignore-pattern IGNORE_PATTERN]
+                         [--ignore-regex IGNORE_REGEX] [-p PASSWORD]
+                         [--port PORT] [--server-log SERVER_LOG] [-u USERNAME]
 
     Checks MySQL/MariaDB log content the same way MySQLTuner does, but also in
     case the DB is down.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -54,9 +62,14 @@ Help
                             expires, in minutes. Default: 7200
       -H HOSTNAME, --hostname HOSTNAME
                             MySQL/MariaDB hostname. Default: 127.0.0.1
+      --ignore-pattern IGNORE_PATTERN
+                            Any line containing this pattern will be ignored (must
+                            be lowercase; repeating).
+      --ignore-regex IGNORE_REGEX
+                            Any line matching this python regex will be ignored.
       -p PASSWORD, --password PASSWORD
                             Use the indicated password to authenticate the
-                            connection.
+                            connection. Default:
       --port PORT           MySQL/MariaDB port. Default: 3306
       --server-log SERVER_LOG
                             One of: Path to error log file (including filename);
@@ -64,7 +77,7 @@ Help
                             systemd:UNITNAME. If ommitted, this check tries to
                             fetch the logfile location automatically.
       -u USERNAME, --username USERNAME
-                            MySQL/MariaDB username.
+                            MySQL/MariaDB username. Default: root
 
 
 Usage Examples
@@ -72,6 +85,7 @@ Usage Examples
 
 .. code-block:: bash
 
+    ./mysql-logfile --ignore-pattern 'aborted connection' --ignore-pattern 'access denied'
     ./mysql-logfile --username mon-log --password mypassword
     ./mysql-logfile --server-log=systemd:mariadb
     ./mysql-logfile --server-log=docker:mariadb
