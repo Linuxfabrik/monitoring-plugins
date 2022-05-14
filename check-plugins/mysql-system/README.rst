@@ -52,7 +52,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    mysql-system --maxportsallowed 15
+    ./mysql-system --maxportsallowed 15
 
 Output:
 
