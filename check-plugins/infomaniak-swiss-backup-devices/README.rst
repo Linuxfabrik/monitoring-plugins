@@ -6,6 +6,8 @@ Overview
 
 Checks each device / slot of all your Infomaniak Swiss backup products via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
 
+The output table is sorted by the "Tags" column.
+
 Hints:
 
 * The check takes 10 seconds or more. Increasing runtime timout to 30 seconds is recommended.

@@ -11,6 +11,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 New features:
 
+* This CHANGELOG.
 * Add hidden `.windows` files as indication for automatic compilation on/for Windows systems
 * Add lib/distro3.py
 * Add sudoers file for Fedora 35
@@ -37,7 +38,8 @@ Changes in existing functionality:
 * file-age: Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
 * file-age: Improve perfdata labels
 * file-age: shorten the message ([fix 559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
-* infomaniak-swiss-backup-devices: Increase default thresholds from 80/90% to 90/95%
+* infomaniak-swiss-backup-devices3: Increase default thresholds from 80/90% to 90/95%
+* infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
 * needs-restarting3: Debian Buster/bullseye command not found ([fix #572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
 * php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
