@@ -6,6 +6,8 @@ Overview
 
 Checks your Infomaniak Swiss Backup product details via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
 
+The output table is sorted by the "Tags" column.
+
 Hints:
 
 * In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance" and "Busy" for the API result "operation_in_progress".
