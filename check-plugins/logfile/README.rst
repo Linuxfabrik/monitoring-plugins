@@ -51,20 +51,20 @@ Help
 
 .. code-block:: text
 
-    usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
-                   [-c CRIT] [--critical-pattern CRIT_PATTERN]
-                   [--critical-regex CRIT_REGEX] --filename FILENAME
-                   [--icinga-service-name ICINGA_SERVICE_NAME]
-                   [--icinga-password ICINGA_PASSWORD] [--icinga-url ICINGA_URL]
-                   [--icinga-username ICINGA_USERNAME] [--icinga-callback]
-                   [--ignore-pattern IGNORE_PATTERN]
-                   [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
-                   [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+    usage: logfile3 [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
+                    [-c CRIT] [--critical-pattern CRIT_PATTERN]
+                    [--critical-regex CRIT_REGEX] --filename FILENAME
+                    [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
+                    [--icinga-service-name ICINGA_SERVICE_NAME]
+                    [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
+                    [--ignore-pattern IGNORE_PATTERN]
+                    [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
+                    [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
 
     Scans a logfile for set of pattern or regex and alarms on the number of
     findings.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --alarm-duration ALARM_DURATION
@@ -82,19 +82,19 @@ Help
                             Any line matching this python regex will count as a
                             critical.
       --filename FILENAME   Set the path of the logfile.
+      --icinga-callback     Get the service acknowledgement from Icinga. This
+                            overwrites --alarm-duration. Default: False
+      --icinga-password ICINGA_PASSWORD
+                            Icinga API password.
       --icinga-service-name ICINGA_SERVICE_NAME
                             Unique name of the service using this check within
                             Icinga. Take it from the `__name` service attribute,
                             for example `icinga-server!my-service-name`.
-      --icinga-password ICINGA_PASSWORD
-                            Icinga API password.
       --icinga-url ICINGA_URL
                             Icinga API URL, for example https://icinga-
                             server:5665.
       --icinga-username ICINGA_USERNAME
                             Icinga API username.
-      --icinga-callback     Get the service acknowledgement from Icinga. This
-                            overwrites --alarm-duration. Default: False
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern will be ignored.
       --ignore-regex IGNORE_REGEX
@@ -134,7 +134,7 @@ Output:
 
 .. code-block:: text
 
-    Scanned 8 lines, 1 warning match, 2 critical matchs
+    Scanned 8 lines, 1 warning match, 2 critical matches
 
     Warning matches:
     * warning
@@ -147,13 +147,14 @@ Output:
 States
 ------
 
-* WARN or CRIT if number of users is above a given threshold.
+* WARN if any line matches warning patterns/regexes and the number of lines exceed the warning threshold.
+* CRIT if any line matches critical patterns/regexes and the number of lines exceed the critical threshold.
 
 
 Perfdata / Metrics
 ------------------
 
-* ``scanned_lines``: Total number of scanned lines in this run.
+* ``scanned_lines``: Total number of lines scanned in this run.
 * ``warn_matches``: Number of warning matches found in those lines.
 * ``crit_matches``: Number of critical matches found in those lines.
 
