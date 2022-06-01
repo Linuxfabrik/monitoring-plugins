@@ -54,7 +54,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-memory3 --hostname localhost --username root --password mypassword
+    ./mysql-memory --hostname localhost --username root --password mypassword
 
 Output:
 
