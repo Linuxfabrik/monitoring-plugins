@@ -19,9 +19,10 @@ New features:
 * New check infomaniak-swiss-backup-devices
 * New check infomaniak-swiss-backup-products
 * New check mysql-aria
+* New check mysql-logfile
+* New check mysql-memory
 * New check mysql-system
 * New check mysql-traffic
-* New check mysql-logfile
 * New check strongswan-connections
 
 
