@@ -21,6 +21,7 @@ New features:
 * New check mysql-aria
 * New check mysql-logfile
 * New check mysql-memory
+* New check mysql-slow-queries
 * New check mysql-system
 * New check mysql-traffic
 * New check strongswan-connections
