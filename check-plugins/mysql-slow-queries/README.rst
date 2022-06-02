@@ -1,4 +1,4 @@
-Check mysql-slow_queries
+Check mysql-slow-queries
 ========================
 
 Overview
@@ -13,7 +13,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-slow_queries"
+    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-slow-queries"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
@@ -50,7 +50,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-slow_queries --hostname localhost --username root --password mypassword
+    ./mysql-slow-queries --hostname localhost --username root --password mypassword
 
 Output:
 
