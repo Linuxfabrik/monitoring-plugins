@@ -14,11 +14,12 @@ New features:
 * This CHANGELOG.
 * Add hidden `.windows` files as indication for automatic compilation on/for Windows systems
 * Add lib/distro3.py
-* Add sudoers file for Fedora 35
+* Add sudoers file for Fedora 35 and Fedora 36
 * Icinga: duplicity Service Set
 * New check infomaniak-swiss-backup-devices
 * New check infomaniak-swiss-backup-products
 * New check mysql-aria
+* New check mysql-connections
 * New check mysql-logfile
 * New check mysql-memory
 * New check mysql-slow-queries

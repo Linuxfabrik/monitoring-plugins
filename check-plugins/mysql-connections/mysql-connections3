@@ -1,0 +1,219 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022060201'
+
+DESCRIPTION = """Checks the connection usage rate as well as the rate of aborted connections on
+                 MySQL/MariaDB."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '3306'
+DEFAULT_PASSWORD = ''
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def get_vars(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global variables
+        where variable_name like 'interactive_timeout'
+            or variable_name like 'max_connections'
+            or variable_name like 'wait_timeout'
+            ;
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def get_status(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global status
+        where variable_name like 'Aborted_connects'
+            or variable_name like 'Connections'
+            or variable_name like 'Max_used_connections'
+            ;
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:mysql_stats(), section # Slow queries, v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+        'raise_on_warnings':  True
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+    myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    mycalc = {}
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+
+    # calculations
+    mycalc['pct_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
+    if mycalc['pct_connections_used'] > 100:
+        mycalc['pct_connections_used'] = 100
+    mycalc['pct_connections_aborted'] = round(int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1)
+
+    # Connections
+    msg += '{}% used ({}/{})'.format(
+        mycalc['pct_connections_used'],
+        mystat['Max_used_connections'],
+        myvar['max_connections'],
+    )
+
+    if mycalc['pct_connections_used'] > 85:
+        conn1_state = STATE_WARN
+        state = lib.base3.get_worst(state, conn1_state)
+        msg += '{}. Reduce or eliminate persistent connections to reduce connection usage (set max_connections > {}, wait_timeout < {} and/or interactive_timeout < {}). '.format(
+            lib.base3.state2str(conn1_state, prefix=' '),
+            myvar['max_connections'],
+            myvar['wait_timeout'],
+            myvar['interactive_timeout'],
+        )
+    else:
+        msg += '; '
+
+    # Aborted Connections
+    msg += '{}% aborted connections ({}/{})'.format(
+        mycalc['pct_connections_aborted'],
+        lib.human3.number2human(mystat['Aborted_connects']),
+        lib.human3.number2human(mystat['Connections']),
+    )
+
+    if mycalc['pct_connections_aborted'] > 3:
+        conn2_state = STATE_WARN
+        state = lib.base3.get_worst(state, conn2_state)
+        msg += '{}. Reduce or eliminate unclosed connections and network issues.  '.format(
+            lib.base3.state2str(conn2_state, prefix=' '),
+        )
+    else:
+        msg += '; '
+
+    perfdata += lib.base3.get_perfdata('mysql_interactive_timeout', myvar['interactive_timeout'], 's', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_max_connections', myvar['max_connections'], None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_wait_timeout', myvar['wait_timeout'], 's', None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('mysql_aborted_connects', mystat['Aborted_connects'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_connections', mystat['Connections'], 'c', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_max_used_connections', mystat['Max_used_connections'], 'c', None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('mysql_pct_connections_aborted', mycalc['pct_connections_aborted'], '%', None, None, 0, 100)
+    perfdata += lib.base3.get_perfdata('mysql_pct_connections_used', mycalc['pct_connections_used'], '%', None, None, 0, 100)
+
+    # over and out
+    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
