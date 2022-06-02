@@ -4,7 +4,7 @@ Check mysql-connections
 Overview
 --------
 
-Checks the connection usage rate as well as the rate of aborted connections on MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_stats(), v1.9.8.
+Checks the connection usage rate, the rate of aborted connections and if name resolution is active for new connections on MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_stats(), v1.9.8.
 
 
 Fact Sheet
@@ -28,8 +28,8 @@ Help
     usage: mysql-connections [-h] [-V] [--always-ok] [-H HOSTNAME] [-p PASSWORD]
                              [--port PORT] [-u USERNAME]
 
-    Checks the connection usage rate as well as the rate of aborted connections on
-    MySQL/MariaDB.
+    Checks the connection usage rate, the rate of aborted connections and if name
+    resolution is active for new connections on MySQL/MariaDB.
 
     options:
       -h, --help            show this help message and exit
@@ -56,7 +56,7 @@ Output:
 
 .. code-block:: text
 
-    90.0% used (9/10) [WARNING]. Reduce or eliminate persistent connections to reduce connection usage (set max_connections > 10, wait_timeout < 28800 and/or interactive_timeout < 28800). 4.0% aborted connections (40.0/1.0K) [WARNING]. Reduce or eliminate unclosed connections and network issues.
+    36.4% used (4/11); 0.0% aborted connections (0.0/1.3K); Name resolution is active: A reverse name resolution is made for each new connection and can reduce performance [WARNING]. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.
 
 
 States
@@ -64,6 +64,7 @@ States
 
 * WARN if the number of connections is more than 85% of the maximum possible number of simultaneous client connections.
 * WARN if the number of aborted connections is more than 3% of all client connections.
+* WARN if name resolution is active.
 
 
 Perfdata / Metrics
