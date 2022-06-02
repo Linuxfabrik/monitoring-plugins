@@ -89,12 +89,12 @@ scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
 for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 ```
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries, so the easiest way is to install them as well:
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries, so the easiest way is to install these as well:
 
-* BeautifulSoup4 (on RHEL: from EPEL repo)
+* BeautifulSoup4
 * lxml
-* mysql.connector (on RHEL: only up to RHEL 7, from EPEL repo)
-* psutil (on RHEL: from EPEL repo)
+* mysql.connector
+* psutil
 
 That's it. After that your directory on the remote host should look like this:
 
