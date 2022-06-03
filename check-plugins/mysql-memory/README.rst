@@ -88,7 +88,7 @@ Perfdata / Metrics
     mysql_max_connections,                      Number,             "The maximum number of simultaneous client connections."
     mysql_max_heap_table_size,                  Bytes,              "Maximum size in bytes for user-created MEMORY tables."
     mysql_max_peak_memory,                      Bytes,              server_buffers + total_per_thread_buffers + performance schema usage
-    mysql_max_tmp_table_size,                   Bytes,              max(max_heap_table_size, tmp_table_size)
+    mysql_max_tmp_table_size,                   Bytes,              "max(max_heap_table_size, tmp_table_size)"
     mysql_max_total_per_thread_buffers,         Bytes,              per_thread_buffers \* max_used_connections
     mysql_max_used_connections,                 Number,             "Max number of connections ever open at the same time. The global value can be flushed by FLUSH STATUS."
     mysql_max_used_memory,                      Bytes,              server_buffers + max_total_per_thread_buffers + performance schema usage
