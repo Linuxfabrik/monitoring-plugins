@@ -152,15 +152,15 @@ def main():
         mycalc['pct_writes'] = 100 - mycalc['pct_reads']
 
     # build the message
-    msg += 'Up {} ({} q [{} qps], {} conn, TX: {}, RX: {}); Reads / Writes: {}% / {}%'.format(
+    msg += 'Up {} ({} q [{} qps], {} conn, TX: {}, RX: {}); Read/Write: {}%/{}%'.format(
         lib.human3.seconds2human(int(mystat['Uptime'])),
         lib.human3.number2human(int(mystat['Questions'])),
         lib.human3.number2human(qps),
         lib.human3.number2human(int(mystat['Connections'])),
         lib.human3.number2human(int(mystat['Bytes_sent'])),
         lib.human3.number2human(int(mystat['Bytes_received'])),
-        mycalc['pct_reads'],
-        mycalc['pct_writes'],
+        round(mycalc['pct_reads'], 1),
+        round(mycalc['pct_writes'], 1),
     )
 
     perfdata += lib.base3.get_perfdata('mysql_bytes_received', mystat['Bytes_received'], 'B', None, None, 0, None)

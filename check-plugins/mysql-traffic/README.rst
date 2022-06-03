@@ -55,7 +55,7 @@ Output:
 
 .. code-block:: text
 
-    Up 1h 6m (817.0 q [0.2 qps], 331.0 conn, TX: 1.4M, RX: 104.5K); Reads / Writes: 100% / 0%
+    Up 1W 3D (907.7K q [1.0 qps], 470.0 conn, TX: 560.2M, RX: 96.4M); Read/Write: 65.3%/34.7%
 
 
 States
