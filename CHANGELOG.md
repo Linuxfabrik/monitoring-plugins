@@ -20,6 +20,7 @@ New features:
 * New check infomaniak-swiss-backup-products
 * New check mysql-aria
 * New check mysql-connections
+* New check mysql-joins
 * New check mysql-logfile
 * New check mysql-memory
 * New check mysql-slow-queries
