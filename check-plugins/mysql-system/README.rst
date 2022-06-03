@@ -80,7 +80,7 @@ Perfdata / Metrics
     mysql_kernel_fs.aio-max-nr,                 Number,             Defines the maximum number of asynchronous I/O operations the system can handle on the server.
     mysql_kernel_sunrpc.tcp_slot_table_entries, Number,             Sets the number of (TCP) RPC entries to pre-allocate for in-flight RPC requests (essentially the minimum).
     mysql_kernel_vm.swappiness,                 Percentage,         "Changes the balance between swapping out runtime memory, as opposed to dropping pages from the system page cache."
-    mysql_opened_ports,                         Number,             Number of opened ports,
+    mysql_opened_ports,                         Number,             Number of opened ports.
 
 
 Credits, License
