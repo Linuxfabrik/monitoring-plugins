@@ -27,7 +27,6 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
-import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
@@ -38,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060701'
+__version__ = '2022060702'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -157,7 +156,7 @@ def main():
         elif line['Engine'] == 'berkeleydb':
             engine = 'bdb'
         myvar['have_{}'.format(engine)] = 'YES' if line['Support'] == 'DEFAULT' else 'YES'
-    
+
     if not myvar.get('have_aria', ''):
         lib.base3.oao('Aria Storage Engine not available.', STATE_UNKNOWN)
     if myvar['have_aria'] != 'YES':
