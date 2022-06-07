@@ -62,7 +62,7 @@ States
 ------
 
 * WARN if ``thread_cache_size`` is ``0``.
-* WARN is thread cache hit rate is <= 50%.
+* WARN if thread cache hit rate is <= 50%.
 
 
 Perfdata / Metrics
