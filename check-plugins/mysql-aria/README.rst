@@ -66,15 +66,14 @@ Output:
 
 .. code-block:: text
 
-    Aria pagecache size / total Aria indexes: 128.0MiB/336.0KiB, Aria pagecache hit rate: 95.5% (33.8M cached / 1.5M reads)
+    Aria pagecache size / total Aria indexes: 128.0MiB/0.0B, 99.9% Aria pagecache hit rate (1.5G cached / 763.3K reads)
 
 
 States
 ------
 
-* WARN if unable to calculate Aria index size on MySQL/MariaDB server.
-* WARN if aria_pagecache_buffer_size < total_aria_indexes and pct_aria_keys_from_mem < 95%.
-* WARN if Aria_pagecache_read_requests > 0 and pct_aria_keys_from_mem < 95%.
+* WARN if ``aria_pagecache_buffer_size`` < ``total_aria_indexes`` and ``pct_aria_keys_from_mem`` < 95%.
+* WARN if ``aria_pagecache_read_requests`` > 0 and ``pct_aria_keys_from_mem`` < 95%.
 
 
 Perfdata / Metrics

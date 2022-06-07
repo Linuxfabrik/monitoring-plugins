@@ -38,7 +38,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022051401'
+__version__ = '2022060701'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -166,9 +166,9 @@ def main():
     # Aria pagecache
     sql = "select ifnull(sum(index_length),0) as total_aria_indexes from information_schema.tables where table_schema not in ('information_schema') and engine = 'aria';"
     result  = lib.base3.coe(lib.db_mysql3.select(conn, sql))
-    total_aria_indexes = result[0].get('total_aria_indexes', 0)
-    if not total_aria_indexes:
-        lib.base3.oao('Unable to calculate Aria index size on MySQL/MariaDB server.', STATE_WARN)
+    total_aria_indexes = result[0].get('total_aria_indexes', None)
+    if total_aria_indexes is None:
+        lib.base3.oao('Unable to calculate Aria index size on MySQL/MariaDB server.', STATE_OK)
 
     # init some vars
     msg = ''
@@ -193,30 +193,30 @@ def main():
         aria_pagecache_buffer_size_state = STATE_OK
     msg = 'Aria pagecache size / total Aria indexes: {}/{}{}, '.format(
         lib.human3.bytes2human(int(myvar['aria_pagecache_buffer_size'])),
-        lib.human3.bytes2human(total_aria_indexes),
+        lib.human3.bytes2human(int(total_aria_indexes)),
         msg,
     )
     perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_buffer_size', myvar['aria_pagecache_buffer_size'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_total_aria_indexes', total_aria_indexes, None, None, None, 0, None)
 
     if int(mystat['Aria_pagecache_read_requests']) > 0:
+        msg += '{}% Aria pagecache hit rate ({} cached / {} reads)'.format(
+            pct_aria_keys_from_mem,
+            lib.human3.number2human(mystat['Aria_pagecache_read_requests']),
+            lib.human3.number2human(mystat['Aria_pagecache_reads']),
+        )
         if pct_aria_keys_from_mem < 95:
             pct_aria_keys_from_mem_state = STATE_WARN
             state = lib.base3.get_worst(state, pct_aria_keys_from_mem_state)
-        else:
-            pct_aria_keys_from_mem_state = STATE_OK
-        msg += 'Aria pagecache hit rate: {}% ({} cached / {} reads){}, '.format(
-            pct_aria_keys_from_mem,
-            lib.human3.number2human(int(mystat['Aria_pagecache_read_requests'])),
-            lib.human3.number2human(int(mystat['Aria_pagecache_reads'])),
-            lib.base3.state2str(pct_aria_keys_from_mem_state, prefix=' '),
-        )
+            msg += '{}.'.format(
+                lib.base3.state2str(pct_aria_keys_from_mem_state, prefix=' '),
+            )
         perfdata += lib.base3.get_perfdata('mysql_pct_aria_keys_from_mem', pct_aria_keys_from_mem, '%', 95, None, 0, 100)
         perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_read_requests', mystat['Aria_pagecache_read_requests'], 'c', None, None, 0, None)
         perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_reads', mystat['Aria_pagecache_reads'], 'c', None, None, 0, None)
 
     # over and out
-    lib.base3.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
