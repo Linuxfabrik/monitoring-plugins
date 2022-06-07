@@ -73,12 +73,12 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description
-    mysql_max_heap_table_size,                  Bytes,              Maximum size in bytes for user-created MEMORY tables.
-    mysql_tmp_table_size,                       Bytes,              The largest size for temporary tables in memory (not MEMORY tables) although if max_heap_table_size is smaller the lower limit will apply.
     mysql_created_tmp_disk_tables,              Continous Counter,  Number of on-disk temporary tables created.
     mysql_created_tmp_tables,                   Continous Counter,  Number of in-memory temporary tables created.
+    mysql_max_heap_table_size,                  Bytes,              Maximum size in bytes for user-created MEMORY tables.
     mysql_max_tmp_table_size,                   Bytes,              "max(max_heap_table_size, tmp_table_size)"
     mysql_pct_temp_disk,                        Percentage,         Created_tmp_disk_tables / Created_tmp_tables * 100
+    mysql_tmp_table_size,                       Bytes,              The largest size for temporary tables in memory (not MEMORY tables) although if max_heap_table_size is smaller the lower limit will apply.
 
 
 Credits, License
