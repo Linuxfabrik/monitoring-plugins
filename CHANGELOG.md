@@ -23,6 +23,7 @@ New features:
 * New check mysql-joins
 * New check mysql-logfile
 * New check mysql-memory
+* New check mysql-open-files
 * New check mysql-slow-queries
 * New check mysql-sorts
 * New check mysql-system
