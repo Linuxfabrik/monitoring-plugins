@@ -1,0 +1,218 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022060801'
+
+DESCRIPTION = """Checks the hit rate for open tables cache lookups in MySQL/MariaDB."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = '3306'
+DEFAULT_PASSWORD = ''
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def get_vars(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global variables
+        where variable_name like 'open_files_limit'
+            or variable_name like 'table_open_cache'
+            ;
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def get_status(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW STATUS displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global status
+        where variable_name like 'Open_tables'
+            or variable_name like 'Opened_tables'
+            or variable_name like 'Table_open_cache_hits'
+            or variable_name like 'Table_open_cache_misses'
+            ;
+          """
+    return lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:mysql_stats(), section # Table cache, v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+        'raise_on_warnings':  True
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+    myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    mycalc = {}
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+
+    # calculations
+    if int(mystat['Opened_tables']) > 0:
+        if mystat.get('Table_open_cache_hits', None) is None:
+            mycalc['table_cache_hit_rate'] = round(int(mystat['Open_tables']) / int(mystat['Opened_tables']) * 100, 1)
+        else:
+            mycalc['table_cache_hit_rate'] = round(int(mystat['Table_open_cache_hits']) / (int(mystat['Table_open_cache_hits']) + int(mystat['Table_open_cache_misses'])) * 100, 1)
+    else:
+        mycalc['table_cache_hit_rate'] = 100
+
+    # Table cache
+    if int(mystat['Open_tables']) > 0:
+        if mystat.get('Table_open_cache_hits', None) is None:
+            msg = '{}% table cache hit rate ({} hits / {} requests)'.format(
+                mycalc['table_cache_hit_rate'],
+                lib.human3.number2human(mystat['Open_tables']),
+                lib.human3.number2human(mystat['Opened_tables']),
+            )
+        else:
+            msg = '{}% table cache hit rate ({} hits / {} requests)'.format(
+                mycalc['table_cache_hit_rate'],
+                lib.human3.number2human(mystat['Table_open_cache_hits']),
+                lib.human3.number2human(int(mystat['Table_open_cache_hits']) + int(mystat['Table_open_cache_misses'])),
+            )
+            perfdata += lib.base3.get_perfdata('mysql_table_open_cache_hits', mystat['Table_open_cache_hits'], 'c', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('mysql_table_open_cache_misses', mystat['Table_open_cache_misses'], 'c', None, None, 0, None)
+
+        if mycalc['table_cache_hit_rate'] < 20:
+            state = STATE_WARN
+            msg += '{}. Set table_open_cache > {}. '.format(
+                lib.base3.state2str(state, prefix=' '),
+                myvar['table_open_cache'],
+            )
+            msg += 'Beware that open_files_limit ({}) should be greater than table_open_cache ({}). '.format(
+                myvar['open_files_limit'],
+                myvar['table_open_cache'],
+            )
+            msg += 'Increase table_open_cache gradually to avoid file descriptor limits. '
+            msg += 'Make sure that your operating system can cope with the number of open file '
+            msg += 'descriptors required by the table_open_cache setting. If table_open_cache is '
+            msg += 'set too high, the DB may start to refuse connections as the operating system '
+            msg += 'runs out of file descriptors. Also note that the MyISAM (and Aria?) storage '
+            msg += 'engines need two file descriptors per open table.'
+    else:
+        msg = 'Everything is ok.'
+
+    perfdata += lib.base3.get_perfdata('mysql_open_files_limit', myvar['open_files_limit'], None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_table_open_cache', myvar['table_open_cache'], None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('mysql_open_tables', mystat['Open_tables'], None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_opened_tables', mystat['Opened_tables'], None, None, None, 0, None)
+
+    perfdata += lib.base3.get_perfdata('mysql_table_cache_hit_rate', mycalc['table_cache_hit_rate'], '%', None, None, 0, 100)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

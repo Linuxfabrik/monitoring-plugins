@@ -26,6 +26,7 @@ New features:
 * New check mysql-slow-queries
 * New check mysql-sorts
 * New check mysql-system
+* New check mysql-table-cache
 * New check mysql-temp-tables
 * New check mysql-thread-cache
 * New check mysql-traffic
