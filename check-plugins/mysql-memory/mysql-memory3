@@ -42,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060101'
+__version__ = '2022060801'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -264,6 +264,8 @@ def main():
     physical_memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     mycalc['pct_max_used_memory'] = round(mycalc['max_used_memory'] / physical_memory * 100, 1)
     mycalc['pct_max_physical_memory'] = round(mycalc['max_peak_memory'] / physical_memory * 100, 1)
+
+    lib.db_mysql3.close(conn)
 
     if not lib.base3.X86_64 and mycalc['max_used_memory'] > 2 * 1024 * 1024 * 1024:
         mem1_state = STATE_WARN

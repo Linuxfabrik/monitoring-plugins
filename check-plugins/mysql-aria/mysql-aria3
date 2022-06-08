@@ -37,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060702'
+__version__ = '2022060801'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -176,6 +176,7 @@ def main():
 
     # calculations
     mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    lib.db_mysql3.close(conn)
     if mystat.get('Aria_pagecache_read_requests', 0) and int(mystat['Aria_pagecache_read_requests']) > 0:
         pct_aria_keys_from_mem = 100 - round(int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100, 1)
     else:

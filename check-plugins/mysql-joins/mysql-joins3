@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060301'
+__version__ = '2022060801'
 
 DESCRIPTION = """Checks if many joins per day without indexes were executed on MySQL/MariaDB."""
 
@@ -150,6 +150,7 @@ def main():
     perfdata = ''
     mycalc = {}
     mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    lib.db_mysql3.close(conn)
 
     # calculations
     mycalc['joins_without_indexes'] = int(mystat['Select_range_check']) + int(mystat['Select_full_join'])

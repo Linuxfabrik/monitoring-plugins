@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060202'
+__version__ = '2022060801'
 
 DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and 
                  if name resolution is active for new connections on MySQL/MariaDB."""
@@ -156,6 +156,7 @@ def main():
     perfdata = ''
     mycalc = {}
     mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    lib.db_mysql3.close(conn)
 
     # calculations
     mycalc['pct_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
