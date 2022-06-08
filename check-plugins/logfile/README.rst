@@ -51,15 +51,15 @@ Help
 
 .. code-block:: text
 
-    usage: logfile3 [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
-                    [-c CRIT] [--critical-pattern CRIT_PATTERN]
-                    [--critical-regex CRIT_REGEX] --filename FILENAME
-                    [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
-                    [--icinga-service-name ICINGA_SERVICE_NAME]
-                    [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-                    [--ignore-pattern IGNORE_PATTERN]
-                    [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
-                    [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+    usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
+                   [-c CRIT] [--critical-pattern CRIT_PATTERN]
+                   [--critical-regex CRIT_REGEX] --filename FILENAME
+                   [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
+                   [--icinga-service-name ICINGA_SERVICE_NAME]
+                   [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
+                   [--ignore-pattern IGNORE_PATTERN]
+                   [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
+                   [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
 
     Scans a logfile for set of pattern or regex and alarms on the number of
     findings.
