@@ -14,7 +14,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-joins"
-    "Check Interval Recommendation",        "Every hour"
+    "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
     "Requirements",                         "Python module ``mysql.connector``; User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."

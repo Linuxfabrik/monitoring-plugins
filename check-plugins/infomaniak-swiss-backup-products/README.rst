@@ -26,7 +26,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-products"
-    "Check Interval Recommendation",        "Every hour"
+    "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 3, Windows"
     "Requirements",                         "None"
