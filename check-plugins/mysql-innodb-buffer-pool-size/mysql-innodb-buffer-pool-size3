@@ -145,8 +145,10 @@ def main():
     engines = lib.db_mysql3.get_engines(conn)
 
     if not engines.get('have_innodb', ''):
+        lib.db_mysql3.close(conn)
         lib.base3.oao('InnoDB Storage Engine not available.', STATE_UNKNOWN)
     if engines['have_innodb'] != 'YES':
+        lib.db_mysql3.close(conn)
         lib.base3.oao('InnoDB Storage Engine is disabled.', STATE_UNKNOWN)
 
     sql = 'select sum(data_length+index_length) as size from information_schema.tables where table_schema not in ("information_schema", "performance_schema", "mysql") and engine = "innodb";'
