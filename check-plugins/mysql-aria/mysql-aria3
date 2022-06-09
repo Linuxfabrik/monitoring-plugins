@@ -143,23 +143,11 @@ def main():
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
     myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+    engines = lib.db_mysql3.get_engines(conn)
 
-    # have_* for engines is deprecated and is removed since MySQL 5.6;
-    # check SHOW ENGINES and set corresponding old style variables.
-    # Also works around MySQL bug #59393 wrt. skip-innodb
-    sql = 'show engines'
-    mysqlenginelist = lib.base3.coe(lib.db_mysql3.select(conn, sql))
-    for line in mysqlenginelist:
-        engine = line['Engine'].lower()
-        if line['Engine'] == 'federated' or line['Engine'] == 'blackhole':
-            engine += '_engine'
-        elif line['Engine'] == 'berkeleydb':
-            engine = 'bdb'
-        myvar['have_{}'.format(engine)] = 'YES' if line['Support'] == 'DEFAULT' else 'YES'
-
-    if not myvar.get('have_aria', ''):
+    if not engines.get('have_aria', ''):
         lib.base3.oao('Aria Storage Engine not available.', STATE_UNKNOWN)
-    if myvar['have_aria'] != 'YES':
+    if engines['have_aria'] != 'YES':
         lib.base3.oao('Aria Storage Engine is disabled.', STATE_UNKNOWN)
 
     # Aria pagecache
