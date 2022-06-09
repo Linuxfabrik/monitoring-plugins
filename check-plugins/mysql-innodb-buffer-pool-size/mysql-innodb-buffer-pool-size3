@@ -139,6 +139,9 @@ def main():
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
 
     myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+    if myvar.get('innodb_log_files_in_group', None) is None:
+        # innodb_log_files_in_group removed in MariaDB 10.6.0
+        myvar['innodb_log_files_in_group'] = '1'
     engines = lib.db_mysql3.get_engines(conn)
 
     if not engines.get('have_innodb', ''):
@@ -148,6 +151,8 @@ def main():
 
     sql = 'select sum(data_length+index_length) as size from information_schema.tables where table_schema not in ("information_schema", "performance_schema", "mysql") and engine = "innodb";'
     enginestats = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+    if enginestats[0]['size'] is None:
+        enginestats[0]['size'] = 0
 
     lib.db_mysql3.close(conn)
 
@@ -179,7 +184,7 @@ def main():
     if int(mycalc['innodb_log_size_pct']) < 20 or int(mycalc['innodb_log_size_pct']) > 30:
         ratio_state = STATE_WARN
         state = lib.base3.get_worst(state, ratio_state)
-        msg += '{} (should be 25%). '.format(
+        msg += '{} (should be 25% of innodb_buffer_pool_size). '.format(
             lib.base3.state2str(ratio_state, prefix=' '),
         )
         msg += 'Set innodb_log_file_size to {}.'.format(
