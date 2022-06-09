@@ -148,11 +148,6 @@ def main():
         lib.db_mysql3.close(conn)
         lib.base3.oao('InnoDB Storage Engine is disabled.', STATE_UNKNOWN)
 
-    sql = 'select sum(data_length+index_length) as size from information_schema.tables where table_schema not in ("information_schema", "performance_schema", "mysql") and engine = "innodb";'
-    enginestats = lib.base3.coe(lib.db_mysql3.select(conn, sql))
-    if enginestats[0]['size'] is None:
-        enginestats[0]['size'] = 0
-
     lib.db_mysql3.close(conn)
 
     # InnoDB Buffer Pool Instances
