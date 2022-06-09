@@ -21,6 +21,7 @@ New features:
 * New check mysql-aria
 * New check mysql-binlog-cache
 * New check mysql-connections
+* New check mysql-innodb-buffer-pool-size
 * New check mysql-joins
 * New check mysql-logfile
 * New check mysql-memory
