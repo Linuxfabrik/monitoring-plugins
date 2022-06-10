@@ -43,6 +43,7 @@ New features:
 
 Changes in existing functionality:
 
+* about-me: Add Birthdate ([fix 554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
 * apache-httpd-status: Add insecure parameter
 * dhcp-scope-usage3: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
 * disk-io: Checks if psutil has a certain minimum version on systems with kernel 4.18+.
