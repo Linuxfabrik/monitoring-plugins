@@ -23,6 +23,7 @@ New features:
 * New check mysql-connections
 * New check mysql-innodb-buffer-pool-instances
 * New check mysql-innodb-buffer-pool-size
+* New check mysql-innodb-log-waits
 * New check mysql-joins
 * New check mysql-logfile
 * New check mysql-memory
