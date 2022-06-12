@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061001'
+__version__ = '2022061201'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -221,16 +221,15 @@ def get_crontabs():
 
 
 def get_disks():
-    msg = ''
+    result = ''
     stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
     for disk in stdout.strip().splitlines():
         # zRAM devices can appear in the output of lsblk, but
         # we cannot do anything useful with them
         if disk.startswith('zram'):
             continue
-        msg = '{}* {}\n'.format(msg, disk)
-
-    return msg
+        result += '{}, '.format(disk)
+    return result[:-2]
 
 
 def get_interfaces():
@@ -247,6 +246,28 @@ def get_interfaces():
         pass
 
     return msg
+
+
+def get_key_features():
+    features_found, features_na = '', ''
+    features = [
+        {'name': 'firewalld', 'cmd': 'command -v firewalld'},
+        {'name': 'iptables', 'cmd': 'command -v iptables'},
+        {'name': 'LVM', 'cmd': 'command -v lvdisplay'},
+        {'name': 'nftables', 'cmd': 'command -v nftables'},
+        {'name': 'SELinux', 'cmd': 'command -v sestatus'},
+    ]
+    for feature in features:
+        if find_command('', feature['cmd'], ignore_output=True):
+            features_found += '{}, '.format(feature['name'])
+        else:
+            features_na += '{}, '.format(feature['name'])
+    result = ''
+    if features_found:
+        result += 'Features: {}; '.format(features_found[:-2])
+    if features_na:
+        result += 'Missing: {}; '.format(features_na[:-2])
+    return result[:-2]
 
 
 def get_nondefault_users():
@@ -540,34 +561,38 @@ def main():
 
     virt = get_virt_info()
     if virt == 'none':
-        msg += ' on bare-metal,'
+        msg += ' on bare-metal'
     else:
-        msg += ' virtualized on {},'.format(virt)
+        msg += ' virtualized on {}'.format(virt)
 
     sys_dimensions = get_sys_dimensions()
     if sys_dimensions:
-        msg = '{} {} {}, {} RAM'.format(
-            msg,
+        msg += ', {} {}, {} RAM'.format(
             sys_dimensions['cpu'],
             lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
             lib.human3.bytes2human(sys_dimensions['ram'])
         )
     else:
-        msg = '{} no sys dimensions (consider installing psutil)'.format(msg)
+        msg += ', no sys dimensions (consider installing psutil)'
+
+    disks = get_disks()
+    if disks:
+        msg += ', {} {}'.format(
+            lib.txt3.pluralize('Disk', disks.count(',')+1),
+            disks,
+        )
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
-        msg = '{}, Public IP {}'.format(msg, pub_ip)
+        msg += ', Public IP {}'.format(pub_ip)
 
     birthday = get_birthdate()
     if birthday and birthday != '-':
         msg += ', born {}'.format(birthday)
 
-    # further lines
+    msg += '. {}'.format(get_key_features())
 
-    disks = get_disks()
-    if disks:
-        msg = '{}\n\n# Disks\n{}'.format(msg, disks)
+    # further lines
 
     interfaces = get_interfaces()
     if interfaces:

@@ -58,11 +58,7 @@ Output:
 
 .. code-block:: text
 
-    myhostname - Fedora release 34 (Thirty Four) on bare-metal, 8 CPUs, 15.2GiB RAM, Public IP 1.2.3.4
-
-    # Disks
-    * nvme0n1 953.9G
-
+    myhostname - Fedora release 35 (Thirty Five) on bare-metal, 8 CPUs, 15.3GiB RAM, Disk nvme0n1 953.9G, Public IP 1.0.0.1, born 2022-01-16. Features: firewalld, iptables, LVM, SELinux; Missing: nftables
 
     # Interfaces (IPv4)
     * virbr0 192.168.122.1/24
