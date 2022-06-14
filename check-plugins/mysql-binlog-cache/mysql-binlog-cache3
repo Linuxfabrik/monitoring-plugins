@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060801'
+__version__ = '2022061401'
 
 DESCRIPTION = """Checks if a certain amount of transactions used a temporary disk cache because
                  they could not fit in the regular binary log cache in MySQL/MariaDB."""
@@ -155,7 +155,10 @@ def main():
     lib.db_mysql3.close(conn)
 
     # calculations
-    if myvar['log_bin'] != 'OFF':
+    if myvar['log_bin'] == 'OFF':
+        lib.base3.oao('Binary logging is disabled.', STATE_UNKNOWN)
+
+    if int(mystat['Binlog_cache_use']) != 0:
         mycalc['pct_binlog_cache'] = round((int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use'])) / int(mystat['Binlog_cache_use']) * 100, 1)
     else:
         mycalc['pct_binlog_cache'] = 0
@@ -163,8 +166,8 @@ def main():
     # Binlog cache
     msg = '{}% binlog cache memory access ({} memory / {} total)'.format(
         mycalc['pct_binlog_cache'],
-        int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use']),
-        mystat['Binlog_cache_use'],
+        lib.human3.number2human(int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use'])),
+        lib.human3.number2human(mystat['Binlog_cache_use']),
     )
     if mycalc['pct_binlog_cache'] < 90 and int(mystat['Binlog_cache_use']) > 0:
         state = STATE_WARN
