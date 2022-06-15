@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022030801'
+__version__ = '2022061501'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -194,6 +194,7 @@ def main():
     # section "php.ini" from monitoring.php, print as key-value-table
     if php.get('php.ini'):
         table_values.append({'key': 'date.timezone', 'val': php.get('php.ini').get('date.timezone', 'N/A')})
+        table_values.append({'key': 'default_socket_timeout', 'val': php.get('php.ini').get('default_socket_timeout', 'N/A')})
         val = php.get('php.ini').get('display_errors', 'N/A')
         if val in ('On', '1', 'N/A'):
             val = val + lib.base3.state2str(STATE_WARN, prefix=' ')
@@ -211,8 +212,11 @@ def main():
             state = lib.base3.get_worst(state, STATE_WARN)
         table_values.append({'key': 'expose_php', 'val': val})
         table_values.append({'key': 'max_execution_time', 'val': php.get('php.ini').get('max_execution_time', 'N/A')})
+        table_values.append({'key': 'max_file_uploads', 'val': php.get('php.ini').get('max_file_uploads', 'N/A')})
+        table_values.append({'key': 'max_input_time', 'val': php.get('php.ini').get('max_input_time', 'N/A')})
         table_values.append({'key': 'memory_limit', 'val': php.get('php.ini').get('memory_limit', 'N/A')})
         table_values.append({'key': 'post_max_size', 'val': php.get('php.ini').get('post_max_size', 'N/A')})
+        table_values.append({'key': 'SMTP', 'val': php.get('php.ini').get('SMTP', 'N/A')})
         table_values.append({'key': 'upload_max_filesize', 'val': php.get('php.ini').get('upload_max_filesize', 'N/A')})
 
     # checking PHP Opcache module
@@ -331,10 +335,13 @@ def main():
         perfdata += lib.base3.get_perfdata('php-opcache-opcache_statistics-blacklist_misses', php.get('opcache_status').get('opcache_statistics').get('blacklist_misses'), None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('php-opcache-opcache_statistics-blacklist_miss_ratio', php.get('opcache_status').get('opcache_statistics').get('blacklist_miss_ratio'), '%', args.WARN, args.CRIT, 0, 100)
 
+        table_values.append({'key': 'opcache.blacklist_filename', 'val': php.get('opcache_config').get('directives').get('opcache.blacklist_filename')})
         table_values.append({'key': 'opcache.enable', 'val': php.get('opcache_config').get('directives').get('opcache.enable')})
+        table_values.append({'key': 'opcache.enable_cli', 'val': php.get('opcache_config').get('directives').get('opcache.enable_cli')})
+        table_values.append({'key': 'opcache.huge_code_pages', 'val': php.get('opcache_config').get('directives').get('opcache.huge_code_pages')})
         table_values.append({'key': 'opcache.interned_strings_buffer', 'val': php.get('opcache_config').get('directives').get('opcache.interned_strings_buffer')})
         table_values.append({'key': 'opcache.max_accelerated_files', 'val': php.get('opcache_config').get('directives').get('opcache.max_accelerated_files')})
-        table_values.append({'key': 'opcache.memory_consumption', 'val': php.get('opcache_config').get('directives').get('opcache.memory_consumption')})
+        table_values.append({'key': 'opcache.memory_consumption', 'val': lib.human3.bytes2human(php.get('opcache_config').get('directives').get('opcache.memory_consumption'))})
         table_values.append({'key': 'opcache.revalidate_freq', 'val': php.get('opcache_config').get('directives').get('opcache.revalidate_freq')})
         table_values.append({'key': 'opcache.save_comments', 'val': php.get('opcache_config').get('directives').get('opcache.save_comments')})
         table_values.append({'key': 'opcache.validate_timestamps', 'val': 'True' if php.get('opcache_config').get('directives').get('opcache.validate_timestamps') else 'False'})
