@@ -91,6 +91,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--full-name',
+        help='Use full container name, for example `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name will be shortened after the replica number (default behaviour).',
+        dest='FULL_NAME',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--warning-cpu',
         help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
         default=DEFAULT_WARN_CPU,
@@ -208,11 +216,9 @@ def main():
         state = lib.base3.get_worst(mem_state, state)
 
         table_values.append({
-            'name': name,
-            'cpu_usage': cpu_usage,
-            'cpu_state': lib.base3.state2str(cpu_state, empty_ok=False),
-            'mem_usage': mem_usage,
-            'mem_state': lib.base3.state2str(mem_state, empty_ok=False),
+            'name': name if args.FULL_NAME else name.rsplit('.', 1)[0],     # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
+            'cpu_usage': '{}{}'.format(cpu_usage, lib.base3.state2str(cpu_state, prefix=' ')),
+            'mem_usage': '{}{}'.format(mem_usage, lib.base3.state2str(mem_state, prefix=' ')),
             })
 
     # we don't need the database any more: save data and close connection
@@ -227,8 +233,8 @@ def main():
     if len(table_values) > 0:
         msg += lib.base3.get_table(
             table_values,
-            ['name', 'cpu_usage', 'cpu_state', 'mem_usage', 'mem_state'],
-            header=['Container', 'CPU %', 'State', 'Mem % ', 'State'],
+            ['name', 'cpu_usage', 'mem_usage'],
+            header=['Container', 'CPU %', 'Mem % '],
             )
 
     # over and out
