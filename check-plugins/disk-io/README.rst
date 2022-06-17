@@ -130,7 +130,7 @@ Troubleshooting
 ---------------
 
 psutil raised error "not sure how to interpret line '...'"
-    Update the ``psutil`` library.
+    Update the ``psutil`` library. On Rocky 8, use at least ``python38`` and ``python38-psutil``.
 
 
 Credits, License
