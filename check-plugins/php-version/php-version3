@@ -39,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021801'
+__version__ = '2022061701'
 
 DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
                 whether the installed PHP version is EOL. For example, if you installed PHP 7.3
@@ -166,7 +166,7 @@ def main():
     msg = 'PHP v{} installed'.format(installed_version)
 
     # check the installed vs available version
-    if lib.base3.version(installed_major + '.' + installed_minor) < lib.base3.version(latest_major + '.' + latest_minor):
+    if lib.base3.version('{}.{}'.format(installed_major, installed_minor)) < lib.base3.version(latest_major + '.' + latest_minor):
         state = STATE_WARN
 
     # check EOL
@@ -174,49 +174,56 @@ def main():
     # this list manually (available on https://en.wikipedia.org/wiki/PHP)
 
     # old version
-    if installed_major + '.' + installed_minor == '5.0':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.0':
         msg += ', EOL since 2005-09-05'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.1':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.1':
         msg += ', EOL since 2006-08-24'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.2':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.2':
         msg += ', EOL since 2011-01-06'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.3':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.3':
         msg += ', EOL since 2014-08-14'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.4':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.4':
         msg += ', EOL since 2015-09-03'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.5':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.5':
         msg += ', EOL since 2016-07-10'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '5.6':
+    if '{}.{}'.format(installed_major, installed_minor) == '5.6':
         msg += ', EOL since 2018-12-31'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '7.0':
+    if '{}.{}'.format(installed_major, installed_minor) == '7.0':
         msg += ', EOL since 2019-01-10'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '7.1':
+    if '{}.{}'.format(installed_major, installed_minor) == '7.1':
         msg += ', EOL since 2019-12-01'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '7.2':
+    if '{}.{}'.format(installed_major, installed_minor) == '7.2':
         msg += ', EOL since 2020-11-30'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '7.3':
+    if '{}.{}'.format(installed_major, installed_minor) == '7.3':
         msg += ', EOL since 2021-12-06'
         state = STATE_WARN
 
-    # latest or older version, still maintained
-    if installed_major + '.' + installed_minor == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
+    # older version, still maintained
+    if '{}.{}'.format(installed_major, installed_minor) == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
         msg += ', EOL since 2022-11-28'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '8.0' and lib.time3.now(as_type='iso') > '2023-11-26':
+    if '{}.{}'.format(installed_major, installed_minor) == '8.0' and lib.time3.now(as_type='iso') > '2023-11-26':
         msg += ', EOL since 2023-11-26'
         state = STATE_WARN
-    if installed_major + '.' + installed_minor == '8.1' and lib.time3.now(as_type='iso') > '2024-11-30':
+
+    # latest version
+    if '{}.{}'.format(installed_major, installed_minor) == '8.1' and lib.time3.now(as_type='iso') > '2024-11-25':
         msg += ', EOL since 2024-11-25'
+        state = STATE_WARN
+
+    # future release
+    if '{}.{}'.format(installed_major, installed_minor) == '8.2' and lib.time3.now(as_type='iso') > '2025-11-24':
+        msg += ', EOL since 2025-11-24'
         state = STATE_WARN
 
     if lib.base3.version(installed_version) >= lib.base3.version(latest_minor_version):
