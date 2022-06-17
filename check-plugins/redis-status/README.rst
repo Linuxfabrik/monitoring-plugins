@@ -64,7 +64,9 @@ Output:
 
 .. code-block:: text
 
-    Redis v6.2.6, standalone mode on 127.0.0.1:6379, /etc/redis/redis.conf, up 1D 6h, 13.9% memory usage (132.6MiB/953.7MiB, 133.4MiB peak, 131.1MiB RSS), maxmemory-policy=volatile-lru, 1 DB (db0) with 1236 keys, 0.0 evicted keys, 7.5K expired keys, hit rate 88.1% (577.9K hits, 77.7K misses)
+    Redis v7.0.0, standalone mode on 127.0.0.1:6379, /etc/redis/redis.conf, up 3W 3h, 22.5% memory usage (644.6MiB/2.8GiB, 1014.6MiB peak, 625.4MiB RSS), maxmemory-policy=volatile-lru, 1 DB (db0) with 13547 keys, 0.0 evicted keys, 555.5K expired keys, hit rate 62.7% (4.1M hits, 2.4M misses), Sam, I detected a few issues in this Redis instance memory implants:
+
+    * Peak memory: In the past this instance used more than 150% the memory that is currently using. The allocator is normally not able to release memory after a peak, so you can expect to see a big fragmentation ratio, however this is actually harmless and is only due to the memory peak, and if the Redis instance Resident Set Size (RSS) is currently bigger than expected, the memory will be used as soon as you fill the Redis instance with more data. If the memory peak was only occasional and you want to try to reclaim memory, please try the MEMORY PURGE command, otherwise the only other option is to shutdown and restart the instance.
 
 
 States
