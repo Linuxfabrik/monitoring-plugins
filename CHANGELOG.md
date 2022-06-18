@@ -45,6 +45,7 @@ Changes in existing functionality:
 
 * about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
+* about-me: Add gpg ([fix #511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
 * about-me: Add swanctl ([fix #575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
 * about-me: Print its own version ([fix #439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
 * about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
