@@ -53,7 +53,8 @@ Changes in existing functionality:
 * about-me: Report active tuned-Profile in first line if tuned.service is found and running ([fix #374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
 * about-me: Report Boot Mode ([fix #562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
 * about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
-* apache-httpd-status: Add insecure parameter
+* apache-httpd-status: New parameter `--insecure`
+* cpu-usage: Subtract the "nice" percentage from thresholds ([fix #550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
 * dhcp-scope-usage: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
 * disk-io: Checks if psutil has a certain minimum version on systems with kernel 4.18+.
 * disk-smart: Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))

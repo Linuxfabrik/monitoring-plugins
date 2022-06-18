@@ -77,26 +77,31 @@ Output:
 States
 ------
 
-* OK if ``user``, ``system``, ``iowait`` and overall ``cpu-usage`` are all below the thresholds within the last ``--count`` checks.
+* OK if ``user``, ``system``, ``iowait`` and overall ``cpu-usage`` (minus ``nice``) are all below the thresholds within the last ``--count`` checks.
 * Otherwise CRIT or WARN.
 
 
 Perfdata / Metrics
 ------------------
 
-* ``cpu-usage``: %. The overall cpu usage. This is (100 - ``idle``).
-* ``ctx_switches``: Continous counter. Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer's CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict.
-* ``guest``: %. Linux 2.6.24+: Time spent running a virtual CPU.
-* ``guest_nice``: %. Linux 3.2.0+
-* ``idle``: %. If the CPU has completed all tasks it is idle.
-* ``interrupts``: Continous counter. Number of interrupts since boot.
-* ``iowait``: %. Time spent waiting for I/O to complete. This is not accounted in idle time counter.
-* ``irq``: %. Time spent for servicing hardware interrupts.
-* ``nice``: %. Time spent by niced (prioritized) processes executing in user mode; this also includes guest_nice time.
-* ``soft_interrupts``: Continous counter. Number of software interrupts since boot.
-* ``steal``: %. Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor.
-* ``system``: %. Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel.
-* ``user``: %. Percent time spent in user space. User CPU time is the time spent on the processor running your program's code (or code in libraries).
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    cpu-usage,                                  Percentage,         "The overall cpu usage. This is (100 - ``idle``)."
+    ctx_switches,                               Continous Counter,  "Number of context switches (voluntary + involuntary) since boot. A context switch is a procedure that a computer's CPU (central processing unit) follows to change from one task (or process) to another while ensuring that the tasks do not conflict."
+    guest,                                      Percentage,         "Linux 2.6.24+: Time spent running a virtual CPU."
+    guest_nice,                                 Percentage,         "Linux 3.2.0+"
+    idle,                                       Percentage,         "If the CPU has completed all tasks it is idle."
+    interrupts,                                 Continous Counter,  "Number of interrupts since boot."
+    iowait,                                     Percentage,         "Time spent waiting for I/O to complete. This is not accounted in idle time counter."
+    irq,                                        Percentage,         "Time spent for servicing hardware interrupts."
+    nice,                                       Percentage,         "Time spent by niced (prioritized) processes executing in user mode; this also includes guest_nice time."
+    soft_interrupts,                            Continous Counter,  "Number of software interrupts since boot."
+    steal,                                      Percentage,         "Linux 2.6.11+; Percentage of time a virtual CPU waits for a real CPU while the hypervisor is servicing another virtual processor."
+    system,                                     Percentage,         "Percent time spent in kernel space. System CPU time is the time spent running code in the Operating System kernel."
+    user,                                       Percentage,         "Percent time spent in user space. User CPU time is the time spent on the processor running your program's code (or code in libraries)."
 
 
 Credits, License
