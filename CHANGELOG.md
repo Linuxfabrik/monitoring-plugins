@@ -44,6 +44,7 @@ New features:
 Changes in existing functionality:
 
 * about-me: Add Birthdate ([fix 554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
+* about-me: Print its own version ([fix 439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
 * about-me: Show key features of the Machine ([fix 561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
 * apache-httpd-status: Add insecure parameter
 * dhcp-scope-usage3: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
@@ -51,6 +52,7 @@ Changes in existing functionality:
 * disk-smart: Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))
 * disk-smart: Properly handle Power_On_Hours_and_Msec attribute perfdata parsing ([PR #549](https://github.com/Linuxfabrik/monitoring-plugins/pull/549))
 * disk-smart3: Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
+* docker-stats: Improve handling of container names ([fix 586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
 * file-age: Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
 * file-age: Improve perfdata labels
 * file-age: shorten the message ([fix 559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
