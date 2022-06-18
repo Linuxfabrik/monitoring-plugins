@@ -43,9 +43,9 @@ New features:
 
 Changes in existing functionality:
 
-* about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
 * about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
+* about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
 * about-me: Add gpg ([fix #511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
 * about-me: Add mod_security ([fix #496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
 * about-me: Add swanctl ([fix #575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
@@ -54,14 +54,15 @@ Changes in existing functionality:
 * about-me: Report Boot Mode ([fix #562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
 * about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
 * apache-httpd-status: Add insecure parameter
-* dhcp-scope-usage3: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
+* dhcp-scope-usage: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
 * disk-io: Checks if psutil has a certain minimum version on systems with kernel 4.18+.
 * disk-smart: Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))
+* disk-smart: Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
 * disk-smart: Properly handle Power_On_Hours_and_Msec attribute perfdata parsing ([PR #549](https://github.com/Linuxfabrik/monitoring-plugins/pull/549))
-* disk-smart3: Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
+* docker-info: Raise CRIT on return code != 0 ([fix #569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
 * docker-stats: Improve handling of container names ([fix #586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
-* file-age: Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
 * file-age: Improve perfdata labels
+* file-age: Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
 * file-age: shorten the message ([fix #559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
 * infomaniak-swiss-backup-devices3: Increase default thresholds from 80/90% to 90/95%
 * infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
@@ -70,6 +71,7 @@ Changes in existing functionality:
 * php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
+
 * lib/db_mysql3.py: Enhanced for new mysql-checks
 * lib/disk3.py: Add file_exists() function
 * Icinga: Adjust windows director definitions to the new folder structure
