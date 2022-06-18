@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061808'
+__version__ = '2022061809'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -181,6 +181,10 @@ def get_birthdate():
     if success:
         birthdate, stderr, retc = result
     return birthdate.strip()
+
+
+def get_boot_mode():
+    return 'UEFI' if os.path.isdir('/sys/firmware/efi') else 'BIOS'
 
 
 def get_crontabs():
@@ -603,9 +607,12 @@ def main():
             disks,
         )
 
+    msg += ', {} boot'.format(get_boot_mode())
+
     tuned = get_tuned_active_profile()
     if tuned:
         msg += ', {}'.format(tuned)
+
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
