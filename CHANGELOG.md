@@ -50,6 +50,7 @@ Changes in existing functionality:
 * about-me: Add mod_security ([fix #496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
 * about-me: Add swanctl ([fix #575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
 * about-me: Print its own version ([fix #439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
+* about-me: Report active tuned-Profile in first line if tuned.service is found and running ([fix #374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
 * about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
 * apache-httpd-status: Add insecure parameter
 * dhcp-scope-usage3: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
