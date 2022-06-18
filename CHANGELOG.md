@@ -44,6 +44,7 @@ New features:
 Changes in existing functionality:
 
 * about-me: Add Birthdate ([fix 554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
+* about-me: Add swanctl ([fix 575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
 * about-me: Print its own version ([fix 439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
 * about-me: Show key features of the Machine ([fix 561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
 * apache-httpd-status: Add insecure parameter
