@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061201'
+__version__ = '2022061801'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -228,7 +228,7 @@ def get_disks():
         # we cannot do anything useful with them
         if disk.startswith('zram'):
             continue
-        result += '{}, '.format(disk)
+        result += '{}, '.format(re.sub('\\s+', ' ', disk))
     return result[:-2]
 
 
@@ -398,6 +398,7 @@ def get_sw():
     sw += find_command('GNOME Display Manager',     'gdm --version ',                     version_regex =r' \S*')
     sw += find_command('GNOME Shell',               'gnome-shell --version',              version_regex =r'l (\S*)')
     sw += find_command('Grafana Server',            'grafana-server -v',                  version_regex =r'Version (.*?) ')
+    sw += find_command('HAPrxoy',                   'haproxy -v',                         version_regex =r'version (.*) -')
     sw += find_command('i3',                        'i3 --version',                       version_regex =r'version (\S+)')
     sw += find_command('Icinga2',                   'icinga2 --version',                  version_regex =r'\(version: (.*)\)')
     sw += find_command('InfluxDB',                  'influx --version',                   version_regex =r': (.*)')
