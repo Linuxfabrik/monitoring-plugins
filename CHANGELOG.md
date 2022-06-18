@@ -43,6 +43,7 @@ New features:
 
 Changes in existing functionality:
 
+* about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
 * about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
 * about-me: Add gpg ([fix #511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
