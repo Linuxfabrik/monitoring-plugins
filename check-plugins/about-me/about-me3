@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061901'
+__version__ = '2022061902'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -217,13 +217,11 @@ def get_interfaces():
         for name, interface in sorted(psutil.net_if_addrs().items()):
             if name == 'lo':
                 continue
-
             for addr in interface:
                 if addr.family == lib.net3.AF_INET:
                     msg = '{}* {} {}/{}\n'.format(msg, name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
     except:
         pass
-
     return msg
 
 
@@ -247,6 +245,32 @@ def get_key_features():
     if features_na:
         result += 'Missing: {}; '.format(features_na[:-2])
     return result[:-2]
+
+
+def get_listening_ports():
+    result = []
+    if not HAVE_PSUTIL:
+        return result
+    nc = psutil.net_connections('inet')
+    for c in nc:
+        ip, port = c.laddr
+        if c.type == socket.SOCK_DGRAM:
+            # ignore udp
+            continue
+        if c.type == socket.SOCK_STREAM and c.status == psutil.CONN_LISTEN:
+            proto = 'tcp'
+        else:
+            continue
+        if c.family == socket.AF_INET:
+            proto += '4'
+        else:
+            proto += '6'
+        result.append({
+            'proto': proto,
+            'ip': ip if ip != '::' else '[::]',
+            'port': port,
+        })
+    return sorted(result, key=lambda d: d['port']) 
 
 
 def get_nondefault_users():
@@ -473,7 +497,6 @@ def get_sw():
 def get_sys_dimensions():
     """get some very basic system statistics
     """
-
     sys_dimensions = {}
     if HAVE_PSUTIL:
         sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
@@ -526,7 +549,6 @@ def get_systemd_units(cmd):
 def get_tools():
     """ simple tools, alphabetically sorted by output
     """
-
     tools = ''
 
     tools += retcmd_output('dig',       'command -v dig', ignore_output=True)
@@ -667,6 +689,12 @@ def main():
     interfaces = get_interfaces()
     if interfaces:
         msg = '{}\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
+
+    ports = get_listening_ports()
+    if ports:
+        msg += '\n# Listening TCP Ports\n'
+        for p in ports:
+            msg += '* {}:{}/{}\n'.format(p['ip'], p['port'], p['proto'])
 
     sw = get_sw()
     if sw:

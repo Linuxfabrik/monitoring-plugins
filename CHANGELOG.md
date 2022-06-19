@@ -47,6 +47,7 @@ Changes in existing functionality:
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
 * about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
 * about-me: Add gpg ([fix #511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
+* about-me: Add list of listening ports ([fix #538](https://github.com/Linuxfabrik/monitoring-plugins/issues/538))
 * about-me: Add mod_security ([fix #496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
 * about-me: Add swanctl ([fix #575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
 * about-me: Print its own version ([fix #439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
