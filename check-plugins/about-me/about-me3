@@ -47,7 +47,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061809'
+__version__ = '2022061901'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -329,23 +329,49 @@ def get_os_info():
 
 
 def get_python_modules():
-    pm = ''
-    try:
-        import bs4 # pylint: disable=C0415
-        pm += '* BeautifulSoup {}\n'.format(bs4.__version__)
-    except ImportError:
-        pass
-    try:
-        import mysql.connector # pylint: disable=C0415
-        pm += '* mysql.connector {}\n'.format(mysql.connector.__version__)
-    except ImportError:
-        pass
-    try:
-        import psutil # pylint: disable=C0415,W0621
-        pm += '* psutil {}\n'.format(psutil.__version__)
-    except ImportError:
-        pass
-    return pm
+    """Return a list for each of the installed and missing libraries used in total by all plugins
+    (except built-in libraries, which are used, but always there and therefore commented).
+    """
+    installed, missing = [], []
+    modules = [
+        #'argparse',
+        #'base64',
+        'bs4',
+        #'collections',
+        #'csv',
+        #'datetime',
+        #'fnmatch',
+        #'glob',
+        #'json',
+        #'locale',
+        'mysql.connector',
+        #'os',
+        #'pathlib',
+        #'platform',
+        'psutil',
+        #'re',
+        'smbprotocol.exceptions',
+        #'socket',
+        #'sys',
+        #'tempfile',
+        #'time',
+        #'unittest',
+        #'urllib.parse',
+        'vici',
+        #'warnings',
+        #'xml.etree.ElementTree',
+        #'xmltodict',
+    ]
+    for m in modules:
+        try:
+            mymod = __import__(m)
+            try:
+                installed.append('{} {}'.format(m, mymod.__version__))
+            except AttributeError:
+                installed.append(m)
+        except ImportError:
+            missing.append(m)
+    return installed, missing
 
 
 def get_sw():
@@ -590,6 +616,8 @@ def main():
     else:
         msg += ' virtualized on {}'.format(virt)
 
+    msg += ', {} boot'.format(get_boot_mode())
+
     sys_dimensions = get_sys_dimensions()
     if sys_dimensions:
         msg += ', {} {}, {} RAM'.format(
@@ -607,12 +635,9 @@ def main():
             disks,
         )
 
-    msg += ', {} boot'.format(get_boot_mode())
-
     tuned = get_tuned_active_profile()
     if tuned:
         msg += ', {}'.format(tuned)
-
 
     success, pub_ip = lib.net3.get_ip_public()
     if success:
@@ -628,53 +653,60 @@ def main():
 
     # further lines
 
+    pm_installed, pm_missing = get_python_modules()
+    msg += '\n\n# Python 3rd party libraries required by any of the plugins\n'
+    if pm_installed:
+        msg += '* Installed: {}\n'.format(', '.join(pm_installed))
+    else:
+        msg += '* Installed: none\n'
+    if pm_missing:
+        msg += '* Missing: {}\n'.format(', '.join(pm_missing))
+    else:
+        msg += '* Missing: none\n'
+
     interfaces = get_interfaces()
     if interfaces:
-        msg = '{}\n\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
+        msg = '{}\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
 
     sw = get_sw()
     if sw:
-        msg = '{}\n\n# Software\n{}'.format(msg, sw)
+        msg = '{}\n# Software\n{}'.format(msg, sw)
 
     apps = get_apps()
     if apps:
-        msg = '{}\n\n# Apps\n{}'.format(msg, apps)
+        msg = '{}\n# Apps\n{}'.format(msg, apps)
 
     tools = get_tools()
     if tools:
-        msg = '{}\n\n# Tools\n{}'.format(msg, tools)
-
-    pm = get_python_modules()
-    if pm:
-        msg = '{}\n\n# 3rd Party Python modules\n{}'.format(msg, pm)
+        msg = '{}\n# Tools\n{}'.format(msg, tools)
 
     systemd_default_target = get_systemd_default_target()
     if systemd_default_target:
-        msg = '{}\n\n# systemd default target\n{}'.format(msg, systemd_default_target)
+        msg = '{}\n# systemd default target\n{}'.format(msg, systemd_default_target)
 
     timers = get_systemd_timers()
     if timers:
-        msg = '{}\n\n# systemd timers\n{}'.format(msg, timers)
+        msg = '{}\n# systemd timers\n{}'.format(msg, timers)
 
     enabled_units = get_systemd_units('systemctl list-unit-files --type service --state enabled --no-legend')
     if enabled_units:
-        msg = '{}\n\n# systemd enabled units\n{}'.format(msg, enabled_units)
+        msg = '{}\n# systemd enabled units\n{}'.format(msg, enabled_units)
 
     mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend')
     if mounts:
-        msg = '{}\n\n# systemd mounts\n{}'.format(msg, mounts)
+        msg = '{}\n# systemd mounts\n{}'.format(msg, mounts)
 
     automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
     if automounts:
-        msg = '{}\n\n# systemd automounts\n{}'.format(msg, automounts)
+        msg = '{}\n# systemd automounts\n{}'.format(msg, automounts)
 
     nondefault_users = get_nondefault_users()
     if nondefault_users:
-        msg = '{}\n\n# non-default users\n{}'.format(msg, nondefault_users)
+        msg = '{}\n# non-default users\n{}'.format(msg, nondefault_users)
 
     crontabs = get_crontabs()
     if crontabs:
-        msg = '{}\n\n# crontabs\n{}'.format(msg, crontabs)
+        msg = '{}\n# crontabs\n{}'.format(msg, crontabs)
 
     perfdata = ''
     if sys_dimensions:
