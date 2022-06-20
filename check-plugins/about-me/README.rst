@@ -61,7 +61,7 @@ Output:
     myhostname - Fedora release 35 (Thirty Five) on bare-metal, UEFI boot, 8 CPUs, 15.3GiB RAM, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, LVM, SELinux; Missing: nftables. About-me v2022061901
 
     # Python 3rd party libraries required by any of the plugins
-    * Installed: bs4 4.11.0, mysql.connector, psutil 5.8.0
+    * Installed: bs4 4.11.0, pymysql, psutil 5.8.0
     * Missing: smbprotocol.exceptions, vici
 
     # Interfaces (IPv4)

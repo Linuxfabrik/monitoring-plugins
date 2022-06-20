@@ -42,12 +42,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060801'
+__version__ = '2022061901'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
 DEFAULT_HOSTNAME = '127.0.0.1'
-DEFAULT_PORT = '3306'
+DEFAULT_PORT = 3306
 DEFAULT_PASSWORD = ''
 DEFAULT_USERNAME = 'root'
 
@@ -89,6 +89,7 @@ def parse_args():
         '--port',
         help='MySQL/MariaDB port. Default: %(default)s',
         dest='PORT',
+        type=int,
         default=DEFAULT_PORT,
     )
 
@@ -226,7 +227,6 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
-        'raise_on_warnings':  True
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))

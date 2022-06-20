@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022060801'
+__version__ = '2022062001'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -117,6 +117,7 @@ def parse_args():
         '--port',
         help='MySQL/MariaDB port. Default: %(default)s',
         dest='PORT',
+        type=int,
         default=DEFAULT_PORT,
     )
 
@@ -210,7 +211,6 @@ def main():
         lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
         myvar = lib.db_mysql3.lod2dict(get_vars(conn))
         lib.db_mysql3.close(conn)
-
 
         if not args.SERVER_LOG:
             log_error = get_log_file_real_path(myvar['log_error'], myvar['hostname'], myvar['datadir'])

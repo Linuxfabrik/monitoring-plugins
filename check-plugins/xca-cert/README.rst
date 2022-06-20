@@ -22,7 +22,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``mysql.connector``; User with SELECT privileges on the XCA database, locked down to ``127.0.0.1`` - for example ``mon-xca@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Requirements",                         "Python module ``pymysql``; User with SELECT privileges on the XCA database, locked down to ``127.0.0.1`` - for example ``mon-xca@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
 
 
 Help

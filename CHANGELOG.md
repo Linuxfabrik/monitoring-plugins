@@ -75,6 +75,7 @@ Changes in existing functionality:
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 
 * lib/db_mysql3.py: Enhanced for new mysql-checks
+* lib/db_mysql3.py: Switch from mysql.connector to PyMySQL  ([fix #570](https://github.com/Linuxfabrik/monitoring-plugins/issues/570))
 * lib/disk3.py: Add file_exists() function
 * Icinga: Adjust windows director definitions to the new folder structure
 * Icinga: Increase windows service check intervals
