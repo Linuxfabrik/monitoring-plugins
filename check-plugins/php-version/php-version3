@@ -39,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061701'
+__version__ = '2022062001'
 
 DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
                 whether the installed PHP version is EOL. For example, if you installed PHP 7.3
@@ -163,7 +163,7 @@ def main():
         installed_minor,
         installed_patch), None, None, None, 0, None
     )
-    msg = 'PHP v{} installed'.format(installed_version)
+    msg = 'PHP v{}'.format(installed_version)
 
     # check the installed vs available version
     if lib.base3.version('{}.{}'.format(installed_major, installed_minor)) < lib.base3.version(latest_major + '.' + latest_minor):
@@ -175,61 +175,61 @@ def main():
 
     # old version
     if '{}.{}'.format(installed_major, installed_minor) == '5.0':
-        msg += ', EOL since 2005-09-05'
+        msg += ' (EOL 2005-09-05)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.1':
-        msg += ', EOL since 2006-08-24'
+        msg += ' (EOL 2006-08-24)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.2':
-        msg += ', EOL since 2011-01-06'
+        msg += ' (EOL 2011-01-06)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.3':
-        msg += ', EOL since 2014-08-14'
+        msg += ' (EOL 2014-08-14)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.4':
-        msg += ', EOL since 2015-09-03'
+        msg += ' (EOL 2015-09-03)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.5':
-        msg += ', EOL since 2016-07-10'
+        msg += ' (EOL 2016-07-10)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '5.6':
-        msg += ', EOL since 2018-12-31'
+        msg += ' (EOL 2018-12-31)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '7.0':
-        msg += ', EOL since 2019-01-10'
+        msg += ' (EOL 2019-01-10)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '7.1':
-        msg += ', EOL since 2019-12-01'
+        msg += ' (EOL 2019-12-01)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '7.2':
-        msg += ', EOL since 2020-11-30'
+        msg += ' (EOL 2020-11-30)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '7.3':
-        msg += ', EOL since 2021-12-06'
+        msg += ' (EOL 2021-12-06)'
         state = STATE_WARN
 
     # older version, still maintained
     if '{}.{}'.format(installed_major, installed_minor) == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
-        msg += ', EOL since 2022-11-28'
+        msg += ' (EOL 2022-11-28)'
         state = STATE_WARN
     if '{}.{}'.format(installed_major, installed_minor) == '8.0' and lib.time3.now(as_type='iso') > '2023-11-26':
-        msg += ', EOL since 2023-11-26'
+        msg += ' (EOL 2023-11-26)'
         state = STATE_WARN
 
     # latest version
     if '{}.{}'.format(installed_major, installed_minor) == '8.1' and lib.time3.now(as_type='iso') > '2024-11-25':
-        msg += ', EOL since 2024-11-25'
+        msg += ' (EOL 2024-11-25)'
         state = STATE_WARN
 
     # future release
     if '{}.{}'.format(installed_major, installed_minor) == '8.2' and lib.time3.now(as_type='iso') > '2025-11-24':
-        msg += ', EOL since 2025-11-24'
+        msg += ' (EOL 2025-11-24)'
         state = STATE_WARN
 
     if lib.base3.version(installed_version) >= lib.base3.version(latest_minor_version):
-        msg += ', is up to date'
+        msg += ' is up to date'
     else:
-        msg += ', PHP v{} available at php.net'.format(latest_minor_version)
+        msg += ' installed, PHP v{} available at php.net'.format(latest_minor_version)
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

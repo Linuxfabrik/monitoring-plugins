@@ -42,7 +42,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022041101'
+__version__ = '2022062001'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -162,8 +162,11 @@ def main():
 
     # build the message
     if latest_version:
-        lib.base3.oao('QTS {} is available (installed: {})'.format(latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
-    lib.base3.oao('QTS {} is up to date'.format(installed_version), STATE_OK)
+        lib.base3.oao('QTS v{} installed, QTS v{} available'.format(
+            installed_version,
+            latest_version,
+        ), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base3.oao('QTS v{} is up to date'.format(installed_version), STATE_OK)
 
 
 if __name__ == '__main__':
