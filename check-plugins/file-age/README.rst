@@ -19,7 +19,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "None"
+    "Requirements",                         "Python module ``smbclient``, Python module ``smbprotocol``"
 
 
 Help

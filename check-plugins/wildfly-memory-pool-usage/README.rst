@@ -6,23 +6,24 @@ Overview
 
 This check plugin monitors the memory pool usage of a WildFly server, using its HTTP-JSON based API (JBossAS REST Management API). This allows us to monitor the application server without any additional configuration and installation - no need to deploy WAR-Agents like Jolokia. The plugin supports both standalone mode and domain mode.
 
-Tested with WildFly 11 and WildFly 23.
+Tested with WildFly 11 and WildFly 23+.
 
 `How is the java memory pool divided? <https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided>`_
 
-    The heap memory is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The heap may be of a fixed or variable size. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
+    **Heap memory** is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The heap may be of a fixed or variable size. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
 
-    * Eden Space: The pool from which memory is initially allocated for most objects.
-    * Survivor Space: The pool containing objects that have survived the garbage collection of the Eden space.
-    * Tenured Generation or Old Gen: The pool containing objects that have existed for some time in the survivor space
+    * PS Eden Space: The pool from which memory is initially allocated for most objects.
+    * PS Tenured Generation or PS Old Gen: The pool containing objects that have existed for some time in the survivor space
+    * PS Survivor Space: The pool containing objects that have survived the garbage collection of the Eden space.
 
-    Non-heap memory includes a method area shared among all threads and memory required for the internal processing or optimization for the Java VM. It stores per-class structures such as a runtime constant pool, field and method data, and the code for methods and constructors. The method area is logically part of the heap but, depending on the implementation, a Java VM may not garbage collect or compact it. Like the heap memory, the method area may be of a fixed or variable size. The memory for the method area does not need to be contiguous.
-
-    * Permanent Generation: The pool containing all the reflective data of the virtual machine itself, such as class and method objects. With Java VMs that use class data sharing, this generation is divided into read-only and read-write areas.
+    **Non-heap memory** includes a method area shared among all threads and memory required for the internal processing or optimization for the Java VM. It stores per-class structures such as a runtime constant pool, field and method data, and the code for methods and constructors. The method area is logically part of the heap but, depending on the implementation, a Java VM may not garbage collect or compact it. Like the heap memory, the method area may be of a fixed or variable size. The memory for the method area does not need to be contiguous.
 
     * Code Cache: The HotSpot Java VM also includes a code cache, containing memory that is used for compilation and storage of native code.
+    * Permanent Generation: The pool containing all the reflective data of the virtual machine itself, such as class and method objects. With Java VMs that use class data sharing, this generation is divided into read-only and read-write areas.
+    * Compressed Class Space
+    * Metaspace
 
-Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
+Heap Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
 
 To create a monitoring user, do this:
 
@@ -68,11 +69,11 @@ Help
 
 .. code-block:: text
 
-    usage: wildfly-memory-pool-usage3 [-h] [-V] [--always-ok] [--critical CRIT]
-                                      [--instance INSTANCE]
-                                      [--mode {standalone,domain}] [--node NODE]
-                                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                                      --username USERNAME [--warning WARN]
+    usage: wildfly-memory-pool-usage [-h] [-V] [--always-ok] [--critical CRIT]
+                                     [--instance INSTANCE]
+                                     [--mode {standalone,domain}] [--node NODE]
+                                     -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                                     --username USERNAME [--warning WARN]
 
     Checks the memory pool usage of a Wildfly/JBossAS over HTTP.
 
