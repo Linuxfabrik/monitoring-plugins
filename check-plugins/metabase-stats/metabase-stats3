@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022062001'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
@@ -119,7 +119,7 @@ def get_token(metabase_url, user, password, expire):
     $     http://localhost:3000/api/session
     """
     # we cache credentials to reuse them until they expire, because logins are rate-limited for security
-    token = lib.cache3.get('metabase-token')
+    token = lib.cache3.get('metabase-token', filename='linuxfabrik-monitoring-plugins-matomo-stats.db')
     if token:
         return (True, token)
 
@@ -139,7 +139,7 @@ def get_token(metabase_url, user, password, expire):
     if 'id' not in result:
         return (False, 'Something went wrong, maybe wrong username/password.')
     token = result['id']
-    lib.cache3.set('metabase-token', token, lib.time3.now() + expire)
+    lib.cache3.set('metabase-token', token, lib.time3.now() + expire, filename='linuxfabrik-monitoring-plugins-matomo-stats.db')
     return (True, token)
 
 

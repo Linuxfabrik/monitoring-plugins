@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022030801'
+__version__ = '2022062001'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -243,14 +243,14 @@ def main():
     # mod_status
 
     # get previous values
-    prev_uptime = lib.cache3.get('apache-httpd-status-{}-uptime'.format(args.URL))
-    prev_count = lib.cache3.get('apache-httpd-status-{}-total-accesses'.format(args.URL))
-    prev_bcount = lib.cache3.get('apache-httpd-status-{}-total-bytes'.format(args.URL))
+    prev_uptime = lib.cache3.get('apache-httpd-status-{}-uptime'.format(args.URL), filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
+    prev_count = lib.cache3.get('apache-httpd-status-{}-total-accesses'.format(args.URL), filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
+    prev_bcount = lib.cache3.get('apache-httpd-status-{}-total-bytes'.format(args.URL), filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
 
     # save current values
-    lib.cache3.set('apache-httpd-status-{}-uptime'.format(args.URL), apache['Uptime'])
-    lib.cache3.set('apache-httpd-status-{}-total-accesses'.format(args.URL), apache['Total Accesses'])
-    lib.cache3.set('apache-httpd-status-{}-total-bytes'.format(args.URL), apache['Total Bytes'])
+    lib.cache3.set('apache-httpd-status-{}-uptime'.format(args.URL), apache['Uptime'], filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
+    lib.cache3.set('apache-httpd-status-{}-total-accesses'.format(args.URL), apache['Total Accesses'], filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
+    lib.cache3.set('apache-httpd-status-{}-total-bytes'.format(args.URL), apache['Total Bytes'], filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
     if prev_uptime is False or prev_count is False or prev_bcount is False:
         lib.base3.oao('Waiting for more data (1).', STATE_OK)
 
@@ -299,8 +299,8 @@ def main():
     # === Third Stage===============================================================================
     # Some more variables in newer versions of mod_status
 
-    prev_duration_global = lib.cache3.get('apache-httpd-status-{}-total-duration'.format(args.URL))
-    lib.cache3.set('apache-httpd-status-{}-total-duration'.format(args.URL), apache['Total Duration'])
+    prev_duration_global = lib.cache3.get('apache-httpd-status-{}-total-duration'.format(args.URL), filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
+    lib.cache3.set('apache-httpd-status-{}-total-duration'.format(args.URL), apache['Total Duration'], filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db')
     if prev_duration_global is False:
         lib.base3.oao('Waiting for more data (3).', STATE_OK)
 

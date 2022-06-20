@@ -136,7 +136,7 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 * Overwrite `/usr/lib64/nagios/plugins/lib` with the new libraries.
 * Overwrite `/usr/lib64/nagios/plugins` with the new plugins.
 * Copy the new sudoers file to `/etc/sudoers.d/`
-* Delete all SQLite database files (`*.db`) in `/tmp`.
+* Delete all SQLite database files (`linuxfabrik-monitoring-plugins-*.db`) in $TEMP directory (for example `/tmp`).
 
 
 

@@ -41,12 +41,11 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062001'
+__version__ = '2022062002'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
 
-DEFAULT_CACHE_FILE = 'linuxfabrik-monitoring-plugins-mysql-logfile.db'
 DEFAULT_CACHE_EXPIRE = 7200  # minutes (= 5 days)
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
@@ -198,7 +197,7 @@ def main():
 
     # Try to get the "log_error" setting and save it to cache, so that we know where to get the
     # log info from in case the DB is down.
-    log_error = lib.cache3.get('{}-{}'.format(args.HOSTNAME, args.PORT), filename=DEFAULT_CACHE_FILE)
+    log_error = lib.cache3.get('{}-{}'.format(args.HOSTNAME, args.PORT), filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
     if not log_error:
         mysql_connection = {
             'user':               args.USERNAME,
@@ -220,7 +219,7 @@ def main():
         if not log_error:
             lib.base3.oao('No log file set (set log_error).', STATE_UNKNOWN)
 
-        lib.cache3.set('{}-{}'.format(args.HOSTNAME, args.PORT), log_error, lib.time3.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
+        lib.cache3.set('{}-{}'.format(args.HOSTNAME, args.PORT), log_error, lib.time3.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
 
     # init some vars
     msg, msg_body = '', ''

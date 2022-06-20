@@ -39,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021602'
+__version__ = '2022062001'
 
 DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
     if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
@@ -215,7 +215,7 @@ def get_feed_state(feed_id, delta, args):
     if delta < args.WARN*60:
         if not args.ICINGA_CALLBACK:
             return STATE_WARN
-        cached_item = lib.cache3.get('feed-{}'.format(feed_id), as_dict=True)
+        cached_item = lib.cache3.get('feed-{}'.format(feed_id), as_dict=True, filename='linuxfabrik-monitoring-plugins-feed.db')
         if cached_item:
             if cached_item['value'] == 'acked':
                 return STATE_OK
@@ -229,11 +229,11 @@ def get_feed_state(feed_id, delta, args):
             if not success:
                 return STATE_WARN
             if icinga['results'][0]['attrs']['acknowledgement']:
-                lib.cache3.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'])
+                lib.cache3.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'], filename='linuxfabrik-monitoring-plugins-feed.db')
                 return STATE_OK
             return STATE_WARN
         else:
-            lib.cache3.set('feed-{}'.format(feed_id), 'unacked', lib.time3.now() + args.WARN*60)
+            lib.cache3.set('feed-{}'.format(feed_id), 'unacked', lib.time3.now() + args.WARN*60, filename='linuxfabrik-monitoring-plugins-feed.db')
             return STATE_WARN
     else:
         return STATE_OK

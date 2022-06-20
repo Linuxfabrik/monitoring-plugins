@@ -43,6 +43,7 @@ New features:
 
 Changes in existing functionality:
 
+* All checks using SQLite databases: More unique sqlite db names ([fix #333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
 * about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
 * about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
@@ -74,8 +75,10 @@ Changes in existing functionality:
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 
+* lib/cache3.py: Use more unique default names for sqlite databases
 * lib/db_mysql3.py: Enhanced for new mysql-checks
 * lib/db_mysql3.py: Switch from mysql.connector to PyMySQL  ([fix #570](https://github.com/Linuxfabrik/monitoring-plugins/issues/570))
+* lib/db_mysql3.py: Use more unique default names for sqlite databases
 * lib/disk3.py: Add file_exists() function
 * Icinga: Adjust windows director definitions to the new folder structure
 * Icinga: Increase windows service check intervals
