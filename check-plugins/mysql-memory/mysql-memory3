@@ -42,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022061901'
+__version__ = '2022062101'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -291,6 +291,7 @@ def main():
 
     if physical_memory < mycalc['max_peak_memory'] + get_other_process_memory():
         mem2_state = STATE_WARN
+        state = lib.base3.get_worst(state, mem2_state)
         msg += 'Overall possible memory usage with other processes will exceed memory{}. Dedicate this server to your database for highest performance.'.format(
             lib.base3.state2str(mem2_state, prefix=' '),
         )
