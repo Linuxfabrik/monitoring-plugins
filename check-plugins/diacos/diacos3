@@ -1,9 +1,12 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
-# Author:  Dominik Riva, Universitätsspital Basel/Switzerland
-# Contact: ict-monitoring@usb.ch
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
 """Have a look at the check's README for further details.
 """
@@ -36,39 +39,34 @@ import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
-__author__ = """Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2022040702'
+__author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
+                originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
+__version__ = '2022063001'
 
 
-DESCRIPTION = """This plugin does a function check of ID DIACOS® by authenticating and doing a search.
-	        (https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/)"""
+DESCRIPTION = """This plugin checks availability and performance of an ID DIACOS® installation
+                 by doing a login, search and logout.
+                 (https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/)"""
 
-DEFAULT_TIMEOUT = 15
-DEFAULT_NO_PROXY = False
-DEFAULT_PROTOCOL = 'http'
-DEFAULT_PORT = '9999'
-DEFAULT_WARNING = 3000
-DEFAULT_CRITICAL = 6000
 DEFAULT_COMPUTER = 'Brower_APP'
-DEFAULT_COUNTRY = 'CH'
-DEFAULT_YEAR = '2020'
-DEFAULT_FORMAT = '%25T0%25C%3F%25I%25R'
-DEFAULT_SORT_MODE = '%25T'
 DEFAULT_CONCEPT_FILTER = '%25R239%3BC%3BD99.99'
+DEFAULT_COUNTRY = 'CH'
+DEFAULT_CRITICAL = 6000  # ms
+DEFAULT_FORMAT = '%25T0%25C%3F%25I%25R'
+DEFAULT_NO_PROXY = False
 DEFAULT_SEARCHTEXT = 'Haut'
+DEFAULT_SORT_MODE = '%25T'
+DEFAULT_TIMEOUT = 7
+DEFAULT_WARNING = 3000  # ms
+DEFAULT_YEAR = '2020'
+DEFAULT_IP = '127.0.0.1'
+DEFAULT_URL = 'http://localhost:9999'
+
 
 def parse_args():
     """Parse command line agruments using argparse.
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
-
-    parser.add_argument(
-        '--always-ok',
-        help='Always return OK.',
-        dest='ALWAYS_OK',
-        action='store_true',
-        default=False,
-	)
 
     parser.add_argument(
         '-V', '--version',
@@ -77,14 +75,47 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--protocol',
-        help='Protocol. Default: %(default)s',
-        dest='PROTOCOL',
-        default=DEFAULT_PROTOCOL,
-        choices=[
-            'http',
-            'https',
-        ],
+        '--always-ok',
+        help='Always return OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Critical threshold for duration of login+search+logout. Default: %(default)s (ms)',
+        dest='CRITICAL',
+        type=int,
+        default=DEFAULT_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--login-computer',
+        help='user.Login argument COMPUTER. Default: %(default)s',
+        dest='COMPUTER',
+        default=DEFAULT_COMPUTER,
+    )
+
+    parser.add_argument(
+        '--login-ip',
+        help='user.Login argument IP. Default: %(default)s',
+        dest='IP',
+        default=DEFAULT_IP,
+    )
+
+    parser.add_argument(
+        '--login-licence',
+        help='user.Login argument LICENCE (required)',
+        dest='LICENCE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--login-name',
+        help='user.Login argument NAME (required)',
+        dest='NAME',
+        required=True,
     )
 
     parser.add_argument(
@@ -96,33 +127,45 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='hostname',
-        dest='HOSTNAME',
-        required=True,
+        '--search-concept-filter',
+        help='classification.SearchDiagnoses argument CONCEPT_FILTER. Default: %(default)s',
+        dest='CONCEPT_FILTER',
+        default=DEFAULT_CONCEPT_FILTER,
     )
 
     parser.add_argument(
-        '-p', '--port',
-        help='Port',
-        dest='PORT',
-        default=DEFAULT_PORT,
+        '--search-country',
+        help='classification.SearchDiagnoses argument COUNTRY. Default: %(default)s',
+        dest='COUNTRY',
+        default=DEFAULT_COUNTRY,
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='warning in ms',
-        dest='WARNING',
-        type=int,
-        default=DEFAULT_WARNING,
+        '--search-format',
+        help='classification.SearchDiagnoses argument FORMAT. Default: %(default)s',
+        dest='FORMAT',
+        default=DEFAULT_FORMAT,
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='critical im ms',
-        dest='CRITICAL',
-        type=int,
-        default=DEFAULT_CRITICAL,
+        '--search-searchtext',
+        help='classification.SearchDiagnoses argument SEARCHTEXT. Default: %(default)s',
+        dest='SEARCHTEXT',
+        default=DEFAULT_SEARCHTEXT,
+    )
+
+    parser.add_argument(
+        '--search-sort-mode',
+        help='classification.SearchDiagnoses argument SORT_MODE. Default: %(default)s',
+        dest='SORT_MODE',
+        default=DEFAULT_SORT_MODE,
+    )
+
+    parser.add_argument(
+        '--search-year',
+        help='classification.SearchDiagnoses argument YEAR. Default: %(default)s',
+        dest='YEAR',
+        default=DEFAULT_YEAR,
     )
 
     parser.add_argument(
@@ -141,194 +184,110 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--computer',
-        help='user.Login argument Computer',
-        dest='COMPUTER',
-        default=DEFAULT_COMPUTER,
+        '--url',
+        help='ID DIACOS URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
     )
 
     parser.add_argument(
-        '--ip',
-        help='user.Login argument IP',
-        dest='IP',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--name',
-        help='user.Login argument NAME',
-        dest='NAME',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--licence',
-        help='user.Login argument LICENCE',
-        dest='LICENCE',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--country',
-        help='classification.SearchDiagnoses argument COUNTRY',
-        dest='COUNTRY',
-        default=DEFAULT_COUNTRY,
-    )
-
-    parser.add_argument(
-        '--year',
-        help='classification.SearchDiagnoses argument YEAR',
-        dest='YEAR',
-        default=DEFAULT_YEAR,
-    )
-
-    parser.add_argument(
-        '--format',
-        help='classification.SearchDiagnoses argument FORMAT',
-        dest='FORMAT',
-        default=DEFAULT_FORMAT,
-    )
-
-    parser.add_argument(
-        '--sort',
-        help='classification.SearchDiagnoses argument SORT_MODE',
-        dest='SORT_MODE',
-        default=DEFAULT_SORT_MODE,
-    )
-
-    parser.add_argument(
-        '--concept',
-        help='classification.SearchDiagnoses argument CONCEPT_FILTER',
-        dest='CONCEPT_FILTER',
-        default=DEFAULT_CONCEPT_FILTER,
-    )
-
-    parser.add_argument(
-        '--search',
-        help='classification.SearchDiagnoses argument SEARCHTEXT',
-        dest='SEARCHTEXT',
-        default=DEFAULT_SEARCHTEXT,
+        '-w', '--warning',
+        help='Warning threshold for duration of login+search+logout. Default: %(default)s (ms)',
+        dest='WARNING',
+        type=int,
+        default=DEFAULT_WARNING,
     )
 
     return parser.parse_args()
 
 
 def main():
+    """The main function. Hier spielt die Musik.
+    """
+
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    startTime = time.time()
-
-    # fetch session
+    # analyze data
     if args.TEST is None:
-        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=user.Login&COMPUTER={}&IP={}&NAME={}&LICENCE={}'.format(
-            args.PROTOCOL,
-            args.HOSTNAME,
-            args.PORT,
+        start_time = time.time()
+
+        url = '{}/axis2/idlogikrest?__format__=json&serviceName=user.Login&COMPUTER={}&IP={}&NAME={}&LICENCE={}'.format(
+            args.URL,
             args.COMPUTER,
             args.IP,
             args.NAME,
             args.LICENCE,
         )
-        resultLogin = lib.base3.coe(lib.url3.fetch_json(
+        session = lib.base3.coe(lib.url3.fetch_json(
             url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
         ))
-        sessionId = resultLogin['resultItems'][0]['value']
-        millisLogin = resultLogin['totalTimeMillis']
-        if len(sessionId) < 32 + 1 + len(args.NAME):
-            msg = '[UNKNOWN]: ' + sessionId + ' not long enough'
-            state = 3
-            lib.base3.oao(msg, state=state)
-        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=classification.SearchDiagnoses&COUNTRY={}&YEAR={}&FORMAT={}&SORT_MODE={}&CONCEPT_FILTER={}&SESSION_ID={}&SEARCHTEXT={}'.format(
-            args.PROTOCOL,
-            args.HOSTNAME,
-            args.PORT,
+        session_id = session['resultItems'][0]['value']
+        if len(session_id) < 32 + 1 + len(args.NAME):
+            lib.base3.oao('Session-ID {} too short'.format(session_id), STATE_UNKNOWN)
+        login_duration = session['totalTimeMillis']
+
+        url = '{}/axis2/idlogikrest?__format__=json&serviceName=classification.SearchDiagnoses&COUNTRY={}&YEAR={}&FORMAT={}&SORT_MODE={}&CONCEPT_FILTER={}&SESSION_ID={}&SEARCHTEXT={}'.format(
+            args.URL,
             args.COUNTRY,
             args.YEAR,
             args.FORMAT,
             args.SORT_MODE,
             args.CONCEPT_FILTER,
-            sessionId,
+            session_id,
             args.SEARCHTEXT,
         )
-        resultSearch = lib.base3.coe(lib.url3.fetch_json(
+        search_result = lib.base3.coe(lib.url3.fetch_json(
             url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
         ))
-        millisSearch = resultSearch['totalTimeMillis']
-        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=user.Logoff&SESSION_ID={}'.format(
-            args.PROTOCOL,
-            args.HOSTNAME,
-            args.PORT,
-            sessionId,
+        search_duration = search_result['totalTimeMillis']
+
+        url = '{}/axis2/idlogikrest?__format__=json&serviceName=user.Logoff&SESSION_ID={}'.format(
+            args.URL,
+            session_id,
         )
-        resultLogout = lib.base3.coe(lib.url3.fetch_json(
+        logout_result = lib.base3.coe(lib.url3.fetch_json(
             url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
         ))
-        millisLogout = resultLogout['totalTimeMillis']
+        logout_duration = logout_result['totalTimeMillis']
+
+        runtime = (time.time() - start_time) * 1000     # we get seconds and want ms
     else:
         # do not call the command, put in test data
+        args.TEST[0] += '-login'
         stdout, stderr, retc = lib.test3.test(args.TEST)
         result = json.loads(stdout)
+        login_duration = result['totalTimeMillis']
 
-    finishTime = time.time()
-    millisExecutionTime = round((finishTime - startTime) * 1000)
-    executionTime = round((finishTime - startTime), 3)
+        args.TEST[0] = args.TEST[0].replace('-login', '-searchDiagnoses')
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+        search_duration = result['totalTimeMillis']
 
-    perfdata = lib.base3.get_perfdata(
-        'execution_duration',
-        millisExecutionTime,
-        uom='ms',
-        warn=args.WARNING,
-        crit=args.CRITICAL,
-        _min=0,
-        _max=int(args.TIMEOUT) * 1000)
+        args.TEST[0] = args.TEST[0].replace('-searchDiagnoses', '-logoff')
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+        logout_duration = result['totalTimeMillis']
 
-    perfdata += lib.base3.get_perfdata(
-        'login_duration',
-        millisLogin,
-        uom='ms',
-        warn=args.WARNING,
-        crit=args.CRITICAL,
-        _min=0,
-        _max=int(args.TIMEOUT) * 1000)
+        runtime = login_duration + search_duration + logout_duration
 
-    perfdata += lib.base3.get_perfdata(
-        'search_duration',
-        millisSearch,
-        uom='ms',
-        warn=args.WARNING,
-        crit=args.CRITICAL,
-        _min=0,
-        _max=int(args.TIMEOUT) * 1000)
-
-    perfdata += lib.base3.get_perfdata(
-        'logout_duration',
-        millisLogout,
-        uom='ms',
-        warn=args.WARNING,
-        crit=args.CRITICAL,
-        _min=0,
-        _max=int(args.TIMEOUT) * 1000)
-
-    state = lib.base3.get_state(
-        millisExecutionTime,
-        args.WARNING,
-        args.CRITICAL,)
-
-    msg = lib.base3.state2str(
-        state,
-        suffix=' executing login, search and logout took {}s'.format(executionTime),
-        empty_ok=False,)
+    # build the message
+    state = lib.base3.get_state(runtime, args.WARNING, args.CRITICAL)
+    msg = '{}ms for login, search and logout{}'.format(
+        round(runtime, 2),
+        lib.base3.state2str(state, prefix=' '),
+    )
+    perfdata = lib.base3.get_perfdata('runtime', runtime, 'ms', args.WARNING, args.CRITICAL, 0, args.TIMEOUT * 1000)
+    perfdata += lib.base3.get_perfdata('login_duration', login_duration, 'ms', None, None, 0, args.TIMEOUT * 1000)
+    perfdata += lib.base3.get_perfdata('search_duration', search_duration, 'ms', None, None, 0, args.TIMEOUT * 1000)
+    perfdata += lib.base3.get_perfdata('logout_duration', logout_duration, 'ms', None, None, 0, args.TIMEOUT * 1000)
 
     # over and out
-    lib.base3.oao(
-        msg,
-        state,
-        perfdata=perfdata,
-        always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata=perfdata, always_ok=args.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:
