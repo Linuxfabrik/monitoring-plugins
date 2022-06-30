@@ -6,6 +6,8 @@ Overview
 
 Checks your Infomaniak Swiss Backup product details via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
 
+The output table is sorted by the "Tags" column.
+
 Hints:
 
 * In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance" and "Busy" for the API result "operation_in_progress".
@@ -24,7 +26,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-products"
-    "Check Interval Recommendation",        "Every hour"
+    "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
     "Available for",                        "Python 3, Windows"
     "Requirements",                         "None"
@@ -74,7 +76,7 @@ Output:
 
     Everything is ok.
 
-    ID    ! Customer     ! Tags ! Size                ! Dev ! Expires in ! Maint. ! Locked ! Busy  
+    ID    ! Customer     ! Tags ! Size (alloc/avail)  ! Dev ! Expires in ! Maint. ! Locked ! Busy  
     ------+--------------+------+---------------------+-----+------------+--------+--------+-------
     55577 ! BK-200999-1  ! prod ! 9.1TiB / 9.1TiB     ! 1   ! 11M 2W     ! False  ! False  ! False 
     55556 ! BK-200999-2  ! test ! 186.3GiB / 186.3GiB ! 2   ! 10M 5D     ! False  ! False  ! False 
@@ -101,7 +103,7 @@ Perfdata / Metrics
     <ID>-busy,                                  Number,             "0 = not busy, 1 = operation in progress"
     <ID>-locked,                                Number,             "0 = unlocked, 1 = locked"
     <ID>-maintenance,                           Number,             "0 = not in maintenance, 1 = in maintenance"
-    <ID>-size,                                  Bytes,              Allocated Storage Space
+    <ID>-size,                                  Bytes,              Available Storage Space
     <ID>-storage_reserved,                      Bytes,              Allocated Storage Space
 
 

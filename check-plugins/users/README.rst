@@ -32,7 +32,7 @@ Help
 
 .. code-block:: text
 
-    usage: users3 [-h] [-V] [-c CRIT] [-w WARN]
+    usage: users [-h] [-V] [-c CRIT] [-w WARN]
 
     Counts how many users are currently logged in, both via tty (on Windows:
     Console) and pts (on Linux: typically ssh, on Windows: RDP). Also counts the

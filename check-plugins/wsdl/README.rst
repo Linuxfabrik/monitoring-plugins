@@ -1,10 +1,8 @@
 Check wsdl
 =============
 
-
 Overview
 --------
-
 
 This plugin checks for a matching string in the XML response after a basic auth to a WSDL URL.
 

@@ -58,16 +58,26 @@ Output:
 
 .. code-block:: text
 
-    myhostname - Fedora release 34 (Thirty Four) on bare-metal, 8 CPUs, 15.2GiB RAM, Public IP 1.2.3.4
+    myhostname - Fedora release 35 (Thirty Five) on bare-metal, UEFI boot, 8 CPUs, 15.3GiB RAM, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, LVM, SELinux; Missing: nftables. About-me v2022061901
 
-    # Disks
-    * nvme0n1 953.9G
-
+    # Python 3rd party libraries required by any of the plugins
+    * Installed: bs4 4.11.0, pymysql, psutil 5.8.0
+    * Missing: smbprotocol.exceptions, vici
 
     # Interfaces (IPv4)
     * virbr0 192.168.122.1/24
     * wlp0s20f3 10.80.32.245/24
 
+    # Listening TCP Ports
+    * 192.168.122.1:53/tcp4
+    * 127.0.0.53:53/tcp4
+    * 127.0.0.1:631/tcp4
+    * ::1:631/tcp6
+    * [::]:5355/tcp6
+    * 0.0.0.0:5355/tcp4
+    * 127.0.0.1:5900/tcp4
+    * 127.0.0.1:5939/tcp4
+    * 0.0.0.0:7070/tcp4
 
     # Software
     * Apache httpd 2.4.49
@@ -106,7 +116,6 @@ Output:
     * tmate 2.4.0
     * vsftpd 3.0.3
 
-
     # Apps
     * Brother Printer SW
     * F5 VPN SW
@@ -115,7 +124,6 @@ Output:
     * Nextcloud
     * Rambox
     * VMware Tools
-
 
     # Tools
     * dig
@@ -132,15 +140,8 @@ Output:
     * whois
     * wireshark
 
-
-    # Python modules
-    * BeautifulSoup 4.1.0
-    * psutil 5.8.0
-
-
     # systemd default target
     * graphical.target
-
 
     # systemd timers
     * dnf-makecache.timer
@@ -148,7 +149,6 @@ Output:
     * mlocate-updatedb.timer
     * unbound-anchor.timer
     * fstrim.timer
-
 
     # systemd enabled units
     * abrt-journal-core.service
@@ -208,7 +208,6 @@ Output:
     * vpnagentd.service
     * vsftpd.service
 
-
     # systemd mounts
     * -.mount
     * boot-efi.mount
@@ -224,10 +223,8 @@ Output:
     * var-lib-machines.mount
     * var-lib-nfs-rpc_pipefs.mount
 
-
     # systemd automounts
     * proc-sys-fs-binfmt_misc.automount
-
 
     # non-default users
     user                ! pw ! uid  ! gid  ! comment                                                    ! home_dir                  ! user_shell        
@@ -260,7 +257,6 @@ Output:
     setroubleshoot      ! x  ! 974  ! 969  !                                                            ! /var/lib/setroubleshoot   ! /sbin/nologin     
     usbmuxd             ! x  ! 113  ! 113  ! usbmuxd user                                               ! /                         ! /sbin/nologin     
     vboxadd             ! x  ! 978  ! 1    !                                                            ! /var/run/vboxadd          ! /sbin/nologin     
-
 
     # crontabs
     01 * * * * root run-parts /etc/cron.hourly

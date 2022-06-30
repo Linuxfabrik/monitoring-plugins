@@ -1,0 +1,337 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Dominik Riva, Universitätsspital Basel/Switzerland
+# Contact: ict-monitoring@usb.ch
+# License: The Unlicense, see LICENSE file.
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import time # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.url3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = """Dominik Riva, Universitätsspital Basel/Switzerland"""
+__version__ = '2022040702'
+
+
+DESCRIPTION = """This plugin does a function check of ID DIACOS® by authenticating and doing a search.
+	        (https://www.id-suisse-ag.ch/loesungen/abrechnung/id-diacos/)"""
+
+DEFAULT_TIMEOUT = 15
+DEFAULT_NO_PROXY = False
+DEFAULT_PROTOCOL = 'http'
+DEFAULT_PORT = '9999'
+DEFAULT_WARNING = 3000
+DEFAULT_CRITICAL = 6000
+DEFAULT_COMPUTER = 'Brower_APP'
+DEFAULT_COUNTRY = 'CH'
+DEFAULT_YEAR = '2020'
+DEFAULT_FORMAT = '%25T0%25C%3F%25I%25R'
+DEFAULT_SORT_MODE = '%25T'
+DEFAULT_CONCEPT_FILTER = '%25R239%3BC%3BD99.99'
+DEFAULT_SEARCHTEXT = 'Haut'
+
+def parse_args():
+    """Parse command line agruments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always return OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+	)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by v{2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--protocol',
+        help='Protocol. Default: %(default)s',
+        dest='PROTOCOL',
+        default=DEFAULT_PROTOCOL,
+        choices=[
+            'http',
+            'https',
+        ],
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='hostname',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-p', '--port',
+        help='Port',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='warning in ms',
+        dest='WARNING',
+        type=int,
+        default=DEFAULT_WARNING,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='critical im ms',
+        dest='CRITICAL',
+        type=int,
+        default=DEFAULT_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--computer',
+        help='user.Login argument Computer',
+        dest='COMPUTER',
+        default=DEFAULT_COMPUTER,
+    )
+
+    parser.add_argument(
+        '--ip',
+        help='user.Login argument IP',
+        dest='IP',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--name',
+        help='user.Login argument NAME',
+        dest='NAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--licence',
+        help='user.Login argument LICENCE',
+        dest='LICENCE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--country',
+        help='classification.SearchDiagnoses argument COUNTRY',
+        dest='COUNTRY',
+        default=DEFAULT_COUNTRY,
+    )
+
+    parser.add_argument(
+        '--year',
+        help='classification.SearchDiagnoses argument YEAR',
+        dest='YEAR',
+        default=DEFAULT_YEAR,
+    )
+
+    parser.add_argument(
+        '--format',
+        help='classification.SearchDiagnoses argument FORMAT',
+        dest='FORMAT',
+        default=DEFAULT_FORMAT,
+    )
+
+    parser.add_argument(
+        '--sort',
+        help='classification.SearchDiagnoses argument SORT_MODE',
+        dest='SORT_MODE',
+        default=DEFAULT_SORT_MODE,
+    )
+
+    parser.add_argument(
+        '--concept',
+        help='classification.SearchDiagnoses argument CONCEPT_FILTER',
+        dest='CONCEPT_FILTER',
+        default=DEFAULT_CONCEPT_FILTER,
+    )
+
+    parser.add_argument(
+        '--search',
+        help='classification.SearchDiagnoses argument SEARCHTEXT',
+        dest='SEARCHTEXT',
+        default=DEFAULT_SEARCHTEXT,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    startTime = time.time()
+
+    # fetch session
+    if args.TEST is None:
+        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=user.Login&COMPUTER={}&IP={}&NAME={}&LICENCE={}'.format(
+            args.PROTOCOL,
+            args.HOSTNAME,
+            args.PORT,
+            args.COMPUTER,
+            args.IP,
+            args.NAME,
+            args.LICENCE,
+        )
+        resultLogin = lib.base3.coe(lib.url3.fetch_json(
+            url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        ))
+        sessionId = resultLogin['resultItems'][0]['value']
+        millisLogin = resultLogin['totalTimeMillis']
+        if len(sessionId) < 32 + 1 + len(args.NAME):
+            msg = '[UNKNOWN]: ' + sessionId + ' not long enough'
+            state = 3
+            lib.base3.oao(msg, state=state)
+        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=classification.SearchDiagnoses&COUNTRY={}&YEAR={}&FORMAT={}&SORT_MODE={}&CONCEPT_FILTER={}&SESSION_ID={}&SEARCHTEXT={}'.format(
+            args.PROTOCOL,
+            args.HOSTNAME,
+            args.PORT,
+            args.COUNTRY,
+            args.YEAR,
+            args.FORMAT,
+            args.SORT_MODE,
+            args.CONCEPT_FILTER,
+            sessionId,
+            args.SEARCHTEXT,
+        )
+        resultSearch = lib.base3.coe(lib.url3.fetch_json(
+            url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        ))
+        millisSearch = resultSearch['totalTimeMillis']
+        url = '{}://{}:{}/axis2/idlogikrest?__format__=json&serviceName=user.Logoff&SESSION_ID={}'.format(
+            args.PROTOCOL,
+            args.HOSTNAME,
+            args.PORT,
+            sessionId,
+        )
+        resultLogout = lib.base3.coe(lib.url3.fetch_json(
+            url, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+        ))
+        millisLogout = resultLogout['totalTimeMillis']
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+
+    finishTime = time.time()
+    millisExecutionTime = round((finishTime - startTime) * 1000)
+    executionTime = round((finishTime - startTime), 3)
+
+    perfdata = lib.base3.get_perfdata(
+        'execution_duration',
+        millisExecutionTime,
+        uom='ms',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+        _max=int(args.TIMEOUT) * 1000)
+
+    perfdata += lib.base3.get_perfdata(
+        'login_duration',
+        millisLogin,
+        uom='ms',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+        _max=int(args.TIMEOUT) * 1000)
+
+    perfdata += lib.base3.get_perfdata(
+        'search_duration',
+        millisSearch,
+        uom='ms',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+        _max=int(args.TIMEOUT) * 1000)
+
+    perfdata += lib.base3.get_perfdata(
+        'logout_duration',
+        millisLogout,
+        uom='ms',
+        warn=args.WARNING,
+        crit=args.CRITICAL,
+        _min=0,
+        _max=int(args.TIMEOUT) * 1000)
+
+    state = lib.base3.get_state(
+        millisExecutionTime,
+        args.WARNING,
+        args.CRITICAL,)
+
+    msg = lib.base3.state2str(
+        state,
+        suffix=' executing login, search and logout took {}s'.format(executionTime),
+        empty_ok=False,)
+
+    # over and out
+    lib.base3.oao(
+        msg,
+        state,
+        perfdata=perfdata,
+        always_ok=args.ALWAYS_OK)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

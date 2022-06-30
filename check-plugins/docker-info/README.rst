@@ -56,20 +56,24 @@ States
 
 * WARN on ``docker info`` warnings
 * CRIT on ``docker info`` errors
+* CRIT on ``docker info`` return codes != 0
 
 
 Perfdata / Metrics
 ------------------
 
-* containers: Number of containers
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
     
-    * containers_paused
-    * containers_running
-    * containers_stopped
-
-* cpu: Number of Host CPUs
-* images: Number of images
-* ram: Total Host Memory
+    Name,                                       Type,               Description                                           
+    containers,                                 Number,             Number of containers
+    containers_paused,                          Number,             Number of paused containers
+    containers_running,                         Number,             Number of running containers
+    containers_stopped,                         Number,             Number of stopped containers
+    cpu,                                        Number,             Number of Host CPUs
+    images,                                     Number,             Number of images
+    ram,                                        Number,             Total Host Memory
 
 
 Troubleshooting

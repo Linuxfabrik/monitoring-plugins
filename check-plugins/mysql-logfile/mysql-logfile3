@@ -41,15 +41,16 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022050401'
+__version__ = '2022062101'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
 
-DEFAULT_CACHE_FILE = 'linuxfabrik-monitoring-plugins-mysql-logfile.db'
 DEFAULT_CACHE_EXPIRE = 7200  # minutes (= 5 days)
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
+DEFAULT_PASSWORD = ''
+DEFAULT_USERNAME = 'root'
 
 MAXLINES = 30000  # Maximum lines of log output to read from end
 
@@ -89,16 +90,33 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-pattern',
+        help='Any line containing this pattern will be ignored (must be lowercase; repeating).',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='Any line matching this python regex will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
         '-p', '--password',
-        help='Use the indicated password to authenticate the connection. IMPORTANT: THIS FORM OF AUTHENTICATION IS NOT SECURE.',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
         dest='PASSWORD',
-        required = True,
+        default=DEFAULT_PASSWORD,
     )
 
     parser.add_argument(
         '--port',
         help='MySQL/MariaDB port. Default: %(default)s',
         dest='PORT',
+        type=int,
         default=DEFAULT_PORT,
     )
 
@@ -117,9 +135,9 @@ def parse_args():
 
     parser.add_argument(
         '-u', '--username',
-        help='MySQL/MariaDB username.',
+        help='MySQL/MariaDB username. Default: %(default)s',
         dest='USERNAME',
-        required = True,
+        default=DEFAULT_USERNAME,
     )
 
     return parser.parse_args()
@@ -127,8 +145,8 @@ def parse_args():
 
 def get_vars(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
-    # With the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
-    # new connections to MariaDB.
+    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # the current connection to MariaDB.
     sql = """
         show global variables
         where variable_name like 'datadir'
@@ -179,18 +197,18 @@ def main():
 
     # Try to get the "log_error" setting and save it to cache, so that we know where to get the
     # log info from in case the DB is down.
-    log_error = lib.cache3.get('{}-{}'.format(args.HOSTNAME, args.PORT), filename=DEFAULT_CACHE_FILE)
+    log_error = lib.cache3.get('{}-{}'.format(args.HOSTNAME, args.PORT), filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
     if not log_error:
         mysql_connection = {
             'user':               args.USERNAME,
             'password':           args.PASSWORD,
             'host':               args.HOSTNAME,
             'port':               args.PORT,
-            'raise_on_warnings':  True
         }
         conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
         lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
         myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+        lib.db_mysql3.close(conn)
 
         if not args.SERVER_LOG:
             log_error = get_log_file_real_path(myvar['log_error'], myvar['hostname'], myvar['datadir'])
@@ -200,8 +218,9 @@ def main():
         if not log_error:
             lib.base3.oao('No log file set (set log_error).', STATE_UNKNOWN)
 
-        lib.cache3.set('{}-{}'.format(args.HOSTNAME, args.PORT), log_error, lib.time3.now() + args.CACHE_EXPIRE*60, filename=DEFAULT_CACHE_FILE)
+        lib.cache3.set('{}-{}'.format(args.HOSTNAME, args.PORT), log_error, lib.time3.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
 
+    # init some vars
     msg, msg_body = '', ''
     state = STATE_OK
     perfdata = ''
@@ -246,8 +265,12 @@ def main():
 
     # parse the log (slightly extended compared to MySQLTuner)
     lastErrs, lastWarns, lastShutdowns, lastStarts = [], [], [], []
+    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
     for logLi in logfile.splitlines():
         haystack = logLi.lower()
+        if any(ignore_pattern in haystack for ignore_pattern in args.IGNORE_PATTERN) \
+        or any(item.search(haystack) for item in compiled_ignore_regex):
+            continue
         if 'error' in haystack  and 'logging to' not in haystack and ' [warning] ' not in haystack:
             lastErrs.append(logLi)
         if 'warning' in haystack:
@@ -257,47 +280,63 @@ def main():
         if 'ready for connections' in logLi:
             lastStarts.append(logLi)
 
+    cnt = len(lastErrs)
     if lastErrs:
         errline_state = STATE_CRIT
         state = lib.base3.get_worst(state, errline_state)
         msg += '{} {}{} (last: {}), '.format(
-            len(lastErrs),
+            cnt,
             lib.txt3.pluralize('error', len(lastErrs)),
             lib.base3.state2str(errline_state, prefix=' '),
             lastErrs[-1]
         )
+        if cnt > 10:
+            # shorten the message
+            lastErrs = lastErrs[0:5] + ['...'] + lastErrs[-5:]
         msg_body += 'Errors:\n* {}\n'.format('\n* '.join(lastErrs))
-    perfdata += lib.base3.get_perfdata('mysql_error_lines', len(lastErrs), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_error_lines', cnt, None, None, None, 0, None)
 
+    cnt = len(lastWarns)
     if lastWarns:
         warnline_state = STATE_WARN
         state = lib.base3.get_worst(state, warnline_state)
         msg += '{} {}{} (last: {}), '.format(
-            len(lastWarns),
+            cnt,
             lib.txt3.pluralize('warning', len(lastWarns)),
             lib.base3.state2str(warnline_state, prefix=' '),
             lastWarns[-1]
         )
+        if cnt > 10:
+            # shorten the message
+            lastWarns = lastWarns[0:5] + ['...'] + lastWarns[-5:]
         msg_body += 'Warnings:\n* {}\n'.format('\n* '.join(lastWarns))
-    perfdata += lib.base3.get_perfdata('mysql_warning_lines', len(lastWarns), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_warning_lines', cnt, None, None, None, 0, None)
 
+    cnt = len(lastStarts)
     if lastStarts:
         msg += '{} {} (last: {}), '.format(
-            len(lastStarts),
+            cnt,
             lib.txt3.pluralize('start', len(lastStarts)),
             lastStarts[-1][:15],
         )
+        if cnt > 10:
+            # shorten the message
+            lastStarts = lastStarts[0:5] + ['...'] + lastStarts[-5:]
         msg_body += 'Starts:\n* {}\n'.format('\n* '.join(lastStarts))
-    perfdata += lib.base3.get_perfdata('mysql_startups', len(lastStarts), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_startups', cnt, None, None, None, 0, None)
 
+    cnt = len(lastShutdowns)
     if lastShutdowns:
         msg += '{} {} (last: {}), '.format(
-            len(lastShutdowns),
+            cnt,
             lib.txt3.pluralize('shutdown', len(lastShutdowns)),
             lastShutdowns[-1][:15],
         )
+        if cnt > 10:
+            # shorten the message
+            lastShutdowns = lastShutdowns[0:5] + ['...'] + lastShutdowns[-5:]
         msg_body += 'Shutdowns:\n* {}\n'.format('\n* '.join(lastShutdowns))
-    perfdata += lib.base3.get_perfdata('mysql_shutdowns', len(lastShutdowns), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_shutdowns', cnt, None, None, None, 0, None)
 
     # over and out
     lib.base3.oao('{}\n{}'.format(msg[:-2], msg_body), state, perfdata, always_ok=args.ALWAYS_OK)

@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022032601'
+__version__ = '2022052501'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
@@ -188,8 +188,9 @@ def main():
     # build the message
     if table_data:
         keys = ['id', 'customer_name', 'tags', 'size', 'nb_slots', 'expires_in', 'maintenance', 'locked', 'busy']
-        headers = ['ID', 'Customer', 'Tags', 'Size (alloc/max)', 'Dev', 'Expires in', 'Maint.', 'Locked', 'Busy']
-        msg += lib.base3.get_table(table_data, keys, header=headers)
+        headers = ['ID', 'Customer', 'Tags', 'Size (alloc/avail)', 'Dev', 'Expires in', 'Maint.', 'Locked', 'Busy']
+        # sort table by user tags
+        msg += lib.base3.get_table(sorted(table_data, key=lambda d: d['tags']) , keys, header=headers)
 
     if state == STATE_CRIT:
         msg = 'There are critical errors.\n\n' + msg

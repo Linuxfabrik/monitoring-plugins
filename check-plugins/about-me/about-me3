@@ -47,54 +47,10 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021703'
+__version__ = '2022062301'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
-DEFAULT_LINUX_USER = [
-    '_apt',
-    'abrt',
-    'adm',
-    'backup',
-    'bin',
-    'chrony',
-    'daemon',
-    'dbus',
-    'ftp',
-    'games',
-    'gnats',
-    'halt',
-    'irc',
-    'list',
-    'lp',
-    'mail',
-    'man',
-    'messagebus',
-    'news',
-    'nobody',
-    'operator',
-    'polkitd',
-    'proxy',
-    'rngd',
-    'root',
-    'rpc',
-    'rpcuser',
-    'shutdown',
-    'sshd',
-    'sssd',
-    'sync',
-    'sys',
-    'systemd-coredump',
-    'systemd-network',
-    'systemd-oom',
-    'systemd-resolve',
-    'systemd-timesync',
-    'tcpdump',
-    'tss',
-    'unbound',
-    'user',
-    'uucp',
-]
 
 def parse_args():
     """Parse command line arguments using argparse.
@@ -108,56 +64,6 @@ def parse_args():
     )
 
     return parser.parse_args()
-
-
-def find_command(return_text, cmd, version_regex=None, ignore_output=False):
-    success, result = lib.shell3.shell_exec(cmd)
-    if not success:
-        return ''
-    stdout, stderr, retc = result
-    if ignore_output:
-        if retc == 0:
-            return '* {}\n'.format(return_text.strip())
-        return ''
-    if stdout == '' and stderr != '':
-        # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
-        # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
-        stdout = stderr
-    stdout = stdout.strip().splitlines()[0].strip()
-    # where to find the version number in output?
-    if version_regex:
-        re_search = re.search(version_regex, stdout)
-        if re_search:
-            try:
-                return '* {} {}\n'.format(return_text, re_search.group(1).strip())
-            except IndexError:
-                # this means there is no group 1, so return the whole match
-                return '* {} {}\n'.format(return_text, re_search.group(0).strip())
-    return '* {} {}\n'.format(return_text, stdout)
-
-
-def get_sys_dimensions():
-    """get some very basic system statistics
-    """
-
-    sys_dimensions = {}
-    if HAVE_PSUTIL:
-        sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
-        sys_dimensions['ram'] = psutil.virtual_memory().total
-    return sys_dimensions
-
-
-def get_disks():
-    msg = ''
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
-    for disk in stdout.strip().splitlines():
-        # zRAM devices can appear in the output of lsblk, but
-        # we cannot do anything useful with them
-        if disk.startswith('zram'):
-            continue
-        msg = '{}* {}\n'.format(msg, disk)
-
-    return msg
 
 
 def get_apps():
@@ -204,6 +110,7 @@ def get_apps():
     apps += '* MediaWiki\n'                       if os.path.isdir('/var/www/html/mediawiki') else ''
     apps += '* Medidata (eFaktura)\n'             if os.path.isdir('/opt/MPCommunicator') else ''
     apps += '* Metabase\n'                        if os.path.isdir('/opt/metabase') else ''
+    apps += '* mod_security\n'                    if os.path.isdir('/var/lib/mod_security') else ''
     apps += '* Nextcloud\n'                       if os.path.isdir('/var/www/nextcloud') else ''
     apps += '* Nextcloud\n'                       if os.path.isdir('/var/www/html/nextcloud') else ''
     apps += '* ownCloud\n'                        if os.path.isdir('/var/www/owncloud') else ''
@@ -250,112 +157,181 @@ def get_apps():
     return apps
 
 
-def get_tools():
-    """ simple tools, alphabetically sorted by output
+def get_birthdate():
+    """Using various methods to determine install date.
     """
+    birthdate = '-'
+    # Using stat
+    cmd = 'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11'
+    success, result = lib.shell3.shell_exec(cmd)
+    if success:
+        birthdate, stderr, retc = result
+    if birthdate == '-':
+        # nothing found so far, but not all of those are very accurate
+        if os.path.isfile('/usr/bin/pacman'):
+            # Arch Linux, and Arch based distros using pacman
+            cmd = 'head -n 1 $PACMAN_LOG | cut -b 2-11'
+        elif os.path.isfile('/usr/bin/emerge'):
+            # Gentoo Linux and Gentoo based distros using portage
+            cmd = 'head -n 1 $PORTAGE_LOG | cut -b 31-43'
+        elif os.path.isfile('/usr/bin/rpm'):
+            # Fedora, RedHat, and RPM based distros
+            cmd = 'rpm -qi basesystem | grep "Install Date" | sed "s/Install Date: //g"'
+        success, result = lib.shell3.shell_exec(cmd)
+    if success:
+        birthdate, stderr, retc = result
+    return birthdate.strip()
 
-    tools = ''
 
-    tools += find_command('dig',       'command -v dig', ignore_output=True)
-    tools += find_command('hdparm',    'command -v hdparm', ignore_output=True)
-    tools += find_command('iftop',     'command -v iftop', ignore_output=True)
-    tools += find_command('lsof',      'command -v lsof', ignore_output=True)
-    tools += find_command('nano',      'command -v nano', ignore_output=True)
-    tools += find_command('ncat',      'command -v ncat', ignore_output=True)
-    tools += find_command('nmap',      'command -v nmap', ignore_output=True)
-    tools += find_command('rsync',     'command -v rsync', ignore_output=True)
-    tools += find_command('tcpdump',   'command -v tcpdump', ignore_output=True)
-    tools += find_command('telnet',    'command -v telnet', ignore_output=True)
-    tools += find_command('tmux',      'command -v tmux', ignore_output=True)
-    tools += find_command('unzip',     'command -v unzip', ignore_output=True)
-    tools += find_command('vim',       'command -v vim', ignore_output=True)
-    tools += find_command('wget',      'command -v wget', ignore_output=True)
-    tools += find_command('whois',     'command -v whois', ignore_output=True)
-    tools += find_command('wireshark', 'command -v tshark', ignore_output=True)
-
-    return tools
+def get_boot_mode():
+    return 'UEFI' if os.path.isdir('/sys/firmware/efi') else 'BIOS'
 
 
-def get_sw():
-    """ applications, alphabetically sorted by output, callable with version info.
-    """
+def get_crontabs():
+    cmd = r"grep --dereference-recursive --no-filename --invert-match '\s*#' /etc/crontab /etc/cron.d/ /etc/anacrontab /var/spool/cron"
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+    msg = ''
+    line_regex = re.compile(r'\S+=')
+    for line in stdout.splitlines():
+        line = line.strip()
+        if len(line) > 0 and re.match(line_regex, line) is None:
+            msg = '{}{}\n'.format(msg, line)
+    return msg
 
-    sw = ''
 
-    sw += find_command('Apache httpd',              'httpd -v',                           version_regex =r'/(\d+\.\d+\.\d+)')
-    sw += find_command('Apache Tomcat',             'tomcat version',                     version_regex =r'Server version: Apache Tomcat/(.*)')
-    sw += find_command('BIND',                      'named -v',                           version_regex =r'^BIND (.*?)-')
-    sw += find_command('Borg',                      'borg --version',                     version_regex =r' (.*)')
-    sw += find_command('ClamAV',                    'clamd --version',                    version_regex =r' (.*) ')
-    sw += find_command('chrony',                    'chrony --version',                   version_regex =r'n ([\d\.]+)')
-    sw += find_command('cockpit',                   '/usr/libexec/cockpit-ws --version',  version_regex =r': ([\d\.]+)')
-    sw += find_command('coturn',                    'command -v turnserver',              ignore_output=True)
-    sw += find_command('Containerd',                'containerd --version',               version_regex =r'\.io (.*) ')
-    sw += find_command('Docker Compose',            'docker-compose --version',           version_regex =r' version (.*?),')
-    sw += find_command('Docker/Podman',             'docker --version',                   version_regex =r' (\d+\d?\.\d+\d?.\d+\d?)')
-    sw += find_command('Erlang',                    "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell",  version_regex =r'\"(.*)\"')
-    sw += find_command('Elastic-Filebeat',          'filebeat version',                   version_regex =r'n ([\d\.]+)')
-    sw += find_command('Fail2ban Server',           'fail2ban-server --version',          version_regex =r' v(.*)')
-    sw += find_command('Firefox',                   'firefox --version',                  version_regex =r' Firefox (.*)')
-    sw += find_command('FreeIPA',                   'ipa --version',                      version_regex =r' (.*?),')
-    sw += find_command('g++',                       'g++ --version',                      version_regex =r'\) ([\d\.]+)')
-    sw += find_command('gcc',                       'gcc --version',                      version_regex =r'\) ([\d\.]+)')
-    sw += find_command('Git',                       'git --version',                      version_regex =r'git version (.*)')
-    sw += find_command('Glances',                   'glances --version',                  version_regex =r'Glances v(.*?) ')
-    sw += find_command('GNOME Display Manager',     'gdm --version ',                     version_regex =r' \S*')
-    sw += find_command('GNOME Shell',               'gnome-shell --version',              version_regex =r'l (\S*)')
-    sw += find_command('Grafana Server',            'grafana-server -v',                  version_regex =r'Version (.*?) ')
-    sw += find_command('i3',                        'i3 --version',                       version_regex =r'version (\S+)')
-    sw += find_command('Icinga2',                   'icinga2 --version',                  version_regex =r'\(version: (.*)\)')
-    sw += find_command('InfluxDB',                  'influx --version',                   version_regex =r': (.*)')
-    sw += find_command('Java',                      'java -version',                      version_regex =r'(.*)').replace('version ', '').replace('"', '')
-    sw += find_command('LibreOffice Online (LOOL)', 'command -v loolwsd',                 ignore_output=True)
-    sw += find_command('LibreOffice',               'libreoffice --version',              version_regex =r' (.*?) ')
-    sw += find_command('Lighttpd',                  'lighttpd -v',                        version_regex =r'lighttpd/(.*) -')
-    sw += find_command('Linux Kernel',              'uname -r')
-    tmp = find_command('MySQL',                     'mysqld --version',                   version_regex =r'Ver (.*?) ')
-    if 'MariaDB' in tmp:
-        tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
-    sw += tmp
-    sw += find_command('MongoDB',                   'mongod --version',                   version_regex =r'db version v(.*?)\n')
-    sw += find_command('mydumper/myloader',         'mydumper --version',                 version_regex =r' (.*?),')
-    sw += find_command('Nginx',                     'nginx -v',                           version_regex =r'nginx version: nginx/(.*)')
-    sw += find_command('Nikto',                     'nikto -Version',                     version_regex =r'main\s*(.*)')
-    sw += find_command('Node',                      'node --version',                     version_regex =r'v(.*)')
-    sw += find_command('NodeJS',                    'nodejs --version',                   version_regex =r'v(.*)')
-    sw += find_command('npm',                       'npm --version',                      version_regex =r'(.*)')
-    sw += find_command('ntpd',                      'ntpq -c version',                    version_regex =r' ([\d\.p]+)@')
-    sw += find_command('OpenSSL',                   'openssl version',                    version_regex =r' (.*?) ')
-    sw += find_command('OpenVAS',                   'openvas version',                    version_regex =r' (.*?)$')
-    sw += find_command('OpenVPN',                   'openvpn --version',                  version_regex =r'N (\d+\.\d+(\.\d+)?)')
-    tmp += find_command('Open Virtual Machine Tools','vmtoolsd --version',                version_regex =r'n ([\d\.]+)')
-    if 'error' in tmp.lower():
-        sw += '* Open Virtual Machine Tools are installed, but throw an error.\n  Maybe tools virtualization condition "vmware" is not met.\n'
-    else:
-        sw += tmp
-    sw += find_command('Perl',                      'perl --version',                     version_regex =r' \(v(.*?)\) ')
-    sw += find_command('PHP',                       'php --version',                      version_regex =r'PHP (.*?) \(.*')
-    sw += find_command('PHP-FPM',                   'php-fpm --version',                  version_regex =r'PHP (.*?) \(.*')
-    sw += find_command('pip',                       'pip --version',                      version_regex =r'pip (.*) from')
-    sw += find_command('Postfix',                   'postconf -d mail_version',           version_regex =r'= ([\d\.]+)')
-    sw += find_command('PostgreSQL',                'psql --version',                     version_regex =r'\(PostgreSQL\) (.*)')
-    sw += find_command('Python mapped to',          'python --version',                   version_regex =r' (.*)')
-    sw += find_command('Python2',                   'python2 --version',                  version_regex =r' (.*)')
-    sw += find_command('Python3',                   'python3 --version',                  version_regex =r' (.*)')
-    sw += find_command('QEMU Guest Agent',          'qemu-ga --version',                  version_regex =r'([\d\.]+)')
-    sw += find_command('RabbitMQ Server',           'rabbitmqctl version')
-    sw += find_command('Redis Server',              'redis-server --version',             version_regex =r' v=(.*?) ')
-    sw += find_command('SPICE Agent',               'command -v spice-vdagentd',          ignore_output=True)
-    sw += find_command('ssh',                       'ssh -V',                             version_regex =r'_(.+),')
-    sw += find_command('Sublime Text',              'subl --version',                     version_regex =r'.* (.*)$')
-    sw += find_command('sudo',                      'sudo --version',                     version_regex =r'n (.+)')
-    sw += find_command('systemd',                   'systemctl --version',                version_regex =r'systemd (\d+)')
-    sw += find_command('Samba',                     'smbd --version',                     version_regex =r'n ([\d\.]+)')
-    sw += find_command('TeamViewer',                'teamviewer --version',               version_regex =r'.* (\S*)  ')
-    sw += find_command('tmate',                     'tmate -V',                           version_regex =r' (.*)')
-    sw += find_command('Veeam',                     'veeamagent --version',               version_regex =r'(.*)')
+def get_disks():
+    result = ''
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('lsblk --nodeps --output NAME,SIZE --noheadings --include 8,252,259'))
+    for disk in stdout.strip().splitlines():
+        # zRAM devices can appear in the output of lsblk, but
+        # we cannot do anything useful with them
+        if disk.startswith('zram'):
+            continue
+        result += '{}, '.format(re.sub('\\s+', ' ', disk))
+    return result[:-2]
 
-    return sw
+
+def get_interfaces():
+    msg = ''
+    try:
+        for name, interface in sorted(psutil.net_if_addrs().items()):
+            if name == 'lo':
+                continue
+            for addr in interface:
+                if addr.family == lib.net3.AF_INET:
+                    msg = '{}* {} {}/{}\n'.format(msg, name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
+    except:
+        pass
+    return msg
+
+
+def get_key_features():
+    features_found, features_na = '', ''
+    features = [
+        {'name': 'firewalld', 'cmd': 'command -v firewalld'},
+        {'name': 'iptables', 'cmd': 'command -v iptables'},
+        {'name': 'LVM', 'cmd': 'command -v lvdisplay'},
+        {'name': 'nftables', 'cmd': 'command -v nft'},
+        {'name': 'SELinux', 'cmd': 'command -v sestatus'},
+    ]
+    for feature in features:
+        if retcmd_output('', feature['cmd'], ignore_output=True):
+            features_found += '{}, '.format(feature['name'])
+        else:
+            features_na += '{}, '.format(feature['name'])
+    result = ''
+    if features_found:
+        result += 'Features: {}; '.format(features_found[:-2])
+    if features_na:
+        result += 'Missing: {}; '.format(features_na[:-2])
+    return result[:-2]
+
+
+def get_listening_ports():
+    result = []
+    if not HAVE_PSUTIL:
+        return result
+    nc = psutil.net_connections('inet')
+    for c in nc:
+        ip, port = c.laddr
+        if c.type == socket.SOCK_DGRAM:
+            # ignore udp
+            continue
+        if c.type == socket.SOCK_STREAM and c.status == psutil.CONN_LISTEN:
+            proto = 'tcp'
+        else:
+            continue
+        if c.family == socket.AF_INET:
+            proto += '4'
+        else:
+            proto += '6'
+        result.append({
+            'proto': proto,
+            'ip': ip if ip != '::' else '[::]',
+            'port': port,
+        })
+    return sorted(result, key=lambda d: d['port']) 
+
+
+def get_nondefault_users():
+    DEFAULT_LINUX_USER = [
+        '_apt',
+        'abrt',
+        'adm',
+        'backup',
+        'bin',
+        'chrony',
+        'daemon',
+        'dbus',
+        'ftp',
+        'games',
+        'gnats',
+        'halt',
+        'irc',
+        'list',
+        'lp',
+        'mail',
+        'man',
+        'messagebus',
+        'news',
+        'nobody',
+        'operator',
+        'polkitd',
+        'proxy',
+        'rngd',
+        'root',
+        'rpc',
+        'rpcuser',
+        'shutdown',
+        'sshd',
+        'sssd',
+        'sync',
+        'sys',
+        'systemd-coredump',
+        'systemd-network',
+        'systemd-oom',
+        'systemd-resolve',
+        'systemd-timesync',
+        'tcpdump',
+        'tss',
+        'unbound',
+        'user',
+        'uucp',
+    ]
+    passwd = lib.base3.coe(lib.disk3.read_file('/etc/passwd'))
+    table_data = []
+    header = ['user', 'pw', 'uid', 'gid', 'comment', 'home_dir', 'user_shell']
+    for line in passwd.splitlines():
+        data = dict(zip(header, line.split(':')))
+        if data['user'] not in DEFAULT_LINUX_USER:
+            table_data.append(data)
+
+    return lib.base3.get_table(
+        table_data,
+        header,
+        header=header,
+        sort_by_key='user',
+    )
 
 
 def get_os_info():
@@ -376,48 +352,165 @@ def get_os_info():
     return ''
 
 
-def get_virt_info():
-    success, result = lib.shell3.shell_exec('systemd-detect-virt')
-    if success:
-        stdout, stderr, retc = result
-        return stdout.strip()
-    return 'Unknown'
-
-
-def get_interfaces():
-    msg = ''
-    try:
-        for name, interface in sorted(psutil.net_if_addrs().items()):
-            if name == 'lo':
-                continue
-
-            for addr in interface:
-                if addr.family == lib.net3.AF_INET:
-                    msg = '{}* {} {}/{}\n'.format(msg, name, addr.address, lib.net3.ip_to_cidr(addr.netmask))
-    except:
-        pass
-
-    return msg
-
-
 def get_python_modules():
-    pm = ''
-    try:
-        import bs4 # pylint: disable=C0415
-        pm += '* BeautifulSoup {}\n'.format(bs4.__version__)
-    except ImportError:
-        pass
-    try:
-        import mysql.connector # pylint: disable=C0415
-        pm += '* mysql.connector {}\n'.format(mysql.connector.__version__)
-    except ImportError:
-        pass
-    try:
-        import psutil # pylint: disable=C0415,W0621
-        pm += '* psutil {}\n'.format(psutil.__version__)
-    except ImportError:
-        pass
-    return pm
+    """Return a list for each of the installed and missing libraries used in total by all plugins
+    (except built-in libraries, which are used, but always there and therefore commented).
+    """
+    installed, missing = [], []
+    modules = [
+        #'argparse',
+        #'base64',
+        'bs4',
+        #'collections',
+        #'csv',
+        #'datetime',
+        #'fnmatch',
+        #'glob',
+        #'json',
+        #'locale',
+        #'os',
+        #'pathlib',
+        #'platform',
+        'psutil',
+        'pymysql.cursors',
+        #'re',
+        'smbprotocol.exceptions',
+        #'socket',
+        #'sys',
+        #'tempfile',
+        #'time',
+        #'unittest',
+        #'urllib.parse',
+        'vici',
+        #'warnings',
+        #'xml.etree.ElementTree',
+        #'xmltodict',
+    ]
+    for m in modules:
+        try:
+            mymod = __import__(m)
+            try:
+                installed.append('{} {}'.format(m, mymod.__version__))
+            except AttributeError:
+                installed.append(m)
+        except ImportError:
+            missing.append(m)
+    return installed, missing
+
+
+def get_sw():
+    """ applications, alphabetically sorted by output, callable with version info.
+    """
+
+    sw = ''
+
+    sw += retcmd_output('acme.sh',                   'acme.sh --version',                  regex =r'v(.*)')
+    sw += retcmd_output('Aide',                      'aide --version',                     regex =r'de (.*)')
+    sw += retcmd_output('AnyDesk',                   'anydesk --version',                  regex =r'(.*)')
+    sw += retcmd_output('Apache httpd',              'httpd -v',                           regex =r'/(\d+\.\d+\.\d+)')
+    sw += retcmd_output('Apache Tomcat',             'tomcat version',                     regex =r'Server version: Apache Tomcat/(.*)')
+    sw += retcmd_output('BIND',                      'named -v',                           regex =r'^BIND (.*?)-')
+    sw += retcmd_output('Borg',                      'borg --version',                     regex =r' (.*)')
+    sw += retcmd_output('certbot',                   'certbot --version',                  regex =r' (.*)')
+    sw += retcmd_output('ClamAV',                    'clamd --version',                    regex =r' (.*) ')
+    sw += retcmd_output('chrony',                    'chrony --version',                   regex =r'n ([\d\.]+)')
+    sw += retcmd_output('cockpit',                   '/usr/libexec/cockpit-ws --version',  regex =r': ([\d\.]+)')
+    sw += retcmd_output('coturn',                    'command -v turnserver',              ignore_output=True)
+    sw += retcmd_output('Containerd',                'containerd --version',               regex =r'\.io (.*) ')
+    sw += retcmd_output('Docker Compose',            'docker-compose --version',           regex =r' version (.*?),')
+    sw += retcmd_output('Docker/Podman',             'docker --version',                   regex =r' (\d+\d?\.\d+\d?.\d+\d?)')
+    sw += retcmd_output('Erlang',                    "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell",  regex =r'\"(.*)\"')
+    sw += retcmd_output('Elastic-Filebeat',          'filebeat version',                   regex =r'n ([\d\.]+)')
+    sw += retcmd_output('Fail2ban Server',           'fail2ban-server --version',          regex =r' v(.*)')
+    sw += retcmd_output('Firefox',                   'firefox --version',                  regex =r' Firefox (.*)')
+    sw += retcmd_output('FreeIPA',                   'ipa --version',                      regex =r' (.*?),')
+    sw += retcmd_output('g++',                       'g++ --version',                      regex =r'\) ([\d\.]+)')
+    sw += retcmd_output('gcc',                       'gcc --version',                      regex =r'\) ([\d\.]+)')
+    sw += retcmd_output('Git',                       'git --version',                      regex =r'git version (.*)')
+    sw += retcmd_output('Glances',                   'glances --version',                  regex =r'Glances v(.*?) ')
+    sw += retcmd_output('GNOME Display Manager',     'gdm --version ',                     regex =r' \S*')
+    sw += retcmd_output('GNOME Shell',               'gnome-shell --version',              regex =r'l (\S*)')
+    sw += retcmd_output('gpg',                       'gpg --version',                      regex =r'gpg (.*)')
+    sw += retcmd_output('Grafana Server',            'grafana-server -v',                  regex =r'Version (.*?) ')
+    sw += retcmd_output('HAPrxoy',                   'haproxy -v',                         regex =r'version (.*) -')
+    sw += retcmd_output('i3',                        'i3 --version',                       regex =r'version (\S+)')
+    sw += retcmd_output('Icinga2',                   'icinga2 --version',                  regex =r'\(version: (.*)\)')
+    sw += retcmd_output('InfluxDB',                  'influx --version',                   regex =r': (.*)')
+    sw += retcmd_output('Java',                      'java -version',                      regex =r'(.*)').replace('version ', '').replace('"', '')
+    sw += retcmd_output('LibreOffice Online (LOOL)', 'command -v loolwsd',                 ignore_output=True)
+    sw += retcmd_output('LibreOffice',               'libreoffice --version',              regex =r' (.*?) ')
+    sw += retcmd_output('Lighttpd',                  'lighttpd -v',                        regex =r'lighttpd/(.*) -')
+    sw += retcmd_output('Linux Kernel',              'uname -r')
+    tmp = retcmd_output('MySQL',                     'mysqld --version',                   regex =r'Ver (.*?) ')
+    if 'MariaDB' in tmp:
+        tmp = tmp.replace('MySQL', 'MariaDB').replace('-MariaDB', '')
+    sw += tmp
+    sw += retcmd_output('MongoDB',                   'mongod --version',                   regex =r'db version v(.*?)\n')
+    sw += retcmd_output('mydumper/myloader',         'mydumper --version',                 regex =r' (.*?),')
+    sw += retcmd_output('Nginx',                     'nginx -v',                           regex =r'nginx version: nginx/(.*)')
+    sw += retcmd_output('Nikto',                     'nikto -Version',                     regex =r'main\s*(.*)')
+    sw += retcmd_output('Node',                      'node --version',                     regex =r'v(.*)')
+    sw += retcmd_output('NodeJS',                    'nodejs --version',                   regex =r'v(.*)')
+    sw += retcmd_output('npm',                       'npm --version',                      regex =r'(.*)')
+    sw += retcmd_output('ntpd',                      'ntpq -c version',                    regex =r' ([\d\.p]+)@')
+    sw += retcmd_output('OpenSSL',                   'openssl version',                    regex =r' (.*?) ')
+    sw += retcmd_output('OpenVAS',                   'openvas version',                    regex =r' (.*?)$')
+    sw += retcmd_output('OpenVPN',                   'openvpn --version',                  regex =r'N (\d+\.\d+(\.\d+)?)')
+    tmp += retcmd_output('Open Virtual Machine Tools','vmtoolsd --version',                regex =r'n ([\d\.]+)')
+    if 'error' in tmp.lower():
+        sw += '* Open Virtual Machine Tools are installed, but throw an error.\n  Maybe tools virtualization condition "vmware" is not met.\n'
+    else:
+        sw += tmp
+    sw += retcmd_output('Perl',                      'perl --version',                     regex =r' \(v(.*?)\) ')
+    sw += retcmd_output('PHP',                       'php --version',                      regex =r'PHP (.*?) \(.*')
+    sw += retcmd_output('PHP-FPM',                   'php-fpm --version',                  regex =r'PHP (.*?) \(.*')
+    sw += retcmd_output('pip',                       'pip --version',                      regex =r'pip (.*) from')
+    sw += retcmd_output('Postfix',                   'postconf -d mail_version',           regex =r'= ([\d\.]+)')
+    sw += retcmd_output('PostgreSQL',                'psql --version',                     regex =r'\(PostgreSQL\) (.*)')
+    sw += retcmd_output('Python',                    'python2.6 --version',                regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python2.7 --version',                regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python3.10 --version',               regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python3.4 --version',                regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python3.6 --version',                regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python3.8 --version',                regex =r' (.*)')
+    sw += retcmd_output('Python',                    'python3.9 --version',                regex =r' (.*)')
+    sw += retcmd_output('python cmd mapped to',      'python --version',                   regex =r' (.*)')
+    sw += retcmd_output('python2 cmd mapped to',     'python2 --version',                  regex =r' (.*)')
+    sw += retcmd_output('python3 cmd mapped to',     'python3 --version',                  regex =r' (.*)')
+    sw += retcmd_output('QEMU Guest Agent',          'qemu-ga --version',                  regex =r'([\d\.]+)')
+    sw += retcmd_output('RabbitMQ Server',           'rabbitmqctl version')
+    sw += retcmd_output('Redis Server',              'redis-server --version',             regex =r' v=(.*?) ')
+    sw += retcmd_output('Samba',                     'smbd --version',                     regex =r'n ([\d\.]+)')
+    sw += retcmd_output('SPICE Agent',               'command -v spice-vdagentd',          ignore_output=True)
+    sw += retcmd_output('ssh',                       'ssh -V',                             regex =r'_(.+),')
+    sw += retcmd_output('Sublime Text',              'subl --version',                     regex =r'.* (.*)$')
+    sw += retcmd_output('sudo',                      'sudo --version',                     regex =r'n (.+)')
+    sw += retcmd_output('swanctl',                   'swanctl --version',                  regex =r'(.*)')
+    sw += retcmd_output('systemd',                   'systemctl --version',                regex =r'systemd (\d+)')
+    sw += retcmd_output('TeamViewer',                'teamviewer --version',               regex =r'.* (\S*)  ')
+    sw += retcmd_output('tmate',                     'tmate -V',                           regex =r' (.*)')
+    sw += retcmd_output('Veeam',                     'veeamagent --version',               regex =r'(.*)')
+
+    return sw
+
+
+def get_sys_dimensions():
+    """get some very basic system statistics
+    """
+    sys_dimensions = {}
+    if HAVE_PSUTIL:
+        sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
+        sys_dimensions['ram'] = psutil.virtual_memory().total
+    return sys_dimensions
+
+
+def get_systemd_default_target():
+    cmd = 'systemctl get-default'
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+    if stderr or retc != 0:
+        return ''
+
+    return '* {}\n'.format(stdout.strip())
 
 
 def get_systemd_timers():
@@ -440,15 +533,6 @@ def get_systemd_timers():
     return msg
 
 
-def get_systemd_default_target():
-    cmd = 'systemctl get-default'
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-    if stderr or retc != 0:
-        return ''
-
-    return '* {}\n'.format(stdout.strip())
-
-
 def get_systemd_units(cmd):
     # using `--output=json` sadly does not work with older systemd versions (eg systemd 239 on CentOS 7), therefore we have to parse the human output
     # in order to list for a different user (`--user`), we would need to sudo to that user first - we will skip that for now
@@ -462,33 +546,69 @@ def get_systemd_units(cmd):
     return msg
 
 
-def get_crontabs():
-    cmd = r"grep --dereference-recursive --no-filename --invert-match '\s*#' /etc/crontab /etc/cron.d/ /etc/anacrontab /var/spool/cron"
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-    msg = ''
-    line_regex = re.compile(r'\S+=')
-    for line in stdout.splitlines():
-        line = line.strip()
-        if len(line) > 0 and re.match(line_regex, line) is None:
-            msg = '{}{}\n'.format(msg, line)
-    return msg
+def get_tools():
+    """ simple tools, alphabetically sorted by output
+    """
+    tools = ''
+
+    tools += retcmd_output('dig',       'command -v dig', ignore_output=True)
+    tools += retcmd_output('hdparm',    'command -v hdparm', ignore_output=True)
+    tools += retcmd_output('iftop',     'command -v iftop', ignore_output=True)
+    tools += retcmd_output('lsof',      'command -v lsof', ignore_output=True)
+    tools += retcmd_output('nano',      'command -v nano', ignore_output=True)
+    tools += retcmd_output('ncat',      'command -v ncat', ignore_output=True)
+    tools += retcmd_output('nmap',      'command -v nmap', ignore_output=True)
+    tools += retcmd_output('rsync',     'command -v rsync', ignore_output=True)
+    tools += retcmd_output('tcpdump',   'command -v tcpdump', ignore_output=True)
+    tools += retcmd_output('telnet',    'command -v telnet', ignore_output=True)
+    tools += retcmd_output('tmux',      'command -v tmux', ignore_output=True)
+    tools += retcmd_output('unzip',     'command -v unzip', ignore_output=True)
+    tools += retcmd_output('vim',       'command -v vim', ignore_output=True)
+    tools += retcmd_output('wget',      'command -v wget', ignore_output=True)
+    tools += retcmd_output('whois',     'command -v whois', ignore_output=True)
+    tools += retcmd_output('wireshark', 'command -v tshark', ignore_output=True)
+
+    return tools
 
 
-def get_nondefault_users():
-    passwd = lib.base3.coe(lib.disk3.read_file('/etc/passwd'))
-    table_data = []
-    header = ['user', 'pw', 'uid', 'gid', 'comment', 'home_dir', 'user_shell']
-    for line in passwd.splitlines():
-        data = dict(zip(header, line.split(':')))
-        if data['user'] not in DEFAULT_LINUX_USER:
-            table_data.append(data)
+def get_tuned_active_profile():
+    """ Return current active tuned profile (if any).
+    """
+    return retcmd_output('tuned profile', 'tuned-adm active', regex=r': (.*)').strip().replace('* ', '')
 
-    return lib.base3.get_table(
-        table_data,
-        header,
-        header=header,
-        sort_by_key='user',
-    )
+
+def get_virt_info():
+    success, result = lib.shell3.shell_exec('systemd-detect-virt')
+    if success:
+        stdout, stderr, retc = result
+        return stdout.strip()
+    return 'Unknown'
+
+
+def retcmd_output(return_text, cmd, regex=None, ignore_output=False):
+    success, result = lib.shell3.shell_exec(cmd)
+    if not success:
+        return ''
+    stdout, stderr, retc = result
+    if ignore_output:
+        if retc == 0:
+            return '* {}\n'.format(return_text.strip())
+        return ''
+    if stdout == '' and stderr != '':
+        # https://stackoverflow.com/questions/26028416/why-does-python-print-version-info-to-stderr
+        # https://stackoverflow.com/questions/13483443/why-does-java-version-go-to-stderr
+        stdout = stderr
+    stdout = stdout.strip().splitlines()[0].strip()
+    # where to find the version number in output?
+    if regex:
+        re_search = re.search(regex, stdout)
+        if re_search:
+            try:
+                return '* {} {}\n'.format(return_text, re_search.group(1).strip())
+            except IndexError:
+                # this means there is no group 1, so return the whole match
+                return '* {} {}\n'.format(return_text, re_search.group(0).strip())
+    return '* {} {}\n'.format(return_text, stdout)
 
 
 def main():
@@ -501,7 +621,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    perfdata = ''
+    # first header line
     msg = '{} - '.format(socket.gethostname())
 
     os_info = get_os_info()
@@ -514,83 +634,116 @@ def main():
 
     virt = get_virt_info()
     if virt == 'none':
-        msg += ' on bare-metal,'
+        msg += ' on bare-metal'
     else:
-        msg += ' virtualized on {},'.format(virt)
+        msg += ' virtualized on {}'.format(virt)
+
+    msg += ', {} boot'.format(get_boot_mode())
 
     sys_dimensions = get_sys_dimensions()
     if sys_dimensions:
-        msg = '{} {} {}, {} RAM'.format(
-            msg,
+        msg += ', {} {}, {} RAM'.format(
             sys_dimensions['cpu'],
             lib.txt3.pluralize('CPU', sys_dimensions['cpu']),
             lib.human3.bytes2human(sys_dimensions['ram'])
         )
     else:
-        msg = '{} no sys dimensions (consider installing psutil)'.format(msg)
-
-    success, pub_ip = lib.net3.get_ip_public()
-    if success:
-        msg = '{}, Public IP {}'.format(msg, pub_ip)
+        msg += ', no sys dimensions (consider installing psutil)'
 
     disks = get_disks()
     if disks:
-        msg = '{}\n\n# Disks\n{}'.format(msg, disks)
+        msg += ', {} {}'.format(
+            lib.txt3.pluralize('Disk', disks.count(',')+1),
+            disks,
+        )
+
+    tuned = get_tuned_active_profile()
+    if tuned:
+        msg += ', {}'.format(tuned)
+
+    success, pub_ip = lib.net3.get_ip_public()
+    if success:
+        msg += ', Public IP {}'.format(pub_ip)
+
+    birthday = get_birthdate()
+    if birthday and birthday != '-':
+        msg += ', born {}'.format(birthday)
+
+    msg += '. {}'.format(get_key_features())
+
+    msg += '. About-me v{}'.format(__version__)
+
+    # further lines
+
+    pm_installed, pm_missing = get_python_modules()
+    msg += '\n\n# Python 3rd party libraries required by any of the plugins\n'
+    if pm_installed:
+        msg += '* Installed: {}\n'.format(', '.join(pm_installed))
+    else:
+        msg += '* Installed: none\n'
+    if pm_missing:
+        msg += '* Missing: {}\n'.format(', '.join(pm_missing))
+    else:
+        msg += '* Missing: none\n'
 
     interfaces = get_interfaces()
     if interfaces:
-        msg = '{}\n\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
+        msg = '{}\n# Interfaces (IPv4)\n{}'.format(msg, interfaces)
+
+    ports = get_listening_ports()
+    if ports:
+        msg += '\n# Listening TCP Ports\n'
+        for p in ports:
+            msg += '* {}:{}/{}\n'.format(p['ip'], p['port'], p['proto'])
 
     sw = get_sw()
     if sw:
-        msg = '{}\n\n# Software\n{}'.format(msg, sw)
+        msg = '{}\n# Software\n{}'.format(msg, sw)
 
     apps = get_apps()
     if apps:
-        msg = '{}\n\n# Apps\n{}'.format(msg, apps)
+        msg = '{}\n# Apps\n{}'.format(msg, apps)
 
     tools = get_tools()
     if tools:
-        msg = '{}\n\n# Tools\n{}'.format(msg, tools)
-
-    pm = get_python_modules()
-    if pm:
-        msg = '{}\n\n# 3rd Party Python modules\n{}'.format(msg, pm)
+        msg = '{}\n# Tools\n{}'.format(msg, tools)
 
     systemd_default_target = get_systemd_default_target()
     if systemd_default_target:
-        msg = '{}\n\n# systemd default target\n{}'.format(msg, systemd_default_target)
+        msg = '{}\n# systemd default target\n{}'.format(msg, systemd_default_target)
 
     timers = get_systemd_timers()
     if timers:
-        msg = '{}\n\n# systemd timers\n{}'.format(msg, timers)
+        msg = '{}\n# systemd timers\n{}'.format(msg, timers)
 
     enabled_units = get_systemd_units('systemctl list-unit-files --type service --state enabled --no-legend')
     if enabled_units:
-        msg = '{}\n\n# systemd enabled units\n{}'.format(msg, enabled_units)
+        msg = '{}\n# systemd enabled units\n{}'.format(msg, enabled_units)
 
     mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend')
     if mounts:
-        msg = '{}\n\n# systemd mounts\n{}'.format(msg, mounts)
+        msg = '{}\n# systemd mounts\n{}'.format(msg, mounts)
 
     automounts = get_systemd_units('systemctl list-unit-files --type automount --state enabled --state static --no-legend')
     if automounts:
-        msg = '{}\n\n# systemd automounts\n{}'.format(msg, automounts)
+        msg = '{}\n# systemd automounts\n{}'.format(msg, automounts)
 
     nondefault_users = get_nondefault_users()
     if nondefault_users:
-        msg = '{}\n\n# non-default users\n{}'.format(msg, nondefault_users)
+        msg = '{}\n# non-default users\n{}'.format(msg, nondefault_users)
 
     crontabs = get_crontabs()
     if crontabs:
-        msg = '{}\n\n# crontabs\n{}'.format(msg, crontabs)
+        msg = '{}\n# crontabs\n{}'.format(msg, crontabs)
 
+    perfdata = ''
     if sys_dimensions:
         perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('disks', disks.count('\n'), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('osversion', os_version_perfdata, None, None, None, None, None)
 
+    # over and out
     lib.base3.oao(msg, STATE_OK, perfdata)
 
 

@@ -29,7 +29,7 @@ Help
 
 .. code-block:: text
 
-    usage: disk-usage3 [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE] [-w WARN]
+    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE] [-w WARN]
 
     Checks the used disk space, for each partition.
 

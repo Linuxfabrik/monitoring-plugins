@@ -4,11 +4,11 @@ Check docker-stats
 Overview
 --------
 
-This check prints cpu and memory statistics for all running Docker containers, using the `docker stats <https://docs.docker.com/engine/reference/commandline/stats/>`_ command. Container CPU usage is divided by the available number of CPU cores.
+This check prints cpu and memory statistics for all running Docker containers, using the `docker stats <https://docs.docker.com/engine/reference/commandline/stats/>`_ command. Container CPU usage is divided by the available number of CPU cores ("normalized").
 
 Hint:
 
-    Since ``docker stats`` only displays byte-related data in a human-readable format, for example *4.82GB*), a calculation of network I/O (``RX bps``, ``TX bps``) and block I/O (``BlockIn/s``, ``BlockOut/s``) becomes more and more imprecise. Therefore those values are not used at all.
+    Since ``docker stats`` only displays byte-related data in a human-readable format, for example *4.82GB*), a calculation of network I/O (``RX bps``, ``TX bps``) and block I/O (``BlockIn/s``, ``BlockOut/s``) is imprecise. Therefore those values are not used at all.
 
 Plugin execution may take up to 10 seconds.
 
@@ -35,7 +35,8 @@ Help
 
     usage: docker-stats [-h] [-V] [--always-ok] [--count COUNT]
                         [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                        [--warning-cpu WARN_CPU] [--warning-mem WARN_MEM]
+                        [--full-name] [--warning-cpu WARN_CPU]
+                        [--warning-mem WARN_MEM]
 
     This check prints various statistics for all running Docker containers, in
     much the same way as the Unix application top, using the "docker stats"
@@ -53,6 +54,10 @@ Help
       --critical-mem CRIT_MEM
                             Set the critical threshold Memory Usage Percentage.
                             Default: 95
+      --full-name           Use full container name, for example
+                            `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name
+                            will be shortened after the replica number (default
+                            behaviour).
       --warning-cpu WARN_CPU
                             Set the warning threshold CPU Usage Percentage.
                             Default: 80
@@ -74,10 +79,11 @@ Output:
 
     Everything is ok.
 
-    Container       CPU % State Mem %  State
-    ---------       ----- ----- ------ -----
-    prod_idp_logger 0.0   [OK]  2.23   [OK] 
-    prod_idp_app    0.2   [OK]  52.11  [OK] 
+    Container                 ! CPU % ! Mem % 
+    --------------------------+-------+-------
+    myconti_app-logger_1      ! 0.0   ! 0.0   
+    myconti_backend-core_1    ! 0.1   ! 33.9  
+    myconti_ds_1              ! 0.0   ! 11.42
 
 
 States
@@ -92,9 +98,14 @@ Alerts if
 Perfdata / Metrics
 ------------------
 
-* cpu: Number of Host CPUs
-* <containername>_cpu_usage: Container's CPU usage (normalized)
-* <containername>_mem_usage: Container's memory usage (Percent)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    cpu,                                        Number,             Number of Host CPUs
+    <containername>_cpu_usage,                  Percentage,         "Container's CPU usage (normalized)"
+    <containername>_mem_usage,                  Percentage,         "Container's memory usage (Percent)"
 
 
 Credits, License

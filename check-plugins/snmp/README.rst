@@ -209,7 +209,7 @@ The columns in detail:
 * | Show in first line
   | Should ``value`` be printed in the first line of the check output?
 * | Report Change as
-  | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``TMPDIR/linuxfabrik-plugin-cache.db``.
+  | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``.
 
 The output would be something like this
 
@@ -304,7 +304,7 @@ I get ``Error in packet. Reason: (tooBig) Response message would have been too l
     A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
 
 Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
-    If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``TMPDIR/linuxfabrik-plugin-cache.db``. On the next run of the plugin, it will recreate the inventory.
+    If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``. On the next run of the plugin, it will recreate the inventory.
 
 
 States

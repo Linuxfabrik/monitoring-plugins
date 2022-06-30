@@ -37,7 +37,7 @@ import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022062101'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
@@ -138,7 +138,6 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'database':           args.DATABASE,
-        'raise_on_warnings':  True
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     state = STATE_OK
@@ -147,21 +146,23 @@ def main():
     result = lib.base3.coe(
         lib.db_mysql3.select(
             conn,
-            'SELECT name, cert, ca, {prefix}certs_serial FROM xca.{prefix}view_certs '
-            'WHERE invaldate IS NULL'.format(prefix=args.PREFIX)
-            )
+            'select name, cert, ca, {prefix}certs_serial '
+            'from xca.{prefix}view_certs '
+            'where invaldate is null'.format(prefix=args.PREFIX)
         )
+    )
 
     crt_count = 0
     expiring_crt_count = 0
     table_crts = []
     for row in result:
+        # get the dict keys:
         name, cert, ca, serial = row
         crt_count += 1
 
         # add line break after 10th character, for the openssl command to always work
         pem_cert = '-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(
-            cert[:10], cert[10:])
+            row[cert][:10], row[cert][10:])
 
         # execute the shell command and return its result and exit code
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD_OPENSSL_CRT, stdin=pem_cert))
@@ -172,12 +173,12 @@ def main():
                 delta = timestr - lib.time3.now(as_type='datetime')
                 crt_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
                 table_crts.append({
-                    'name': name,
-                    'ca': 'y' if ca == 1 else 'n',
-                    'serial': serial,
+                    'name': row[name],
+                    'ca': 'y' if row[ca] == 1 else 'n',
+                    'serial': row[serial],
                     'state': lib.base3.state2str(crt_state, empty_ok=False),
                     'timestr': '{}'.format(timestr),
-                    })
+                })
                 if crt_state != STATE_OK:
                     expiring_crt_count += 1
                     state = lib.base3.get_worst(state, crt_state)
@@ -187,18 +188,19 @@ def main():
     result = lib.base3.coe(
         lib.db_mysql3.select(
             conn,
-            'SELECT name,crl FROM xca.{}view_crls ORDER BY date DESC LIMIT 1'.format(args.PREFIX)
-            )
+            'select name,crl from xca.{}view_crls order by date desc limit 1'.format(args.PREFIX)
         )
+    )
 
     crl_count = 0
     expiring_crl_count = 0
     table_crls = []
     for row in result:
+        # get the dict keys:
         name, cert = row
         crl_count += 1
 
-        pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(cert)
+        pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(row[cert])
 
         # execute the shell command and return its result and exit code
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD_OPENSSL_CRL, stdin=pem_cert))
@@ -209,10 +211,10 @@ def main():
                 delta = timestr - lib.time3.now(as_type='datetime')
                 crl_state = lib.base3.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
                 table_crls.append({
-                    'name': name,
+                    'name': row[name],
                     'state': lib.base3.state2str(crl_state, empty_ok=False),
                     'timestr': '{}'.format(timestr),
-                    })
+                })
                 if crl_state != STATE_OK:
                     expiring_crl_count += 1
                     state = lib.base3.get_worst(state, crl_state)
@@ -224,20 +226,20 @@ def main():
         lib.txt3.pluralize('Certificate', crt_count),
         crl_count,
         lib.txt3.pluralize('CRL', crl_count)
-        )
+    )
 
     if expiring_crt_count > 0:
         msg += '{} {} {} expiring. '.format(
             expiring_crt_count,
             lib.txt3.pluralize('Certificate', expiring_crt_count),
             lib.txt3.pluralize('', expiring_crt_count, 'is,are')
-            )
+        )
     if expiring_crl_count > 0:
         msg += '{} {} {} expiring.'.format(
             expiring_crl_count,
             lib.txt3.pluralize('CRL', expiring_crl_count),
             lib.txt3.pluralize('', expiring_crl_count, 'is,are')
-            )
+        )
 
     if len(table_crts) > 0:
         msg += '\n\nCertificates:\n'
@@ -245,14 +247,14 @@ def main():
             table_crts,
             ['name', 'ca', 'serial', 'state', 'timestr'],
             header=['commonName', 'CA', 'Serial', 'State', 'Expiry date'],
-            )
+        )
     if len(table_crls) > 0:
         msg += '\nCRLs:\n'
         msg += lib.base3.get_table(
             table_crls,
             ['name', 'state', 'timestr'],
             header=['commonName', 'State', 'Expiry date'],
-            )
+        )
 
     # over and out
     lib.base3.oao(msg, state)

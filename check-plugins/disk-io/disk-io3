@@ -44,7 +44,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022031802'
+__version__ = '2022062002'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -133,7 +133,7 @@ def main():
         ]):
         lib.base3.oao('Nothing checked. Running Kernel >= 4.18, this check needs the Python module "psutil" v5.7.0+ (installed {}; have a look at  https://github.com/giampaolo/psutil/pull/1665 for details).'.format(psutil.__version__), STATE_OK, always_ok=args.ALWAYS_OK)
 
-    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='disk-io.db'))
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='linuxfabrik-monitoring-plugins-disk-io.db'))
 
     # create the perfdata table
     definition = '''
@@ -212,14 +212,14 @@ def main():
             lib.base3.oao('Waiting for more data.', state)
 
         # store the max. measured throughput in cache
-        throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk))
+        throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk), filename='linuxfabrik-monitoring-plugins-disk-io.db')
         if throughput_db is False:
             # unknown disk, no value
             throughput_max = 10 * 1024 * 1024      # Disk should be capable of 10 MB/sec
-            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
+            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max, filename='linuxfabrik-monitoring-plugins-disk-io.db')
         elif throughput1 > int(throughput_db):
             throughput_max = throughput1
-            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max)
+            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max, filename='linuxfabrik-monitoring-plugins-disk-io.db')
         else:
             throughput_max = int(throughput_db)
 

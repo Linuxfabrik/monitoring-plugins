@@ -10,7 +10,7 @@ Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any interface was above a threshold in the last 5 minutes.
 * Check needs ``count`` runs to warm up its caches.
-* The check inventorizes your appliance. If you change any of Forti's interfaces, and you want to reset the check's warnings about this, simply delete its ``/tmp/fortios-network-io.db`` file.
+* The check inventorizes your appliance. If you change any of Forti's interfaces, and you want to reset the check's warnings about this, simply delete the ``$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db`` inventory file.
 
 
 Fact Sheet

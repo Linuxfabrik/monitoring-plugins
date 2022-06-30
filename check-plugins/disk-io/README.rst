@@ -27,7 +27,7 @@ State: Since the drive offers a maximum of 2.1 GB/sec, a total throughput (RW5) 
 Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any of your disks was above a threshold in the last 5 minutes.
-* The check uses the SQLite databases ``/tmp/disk-io.db`` and ``/tmp/linuxfabrik-plugin-cache.db`` to store its historical data.
+* The check uses the SQLite databases ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and ``$TEMP/linuxfabrik-monitoring-plugins-sqlite.db`` to store its historical data.
 * If you are wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the kernel, used by LVM. Use ``dmsetup ls`` to see what is behind it.
 
 
@@ -130,7 +130,7 @@ Troubleshooting
 ---------------
 
 psutil raised error "not sure how to interpret line '...'"
-    Update the ``psutil`` library.
+    Update the ``psutil`` library. On Rocky 8, use at least ``python38`` and ``python38-psutil``.
 
 
 Credits, License

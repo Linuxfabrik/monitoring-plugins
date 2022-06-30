@@ -42,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021603'
+__version__ = '2022062001'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -143,7 +143,7 @@ def main():
                 user REAL DEFAULT NULL,
                 cpu_usage REAL NOT NULL
         '''
-    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='cpu-usage.db'))
+    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='linuxfabrik-monitoring-plugins-cpu-usage.db'))
     lib.base3.coe(lib.db_sqlite3.create_table(conn, definition))
 
     # Grab CPU stats using psutil's cpu_times_percent
@@ -154,7 +154,8 @@ def main():
         lib.db_sqlite3.close(conn)
         lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
-    stats['cpu_usage'] = round(100.0 - getattr(cpu_times_percent, 'idle'), 1)
+    # this is what we want to warn about: 100% - idle - nice
+    stats['cpu_usage'] = round(100.0 - getattr(cpu_times_percent, 'idle') - getattr(cpu_times_percent, 'nice'), 1)
 
     stats['guest'] = getattr(cpu_times_percent, 'guest', 0)
     stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice', 0)
@@ -182,8 +183,10 @@ def main():
         extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
         extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts', 0)
 
-    # sort by highest value
-    cpu_usage = stats['cpu_usage']
+    # this is for msg and perfdata
+    cpu_usage = stats['cpu_usage'] + getattr(cpu_times_percent, 'nice')
+    
+    # for the msg, sort by highest value, but without the cpu_usage sum
     del stats['cpu_usage']
     stats = lib.base3.sort(stats, reverse=True)
 

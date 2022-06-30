@@ -1,5 +1,5 @@
 <?php
-# 2021072601
+# 2022061501
 
 function return_bytes($size_str) {
     switch (substr ($size_str, -1)) {
@@ -26,6 +26,7 @@ function return_off_on($val) {
     return 'undefined';
 }
 
+// try to print the same php.ini config directives as used in LFOps:roles:php
 print_r(
     json_encode(
         array_merge(
@@ -38,16 +39,21 @@ print_r(
                 ),
             array('php.ini' => array(
                     'date.timezone' => ini_get('date.timezone'),
+                    'default_socket_timeout' => ini_get('default_socket_timeout'),
                     'display_errors' => return_off_on(ini_get('display_errors')),
                     'display_startup_errors' => return_off_on(ini_get('display_startup_errors')),
                     'error_reporting' => ini_get('error_reporting') ? ini_get('error_reporting') : 'N/A',
                     'expose_php' => return_off_on(ini_get('expose_php')),
                     'max_execution_time' => ini_get('max_execution_time'),
+                    'max_file_uploads' => ini_get('max_file_uploads'),
+                    'max_input_time' => ini_get('max_input_time'),
                     'memory_limit' => ini_get('memory_limit'),
                     'post_max_size' => ini_get('post_max_size'),
-                    'upload_max_filesize' => ini_get('upload_max_filesize')
+                    'SMTP' => ini_get('SMTP'),
+                    'upload_max_filesize' => ini_get('upload_max_filesize'),
                 )
             )
         ) // array_merge
     ) // json_encode
 );
+

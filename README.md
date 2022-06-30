@@ -2,7 +2,7 @@
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
 
-This Enterprise Class Check Plugin Collection offers a package of more than 130 Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection offers a package of more than 140 Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
@@ -89,12 +89,13 @@ scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
 for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
 ```
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use the following 3rd-party python libraries, so the easiest way is to install them as well:
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well:
 
-* BeautifulSoup4 (on RHEL: from EPEL repo)
-* lxml
-* mysql.connector (on RHEL: only up to RHEL 7, from EPEL repo)
-* psutil (on RHEL: from EPEL repo)
+* BeautifulSoup4 (bs4)
+* psutil
+* PyMySQL (pymysql.cursors - on RHEL, use ``yum install python36-mysql``, ``dnf install python3-mysql`` or similar)
+* smbprotocol (smbprotocol.exceptions)
+* vici
 
 That's it. After that your directory on the remote host should look like this:
 
@@ -135,7 +136,7 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 * Overwrite `/usr/lib64/nagios/plugins/lib` with the new libraries.
 * Overwrite `/usr/lib64/nagios/plugins` with the new plugins.
 * Copy the new sudoers file to `/etc/sudoers.d/`
-* Delete all SQLite database files (`*.db`) in `/tmp`.
+* Delete all SQLite database files (`linuxfabrik-monitoring-plugins-*.db`) in $TEMP directory (for example `/tmp`).
 
 
 

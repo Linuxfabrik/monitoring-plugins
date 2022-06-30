@@ -64,6 +64,12 @@ Rules of Thumb
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
 * EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
+* Use RFC `5737 <https://datatracker.ietf.org/doc/html/rfc5737>`_, `3849 <https://datatracker.ietf.org/doc/html/rfc3849>`_, `7042 <https://datatracker.ietf.org/doc/html/rfc7042#section-2.1.1>`_ and `2606 <https://datatracker.ietf.org/doc/html/rfc2606>`_ in examples / documentation:
+
+    * IPv4 Addresses: ``192.0.2.0/24``, ``198.51.100.0/24``, ``203.0.113.0/24``
+    * IPv6 Addresses: ``2001:DB8::/32``
+    * MAC Addresses: ``00-00-5E-00-53-00 through 00-00-5E-00-53-FF`` (unicast), ``01-00-5E-90-10-00 through 01-00-5E-90-10-FF`` (multicast)
+    * Domains: ``*.example``, ``example.com``
 
 
 Bytes vs. Unicode

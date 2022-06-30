@@ -365,7 +365,7 @@ def main():
                 check_state = False
         if check_state and report_change:
             cache_key = '{}::{}'.format(args.DEVICE, oid)
-            cache_value = lib.cache3.get(cache_key)
+            cache_value = lib.cache3.get(cache_key, filename='linuxfabrik-monitoring-plugins-snmp.db')
             if cache_value:                 # there is a previous value
                 if cache_value != value:    # that is different from the current one
                     if report_change.lower().startswith('crit'):
@@ -375,7 +375,7 @@ def main():
                         value_state = STATE_WARN
                         msg_header += '{}: {}{} (WARN, changed from "{}"), '.format(name, value, unit, cache_value)
             else:
-                lib.cache3.set(cache_key, value)
+                lib.cache3.set(cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db')
         state = lib.base3.get_worst(state, value_state)
 
         # create message body (the table)

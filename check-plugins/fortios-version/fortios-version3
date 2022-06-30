@@ -36,7 +36,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021101401'
+__version__ = '2022062001'
 
 DESCRIPTION = 'Checks for a new version of a FortiOS appliance.'
 
@@ -130,7 +130,12 @@ def main():
     if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
         lib.base3.oao('{} v{} is up to date'.format(result['results']['current']['name'], installed_version), STATE_OK)
     else:
-        lib.base3.oao('{} v{} is available (installed: v{})'.format(result['results']['current']['name'], latest_version, installed_version), STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base3.oao('{} v{} installed, {} v{} available'.format(
+            result['results']['current']['name'],
+            installed_version,
+            result['results']['current']['name'],
+            latest_version,
+        ), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
