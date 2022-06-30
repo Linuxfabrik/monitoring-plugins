@@ -1,4 +1,4 @@
-# Python-based Monitoring Check Plugins Collection
+# Linuxfabrik Monitoring Plugins Collection
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
 
