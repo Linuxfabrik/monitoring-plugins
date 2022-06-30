@@ -16,6 +16,7 @@ New features:
 * Add lib/distro3.py
 * Add sudoers file for Fedora 35 and Fedora 36
 * Icinga: duplicity Service Set
+* New check diacos
 * New check infomaniak-swiss-backup-devices
 * New check infomaniak-swiss-backup-products
 * New check mysql-aria
