@@ -90,7 +90,7 @@ Usage Examples
 .. code-block:: bash
 
     ./diacos \
-        --critical 9000 \
+        --critical 6000 \
         --login-computer Brower_APP \
         --login-ip 127.0.0.1 \
         --login-licence 4b903485-1def-4f1b-a4d5-dd5464176954 \
