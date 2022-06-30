@@ -134,7 +134,7 @@ Troubleshooting
 ---------------
 
 smartctl failed with exit status "Device open failed, device did not return an IDENTIFY DEVICE structure, or device is in a low-power mode.
-    Run the check with root privileges, for example using 
+    Run the check with root privileges, for example using ``sudo``.
 
 Credits, License
 ----------------
