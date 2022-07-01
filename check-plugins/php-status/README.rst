@@ -47,7 +47,7 @@ Help
 
 .. code-block:: text
 
-    usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG]
+    usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG] [--dev]
                       [--module MODULES] [--url URL] [-w WARN]
 
     This plugin checks for PHP startup errors, missing modules and misconfigured
@@ -59,15 +59,17 @@ Help
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the CRIT threshold for Opcache usage as a
-                            percentage. Default: >= 90
+                            percentage. Default: >= None
       --config CONFIG       "key=value" pairs to check (startswith), for example
                             `--config "memory_limit=128M"` (repeating)
+      --dev                 Be more tolerant in development environments: Allow
+                            `display_errors=On` and `display_startup_errors=On`.
       --module MODULES      "modulename" to check (startswith), for example
                             `--module json --module mbstring` (repeating)
       --url URL             URL to PHP monitoring script.
       -w WARN, --warning WARN
                             Set the WARN threshold for Opcache usage as a
-                            percentage. Default: >= 80
+                            percentage. Default: >= 90
 
 
 Usage Examples

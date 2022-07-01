@@ -45,7 +45,6 @@ New features:
 
 Changes in existing functionality:
 
-* All checks using SQLite databases: More unique sqlite db names ([fix #333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
 * about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
 * about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
 * about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
@@ -57,6 +56,7 @@ Changes in existing functionality:
 * about-me: Report active tuned-Profile in first line if tuned.service is found and running ([fix #374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
 * about-me: Report Boot Mode ([fix #562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
 * about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
+* All checks using SQLite databases: More unique sqlite db names ([fix #333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
 * apache-httpd-status: New parameter `--insecure`
 * cpu-usage: Subtract the "nice" percentage from thresholds ([fix #550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
 * dhcp-scope-usage: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
@@ -73,6 +73,7 @@ Changes in existing functionality:
 * infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
 * infomaniak-swiss-backup-products3: Sort output table by "Tags" column
 * needs-restarting3: Debian Buster/bullseye command not found ([fix #572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
+* php-status: Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([fix #461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
 * php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
