@@ -37,9 +37,10 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022070101'
 
-DESCRIPTION = 'Checks the IPMI System Event Log (SEL) and returns WARN if there are entries. Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'
+DESCRIPTION = '''Checks the IPMI System Event Log (SEL) and returns WARN if there are entries.
+                 Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'''
 
 
 def parse_args():
@@ -55,7 +56,8 @@ def parse_args():
 
     parser.add_argument(
         '--authtype',
-        help='Specify an authentication type to use during IPMIv1.5 lan session activation. Supported types are NONE, PASSWORD, MD2, MD5, or OEM.',
+        help='Specify an authentication type to use during IPMIv1.5 lan session activation.'
+             ' Supported types are NONE, PASSWORD, MD2, MD5, or OEM.',
         dest='V15AUTHTYPE',
         choices=['NONE', 'PASSWORD', 'MD2', 'MD5', 'OEM'],
         default='NONE',
@@ -63,14 +65,16 @@ def parse_args():
 
     parser.add_argument(
         '-H', '--hostname',
-        help='Remote server address, can be IP address or hostname. This option is required for lan and lanplus interfaces.',
+        help='Remote server address, can be IP address or hostname. This option is required for'
+             'lan and lanplus interfaces.',
         dest='HOSTNAME',
         default=None,
     )
 
     parser.add_argument(
         '--interface',
-        help='Selects IPMI interface to use. Supported types are "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).',
+        help='Selects IPMI interface to use. Supported types are "lan" (= IPMI v1.5) or '
+             '"lanplus" (= IPMI v2.0).',
         dest='INTERFACE',
         choices=['lan', 'lanplus'],
         default='lan',
@@ -91,7 +95,8 @@ def parse_args():
 
     parser.add_argument(
         '--privlevel',
-        help='Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR. Default is USER.',
+        help='Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR.'
+             'Default is USER.',
         dest='PRIVLEVEL',
         choices=['CALLBACK', 'USER', 'OPERATOR', 'ADMINISTRATOR'],
         default='USER',
@@ -151,7 +156,7 @@ def main():
 
     # there are entries, so we have to throw a warning about that
     msg = ''
-    for line in stdout.splitlines():
+    for line in reversed(stdout.splitlines()):
         msg += '* ' + line.replace('|', ';') + '\n'
 
     # over and out

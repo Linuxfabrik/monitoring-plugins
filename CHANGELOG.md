@@ -93,6 +93,7 @@ Bug fixes:
 
 * disk-io3: Fix python3 lib calls
 * file-count3: Traceback: KeyError: 'lib'  ([fix #591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
+* ipmi-sel: Change the order of events ([fix #558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
 * logfile3: "Database locked" and "UNKNOWN" in case of massive usage on a host ([fix #578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
 * keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([fix #555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
 * xca-cert3: Checks expiry date again
