@@ -16,7 +16,7 @@ New features:
 * Add lib/distro3.py
 * Add sudoers file for Fedora 35 and Fedora 36
 * Icinga: duplicity Service Set
-* New check diacos
+* New check diacos ([PR #567](https://github.com/Linuxfabrik/monitoring-plugins/pull/567))
 * New check infomaniak-swiss-backup-devices
 * New check infomaniak-swiss-backup-products
 * New check mysql-aria
@@ -38,6 +38,7 @@ New features:
 * New check mysql-thread-cache
 * New check mysql-traffic
 * New check strongswan-connections
+* New check xml ([PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583) for "wsdl" check; enhanced and renamed to "xml")
 
 
 ### Changed
