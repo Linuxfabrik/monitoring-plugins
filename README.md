@@ -152,6 +152,14 @@ Simply download the latest zip file containing all plugins from https://download
 Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and overwrite your installation directory.
 
 
+### Microsoft Windows Defender
+
+Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our `service.exe`). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
+
+1. Open command prompt as administrator and change directory to `c:\program files\windows defender`
+2. Run `MpCmdRun.exe -removedefinitions -dynamicsignatures`
+3. Run `MpCmdRun.exe -SignatureUpdate`
+
 
 ## Check Plugin Poster
 
