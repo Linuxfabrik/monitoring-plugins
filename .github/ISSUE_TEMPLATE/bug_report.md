@@ -1,8 +1,8 @@
 name: "Bug report"
 description: "Submit a report and help us improve the Monitoring Plugins"
-title: '[plugin-name[2|3]: A short sentence describing the problem]'
+title: "[plugin-name[2|3]: A short sentence describing the problem]"
 labels: ["bug"]
-assignees: ''
+assignees: ""
 body:
   - type: markdown
     attributes:
