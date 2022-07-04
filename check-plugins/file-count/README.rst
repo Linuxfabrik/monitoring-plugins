@@ -83,6 +83,9 @@ Usage Examples
     # check that there are at least 5 files modified in the last 10 seconds, else warn
     ./file-count --filename '/path/to/file/*' --warning 5 --timerange 5
 
+    # check a SMB share
+    ./file-count  --username USER --password mysecret --pattern '*' --timeout 3 --url smb://\\server\path
+
 Output:
 
 .. code-block:: text
