@@ -146,6 +146,10 @@ Some check plugins require `sudo`-permissions to run. To do this, we provide a `
 
 Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and unzip it to `C:/ProgramData/icinga2/usr/lib64/nagios/plugins/`.
 
+**Note**
+
+> [According to Microsoft](https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default), program files belong under %programfiles% instead of %programdata%, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). The Icinga agent puts its files in `C:\ProgramData\icinga2`. This is why we also recommend to use this directory.
+
 
 ### Upgrade
 
