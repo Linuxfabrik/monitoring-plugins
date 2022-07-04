@@ -23,8 +23,6 @@ Tested with WildFly 11 and WildFly 23+.
     * Compressed Class Space
     * Metaspace
 
-Heap Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
-
 To create a monitoring user, do this:
 
 .. code-block:: bash
@@ -69,19 +67,18 @@ Help
 
 .. code-block:: text
 
-    usage: wildfly-memory-pool-usage [-h] [-V] [--always-ok] [--critical CRIT]
+    usage: wildfly-memory-pool-usage [-h] [-V] [--always-ok]
                                      [--instance INSTANCE]
                                      [--mode {standalone,domain}] [--node NODE]
                                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                                     --username USERNAME [--warning WARN]
+                                     --username USERNAME
 
     Checks the memory pool usage of a Wildfly/JBossAS over HTTP.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --critical CRIT       Set the critical threshold.
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
@@ -91,8 +88,7 @@ Help
                             WildFly API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990
-      --username USERNAME   WildFly API username. Default: wildfly-admin
-      --warning WARN        Set the warning threshold.
+      --username USERNAME   WildFly API username. Default: wildfly-monitoring
 
 
 Usage Examples
@@ -100,43 +96,48 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./wildfly-memory-pool-usage --username wildfly-monitoring --password password --url http://wildfly:9990 --warning 80 --critical 90
+    ./wildfly-memory-pool-usage --username wildfly-monitoring --password password --url http://wildfly:9990
 
 Output:
 
 .. code-block:: text
 
-    8 Memory Pools checked, everything is ok.
+    Everything is ok.
 
-    Heap:
-    * G1_Eden_Space - Memory used: 0.0% (39.0MiB of unlimited), 45.0MiB committed
-    * G1_Old_Gen - Memory used: 4.01% (20.5MiB of 512.0MiB max.), 29.0MiB committed
-    * G1_Survivor_Space - Memory used: 0.0% (2.7MiB of unlimited), 3.0MiB committed
-
-    Non-Heap:
-    * CodeHeap_non-nmethods - Memory used: 23.53% (1.3MiB of 5.6MiB max.), 2.4MiB committed
-    * Compressed_Class_Space - Memory used: 2.45% (5.1MiB of 208.0MiB max.), 5.6MiB committed
-    * CodeHeap_profiled_nmethods - Memory used: 9.45% (11.1MiB of 117.2MiB max.), 12.2MiB committed
-    * CodeHeap_non-profiled_nmethods - Memory used: 3.54% (4.2MiB of 117.2MiB max.), 4.2MiB committed
-    * Metaspace - Memory used: 16.95% (43.4MiB of 256.0MiB max.), 44.6MiB committed
+    name                   ! Type     ! Usage used / committed / max   ! Collection used / committed/ max 
+    -----------------------+----------+--------------------------------+----------------------------------
+    Code_Cache             ! NON_HEAP ! 37.6MiB / 38.1MiB / 240.0MiB   ! N/A                              
+    Metaspace              ! NON_HEAP ! 124.6MiB / 137.4MiB / 256.0MiB ! N/A                              
+    Compressed_Class_Space ! NON_HEAP ! 16.7MiB / 20.1MiB / 248.0MiB   ! N/A                              
+    Eden_Space             ! HEAP     ! 28.3MiB / 43.8MiB / 136.5MiB   ! 0.0B / 43.8MiB / 136.5MiB        
+    Survivor_Space         ! HEAP     ! 86.0KiB / 5.4MiB / 17.1MiB     ! 86.0KiB / 5.4MiB / 17.1MiB       
+    Tenured_Gen            ! HEAP     ! 65.7MiB / 109.0MiB / 341.4MiB  ! 65.4MiB / 81.8MiB / 341.4MiB
 
 
 States
 ------
 
-Triggers an alarm on usage in percent.
-
-* WARN or CRIT if memory usage is above certain thresholds (default 80/90 %). Memory usage on "Survivor" spaces like ``PS_Survivor_Space`` is ignored.
-* WARN if WildFly reports ``usage-threshold-exceeded == TRUE``
+* WARN if memory pool instance is invalid.
+* WARN if usage of the instance of a memory pool exceeded a threshold in any way.
+* WARN if usage of the instance of a memory pool collection exceeded a threshold in any way.
 
 
 Perfdata / Metrics
 ------------------
 
-* memory-pool-<name>-committed: Returns the amount of memory in bytes that is committed for the Java virtual machine to use. This amount of memory is guaranteed for the Java virtual machine to use.
-* memory-pool-<name>-max: Returns the maximum amount of memory in bytes that can be used for memory management. This method returns -1 if the maximum memory size is undefined. This amount of memory is not guaranteed to be available for memory management if it is greater than the amount of committed memory. The Java virtual machine may fail to allocate memory even if the amount of used memory does not exceed this maximum size.
-* memory-pool-<name>-used: The amount of used memory in bytes.
-* memory-pool-<name>-used-percent: in percent
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    memory-pool-<name>-usage-committed          Bytes,              "Amount of memory that is reserved at the operating system level for the JVM process at the moment."
+    memory-pool-<name>-usage-init,              Bytes,              "The initial amount of memory that the JVM requested from the operating system at startup. Controlled by the ``-Xms`` cli option."
+    memory-pool-<name>-usage-max                Bytes,              "Maximum amount of memory that the JVM will ever try to request / allocate from the operating system. Controlled by the ``-Xmx`` cli option."
+    memory-pool-<name>-usage-used               Bytes,              "Amount of memory that is actually in use, so the memory consumed by all objects including the objects that are not reachable but haven't been garbaged collected yet. Can be lower than init."
+    memory-pool-<name>-collection-usage-committed, Bytes,           "Only if 'Collection Usage' is enabled."
+    memory-pool-<name>-collection-usage-init,   Bytes,              "Only if 'Collection Usage' is enabled."
+    memory-pool-<name>-collection-usage-max,    Bytes,              "Only if 'Collection Usage' is enabled."
+    memory-pool-<name>-collection-usage-used,   Bytes,              "Only if 'Collection Usage' is enabled."
 
 
 Credits, License

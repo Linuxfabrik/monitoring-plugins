@@ -7,6 +7,11 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Breaking Changes
+
+*  wildfly-memory-pool-usage: Flapping PS_Eden_Space reporting ([fix #563](https://github.com/Linuxfabrik/monitoring-plugins/issues/563)) - Removed `--warning` and `--critical` parameters (not needed anymore)
+
+
 ### Added
 
 New features:

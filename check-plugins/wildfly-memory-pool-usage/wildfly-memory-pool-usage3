@@ -37,15 +37,13 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022070401'
 
 DESCRIPTION = 'Checks the memory pool usage of a Wildfly/JBossAS over HTTP.'
 
-DEFAULT_CRIT = 90
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-monitoring'
-DEFAULT_WARN = 80
 
 
 def parse_args():
@@ -65,13 +63,6 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-    )
-
-    parser.add_argument(
-        '--critical',
-        help='Set the critical threshold.',
-        dest='CRIT',
-        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -124,86 +115,7 @@ def parse_args():
         required=True,
     )
 
-    parser.add_argument(
-        '--warning',
-        help='Set the warning threshold.',
-        dest='WARN',
-        default=DEFAULT_WARN,
-    )
-
     return parser.parse_args()
-
-
-def check_memory_pool_usage(args):
-    data = {
-        'operation': 'read-resource',
-        'include-runtime': 'true',
-        'recursive': 'true',
-        # /core-service/platform-mbean/type/memory-pool
-        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory-pool'}],
-        'json': 1,
-    }
-    res = lib.wildfly3.get_data(args, data)
-
-    msg_heap = '\n\nHeap:\n'
-    msg_non_heap = '\nNon-Heap:\n'
-    perfdata = ''
-    state = STATE_OK
-    pools = 0
-
-    for name, value in res['name'].items():
-        name = name.replace("'", '').replace('"', '')
-        pools += 1
-
-        mem_used = value['usage']['used']
-        mem_committed = value['usage']['committed']
-        mem_max = value['usage']['max']
-        used_state = STATE_OK
-        used_percent = 0.0
-        if mem_max != -1:
-            # limited memory
-            used_percent = round((float(mem_used) / float(mem_max) * 100), 2)
-            if 'Survivor' not in name:
-                # ignore PS_Survivor_Space
-                used_state = lib.base3.get_state(used_percent, args.WARN, args.CRIT, 'ge')
-                state = lib.base3.get_worst(state, used_state)
-
-        if value['usage-threshold-supported'] and value['usage-threshold-exceeded'] is True:
-            threshold_state = STATE_WARN
-        else:
-            threshold_state = STATE_OK
-        state = lib.base3.get_worst(state, threshold_state)
-
-        if value['type'] == 'HEAP':
-            msg_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
-                name, used_percent,
-                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.human3.bytes2human(mem_committed),
-                )
-            if threshold_state != STATE_OK:
-                msg_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))
-            msg_heap += '\n'
-        else:
-            msg_non_heap += '* {} - Memory used: {}% ({} of {}){}, {} committed'.format(
-                name, used_percent,
-                lib.human3.bytes2human(mem_used), lib.human3.bytes2human(mem_max) + ' max.' if mem_max != -1 else 'unlimited',  lib.base3.state2str(used_state, prefix=' '),
-                lib.human3.bytes2human(mem_committed),
-                )
-            if threshold_state != STATE_OK:
-                msg_non_heap += ', Usage Threshold exceeded{}'.format(lib.base3.state2str(threshold_state, prefix=' '))
-            msg_non_heap += '\n'
-
-        perfdata += lib.base3.get_perfdata('memory-pool-{}-committed'.format(name), mem_committed, 'B', None, None, 0, mem_max if mem_max != -1 else None)
-        perfdata += lib.base3.get_perfdata('memory-pool-{}-max'.format(name), mem_max, 'B', None, None, 0, mem_max if mem_max != -1 else None)
-        perfdata += lib.base3.get_perfdata('memory-pool-{}-used'.format(name), mem_used, 'B', None, None, 0, mem_max if mem_max != -1 else None)
-        perfdata += lib.base3.get_perfdata('memory-pool-{}-used-percent'.format(name), used_percent, '%', args.WARN, args.CRIT, 0, 100)
-
-    if state == STATE_OK:
-        msg = '{} Memory {} checked, everything is ok.'.format(pools, lib.txt3.pluralize('Pool', pools))
-    else:
-        msg = '{} Memory {} checked, there are errors.'.format(pools, lib.txt3.pluralize('Pool', pools))
-    msg += msg_heap + msg_non_heap
-    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 def main():
@@ -218,7 +130,88 @@ def main():
 
     # fetch data
     # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_memory_pool_usage(args)
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /core-service/platform-mbean/type/memory-pool
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'memory-pool'}],
+        'json': 1,
+    }
+    result = lib.wildfly3.get_data(args, data)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    # analyze the data
+    # "Peak" values are not of interest in a monitoring scenario where values are
+    # checked every minute. It is safe to ignore them.
+    for name, value in result['name'].items():
+        if not value['valid']:
+            state = STATE_WARN
+            value['name'] += ' (invalid {})'.format(lib.base3.state2str(STATE_WARN))
+
+        value['usage-calc'] = '{} / {} / {}'.format(
+            lib.human3.bytes2human(value['usage']['used']),
+            lib.human3.bytes2human(value['usage']['committed']),
+            lib.human3.bytes2human(value['usage']['max']),
+        )
+        if value['usage-threshold-exceeded']:
+            state = STATE_WARN
+            value['usage-calc'] += lib.base3.state2str(STATE_WARN, prefix=' ')
+            value['usage-calc'] += ' ({}x)'.format(value['usage-threshold-count'])
+
+        perfdata += lib.base3.get_perfdata('memory-pool-{}-usage-init'.format(name), value['usage']['init'], 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('memory-pool-{}-usage-used'.format(name), value['usage']['used'], 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('memory-pool-{}-usage-committed'.format(name), value['usage']['committed'], 'B', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('memory-pool-{}-usage-max'.format(name), value['usage']['max'], 'B', None, None, 0, None)
+
+        if value['collection-usage']:
+            value['collection-usage-calc'] = '{} / {} / {}'.format(
+                lib.human3.bytes2human(value['collection-usage']['used']),
+                lib.human3.bytes2human(value['collection-usage']['committed']),
+                lib.human3.bytes2human(value['collection-usage']['max']),
+            )
+            if value['collection-usage-threshold-exceeded']:
+                state = STATE_WARN
+                value['collection-usage-calc'] += lib.base3.state2str(STATE_WARN, prefix=' ')
+                value['collection-usage-calc'] += ' ({}x)'.format(value['collection-usage-threshold-count'])
+            perfdata += lib.base3.get_perfdata('memory-pool-{}-collection-usage-init'.format(name), value['collection-usage']['init'], 'B', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('memory-pool-{}-collection-usage-used'.format(name), value['collection-usage']['used'], 'B', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('memory-pool-{}-collection-usage-committed'.format(name), value['collection-usage']['committed'], 'B', None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('memory-pool-{}-collection-usage-max'.format(name), value['collection-usage']['max'], 'B', None, None, 0, None)
+        else:
+            value['collection-usage-calc'] = 'N/A'
+
+        table_data.append(value)
+
+    if table_data:
+        keys = [
+            'name',
+            'type',
+            'usage-calc',
+            'collection-usage-calc',
+        ]
+        headers = [
+            'name',
+            'Type',
+            'Usage used / committed / max',
+            'Collection used / committed/ max',
+            ]
+        msg += lib.base3.get_table(table_data, keys, header=headers)
+
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.\n\n' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everything is ok.\n\n' + msg
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
