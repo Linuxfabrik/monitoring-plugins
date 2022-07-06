@@ -383,23 +383,24 @@ Wherever possible, prefer percentages over absolute values to assist users in co
 PEP8 Style Guide for Python Code
 --------------------------------
 
-We recently started to use `PEP 8 -- Style Guide for Python Code <https://www.python.org/dev/peps/pep-0008/>`_.
+We use `PEP 8 -- Style Guide for Python Code <https://www.python.org/dev/peps/pep-0008/>`_ (where it makes sense).
 
 
 docstring, pydoc
 ----------------
 
-Not long ago we started to document our `Libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ using docstrings, so that calling ``pydoc lib/base.py`` works, for example.
+We document our `Libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ using docstrings, so that calling ``pydoc lib/base.py`` works, for example.
 
 
-Pylint
+PyLint
 ------
 
-To further improve code quality, we recently started using `Pylint <https://www.pylint.org/>`_ with pure ``pylint`` for the libraries, and with ``pylint --disable=C0103,C0114,C0116`` for the plugins, on a more regular basis. The parameter disables warnings for
+To further improve code quality, we use `PyLint <https://www.pylint.org/>`_ like so:
 
-* non-conformance to snake_case naming style
-* missing module docstring
-* missing function or method docstring
+* Libs: ``pylint mylib.py``
+* Monitoring Plugins: ``pylint --disable='invalid-name, missing-function-docstring, missing-module-docstring' plugin-name``
+
+Have a look at `PyLint's message codes <http://pylint-messages.wikidot.com/all-codes>`_.
 
 
 isort
@@ -413,7 +414,7 @@ To help sort the ``import``-statements we use ``isort``:
     isort --recursive .
 
     # sort in a single plugin
-    isort plugin_name
+    isort plugin-name
 
 
 Unit Tests
