@@ -76,6 +76,7 @@ Changes in existing functionality:
 * file-age: shorten the message ([fix #559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
 * infomaniak-swiss-backup-devices3: Increase default thresholds from 80/90% to 90/95%
 * infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
+* infomaniak-swiss-backup-products3: Changed thresholds from 14/5 days to 6/3 days
 * infomaniak-swiss-backup-products3: Sort output table by "Tags" column
 * needs-restarting3: Debian Buster/bullseye command not found ([fix #572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
 * php-status: Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([fix #461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
