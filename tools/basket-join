@@ -21,7 +21,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022040501'
+__version__ = '2022070701'
 
 DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
 
@@ -48,14 +48,6 @@ def parse_args():
         dest='OUTPUT_FILE',
         type=str,
         default='icingaweb2-module-director-basket.json',
-    )
-
-    parser.add_argument(
-        '--without-guids',
-        help='Remove all guids.',
-        dest='WITHOUT_GUIDS',
-        action='store_true',
-        default=False,
     )
 
     return parser.parse_args()
@@ -158,19 +150,6 @@ class BasketJoiner:
         return True
 
 
-    def remove_guids(self):
-        for parent_key, parent_value in self.data.items():
-            for key, value in parent_value.items():
-                if 'guid' in value:
-                    del self.data[parent_key][key]['guid']
-
-                # descent into services of Service Sets
-                if 'services' in value and value['services']:
-                    for service_key, service_value in value['services'].items():
-                        if 'guid' in service_value:
-                            del self.data[parent_key][key]['services'][service_key]['guid']
-
-
     def validate_guids(self):
         guids = []
         objects_without_guids = []
@@ -224,11 +203,8 @@ def main():
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
 
-    if args.WITHOUT_GUIDS:
-        basket_joiner.remove_guids()
-    else:
-        if basket_joiner.validate_guids() is False:
-            sys.exit(3)
+    if basket_joiner.validate_guids() is False:
+        sys.exit(3)
 
     if basket_joiner.save_json_to_file(args.OUTPUT_FILE) is False:
         sys.exit(3)
