@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022070701'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -117,6 +117,7 @@ def main():
 
     # analyze data
     parts = psutil.disk_partitions(all=False)
+    override_allowed = True
     for part in parts:
         # ignore partitions in ignore list
         # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
@@ -139,14 +140,23 @@ def main():
         perfdata += lib.base3.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base3.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
-        if part.mountpoint in ['/', 'C:\\']:
-            msg = '{} {}% - total: {}, used: {}, free: {}'.format(
-                part.mountpoint,
-                usage.percent,
-                lib.human3.bytes2human(usage.total),
-                lib.human3.bytes2human(usage.used),
-                lib.human3.bytes2human(usage.free),
-            )
+        msg_header = '{} {}%{} - total: {}, used: {}, free: {}'.format(
+            part.mountpoint,
+            usage.percent,
+            lib.base3.state2str(disk_state, prefix=' '),
+            lib.human3.bytes2human(usage.total),
+            lib.human3.bytes2human(usage.used),
+            lib.human3.bytes2human(usage.free),
+        )
+
+        # the disk with the most severe state should be in the first line of the plugin output
+        if msg == '' and part.mountpoint in ['/', 'C:\\']:
+            msg = msg_header
+        elif state == STATE_WARN and (msg == '' or override_allowed):
+            msg = msg_header
+        elif state == STATE_CRIT:
+            msg = msg_header
+            override_allowed = False
 
         table_data.append({
             'mountpoint': '{} {}'.format(part.mountpoint, lib.base3.state2str(disk_state)),

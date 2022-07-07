@@ -69,6 +69,7 @@ Changes in existing functionality:
 * disk-smart: Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))
 * disk-smart: Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
 * disk-smart: Properly handle Power_On_Hours_and_Msec attribute perfdata parsing ([PR #549](https://github.com/Linuxfabrik/monitoring-plugins/pull/549))
+* disk-usage: Critical but first line of plugin output prints "OK" ([fix #545](https://github.com/Linuxfabrik/monitoring-plugins/issues/545))
 * docker-info: Raise CRIT on return code != 0 ([fix #569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
 * docker-stats: Improve handling of container names ([fix #586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
 * file-age: Improve perfdata labels
