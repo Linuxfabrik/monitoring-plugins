@@ -355,7 +355,8 @@ If you are using our [Fork of the Icinga Director](https://git.linuxfabrik.ch/li
 If not, generate a Basket without `guids`:
 
 ``` bash
-./tools/basket-join --without-guids
+./tools/basket-join
+./tools/remove-guids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-guids.json
 ```
 
 Import the resulting `icingaweb2-module-director-basket.json` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
