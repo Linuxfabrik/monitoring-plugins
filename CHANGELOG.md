@@ -44,6 +44,7 @@ New features:
 * New check mysql-traffic
 * New check nodebb-cache
 * New check nodebb-database
+* New check nodebb-errors
 * New check strongswan-connections
 * New check xml ([PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583) for "wsdl" check; enhanced and renamed to "xml")
 
