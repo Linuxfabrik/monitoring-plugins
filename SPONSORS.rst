@@ -15,9 +15,10 @@ If you like to support our work, please consider donating
    :target: https://github.com/sponsors/Linuxfabrik
 
 
-GitHub Sponsors
----------------
+GitHub / PayPal Sponsors
+------------------------
 
+* `makeshiftmovies.info <https://makeshiftmovies.info/de>`_
 * `MajorTwip <https://github.com/MajorTwip>`_
 
 
