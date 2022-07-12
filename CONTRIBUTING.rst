@@ -569,6 +569,9 @@ For example, to set the timeout to 30s, to enable notifications and some other o
 .. code-block:: yml
 
     ---
+    variants:
+      - linux
+
     overwrites:
       '["Command"]["cmd-check-new-check"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/new-check'
       '["Command"]["cmd-check-new-check"]["timeout"]': 30
