@@ -47,6 +47,7 @@ New features:
 * New check nodebb-errors
 * New check nodebb-events
 * New check nodebb-info
+* New check nodebb-posts
 * New check nodebb-users
 * New check strongswan-connections
 * New check xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583))
