@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -15,33 +15,33 @@ import os
 
 # considering a virtual environment
 ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv2')
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
 if os.path.exists(venv_path):
     ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
 
-if os.getenv('MONITORING_PLUGINS_VENV2'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV2') + 'bin/activate_this.py')
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
 
 if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
     exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
 
 
 import argparse # pylint: disable=C0413
-import json # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
-import lib.args2 # pylint: disable=C0413
-import lib.base2 # pylint: disable=C0413
-import lib.disk2 # pylint: disable=C0413
-import lib.nodebb2 # pylint: disable=C0413
-from lib.globals2 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.nodebb3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2022071201'
 
-DESCRIPTION = """Gets some statistics from the /api/admin/settings/post and
-                 /api/admin/manage/users endpoints for debugging purposes."""
+DESCRIPTION = """Get NodeBB post settings."""
 
 DEFAULT_INSECURE = False
 DEFAULT_TIMEOUT = 3
@@ -71,7 +71,7 @@ def parse_args():
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
-        type=lib.args2.csv,
+        type=lib.args3.csv,
     )
 
     parser.add_argument(
@@ -86,6 +86,7 @@ def parse_args():
         '-p', '--token',
         help='NodeBB API Bearer token.',
         dest='TOKEN',
+        required=True,
     )
 
     parser.add_argument(
@@ -110,55 +111,64 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result_posts = lib.nodebb2.get_data(args, '/api/admin/settings/post')
-        result_users = lib.nodebb2.get_data(args, '/api/admin/manage/users')
+        result = lib.nodebb3.get_data(args, '/api/admin/settings/post')
     else:
         # do not call the command, put in test data
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-posts')
-        result_posts = json.loads(stdout)
-        success, stdout = lib.disk2.read_file(args.TEST[0] + '-users')
-        result_users = json.loads(stdout)
+        import json
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
 
     # init some vars
     msg = ''
-    state = STATE_OK
     perfdata = ''
+    table_data = []
 
     # analyze data
-    count_users = result_users['userCount']
-    msg += '{} users, '.format(count_users)
+    for post in result['groupsExemptFromPostQueue']:
+        post['createtime'] = post['createtime'] / 1000
+        post['createtimeiso'] = '{} ({} ago)'.format(
+            lib.time3.epoch2iso(post['createtime']),
+            lib.human3.seconds2human(lib.time3.now(as_type='epoch') - (post['createtime'])),
+        )
+        table_data.append(post)
+
+    # build the message
+    msg += '{} {}'.format(
+        len(result['groupsExemptFromPostQueue']),
+        lib.txt3.pluralize('group', len(result['groupsExemptFromPostQueue'])),
+    )
     try:
-        last_online = result_users['users'][0]['lastonline'] / 1000
-        msg += 'Last user: {} <{}> (online {} ago), '.format(
-            result_users['users'][0]['username'],
-            result_users['users'][0]['email'],
-            lib.base2.seconds2human(lib.base2.now(as_type='epoch') - last_online),
+        msg += ', newest group: "{}" ({}) with {} members (created {} ago)'.format(
+            result['groupsExemptFromPostQueue'][0]['name'],
+            'private' if result['groupsExemptFromPostQueue'][0]['private'] else 'public',
+            result['groupsExemptFromPostQueue'][0]['memberCount'],
+            result['groupsExemptFromPostQueue'][0]['createtimeiso'],
         )
     except:
         pass
+    msg += '\n\n'
 
-    count_groups = len(result_posts['groupsExemptFromPostQueue'])
-    msg += '{} groups, '.format(count_groups)
-    try:
-        create_time = result_posts['groupsExemptFromPostQueue'][0]['createtime'] / 1000
-        msg += 'Newest group: "{}" ({}) with {} members (created {} ago)'.format(
-            result_posts['groupsExemptFromPostQueue'][0]['name'],
-            'private' if result_posts['groupsExemptFromPostQueue'][0]['private'] else 'public',
-            result_posts['groupsExemptFromPostQueue'][0]['memberCount'],
-            lib.base2.seconds2human(lib.base2.now(as_type='epoch') - create_time),
-            )
-    except:
-        pass
+    perfdata += lib.base3.get_perfdata('posts', len(result['groupsExemptFromPostQueue']), None, None, None, 0, None)
 
-    perfdata += lib.base2.get_perfdata('users', count_users, None, None, None, 0, None)
-    perfdata += lib.base2.get_perfdata('groups', count_groups, None, None, None, 0, None)
+    if table_data:
+        keys = [
+          'createtimeiso',
+          'slug',
+          'memberCount',
+        ]
+        headers = [
+          'createtime',
+          'slug',
+          'memberCount',
+        ]
+        msg += lib.base3.get_table(table_data, keys, header=headers)
 
     # over and out
-    lib.base2.oao(msg, state, perfdata)
+    lib.base3.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
     try:
         main()
     except Exception:   # pylint: disable=W0703
-        lib.base2.cu()
+        lib.base3.cu()

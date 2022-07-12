@@ -63,7 +63,89 @@
             "timeout": "10",
             "vars": {},
             "zone": null,
-            "guid": "216c7582-fcf7-48b0-8913-bf4d8535240e"
+            "guid": "05566ccb-1b23-4470-aeeb-39356ab6b916"
+        },
+        "cmd-check-nodebb-errors-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nodebb_errors_windows_always_ok$"
+                },
+                "--insecure": {
+                    "set_if": "$nodebb_errors_windows_insecure$"
+                },
+                "--severity": {
+                    "value": "$nodebb_errors_windows_severity$"
+                },
+                "--timeout": {
+                    "value": "$nodebb_errors_windows_timeout$"
+                },
+                "--token": {
+                    "value": "$nodebb_errors_windows_token$"
+                },
+                "--url": {
+                    "value": "$nodebb_errors_windows_url$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\nodebb-errors.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nodebb-errors-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "489b8736-8aeb-41eb-8747-851641a0e359"
+        },
+        "cmd-check-nodebb-errors-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\nodebb-errors.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-nodebb-errors-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-nodebb-errors-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "guid": "92106e4b-2603-4898-aefa-d7372cef06dc"
         }
     },
     "ServiceTemplate": {
@@ -81,9 +163,9 @@
             "enable_active_checks": null,
             "enable_event_handler": null,
             "enable_flapping": null,
-            "enable_notifications": null,
+            "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": null,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -114,7 +196,56 @@
             },
             "volatile": null,
             "zone": null,
-            "guid": "405f9b42-3d62-40c0-bdfd-c93f85fad660"
+            "guid": "75504fb0-526e-4fe2-86d8-97a96b9cab32"
+        },
+        "tpl-service-nodebb-errors-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nodebb-errors-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nodebb-errors.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Get NodeBB server-side errors.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-errors",
+            "object_name": "tpl-service-nodebb-errors-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "nodebb_errors_windows_always_ok": false,
+                "nodebb_errors_windows_insecure": false,
+                "nodebb_errors_windows_severity": "warn",
+                "nodebb_errors_windows_timeout": 3,
+                "nodebb_errors_windows_url": "http://localhost:4567/forum"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "063cac45-1ed6-4667-ae85-7f3030eb88f4"
         }
     },
     "DataList": {
@@ -135,7 +266,26 @@
                     "allowed_roles": null
                 }
             ],
-            "guid": "2a80472e-151c-49ca-8563-7e5eb1c491a5"
+            "guid": "c1680270-bcef-491e-8e1b-4402d5b082f2"
+        },
+        "nodebb_errors_windows_severity_list": {
+            "list_name": "nodebb_errors_windows_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "guid": "35e6cc99-86d7-4d59-b8d8-b72644da3e9e"
         }
     },
     "Datafield": {
@@ -146,7 +296,7 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "guid": "e4374819-826f-47a7-8b39-1adc13522864"
+            "guid": "c5fe22ce-f783-40cb-9769-1bd9ddd62cef"
         },
         "2": {
             "varname": "nodebb_errors_insecure",
@@ -155,7 +305,7 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "guid": "8fa6b0ea-c095-43fc-8210-2ca081dbb559"
+            "guid": "b76f94b1-6ed8-4561-820e-aee1547ff0fe"
         },
         "3": {
             "varname": "nodebb_errors_severity",
@@ -168,7 +318,7 @@
                 "data_type": "string",
                 "datalist": "nodebb_errors_severity_list"
             },
-            "guid": "3192c341-a162-45a8-b183-935b7cbad62b"
+            "guid": "b1a0379c-76bb-40b8-bb96-6f6fd9072a1c"
         },
         "4": {
             "varname": "nodebb_errors_timeout",
@@ -179,7 +329,7 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "e8197af3-3801-40bc-9afe-c647182b1fe8"
+            "guid": "e6efed37-1384-4590-b14b-f30efe5eb865"
         },
         "5": {
             "varname": "nodebb_errors_token",
@@ -190,7 +340,7 @@
             "settings": {
                 "visibility": "hidden"
             },
-            "guid": "eb13dd8e-15e2-4e4b-8893-e8dc14d2ba58"
+            "guid": "00fd856f-614f-4c64-b800-eff68cc4512e"
         },
         "6": {
             "varname": "nodebb_errors_url",
@@ -201,7 +351,71 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "eb350a29-6a6f-4081-8a68-7f44441b60f8"
+            "guid": "2354a23e-61a5-4bda-992c-38b98ca873f3"
+        },
+        "7": {
+            "varname": "nodebb_errors_windows_always_ok",
+            "caption": "Nodebb Errors: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "76e86e7e-fe8e-4786-8f41-42191b89aa50"
+        },
+        "8": {
+            "varname": "nodebb_errors_windows_insecure",
+            "caption": "Nodebb Errors: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "2563a834-af56-457e-9d8a-b30fd712dcc4"
+        },
+        "9": {
+            "varname": "nodebb_errors_windows_severity",
+            "caption": "Nodebb Errors: Severity",
+            "description": "Severity for alerts that do not depend on thresholds. One of \"warn\" or \"crit\".",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nodebb_errors_windows_severity_list"
+            },
+            "guid": "9d8fed86-55eb-4a58-82f2-a6470e2571e2"
+        },
+        "10": {
+            "varname": "nodebb_errors_windows_timeout",
+            "caption": "Nodebb Errors: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "e0a2d3a3-dab8-44c2-ae5f-b6291cfedb15"
+        },
+        "11": {
+            "varname": "nodebb_errors_windows_token",
+            "caption": "Nodebb Errors: Token",
+            "description": "NodeBB API Bearer token.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "guid": "46e35f1c-21d8-4239-94b9-362e012bee67"
+        },
+        "12": {
+            "varname": "nodebb_errors_windows_url",
+            "caption": "Nodebb Errors: URL",
+            "description": "NodeBB API URL.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "dcedda5a-6605-4017-aa6c-ee7818984b59"
         }
     }
 }

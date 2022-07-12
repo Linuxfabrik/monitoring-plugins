@@ -1,12 +1,14 @@
-Check nodebb-stats
-==================
+Check nodebb-groups
+===================
 
 Overview
 --------
 
-Gets some statistics from the ``/api/admin/settings/post`` and ``/api/admin/manage/users`` endpoints for debugging purposes.
+Get NodeBB post / group settings.
 
 The Plugin uses the Read API and Bearer Authentication. You need to issue a bearer token of type "user" in the NodeBB admin panel in order to grant access to the API. In NodeBB, a user token is associated with a specific uid, and all calls are made in the name of that user.
+
+To create a Bearer Token, do this:
 
 * Settings > API Access > Create Token > Specify your User ID and Description (for example "Linuxfabrik API Token").
 
@@ -22,10 +24,10 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-stats"
-    "Check Interval Recommendation",        "Once a minute"
+    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-groups"
+    "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3, Windows"
+    "Available for",                        "Python 3, Windows"
     "Requirements",                         "NodeBB v1.14.4+"
 
 
@@ -34,13 +36,12 @@ Help
 
 .. code-block:: text
 
-    usage: nodebb-stats [-h] [-V] [--insecure] [--test TEST] [--timeout TIMEOUT]
-                        [-p TOKEN] [--url URL]
+    usage: nodebb-groups [-h] [-V] [--insecure] [--test TEST] [--timeout TIMEOUT]
+                         -p TOKEN [--url URL]
 
-    Gets some statistics from the /api/admin/settings/post and
-    /api/admin/manage/users endpoints for debugging purposes.
+    Get NodeBB post settings.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --insecure            This option explicitly allows to perform "insecure"
@@ -58,13 +59,18 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./nodebb-stats --token bc68eed3-4cff-4a6e-8372-3b41dfa67635
+    ./nodebb-groups --token edd956be-9ea5-4f2a-94ca-3948a1b9d184 --warning 120 --critical 365
 
 Output:
 
 .. code-block:: text
 
-    185 users, Last user: Linuxfabrik <info at linuxfabrik dot ch> (online 0.00s ago), 38 groups, Newest group: "The Garden" (private) with 3 members (created 2M 3W ago)
+    57 groups, newest group: "Lorem ipsum" (private) with 2 members (created 2022-03-06 16:21:16 (4M 1W ago) ago)
+
+    createtime                      ! slug        ! memberCount 
+    --------------------------------+-------------+-------------
+    2022-03-06 16:21:16 (4M 1W ago) ! lorem-ipsum ! 2
+    ...
 
 
 States
@@ -81,8 +87,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description
-    groups,                                     Number,             Number of groups
-    users,                                      Number,             Number of users
+    posts,                                      Number,             Number of posts
 
 
 Credits, License

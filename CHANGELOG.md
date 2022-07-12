@@ -1,4 +1,5 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -46,8 +47,8 @@ New features:
 * New check nodebb-database
 * New check nodebb-errors
 * New check nodebb-events
+* New check nodebb-groups
 * New check nodebb-info
-* New check nodebb-posts
 * New check nodebb-users
 * New check strongswan-connections
 * New check xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583))
@@ -116,10 +117,11 @@ Bug fixes:
 
 ### Removed
 
-For now removed features:
+Removed features:
 
+* Check nodebb-stats
+* Check nodebb-status
 * Icinga: Remove gpsvc on windows
-
 
 
 [Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022030201...HEAD
