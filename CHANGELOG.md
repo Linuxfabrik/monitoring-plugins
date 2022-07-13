@@ -36,6 +36,7 @@ New features:
 * New check mysql-memory
 * New check mysql-open-files
 * New check mysql-perf-metrics
+* New check mysql-replica-status
 * New check mysql-slow-queries
 * New check mysql-sorts
 * New check mysql-system
