@@ -34,11 +34,11 @@ import sys # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.db_mysql3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071301'
+__version__ = '2022071302'
 
 DESCRIPTION = """Check user's security in MySQL/MariaDB."""
 
@@ -177,11 +177,11 @@ def main():
             sql = '''
                 select concat(quote(user), "@", quote(host)) as user
                 from mysql.user
-                where ({} = "" or {} is null)
+                where ({0} = "" or {0} is null)
                     and user != ""
                     /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
                     /*!80000 and account_locked = "N" and password_expired = "N" */;
-            '''.format(pass_column_name, pass_column_name)
+            '''.format(pass_column_name)
             success, users = lib.db_mysql3.select(conn, sql)
             if success:
                 break
@@ -207,11 +207,11 @@ def main():
             from mysql.user
             where user != ""
                 and (
-                    cast({} as binary) = password(user)
-                    or cast({} as binary) = password(upper(user))
-                    or cast({} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
+                    cast({0} as binary) = password(user)
+                    or cast({0} as binary) = password(upper(user))
+                    or cast({0} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
                 );
-        '''.format(pass_column_name, pass_column_name, pass_column_name)
+        '''.format(pass_column_name)
         success, users = lib.db_mysql3.select(conn, sql)
         if success:
             break
@@ -234,7 +234,7 @@ def main():
         select concat(quote(user), "@", quote(host)) as user
         from mysql.user
         where host = "%";
-    '''.format(pass_column_name, pass_column_name, pass_column_name)
+    '''
     users = lib.base3.coe(lib.db_mysql3.select(conn, sql))
     if len(users):
         state = lib.base3.str2state(args.SEVERITY)
