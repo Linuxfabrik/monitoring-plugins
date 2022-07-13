@@ -42,6 +42,7 @@ New features:
 * New check mysql-system
 * New check mysql-table-cache
 * New check mysql-table-definition-cache
+* New check mysql-table-indexes
 * New check mysql-temp-tables
 * New check mysql-thread-cache
 * New check mysql-traffic

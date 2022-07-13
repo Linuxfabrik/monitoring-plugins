@@ -1,0 +1,183 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022071301'
+
+DESCRIPTION = """Checks for missing indexes in MySQL/MariaDB tables."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = 3306
+DEFAULT_PASSWORD = ''
+DEFAULT_SERVERITY = 'warn'
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:mysql_tables(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # TABLE_SCHEMA and TABLE_NAME must be uppercase due to MySQL 8+
+    sql = '''
+        select distinct TABLE_SCHEMA
+        from information_schema.tables
+        where TABLE_SCHEMA not in (
+            "mysql", "information_schema", "performance_schema", "percona", "sys"
+        );
+    '''
+    user_dbs = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+    for schema in user_dbs:
+        sql = '''
+            select TABLE_NAME
+            from information_schema.tables
+            where TABLE_SCHEMA="{}"
+                and table_type="BASE TABLE"
+            order by TABLE_NAME;
+        '''.format(schema['TABLE_SCHEMA'])
+        user_tables = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+
+        for table in user_tables:
+            sql = '''
+                select index_name as idxname,
+                    group_concat(column_name order by seq_in_index) as cols,
+                    index_type as type
+                from information_schema.statistics
+                where index_schema="{}"
+                    and TABLE_NAME="{}"
+                group by idxname, type;
+            '''.format(schema['TABLE_SCHEMA'], table['TABLE_NAME'])
+            user_indexes = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+            if len(user_indexes) == 0:
+                msg += '{}.{}, '.format(
+                    schema['TABLE_SCHEMA'],
+                    table['TABLE_NAME'],
+                )
+
+    lib.db_mysql3.close(conn)
+
+    if not msg:
+        msg = 'Everyhing is ok.'
+    else:
+        state = STATE_WARN
+        msg = 'Tables without indexes: {}{}'.format(
+            msg[:-2],
+            lib.base3.state2str(state, prefix=' ')
+        )
+
+    # over and out
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
