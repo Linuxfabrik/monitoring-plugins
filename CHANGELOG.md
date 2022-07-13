@@ -46,6 +46,7 @@ New features:
 * New check mysql-temp-tables
 * New check mysql-thread-cache
 * New check mysql-traffic
+* New check mysql-user-security
 * New check nodebb-cache
 * New check nodebb-database
 * New check nodebb-errors

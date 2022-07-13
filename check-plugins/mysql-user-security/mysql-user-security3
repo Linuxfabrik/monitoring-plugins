@@ -1,0 +1,267 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import random # pylint: disable=C0413
+import string # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.base3 # pylint: disable=C0413
+import lib.db_mysql3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022071301'
+
+DESCRIPTION = """Check user's security in MySQL/MariaDB."""
+
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_PORT = 3306
+DEFAULT_PASSWORD = ''
+DEFAULT_SERVERITY = 'warn'
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='MySQL/MariaDB hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Use the indicated password to authenticate the connection. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='MySQL/MariaDB port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerts that do not depend on thresholds. One of "warn" or "crit". Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SERVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='MySQL/MariaDB username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:security_recommendations(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'user':               args.USERNAME,
+        'password':           args.PASSWORD,
+        'host':               args.HOSTNAME,
+        'port':               args.PORT,
+    }
+    conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
+    lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+
+    # init some vars
+    msg_header, msg_body = '', ''
+    state = STATE_OK
+
+    # Looking for Anonymous users
+    sql = '''
+        select concat(quote(user), "@", quote(host)) as user
+        from mysql.user
+        where trim(user) = ""
+            or user is null;
+    '''
+    users = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+    if len(users):
+        state = lib.base3.str2state(args.SEVERITY)
+        msg_header += '{} anonymous user {}{}. '.format(
+            len(users),
+            lib.txt3.pluralize('account', len(users)),
+            lib.base3.state2str(lib.base3.str2state(args.SEVERITY), prefix=' '),
+        )
+        msg_body += '\nRemove anonymous users:\n'
+        for user in users:
+            msg_body += '* DROP USER {};\n'.format(user['user'])
+
+    # possible password column names:
+    pass_column_names = [
+        'password',
+        'authentication_string',
+        'IF(plugin="mysql_native_password", authentication_string, password)',
+    ]
+
+    # Looking for users having empty passwords
+    # MariaDB 10.4+:
+    sql = '''
+        select concat(quote(user), "@", quote(host)) as user
+        from mysql.global_priv
+        where user != ""
+            and json_contains(priv, '"mysql_native_password"', "$.plugin")
+            and json_contains(priv, '""', "$.authentication_string")
+            and not json_contains(priv, '"true"', "$.account_locked");
+    '''
+    success, users = lib.db_mysql3.select(conn, sql)
+    if not success:
+        # all other versions:
+        for pass_column_name in pass_column_names:
+            sql = '''
+                select concat(quote(user), "@", quote(host)) as user
+                from mysql.user
+                where ({} = "" or {} is null)
+                    and user != ""
+                    /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
+                    /*!80000 and account_locked = "N" and password_expired = "N" */;
+            '''.format(pass_column_name, pass_column_name)
+            success, users = lib.db_mysql3.select(conn, sql)
+            if success:
+                break
+    if success and len(users):
+        state = lib.base3.str2state(args.SEVERITY)
+        msg_header += '{} {} without password{}. '.format(
+            len(users),
+            lib.txt3.pluralize('user', len(users)),
+            lib.base3.state2str(state, prefix=' '),
+        )
+        msg_body += '\nSet user passwords:\n'
+        for user in users:
+            msg_body += '* SET PASSWORD FOR {} = PASSWORD("{}");\n'.format(
+                user['user'],
+                ''.join(random.choice(string.ascii_letters + string.digits) for i in range(40))
+            )
+
+    # Looking for users with user / uppercase / capitalise user as password
+    # does not work on MySQL 8
+    for pass_column_name in pass_column_names:
+        sql = '''
+            select concat(quote(user), "@", quote(host)) as user
+            from mysql.user
+            where user != ""
+                and (
+                    cast({} as binary) = password(user)
+                    or cast({} as binary) = password(upper(user))
+                    or cast({} as binary) = password(concat(upper(left(user, 1)), substring(user, 2, length(user))))
+                );
+        '''.format(pass_column_name, pass_column_name, pass_column_name)
+        success, users = lib.db_mysql3.select(conn, sql)
+        if success:
+            break
+    if success and len(users):
+        state = lib.base3.str2state(args.SEVERITY)
+        msg_header += '{} {} with username as password{}. '.format(
+            len(users),
+            lib.txt3.pluralize('user', len(users)),
+            lib.base3.state2str(state, prefix=' '),
+        )
+        msg_body += '\nChange user passwords:\n'
+        for user in users:
+            msg_body += '* SET PASSWORD FOR {} = PASSWORD("{}");\n'.format(
+                user['user'],
+                ''.join(random.choice(string.ascii_letters + string.digits) for i in range(40))
+            )
+
+    # Looking for users without hostname restriction
+    sql = '''
+        select concat(quote(user), "@", quote(host)) as user
+        from mysql.user
+        where host = "%";
+    '''.format(pass_column_name, pass_column_name, pass_column_name)
+    users = lib.base3.coe(lib.db_mysql3.select(conn, sql))
+    if len(users):
+        state = lib.base3.str2state(args.SEVERITY)
+        msg_header += '{} {} without hostname restriction{}. '.format(
+            len(users),
+            lib.txt3.pluralize('account', len(users)),
+            lib.base3.state2str(lib.base3.str2state(args.SEVERITY), prefix=' '),
+        )
+        msg_body += '\nRestrict users:\n'
+        for user in users:
+            msg_body += '* RENAME USER {} TO {};\n'.format(
+                user['user'],
+                user['user'].replace("'%", "'LimitedIPRangeOrLocalhost")
+            )
+
+    lib.db_mysql3.close(conn)
+
+    msg = msg_header + '\n' + msg_body
+    if not msg.strip():
+        msg = 'Everyhing is ok.'
+
+    # over and out
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
