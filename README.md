@@ -243,6 +243,10 @@ Regarding the check plugin output, this is how we convert and append symbols to 
 | 1000\^6           | Ebps     |              | Bits per Second   | Exabits |
 | 1000\^7           | Zbps     |              | Bits per Second   | Zetabits |
 | 1000\^8           | Ybps     |              | Bits per Second   | Yottabits |
+| 1e-12             | ps       |              | Time              | Picoseconds |
+| 1e-9              | ns       |              | Time              | Nanoseconds |
+| 1e-6              | us       |              | Time              | Microseconds |
+| 1e-3              | ms       |              | Time              | Milliseconds |
 | 1..59             | s        |              | Time              | Seconds |
 | 60                | m        |              | Time              | Minutes |
 | 60\*60            | h        |              | Time              | Hours |
@@ -387,10 +391,9 @@ If you want to create a custom dashboards that contains a different selection of
 ```
 
 
-
 ## Reporting Issues
 
 For now, there are two ways:
 
-1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new) (preferred).
+1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
 2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
