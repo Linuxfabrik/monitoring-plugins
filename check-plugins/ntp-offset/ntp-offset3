@@ -30,12 +30,13 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
 import lib.shell3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022071401'
 
 DESCRIPTION = 'This plugin checks the clock offset in milliseconds compared to ntp servers.'
 
@@ -134,7 +135,7 @@ def main():
                 continue
 
             if line.startswith('Last offset'):
-                offset = float(line.split()[-2]) * 1000
+                offset = float(line.split()[-2]) * 1000  # convert to ms
                 continue
 
             if line.startswith('Stratum'):
@@ -190,22 +191,26 @@ def main():
     if ntp_server == 'LOCAL':
         lib.base3.oao('No NTP server used.', STATE_UNKNOWN)
 
+    # init some vars
+    state = STATE_OK
+
+    # build the message
     perfdata = lib.base3.get_perfdata('offset', offset, 'ms', args.WARN, args.CRIT, None, None)
 
-    if abs(offset) >= args.CRIT:
-        msg_header += 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
-        lib.base3.oao(msg_header + '\n' + msg_body, STATE_CRIT, perfdata)
-
-    if abs(offset) >= args.WARN:
-        msg_header += 'NTP offset too low/high. Offset is {0}ms.'.format(offset)
-        lib.base3.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
-
+    offset_state = lib.base3.get_state(abs(offset), args.WARN, args.CRIT)
+    state = lib.base3.get_worst(state, offset_state)
+    print('{}'.format(offset/1000))
+    msg_header += 'NTP offset is {}{}, '.format(
+        lib.human3.seconds2human(offset / 1000),
+        lib.base3.state2str(offset_state, prefix=' '),
+    )
+    msg_header += 'Stratum is {}'.format(stratum)
     if stratum >= 9:
-        msg_header += 'Stratum {0} is >= 9. NTP offset {1}.'.format(stratum, offset)
-        lib.base3.oao(msg_header + '\n' + msg_body, STATE_WARN, perfdata)
+        stratum_state = STATE_WARN
+        state = lib.base3.get_worst(state, stratum_state)
+        msg_header += ' is >= 9{}'.format(stratum_state)
 
-    msg_header += 'NTP offset is {0}ms (Stratum {1}).'.format(offset, stratum)
-    lib.base3.oao(msg_header + '\n' + msg_body, STATE_OK, perfdata)
+    lib.base3.oao(msg_header + '\n\n' + msg_body, state, perfdata)
 
 
 if __name__ == '__main__':
