@@ -28,6 +28,7 @@ New features:
 * New check mysql-aria
 * New check mysql-binlog-cache
 * New check mysql-connections
+* New check mysql-database-metrics
 * New check mysql-innodb-buffer-pool-instances
 * New check mysql-innodb-buffer-pool-size
 * New check mysql-innodb-log-waits
