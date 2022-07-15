@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071301'
+__version__ = '2022071302'
 
 DESCRIPTION = """Checks the replication status of MySQL/MariaDB."""
 
@@ -216,13 +216,13 @@ def main():
     if not io_running or not sql_running:
         state = lib.base3.str2state(args.SEVERITY)
         msg += 'This Replica is not running but seems to be configured{}. '.format(
-            lib.base3.state2str(lib.base3.str2state(args.SEVERITY), prefix=' '),
+            lib.base3.state2str(state, prefix=' '),
         )
     if io_running and sql_running:
         if myvar['read_only'] == 'OFF':
             state = lib.base3.str2state(args.SEVERITY)
             msg += 'This Replica is running with the read_only option disabled{}. '.format(
-                lib.base3.state2str(lib.base3.str2state(args.SEVERITY), prefix=' '),
+                lib.base3.state2str(state, prefix=' '),
             )
         if myrepl[0].get('Seconds_Behind_Master', 0) is None \
         or myrepl[0].get('Seconds_Behind_Source', 0) is None \
@@ -230,7 +230,7 @@ def main():
         or myrepl[0].get('Seconds_Behind_Source', 0) > 0:
             state = lib.base3.str2state(args.SEVERITY)
             msg += 'This Replica is lagging behind Primary{}. '.format(
-                lib.base3.state2str(lib.base3.str2state(args.SEVERITY), prefix=' '),
+                lib.base3.state2str(state, prefix=' '),
             )
         else:
             msg += 'This Replica is up to date with Primary. '
