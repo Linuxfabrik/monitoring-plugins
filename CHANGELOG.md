@@ -40,6 +40,7 @@ New features:
 * New check mysql-replica-status
 * New check mysql-slow-queries
 * New check mysql-sorts
+* New check mysql-storage-systems
 * New check mysql-system
 * New check mysql-table-cache
 * New check mysql-table-definition-cache
@@ -125,6 +126,7 @@ Bug fixes:
 
 Removed features:
 
+* Check mysql-stats
 * Check nodebb-stats
 * Check nodebb-status
 * Icinga: Remove gpsvc on windows
