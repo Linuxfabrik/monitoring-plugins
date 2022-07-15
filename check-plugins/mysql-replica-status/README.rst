@@ -6,7 +6,14 @@ Overview
 
 Checks the replication status of MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_, v1.9.8.
 
-Can also be run against standalone servers.
+Hints:
+
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* Can also be run against standalone servers.
+* Compared to check_mysql / MySQLTuner this check currently:
+
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
 
 Fact Sheet

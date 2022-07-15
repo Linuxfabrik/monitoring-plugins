@@ -11,19 +11,16 @@ Depending on your site's policy for DB management, you could ignore lines matchi
 * "aborted connection" (happens pretty often, and might not be worth alerting)
 * "access denied for user" (could be handled automatically by Fail2ban)
 
-Installing the Python MySQL Connector:
-
-* RHEL 7+: ``pip3 install mysql-connector-python``
-
 Hints:
 
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
 * Must be running locally on the MySQL/MariaDB server to be able to check the log.
 * Compared to MySQLTuner this check
 
-    * is able to ignore log lines using simple lowercase string patterns or Python regular expressions.
-    * even checks the log if MySQL/MariaDB is down.
-    * currently supports only simple login with username/password.
-    * currently does not support a connection via socket.
+    * is able to ignore log lines using simple lowercase string patterns or Python regular expressions
+    * even checks the log if MySQL/MariaDB is down
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
   
 Fact Sheet

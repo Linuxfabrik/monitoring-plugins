@@ -6,18 +6,15 @@ Overview
 
 Checks some metrics of the Aria Storage Engine in MySQL/MariaDB. The logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mariadb_aria(), v1.9.8.
 
-Installing the Python MySQL Connector:
-
-* RHEL 7+: ``pip3 install mysql-connector-python``
-
 Hints:
 
-* Compared to MySQLTuner this check currently:
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* Compared to check_mysql / MySQLTuner this check currently:
 
-    * supports only simple login with username/password
+    * supports only simple login with username/password (not via SSL/TLS)
     * does not support a connection via socket
 
-  
+
 Fact Sheet
 ----------
 

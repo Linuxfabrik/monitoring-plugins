@@ -16,7 +16,12 @@ Always take care of both ``innodb_buffer_pool_size`` and ``innodb_log_file_size`
 
 Hints:
 
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
 * On MariaDB 10.2.2+, ``innodb_buffer_pool_size`` `can be set dynamically. <https://mariadb.com/kb/en/setting-innodb-buffer-pool-size-dynamically/>`_.
+* Compared to check_mysql / MySQLTuner this check currently:
+
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
 
 Fact Sheet

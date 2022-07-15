@@ -9,6 +9,11 @@ Checks if a certain amount of transactions used a temporary disk cache because t
 Hints:
 
 * If ``log_bin`` is set to ``OFF``, this check makes no sense.
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* Compared to check_mysql / MySQLTuner this check currently:
+
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
 
 Fact Sheet

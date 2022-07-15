@@ -9,7 +9,12 @@ Checks current and maximum possible memory usage specifically for MySQL/MariaDB.
 Hints:
 
 * Requires MySQL/MariaDB v4+.
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
 * Must be running locally on the MySQL/MariaDB server to be able to check the system requirements.
+* Compared to check_mysql / MySQLTuner this check currently:
+
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
 
 Fact Sheet

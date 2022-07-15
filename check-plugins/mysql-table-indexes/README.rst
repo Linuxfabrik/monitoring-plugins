@@ -9,6 +9,11 @@ Checks for missing indexes in MySQL/MariaDB tables. Logic is taken from `MySQLTu
 Hints:
 
 * Requires MySQL/MariaDB v5.5+.
+* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* Compared to check_mysql / MySQLTuner this check currently:
+
+    * supports only simple login with username/password (not via SSL/TLS)
+    * does not support a connection via socket
 
 
 Fact Sheet
