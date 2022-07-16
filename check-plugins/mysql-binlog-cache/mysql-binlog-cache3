@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062101'
+__version__ = '2022071601'
 
 DESCRIPTION = """Checks if a certain amount of transactions used a temporary disk cache because
                  they could not fit in the regular binary log cache in MySQL/MariaDB."""
@@ -44,6 +44,7 @@ DESCRIPTION = """Checks if a certain amount of transactions used a temporary dis
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 DEFAULT_PASSWORD = ''
+DEFAULT_TIMEOUT = 3
 DEFAULT_USERNAME = 'root'
 
 
@@ -86,6 +87,14 @@ def parse_args():
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -142,19 +151,21 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
+        'timeout':            args.TIMEOUT,
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+
     myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    lib.db_mysql3.close(conn)
 
     # init some vars
     state = STATE_OK
     perfdata = ''
-    mycalc = {}
-    mystat = lib.db_mysql3.lod2dict(get_status(conn))
-    lib.db_mysql3.close(conn)
 
     # calculations
+    mycalc = {}
     if myvar['log_bin'] == 'OFF':
         lib.base3.oao('Binary logging is disabled.', STATE_UNKNOWN)
 

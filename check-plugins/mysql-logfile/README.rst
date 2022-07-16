@@ -13,7 +13,7 @@ Depending on your site's policy for DB management, you could ignore lines matchi
 
 Hints:
 
-* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
 * Must be running locally on the MySQL/MariaDB server to be able to check the log.
 * Compared to MySQLTuner this check
 

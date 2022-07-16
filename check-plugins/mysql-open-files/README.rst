@@ -8,7 +8,7 @@ Checks the open file usage in MySQL/MariaDB. Logic is taken from `MySQLTuner scr
 
 Hints:
 
-* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
 * Compared to check_mysql / MySQLTuner this check currently:
 
     * supports only simple login with username/password (not via SSL/TLS)

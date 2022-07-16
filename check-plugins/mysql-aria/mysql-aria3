@@ -37,13 +37,14 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062101'
+__version__ = '2022071601'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 DEFAULT_PASSWORD = ''
+DEFAULT_TIMEOUT = 3
 DEFAULT_USERNAME = 'root'
 
 
@@ -86,6 +87,14 @@ def parse_args():
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -139,6 +148,7 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
+        'timeout':            args.TIMEOUT,
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
@@ -157,14 +167,15 @@ def main():
     if total_aria_indexes is None:
         lib.base3.oao('Unable to calculate Aria index size on MySQL/MariaDB server.', STATE_OK)
 
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
+    lib.db_mysql3.close(conn)
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
 
     # calculations
-    mystat = lib.db_mysql3.lod2dict(get_status(conn))
-    lib.db_mysql3.close(conn)
     if mystat.get('Aria_pagecache_read_requests', 0) and int(mystat['Aria_pagecache_read_requests']) > 0:
         pct_aria_keys_from_mem = 100 - round(int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100, 1)
     else:

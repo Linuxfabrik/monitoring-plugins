@@ -8,7 +8,7 @@ Checks the connection usage rate, the rate of aborted connections and if name re
 
 Hints:
 
-* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
 * Compared to check_mysql / MySQLTuner this check currently:
 
     * supports only simple login with username/password (not via SSL/TLS)
@@ -22,7 +22,7 @@ Fact Sheet
     :widths: 30, 70
     
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-connections"
-    "Check Interval Recommendation",        "Every 5 minutes"
+    "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
     "Requirements",                         "Python module ``pymysql``; User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."

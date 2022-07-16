@@ -42,13 +42,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062101'
+__version__ = '2022071601'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = 3306
 DEFAULT_PASSWORD = ''
+DEFAULT_TIMEOUT = 3
 DEFAULT_USERNAME = 'root'
 
 
@@ -91,6 +92,14 @@ def parse_args():
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -227,19 +236,21 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
+        'timeout':            args.TIMEOUT,
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
+
     myvar = lib.db_mysql3.lod2dict(get_vars(conn))
+    mystat = lib.db_mysql3.lod2dict(get_status(conn))
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    mycalc = {}
-    mystat = lib.db_mysql3.lod2dict(get_status(conn))
 
     # calculations
+    mycalc = {}
     mycalc['max_tmp_table_size'] = max(int(myvar['max_heap_table_size']), int(myvar['tmp_table_size']))
     mycalc['server_buffers'] = int(myvar['key_buffer_size']) + mycalc['max_tmp_table_size']
     mycalc['server_buffers'] += int(myvar.get('innodb_buffer_pool_size', 0))
@@ -296,7 +307,7 @@ def main():
             lib.base3.state2str(mem2_state, prefix=' '),
         )
 
-    perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_buffer_size', myvar['aria_pagecache_buffer_size'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_aria_pagecache_buffer_size', myvar.get('aria_pagecache_buffer_size', 0), 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_innodb_buffer_pool_size', myvar['innodb_buffer_pool_size'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_innodb_log_buffer_size', myvar['innodb_log_buffer_size'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_join_buffer_size', myvar['join_buffer_size'], 'B', None, None, 0, None)
@@ -304,7 +315,7 @@ def main():
     perfdata += lib.base3.get_perfdata('mysql_max_allowed_packet', myvar['max_allowed_packet'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_max_connections', myvar['max_connections'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_max_heap_table_size', myvar['max_heap_table_size'], 'B', None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('mysql_query_cache_size', myvar['query_cache_size'], 'B', None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('mysql_query_cache_size', myvar.get('query_cache_size', 0), 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_read_buffer_size', myvar['read_buffer_size'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_read_rnd_buffer_size', myvar['read_rnd_buffer_size'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('mysql_sort_buffer_size', myvar['sort_buffer_size'], 'B', None, None, 0, None)

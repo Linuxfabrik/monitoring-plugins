@@ -8,7 +8,7 @@ Checks the replication status of MySQL/MariaDB. Logic is taken from `MySQLTuner 
 
 Hints:
 
-* On RHEL 7+, the Python MySQL Connector can be installed with ``pip3 install mysql-connector-python``
+* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
 * Can also be run against standalone servers.
 * Compared to check_mysql / MySQLTuner this check currently:
 

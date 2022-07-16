@@ -4,7 +4,7 @@ Linuxfabrik's Check Plugin Developer Guidelines
 Monitoring of an Application
 ----------------------------
 
-Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check.
+Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check (following the Linux mantra: "one tool, one task").
 
 Avoid an extensive check that covers a wide variety of aspects:
 
@@ -28,17 +28,16 @@ Simply clone the libraries and monitoring plugins:
 
     git clone git@github.com:Linuxfabrik/lib.git
     git clone git@github.com:Linuxfabrik/monitoring-plugins.git
-    cd monitoring-plugins
 
 
 Deliverables
 ------------
 
 * The plugin itself.
-* A nice 16x16 transparent PNG icon, for example based on font-awesome (not in Git, will be placed on https://download.linuxfabrik.ch).
+* A nice 16x16 transparent PNG icon, for example based on font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
 * LICENSE file
-* if Windows: the compiled plugin as a zip (see `Compiling for Windows <#compiling-for-windows>`_;  not in Git, will be placed on https://download.linuxfabrik.ch).
+* if Windows: see `Compiling for Windows <#compiling-for-windows>`_
 * optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
 * optional: Icinga Director Basket Config

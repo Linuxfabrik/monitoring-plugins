@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071302'
+__version__ = '2022071601'
 
 DESCRIPTION = """Checks the replication status of MySQL/MariaDB."""
 
@@ -44,6 +44,7 @@ DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = 3306
 DEFAULT_PASSWORD = ''
 DEFAULT_SERVERITY = 'warn'
+DEFAULT_TIMEOUT = 3
 DEFAULT_USERNAME = 'root'
 
 
@@ -97,6 +98,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-u', '--username',
         help='MySQL/MariaDB username. Default: %(default)s',
         dest='USERNAME',
@@ -144,6 +153,7 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
+        'timeout':            args.TIMEOUT,
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
