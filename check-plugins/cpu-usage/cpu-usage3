@@ -42,7 +42,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062001'
+__version__ = '2022071801'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -155,7 +155,8 @@ def main():
         lib.base3.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
 
     # this is what we want to warn about: 100% - idle - nice
-    stats['cpu_usage'] = round(100.0 - getattr(cpu_times_percent, 'idle') - getattr(cpu_times_percent, 'nice'), 1)
+    stats['cpu_usage'] = round(
+        100.0 - getattr(cpu_times_percent, 'idle', 0) - getattr(cpu_times_percent, 'nice', 0), 1)
 
     stats['guest'] = getattr(cpu_times_percent, 'guest', 0)
     stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice', 0)
@@ -179,13 +180,13 @@ def main():
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
     if lib.base3.version(psutil.__version__) >= lib.base3.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
-        extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches')
+        extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches', 0)
         extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
         extstats['soft_interrupts'] = getattr(cpu_stats, 'soft_interrupts', 0)
 
     # this is for msg and perfdata
-    cpu_usage = stats['cpu_usage'] + getattr(cpu_times_percent, 'nice')
-    
+    cpu_usage = stats['cpu_usage'] + getattr(cpu_times_percent, 'nice', 0)
+
     # for the msg, sort by highest value, but without the cpu_usage sum
     del stats['cpu_usage']
     stats = lib.base3.sort(stats, reverse=True)
