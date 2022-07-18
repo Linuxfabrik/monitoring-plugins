@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071601'
+__version__ = '2022071801'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -209,13 +209,14 @@ def main():
         'password':           args.PASSWORD,
         'host':               args.HOSTNAME,
         'port':               args.PORT,
-    'timeout':            args.TIMEOUT,
+        'timeout':            args.TIMEOUT,
     }
     success, conn = lib.db_mysql3.connect(mysql_connection)
     if not success:
         # DB seems to be down
         # Try to get the "log_error" setting and save it to cache, so that we know where to get the
         # log info from in case the DB is down.
+        myvar = {}
         log_error = lib.cache3.get('{}-{}'.format(
             args.HOSTNAME,
             args.PORT
@@ -228,11 +229,15 @@ def main():
 
     if not log_error:
         if not args.SERVER_LOG:
-            log_error = get_log_file_real_path(myvar['log_error'], myvar['hostname'], myvar['datadir'])
+            log_error = get_log_file_real_path(
+                myvar.get('log_error', ''),
+                myvar.get('hostname', ''),
+                myvar.get('datadir', ''),
+            )
         else:
             log_error = args.SERVER_LOG
     if not log_error:
-        lib.base3.oao('No log file set (set log_error).', STATE_UNKNOWN)
+        lib.base3.oao('No log file set (set log_error in MySQL/MariaDB config or use the check\'s --server-log parameter).', STATE_UNKNOWN)
 
     lib.cache3.set('{}-{}'.format(
         args.HOSTNAME,
