@@ -27,7 +27,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``; Python module ``pymysql``; User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Requirements",                         "Python module ``psutil``; Python module ``pymysql``; User with PROCESS privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
 
 
 Help
