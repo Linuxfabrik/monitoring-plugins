@@ -70,7 +70,7 @@ Output:
 States
 ------
 
-* WARN if the number of connections is more than 85% of the maximum possible number of simultaneous client connections.
+* WARN if the number of connections is more than 85% of the maximum possible number of simultaneous client connections (setting ``max_connections``).
 * WARN if the number of aborted connections is more than 3% of all client connections.
 * WARN if name resolution is active.
 

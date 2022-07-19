@@ -25,7 +25,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``pymysql``; User with SELECT privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Requirements",                         "Python module ``pymysql``; User with SELECT privileges on mysql.user, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
 
 
 Help
