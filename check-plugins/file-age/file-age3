@@ -32,7 +32,12 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
-import lib.smb3 # pylint: disable=C0413
+try:
+    import lib.smb3 # pylint: disable=C0413
+    HAVE_SMB = True
+except ModuleNotFoundError as e:
+    HAVE_SMB = False
+    missing_lib = e.name
 import lib.time3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
@@ -45,7 +50,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022040501'
+__version__ = '2022071901'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -231,6 +236,8 @@ def main():
                 )
 
     if args.URL:
+        if not HAVE_SMB:
+            lib.base3.oao('Python module "{}" is not installed.'.format(missing_lib), STATE_UNKNOWN)
         for item in lib.base3.coe(lib.smb3.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
             try:
                 if item.is_file() and args.ONLY_DIRS:

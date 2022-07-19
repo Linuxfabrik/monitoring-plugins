@@ -33,7 +33,12 @@ import sys # pylint: disable=C0413
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.human3 # pylint: disable=C0413
-import lib.smb3 # pylint: disable=C0413
+try:
+    import lib.smb3 # pylint: disable=C0413
+    HAVE_SMB = True
+except ModuleNotFoundError as e:
+    HAVE_SMB = False
+    missing_lib = e.name
 import lib.test3 # pylint: disable=C0413
 import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
@@ -165,6 +170,8 @@ def main():
         proto, url = split_url
 
         if proto == 'smb':
+            if not HAVE_SMB:
+                lib.base3.oao('Python module "{}" is not installed.'.format(missing_lib), STATE_UNKNOWN)
             for item in lib.base3.coe(lib.smb3.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
                 # ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents
                 if item.is_dir():
