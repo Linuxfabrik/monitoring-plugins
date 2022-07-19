@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071801'
+__version__ = '2022071901'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -269,8 +269,12 @@ def main():
         msg += 'Src: {}, '.format(log_error)
     else:
         # good old logfile
+        if not os.path.isabs(log_error):
+            log_error = os.path.join(myvar.get('datadir', ''), log_error)
         if not os.path.isfile(log_error):
-            lib.base3.oao('Log file {} doesn\'t exist.'.format(log_error), STATE_WARN)
+            msg = 'Logging seems to be configured, but {} does not seem to be an existing regular file. '.format(log_error)
+            msg += 'Check the path and file permissions, or provide the --server-log parameter.'
+            lib.base3.oao(msg, STATE_WARN)
         size = os.path.getsize(log_error)
         if size == 0:
             lib.base3.oao('Log file {} is empty. Assuming log-rotation. Use `--server-log` for explicit file.'.format(log_error), STATE_UNKNOWN)

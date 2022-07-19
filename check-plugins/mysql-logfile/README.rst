@@ -131,6 +131,13 @@ Perfdata / Metrics
     mysql_shutdowns,                            Number,             Number of shutdowns
 
 
+Troubleshooting
+---------------
+
+No log file set (set log_error in MySQL/MariaDB config or use the check's --server-log parameter).
+    The check tried to get information from an error logfile, but was unable to do so. All possible error logfile locations were tried, but no logfile was found. You have to help by configuring the MySQL/MariaDB system variable ``log_error`` accordingly, or by providing the ``--server-log`` parameter to the check.
+
+
 Credits, License
 ----------------
 
