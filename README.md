@@ -74,7 +74,7 @@ tar xf lib.tar.gz
 tar xf monitoring-plugins.tar.gz
 ```
 
-Copy the libraries onto the remote host to `/usr/lib64/nagios/plugins/lib`, and copy some or all Python check plugins to `/usr/lib64/nagios/plugins` while removing the Python version suffix, for example by doing the following:
+Copy the libraries onto the remote host to `/usr/lib64/nagios/plugins/lib`, and copy some or all Python check plugins to `/usr/lib64/nagios/plugins` while removing the Python version suffix, for example by doing the following on your deployment host:
 
 ``` bash
 REMOTE_USER=root
@@ -84,9 +84,9 @@ SOURCE_LIBS=/path/to/lib
 SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
 TARGET_DIR=/usr/lib64/nagios/plugins
 
-ssh $REMOTE_USER@$REMOTE_HOST 'mkdir -p $TARGET_DIR/lib'
-scp $SOURCE_LIBS/* $REMOTE_HOST:$TARGET_DIR/lib/
-for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_HOST:$TARGET_DIR/$f; done
+ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $TARGET_DIR/lib"
+scp $SOURCE_LIBS/* $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/lib/
+for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
 ```
 
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well:
