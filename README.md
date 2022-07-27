@@ -16,153 +16,32 @@ The plugins are fast, reliable and use as few system resources as possible. They
 
 ## Support & Sponsoring
 
-The source code is published here without support, but [Enterprise Support can be obtained via a Service Contract](https://www.linuxfabrik.ch/en/offer/service-and-support/).
+The source code is published here without support.
 
-If you like to support our work, please consider donating and become a sponsor:
+If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/offer/service-and-support/).
+
+If you simply like to support our work, please consider donating and become a sponsor:
 * [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
 * [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
-## Running the Check Plugins on Linux
+## Installation
 
-### Requirements
-
-Install Python 3 (or Python 2, if needed) on the remote host.
+Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options.
 
 
-### Virtual Environment
-
-If you want to use a virtual environment for Python (optional, but recommended), you could create one in the same directory as the check-plugins.
-
-``` bash
-cd /usr/lib64/nagios/plugins
-
-# Python 3
-python3 -m venv --system-site-packages monitoring-plugins-venv3
-
-# Python 2
-python2 -m virtualenv --system-site-packages monitoring-plugins-venv2
-```
-
-If you prefer to place the virtual environment somewhere else, you can point the `MONITORING_PLUGINS_VENV2` or `MONITORING_PLUGINS_VENV3` environment variable to your virtual environment. This takes precedence over the virtual environment above.
-
-**Caution**
-
-> Make sure the `bin/activate_this.py` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using `sudo`).
-
-
-### Installation
-
-Get the monitoring check plugins from our Git repository to your local machine or deployment host, using `git clone git@github.com:Linuxfabrik/monitoring-plugins.git`, or by downloading the `tar.gz` using `curl`:
-
-``` bash
-REPO='linuxfabrik/monitoring-plugins'
-curl --output monitoring-plugins.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.tag_name')
-```
-
-The check plugins require our [Python libraries](https://github.com/linuxfabrik/lib). The libraries are in a separate Git repository, as we also use them in other projects. Use `git clone git@github.com:Linuxfabrik/lib.git`, or by downloading the `tar.gz` using `curl`:
-
-``` bash
-REPO='linuxfabrik/lib'
-curl --output lib.tar.gz https://codeload.github.com/${REPO}/tar.gz/refs/tags/$(curl --silent https://api.github.com/repos/${REPO}/releases/latest | jq -r '.tag_name')
-```
-
-Extract:
-
-``` bash
-tar xf lib.tar.gz
-tar xf monitoring-plugins.tar.gz
-```
-
-Copy the libraries onto the remote host to `/usr/lib64/nagios/plugins/lib`, and copy some or all Python check plugins to `/usr/lib64/nagios/plugins` while removing the Python version suffix, for example by doing the following on your deployment host:
-
-``` bash
-REMOTE_USER=root
-REMOTE_HOST=192.0.2.74
-PYVER=3
-SOURCE_LIBS=/path/to/lib
-SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
-TARGET_DIR=/usr/lib64/nagios/plugins
-
-ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $TARGET_DIR/lib"
-scp $SOURCE_LIBS/* $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/lib/
-for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
-```
-
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example [psutil](https://psutil.readthedocs.io/en/latest/)), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well:
-
-* BeautifulSoup4 (bs4)
-* psutil
-* PyMySQL (pymysql.cursors - on RHEL, use ``yum install python36-mysql``, ``dnf install python3-mysql`` or similar)
-* smbprotocol (smbprotocol.exceptions)
-* vici
-
-That's it. After that your directory on the remote host should look like this:
-
-``` text
-/usr/lib64/nagios/plugins/
-|-- about-me
-|-- disk-smart
-|-- ...
-|-- lib
-|   |-- base2.py
-|   |-- base3.py
-|   |-- globals2.py
-|   |-- ...
-|-- ...
-```
-
-**Tipp**
-
-> We also provide a Monitoring-Plugins Role within our [LFOps Ansible Collection](https://galaxy.ansible.com/linuxfabrik/lfops). This Ansible role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to `/usr/lib64/nagios/plugins/` and `/usr/lib64/nagios/plugins/lib` respectively, allowing them to be easily executed by a monitoring system.
-
-
-### Icons
+## Icons
 
 You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
-### sudoers
+## sudoers
 
-Some check plugins require `sudo`-permissions to run. To do this, we provide a `sudoers` file for your operating system in `monitoring-plugins/assets/sudoers`, for example `CentOS8.sudoers`. You need to place this file in `/etc/sudoers.d/` on the client.
+On Linux, some check plugins require `sudo`-permissions to run. To do this, we provide a `sudoers` file for your operating system in `monitoring-plugins/assets/sudoers`, for example `CentOS8.sudoers`. You need to place this file in `/etc/sudoers.d/` on the target host.
 
 **Note**
 
 > We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
-
-
-### Upgrade
-
-* Overwrite `/usr/lib64/nagios/plugins/lib` with the new libraries.
-* Overwrite `/usr/lib64/nagios/plugins` with the new plugins.
-* Copy the new sudoers file to `/etc/sudoers.d/`
-* Delete all SQLite database files (`linuxfabrik-monitoring-plugins-*.db`) in $TEMP directory (for example `/tmp`).
-
-
-
-## Running the Check Plugins on Windows
-
-### Installation
-
-Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and unzip it to `C:/ProgramData/icinga2/usr/lib64/nagios/plugins/`.
-
-**Note**
-
-> [According to Microsoft](https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default), program files belong under %programfiles% instead of %programdata%, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). The Icinga agent puts its files in `C:\ProgramData\icinga2`. This is why we also recommend to use this directory.
-
-
-### Upgrade
-
-Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and overwrite your installation directory.
-
-
-### Microsoft Windows Defender
-
-Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our `service.exe`). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
-
-1. Open command prompt as administrator and change directory to `c:\program files\windows defender`
-2. Run `MpCmdRun.exe -removedefinitions -dynamicsignatures`
-3. Run `MpCmdRun.exe -SignatureUpdate`
 
 
 ## Check Plugin Poster
