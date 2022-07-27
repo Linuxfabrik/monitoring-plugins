@@ -22,7 +22,9 @@ Better write three separate checks:
 Setting up your development environment
 ---------------------------------------
 
-Simply clone the libraries and monitoring plugins:
+Use Python 3.8 for development.
+
+Simply clone the libraries and monitoring plugins and start working:
 
 .. code:: bash
 
