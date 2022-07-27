@@ -10,7 +10,7 @@ In general, you have two options:
 Linux: Using your OS Package Manager
 ------------------------------------
 
-We currently don't provide a repository server yet, so for now you have to install the plugins like so:
+We currently don't provide a repository server yet, so to install the latest release, you have to install the plugins like so:
 
 .. code-block:: bash
 
