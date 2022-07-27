@@ -115,7 +115,7 @@ Get the monitoring check plugins from our Git repository to your local machine o
     git checkout tags/$RELEASE
     cd ..
 
-The check plugins require the `Linuxfabrik Python libraries <https://github.com/linuxfabrik/lib>`_. The libraries are in a separate Git repository, as we also use them in other projects.
+The check plugins require the `Linuxfabrik Python libraries <https://github.com/linuxfabrik/lib>`_, in the same version. The libraries are in a separate Git repository, as we also use them in other projects.
 
 .. code-block:: bash
 
