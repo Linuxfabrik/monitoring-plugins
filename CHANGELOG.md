@@ -16,7 +16,7 @@ Plenty of space for the next upcoming release.
 
 ### Breaking Changes
 
-*  wildfly-memory-pool-usage: Flapping PS_Eden_Space reporting ([fix #563](https://github.com/Linuxfabrik/monitoring-plugins/issues/563)) - Removed `--warning` and `--critical` parameters (not needed anymore)
+*  wildfly-memory-pool-usage: Flapping PS_Eden_Space reporting ([#563](https://github.com/Linuxfabrik/monitoring-plugins/issues/563)) - Removed `--warning` and `--critical` parameters (not needed anymore)
 
 
 ### Added
@@ -80,47 +80,47 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* about-me: Add AIDE ([fix #546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
-* about-me: Add Birthdate ([fix #554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
-* about-me: Add certbot and acme.sh ([fix #433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
-* about-me: Add gpg ([fix #511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
-* about-me: Add list of listening ports ([fix #538](https://github.com/Linuxfabrik/monitoring-plugins/issues/538))
-* about-me: Add mod_security ([fix #496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
-* about-me: Add swanctl ([fix #575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
-* about-me: Print its own version ([fix #439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
-* about-me: Report active tuned-Profile in first line if tuned.service is found and running ([fix #374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
-* about-me: Report Boot Mode ([fix #562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
-* about-me: Show key features of the Machine ([fix #561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
-* All checks using SQLite databases: More unique sqlite db names ([fix #333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
+* about-me: Add AIDE ([#546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
+* about-me: Add Birthdate ([#554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
+* about-me: Add certbot and acme.sh ([#433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
+* about-me: Add gpg ([#511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
+* about-me: Add list of listening ports ([#538](https://github.com/Linuxfabrik/monitoring-plugins/issues/538))
+* about-me: Add mod_security ([#496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
+* about-me: Add swanctl ([#575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
+* about-me: Print its own version ([#439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
+* about-me: Report active tuned-Profile in first line if tuned.service is found and running ([#374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
+* about-me: Report Boot Mode ([#562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
+* about-me: Show key features of the Machine ([#561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
+* All checks using SQLite databases: More unique sqlite db names ([#333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
 * apache-httpd-status: New parameter `--insecure`
-* cpu-usage: Subtract the "nice" percentage from thresholds ([fix #550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
+* cpu-usage: Subtract the "nice" percentage from thresholds ([#550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
 * dhcp-scope-usage: Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
 * disk-io: Checks if psutil has a certain minimum version on systems with kernel 4.18+.
 * disk-smart: Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))
 * disk-smart: Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
 * disk-smart: Properly handle Power_On_Hours_and_Msec attribute perfdata parsing ([PR #549](https://github.com/Linuxfabrik/monitoring-plugins/pull/549))
-* disk-usage: Critical but first line of plugin output prints "OK" ([fix #545](https://github.com/Linuxfabrik/monitoring-plugins/issues/545))
-* docker-info: Raise CRIT on return code != 0 ([fix #569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
-* docker-stats: Improve handling of container names ([fix #586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
+* disk-usage: Critical but first line of plugin output prints "OK" ([#545](https://github.com/Linuxfabrik/monitoring-plugins/issues/545))
+* docker-info: Raise CRIT on return code != 0 ([#569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
+* docker-stats: Improve handling of container names ([#586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
 * file-age: Improve perfdata labels
 * file-age: Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
-* file-age: shorten the message ([fix #559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
+* file-age: shorten the message ([#559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
 * infomaniak-swiss-backup-devices3: Increase default thresholds from 80/90% to 90/95%
 * infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
 * infomaniak-swiss-backup-products3: Changed thresholds from 14/5 days to 6/3 days
 * infomaniak-swiss-backup-products3: Sort output table by "Tags" column
-* needs-restarting3: Debian Buster/bullseye command not found ([fix #572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
-* php-status: Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([fix #461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
-* php-status: Change behavior when handling default values ([fix #540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* needs-restarting3: Debian Buster/bullseye command not found ([#572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
+* php-status: Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([#461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
+* php-status: Change behavior when handling default values ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
-* systemd-units-failed: Allow wildcards for the `--ignore` parameter ([fix #542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
+* systemd-units-failed: Allow wildcards for the `--ignore` parameter ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 * Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
 
 Libs:
 
 * lib/cache3.py: Use more unique default names for sqlite databases
 * lib/db_mysql3.py: Enhanced for new mysql-checks
-* lib/db_mysql3.py: Switch from mysql.connector to PyMySQL  ([fix #570](https://github.com/Linuxfabrik/monitoring-plugins/issues/570))
+* lib/db_mysql3.py: Switch from mysql.connector to PyMySQL  ([#570](https://github.com/Linuxfabrik/monitoring-plugins/issues/570))
 * lib/db_mysql3.py: Use more unique default names for sqlite databases
 * lib/disk3.py: Add file_exists() function
 * Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
@@ -136,11 +136,11 @@ Icinga Director:
 Monitoring Plugins:
 
 * disk-io3: Fix python3 lib calls
-* file-count3: Traceback: KeyError: 'lib'  ([fix #591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
+* file-count3: Traceback: KeyError: 'lib'  ([#591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
 * fortios-memory-usage3: Change urllib.quote to urllib.parse.quote ([PR #599](https://github.com/Linuxfabrik/monitoring-plugins/pull/599))
-* ipmi-sel: Change the order of events ([fix #558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
-* logfile3: "Database locked" and "UNKNOWN" in case of massive usage on a host ([fix #578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
-* keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([fix #555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
+* ipmi-sel: Change the order of events ([#558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
+* logfile3: "Database locked" and "UNKNOWN" in case of massive usage on a host ([#578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
+* keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([#555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
 * xca-cert3: Checks expiry date again
 
 
@@ -277,7 +277,7 @@ Monitoring Plugins:
 * fortios-network-io: adjusted grafana dashboard name
 * fs-xfs-stats: I/O error "No such file or directory" while opening or reading /proc/fs/xfs/stat ([#445](https://github.com/Linuxfabrik/monitoring-plugins/issues/445))
 * getent: Increase Icinga Timeout to 30sec ([#455](https://github.com/Linuxfabrik/monitoring-plugins/issues/455))
-* jitsi-videobridge-status3: TypeError: string indices must be integers ([#527](https://github.com/Linuxfabrik/monitoring-plugins/issues/fixed 527))
+* jitsi-videobridge-status3: TypeError: string indices must be integers ([#527](https://github.com/Linuxfabrik/monitoring-plugins/issues/527))
 * Let the new txt3 library do all encoding and decoding ([#507](https://github.com/Linuxfabrik/monitoring-plugins/issues/507))
 * librenms checks: added more filtering parameters
 * librenms-alerts: added --device-group parameter
@@ -739,7 +739,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* virtualenv is not activated if the plugin is called using an absolute path / from a different directory ([fix 154](https://github.com/Linuxfabrik/monitoring-plugins/issues/154))
+* virtualenv is not activated if the plugin is called using an absolute path / from a different directory ([#154](https://github.com/Linuxfabrik/monitoring-plugins/issues/154))
 
 
 
@@ -758,8 +758,8 @@ Monitoring Plugins:
 
 * file-age, file-count & file-size: Now support SMB.
 * users: Added missing perfdata for Windows.
-* nextcloud-version: throw UNKNOWN if update server is not available ([fix 147](https://github.com/Linuxfabrik/monitoring-plugins/issues/147))
-* nextcloud-version: increase timeout for fetching the update server ([fix 148](https://github.com/Linuxfabrik/monitoring-plugins/issues/148))
+* nextcloud-version: throw UNKNOWN if update server is not available ([#147](https://github.com/Linuxfabrik/monitoring-plugins/issues/147))
+* nextcloud-version: increase timeout for fetching the update server ([#148](https://github.com/Linuxfabrik/monitoring-plugins/issues/148))
 * procs: added thresholds for cpu & memory
 
 ### Fixed
@@ -829,7 +829,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* ntp-offset: error on server without ntp ([fix 138](https://github.com/Linuxfabrik/monitoring-plugins/issues/138))
+* ntp-offset: error on server without ntp ([#138](https://github.com/Linuxfabrik/monitoring-plugins/issues/138))
 
 
 
@@ -846,9 +846,9 @@ Features:
 
 Monitoring Plugins:
 
-* dns: traceback ([fix 132](https://github.com/Linuxfabrik/monitoring-plugins/issues/132))
-* disk-usage3: traceback ([fix 133](https://github.com/Linuxfabrik/monitoring-plugins/issues/133))
-* ntp-offset: Wrong logic ([fix 134](https://github.com/Linuxfabrik/monitoring-plugins/issues/134))
+* dns: traceback ([#132](https://github.com/Linuxfabrik/monitoring-plugins/issues/132))
+* disk-usage3: traceback ([#133](https://github.com/Linuxfabrik/monitoring-plugins/issues/133))
+* ntp-offset: Wrong logic ([#134](https://github.com/Linuxfabrik/monitoring-plugins/issues/134))
 
 
 
@@ -909,12 +909,12 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* feed: python traceback ([fix 107](https://github.com/Linuxfabrik/monitoring-plugins/issues/107))
-* memory-usage: Print top3 memory consuming processes in case of WARN/CRIT ([fix 108](https://github.com/Linuxfabrik/monitoring-plugins/issues/108))
-* ntp-offset: add systemd-timesyncd ([fix 90](https://github.com/Linuxfabrik/monitoring-plugins/issues/90))
-* openvpn-client-list: output as table ([fix 19](https://github.com/Linuxfabrik/monitoring-plugins/issues/19))
-* qts-version: "None" after update ([fix 112](https://github.com/Linuxfabrik/monitoring-plugins/issues/112))
-* xca-cert: Print a list of all checked certs with "commonName, CA (y/n), Serial, Expiry date" starting at the second line ([fix 65](https://github.com/Linuxfabrik/monitoring-plugins/issues/65))
+* feed: python traceback ([#107](https://github.com/Linuxfabrik/monitoring-plugins/issues/107))
+* memory-usage: Print top3 memory consuming processes in case of WARN/CRIT ([#108](https://github.com/Linuxfabrik/monitoring-plugins/issues/108))
+* ntp-offset: add systemd-timesyncd ([#90](https://github.com/Linuxfabrik/monitoring-plugins/issues/90))
+* openvpn-client-list: output as table ([#19](https://github.com/Linuxfabrik/monitoring-plugins/issues/19))
+* qts-version: "None" after update ([#112](https://github.com/Linuxfabrik/monitoring-plugins/issues/112))
+* xca-cert: Print a list of all checked certs with "commonName, CA (y/n), Serial, Expiry date" starting at the second line ([#65](https://github.com/Linuxfabrik/monitoring-plugins/issues/65))
 
 
 
@@ -938,7 +938,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* nextcloud-version: AttributeError: NoneType object has no attribute group ([fix 105](https://github.com/Linuxfabrik/monitoring-plugins/issues/105))
+* nextcloud-version: AttributeError: NoneType object has no attribute group ([#105](https://github.com/Linuxfabrik/monitoring-plugins/issues/105))
 
 
 
@@ -984,17 +984,17 @@ Features:
 
 Monitoring Plugins:
 
-* disk-smart: Traceback if not running on hardware ([fix 82](https://github.com/Linuxfabrik/monitoring-plugins/issues/82))
-* disk-io: Counts n loop Devices on Ubuntu 20 ([fix 87](https://github.com/Linuxfabrik/monitoring-plugins/issues/87))
-* disk-usage: ignore snap Devices ([fix 88](https://github.com/Linuxfabrik/monitoring-plugins/issues/88))
-* mailq: Test with Exim ([fix 93](https://github.com/Linuxfabrik/monitoring-plugins/issues/93))
-* procs: total proc count in perfdata is always 0 ([fix 96](https://github.com/Linuxfabrik/monitoring-plugins/issues/96))
-* apache-httpd-status: Traceback on Ubuntu 16 ([fix 97](https://github.com/Linuxfabrik/monitoring-plugins/issues/97))
-* disk-io: Traceback on Ubuntu 16 ([fix 98](https://github.com/Linuxfabrik/monitoring-plugins/issues/98))
-* nextcloud-version: Don't throw UNKNOWN if update server is not available, because it doesn't help at all ([fix 99](https://github.com/Linuxfabrik/monitoring-plugins/issues/99))
-* disk-usage: ignore iso9660 devices ([fix 100](https://github.com/Linuxfabrik/monitoring-plugins/issues/100))
-* apache-httpd-status: Report if server-info is malformed due to any reason ([fix 101](https://github.com/Linuxfabrik/monitoring-plugins/issues/101))
-* sensors-temperature: Ignore psutil's IOError ([fix 102](https://github.com/Linuxfabrik/monitoring-plugins/issues/102))
+* disk-smart: Traceback if not running on hardware ([#82](https://github.com/Linuxfabrik/monitoring-plugins/issues/82))
+* disk-io: Counts n loop Devices on Ubuntu 20 ([#87](https://github.com/Linuxfabrik/monitoring-plugins/issues/87))
+* disk-usage: ignore snap Devices ([#88](https://github.com/Linuxfabrik/monitoring-plugins/issues/88))
+* mailq: Test with Exim ([#93](https://github.com/Linuxfabrik/monitoring-plugins/issues/93))
+* procs: total proc count in perfdata is always 0 ([#96](https://github.com/Linuxfabrik/monitoring-plugins/issues/96))
+* apache-httpd-status: Traceback on Ubuntu 16 ([#97](https://github.com/Linuxfabrik/monitoring-plugins/issues/97))
+* disk-io: Traceback on Ubuntu 16 ([#98](https://github.com/Linuxfabrik/monitoring-plugins/issues/98))
+* nextcloud-version: Don't throw UNKNOWN if update server is not available, because it doesn't help at all ([#99](https://github.com/Linuxfabrik/monitoring-plugins/issues/99))
+* disk-usage: ignore iso9660 devices ([#100](https://github.com/Linuxfabrik/monitoring-plugins/issues/100))
+* apache-httpd-status: Report if server-info is malformed due to any reason ([#101](https://github.com/Linuxfabrik/monitoring-plugins/issues/101))
+* sensors-temperature: Ignore psutil's IOError ([#102](https://github.com/Linuxfabrik/monitoring-plugins/issues/102))
 
 
 
@@ -1025,9 +1025,9 @@ Libs:
 
 Monitoring Plugins:
 
-* nextcloud-security-scan: missing urllib ([fix 91](https://github.com/Linuxfabrik/monitoring-plugins/issues/91))
-* about-me: doesn't report details about NVMe disks ([fix 89](https://github.com/Linuxfabrik/monitoring-plugins/issues/89))
-* ping: no duplicate Output; maybe switch to regex ([fix 84](https://github.com/Linuxfabrik/monitoring-plugins/issues/84))
+* nextcloud-security-scan: missing urllib ([#91](https://github.com/Linuxfabrik/monitoring-plugins/issues/91))
+* about-me: doesn't report details about NVMe disks ([#89](https://github.com/Linuxfabrik/monitoring-plugins/issues/89))
+* ping: no duplicate Output; maybe switch to regex ([#84](https://github.com/Linuxfabrik/monitoring-plugins/issues/84))
 
 
 
