@@ -1,0 +1,52 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+import lib.shell3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './journald-query3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02a(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
+        self.assertIn('1 event. Latest event at 2022-07-28 14:29:48 from iscsid, level err: iSCSI daemon with pid=865 started! [WARNING].', stdout)
+        self.assertIn('Timestamp           ! Unit   ! Prio ! Message', stdout)
+        self.assertIn('--------------------+--------+------+------------------------------------', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=865 started!', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE02b(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --severity=crit --test=examples/EXAMPLE02,,0'))
+        self.assertIn('1 event. Latest event at 2022-07-28 14:29:48 from iscsid, level err: iSCSI daemon with pid=865 started! [CRITICAL].', stdout)
+        self.assertIn('Timestamp           ! Unit   ! Prio ! Message', stdout)
+        self.assertIn('--------------------+--------+------+------------------------------------', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=865 started!', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+
+if __name__ == '__main__':
+    unittest.main()
