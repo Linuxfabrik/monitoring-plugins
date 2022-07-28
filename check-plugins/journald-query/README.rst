@@ -140,7 +140,7 @@ Output:
     2022-07-28 09:43:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 931] [client 127.0.0.1:34050] AH01071: Got error 'Primary script unknown' 
 
     The full command used was:
-    journalctl --reverse --priority=emerg..err --since=-24h --quiet --output=json --unit="httpd.service"|'journald-events'=994c;;;0;
+    journalctl --reverse --priority=emerg..err --since=-24h --quiet --output=json --unit="httpd.service"
 
 
 States
