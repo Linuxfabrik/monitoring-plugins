@@ -37,7 +37,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       -w WARN, --warning WARN
-                            Set the WARN threshold in MiB. Default: >= 1024
+                            Set the WARN threshold in MiB. Default: >= 500
 
 
 Usage Examples
@@ -45,7 +45,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./journald-usage --warning=1024
+    ./journald-usage --warning=500
 
 Output:
 
