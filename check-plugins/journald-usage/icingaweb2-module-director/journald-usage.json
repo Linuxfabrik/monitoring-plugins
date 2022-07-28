@@ -1,0 +1,107 @@
+{
+    "Command": {
+        "cmd-check-journald-usage": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$journald_usage_always_ok$"
+                },
+                "--warning": {
+                    "value": "$journald_usage_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/journald-usage",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-journald-usage",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "97b03131-7c64-4fdf-86f6-4bee9b8fa242"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-journald-usage": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-journald-usage",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": false,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "journald-usage.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the current disk usage of all journal files of the systemd journal (in fact the sum of the disk usage of all archived and active journal files).",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-usage",
+            "object_name": "tpl-service-journald-usage",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "journald_usage_always_ok": false,
+                "journald_usage_warning": 1024
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "f7b27dc7-a5af-4395-b3ac-bbae0b2f6f33"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "journald_usage_always_ok",
+            "caption": "Journald Usage: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "1c0f8b2c-77e4-41c9-b4b3-7fedb2154865"
+        },
+        "2": {
+            "varname": "journald_usage_warning",
+            "caption": "Journald Usage: Warning",
+            "description": "Set the WARN threshold in MiB.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "894b148f-0803-4bef-85cd-77250d623069"
+        }
+    }
+}

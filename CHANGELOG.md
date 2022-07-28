@@ -8,8 +8,18 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-Plenty of space for the next upcoming release.
+### Added
 
+Monitoring Plugins:
+
+* journald-usage
+
+
+## Changed
+
+Libs:
+
+* lib/human3.py: human2bytes() is now also able to interpret "3.0M"
 
 
 ## 2022072001
