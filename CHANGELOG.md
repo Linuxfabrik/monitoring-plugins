@@ -6,12 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project does NOT adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022072001...HEAD
+
+
 ## [Unreleased]
 
 ### Added
 
 Monitoring Plugins:
 
+* journald-query
 * journald-usage
 
 
@@ -20,6 +24,10 @@ Monitoring Plugins:
 Libs:
 
 * lib/human3.py: human2bytes() is now also able to interpret "3.0M"
+
+Icinga Director:
+
+* Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 
 
 ## 2022072001
@@ -1104,4 +1112,3 @@ Initial release.
 
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022072001...HEAD
