@@ -18,6 +18,10 @@ Monitoring Plugins:
 * journald-query
 * journald-usage
 
+Icinga Director:
+
+* AIDE Service Set
+
 
 ## Changed
 
