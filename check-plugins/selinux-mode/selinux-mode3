@@ -35,10 +35,10 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022080101'
 
 DESCRIPTION = """Checks the current mode of SELinux against a desired mode,
-                    and returns a warning on a non-match."""
+                 and returns a warning on a non-match."""
 
 CMD = 'getenforce'
 DEFAULT_SELINUX_MODE = 'enforcing'
@@ -68,7 +68,7 @@ def parse_args():
         default=DEFAULT_SELINUX_MODE,
         dest='SELINUX_MODE',
         help='The expected SELinux mode, one of "enforcing", "permissive" or "disabled"'
-        ' (case-insensitive). Default: %(default)s',
+             ' (case-insensitive). Default: %(default)s',
         choices=['enforcing', 'permissive', 'disabled'],
     )
 
@@ -86,21 +86,25 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(CMD))
-    if (stderr or retc != 0):
-        lib.base3.oao('Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(
-            CMD, stdout, stderr), STATE_UNKNOWN)
-    selinux_mode = stdout.strip().lower()
-
-    # calculating the final check state
-    msg_body = '\nMake SELinux Enforcing Again.' if selinux_mode != 'enforcing' else ''
-    if selinux_mode == args.SELINUX_MODE.lower():
-        lib.base3.oao('SELinux mode is {} (as expected).{}'.format(
-            selinux_mode, msg_body), STATE_OK)
+    success, result = lib.shell3.shell_exec(CMD)
+    if not success:
+        lib.base3.oao('SELinux is not applicable to your system.', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    selinux_mode = stdout.strip()
 
     # over and out
-    lib.base3.oao('SELinux mode is {}, but supposed to be {}.{}'.format(
-        selinux_mode, args.SELINUX_MODE, msg_body), STATE_WARN, always_ok=args.ALWAYS_OK)
+    # calculating the final check state
+    msg_body = '\nMake SELinux Enforcing Again.' if selinux_mode.lower() != 'enforcing' else ''
+    if selinux_mode.lower() == args.SELINUX_MODE.lower():
+        lib.base3.oao('SELinux mode is "{}" (as expected).{}'.format(
+            selinux_mode,
+            msg_body,
+        ), STATE_OK)
+    lib.base3.oao('SELinux mode is "{}", but supposed to be "{}".{}'.format(
+        selinux_mode,
+        args.SELINUX_MODE,
+        msg_body,
+    ), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

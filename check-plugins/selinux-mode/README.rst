@@ -52,7 +52,7 @@ Output:
 
 .. code-block:: text
 
-    SELinux mode is permissive (as expected).
+    SELinux mode is "permissive", but supposed to be "enforcing".
     Make SELinux Enforcing Again.
 
 
