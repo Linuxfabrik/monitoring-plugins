@@ -1,0 +1,107 @@
+{
+    "Command": {
+        "cmd-check-crypto-policy": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$crypto_policy_always_ok$"
+                },
+                "--policy": {
+                    "value": "$crypto_policy_policy$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/crypto-policy",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-crypto-policy",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "guid": "e078e458-ed77-4a6e-bea2-8ca6c657ad8d"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-crypto-policy": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-crypto-policy",
+            "check_interval": 900,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": null,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "crypto-policy.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the current crypto policy against a desired one, and returns a warning on a non-match.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/crypto-policy",
+            "object_name": "tpl-service-crypto-policy",
+            "object_type": "template",
+            "retry_interval": 180,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "crypto_policy_always_ok": false,
+                "crypto_policy_policy": "DEFAULT"
+            },
+            "volatile": null,
+            "zone": null,
+            "guid": "f1c6b0d7-e20b-4279-b169-818e695a225e"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "crypto_policy_always_ok",
+            "caption": "Crypto Policy: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "guid": "3874833b-d4eb-4436-a745-852bce3fb6e9"
+        },
+        "2": {
+            "varname": "crypto_policy_policy",
+            "caption": "Crypto Policy: Policy",
+            "description": "The expected crypto policy (full name), for example \"FUTURE\" (case-insensitive).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "guid": "71faeffc-0508-42dc-83c4-6c775c961c21"
+        }
+    }
+}
