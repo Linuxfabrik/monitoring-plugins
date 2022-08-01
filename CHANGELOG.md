@@ -15,8 +15,10 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Monitoring Plugins:
 
+* crypto-policy
 * journald-query
 * journald-usage
+* tuned-profile
 
 Icinga Director:
 
@@ -31,6 +33,8 @@ Libs:
 
 Icinga Director:
 
+* Enhanced RHEL 7+ and Fedora-based Service Sets by TuneD Profile
+* Enhanced RHEL 8+-based Service Sets by Crypto Policy
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 
 
