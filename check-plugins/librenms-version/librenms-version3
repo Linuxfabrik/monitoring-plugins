@@ -35,9 +35,10 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083101'
+__version__ = '2022080201'
 
-DESCRIPTION = 'This check displays LibreNMS instance information, using its API. This is not a "is there a new version out there" g itself (if running the Git version).'
+DESCRIPTION = '''This check displays LibreNMS instance information, using its API. This is not a
+                 "is there a new version out there" g itself (if running the Git version).'''
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -117,19 +118,31 @@ def main():
     result = lib.librenms3.get_data(args, '/api/v0/system')
     result = result['system'][0]
 
+    # since 22.7.0-33:
+    # {'local_ver': '22.7.0-33-g3d65e722a', 'local_sha': '3d65e722a621776eb7ff592455bd63fa5637b98b',
+    # 'local_date': '1659276599', 'local_branch': 'master', 'github': None, 
+    # 'db_schema': '2022_07_03_1947_add_app_data (244)', 'php_ver': '8.1.8', 'python_ver': '3.6.8',
+    # 'database_ver': 'MariaDB 10.6.8-MariaDB', 'rrdtool_ver': '1.7.0', 'netsnmp_ver': '5.8'}
+
     msg += 'LibreNMS {}'.format(result['local_ver'])
     if 'local_branch' in result:
         msg += ' (Git: {})'.format(result['local_branch'])
     msg += ', '
     msg += 'DB-Schema {}, '.format(result['db_schema'])
-    msg += 'MariaDB {}, '.format(result['mysql_ver'])
+    try:
+        msg += result['database_ver']
+    except:
+        msg += result['mysql_ver']
     msg += '{}, '.format(result['netsnmp_ver'])
     msg += 'PHP {}, '.format(result['php_ver'])
     msg += 'Python {}, '.format(result['python_ver'])
     msg += 'RRD-Tool {}'.format(result['rrdtool_ver'])
 
     perfdata += lib.base3.get_perfdata('librenms-version', lib.base3.version2float(result['local_ver']), None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('mysql-version', lib.base3.version2float(result['mysql_ver']), None, None, None, 0, None)
+    try:
+        perfdata += lib.base3.get_perfdata('db-version', lib.base3.version2float(result['database_ver']), None, None, None, 0, None)
+    except:
+        perfdata += lib.base3.get_perfdata('db-version', lib.base3.version2float(result['mysql_ver']), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('netsnmp-version', lib.base3.version2float(result['netsnmp_ver']), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('php-version', lib.base3.version2float(result['php_ver']), None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('python-version', lib.base3.version2float(result['python_ver']), None, None, None, 0, None)

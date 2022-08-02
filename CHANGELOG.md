@@ -38,6 +38,13 @@ Icinga Director:
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 
 
+### Fixed
+
+Monitoring Plugins:
+
+* librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+
+
 ## 2022072001
 
 ### Breaking Changes
