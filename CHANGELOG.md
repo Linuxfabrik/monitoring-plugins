@@ -30,6 +30,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
+* matomo-reporting3: Perfdata now is also aware of percentages
 
 Libs:
 
