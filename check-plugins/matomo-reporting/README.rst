@@ -86,91 +86,96 @@ States
 Perfdata / Metrics
 ------------------
 
-Perfdata is always returned completely, for example: 
+Perfdata is returned for the given metrics only. For example:
 
-* avg_page_load_time
-* avg_time_dom_completion
-* avg_time_dom_processing
-* avg_time_network
-* avg_time_on_load
-* avg_time_on_site
-* avg_time_on_site_new
-* avg_time_on_site_returning
-* avg_time_server
-* avg_time_transfer
-* bounce_count
-* bounce_rate
-* bounce_rate_new
-* bounce_rate_returning
-* conversion_rate
-* conversion_rate_new_visit
-* conversion_rate_returning_visit
-* max_actions
-* max_actions_new
-* max_actions_returning
-* nb_actions
-* nb_actions_new
-* nb_actions_per_visit
-* nb_actions_per_visit_new
-* nb_actions_per_visit_returning
-* nb_actions_returning
-* nb_conversions
-* nb_conversions_new_visit
-* nb_conversions_returning_visit
-* nb_downloads
-* nb_keywords
-* nb_outlinks
-* nb_pageviews
-* nb_searches
-* nb_uniq_downloads
-* nb_uniq_outlinks
-* nb_uniq_pageviews
-* nb_uniq_visitors
-* nb_uniq_visitors_new
-* nb_uniq_visitors_returning
-* nb_users
-* nb_users_new
-* nb_users_returning
-* nb_visits
-* nb_visits_converted
-* nb_visits_converted_new_visit
-* nb_visits_converted_returning_visit
-* nb_visits_new
-* nb_visits_returning
-* PagePerformance_domcompletion_hits
-* PagePerformance_domcompletion_time
-* PagePerformance_domprocessing_hits
-* PagePerformance_domprocessing_time
-* PagePerformance_network_hits
-* PagePerformance_network_time
-* PagePerformance_onload_hits
-* PagePerformance_onload_time
-* PagePerformance_pageload_hits
-* PagePerformance_pageload_time
-* PagePerformance_server_hits
-* PagePerformance_servery_time
-* PagePerformance_transfer_hits
-* PagePerformance_transfer_time
-* Referrers_distinctCampaigns
-* Referrers_distinctKeywords
-* Referrers_distinctSearchEngines
-* Referrers_distinctSocialNetworks
-* Referrers_distinctWebsites
-* Referrers_distinctWebsitesUrls
-* Referrers_visitorsFromCampaigns
-* Referrers_visitorsFromCampaigns_percent
-* Referrers_visitorsFromDirectEntry
-* Referrers_visitorsFromDirectEntry_percent
-* Referrers_visitorsFromSearchEngines
-* Referrers_visitorsFromSearchEngines_percent
-* Referrers_visitorsFromSocialNetworks
-* Referrers_visitorsFromSocialNetworks_percent
-* Referrers_visitorsFromWebsites
-* Referrers_visitorsFromWebsites_percent
-* revenue
-* revenue_new_visit
-* revenue_returning_visit
-* sum_visit_length
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description
+    avg_page_load_time,                         Seconds,            
+    avg_time_dom_completion,                    Seconds,            
+    avg_time_dom_processing,                    Seconds,            
+    avg_time_network,                           Seconds,            
+    avg_time_on_load,                           Seconds,            
+    avg_time_on_site,                           Seconds,            
+    avg_time_on_site_new,                       Seconds,            
+    avg_time_on_site_returning,                 Seconds,            
+    avg_time_server,                            Seconds,            
+    avg_time_transfer,                          Seconds,            
+    bounce_count,                               Number,             
+    bounce_rate,                                Number,             
+    bounce_rate_new,                            Number,             
+    bounce_rate_returning,                      Number,             
+    conversion_rate,                            Number,             
+    conversion_rate_new_visit,                  Number,             
+    conversion_rate_returning_visit,            Number,             
+    max_actions,                                Number,             
+    max_actions_new,                            Number,             
+    max_actions_returning,                      Number,             
+    nb_actions,                                 Number,             
+    nb_actions_new,                             Number,             
+    nb_actions_per_visit,                       Number,             
+    nb_actions_per_visit_new,                   Number,             
+    nb_actions_per_visit_returning,             Number,             
+    nb_actions_returning,                       Number,             
+    nb_conversions,                             Number,             
+    nb_conversions_new_visit,                   Number,             
+    nb_conversions_returning_visit,             Number,             
+    nb_downloads,                               Number,             
+    nb_keywords,                                Number,             
+    nb_outlinks,                                Number,             
+    nb_pageviews,                               Number,             
+    nb_searches,                                Number,             
+    nb_uniq_downloads,                          Number,             
+    nb_uniq_outlinks,                           Number,             
+    nb_uniq_pageviews,                          Number,             
+    nb_uniq_visitors,                           Number,             
+    nb_uniq_visitors_new,                       Number,             
+    nb_uniq_visitors_returning,                 Number,             
+    nb_users,                                   Number,             
+    nb_users_new,                               Number,             
+    nb_users_returning,                         Number,             
+    nb_visits,                                  Number,             
+    nb_visits_converted,                        Number,             
+    nb_visits_converted_new_visit,              Number,             
+    nb_visits_converted_returning_visit,        Number,             
+    nb_visits_new,                              Number,             
+    nb_visits_returning,                        Number,             
+    PagePerformance_domcompletion_hits,         Number,             
+    PagePerformance_domcompletion_time,         Seconds,            
+    PagePerformance_domprocessing_hits,         Number,             
+    PagePerformance_domprocessing_time,         Seconds,            
+    PagePerformance_network_hits,               Number,             
+    PagePerformance_network_time,               Seconds,            
+    PagePerformance_onload_hits,                Number,             
+    PagePerformance_onload_time,                Seconds,            
+    PagePerformance_pageload_hits,              Number,             
+    PagePerformance_pageload_time,              Seconds,            
+    PagePerformance_server_hits,                Number,             
+    PagePerformance_servery_time,               Seconds,            
+    PagePerformance_transfer_hits,              Number,             
+    PagePerformance_transfer_time,              Seconds,            
+    Referrers_distinctCampaigns,                Number,             
+    Referrers_distinctKeywords,                 Number,             
+    Referrers_distinctSearchEngines,            Number,             
+    Referrers_distinctSocialNetworks,           Number,             
+    Referrers_distinctWebsites,                 Number,             
+    Referrers_distinctWebsitesUrls,             Number,             
+    Referrers_visitorsFromCampaigns,            Number,             
+    Referrers_visitorsFromCampaigns_percent,    Number,             
+    Referrers_visitorsFromDirectEntry,          Number,             
+    Referrers_visitorsFromDirectEntry_percent,  Number,             
+    Referrers_visitorsFromSearchEngines,        Number,             
+    Referrers_visitorsFromSearchEngines_percent,Number,             
+    Referrers_visitorsFromSocialNetworks,       Number,             
+    Referrers_visitorsFromSocialNetworks_percentNumber,             
+    Referrers_visitorsFromWebsites,             Number,             
+    Referrers_visitorsFromWebsites_percent,     Number,             
+    revenue,                                    Number,             
+    revenue_new_visit,                          Number,             
+    revenue_returning_visit,                    Number,             
+    sum_visit_length,                           Number,             
 
 
 Credits, License

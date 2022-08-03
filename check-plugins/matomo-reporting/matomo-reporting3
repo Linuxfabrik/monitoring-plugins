@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2022080301'
 
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
@@ -192,9 +192,6 @@ def main():
 
             msg += '{}: {}{}, '.format(key, lib.human3.number2human(value), lib.base3.state2str(sensor_state, prefix=' (', suffix=')'))
             state = lib.base3.get_worst(state, sensor_state)
-
-        # print all sensors as perfdata
-        for key, value in lib.base3.sort(result, reverse=False, sort_by_key=True):
             perfdata += lib.base3.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
     else:
         for key, value in lib.base3.sort(result, reverse=False, sort_by_key=True):

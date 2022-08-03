@@ -27,6 +27,10 @@ Icinga Director:
 
 ## Changed
 
+Monitoring Plugins:
+
+* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
+
 Libs:
 
 * lib/human3.py: human2bytes() is now also able to interpret "3.0M"
