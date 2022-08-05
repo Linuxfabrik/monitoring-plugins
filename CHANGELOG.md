@@ -48,6 +48,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+* ntp-offset: Remove debug print message
 
 
 ## 2022072001
