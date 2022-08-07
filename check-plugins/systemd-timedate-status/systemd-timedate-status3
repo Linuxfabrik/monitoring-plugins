@@ -1,0 +1,133 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2022080701'
+
+DESCRIPTION = """Checks current settings of the system clock and RTC, including whether network
+                 time synchronization is active."""
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        cmd = 'timedatectl show'
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # analyze data and build the message
+    msg += 'System clock synchronized: '
+    if '\nNTPSynchronized=yes' in stdout:
+        msg += 'yes. '
+    else:
+        msg += 'no. '
+
+    msg += 'NTP service: '
+    if '\nNTP=yes' in stdout:
+        msg += 'active. '
+    else:
+        msg += 'inactive. '
+
+    if '\nLocalRTC=yes' in stdout:
+        state = STATE_WARN
+        msg += 'The system is configured to read the RTC time in the local time zone. ' \
+               'This mode cannot be fully supported. It will create various problems ' \
+               'with time zone changes and daylight saving time adjustments. The RTC ' \
+               'time is never updated, it relies on external facilities to maintain it. ' \
+               'If at all possible, use RTC in UTC by calling ' \
+               '`timedatectl set-local-rtc 0`{}.'.format(
+            lib.base3.state2str(state, prefix=' '),
+        )
+    else:
+        msg += 'RTC in local TZ: no.'
+
+    # over and out
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

@@ -21,6 +21,7 @@ Monitoring Plugins:
 * ntp-chronyd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
 * ntp-ntpd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
 * ntp-systemd-timesyncd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
+* systemd-timedate-status
 * tuned-profile
 
 Icinga Director:
@@ -44,6 +45,7 @@ Icinga Director:
 * Enhanced RHEL 7+ and Fedora-based Service Sets by TuneD Profile
 * Enhanced RHEL 8+-based Service Sets by Crypto Policy
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
+* Enhanced all Service Sets checking for a Systemd Service by Systemd TimeDate Status
 
 
 ### Fixed
