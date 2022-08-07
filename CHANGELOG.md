@@ -18,6 +18,9 @@ Monitoring Plugins:
 * crypto-policy
 * journald-query
 * journald-usage
+* ntp-chronyd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
+* ntp-ntpd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
+* ntp-systemd-timesyncd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
 * tuned-profile
 
 Icinga Director:
@@ -49,6 +52,13 @@ Monitoring Plugins:
 
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
 * ntp-offset: Remove debug print message
+
+
+### Removed
+
+Monitoring Plugins:
+
+* ntp-offset (due to "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
 
 
 ## 2022072001
