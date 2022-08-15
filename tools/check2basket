@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022040501'
+__version__ = '2022081501'
 
 DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
 
@@ -513,6 +513,13 @@ def apply_overwrites(data, overwrites):
     return data
 
 
+def sanitize_default_value(value):
+    value = value.replace('$', '$$')
+    if value.startswith('-'):
+        value = '\\' + value
+    return value
+
+
 def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix='', service_object_parent_key='ServiceTemplate', explicitly_set_fields_in_service_object=False):
     global command_field_id # this prevents command_field_id collisions
 
@@ -623,7 +630,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
             if action.default is not None:
                 if isinstance(action.default, str):
-                    data[service_object_parent_key][service_object_name]['vars'][varname] = action.default.replace('$', '$$')
+                    data[service_object_parent_key][service_object_name]['vars'][varname] = sanitize_default_value(action.default)
                 else:
                     data[service_object_parent_key][service_object_name]['vars'][varname] = action.default
 
