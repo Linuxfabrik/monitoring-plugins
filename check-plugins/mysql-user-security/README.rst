@@ -6,6 +6,8 @@ Overview
 
 Check user's security in MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_, v1.9.8.
 
+The users ``mysql.sys`` and ``mariadb.sys``, which are system users used as the definer for view, procedures, and functions in the sys schema, are ignored, because they use an invalid password. This ensures that should these accounts get unlocked by mistake, it is still impossible to login. It is thus recommended not to reset the password. These users are required as long as a sys schema is installed.
+
 Hints:
 
 * On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``

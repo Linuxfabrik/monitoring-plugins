@@ -38,7 +38,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071601'
+__version__ = '2022081501'
 
 DESCRIPTION = """Check user's security in MySQL/MariaDB."""
 
@@ -176,6 +176,8 @@ def main():
         select concat(quote(user), "@", quote(host)) as user
         from mysql.global_priv
         where user != ""
+            and user != "mariadb.sys"
+            and user != "mysql.sys"
             and json_contains(priv, '"mysql_native_password"', "$.plugin")
             and json_contains(priv, '""', "$.authentication_string")
             and not json_contains(priv, '"true"', "$.account_locked");
@@ -189,6 +191,8 @@ def main():
                 from mysql.user
                 where ({0} = "" or {0} is null)
                     and user != ""
+                    and user != "mariadb.sys"
+                    and user != "mysql.sys"
                     /*!50501 and plugin not in ("auth_socket", "unix_socket", "win_socket", "auth_pam_compat") */
                     /*!80000 and account_locked = "N" and password_expired = "N" */;
             '''.format(pass_column_name)
@@ -216,6 +220,8 @@ def main():
             select concat(quote(user), "@", quote(host)) as user
             from mysql.user
             where user != ""
+                and user != "mariadb.sys"
+                and user != "mysql.sys"
                 and (
                     cast({0} as binary) = password(user)
                     or cast({0} as binary) = password(upper(user))
