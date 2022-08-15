@@ -37,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022080701'
+__version__ = '2022081501'
 
 DESCRIPTION = """Checks current settings of the system clock and RTC, including whether network
                  time synchronization is active."""
@@ -84,10 +84,13 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'timedatectl show'
+        # Do NOT use `timedatectl show` if you want to be compatible to older
+        # systemd versions, as this is only available since 2018-05 (and therefore not on RHEL 7).
+        # Use `timedatectl status` instead.
+        cmd = 'timedatectl status'
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
-            lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base3.oao('{}'.format(stderr), STATE_WARN)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
@@ -97,21 +100,20 @@ def main():
     state = STATE_OK
 
     # analyze data and build the message
-    msg += 'System clock synchronized: '
-    if '\nNTPSynchronized=yes' in stdout:
-        msg += 'yes. '
-    else:
-        msg += 'no. '
+    # i->ntp_synced
+    msg += lib.txt3.extract_str(stdout, 'NTP synchronized: ', '\n', include_fromto=True).replace('\n', ', ')
+    msg += lib.txt3.extract_str(stdout, 'System clock synchronized: ', '\n', include_fromto=True).replace('\n', ', ')
 
-    msg += 'NTP service: '
-    if '\nNTP=yes' in stdout:
-        msg += 'active. '
-    else:
-        msg += 'inactive. '
+    # yes_no(i->ntp), i->ntp_capable
+    msg += lib.txt3.extract_str(stdout, 'NTP enabled: ', '\n', include_fromto=True).replace('\n', ', ')
+    msg += lib.txt3.extract_str(stdout, 'systemd-timesyncd.service active: ', '\n', include_fromto=True).replace('\n', ', ')
+    msg += lib.txt3.extract_str(stdout, 'NTP service: ', '\n', include_fromto=True).replace('\n', ', ')
 
-    if '\nLocalRTC=yes' in stdout:
+    msg = msg[:-2]
+
+    if 'RTC in local TZ: yes' in stdout:
         state = STATE_WARN
-        msg += 'The system is configured to read the RTC time in the local time zone. ' \
+        msg += '. The system is configured to read the RTC time in the local time zone. ' \
                'This mode cannot be fully supported. It will create various problems ' \
                'with time zone changes and daylight saving time adjustments. The RTC ' \
                'time is never updated, it relies on external facilities to maintain it. ' \
@@ -120,7 +122,7 @@ def main():
             lib.base3.state2str(state, prefix=' '),
         )
     else:
-        msg += 'RTC in local TZ: no.'
+        msg += ', RTC in local TZ: no'
 
     # over and out
     lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
