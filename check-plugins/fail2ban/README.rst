@@ -4,7 +4,71 @@ Check fail2ban
 Overview
 --------
 
-In fail2ban, checks the amount of banned IP addresses (for all jails).
+Checks the amount of banned IP addresses for all jails in Fail2ban.
+
+
+Permission denied to socket: /var/run/fail2ban/fail2ban.sock, (you must be root)
+--------------------------------------------------------------------------------
+
+The Fail2ban client (used by this check plugin internally) works only with ùser ``root`` by default. The reasons:
+
+* Fail2ban does not have individual permission or a user privilege model.
+* If you would allow the Fail2ban client accessing the Fail2ban sever for non-root, you could stop the server, change runtime config, ban, unban, etc.
+
+
+Preparing Fail2ban by changing permissions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Tested on Debian 11.
+
+The communication takes place via unix-socket ``/var/run/fail2ban/fail2ban.sock`` which has the following permissions:
+
+.. code-block:: text
+
+    srwx------ 1 root root ... /var/run/fail2ban/fail2ban.sock
+
+So you have to grant access to ``fail2ban.sock`` for a user like ``nagios`` or ``icinga``, for example like so:
+
+.. code-block:: bash
+
+    sudo groupadd fail2ban
+    sudo usermod --append --groups fail2ban nagios
+    sudo chown root:fail2ban /var/run/fail2ban/fail2ban.sock
+    sudo chmod g+w /var/run/fail2ban/fail2ban.sock
+
+After that, this (and so the check plugin) should work:
+
+.. code-block:: bash
+
+    sudo -u nagios /usr/bin/fail2ban-client status
+    sudo -u nagios /usr/lib64/nagios/plugins/fail2ban
+
+To persist on a system where Fail2ban is managed by Systemd, add the following to the Fail2ban service override file:
+
+.. code-block:: bash
+
+    sudo systemctl edit fail2ban
+
+.. code-block:: text
+
+    [Service]
+    ExecStartPost=/usr/bin/sh -c "while ! [ -S /var/run/fail2ban/fail2ban.sock ]; do sleep 1; done"
+    ExecStartPost=/usr/bin/chgrp fail2ban /var/run/fail2ban/fail2ban.sock
+    ExecStartPost=/usr/bin/chmod g+w /var/run/fail2ban/fail2ban.sock
+
+Preparing Fail2ban by using sudo
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Tested on RHEL 7+.
+
+As an alternative you might add a sudoers rule, for example in ``/etc/sudoers.d/fail2ban``:
+
+.. code-block:: text
+
+    Defaults:icinga !requiretty
+    icinga    ALL = NOPASSWD: /usr/lib64/nagios/plugins/fail2ban
+
+Click this link to find `a list of sudoers files for all main Linux distributions <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers>`_ for Icinga.
 
 
 Fact Sheet
