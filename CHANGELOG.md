@@ -46,6 +46,14 @@ Icinga Director:
 * Enhanced RHEL 8+-based Service Sets by Crypto Policy
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 * Enhanced all Service Sets checking for a Systemd Service by Systemd TimeDate Status
+* Split up the MariaDB/MySQL service sets into smaller sets:
+
+    * MySQL/MariaDB InnoDB Service Set
+    * MySQL/MariaDB Metrics Service Set
+    * MySQL/MariaDB Replication Service Set
+    * MySQL/MariaDB Schemas Service Set
+    * MySQL/MariaDB Security Service Set
+    * MySQL/MariaDB Service Set
 
 
 ### Fixed
