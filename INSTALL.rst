@@ -26,6 +26,15 @@ We currently don't provide a repository server yet, so to install the latest rel
 We just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
 
 
+Linux: Using Binaries from an Archive
+-------------------------------------
+
+For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice, which is normally ``/usr/lib64/nagios/plugins``, by using one of these files:
+
+* `linuxfabrik-monitoring-plugins.tar <https://download.linuxfabrik.ch/monitoring-plugins/tar/linuxfabrik-monitoring-plugins.tar>`_
+* `linuxfabrik-monitoring-plugins.zip <https://download.linuxfabrik.ch/monitoring-plugins/zip/linuxfabrik-monitoring-plugins.zip>`_
+
+
 Windows
 -------
 
@@ -47,15 +56,6 @@ Depending on your signature versions or the healthiness of your signature cache,
 1. Open command prompt as administrator and change directory to ``c:\program files\windows defender``
 2. Run ``MpCmdRun.exe -removedefinitions -dynamicsignatures``
 3. Run ``MpCmdRun.exe -SignatureUpdate``
-
-
-Linux: Using Binaries from an Archive
--------------------------------------
-
-For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice, which is normally ``/usr/lib64/nagios/plugins``, by using one of these files:
-
-* `linuxfabrik-monitoring-plugins.tar <https://download.linuxfabrik.ch/monitoring-plugins/tar/linuxfabrik-monitoring-plugins.tar>`_
-* `linuxfabrik-monitoring-plugins.zip <https://download.linuxfabrik.ch/monitoring-plugins/zip/linuxfabrik-monitoring-plugins.zip>`_
 
 
 Python: Run from Source Code
