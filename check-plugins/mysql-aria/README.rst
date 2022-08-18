@@ -4,7 +4,7 @@ Check mysql-aria
 Overview
 --------
 
-Checks some metrics of the Aria Storage Engine in MySQL/MariaDB. The logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mariadb_aria(), v1.9.8.
+Checks some metrics of the crash-safe, non-transactional Aria Storage Engine in MariaDB. Aria is used for internal temporary tables in MariaDB and not shipped with MySQL or Percona Server. The logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mariadb_aria(), v1.9.8.
 
 Hints:
 
