@@ -85,7 +85,9 @@ In order to keep improving the Monitoring Plugins and better answer your needs, 
 
 ## Human Readable Numbers
 
-Regarding the check plugin output, this is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia [Names of large numbers](https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers), and other). The plugins display byte sizes in powers of 2 (KiB, MiB, GiB etc.).
+Regarding the check plugin output, this is how we convert and append symbols to large numbers in a human-readable format (according to Wikipedia [Names of large numbers](https://en.wikipedia.org/w/index.php?title=Names_of_large_numbers&section=5#Extensions_of_the_standard_dictionary_numbers), and other).
+
+Since the primary hosting platform is Linux, which uses IEC, the plugins display byte sizes in powers of 2 (KiB, MiB, GiB etc.) - otherwise it would be very confusing to have the monitoring plugins said something different than the command line.
 
 | Value             | Symbol   | Origin       | Type              | Description |
 | ----------------- | -------- | ------------ | ----------------- | --------------------------------- |
@@ -98,14 +100,14 @@ Regarding the check plugin output, this is how we convert and append symbols to 
 | 1000\^7           | Z        | SI Symbol    | Number            | Trilliard ^1^, Sextillion ^2^ |
 | 1000\^8           | Y        | SI Symbol    | Number            | Quadrillion ^1^, Septillion ^2^ |
 | 1024\^0           | B        |              | Bytes             | Bytes |
-| 1024\^1           | KiB      | ISQ Symbol   | Bytes             | Kibibytes |
-| 1024\^2           | MiB      | ISQ Symbol   | Bytes             | Mebibytes |
-| 1024\^3           | GiB      | ISQ Symbol   | Bytes             | Gibibytes |
-| 1024\^4           | TiB      | ISQ Symbol   | Bytes             | Tebibytes |
-| 1024\^5           | PiB      | ISQ Symbol   | Bytes             | Pebibytes |
-| 1024\^6           | EiB      | ISQ Symbol   | Bytes             | Exbibytes |
-| 1024\^7           | ZiB      | ISQ Symbol   | Bytes             | Zebibytes |
-| 1024\^8           | YiB      | ISQ Symbol   | Bytes             | Yobibytes |
+| 1024\^1           | KiB      | IEC unit     | Bytes             | Kibibytes |
+| 1024\^2           | MiB      | IEC unit     | Bytes             | Mebibytes |
+| 1024\^3           | GiB      | IEC unit     | Bytes             | Gibibytes |
+| 1024\^4           | TiB      | IEC unit     | Bytes             | Tebibytes |
+| 1024\^5           | PiB      | IEC unit     | Bytes             | Pebibytes |
+| 1024\^6           | EiB      | IEC unit     | Bytes             | Exbibytes |
+| 1024\^7           | ZiB      | IEC unit     | Bytes             | Zebibytes |
+| 1024\^8           | YiB      | IEC unit     | Bytes             | Yobibytes |
 | 1000\^1           | KB       |              | Bytes             | Kilobytes |
 | 1000\^2           | MB       |              | Bytes             | Megabytes |
 | 1000\^3           | GB       |              | Bytes             | Gigabytes |
