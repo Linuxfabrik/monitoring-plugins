@@ -56,13 +56,11 @@ Help
 Usage Examples
 --------------
 
+On Linux, one user connected to the console:
+
 .. code-block:: bash
 
-    # on Linux:
     ./users --warning '1, 20' --critical '1, 20'
-
-    # On Windows:
-    ./users --warning '1, 20, 1' --critical 'None, 50, 5'
 
 Output:
 
@@ -72,6 +70,19 @@ Output:
 
     USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT
     markus.f :0         Mon06   ?xdm?  6:02m  0.03s /usr/libexec/gdm-x-session --run-script /usr/bin/gnome-session
+
+On Windows, one user connected via RDP:
+
+.. code-block:: text
+
+    ./users --warning '1, 20, 1' --critical 'None, 50, 5'
+
+.. code-block:: text
+
+    TTY: 0, PTS: 1, Disconnected: 0
+
+    USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME
+    administrator         rdp-tcp#11          1  Active          .  24.08.2022 17:42|'disc'=0;1;;0; 'tty'=0;1;;0; 'pts'=1;20;;0;
 
 
 States
@@ -83,9 +94,14 @@ States
 Perfdata / Metrics
 ------------------
 
-* tty: Number of TTY users on Linux, Number of Console users on Windows.
-* pty: Number of PTY users on Linux (for example ssh), Number of RDP users on Windows.
-* disc: Number of disconnect users (on Windows only).
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    tty,                                        Number,             "Number of TTY users on Linux, Number of Console users on Windows."
+    pts,                                        Number,             "Number of PTY users on Linux (for example ssh), Number of RDP users on Windows."
+    disc,                                       Number,             "Number of disconnect users (on Windows only)."
 
 
 Credits, License
