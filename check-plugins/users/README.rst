@@ -56,11 +56,11 @@ Help
 Usage Examples
 --------------
 
-On Linux, one user connected to the console:
+On Linux, one user is connected to the console:
 
 .. code-block:: bash
 
-    ./users --warning '1, 20' --critical '1, 20'
+    ./users --warning 1,20 --critical 1,20
 
 Output:
 
@@ -71,11 +71,11 @@ Output:
     USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT
     markus.f :0         Mon06   ?xdm?  6:02m  0.03s /usr/libexec/gdm-x-session --run-script /usr/bin/gnome-session
 
-On Windows, one user connected via RDP:
+On Windows, one user is connected via RDP:
 
 .. code-block:: text
 
-    ./users --warning '1, 20, 1' --critical 'None, 50, 5'
+    ./users --warning 1,20,1 --critical None,50,5
 
 .. code-block:: text
 
