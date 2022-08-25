@@ -37,7 +37,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062001'
+__version__ = '2022082501'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -141,8 +141,8 @@ def main():
     # we need cpu and memory from docker perspective
     cmd = 'docker info'
     stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
-    if not stdout:
-        lib.base3.oao('{}'.format('Unable to fetch docker info.'), STATE_UNKNOWN)
+    if retc != 0:
+        lib.base3.oao('{}\n{}'.format(stderr, stdout), STATE_CRIT)
     try:
         strpos1 = stdout.find('CPUs: ') + 6
         strpos2 = stdout.find('\n', strpos1)
