@@ -39,13 +39,13 @@ Help
 
 .. code-block:: text
 
-    usage: systemd-unit2 [-h] [-V]
-                         [--activestate {active,failed,inactive,activating,deactivating}]
-                         [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
-                         [--severity {warn,crit}]
-                         [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
-                         --unit UNIT
-                         [--unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}]
+    usage: systemd-unit [-h] [-V]
+                        [--activestate {active,failed,inactive,activating,deactivating}]
+                        [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
+                        [--severity {warn,crit}]
+                        [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
+                        --unit UNIT
+                        [--unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}]
 
     Checks the state of a service, socket, device, mount, automount, swap, target,
     path, timer, slice or scope - using systemd/systemctl. For example, to check
