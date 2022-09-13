@@ -27,10 +27,12 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
@@ -40,13 +42,18 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022040501'
+__version__ = '2022082601'
 
-DESCRIPTION = 'Check the state of a Windows service.'
+DESCRIPTION = '''Checks the state of one or more Windows services. You have to provide the
+                 case-insensitive "Service Name", not the "Display Name". Supports Python regular
+                 expressions, so you are able to check multiple Windows services on a host with
+                 almost the same name, for example.'''
 
+DEFAULT_CRIT = None
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_STATUS = ['running']
 DEFAULT_STARTTYPE = 'automatic'
+DEFAULT_WARN = '1:'
 
 
 def parse_args():
@@ -61,21 +68,25 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--service',
-        help='Name of the service.',
-        dest='SERVICE',
-        required=True,
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
-        '--severity',
-        help='Severity if something is found. Default: %(default)s',
-        dest='SEVERITY',
-        default=DEFAULT_SEVERITY,
-        choices=[
-            'crit',
-            'warn',
-        ],
+        '-c', '--critical',
+        help='Set the CRIT threshold. Accepts ranges. Default: "%(default)s"',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--service',
+        help='Name of the service. Supports Python Regular Expressions (regex).',
+        dest='SERVICE',
+        required=True,
     )
 
     parser.add_argument(
@@ -107,6 +118,13 @@ def parse_args():
         ],
     )
 
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold. Accepts ranges. Default: "%(default)s"',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
     return parser.parse_args()
 
 
@@ -120,41 +138,71 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if not lib.base3.WINDOWS:
+        lib.base3.oao('This check runs only on Windows.', STATE_UNKNOWN)
+
     # due to https://bugs.python.org/issue16399, set the default value here
     if args.STATUS is None:
         args.STATUS = DEFAULT_STATUS
 
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    table_data = []
+    services = {
+        'continue_pending': 0,
+        'pause_pending': 0,
+        'paused': 0,
+        'running': 0,
+        'start_pending': 0,
+        'stop_pending': 0,
+        'stopped': 0,
+    }
+
     # fetch data
     try:
-        service = psutil.win_service_get(args.SERVICE)
+        compiled_service_regex = re.compile(args.SERVICE, re.IGNORECASE)
+        for s in psutil.win_service_iter():
+            matches = re.search(compiled_service_regex, s.name())
+            if matches:
+                if s.status() in services.keys():
+                    services[s.status()] += 1
+                table_data.append(s.as_dict())
+    except re.error as rerr:
+        lib.base3.oao('Invalid regex "{}": {}'.format(args.SERVICE, rerr), STATE_UNKNOWN)
     except psutil.NoSuchProcess:
-        lib.base3.oao('Service {} not found'.format(args.SERVICE), STATE_UNKNOWN)
-    except Exception:
-        lib.base3.oao('Can\'t fetch Windows Service Attributes - is this check running on Windows?', STATE_UNKNOWN)
+        lib.base3.oao('Service "{}" not found'.format(args.SERVICE), STATE_UNKNOWN)
 
-    start_type = service.start_type()
-    status = service.status()
+    if not table_data:
+        lib.base3.oao('Service "{} not found'.format(args.SERVICE), STATE_UNKNOWN)
 
-    # init some vars
-    msg = '{} is {}, {}'.format(args.SERVICE, status, start_type)
-    state = STATE_OK
+    # alert: e.g. at least 10 but not more than 20 Windows-Services must meet --status
+    if not lib.base3.coe(lib.base3.match_range(services[args.STATUS[0]], args.CRIT)):
+        state = STATE_CRIT
+    elif not lib.base3.coe(lib.base3.match_range(services[args.STATUS[0]], args.WARN)):
+        state = STATE_WARN
+    else:
+        state = STATE_OK
 
-    # now do the checks
-    problem = False
-    problem_msg = ''
-    if args.STATUS and status not in args.STATUS:
-        problem = True
-        problem_msg += 'Status is "{}", but supposed to be "{}"; '.format(status, args.STATUS)
-    if args.STARTTYPE and start_type != args.STARTTYPE:
-        problem = True
-        problem_msg += 'Start Type is "{}", but supposed to be "{}"; '.format(start_type, args.STARTTYPE)
+    keys = ['name', 'display_name', 'status', 'start_type']
+    headers = ['Service Name', 'Display Name', 'Status', 'Startup']
+    # sort table by user tags
+    msg += lib.base3.get_table(table_data, keys, header=headers)
 
-    if problem:
-        msg = '{} - '.format(args.SERVICE) + problem_msg[:-2]
-        state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n' + msg
+    else:
+        msg = '{} {} named "{}" with status "{}" found, but expected "{}" {}.\n\n'.format(
+            services[args.STATUS[0]],
+            lib.txt3.pluralize('service', services[args.STATUS[0]]),
+            args.SERVICE,
+            ''.join(args.STATUS),
+            args.CRIT if state == STATE_CRIT else args.WARN,
+            lib.base3.state2str(state),
+        ) + msg
 
     # over and out
-    lib.base3.oao(msg, state)
+    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
