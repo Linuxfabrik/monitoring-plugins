@@ -298,7 +298,7 @@ Another example: ``--warning ~:0 --critical 10``
 
 .. code-block:: text
 
-    val  -2  -1   0   1 ..   910  11
+    val  -2  -1   0   1 ..   9  10  11
     -w   OK  OK  OK  WA     WA  WA  WA
     -c   CR  CR  OK  OK     OK  OK  CR
     =>   CR  CR  OK  WA     WA  WA  CR
