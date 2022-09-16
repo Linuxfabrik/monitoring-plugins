@@ -60,6 +60,10 @@ If you zoom in, for example on *CPU Usage*:
 
 A few comments about our monitoring plugins:
 
+> Ich bin vor kurzem (via Video vom Icinga Camp) über Eure Monitoringplugins gestolpert. Ganz herzlichen Dank dafür, großartige Arbeit!!
+
+-- Christian Lox
+
 > ... many thanks for your great collection of monitoring plugins! I've just found them - clean structure and output, cross-platform, Icinga Directory Basket configurations - loving it and currently migrating step by step most of my checks to use them where possible. 😍
 
 -- [Bernd Bestel](https://github.com/berrnd)
