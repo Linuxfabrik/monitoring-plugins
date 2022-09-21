@@ -42,7 +42,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062001'
+__version__ = '2022092101'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -149,24 +149,41 @@ def main():
     result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
-    installed_version = '{}.{} Build {}'.format(data['firmware']['version'], data['firmware']['number'], data['firmware']['build'])
+    installed_version = data['firmware']['version']
+    installed_number = data['firmware']['number']
+    installed_build = data['firmware']['build']
 
     # check for updates
     url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, authSid)
     result = lib.base3.coe(lib.url3.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
-    latest_version = xmltodict.parse(result)['QDocRoot']['func']['ownContent']['newVersion']
+    xmldict = xmltodict.parse(result)['QDocRoot']
+    if 'newVersion' in xmldict['func']['ownContent']:
+        # versions prior to 5.0.1
+        latest_version = xmldict['newVersion']
+    elif 'version' in xmldict['firmware']:
+        # version 5.0.1+
+        latest_version = xmldict['firmware']['version']
+    else:
+        lib.base3.oao('Version information cannot be determined.', STATE_UNKNOWN)
+
     if latest_version == 'none':
         latest_version = None
     elif latest_version == 'error' or len(latest_version) == 0:
         lib.base3.oao('Got an error from the QNAP API.', STATE_UNKNOWN)
 
     # build the message
-    if latest_version:
-        lib.base3.oao('QTS v{} installed, QTS v{} available'.format(
+    if lib.base3.version('.'.join(installed_version)) >= lib.base3.version(latest_version):
+        lib.base3.oao('QTS v{}.{} Build {} is up to date'.format(
             installed_version,
-            latest_version,
-        ), STATE_WARN, always_ok=args.ALWAYS_OK)
-    lib.base3.oao('QTS v{} is up to date'.format(installed_version), STATE_OK)
+            installed_number,
+            installed_build,
+        ), STATE_OK)
+    lib.base3.oao('QTS v{}.{} Build {} installed, QTS v{} available'.format(
+        installed_version,
+        installed_number,
+        installed_build,
+        latest_version,
+    ), STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
