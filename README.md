@@ -255,6 +255,8 @@ If you get the error message `File 'icingaweb2-module-director-basket.json' exee
 * PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service)
 * MariaDB/MySQL: increase `max_allowed_packet`
 
+If you did not name your master zone `master` during the initial `icinga2 node wizard`, then search and replace `"zone": "master"` with `"zone": "your-master-zone-name"` in the `icingaweb2-module-director-basket.json`.
+
 
 ## Grafana
 
