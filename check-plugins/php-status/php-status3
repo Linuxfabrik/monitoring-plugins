@@ -38,12 +38,13 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022070101'
+__version__ = '2022092701'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
 
 DEFAULT_CONFIG = [ 'date.timezone=Europe' ]
+DEFAULT_CRIT = None
 DEFAULT_MODULES = [
     'bz2', 'calendar', 'Core', 'ctype', 'curl', 'date', 'exif',
     'fileinfo', 'filter', 'ftp', 'gettext', 'hash', 'iconv',
@@ -52,7 +53,7 @@ DEFAULT_MODULES = [
     'sockets', 'SPL', 'standard', 'tokenizer', 'xml', 'zlib',
 ]
 DEFAULT_WARN = 90
-DEFAULT_CRIT = None
+DEFAULT_URL = 'http://localhost/monitoring.php'
 
 
 def parse_args():
@@ -110,8 +111,9 @@ def parse_args():
     )
 
     parser.add_argument('--url',
-        help='URL to PHP monitoring script.',
+        help='URL to optional PHP `monitoring.php` script. Default: %(default)s',
         dest='URL',
+        default=DEFAULT_URL,
     )
 
     parser.add_argument(

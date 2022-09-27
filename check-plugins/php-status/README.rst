@@ -53,7 +53,7 @@ Help
     This plugin checks for PHP startup errors, missing modules and misconfigured
     php.ini directives.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -66,7 +66,8 @@ Help
                             `display_errors=On` and `display_startup_errors=On`.
       --module MODULES      "modulename" to check (startswith), for example
                             `--module json --module mbstring` (repeating)
-      --url URL             URL to PHP monitoring script.
+      --url URL             URL to optional PHP `monitoring.php` script. Default:
+                            http://localhost/monitoring.php
       -w WARN, --warning WARN
                             Set the WARN threshold for Opcache usage as a
                             percentage. Default: >= 90
