@@ -10,29 +10,17 @@ In general, you have two options:
 Linux: Using your OS Package Manager
 ------------------------------------
 
-We currently don't provide a repository server yet, so to install the latest release, you have to install the plugins like so:
-
-.. code-block:: bash
-
-    # .rpm package - for RHEL 7+ and compatible
-    sudo yum -y install https://download.linuxfabrik.ch/monitoring-plugins/rpm/linuxfabrik-monitoring-plugins.rpm
-
-.. code-block:: bash
-
-    # .deb package - for Debian 9+, Ubuntu 16.04+ and compatible
-    curl --location --remote-name https://download.linuxfabrik.ch/monitoring-plugins/deb/linuxfabrik-monitoring-plugins.deb
-    sudo apt -y install ./linuxfabrik-monitoring-plugins.deb
-
-We just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
+We provide repositories for RPM and DEB packages. Have a look at [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/monitoring-plugins) for the installation instructions.
+We currently just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
 
 
 Linux: Using Binaries from an Archive
 -------------------------------------
 
-For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice, which is normally ``/usr/lib64/nagios/plugins``, by using one of these files:
+For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice (normally ``/usr/lib64/nagios/plugins``) by using one of these files:
 
-* `linuxfabrik-monitoring-plugins.tar <https://download.linuxfabrik.ch/monitoring-plugins/tar/linuxfabrik-monitoring-plugins.tar>`_
-* `linuxfabrik-monitoring-plugins.zip <https://download.linuxfabrik.ch/monitoring-plugins/zip/linuxfabrik-monitoring-plugins.zip>`_
+* `tar <https://download.linuxfabrik.ch/monitoring-plugins/tar>`_
+* `zip <https://download.linuxfabrik.ch/monitoring-plugins/zip>`_
 
 
 Windows
