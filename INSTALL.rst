@@ -10,7 +10,8 @@ In general, you have two options:
 Linux: Using your OS Package Manager
 ------------------------------------
 
-We provide repositories for RPM and DEB packages. Have a look at [repo.linuxfabrik.ch](https://repo.linuxfabrik.ch/monitoring-plugins) for the installation instructions.
+We provide repositories for RPM and DEB packages. Have a look at `repo.linuxfabrik.ch <https://repo.linuxfabrik.ch/monitoring-plugins>`_ for the installation instructions for your distro.
+
 We currently just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
 
 
