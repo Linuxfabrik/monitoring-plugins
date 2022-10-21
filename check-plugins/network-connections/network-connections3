@@ -31,7 +31,7 @@ import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
 import lib.net3 # pylint: disable=C0413
-from lib.globals3 import STATE_OK, STATE_UNKNOWN # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 try:
     import psutil # pylint: disable=C0413
@@ -40,9 +40,17 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2021083102'
+__version__ = '2022102101'
 
-DESCRIPTION = 'Counts tcp, tcp6, udp and udp6 connections. If you have too many connections like TCP_CLOSE and therefore get errors like "too many files open", restart the application that is receiving or processing those connections.'
+DESCRIPTION = '''Counts system-wide socket connections like tcp, tcp6, udp or udp6. If you have
+                 too many connections like TCP_CLOSE and therefore get errors like 
+                 "too many files open", reconfigure and/or restart the application that is
+                 receiving or processing those connections.'''
+
+DEFAULT_CONN_STATUS = 'all'
+DEFAULT_CONN_TYPE = 'all'
+DEFAULT_CRIT = None
+DEFAULT_WARN = None
 
 
 def parse_args():
@@ -54,6 +62,58 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--conn-status',
+        help='Filter the status of the connections (repeating). Default: %(default)s',
+        default=None,   # due to https://bugs.python.org/issue16399, see in main() below
+        dest='CONN_STATUS',
+        action='append',
+        choices=[
+            'all',
+            'close',
+            'close_wait',
+            'closing',
+            'established',
+            'fin_wait1',
+            'fin_wait2',
+            'last_ack',
+            'listen',
+            'none',
+            'syn_recv',
+            'syn_sent',
+            'time_wait',
+        ],
+    )
+
+    parser.add_argument(
+        '--conn-type',
+        help='Filter the family/type of the connections (repeating). Default: %(default)s',
+        default=None,   # due to https://bugs.python.org/issue16399, see in main() below
+        dest='CONN_TYPE',
+        action='append',
+        choices=[
+            'all',
+            'tcp',
+            'tcp6',
+            'udp',
+            'udp6',
+        ],
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Threshold for the number of connections. Type: None or Range. Default: %(default)s',
+        default=DEFAULT_CRIT,
+        dest='CRIT',
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Threshold for the number of connections. Type: None or Range. Default: %(default)s',
+        default=DEFAULT_WARN,
+        dest='WARN',
     )
 
     return parser.parse_args()
@@ -69,11 +129,23 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # due to https://bugs.python.org/issue16399, set the default value here
+    if args.CONN_STATUS is None:
+        args.CONN_STATUS = DEFAULT_CONN_STATUS
+    if args.CONN_TYPE is None:
+        args.CONN_TYPE = DEFAULT_CONN_TYPE
+
     # fetch data
     stats = {}
     for c in psutil.net_connections(kind='inet'):
-        key = lib.net3.PROTO_MAP[(c.family, c.type)] + '_' + c.status
-        if key in list(stats.keys()):
+        if 'all' not in args.CONN_STATUS \
+            and c.status.lower() not in args.CONN_STATUS:
+            continue
+        if 'all' not in args.CONN_TYPE \
+            and lib.net3.PROTO_MAP[(c.family, c.type)] not in args.CONN_TYPE:
+            continue
+        key = '{}_{}'.format(lib.net3.PROTO_MAP[(c.family, c.type)], c.status)
+        if key in stats:
             stats[key] += 1
         else:
             stats[key] = 1
@@ -81,13 +153,29 @@ def main():
     # init some vars
     msg = ''
     perfdata = ''
+    state = STATE_OK
 
     # build the message
     for item in lib.base3.sort(stats, reverse=True):
         proto, value = item
         if value:
-            msg += '{}: {}, '.format(proto.replace('_', ' '), value)
+            conn_state = STATE_OK
+            if not lib.base3.coe(lib.base3.match_range(value, args.CRIT)):
+                conn_state = STATE_CRIT
+            elif not lib.base3.coe(lib.base3.match_range(value, args.WARN)):
+                conn_state = STATE_WARN
+            state = lib.base3.get_worst(conn_state, state)
+            msg += '{}: {}{}, '.format(
+                proto.replace('_', ' '),
+                value,
+                lib.base3.state2str(conn_state, prefix=' '),
+            )
         perfdata += lib.base3.get_perfdata(proto, value, None, None, None, None, None)
+    if not msg:
+        msg = 'No connections of type "{}" in status "{}" found.  '.format(
+            ','.join(args.CONN_TYPE),
+            ','.join(args.CONN_STATUS),
+        )
 
     # over and out
     lib.base3.oao(msg[:-2], STATE_OK, perfdata)

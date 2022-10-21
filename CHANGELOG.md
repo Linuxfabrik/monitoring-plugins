@@ -42,6 +42,7 @@ Monitoring Plugins:
 * docker-stats3: Report more info in case of failures
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
 * matomo-reporting3: Perfdata now is also aware of percentages
+* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621)) 
 
 Libs:
 
