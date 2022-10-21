@@ -59,7 +59,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./nextcloud-stats --username nextcloud-stats --password mypassword --url http://localhost/nextcloud
+    ./nextcloud-stats --username nextcloud-stats --password mypassword --url http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
     
 Output:
 
