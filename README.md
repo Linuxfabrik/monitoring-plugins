@@ -34,7 +34,7 @@ Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/b
 
 ## Icons
 
-You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
+You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
 ## sudoers
