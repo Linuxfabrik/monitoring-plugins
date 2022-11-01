@@ -8,7 +8,7 @@ Returns information and statistics about the Redis server. Alerts on memory cons
 
 Hints:
 
-* Tested on Redis 3.0, 3.2, 6.0 and 6.2.
+* Tested on Redis 3.0, 3.2, 6.0, 6.2 and 7.0.
 
 
 Fact Sheet
