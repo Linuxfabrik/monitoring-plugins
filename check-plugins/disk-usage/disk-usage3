@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022070701'
+__version__ = '2022110301'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -159,11 +159,11 @@ def main():
             override_allowed = False
 
         table_data.append({
-            'mountpoint': '{} {}'.format(part.mountpoint, lib.base3.state2str(disk_state)),
+            'mountpoint': '{}'.format(part.mountpoint),
             'type': '{}'.format(part.fstype),
             'used': lib.human3.bytes2human(usage.used),
             'total': lib.human3.bytes2human(usage.total),
-            'percent': '{}%'.format(usage.percent),
+            'percent': '{}% {}'.format(usage.percent, lib.base3.state2str(disk_state, prefix=' ')),
             })
 
     if msg == '':

@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
@@ -56,19 +56,26 @@ Usage Examples
 
     ./disk-usage
     ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80 --critical=90
+
+    # on Windows:
     ./disk-usage --ignore=E: --ignore=Y: --warning=80 --critical=90
-    
+
 Output:
 
 .. code-block:: text
 
-    / 43.3% - total: 928.8GiB, used: 381.7GiB, free: 499.8GiB
+    /var/log/audit 10.7% - total: 506.7MiB, used: 54.4MiB, free: 452.3MiB
 
-    mountpoint type used     total    percent 
-    ---------- ---- ----     -----    ------- 
-    /          ext4 381.7GiB 928.8GiB 43.3%
-    /boot/efi  vfat 60.0MiB  598.8MiB 10.0%   
-    /boot      ext4 389.4MiB 975.9MiB 42.8%   
+    mountpoint     ! type ! used     ! total     ! percent 
+    ---------------+------+----------+-----------+------------------
+    /              ! xfs  ! 4.0GiB   ! 4.0GiB    ! 100.0% [CRITICAL]
+    /var           ! xfs  ! 2.2GiB   ! 4.0GiB    ! 53.9%   
+    /var/log       ! xfs  ! 172.3MiB ! 1014.0MiB ! 17.0%   
+    /home          ! xfs  ! 40.1MiB  ! 1014.0MiB ! 4.0%    
+    /boot          ! xfs  ! 163.8MiB ! 1014.0MiB ! 16.2%   
+    /tmp           ! xfs  ! 136.2MiB ! 5.0GiB    ! 2.6%    
+    /var/tmp       ! xfs  ! 39.4MiB  ! 1014.0MiB ! 3.9%    
+    /var/log/audit ! xfs  ! 54.4MiB  ! 506.7MiB  ! 10.7%
 
 
 States
@@ -83,7 +90,7 @@ Perfdata / Metrics
 .. csv-table::
     :widths: 25, 15, 60
     :header-rows: 1
-    
+
     Name,                                       Type,               Description
     <mountpoint>-percent,                       Percentage,         Usage in percent
     <mountpoint>-total,                         Bytes,              Total Disksize
