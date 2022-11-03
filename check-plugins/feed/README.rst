@@ -84,7 +84,8 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --warn 1440
+    ./feed
+    ./feed --url https://github.com/Linuxfabrik/monitoring-plugins/releases.atom --warn 1440
     ./feed --icinga-url https://icinga-host:5665 --icinga-callback --icinga-username linuxfabrik-check-api-user --icinga-password mysupersecretpassword --icinga-service-name 'icinga-host!Feed Service Name' --url https://www.heise.de/security/rss/alert-news-atom.xml
 
 Output:
