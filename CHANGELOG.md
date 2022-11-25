@@ -35,7 +35,7 @@ Icinga Director:
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
 
 
-## Changed
+### Changed
 
 Monitoring Plugins:
 
