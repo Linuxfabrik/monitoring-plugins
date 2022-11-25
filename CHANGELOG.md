@@ -32,6 +32,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * AIDE Service Set
+* All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
 
 
 ## Changed
