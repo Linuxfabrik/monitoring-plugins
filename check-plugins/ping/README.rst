@@ -56,13 +56,14 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./ping --hostname www.linuxfabrik.ch 
-    
+    ./ping --hostname localhost
+    ./ping --interval=0.2 --count=5 --timeout=5 --hostname localhost
+
 Output:
 
 .. code-block:: text
 
-    PING www.linuxfabrik.ch: 5 packets transmitted, 5 received, 0% packet loss, time 831ms. rtt min/avg/max/mdev = 1.798/21.246/73.485/26.824 ms
+    PING localhost: 5 packets transmitted, 5 received, 0% packet loss, time 829ms. rtt min/avg/max/mdev = 0.036/0.082/0.103/0.023 ms
 
 
 States
