@@ -70,6 +70,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+* mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
 * mysql-user-security: Ignore mysql.sys and mariadb.sys users
 * ntp-offset: Remove debug print message
 * ping: ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))

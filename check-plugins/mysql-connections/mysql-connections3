@@ -36,12 +36,13 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071601'
+__version__ = '2022112801'
 
 DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and 
                  if name resolution is active for new connections on MySQL/MariaDB."""
 
 DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_IGNORE_NAME_RESOLUTION = False
 DEFAULT_PORT = '3306'
 DEFAULT_PASSWORD = ''
 DEFAULT_TIMEOUT = 3
@@ -72,6 +73,14 @@ def parse_args():
         help='MySQL/MariaDB hostname. Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--ignore-name-resolution',
+        help='Do not check if name resolution is active. Default: %(default)s',
+        dest='IGNORE_NAME_RESOLUTION',
+        action='store_true',
+        default=DEFAULT_IGNORE_NAME_RESOLUTION,
     )
 
     parser.add_argument(
@@ -211,7 +220,7 @@ def main():
         msg += '; '
 
     # name resolution
-    if myvar.get('skip_name_resolve'):
+    if not args.IGNORE_NAME_RESOLUTION and myvar.get('skip_name_resolve'):
         if myvar['skip_name_resolve'] == 'OFF':
             conn3_state = STATE_WARN
             state = lib.base3.get_worst(state, conn3_state)

@@ -33,8 +33,9 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-connections [-h] [-V] [--always-ok] [-H HOSTNAME] [-p PASSWORD]
-                             [--port PORT] [-u USERNAME]
+    usage: mysql-connections [-h] [-V] [--always-ok] [-H HOSTNAME]
+                             [--ignore-name-resolution] [-p PASSWORD]
+                             [--port PORT] [--timeout TIMEOUT] [-u USERNAME]
 
     Checks the connection usage rate, the rate of aborted connections and if name
     resolution is active for new connections on MySQL/MariaDB.
@@ -45,10 +46,14 @@ Help
       --always-ok           Always returns OK.
       -H HOSTNAME, --hostname HOSTNAME
                             MySQL/MariaDB hostname. Default: 127.0.0.1
+      --ignore-name-resolution
+                            Do not check if name resolution is active. Default:
+                            False
       -p PASSWORD, --password PASSWORD
                             Use the indicated password to authenticate the
                             connection. Default:
       --port PORT           MySQL/MariaDB port. Default: 3306
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u USERNAME, --username USERNAME
                             MySQL/MariaDB username. Default: root
 
@@ -72,7 +77,7 @@ States
 
 * WARN if the number of connections is more than 85% of the maximum possible number of simultaneous client connections (setting ``max_connections``).
 * WARN if the number of aborted connections is more than 3% of all client connections.
-* WARN if name resolution is active.
+* WARN if name resolution is active (if `--ignore-name-resolution` is ommitted).
 
 
 Perfdata / Metrics
