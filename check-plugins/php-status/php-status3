@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022092701'
+__version__ = '2022120201'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -365,7 +365,10 @@ def main():
 
     startup_errors = get_startup_errors()
     if startup_errors:
-        msg += 'Startup errors: {}, '.format(startup_errors)
+        msg += 'Startup errors: {} {}, '.format(
+            startup_errors,
+            lib.base3.state2str(STATE_WARN, prefix=''),
+        )
         state = lib.base3.get_worst(state, STATE_WARN)
         perfdata += lib.base3.get_perfdata('php-startup-errors', 1, None, 1, 2, 0, 3)
     else:
@@ -373,7 +376,10 @@ def main():
 
     config_errors = get_config_errors(args)
     if config_errors:
-        msg += 'Config expected but not found: {}, '.format(config_errors[:-2])
+        msg += 'Config expected but not found: {} {}, '.format(
+            config_errors[:-2],
+            lib.base3.state2str(STATE_WARN, prefix=''),
+        )
         state = lib.base3.get_worst(state, STATE_WARN)
         perfdata += lib.base3.get_perfdata('php-config-errors', 1, None, 1, 2, 0, 3)
     else:
@@ -381,7 +387,10 @@ def main():
 
     module_errors = get_module(args)
     if module_errors:
-        msg += 'Modules expected but not found: {}, '.format(module_errors[:-2])
+        msg += 'Modules expected but not found: {} {}, '.format(
+            module_errors[:-2],
+            lib.base3.state2str(STATE_WARN, prefix=''),
+        )
         state = lib.base3.get_worst(state, STATE_WARN)
         perfdata += lib.base3.get_perfdata('php-module-errors', 1, None, 1, 2, 0, 3)
     else:
