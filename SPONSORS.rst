@@ -25,7 +25,8 @@ GitHub / PayPal Sponsors
 Enterprise Sponsors
 -------------------
 
-We are happy to mention you as a sponsor.
-
+* `HINT AG, Schweiz <https://hintag.ch/>`_
 * `Universitätsspital Basel, Schweiz <https://www.unispital-basel.ch/>`_
 * `Sopra Steria AG, Schweiz <https://www.soprasteria.ch/de>`_
+
+We are happy to mention you as a sponsor.
