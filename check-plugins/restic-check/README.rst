@@ -4,7 +4,7 @@ Check restic-check
 Overview
 --------
 
-This check command tests the restic repository for errors and reports any errors it finds. In contrast to the `rectic check` sub-command it cannot be used to read all data and therefore simulate a restore.
+This check command tests the restic repository for errors and reports any errors it finds. In contrast to the ``restic check`` sub-command it cannot be used to read all data and therefore simulate a restore.`
 
 ``restic-check`` will always load all data directly from the repository and not use a local cache, so take into account that this might take several minutes to execute, especially if the restic repository is corrupted.
 
