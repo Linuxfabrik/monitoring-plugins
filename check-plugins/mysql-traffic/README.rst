@@ -75,9 +75,6 @@ States
 Perfdata / Metrics
 ------------------
 
-'mysql_com_delete'=1155c;;;0; 'mysql_com_insert'=3868c;;;0; 'mysql_com_replace'=0c;;;0; 'mysql_com_select'=240552c;;;0; 'mysql_com_update'=122929c;;;0; 'mysql_connections'=470c;;;0; 'mysql_questions'=907709c;;;0;
-
-
 .. csv-table::
     :widths: 25, 15, 60
     :header-rows: 1

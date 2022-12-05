@@ -81,10 +81,10 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description
-    mysql_connections,                          Continous Counter,  Number of connection attempts (both successful and unsuccessful).
-    mysql_thread_cache_hit_rate,                Percentage,         100 - Threads_created / Connections \* 100
-    mysql_thread_cache_size,                    Bytes,              Number of threads server caches for re-use.
-    mysql_threads_created,                      Continous Counter,  "Number of threads created to respond to client connections. If too large, look at increasing thread_cache_size.""
+    mysql_connections,                          Continous Counter,  "Number of connection attempts (both successful and unsuccessful)."
+    mysql_thread_cache_hit_rate,                Percentage,         "100 - Threads_created / Connections \* 100"
+    mysql_thread_cache_size,                    Bytes,              "Number of threads server caches for re-use."
+    mysql_threads_created,                      Continous Counter,  "Number of threads created to respond to client connections. If too large, look at increasing thread_cache_size."
 
 
 Credits, License
