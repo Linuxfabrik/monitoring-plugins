@@ -62,6 +62,10 @@ If you zoom in, for example on *CPU Usage*:
 
 A few comments about our monitoring plugins:
 
+> ... I can recommend this family of plugins, they are the highest quality I have seen around. ...
+
+-- [u/exekewtable@reddit](https://www.reddit.com/r/icinga/comments/xcewsg/icinga_python_script_for_qradar_log_source/)
+
 > Ich bin vor kurzem (via Video vom Icinga Camp) über Eure Monitoringplugins gestolpert. Ganz herzlichen Dank dafür, großartige Arbeit!!
 
 -- Christian Lox
