@@ -8,21 +8,29 @@ Checks the disk throughput over a period of time. For this purpose, the check lo
 
 Disk I/O is always starting with 10Mib/sec but saves the highest mesured throughput, so it adjusts the ``RWmax/s`` value accordingly. For this reason, this check needs some time to warm up its (cached) measured values: The check will throw a few warnings and criticals during the first major disk activities above 10Mib/sec until the maximum throughput of the disk has been determined.
 
-Assuming the NVMe disk offers 2.1 GB/sec throughput. The result of ``./disk-io --count 5 --warning 80 --critical 90`` could then look like this::
+Example: The result of ``./disk-io --count 5 --warning 80 --critical 90`` could look like this:
 
-    dm-2: 0.0B/s read, 1.75GiB/s write (current)
+.. code-block:: text
 
-    Disk RWmax/s R1/s W1/s   R5/s     W5/s   RW5/s
-    ---- ------- ---- ----   ----     ----   ----------------
-    dm-2 2.1GiB  0.0B 1.6GiB 100.0MiB 1.7GiB 1.8GiB [WARNING]
+    dm-0: 23.6MiB/s read, 17.2MiB/s write (current)
 
-The first line always shows the disk with the currently highest throughput. The table columns shown above mean:
+    Disk ! RWmax/s ! R1/s     ! W1/s     ! R5/s     ! W5/s     ! RW5/s              
+    -----+---------+----------+----------+----------+----------+--------------------
+    dm-0 ! 44.9MiB ! 23.6MiB  ! 17.2MiB  ! 23.1MiB  ! 18.6MiB  ! 41.7MiB [CRITICAL] 
+    dm-1 ! 10.0MiB ! 4.7KiB   ! 4.0KiB   ! 2.0KiB   ! 6.8KiB   ! 8.7KiB             
+    sda  ! 10.0MiB ! 729.6KiB ! 154.2KiB ! 732.0KiB ! 152.4KiB ! 884.4KiB           
+    sda1 ! 10.0MiB ! 729.6KiB ! 154.2KiB ! 732.0KiB ! 152.4KiB ! 884.4KiB           
+    sdb  ! 46.0MiB ! 22.9MiB  ! 17.0MiB  ! 22.4MiB  ! 18.4MiB  ! 40.8MiB [WARNING]  
+    sdb2 ! 46.0MiB ! 22.9MiB  ! 17.0MiB  ! 22.4MiB  ! 18.4MiB  ! 40.8MiB [WARNING]
 
-* RWmax: Here, a maximum throughput of 2.1 GB/sec was determined.
-* R1, W1: The current throughput is 0.0 B/sec read and 1.75 GB/sec write.
-* R5, W5: The throughput from now to 5 measured values in the past is 100 MB/sec read and 1.7 GB/sec write. Compared to the current values, there was a higher throughput for a while.
+The first line always shows the disk with the currently highest throughput (here ``dm-0``).
 
-State: Since the drive offers a maximum of 2.1 GB/sec, a total throughput (RW5) value of 1.8 GB/sec results in a warning (``2.1 GB/sec * 80% = 1.68 GB/sec``). The current value of 1.75 GB/sec doesn't matter, it could be a peak.
+The table columns mean:
+
+* RWmax: Here, a maximum throughput of 44.9 MB/sec was determined.
+* R1, W1: The current throughput is 23.6 MB/sec read and 17.2 MB/sec write.
+* R5, W5: The throughput from now to 5 measured values in the past is 23.1 MB/sec read and 18.6 MB/sec write.
+* RW5: Compared to the current values, there was a higher throughput for a while. Since a maximum of 44.9 MB/sec throughput has been measured for this disk so far, a mean throughput (RW5) value of 41.7 MB/sec results in a warning (``41.7 MB/sec >= 44.9 MB/sec * 80%``). The current value of 23.6 MB/sec doesn't matter, this is only a snapshot. The check alerts because there is unusual high disk I/O over a certain amount of time.
 
 Hints:
 
@@ -85,14 +93,16 @@ Output:
 
 .. code-block:: text
 
-    dm-2: 516.0B/s read, 540.1KiB/s write (current)
+    dm-0: 26.0MiB/s read, 21.1MiB/s write (current)
 
-    Disk      RWmax/s R1/s   W1/s     R5/s   W5/s    RW5/s   State 
-    ----      ------- ----   ----     ----   ----    -----   ----- 
-    dm-0      2.2GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
-    dm-2      2.1GiB  516.0B 540.1KiB 5.2KiB 9.9MiB  9.9MiB  [OK]  
-    nvme0n1   2.1GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
-    nvme0n1p3 2.1GiB  516.0B 533.3KiB 5.2KiB 10.2MiB 10.2MiB [OK]  
+    Disk ! RWmax/s ! R1/s    ! W1/s     ! R5/s    ! W5/s     ! RW5/s             
+    -----+---------+---------+----------+---------+----------+-------------------
+    dm-0 ! 47.1MiB ! 26.0MiB ! 21.1MiB  ! 21.9MiB ! 18.4MiB  ! 40.3MiB [WARNING] 
+    dm-1 ! 10.0MiB ! 0.0B    ! 7.7KiB   ! 585.1B  ! 3.2KiB   ! 3.7KiB            
+    sda  ! 15.6MiB ! 3.4MiB  ! 167.7KiB ! 5.7MiB  ! 148.5KiB ! 5.8MiB            
+    sda1 ! 15.6MiB ! 3.4MiB  ! 167.7KiB ! 5.7MiB  ! 148.5KiB ! 5.8MiB            
+    sdb  ! 46.0MiB ! 22.6MiB ! 20.9MiB  ! 16.3MiB ! 18.2MiB  ! 34.5MiB           
+    sdb2 ! 46.0MiB ! 22.6MiB ! 20.9MiB  ! 16.3MiB ! 18.2MiB  ! 34.5MiB
 
 
 States
@@ -130,7 +140,7 @@ Troubleshooting
 ---------------
 
 psutil raised error "not sure how to interpret line '...'"
-    Update the ``psutil`` library. On Rocky 8, use at least ``python38`` and ``python38-psutil``.
+    Update the ``psutil`` library. On RHEL 8+, use at least ``python38`` and ``python38-psutil``.
 
 
 Credits, License
