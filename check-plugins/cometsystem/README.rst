@@ -4,7 +4,7 @@ Check cometsystem
 Overview
 --------
 
-This check targets the JSON endpoint of _COMET SYSTEM:https://www.cometsystem.com/ Web Sensors.
+This check targets the JSON endpoint of `COMET SYSTEM<https://www.cometsystem.com/>`_ Web Sensors.
 Alert states can be set per Meassuremt and on low and high theashold violations.
 
 
