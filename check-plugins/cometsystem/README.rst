@@ -5,7 +5,7 @@ Overview
 --------
 
 This check targets the JSON endpoint of `COMET SYSTEM <https://www.cometsystem.com/>`_ Web Sensors.
-Alert states can be set per Meassuremt and on low and high theashold violations.
+Alert states can be set per measurement and on low and high threshold violations.
 
 
 Fact Sheet
@@ -31,7 +31,7 @@ Help
                         [--timeout TIMEOUT] [-u URL]
 
     This check targets the JSON endpoint of https://www.cometsystem.com/ Web Sensors.
-    Alert states can be set per Meassuremt and on low and high theashold violations.
+    Alert states can be set per measurement and on low and high threshold violations.
 
     optional arguments:
       -h, --help            show this help message and exit
