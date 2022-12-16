@@ -10,7 +10,7 @@ Refer to the `online manual <https://restic.readthedocs.io/en/latest/index.html>
 
 Hints:
 
-* Requires restic 0.14.0+
+* Requires restic 0.12.1+
 
 
 Fact Sheet
