@@ -172,7 +172,7 @@ If you get a warning on
 * display_startup_errors - N/A: Could happen while a PHP or Icinga update is running on your machine.
 * ``No entry for terminal type "unknown"; using dump terminal settings.``: maybe you are using a too old PHP version.
 
-Warning on Startup errors like ``PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' ...` etc. for no reason?
+Warning on Startup errors like ``PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' ...`` etc. for no reason?
 
 * Update this plugin.
 
