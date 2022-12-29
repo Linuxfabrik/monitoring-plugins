@@ -37,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071601'
+__version__ = '2022122901'
 
 DESCRIPTION = """Checks storage engines, fragmented tables and autoindex usage in MySQL/MariaDB."""
 
@@ -149,17 +149,6 @@ def main():
     msg = ''
     state = STATE_OK
 
-    sql = '''
-        select ENGINE as engine, SUPPORT as support
-        from information_schema.engines
-        order by ENGINE asc;
-    '''
-    engineresults = lib.base3.coe(lib.db_mysql3.select(conn, sql))
-
-    for engineresult in engineresults:
-        engine = engineresult['engine']
-        engineenabled = engineresult['support']
-
     # MySQL 5.1.5+ servers can have table sizes calculated quickly from information schema
     enginestats = {}
     sql = '''
@@ -168,7 +157,7 @@ def main():
             count(ENGINE) as count,
             sum(DATA_LENGTH) as dsize,
             sum(INDEX_LENGTH) as isize
-        from information_schema.TABLES
+        from information_schema.tables
         where TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql')
             and ENGINE is not null
         group by ENGINE
@@ -204,7 +193,7 @@ def main():
     sql = '''
         select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name,
             cast(DATA_FREE as signed) as data_free
-        from information_schema.TABLES
+        from information_schema.tables
         where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'mysql')
             and DATA_LENGTH/1024/1024 > 100
             and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10
