@@ -8,6 +8,7 @@ Checks storage engines, fragmented tables and autoindex usage in MySQL/MariaDB. 
 
 Hints:
 
+* Requires a user account with high privileges to access schemas like INFORMATION_SCHEMA. `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
 * Requires MySQL/MariaDB v5.5+.
 * On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
 * Compared to check_mysql / MySQLTuner this check currently:
@@ -89,6 +90,13 @@ Perfdata / Metrics
 ------------------
 
 There is no perfdata.
+
+
+Troubleshooting
+---------------
+
+InnoDB is enabled but isn't being used. Add skip-innodb to MySQL configuration to disable InnoDB
+    But InnoDB is enabled? You must use a user with the sufficiently high permissions to access the MySQL/MariaDB internals for this check to work properly.
 
 
 Credits, License
