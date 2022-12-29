@@ -9,6 +9,7 @@ Returns information and statistics about the Redis server. Alerts on memory cons
 Hints:
 
 * Tested on Redis 3.0, 3.2, 6.0, 6.2 and 7.0.
+* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
 Fact Sheet
