@@ -1,0 +1,46 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+import lib.shell3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './infomaniak-events3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --token=TOKEN --test=examples/EXAMPLE01,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Type        ! Title               ! Start               ! End', stdout)
+        self.assertIn('------------+---------------------+---------------------+--------------------', stdout)
+        self.assertIn('enhancement ! Network maintenance ! 2022-12-23 10:55:50 ! 2023-01-01 12:46:37', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --token=TOKEN --test=examples/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Type        ! Title                                ! Start               ! End', stdout)
+        self.assertIn('------------+--------------------------------------+---------------------+--------------------', stdout)
+        self.assertIn('impacting   ! Mail Service                         ! 2022-12-21 12:50:36 ! 2022-12-21 13:18:53', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
+if __name__ == '__main__':
+    unittest.main()

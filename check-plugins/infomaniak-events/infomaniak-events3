@@ -1,0 +1,169 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import json # pylint: disable=C0413
+import sys # pylint: disable=C0413
+
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.human3 # pylint: disable=C0413
+import lib.infomaniak3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+import lib.txt3 # pylint: disable=C0413
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023010201'
+
+DESCRIPTION = """Informs you about open events at Infomaniak."""
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--token',
+        help='Infomaniak API token',
+        dest='TOKEN',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.base3.coe(lib.infomaniak3.get_events(args.TOKEN))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = lib.base3.get_perfdata('event', 0, None, None, None, 0, None)
+    table_data = []
+
+    # analyze data
+    for event in result.get('data', {}):
+        # use english translation only
+        title = next((tr['title'] for tr in event.get('description').get('translations') if tr['language'] == 'en'), event.get('description').get('title'))
+        if event.get('status') != 'terminated':
+            msg += '{}: {} ({}), '.format(
+                event.get('type'),
+                title,
+                event.get('status'),
+            )
+            state = STATE_WARN
+            perfdata = perfdata.replace('=0', '=1')
+
+        # currently don't know what is returned in case of an ongoing event, so
+        # error handling here is an open TODO
+        table_data.append({
+            'type': event.get('type'),
+            'status': event.get('status'),
+            'title': title,
+            'started_at': '{}'.format(
+                lib.time3.epoch2iso(int(event.get('started_at'))),
+            ),
+            'ended_at': '{} ({} ago)'.format(
+                lib.time3.epoch2iso(int(event.get('ended_at'))),
+                lib.human3.seconds2human(lib.time3.now(as_type='epoch') - int(event.get('ended_at'))),
+            ),
+            'duration': lib.human3.seconds2human(event.get('ended_at') - event.get('started_at')),
+        })
+
+    # build the message
+    if table_data:
+        keys = [
+            'type',
+            'title',
+            'started_at',
+            'ended_at',
+            'duration',
+        ]
+        headers = [
+            'Type',
+            'Title',
+            'Start',
+            'End',
+            'Duration',
+        ]
+
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n' + msg
+    else:
+        msg = msg[:-2] + '\n\n'
+    msg += lib.base3.get_table(table_data , keys, header=headers)
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()
