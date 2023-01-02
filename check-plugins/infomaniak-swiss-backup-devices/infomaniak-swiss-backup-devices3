@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022052001'
+__version__ = '2023010201'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
@@ -194,10 +194,36 @@ def main():
 
     # build the message
     if table_data:
-        keys = ['id', 'product_customer_name', 'product_tags', 'username', 'customer_name', 'connection_type', 'used_percent', 'used', 'usage_last_check', 'locked']
-        headers = ['ID', 'Customer', 'Tags', 'User', 'Name', 'Type', 'Used %', 'Used', 'Usage Upd.', 'Locked']
+        keys = [
+            'id',
+            'product_customer_name',
+            'product_tags',
+            'username',
+            'customer_name',
+            'connection_type',
+            'used_percent',
+            'used',
+            'usage_last_check',
+            'locked',
+        ]
+        headers = [
+            'ID',
+            'Customer',
+            'Tag',
+            'User',
+            'Name',
+            'Type',
+            'Used %',
+            'Used',
+            'Usage Upd.',
+            'Locked',
+        ]
         # sort table by user tags
-        msg += lib.base3.get_table(sorted(table_data, key=lambda d: d['product_tags']) , keys, header=headers)
+        msg += lib.base3.get_table(
+            sorted(table_data, key=lambda d: d['product_tags']),
+            keys,
+            header=headers,
+        )
 
     if state == STATE_CRIT:
         msg = 'There are critical errors.\n\n' + msg

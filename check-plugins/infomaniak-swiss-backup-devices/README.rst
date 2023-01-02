@@ -16,7 +16,7 @@ Hints:
 Links:
 
 * Swiss Backup: https://www.infomaniak.com/en/swiss-backup
-* API Documentation: https://developer.infomaniak.com/, https://api.infomaniak.com/doc
+* API Documentation: https://developer.infomaniak.com/docs/api/get/1/swiss_backups
 * API Tokens: https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token
 
 
@@ -76,7 +76,7 @@ Output:
 
     There are critical errors.
 
-    ID    ! Customer     ! Tags  ! User         ! Name   ! Type  ! Usage                                 ! Usage Upd. ! Locked
+    ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Usage                                 ! Usage Upd. ! Locked
     ------+--------------+-------+--------------+--------+-------+---------------------------------------+------------+--------
     99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! 9.4% (13.2GiB / 139.7GiB)             ! 2h 18m ago ! False  
     99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! 7.1% (3.3GiB / 46.6GiB)               ! 2h 18m ago ! False  
