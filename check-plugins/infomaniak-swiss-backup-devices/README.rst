@@ -4,7 +4,7 @@ Check infomaniak-swiss-backup-devices
 Overview
 --------
 
-Checks each device / slot of all your Infomaniak Swiss backup products via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
+Checks each device / slot of all your Infomaniak Swiss backup products via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "swiss-backup" at Infomaniak first.
 
 The output table is sorted by the "Tags" column.
 

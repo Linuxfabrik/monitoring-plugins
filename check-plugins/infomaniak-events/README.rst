@@ -4,7 +4,7 @@ Check infomaniak-events
 Overview
 --------
 
-Informs you about open events at Infomaniak via the Infomaniak API. To use this check, you have to create a Bearer Token at Infomaniak first.
+Informs you about open events at Infomaniak via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "event" at Infomaniak first.
 
 Links:
 

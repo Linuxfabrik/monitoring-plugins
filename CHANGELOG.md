@@ -21,6 +21,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Monitoring Plugins:
 
 * crypto-policy
+* infomaniak-events
 * journald-query
 * journald-usage
 * ntp-chronyd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
