@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022070601'
+__version__ = '2023010201'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
@@ -149,36 +149,36 @@ def main():
         state = lib.base3.get_worst(state, expired_at_state)
 
         if args.SEVERITY == 'warn':
-            maintenance_state = lib.base3.get_state(product.get('maintenance', False), True, None, _operator='eq')
+            maintenance_state = lib.base3.get_state(product.get('has_maintenance', False), True, None, _operator='eq')
         else:
-            maintenance_state = lib.base3.get_state(product.get('maintenance', False), None, True, _operator='eq')
+            maintenance_state = lib.base3.get_state(product.get('has_maintenance', False), None, True, _operator='eq')
         state = lib.base3.get_worst(state, maintenance_state)
 
         if args.SEVERITY == 'warn':
-            locked_state = lib.base3.get_state(product.get('locked', False), True, None, _operator='eq')
+            locked_state = lib.base3.get_state(product.get('is_locked', False), True, None, _operator='eq')
         else:
-            locked_state = lib.base3.get_state(product.get('locked', False), None, True, _operator='eq')
+            locked_state = lib.base3.get_state(product.get('is_locked', False), None, True, _operator='eq')
         state = lib.base3.get_worst(state, locked_state)
 
         if args.SEVERITY == 'warn':
-            busy_state = lib.base3.get_state(product.get('operation_in_progress', False), True, None, _operator='eq')
+            busy_state = lib.base3.get_state(product.get('has_operation_in_progress', False), True, None, _operator='eq')
         else:
-            busy_state = lib.base3.get_state(product.get('operation_in_progress', False), None, True, _operator='eq')
+            busy_state = lib.base3.get_state(product.get('has_operation_in_progress', False), None, True, _operator='eq')
         state = lib.base3.get_worst(state, busy_state)
 
-        perfdata += lib.base3.get_perfdata('{}-busy'.format(product.get('id')), int(product.get('busy', False)), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}-locked'.format(product.get('id')), int(product.get('locked', False)), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}-maintenance'.format(product.get('id')), int(product.get('maintenance', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-busy'.format(product.get('id')), int(product.get('has_operation_in_progress', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-locked'.format(product.get('id')), int(product.get('is_locked', False)), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}-maintenance'.format(product.get('id')), int(product.get('has_maintenance', False)), None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('{}-size'.format(product.get('id')), product.get('size'), 'B', None, None, 0, None)
         perfdata += lib.base3.get_perfdata('{}-storage_reserved'.format(product.get('id')), product.get('storage_reserved'), 'B', None, None, 0, None)
 
         table_data.append({
-            'busy': '{}{}'.format(product.get('operation_in_progress', False), lib.base3.state2str(busy_state, prefix=' ')),
+            'busy': '{}{}'.format(product.get('has_operation_in_progress', False), lib.base3.state2str(busy_state, prefix=' ')),
             'customer_name': product.get('customer_name'),
             'expires_in': '{}{}'.format(lib.human3.seconds2human(expired_at), lib.base3.state2str(expired_at_state, prefix=' ')),
             'id': product.get('id'),
-            'locked': '{}{}'.format(product.get('locked', False), lib.base3.state2str(locked_state, prefix=' ')),
-            'maintenance': '{}{}'.format(product.get('maintenance', False), lib.base3.state2str(maintenance_state, prefix=' ')),
+            'locked': '{}{}'.format(product.get('is_locked', False), lib.base3.state2str(locked_state, prefix=' ')),
+            'maintenance': '{}{}'.format(product.get('has_maintenance', False), lib.base3.state2str(maintenance_state, prefix=' ')),
             'max_slots': product.get('max_slots'),
             'nb_slots': product.get('nb_slots'),
             'size': '{} / {}'.format(lib.human3.bytes2human(product.get('storage_reserved')), lib.human3.bytes2human(product.get('size'))),
@@ -188,7 +188,7 @@ def main():
     # build the message
     if table_data:
         keys = ['id', 'customer_name', 'tags', 'size', 'nb_slots', 'expires_in', 'maintenance', 'locked', 'busy']
-        headers = ['ID', 'Customer', 'Tags', 'Size (alloc/avail)', 'Dev', 'Expires in', 'Maint.', 'Locked', 'Busy']
+        headers = ['ID', 'Customer', 'Tag', 'Size (alloc/avail)', 'Dev', 'Expires in', 'Maint.', 'Locked', 'Busy']
         # sort table by user tags
         msg += lib.base3.get_table(sorted(table_data, key=lambda d: d['tags']) , keys, header=headers)
 
