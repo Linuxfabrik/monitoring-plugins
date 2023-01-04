@@ -38,7 +38,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022080701'
+__version__ = '2023010401'
 
 DESCRIPTION = '''This plugin checks the clock offset of chronyd in milliseconds
                  compared to ntp servers.'''
@@ -147,7 +147,7 @@ def main():
     offset_state = lib.base3.get_state(abs(last_offset), args.WARN, args.CRIT)
     state = lib.base3.get_worst(state, offset_state)
     msg += 'NTP offset is {}ms{}, '.format(
-        last_offset,
+        round(last_offset, 3),
         lib.base3.state2str(offset_state, prefix=' '),
     )
     msg += 'Stratum is {}'.format(stratum)
