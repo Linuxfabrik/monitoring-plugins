@@ -43,6 +43,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
