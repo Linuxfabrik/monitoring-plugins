@@ -51,7 +51,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010501'
+__version__ = '2023010502'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -323,6 +323,15 @@ def find_software(): # pylint: disable=R0915
         'tag-name': None,
         'guessed': os.path.isdir('/var/www/html/contao'),
         'installed': False,
+        'version': None,
+    }
+
+    output = run_cmd('systemctl is-active coturn.service')
+    s['coturn'] = {
+        'display-name': 'coturn',
+        'tag-name': 'coturn',
+        'guessed': False,
+        'installed': output is not False,
         'version': None,
     }
 
@@ -1416,15 +1425,6 @@ def find_software(): # pylint: disable=R0915
         'guessed': False,
         'installed': output is not False,
         'version': run_regex(output, r' (.*)') if output is not False else None,
-    }
-
-    output = run_cmd('command -v turnserver')
-    s['turnserver'] = {
-        'display-name': 'coturn',
-        'tag-name': 'coturn',
-        'guessed': False,
-        'installed': output is not False,
-        'version': None,
     }
 
     output = run_cmd('vagrant --version')
