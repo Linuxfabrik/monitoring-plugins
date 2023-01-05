@@ -27,6 +27,7 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import re # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
 import lib.base3 # pylint: disable=C0413
@@ -38,7 +39,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062001'
+__version__ = '2023010501'
 
 DESCRIPTION = 'This plugin lets you track if mydumper updates are available.'
 
@@ -75,6 +76,21 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_installed_version():
+    success, result = lib.shell3.shell_exec('mydumper --version')
+    if not success:
+        return ''
+    stdout, stderr, retc = result
+    stdout = stdout.strip()
+    # where to find the version number in output?
+    version_regex = r'mydumper(.*?),'
+    try:
+        stdout = re.match(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
 def get_latest_version(expire):
     # get version online, but first from cache
     latest_version = lib.cache3.get('mydumper-version')
@@ -82,11 +98,11 @@ def get_latest_version(expire):
         return (True, latest_version)
 
     # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url3.get_latest_version_from_github('maxbube', 'mydumper')
+    success, latest_version = lib.url3.get_latest_version_from_github('mydumper', 'mydumper')
     if not success:
         return (success, latest_version)
 
-    lib.cache3.set('mydumper-version', lib.base3.version2float(latest_version), lib.time3.now() + expire)
+    lib.cache3.set('mydumper-version', latest_version, lib.time3.now() + expire)
     return (True, latest_version)
 
 
@@ -100,9 +116,10 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    installed_version = lib.shell3.get_command_output('mydumper --version', regex=r' (.*?),')
+    installed_version = get_installed_version()
     if not installed_version:
         lib.base3.oao('mydumper/myloader not found', STATE_UNKNOWN)
+
     latest_version = lib.base3.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
     perfdata = lib.base3.get_perfdata('mydumper-version', lib.base3.version2float(installed_version), None, None, None, 0, None)
 
