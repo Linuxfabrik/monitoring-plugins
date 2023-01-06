@@ -51,7 +51,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010502'
+__version__ = '2023010601'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -181,24 +181,6 @@ def find_software(): # pylint: disable=R0915
         'installed': output is not False,
         'version': run_regex(output, r'^BIND (.*?)-') if output is not False else None,
     }
-
-    if HAVE_PSUTIL:
-        bonding_interfaces = False
-        # Get a list of all network interfaces
-        interfaces = psutil.net_if_addrs()
-        # Iterate over the interfaces and check if they are bonding interfaces
-        for interface, addresses in interfaces.items():
-            for address in addresses:
-                if "bond" in interface:
-                    bonding_interfaces = True
-                    break
-        s['bonding'] = {
-            #'display-name': 'Bonding',
-            'tag-name': 'bonding',
-            'guessed': False,
-            'installed': bonding_interfaces,
-            'version': None,
-        }
 
     output = run_cmd('borg --version')
     s['borg'] = {
