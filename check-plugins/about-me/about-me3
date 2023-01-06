@@ -51,7 +51,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010601'
+__version__ = '2023010602'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -1670,28 +1670,30 @@ def get_interfaces():
 
 def get_listening_ports():
     result = []
-    if not HAVE_PSUTIL:
-        return result
-    nc = psutil.net_connections('inet')
-    for c in nc:
-        ip, port = c.laddr
-        if c.type == socket.SOCK_DGRAM:
-            # ignore udp
-            continue
-        if c.type == socket.SOCK_STREAM and c.status == psutil.CONN_LISTEN:
-            proto = 'tcp'
-        else:
-            continue
-        if c.family == socket.AF_INET:
-            proto += '4'
-        else:
-            proto += '6'
-        result.append({
-            'proto': proto,
-            'ip': ip if ip != '::' else '[::]',
-            'port': port,
-        })
-    return sorted(result, key=lambda d: d['port']) 
+    try:
+        nc = psutil.net_connections('inet')
+        for c in nc:
+            ip, port = c.laddr
+            if c.type == socket.SOCK_DGRAM:
+                # ignore udp
+                continue
+            if c.type == socket.SOCK_STREAM and c.status == psutil.CONN_LISTEN:
+                proto = 'tcp'
+            else:
+                continue
+            if c.family == socket.AF_INET:
+                proto += '4'
+            else:
+                proto += '6'
+            result.append({
+                'proto': proto,
+                'ip': ip if ip != '::' else '[::]',
+                'port': port,
+            })
+        return sorted(result, key=lambda d: d['port']) 
+    except:
+        pass
+    return result
 
 
 def get_nondefault_users():
@@ -1824,9 +1826,11 @@ def get_sys_dimensions():
     """get some very basic system statistics
     """
     sys_dimensions = {}
-    if HAVE_PSUTIL:
+    try:
         sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
         sys_dimensions['ram'] = psutil.virtual_memory().total
+    except:
+        pass
     return sys_dimensions
 
 
