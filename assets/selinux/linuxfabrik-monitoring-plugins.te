@@ -1,0 +1,48 @@
+
+module linuxfabrik-monitoring-plugins 1.0;
+
+require {
+    type auditd_log_t;
+    type chronyd_exec_t;
+    type devlog_t;
+    type gpg_exec_t;
+    type httpd_config_t;
+    type httpd_exec_t;
+    type hugetlbfs_t;
+    type icinga2_t;
+    type iptables_exec_t;
+    type lvm_exec_t;
+    type mysqld_etc_t;
+    type postfix_etc_t;
+    type ssh_exec_t;
+    type sysfs_t;
+    type systemd_systemctl_exec_t;
+    type virt_qemu_ga_exec_t;
+    class capability { dac_override dac_read_search };
+    class dir { read search };
+    class file getattr;
+    class file { execute execute_no_trans getattr map open read write };
+    class lnk_file read;
+}
+
+#============= icinga2_t ==============
+allow icinga2_t auditd_log_t:dir search;
+allow icinga2_t auditd_log_t:file getattr;
+allow icinga2_t chronyd_exec_t:file execute;
+allow icinga2_t chronyd_exec_t:file { execute execute_no_trans open read };
+allow icinga2_t devlog_t:lnk_file read;
+allow icinga2_t gpg_exec_t:file { execute execute_no_trans open read };
+allow icinga2_t httpd_config_t:dir search;
+allow icinga2_t httpd_exec_t:file { execute execute_no_trans open read };
+allow icinga2_t hugetlbfs_t:file { map read write };
+allow icinga2_t iptables_exec_t:file { execute getattr read };
+allow icinga2_t lvm_exec_t:file { execute getattr read };
+allow icinga2_t mysqld_etc_t:file { getattr open read };
+allow icinga2_t postfix_etc_t:dir search;
+allow icinga2_t postfix_etc_t:file { open read };
+allow icinga2_t self:capability { dac_override dac_read_search };
+allow icinga2_t ssh_exec_t:file { execute execute_no_trans open read };
+allow icinga2_t sysfs_t:dir read;
+allow icinga2_t sysfs_t:file { open read };
+allow icinga2_t systemd_systemctl_exec_t:file { execute execute_no_trans open read };
+allow icinga2_t virt_qemu_ga_exec_t:file { execute execute_no_trans open read };

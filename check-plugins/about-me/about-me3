@@ -51,7 +51,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010602'
+__version__ = '2023010603'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -88,7 +88,7 @@ def find_software(): # pylint: disable=R0915
     """
     s = {}  # sorted by s['keyname']
 
-    output = run_cmd('acme.sh --version')
+    output = run_cmd('/opt/acme.sh/acme.sh --version')
     s['acme.sh'] = {
         'display-name': 'acme.sh',
         'tag-name': 'acme.sh',
@@ -923,6 +923,8 @@ def find_software(): # pylint: disable=R0915
     }
 
     output = run_cmd('openvpn --version')
+    if not output:
+        output = run_cmd('command -v openvpn')
     s['openvpn'] = {
         'display-name': 'OpenVPN',
         'tag-name': 'openvpn-server',

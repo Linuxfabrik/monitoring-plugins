@@ -46,6 +46,19 @@ On Linux, some check plugins require `sudo`-permissions to run. To do this, we p
 > We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
+## SELinux
+
+If you are running the plugins on an instance with SELinux that has the `icinga2-selinux` package installed (usually the Icinga server itself), you may need the [Linuxfabrik Monitoring Plugins SELinux Policy Ruleset](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te) to grant some plugins access to certain resources.
+
+Activate the ruleset like so:
+
+```bash
+checkmodule --mls -m --output linuxfabrik-monitoring-plugins.mod linuxfabrik-monitoring-plugins.te
+semodule_package --outfile linuxfabrik-monitoring-plugins.pp --module linuxfabrik-monitoring-plugins.mod
+semodule --install linuxfabrik-monitoring-plugins.pp
+```
+
+
 ## Check Plugin Poster
 
 See most of our check plugins at a glance on an Icinga server:
