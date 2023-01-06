@@ -44,7 +44,6 @@ Help
     options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
-      --always-ok          Always returns OK.
       --insecure           This option explicitly allows to perform "insecure" SSL
                            connections. Default: False
       --no-proxy           Do not use a proxy. Default: False
@@ -77,8 +76,7 @@ Output:
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if app updates are available.
+* Always returns OK.
 
 
 Perfdata / Metrics
