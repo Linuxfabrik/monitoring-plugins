@@ -37,7 +37,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022122901'
+__version__ = '2023010901'
 
 DESCRIPTION = """Checks storage engines, fragmented tables and autoindex usage in MySQL/MariaDB."""
 
@@ -208,7 +208,7 @@ def main():
         )
         total_free = 0
         for fragtable in fragtables:
-            table_schema, table_name = fragtable['full_table_name'].split('.')
+            table_schema, table_name = fragtable['full_table_name'].rsplit('.', 1)  # my.schema.my_table
             data_free = fragtable.get('data_free', 0)
             total_free += data_free
             msg += '* OPTIMIZE TABLE `{}`.`{}`; -- can free {}\n'.format(
