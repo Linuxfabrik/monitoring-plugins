@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021602'
+__version__ = '2023011201'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -290,7 +290,12 @@ def main():
     # memory state
     if not result['memory_doctor'].startswith('Hi Sam'):
         # have a look at https://github.com/redis/redis/blob/unstable/src/object.c
-        mem_state = STATE_WARN
+        if result['memory_doctor'].count(' * ') == 1 \
+        and result['memory_doctor'].startswith(' * Peak memory: '):
+            # just this one warning, which is harmless, so ignore this
+            mem_state = STATE_OK
+        else:
+            mem_state = STATE_WARN
         msg += '{}{}, '.format(result['memory_doctor'],
             lib.base3.state2str(mem_state, prefix=' '),
         )
