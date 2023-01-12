@@ -61,7 +61,7 @@ semodule --install linuxfabrik-monitoring-plugins.pp
 
 ## Check Plugin Poster
 
-See most of our check plugins at a glance on an Icinga server:
+See some of our check plugins at a glance on an Icinga server:
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins.png)
 
@@ -98,12 +98,6 @@ A few comments about our monitoring plugins:
 > Hello, I stumbled across your collection and am thrilled! Especially the extensive documentary and the Director Baskets are a dream.
 
 -- Stefan Beining
-
-
-In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
-
-* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/forms/WQRMnkYTW3j8Aaa6).
-
 
 
 ## Human Readable Numbers
