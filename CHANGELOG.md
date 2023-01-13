@@ -18,6 +18,11 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+Features:
+
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policy](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te) Ruleset
+* Add AlmaLinux8.sudoers pointing to RedHat8.sudoers
+
 Monitoring Plugins:
 
 * crypto-policy
@@ -33,26 +38,49 @@ Monitoring Plugins:
 * systemd-timedate-status
 * tuned-profile
 
+Notification Plugins:
+
+* notify-host-rocketchat-telegram
+* notify-host-zoom
+* notify-service-rocketchat-telegram
+
 Icinga Director:
 
 * AIDE Service Set
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
+* Remove DiagTrack from Windows Service Sets, since it's windows telemetry
 
 
 ### Changed
 
 Monitoring Plugins:
 
+* about-me3: Add detection of restic
+* about-me3: Add detection of Snap
+* about-me3: Improve detection of coturn
+* about-me3: Improve psutil error handling
+* about-me3: Remove unstable bonding detection
 * about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
+* disk-usage: Move state output to usage column
+* dmesg3: add additional message to ignorelist
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
-* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
+* infomaniak-swiss-backup-\*: Apply new API version
 * matomo-reporting3: Perfdata now is also aware of percentages
-* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621)) 
+* mysql-storage-engines3: Improve recognition of schema.table
+* mysql-user-security: Ignore mysql.sys and mariadb.sys users
+* php-status3: Improve output in case of startup/config/module errors
+* php-status3: URL to monitoring.php should be optional
+* php-version: Add PHP 8.3
+* qts-version3: Add support for firmware 5.0.1+
+* redis-status: Do not warn on "Peak memory"
 
 Libs:
 
+* lib/base3: Make get_worst() more robust
 * lib/human3.py: human2bytes() is now also able to interpret "3.0M"
+* lib/infomaniak3.py: Apply new API version
+* lib/wildfly3.py: Update
 
 Icinga Director:
 
@@ -74,11 +102,14 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
 * mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
-* mysql-user-security: Ignore mysql.sys and mariadb.sys users
-* ntp-offset: Remove debug print message
+* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
 * ping: ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
+* service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
+* systemd-timedate-status: UNKNOWN with "unknown operation show" on RHEL7 ([#605]https://github.com/Linuxfabrik/monitoring-plugins/issues/605))
 
 
 ### Removed

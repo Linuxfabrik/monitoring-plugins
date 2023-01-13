@@ -41,7 +41,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010202'
+__version__ = '2023011301'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
@@ -155,15 +155,28 @@ def main():
             state = lib.base3.get_worst(state, used_state)
 
             if args.SEVERITY == 'warn':
-                locked_state = lib.base3.get_state(slot_data.get('locked', False), True, None, _operator='eq')
+                locked_state = lib.base3.get_state(
+                    slot_data.get('locked', False),
+                    True,
+                    None,
+                    _operator='eq',
+                )
             else:
-                locked_state = lib.base3.get_state(slot_data.get('locked', False), None, True, _operator='eq')
+                locked_state = lib.base3.get_state(
+                    slot_data.get('locked', False),
+                    None,
+                    True,
+                    _operator='eq',
+                )
             state = lib.base3.get_worst(state, locked_state)
 
-            perfdata += lib.base3.get_perfdata('{}-locked'.format(slot_data.get('id')), int(slot_data.get('locked', False)), None, None, None, 0, None)
-            perfdata += lib.base3.get_perfdata('{}-percent'.format(slot_data.get('id')), used, '%', args.WARN, args.CRIT, 0, 100)
-            perfdata += lib.base3.get_perfdata('{}-total'.format(slot_data.get('id')), slot_data.get('size'), 'B', None, None, 0, slot_data.get('size'))
-            perfdata += lib.base3.get_perfdata('{}-usage'.format(slot_data.get('id')), slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size'))
+            perfdata += lib.base3.get_perfdata('{}-locked'.format(slot_data.get('id')), int(slot_data.get('locked', False)), None, None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-percent'.format(slot_data.get('id')), used, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-total'.format(slot_data.get('id')), slot_data.get('size'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-usage'.format(slot_data.get('id')), slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+
+            if slot_data.get('usage_last_check') is None:
+                slot_data['usage_last_check'] = 0
 
             table_data.append({
                 'activate_notifications': slot_data.get('activate_notifications'),
@@ -172,14 +185,17 @@ def main():
                 'customer_name': slot_data.get('customer_name'),
                 'id': slot_data.get('id'),
                 'lang': slot_data.get('lang'),
-                'locked': '{}{}'.format(slot_data.get('locked', False), lib.base3.state2str(locked_state, prefix=' ')),
+                'locked': '{}{}'.format(
+                    slot_data.get('locked', False),
+                    lib.base3.state2str(locked_state, prefix=' '),
+                ),
                 'product_customer_name': slot.get('product_customer_name'),
                 'product_tags': ', '.join([i['name'] for i in slot.get('product_tags')]),
                 'subtype': slot_data.get('subtype'),
                 'type': slot_data.get('type'),
                 'unit_admin': slot_data.get('unit_admin'),
                 'usage_last_check': '{} ago'.format(
-                    lib.human3.seconds2human(lib.time3.now(as_type='epoch') - slot_data.get('usage_last_check', 0)),
+                    lib.human3.seconds2human(lib.time3.now(as_type='epoch') - slot_data['usage_last_check']), # pylint: disable=C0301
                 ),
                 'used': '{} / {}'.format(
                     lib.human3.bytes2human(slot_data.get('storage_used')),
