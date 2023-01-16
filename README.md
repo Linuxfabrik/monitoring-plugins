@@ -48,7 +48,7 @@ On Linux, some check plugins require `sudo`-permissions to run. To do this, we p
 
 ## SELinux
 
-If you are running the plugins on an instance with SELinux that has the `icinga2-selinux` package installed (usually the Icinga server itself), you may need the [Linuxfabrik Monitoring Plugins SELinux Policy Ruleset](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te) to grant some plugins access to certain resources.
+If you are running the plugins on an instance with SELinux that has the `icinga2-selinux` package installed (usually the Icinga server itself), you may need the [Linuxfabrik Monitoring Plugins SELinux Policy Ruleset](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/selinux/linuxfabrik-monitoring-plugins.te) to grant some plugins access to certain resources.
 
 Activate the ruleset like so:
 
