@@ -41,7 +41,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023010201'
+__version__ = '2023011601'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -119,8 +119,6 @@ def main():
             state = STATE_WARN
             perfdata = perfdata.replace('=0', '=1')
 
-        # currently don't know what is returned in case of an ongoing event, so
-        # error handling here is an open TODO
         table_data.append({
             'type': event.get('type'),
             'status': event.get('status'),
@@ -128,11 +126,14 @@ def main():
             'started_at': '{}'.format(
                 lib.time3.epoch2iso(int(event.get('started_at'))),
             ),
+            # in case of an ongoing event, ended_at is "None" 
             'ended_at': '{} ({} ago)'.format(
                 lib.time3.epoch2iso(int(event.get('ended_at'))),
                 lib.human3.seconds2human(lib.time3.now(as_type='epoch') - int(event.get('ended_at'))),
-            ),
-            'duration': lib.human3.seconds2human(event.get('ended_at') - event.get('started_at')),
+            ) if event.get('ended_at') is not None else 'in progress',
+            'duration': lib.human3.seconds2human(
+                event.get('ended_at') - event.get('started_at')
+            ) if event.get('ended_at') is not None else '',
         })
 
     # build the message
