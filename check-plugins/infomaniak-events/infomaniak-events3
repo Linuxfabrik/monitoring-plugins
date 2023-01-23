@@ -41,7 +41,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023011601'
+__version__ = '2023012302'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -110,11 +110,12 @@ def main():
     for event in result.get('data', {}):
         # use english translation only
         title = next((tr['title'] for tr in event.get('description').get('translations') if tr['language'] == 'en'), event.get('description').get('title'))
+        services = ', '.join([tr['name'] for tr in event.get('services')])
         if event.get('status') != 'terminated':
             msg += '{}: {} ({}), '.format(
                 event.get('type'),
                 title,
-                event.get('status'),
+                services,
             )
             state = STATE_WARN
             perfdata = perfdata.replace('=0', '=1')
@@ -123,6 +124,7 @@ def main():
             'type': event.get('type'),
             'status': event.get('status'),
             'title': title,
+            'services': services,
             'started_at': '{}'.format(
                 lib.time3.epoch2iso(int(event.get('started_at'))),
             ),
@@ -141,6 +143,7 @@ def main():
         keys = [
             'type',
             'title',
+            'services',
             'started_at',
             'ended_at',
             'duration',
@@ -148,6 +151,7 @@ def main():
         headers = [
             'Type',
             'Title',
+            'Services',
             'Start',
             'End',
             'Duration',
