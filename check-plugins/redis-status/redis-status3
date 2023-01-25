@@ -39,7 +39,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023011901'
+__version__ = '2023012501'
 
 DESCRIPTION = """Returns information and statistics about the Redis server. Alerts on memory
                 consumption, memory fragmentation, hit rates and more."""
@@ -288,14 +288,21 @@ def main():
     state = lib.base3.get_worst(state, keyspace_hit_state)
 
     # memory state
-    if not result['memory_doctor'].startswith('Hi Sam'):
+    if result['memory_doctor'].startswith('Sam, I detected a few issues'):
+        mem_state = STATE_WARN
         # have a look at https://github.com/redis/redis/blob/unstable/src/object.c
-        if result['memory_doctor'].count(' * ') == 1 \
-        and ' * Peak memory: ' in result['memory_doctor']:
+        if ' * Peak memory: ' in result['memory_doctor'] \
+        and result['memory_doctor'].count(' * ') == 1:
             # just this one warning, which is harmless, so ignore this
             mem_state = STATE_OK
-        else:
-            mem_state = STATE_WARN
+        if ' * High total RSS: ' in result['memory_doctor']:
+            # this instance has a memory fragmentation and RSS overhead greater than 1.4
+            if ' * Peak memory: ' in result['memory_doctor']:
+                # if the problem is a large peak memory, then there is no issue
+                mem_state = STATE_OK
+            if 'The currently used allocator is "jemalloc' in result['memory_doctor']:
+                # otherwise, make sure you are using the Jemalloc allocator and not the default libc malloc
+                mem_state = STATE_OK
         msg += '{}{}, '.format(result['memory_doctor'],
             lib.base3.state2str(mem_state, prefix=' '),
         )
