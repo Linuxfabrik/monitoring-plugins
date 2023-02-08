@@ -26,6 +26,8 @@ Features:
 Monitoring Plugins:
 
 * crypto-policy
+* csv-values
+* grassfish-licenses
 * infomaniak-events
 * journald-query
 * journald-usage

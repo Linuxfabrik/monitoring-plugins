@@ -1,0 +1,94 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+import lib.shell3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './csv-values3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01 --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER"'))
+        self.assertIn('Nothing to check, no queries provided', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER"'))
+        self.assertIn('Nothing to check, no queries provided', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01 --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test"'))
+        self.assertIn('I/O error "No such file or directory" while opening or reading examples/EXAMPLE01', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test"'))
+        self.assertIn('Query failed: test, Error: near "test": syntax error, Data: {}', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where 1"'))
+        self.assertIn('24 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE06(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from x where 1"'))
+        self.assertIn('Query failed: select * from x where 1, Error: no such table: x, Data: {}', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE07(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3"'))
+        self.assertIn('7 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE08(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=7'))
+        self.assertIn('7 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE09(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6'))
+        self.assertIn('7 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE10(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=4'))
+        self.assertIn('7 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE11(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --filename=examples/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from data where network = \'A\' and WaitingUpdates > 3" --warning=6 --critical-query="select * from data where network <> \'A\' and WaitingUpdates > 4" --critical=2'))
+        self.assertIn('7 results from warning query', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+
+if __name__ == '__main__':
+    unittest.main()

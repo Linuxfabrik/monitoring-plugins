@@ -27,25 +27,30 @@ if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
 
 
 import argparse # pylint: disable=C0413
+import base64 # pylint: disable=C0413
 import sys # pylint: disable=C0413
 
+import lib.args3 # pylint: disable=C0413
 import lib.base3 # pylint: disable=C0413
 import lib.db_sqlite3 # pylint: disable=C0413
+import lib.disk3 # pylint: disable=C0413
 try:
     import lib.smb3 # pylint: disable=C0413
     HAVE_SMB = True
 except ModuleNotFoundError as e:
     HAVE_SMB = False
-    missing_lib = e.name
+    missing_lib = e.name # pylint: disable=C0103
 import lib.txt3 # pylint: disable=C0413
 import lib.url3 # pylint: disable=C0413
 from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023020701'
+__version__ = '2023020802'
 
-DESCRIPTION = """TODO
+DESCRIPTION = """This check imports a CSV file into an SQLite database and can then run a separate
+                 warning query and/or a critical query against it. The result - the number of
+                 items found or a specific number - can be checked against a range expression.
               """
 
 DEFAULT_CHUNKSIZE = 1000
@@ -154,7 +159,7 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='SMB Password.',
+        help='SMB or HTTP Basic Auth Password.',
         dest='PASSWORD',
     )
 
@@ -191,7 +196,7 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='SMB Username.',
+        help='SMB or HTTP Basic Auth Username.',
         dest='USERNAME',
     )
 
@@ -213,6 +218,10 @@ def parse_args():
 
 
 def get_state_and_value(conn, query, threshold, _type):
+    """Execute SQL query, get the value and check against the threshold.
+    * One row, one column: Check this single value.
+    * x rows: Check the number of rows against the threshold.
+    """
     state = STATE_OK
     value = 0
     result = []
@@ -251,23 +260,78 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.FILENAME and args.URL:
-        lib.base3.oao(
-            'The --filename and -u / --url parameter are mutually exclusive. Please only use one.',
-            STATE_UNKNOWN,
-        )
-    # TODO: url handling
-    # TODO: unit testing
-
-    # create the db file and import data
+    if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
+        lib.base3.oao('Nothing to check, no queries provided.', STATE_UNKNOWN)
     if args.WARNING_QUERY is None:
         args.WARNING_QUERY = ''
     if args.CRITICAL_QUERY is None:
         args.CRITICAL_QUERY = ''
-    filename = lib.db_sqlite3.__sha1sum(args.FILENAME + args.WARNING_QUERY + args.CRITICAL_QUERY)
+
+    # fetch data in various ways (file, url, smb)
+    if args.FILENAME and args.URL:
+        lib.base3.oao(
+            'The --filename and -u / --url parameter are mutually exclusive. '
+            'Please only use one.',
+            STATE_UNKNOWN,
+        )
+
+    if args.FILENAME:
+        db_filename = lib.db_sqlite3.__sha1sum( # pylint: disable=W0212
+            args.FILENAME + args.WARNING_QUERY + args.CRITICAL_QUERY
+        )
+
+    if args.URL:
+        db_filename = lib.db_sqlite3.__sha1sum( # pylint: disable=W0212
+            args.URL + args.WARNING_QUERY + args.CRITICAL_QUERY
+        )
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base3.oao(
+                'Could not parse the protocol of the url "{}".'.format(args.URL),
+                STATE_UNKNOWN,
+            )
+        proto, url = split_url
+        if proto not in ['http', 'https', 'smb']:
+            lib.base3.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+
+        if proto in ['http', 'https']:
+            header = {}
+            if args.USERNAME and args.PASSWORD:
+                auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+                encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
+                header['Authorization'] = 'Basic {}'.format(encoded_auth)
+            csv = lib.base3.coe(
+                lib.url3.fetch(
+                    args.URL,
+                    header=header,
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
+            )
+        else:
+            if not HAVE_SMB:
+                lib.base3.oao(
+                    'Python module "{}" is not installed.'.format(missing_lib), # pylint: disable=E0601
+                    STATE_UNKNOWN,
+                )
+            with lib.base3.coe(
+                lib.smb3.open_file(
+                    url, args.USERNAME, args.PASSWORD, args.TIMEOUT
+                )
+            ) as fd:
+                csv = lib.txt3.to_text(fd.read())
+
+        args.FILENAME = '{}/linuxfabrik-monitoring-plugins-csv-values-{}.csv'.format(
+            lib.disk3.get_tmpdir(),
+            db_filename,
+        )
+        lib.base3.coe(lib.disk3.write_file(args.FILENAME, csv))
+
+    # create the db file and import data
     conn = lib.base3.coe(
         lib.db_sqlite3.connect(
-            filename='linuxfabrik-monitoring-plugins-csv-values-{}.db'.format(filename),
+            filename='linuxfabrik-monitoring-plugins-csv-values-{}.db'.format(db_filename),
         )
     )
     lib.base3.coe(
@@ -287,7 +351,7 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # fetch data
+    # analyze data
     state_warn, cnt_warn, result_warn, shortened_warn = get_state_and_value(
         conn,
         args.WARNING_QUERY,
@@ -301,27 +365,32 @@ def main():
         args.CRIT,
         'crit',
     )
-    lib.db_sqlite3.close(conn)
 
+    lib.db_sqlite3.close(conn)
     state = lib.base3.get_worst(state, state_crit)
 
     # build the message
-    msg = '{} {} from warning query{}'.format(
-        cnt_warn,
-        lib.txt3.pluralize('result', cnt_warn),
-        lib.base3.state2str(state_warn, prefix=' '),
-    )
-    msg += ' and '
-    msg += '{} {} from critical query{}'.format(
-        cnt_crit,
-        lib.txt3.pluralize('result', cnt_crit),
-        lib.base3.state2str(state_crit, prefix=' '),
-    )
-    msg += '.'
+    if args.WARNING_QUERY:
+        msg = '{} {} from warning query `{}`{}'.format(
+            cnt_warn,
+            lib.txt3.pluralize('result', cnt_warn),
+            args.WARNING_QUERY,
+            lib.base3.state2str(state_warn, prefix=' '),
+        )
+    if args.WARNING_QUERY and args.CRITICAL_QUERY:
+        msg += ' and '
+    if args.CRITICAL_QUERY:
+        msg += '{} {} from critical query `{}`{}'.format(
+            cnt_crit,
+            lib.txt3.pluralize('result', cnt_crit),
+            args.CRITICAL_QUERY,
+            lib.base3.state2str(state_crit, prefix=' '),
+        )
+    msg += '\n'
 
     if shortened_warn:
-        msg += '\n\nAttention: Table below is shortened and just shows the 5 newest and ' \
-               'the 5 oldest items.\n'''
+        msg += '\nAttention: Table below is shortened and just shows the 5 first and ' \
+               'the 5 last items.\n'''
     try:
         keys = result_warn[0].keys()
         headers = keys
@@ -331,7 +400,7 @@ def main():
         pass
 
     if shortened_crit:
-        msg += '\n\nAttention: Table below is shortened and just shows the 5 first and ' \
+        msg += '\nAttention: Table below is shortened and just shows the 5 first and ' \
                'the 5 last items.\n'''
     try:
         keys = result_crit[0].keys()
