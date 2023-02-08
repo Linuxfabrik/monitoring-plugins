@@ -231,6 +231,7 @@ Checking a remote CSV file on a webserver, plus HTTP basic authentication:
         --url=http://example.com/example.csv \
         --username=user \
         --password=linuxfabrik
+        ...
 
 Checking a remote CSV file on a (not-mounted) samba/cifs share, plus authentication:
 
@@ -240,6 +241,7 @@ Checking a remote CSV file on a (not-mounted) samba/cifs share, plus authenticat
         --url=smb://example.com/share/example.csv \
         --username=user \
         --password=linuxfabrik
+        ...
 
 
 States
