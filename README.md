@@ -248,17 +248,17 @@ Now use this command within a Service Template, a Service Set and/or a Single Se
 
 To use our Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
 
-If you are using our [Fork of the Icinga Director](https://git.linuxfabrik.ch/linuxfabrik/icingaweb2-module-director), you can use the following command:
+If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), you can use the following command:
 
 ``` bash
 ./tools/basket-join
 ```
 
-If not, generate a Basket without `guids`:
+If not, generate a Basket without `uuids`:
 
 ``` bash
 ./tools/basket-join
-./tools/remove-guids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-guids.json
+./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
 ```
 
 Import the resulting `icingaweb2-module-director-basket.json` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.

@@ -21,9 +21,9 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022070701'
+__version__ = '2023020901'
 
-DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
+DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without uuids).'
 
 
 skip_plugins = [
@@ -87,7 +87,7 @@ def raise_on_duplicate_keys(ordered_pairs):
 class BasketJoiner:
     def __init__(self):
         self.data = collections.defaultdict(dict)
-        self.guids2datafields = {}
+        self.uuids2datafields = {}
         self.highest_datafield_id = 0
 
 
@@ -118,20 +118,20 @@ class BasketJoiner:
 
             if 'Datafield' in basket_data:
                 for key, value in basket_data['Datafield'].items():
-                    guid = value.get('guid')
-                    if guid in self.guids2datafields:
-                        current_value = self.data['Datafield'][self.guids2datafields[guid]]
+                    uuid = value.get('uuid')
+                    if uuid in self.uuids2datafields:
+                        current_value = self.data['Datafield'][self.uuids2datafields[uuid]]
                         if current_value != value:
-                            err_print('The objects "[Datafield][{}]" and "[Datafield][{}]" have the same guid ("{}") but not the same content. Please fix this, aborting...'.format(
+                            err_print('The objects "[Datafield][{}]" and "[Datafield][{}]" have the same uuid ("{}") but not the same content. Please fix this, aborting...'.format(
                                 value["varname"],
                                 current_value["varname"],
-                                guid,
+                                uuid,
                             ))
                             return False
                     else:
                         self.highest_datafield_id += 1
-                        if guid:
-                            self.guids2datafields[guid] = str(self.highest_datafield_id)
+                        if uuid:
+                            self.uuids2datafields[uuid] = str(self.highest_datafield_id)
                         self.data['Datafield'][str(self.highest_datafield_id)] = value
                         new_datafield_ids[key] = self.highest_datafield_id
 
@@ -150,39 +150,39 @@ class BasketJoiner:
         return True
 
 
-    def validate_guids(self):
-        guids = []
-        objects_without_guids = []
+    def validate_uuids(self):
+        uuids = []
+        objects_without_uuids = []
         for parent_key, parent_value in self.data.items():
             for key, value in parent_value.items():
-                if 'guid' in value:
-                    guids.append(value['guid'])
+                if 'uuid' in value:
+                    uuids.append(value['uuid'])
                 else:
                     if parent_key == 'Datafield':
-                        objects_without_guids.append('[{}][{}]'.format(parent_key, value["varname"]))
+                        objects_without_uuids.append('[{}][{}]'.format(parent_key, value["varname"]))
                     else:
-                        objects_without_guids.append('[{}][{}]'.format(parent_key, key))
+                        objects_without_uuids.append('[{}][{}]'.format(parent_key, key))
 
                 # descent into services of Service Sets
                 if 'services' in value and value['services']:
                     for service_key, service_value in value['services'].items():
-                        if 'guid' in service_value:
-                            guids.append(service_value['guid'])
+                        if 'uuid' in service_value:
+                            uuids.append(service_value['uuid'])
                         else:
-                            objects_without_guids.append('[{}][{}][{}]'.format(parent_key, key, service_key))
+                            objects_without_uuids.append('[{}][{}][{}]'.format(parent_key, key, service_key))
 
-        if objects_without_guids:
-            warn_print('\nFound objects without guids:')
+        if objects_without_uuids:
+            warn_print('\nFound objects without uuids:')
             print('* ', end='')
-            print('\n* '.join(objects_without_guids))
+            print('\n* '.join(objects_without_uuids))
 
-        unique_guids = set(guids)
-        if len(guids) != len(unique_guids):
-            for guid in unique_guids:
-                guids.remove(guid)
-            err_print('There are duplicate guids:')
+        unique_uuids = set(uuids)
+        if len(uuids) != len(unique_uuids):
+            for uuid in unique_uuids:
+                uuids.remove(uuid)
+            err_print('There are duplicate uuids:')
             print('* ', end='')
-            print('\n* '.join(guids))
+            print('\n* '.join(uuids))
             return False
         return True
 
@@ -203,7 +203,7 @@ def main():
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
 
-    if basket_joiner.validate_guids() is False:
+    if basket_joiner.validate_uuids() is False:
         sys.exit(3)
 
     if basket_joiner.save_json_to_file(args.OUTPUT_FILE) is False:
