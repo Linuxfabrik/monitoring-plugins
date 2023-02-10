@@ -40,7 +40,7 @@ from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylin
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2023021001'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -210,6 +210,14 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # check if snmpget is installed
+    success, result = lib.shell3.shell_exec('command -v snmpget')
+    if not success:
+        lib.base3.oao('snmpget not found', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    if retc != 0:
+        lib.base3.oao('snmpget not found', STATE_UNKNOWN)
 
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
