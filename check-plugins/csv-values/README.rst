@@ -6,27 +6,36 @@ Overview
 
 This check imports a CSV file into a local `SQLite database <https://www.sqlite.org>`_ into a table named ``data``, and can then run a separate warning and/or critical query on it. The result - the number of items found or a specific number, depending on the query - can be checked against a `range expression <https://github.com/Linuxfabrik/monitoring-plugins#threshold-and-ranges>`_.
 
-This monitoring plugin works for all conceivable kinds of CSV files. Large CSV files are handled with care by breaking the data into chunks. CSV files can be retrieved from the file system, from an SMB path or from a URL (also supporting HTTP Basic Auth).
+This monitoring plugin works for all conceivable kinds of CSV files. Large CSV files are handled with care by breaking the data into chunks. CSV files can be retrieved from the file system, from an SMB path or from a URL, both supporting authentication.
 
 As an example, consider a simple CSV list of clients:
 
 .. code-block:: text
 
-    Hostname, WaitingUpdates
-    alice,    3
-    bob,      11
-    charlie,  5
-    david,    7
-    erin,     0
-    frank,    6
+    PC-Hostname, Waiting Updates
+    alice,        3
+    bob,         11
+    charlie,      5
+    david,        7
+    erin,         0
+    frank,        6
 
 The use case: Issue a warning when the number of clients with 5 or more waiting updates is greater than 2.
 
-First you need to tell ``csv-values`` the structure/data types of your CSV file like in the SQLite ``CREATE TABLE`` format:
+First you need to tell ``csv-values`` the structure/data types of your CSV file like in the SQLite ``CREATE TABLE`` format. Important: The names of the the columns in the CSV file don't matter, you simply define names for the columns in the SQLite database. ``csv-values`` simply goes through the CSV file column by column and creates the columns specified here in the SQLite database. The names specified are therefore only important for the subsequent SQL queries.
 
 .. code-block:: text
 
     Hostname TEXT, WaitingUpdates INTEGER
+
+Useful column `datatypes in SQLite <https://www.sqlite.org/datatype3.html>`_ are:
+
+* ``TEXT``
+* ``NUMERIC``
+* ``INTEGER``
+* ``REAL``
+
+The ``data`` table created by the import has no ``PRIMARY KEY`` and no constraints of any kind. The default value of each column is ``NULL``. The default collation sequence for each column of the new table is ``BINARY``. 
 
 One possible SQL statement for getting the number of clients with 5 or more waiting updates is:
 
@@ -107,7 +116,7 @@ Help
       --columns-query COLUMNS_QUERY
                             Describe the columns and their datatypes using an sql
                             statement. Example: `"col1 INTEGER PRIMARY KEY, col2
-                            TEXT NOT NULL, col3 TEXT NOT NULL UNIQUE`"
+                            TEXT NOT NULL, col3 TEXT NOT NULL UNIQUE"`
       -c CRIT, --critical CRIT
                             Set the CRIT threshold. Supports ranges. Default:
                             "None"
