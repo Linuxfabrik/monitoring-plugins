@@ -84,10 +84,6 @@ Example for full Output:
 
     myhostname - Rocky Linux release 8.6 (Green Obsidian) virtualized on kvm, BIOS boot, sys dimensions n/a (consider installing psutil), Disk vda 128G, tuned profile "virtual-guest", Public IP 1.2.3.4, born 2022-09-02. Features: lvm, selinux. Missing: firewalld, iptables, nftables. About-me v2023010501
 
-    3rd-party Python libraries required by any of the plugins:
-    * Installed: none
-    * Missing: bs4, psutil, pymysql.cursors, smbprotocol.exceptions, vici
-
     SW installed:
     * chronyd 4.2
     * Exim 4.96
@@ -188,6 +184,10 @@ Example for full Output:
     7   25  cron.weekly     nice run-parts /etc/cron.weekly
     @monthly 45 cron.monthly        nice run-parts /etc/cron.monthly
 
+    3rd-party Python libraries required by any of the plugins:
+    * Installed: none
+    * Missing: bs4, psutil, pymysql.cursors, smbprotocol.exceptions, vici
+
     Tags:
     * chronyd
     * exim
@@ -221,7 +221,7 @@ Perfdata / Metrics
     disks,               Number,             Number of disks
     osversion,           None,               "'Fedora 33' becomes '33', 'CentOS 7.4.1708' becomes '741708' - to see when an upgrade happened"
     ram,                 Bytes,              Size of memory (if ``dmidecode`` is not available)
-    ram,                 GiB,                Size of memory (if ``dmidecode`` is available)
+    ram,                 Bytes,              Size of memory (if ``dmidecode`` is available)
 
 
 Credits, License

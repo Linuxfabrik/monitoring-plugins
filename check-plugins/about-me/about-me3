@@ -52,7 +52,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021401'
+__version__ = '2023021402'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -2038,7 +2038,7 @@ def main():
         msg += '#Cores: {}, '.format(lib.dmidecode3.cpu_cores_enabled(dmi))
         msg += '#Threads: {}, '.format(lib.dmidecode3.cpu_threads(dmi))
         msg += 'Current Speed: {} MHz, '.format(lib.dmidecode3.cpu_speed(dmi))
-        msg += '{} GB RAM, '.format(lib.dmidecode3.ram(dmi))
+        msg += '{} RAM, '.format(lib.human3.bytes2human(lib.dmidecode3.ram(dmi)))
     elif sys_dimensions:
         msg += '{} {}, {} RAM, '.format(
             sys_dimensions['cpu'],
@@ -2073,19 +2073,9 @@ def main():
 
     msg += 'About-me v{}, '.format(__version__)
 
-    msg = msg[:-2] + '\n\n'
+    msg = msg[:-2] + '\n'
 
     # multi-line content - print further lines
-
-    msg += '3rd-party Python libraries required by any of the plugins:\n'
-    if pm_installed:
-        msg += '* Installed: {}\n'.format(', '.join(pm_installed))
-    else:
-        msg += '* Installed: none\n'
-    if pm_missing:
-        msg += '* Missing: {}\n'.format(', '.join(pm_missing))
-    else:
-        msg += '* Missing: none\n'
 
     if interfaces:
         msg += '\nInterfaces (IPv4):\n{}'.format(interfaces)
@@ -2123,7 +2113,17 @@ def main():
         msg += '\nsystemctl list-timers:\n{}'.format(timers)
 
     if crontab:
-        msg += '\ncrontab:\n{}'.format(crontab)
+        msg += '\ncrontab:\n{}\n'.format(crontab)
+
+    msg += '3rd-party Python libraries required by any of the plugins:\n'
+    if pm_installed:
+        msg += '* Installed: {}\n'.format(', '.join(pm_installed))
+    else:
+        msg += '* Installed: none\n'
+    if pm_missing:
+        msg += '* Missing: {}\n'.format(', '.join(pm_missing))
+    else:
+        msg += '* Missing: none\n'
 
     if tags:
         msg += '\nTags:\n{}\n'.format(tags)
@@ -2137,7 +2137,7 @@ def main():
         perfdata += lib.base3.get_perfdata('cpu_cores_enabled', lib.dmidecode3.cpu_cores_enabled(dmi), None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('cpu_threads', lib.dmidecode3.cpu_threads(dmi), None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('cpu_speed', lib.dmidecode3.cpu_speed(dmi), None, None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('ram', lib.dmidecode3.ram(dmi), 'GB', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('ram', lib.dmidecode3.ram(dmi), 'B', None, None, 0, None)
     elif sys_dimensions:
         perfdata += lib.base3.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
         perfdata += lib.base3.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
