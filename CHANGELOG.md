@@ -20,8 +20,8 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Features:
 
-* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policy](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te) Ruleset
-* Add AlmaLinux8.sudoers pointing to RedHat8.sudoers
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te)
+* Add new sudoers files for Alma9, RHEL9, Rocky9, Fedora 37
 
 Monitoring Plugins:
 
@@ -40,6 +40,10 @@ Monitoring Plugins:
 * systemd-timedate-status
 * tuned-profile
 
+Libs:
+
+* lib/dmidecode3.py
+
 Notification Plugins:
 
 * notify-host-rocketchat-telegram
@@ -55,14 +59,19 @@ Icinga Director:
 
 ### Changed
 
+Features:
+
+* Enhanced sudoers files
+
 Monitoring Plugins:
 
 * about-me3: Add detection of restic
 * about-me3: Add detection of Snap
+* about-me3: Add Maker and Model ([#637](https://github.com/Linuxfabrik/monitoring-plugins/issues/637))
 * about-me3: Improve detection of coturn
 * about-me3: Improve psutil error handling
-* about-me3: Remove unstable bonding detection
 * about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
+* about-me3: Remove unstable bonding detection
 * disk-usage: Move state output to usage column
 * dmesg3: add additional message to ignorelist
 * docker-info3: Report more info in case of failures
@@ -79,7 +88,7 @@ Monitoring Plugins:
 
 Libs:
 
-* lib/base3: Make get_worst() more robust
+* lib/base3.py: Make get_worst() more robust
 * lib/human3.py: human2bytes() is now also able to interpret "3.0M"
 * lib/infomaniak3.py: Apply new API version
 * lib/wildfly3.py: Update
@@ -109,6 +118,7 @@ Monitoring Plugins:
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
 * mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
 * network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
+* nextcloud-stats: Fix error non-existing ALWAYS_OK Attribute ([#640](https://github.com/Linuxfabrik/monitoring-plugins/pull/640))
 * ping: ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
 * service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
 * systemd-timedate-status: UNKNOWN with "unknown operation show" on RHEL7 ([#605]https://github.com/Linuxfabrik/monitoring-plugins/issues/605))

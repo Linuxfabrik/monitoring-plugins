@@ -19,6 +19,8 @@ Reports an overview about the host dimensions, its network interfaces, deployed 
 * systemctl List-timers: List of all system systemd timers (excluding user timers)
 * crontab: List of crontabs that are found in the usual locations. note that this list is not complete
 
+Have a look at the output examples below.
+
 Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
 
@@ -32,7 +34,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day or once a week"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``"
+    "Requirements",                         "Python module ``psutil`` (optional)"
 
 
 Help
@@ -58,11 +60,29 @@ Usage Examples
 
     ./about-me
 
-Output:
+Output (first line) on a VM:
 
 .. code-block:: text
 
-    myhostname - Rocky Linux release 8.6 (Green Obsidian) virtualized on kvm, BIOS boot, sys dimensions n/a (consider installing psutil), Disk vda 128G, tuned profile "virtual-guest", Public IP 212.51.138.220, born 2022-09-02. Features: lvm, selinux. Missing: firewalld, iptables, nftables. About-me v2023010501
+    myhostname: Rocky Linux release 8.7 (Green Obsidian) virtualized on kvm, QEMU Standard PC (i440FX + PIIX, 1996), Firmware: n/a, SerNo: n/a, Proc: pc-i440fx-7.0, #Cores: 4, #Threads: 4, Current Speed: 2000 MHz, 6 GB RAM, BIOS boot, Disk vda 128G, tuned profile "virtual-guest", Public IP 92.107.220.171, born 2022-09-02. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
+
+Output (first line) on a Laptop:
+
+.. code-block:: text
+
+    myhostname: Fedora release 37 (Thirty Seven) on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: ABC1234, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16 GB RAM, UEFI boot, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
+
+Output (first line) on a Raspberry Pi:
+
+.. code-block:: text
+
+    myhostname: Raspbian GNU/Linux 10 (buster) on Bare-Metal, Raspberry Pi 4 Model B Rev 1.4, 4 CPUs, 7.7GiB RAM, BIOS boot, Public IP 1.2.3.4, Missing: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
+
+Example for full Output:
+
+.. code-block:: text
+
+    myhostname - Rocky Linux release 8.6 (Green Obsidian) virtualized on kvm, BIOS boot, sys dimensions n/a (consider installing psutil), Disk vda 128G, tuned profile "virtual-guest", Public IP 1.2.3.4, born 2022-09-02. Features: lvm, selinux. Missing: firewalld, iptables, nftables. About-me v2023010501
 
     3rd-party Python libraries required by any of the plugins:
     * Installed: none
@@ -194,10 +214,14 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                Type,               Description                                           
-    cpu,                 Number,             Number of CPUs
-    ram,                 Bytes,              Size of memory
+    cpu,                 Number,             Number of CPUs (if ``dmidecode`` is not available)
+    cpu_cores_enabled,   Number,             Number of enabled CPU cores (if ``dmidecode`` is available)
+    cpu_speed,           Number,             CPU speed (if ``dmidecode`` is available)
+    cpu_threads,         Number,             Number of CPU cores with Hyper-Threading enabled (if ``dmidecode`` is available)
     disks,               Number,             Number of disks
     osversion,           None,               "'Fedora 33' becomes '33', 'CentOS 7.4.1708' becomes '741708' - to see when an upgrade happened"
+    ram,                 Bytes,              Size of memory (if ``dmidecode`` is not available)
+    ram,                 GiB,                Size of memory (if ``dmidecode`` is available)
 
 
 Credits, License
