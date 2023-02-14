@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022110301'
+__version__ = '2023021401'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -129,7 +129,7 @@ def main():
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(device='/dev/sr0', mountpoint='/run/media/root/CentOS 7 x86_64', fstype='iso9660', opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500')
         # ignore `/snap`, iso mountpoints and cdroms (UDF = universal disk format)
-        if part.fstype in ['squashfs', 'iso9660', 'UDF'] or part.opts in ['cdrom']:
+        if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
             continue
 
         usage = psutil.disk_usage(part.mountpoint)
@@ -164,7 +164,7 @@ def main():
             'used': lib.human3.bytes2human(usage.used),
             'total': lib.human3.bytes2human(usage.total),
             'percent': '{}% {}'.format(usage.percent, lib.base3.state2str(disk_state, prefix=' ')),
-            })
+        })
 
     if msg == '':
         msg = 'Nothing checked.'
