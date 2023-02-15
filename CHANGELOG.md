@@ -99,6 +99,7 @@ Icinga Director:
 * Enhanced RHEL 8+-based Service Sets by Crypto Policy
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 * Enhanced all Service Sets checking for a Systemd Service by Systemd TimeDate Status
+* Notifications are enabled only for critical hardware-related services (assuming you want to stay up at 2 a.m.)
 * Split up the MariaDB/MySQL service sets into smaller sets:
 
     * MySQL/MariaDB InnoDB Service Set
