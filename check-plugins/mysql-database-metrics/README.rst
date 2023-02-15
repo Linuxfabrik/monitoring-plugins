@@ -80,7 +80,7 @@ Output:
 States
 ------
 
-* WARN if index size is larger than data size
+* WARN if the index size is larger than the data size (if at least one of them is larger than 10 MB)
 * WARN if more than one storage engine is used
 * WARN if more than one collation is used
 * WARN if more than one table engine is used

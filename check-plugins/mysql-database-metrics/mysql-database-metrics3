@@ -36,7 +36,7 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022071601'
+__version__ = '2023021501'
 
 DESCRIPTION = """Checks index sizes and consistent engine and collation use in
                  MySQL/MariaDB schemas."""
@@ -175,6 +175,7 @@ def main():
 
         if dbinfo['sum_data'] != 'NULL' \
         and dbinfo['sum_index'] != 'NULL' \
+        and (dbinfo['sum_data'] > 10*1024*1024 or dbinfo['sum_index'] > 10*1024*1024) \
         and dbinfo['sum_data'] < dbinfo['sum_index']:
             results['index'] += '{} ({} / {}), '.format(
                 dbinfo['TABLE_SCHEMA'],
