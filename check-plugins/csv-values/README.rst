@@ -34,7 +34,7 @@ Useful column `datatypes in SQLite <https://www.sqlite.org/datatype3.html>`_ are
 * ``NUMERIC``
 * ``INTEGER``
 * ``REAL``
-* Computed / `Generated Column <https://www.sqlite.org/gencol.html>`_ example: ``Used_GB INT GENERATED ALWAYS AS (round(Used/1024/1024/1024)) VIRTUAL'`` (`Scalar Functions <https://www.sqlite.org/lang_corefunc.html>`_)
+* SQLite 3.31.0+: Computed / `Generated Column <https://www.sqlite.org/gencol.html>`_ example: ``Used_GB INT GENERATED ALWAYS AS (round(Used/1024/1024/1024)) VIRTUAL'`` (`Scalar Functions <https://www.sqlite.org/lang_corefunc.html>`_)
 
 The ``data`` table created by the import has no ``PRIMARY KEY`` and no constraints of any kind. The default value of each column is ``NULL``. The default collation sequence for each column of the new table is ``BINARY``. 
 
