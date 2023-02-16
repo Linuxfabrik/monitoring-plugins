@@ -116,6 +116,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * disk-usage: ignore type CDFS by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
+* fs-ro: Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
 * infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))

@@ -38,9 +38,11 @@ from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021601'
+__version__ = '2023021601'
 
-DESCRIPTION = """Warns if a file system is mounted read-only."""
+DESCRIPTION = """This plugin checks for read-only mount points, such as `/` mounted read-only due
+                 to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores ramfs
+                 and squashfs (snapd) by default."""
 
 DEFAULT_IGNORE = ['/proc', '/snap', '/sys/fs']
 
@@ -107,10 +109,17 @@ def main():
     for mount in mounts.splitlines():
         mnt = mount.split()
         if len(mnt) != 6:
-            lib.base3.oao('Unexpected format of /proc/mounts.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+            lib.base3.oao(
+                'Unexpected format of /proc/mounts.',
+                STATE_UNKNOWN,
+            )
         mount_spec = mnt[0]
         mount_point = mnt[1]
         mount_type = mnt[2]
+
+        if mount_type in ['ramfs', 'squashfs']:
+            continue
+
         mount_options = mnt[3]
         if any(mount_point.startswith(item) for item in args.IGNORE):
             continue
@@ -124,7 +133,7 @@ def main():
         msg = '{} read-only mount {} found: '.format(
             len(ros),
             lib.txt3.pluralize('point', len(ros)),
-            )
+        )
         for item in ros:
             msg += '{}, '.format(item)
         msg = msg[:-2]
