@@ -24,9 +24,9 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023020901'
+__version__ = '2023021601'
 
-DESCRIPTION = 'A tool to generate icinga director baskets from a check plugin.'
+DESCRIPTION = 'A tool to generate Icinga Director baskets from a check plugin.'
 
 DEFAULT_VARIANTS = [
     'linux',
@@ -52,29 +52,34 @@ regex_replace_words = {
     r'\bDES\b':              'DES',
     r'\bDNS\b':              'DNS',
     r'\bFAH\b':              'FAH',
+    r'\bFail2ban\b':         'Fail2ban',
+    r'\bFortiOS\b':          'FortiOS',
     r'\bFQDN\b':             'FQDN',
     r'\bFS RO\b':            'FS RO',
     r'\bFS\b':               'FS',
-    r'\bFail2ban\b':         'Fail2ban',
-    r'\bFortiOS\b':          'FortiOS',
     r'\bGC\b':               'GC',
-    r'\bHAProxy\b':          'HAProxy',
     r'\bHA\b':               'HA',
+    r'\bHAProxy\b':          'HAProxy',
+    r'\bhttpd\b':            'httpd',
     r'\bHypermetrodomain\b': 'Hyper Metro Domain',
     r'\bHypermetropair\b':   'Hyper Metro Pair',
     r'\bID\b':               'ID',
+    r'\bidSite\b':           'idSite',
     r'\bIO\b':               'I/O',
     r'\bIPMI\b':             'IPMI',
+    r'\bipv4\b':             'IPv4',
+    r'\bipv6\b':             'IPv6',
     r'\bJSON\b':             'JSON',
     r'\bKEMP\b':             'KEMP',
     r'\bKThreads\b':         'KThreads',
     r'\bKVM\b':              'KVM',
     r'\bLibreNMS\b':         'LibreNMS',
     r'\bMD5\b':              'MD5',
+    r'\bMem\b':              'Memory',
     r'\bMIB\b':              'MIB',
     r'\bMIBdir\b':           'MIBdir',
-    r'\bMem\b':              'Memory',
     r'\bMod Qos\b':          'mod_qos',
+    r'\bmydumper\b':         'mydumper',
     r'\bMySQL\b':            'MySQL',
     r'\bNTP\b':              'NTP',
     r'\bOK\b':               'OK',
@@ -82,17 +87,18 @@ regex_replace_words = {
     r'\bPHP Fpm\b':          'PHP-FPM',
     r'\bPHP-FPM\b':          'PHP-FPM',
     r'\bPHP\b':              'PHP',
+    r'\bpip\b':              'pip',
     r'\bQTS\b':              'QTS',
+    r'\bRocketchat\b':       'Rocket.Chat',
     r'\bRPM\b':              'RPM',
     r'\bRW\b':               'RW',
-    r'\bRocketchat\b':       'Rocket.Chat',
     r'\bSEL\b':              'SEL',
     r'\bSELinux\b':          'SELinux',
     r'\bSHA\b':              'SHA',
+    r'\bSlowReq\b':          'SlowReq',
     r'\bSMART\b':            'SMART',
     r'\bSNMP\b':             'SNMP',
     r'\bSNMPversion\b':      'SNMP Version',
-    r'\bSlowReq\b':          'SlowReq',
     r'\bTCP6\b':             'TCP6',
     r'\bTCP\b':              'TCP',
     r'\bUDP6\b':             'UDP6',
@@ -102,12 +108,6 @@ regex_replace_words = {
     r'\bVM\b':               'VM',
     r'\bXA\b':               'XA',
     r'\bXCA\b':              'XCA',
-    r'\bhttpd\b':            'httpd',
-    r'\bidSite\b':           'idSite',
-    r'\bipv4\b':             'IPv4',
-    r'\bipv6\b':             'IPv6',
-    r'\bmydumper\b':         'mydumper',
-    r'\bpip\b':              'pip',
 }
 
 
@@ -443,7 +443,7 @@ def manage_uuids(data, old_data=None):
                                 continue
                             old_uuid = None
                     else:
-                        print('\nCould not find the corresponding object for "[{}][{}]".'.format(parent_key, value["varname"]))
+                        print('\nCould not find the corresponding object for "[{}][{}]". Which uuid should I use?'.format(parent_key, value["varname"]))
                         selection = offer_selection(old_varnames.keys())
                         if selection:
                             data[parent_key][key]['uuid'] = old_data[parent_key][old_varnames[selection]]['uuid']
@@ -489,8 +489,8 @@ def manage_uuids(data, old_data=None):
 
     unique_uuids = set(uuids)
     if len(uuids) != len(unique_uuids):
-        for uuid in unique_uuids:
-            uuids.remove(uuid)
+        for uuid_ in unique_uuids:
+            uuids.remove(uuid_)
         err_print('There are duplicate uuids! Aborting...')
         print('* ', end='')
         print('\n* '.join(uuids))
