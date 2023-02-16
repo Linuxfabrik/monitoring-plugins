@@ -13,6 +13,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Breaking Changes
 
+* redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
 * service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters).
 
 

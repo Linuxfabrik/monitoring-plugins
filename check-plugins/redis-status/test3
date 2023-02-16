@@ -25,27 +25,50 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
-        self.assertIn('Redis v3.2.12, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up ', stdout)
+        self.assertIn('Redis v3.2.12, standalone mode on 127.0.0.1:6379, /etc/redis.conf', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
-        self.assertIn('Redis v6.0.15, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up ', stdout)
+        self.assertIn('Redis v6.0.15, standalone mode on 127.0.0.1:6379, /etc/redis.conf', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
-        self.assertIn('Redis v3.0.7.9, standalone mode on 127.0.0.1:6379, /path/to/redis.conf, up ', stdout)
+        self.assertIn('Redis v3.0.7.9, standalone mode on 127.0.0.1:6379, /path/to/redis.conf', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE04,,0'))
-        self.assertIn('Redis v3.0.7.9, standalone mode on 127.0.0.1:6379, /path/to/redis.conf, up ', stdout)
+        self.assertIn('Redis v3.0.7.9, standalone mode on 127.0.0.1:6379, /path/to/redis.conf', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE05,,0'))
+        self.assertIn('Redis v5.0.3, standalone mode on 127.0.0.1:6379, /path/to/redis.conf', stdout)
+        self.assertIn('99.7% memory usage [WARNING] (9.5MiB/9.5MiB, 10.0MiB peak, 21.6MiB RSS)', stdout)
+        self.assertIn('maxmemory-policy=noeviction', stdout)
+        self.assertIn('1 DB (db0) with 4 keys, 0.0 evicted keys, 0.0 expired keys', stdout)
+        self.assertIn('hit rate 100.0% (4.5M hits, 0.0 misses)', stdout)
+        self.assertIn('2.0 denied partial resync requests [WARNING]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05_ignore_all(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --warning=100 --critical=100 --ignore-maxmemory0 --ignore-overcommit --ignore-somaxconn --ignore-sync-partial-err --ignore-thp --test=examples/EXAMPLE05,,0'))
+        self.assertIn('Redis v5.0.3, standalone mode on 127.0.0.1:6379, /path/to/redis.conf', stdout)
+        self.assertIn('99.7% memory usage (9.5MiB/9.5MiB, 10.0MiB peak, 21.6MiB RSS)', stdout)
+        self.assertIn('maxmemory-policy=noeviction', stdout)
+        self.assertIn('1 DB (db0) with 4 keys, 0.0 evicted keys, 0.0 expired keys', stdout)
+        self.assertIn('hit rate 100.0% (4.5M hits, 0.0 misses)', stdout)
+        self.assertIn('2.0 denied partial resync requests', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
 
 if __name__ == '__main__':
     unittest.main()
