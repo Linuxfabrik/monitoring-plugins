@@ -50,7 +50,7 @@ Output:
 
 .. code-block:: text
 
-    Last rpm/yum/dnf activity is 10h 54m ago (so below the given thresholds 90D/365D).
+    Last rpm/yum/dnf activity is 5M 2W days ago [WARNING] (thresholds 90D/365D).
 
 
 States
