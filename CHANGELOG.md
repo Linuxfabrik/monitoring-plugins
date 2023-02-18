@@ -132,6 +132,10 @@ Monitoring Plugins:
 
 ### Removed
 
+Features:
+
+* All plugins: Remove code for self-handling Python virtual environments (venv).
+
 Monitoring Plugins:
 
 * ntp-offset (due to "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
