@@ -42,15 +42,22 @@ Help
 
 .. code-block:: text
 
-    usage: about-me [-h] [-V] [--tags]
+    usage: about-me [-h] [-V] [--public-ip-url PUBLIC_IP_URL] [--tags]
 
     Reports a quick overview about the host dimensions and installed software.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --tags         Just get a list of tags to apply in Icinga Director
-                     (Linuxfabrik Basket Config).
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --public-ip-url PUBLIC_IP_URL
+                            If you want this check to return the public IP
+                            address, specify one ore more comma-separated URLs to
+                            "what is my ip" online services. For example (all
+                            located in the United States): "https://ipv4.icanhazip
+                            .com,https://ipecho.net/plain,https://ipinfo.io/ip".
+                            Default: None
+      --tags                Guess a list of tags to apply in Icinga Director
+                            (Linuxfabrik Basket Config).
 
 
 Usage Examples

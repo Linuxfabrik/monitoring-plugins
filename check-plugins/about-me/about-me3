@@ -39,9 +39,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023022102'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
+
+DEFAULT_PUBLIC_IP_URL = None
 
 
 def parse_args():
@@ -56,8 +58,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--public-ip-url',
+        help='If you want this check to return the public IP address, specify one ore more '
+             'comma-separated URLs to "what is my ip" online services. '
+             'For example (all located in the United States): '
+             '"https://ipv4.icanhazip.com,https://ipecho.net/plain,https://ipinfo.io/ip". '
+             'Default: %(default)s',
+        dest='PUBLIC_IP_URL',
+        default=DEFAULT_PUBLIC_IP_URL,
+    )
+
+    parser.add_argument(
         '--tags',
-        help='Just get a list of tags to apply in Icinga Director (Linuxfabrik Basket Config).',
+        help='Guess a list of tags to apply in Icinga Director (Linuxfabrik Basket Config).',
         dest='TAGS',
         action='store_true',
         default=False,
@@ -2037,7 +2050,7 @@ def main():
     if tuned:
         msg += 'tuned profile "{}", '.format(tuned)
 
-    success, pub_ip = lib.net3.get_ip_public()
+    success, pub_ip = lib.net3.get_public_ip(args.PUBLIC_IP_URL)
     if success:
         msg += 'Public IP {}, '.format(pub_ip)
 
@@ -2104,7 +2117,7 @@ def main():
         msg += '* Missing: none\n'
 
     if tags:
-        msg += '\nTags:\n{}\n'.format(tags)
+        msg += '\nGuessed Tags:\n{}\n'.format(tags)
 
     # perfdata
     if os_info:
