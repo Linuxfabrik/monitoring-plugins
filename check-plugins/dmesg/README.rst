@@ -4,7 +4,7 @@ Check dmesg
 Overview
 --------
 
-Checks the Kernel Ring Buffer for emerg, alert, crit and err messages using ``dmesg``, and if the parameter ``--severity`` has not been ommitted, always returns CRIT if something is found.
+Kernel messages are written to a preallocated ring buffer known as the dmesg buffer. A ring buffer is a sequential memory structure, where data overflow starts at the top of the buffer. Over time, newer messages fill the buffer and overwrite original messages, but the buffer never grows in size. This plugin checks the Kernel Ring Buffer for emerg, alert, crit and err messages using ``dmesg``, and if the parameter ``--severity`` has not been ommitted, always returns CRIT if something is found.
 
 Some very common dmesg messages are ignored, for example ``Assuming drive cache: write through`` (should be a debug message) or ``ioctl error in smb2_get_dfs_refer rc=-5`` (a bug as stated in https://access.redhat.com/solutions/3496971).
 
