@@ -111,6 +111,7 @@ Monitoring Plugins:
 
 * disk-usage: ignore type CDFS by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
 * file-age: critical reported for new files because modification time is negative or not set ([#618](https://github.com/Linuxfabrik/monitoring-plugins/issues/618))
+* fs-ro: Exclude squashfs filesystems ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412))
 * fs-ro: Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
 * infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
