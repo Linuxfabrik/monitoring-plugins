@@ -125,6 +125,7 @@ Monitoring Plugins:
 * rpm-lastactivity: ValueError: invalid literal for int() with base 10: '' ([#616](https://github.com/Linuxfabrik/monitoring-plugins/issues/616))
 * service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
 * systemd-timedate-status: UNKNOWN with "unknown operation show" on RHEL7 ([#605]https://github.com/Linuxfabrik/monitoring-plugins/issues/605))
+* updates: On Windows with closed firewall a PowerShell error is returned ([#633]https://github.com/Linuxfabrik/monitoring-plugins/issues/633))
 
 
 ### Removed
