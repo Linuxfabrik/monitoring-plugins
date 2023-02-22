@@ -37,7 +37,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023022201'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -203,7 +203,8 @@ def main():
             if item.is_dir() and args.ONLY_FILES:
                 continue
 
-            age = (lib.time3.now() - item.stat().st_mtime)
+            # brandnew files might get negative values
+            age = abs(lib.time3.now() - item.stat().st_mtime)
             ages.append(age)
             item_state = STATE_OK
             # not using elif, as the item could contribute to both the warn_count and crit_count
@@ -232,7 +233,8 @@ def main():
                 if item.is_dir() and args.ONLY_FILES:
                     continue
 
-                age = (lib.time3.now() - item.stat().st_mtime)
+                # brandnew files might get negative values
+                age = abs(lib.time3.now() - item.stat().st_mtime)
                 ages.append(age)
                 item_state = STATE_OK
                 # not using elif, as the item could contribute to both the warn_count and crit_count
