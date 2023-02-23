@@ -37,10 +37,16 @@ DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too l
                  License)."""
 
 DEFAULT_CRIT = 90
+DEFAULT_FAILED_JOB_RUNS = 0
+DEFAULT_FAILED_VM_LASTEST_STATES = 0
+DEFAULT_MAX_BACKUP_JOB_DURATION= 86400
+DEFAULT_MAX_REPLICA_JOB_DURATION = 86400
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'https://localhost:9398'
 DEFAULT_USERNAME = 'Administrator'
 DEFAULT_WARN = 80
+DEFAULT_WARNING_VM_LASTEST_STATES = 0
+DEFAULT_WARNINGS_JOB_RUNS = 0
 
 
 def parse_args():
@@ -64,10 +70,42 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold for Backup Size as a percentage. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--failed-job-runs',
+        help='Veeam threshold for `FailedJobRuns`. Default: > %(default)s',
+        dest='FAILED_JOB_RUNS',
+        type=int,
+        default=DEFAULT_FAILED_JOB_RUNS,
+    )
+
+    parser.add_argument(
+        '--failed-vm-lastest-states',
+        help='Veeam threshold for `FailedVmLastestStates`. Default: > %(default)s',
+        dest='FAILED_VM_LASTEST_STATES',
+        type=int,
+        default=DEFAULT_FAILED_VM_LASTEST_STATES,
+    )
+
+    parser.add_argument(
+        '--max-backup-job-duration',
+        help='Veeam threshold for `MaxBackupJobDuration`. Default: > %(default)s',
+        dest='MAX_BACKUP_JOB_DURATION',
+        type=int,
+        default=DEFAULT_MAX_BACKUP_JOB_DURATION,
+    )
+
+    parser.add_argument(
+        '--max-replica-job-duration',
+        help='Veeam threshold for `MaxDurationReplicaJobName`. Default: > %(default)s',
+        dest='MAX_REPLICA_JOB_DURATION',
+        type=int,
+        default=DEFAULT_MAX_REPLICA_JOB_DURATION,
     )
 
     parser.add_argument(
@@ -109,10 +147,26 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold for Backup Size as a percentage. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warnings-job-runs',
+        help='Veeam threshold for `WarningsJobRuns`. Default: > %(default)s',
+        dest='WARNINGS_JOB_RUNS',
+        type=int,
+        default=DEFAULT_WARNINGS_JOB_RUNS,
+    )
+
+    parser.add_argument(
+        '--warning-vm-lastest-states',
+        help='Veeam threshold for `WarningVmLastestStates`. Default: > %(default)s',
+        dest='WARNING_VM_LASTEST_STATES',
+        type=int,
+        default=DEFAULT_WARNING_VM_LASTEST_STATES,
     )
 
     return parser.parse_args()
@@ -142,19 +196,27 @@ def main():
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110
         url = args.URL + '/api/reports/summary/overview'
-        result['overview'] = lib.base3.coe(lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        result['overview'] = lib.base3.coe(
+            lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+        )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
         url = args.URL + '/api/reports/summary/job_statistics'
-        result['job_statistics'] = lib.base3.coe(lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        result['job_statistics'] = lib.base3.coe(
+            lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+        )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
         url = args.URL + '/api/reports/summary/vms_overview'
-        result['vms_overview'] = lib.base3.coe(lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        result['vms_overview'] = lib.base3.coe(
+            lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+        )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110
         url = args.URL + '/api/reports/summary/repository'
-        result['repository'] = lib.base3.coe(lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True))
+        result['repository'] = lib.base3.coe(
+            lib.url3.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+        )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
@@ -166,30 +228,14 @@ def main():
     perfdata = ''
     table_values = []
 
-    # analyze data
+    # analyze data - "Lastets" (Veeam: sic!)
 
-    # "Lastets" (sic!)
-    val = result['overview']['FailedVmLastestStates']
-    if val > 0:
-        local_state = STATE_CRIT
-        state = lib.base3.get_worst(state, local_state)
-        msg += '{} {} failed{}, '.format(
-            val,
-            lib.txt3.pluralize('VM', val),
-            lib.base3.state2str(local_state, prefix=' ')
-        )
-    val = result['overview']['WarningVmLastestStates']
-    if val > 0:
-        local_state = STATE_WARN
-        state = lib.base3.get_worst(state, local_state)
-        msg += '{} {} with warnings{}, '.format(
-            val,
-            lib.txt3.pluralize('VM', val),
-            lib.base3.state2str(local_state, prefix=' ')
-        )
+    table_values.append({'key': 'BackedUpVms', 'value': result['vms_overview']['BackedUpVms']})
+    table_values.append({'key': 'BackupServers', 'value': result['overview']['BackupServers']})
 
     val = result['job_statistics']['FailedJobRuns']
-    if  val > 0:
+    local_state = STATE_OK
+    if  val > args.FAILED_JOB_RUNS:
         local_state = STATE_CRIT
         state = lib.base3.get_worst(state, local_state)
         msg += '{} {} failed{}, '.format(
@@ -197,17 +243,26 @@ def main():
             lib.txt3.pluralize('Job', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
-    val = result['job_statistics']['WarningsJobRuns']
-    if  val > 0:
-        local_state = STATE_WARN
+    table_values.append({'key': 'FailedJobRuns', 'value': str(result['job_statistics']['FailedJobRuns']) + lib.base3.state2str(local_state, prefix=' ')})
+
+    val = result['overview']['FailedVmLastestStates']
+    local_state = STATE_OK
+    if val > args.FAILED_VM_LASTEST_STATES:
+        local_state = STATE_CRIT
         state = lib.base3.get_worst(state, local_state)
-        msg += '{} {} with warnings{}, '.format(
+        msg += '{} {} failed{}, '.format(
             val,
-            lib.txt3.pluralize('Job', val),
+            lib.txt3.pluralize('VM', val),
             lib.base3.state2str(local_state, prefix=' ')
         )
+    table_values.append({'key': 'FailedVmLastestStates', 'value': str(result['overview']['FailedVmLastestStates']) + lib.base3.state2str(local_state, prefix=' ')})
+
+    table_values.append({'key': 'FullBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['FullBackupPointsSize'])})
+    table_values.append({'key': 'IncrementalBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['IncrementalBackupPointsSize'])})
+
     val = result['job_statistics']['MaxBackupJobDuration']
-    if  val > 86400:
+    local_state = STATE_OK
+    if  val > args.MAX_BACKUP_JOB_DURATION:
         # job lasts longer than 24 hours
         local_state = STATE_WARN
         state = lib.base3.get_worst(state, local_state)
@@ -216,8 +271,15 @@ def main():
             lib.human3.seconds2human(val),
             lib.base3.state2str(local_state, prefix=' ')
         )
+    table_values.append({'key': 'MaxBackupJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxBackupJobDuration']) + lib.base3.state2str(local_state, prefix=' ')})
+
+    table_values.append({'key': 'MaxDurationBackupJobName', 'value': result['job_statistics']['MaxDurationBackupJobName']})
+    table_values.append({'key': 'MaxDurationReplicaJobName', 'value': result['job_statistics']['MaxDurationReplicaJobName']})
+    table_values.append({'key': 'MaxJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxJobDuration'])})
+
     val = result['job_statistics']['MaxReplicaJobDuration']
-    if  val > 86400:
+    local_state = STATE_OK
+    if  val > args.MAX_REPLICA_JOB_DURATION:
         # job lasts longer than 24 hours
         local_state = STATE_WARN
         state = lib.base3.get_worst(state, local_state)
@@ -226,6 +288,47 @@ def main():
             lib.human3.seconds2human(val),
             lib.base3.state2str(local_state, prefix=' ')
         )
+    table_values.append({'key': 'MaxReplicaJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxReplicaJobDuration']) + lib.base3.state2str(local_state, prefix=' ')})
+
+    table_values.append({'key': 'ProtectedVms', 'value': result['vms_overview']['ProtectedVms']})
+    table_values.append({'key': 'ProxyServers', 'value': result['overview']['ProxyServers']})
+    table_values.append({'key': 'ReplicaRestorePointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['ReplicaRestorePointsSize'])})
+    table_values.append({'key': 'ReplicatedVms', 'value': result['vms_overview']['ReplicatedVms']})
+    table_values.append({'key': 'RepositoryServers', 'value': result['overview']['RepositoryServers']})
+    table_values.append({'key': 'RestorePoints', 'value': result['vms_overview']['RestorePoints']})
+    table_values.append({'key': 'RunningJobs', 'value': result['job_statistics']['RunningJobs']})
+    table_values.append({'key': 'ScheduledBackupJobs', 'value': result['job_statistics']['ScheduledBackupJobs']})
+    table_values.append({'key': 'ScheduledJobs', 'value': result['job_statistics']['ScheduledJobs']})
+    table_values.append({'key': 'ScheduledReplicaJobs', 'value': result['job_statistics']['ScheduledReplicaJobs']})
+    table_values.append({'key': 'SourceVmsSize', 'value': lib.human3.bytes2human(result['vms_overview']['SourceVmsSize'])})
+    table_values.append({'key': 'SuccessBackupPercents', 'value': str(result['vms_overview']['SuccessBackupPercents']) + '%'})
+    table_values.append({'key': 'SuccessfulJobRuns', 'value': result['job_statistics']['SuccessfulJobRuns']})
+    table_values.append({'key': 'SuccessfulVmLastestStates', 'value': result['overview']['SuccessfulVmLastestStates']})
+    table_values.append({'key': 'TotalJobRuns', 'value': result['job_statistics']['TotalJobRuns']})
+
+    val = result['job_statistics']['WarningsJobRuns']
+    local_state = STATE_OK
+    if  val > args.WARNINGS_JOB_RUNS:
+        local_state = STATE_WARN
+        state = lib.base3.get_worst(state, local_state)
+        msg += '{} {} with warnings{}, '.format(
+            val,
+            lib.txt3.pluralize('Job', val),
+            lib.base3.state2str(local_state, prefix=' ')
+        )
+    table_values.append({'key': 'WarningsJobRuns', 'value': str(result['job_statistics']['WarningsJobRuns']) + lib.base3.state2str(local_state, prefix=' ')})
+
+    val = result['overview']['WarningVmLastestStates']
+    local_state = STATE_OK
+    if val > args.WARNING_VM_LASTEST_STATES:
+        local_state = STATE_WARN
+        state = lib.base3.get_worst(state, local_state)
+        msg += '{} {} with warnings{}, '.format(
+            val,
+            lib.txt3.pluralize('VM', val),
+            lib.base3.state2str(local_state, prefix=' ')
+        )
+    table_values.append({'key': 'WarningVmLastestStates', 'value': str(result['overview']['WarningVmLastestStates']) + lib.base3.state2str(local_state, prefix=' ')})
 
     for repo in result['repository']['Periods']:
         val = round(float(repo['BackupSize']) / float(repo['Capacity']) * 100, 1)
@@ -252,8 +355,6 @@ def main():
     perfdata += lib.base3.get_perfdata('FullBackupPointsSize', result['vms_overview']['FullBackupPointsSize'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('IncrementalBackupPointsSize', result['vms_overview']['IncrementalBackupPointsSize'], 'B', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('MaxBackupJobDuration', result['job_statistics']['MaxBackupJobDuration'], 's', None, None, 0, None)
-    #perfdata += lib.base3.get_perfdata('MaxDurationBackupJobName', result['job_statistics']['MaxDurationBackupJobName'], None, None, None, 0, None)
-    #perfdata += lib.base3.get_perfdata('MaxDurationReplicaJobName', result['job_statistics']['MaxDurationReplicaJobName'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('MaxJobDuration', result['job_statistics']['MaxJobDuration'], 's', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('MaxReplicaJobDuration', result['job_statistics']['MaxReplicaJobDuration'], 's', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('ProtectedVms', result['vms_overview']['ProtectedVms'], None, None, None, 0, None)
@@ -273,35 +374,6 @@ def main():
     perfdata += lib.base3.get_perfdata('TotalJobRuns', result['job_statistics']['TotalJobRuns'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('WarningsJobRuns', result['job_statistics']['WarningsJobRuns'], None, None, None, 0, None)
     perfdata += lib.base3.get_perfdata('WarningVmLastestStates', result['overview']['WarningVmLastestStates'], None, None, None, 0, None)
-
-    table_values.append({'key': 'BackedUpVms', 'value': result['vms_overview']['BackedUpVms']})
-    table_values.append({'key': 'BackupServers', 'value': result['overview']['BackupServers']})
-    table_values.append({'key': 'FailedJobRuns', 'value': result['job_statistics']['FailedJobRuns']})
-    table_values.append({'key': 'FailedVmLastestStates', 'value': result['overview']['FailedVmLastestStates']})
-    table_values.append({'key': 'FullBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['FullBackupPointsSize'])})
-    table_values.append({'key': 'IncrementalBackupPointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['IncrementalBackupPointsSize'])})
-    table_values.append({'key': 'MaxBackupJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxBackupJobDuration'])})
-    table_values.append({'key': 'MaxDurationBackupJobName', 'value': result['job_statistics']['MaxDurationBackupJobName']})
-    table_values.append({'key': 'MaxDurationReplicaJobName', 'value': result['job_statistics']['MaxDurationReplicaJobName']})
-    table_values.append({'key': 'MaxJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxJobDuration'])})
-    table_values.append({'key': 'MaxReplicaJobDuration', 'value': lib.human3.seconds2human(result['job_statistics']['MaxReplicaJobDuration'])})
-    table_values.append({'key': 'ProtectedVms', 'value': result['vms_overview']['ProtectedVms']})
-    table_values.append({'key': 'ProxyServers', 'value': result['overview']['ProxyServers']})
-    table_values.append({'key': 'ReplicaRestorePointsSize', 'value': lib.human3.bytes2human(result['vms_overview']['ReplicaRestorePointsSize'])})
-    table_values.append({'key': 'ReplicatedVms', 'value': result['vms_overview']['ReplicatedVms']})
-    table_values.append({'key': 'RepositoryServers', 'value': result['overview']['RepositoryServers']})
-    table_values.append({'key': 'RestorePoints', 'value': result['vms_overview']['RestorePoints']})
-    table_values.append({'key': 'RunningJobs', 'value': result['job_statistics']['RunningJobs']})
-    table_values.append({'key': 'ScheduledBackupJobs', 'value': result['job_statistics']['ScheduledBackupJobs']})
-    table_values.append({'key': 'ScheduledJobs', 'value': result['job_statistics']['ScheduledJobs']})
-    table_values.append({'key': 'ScheduledReplicaJobs', 'value': result['job_statistics']['ScheduledReplicaJobs']})
-    table_values.append({'key': 'SourceVmsSize', 'value': lib.human3.bytes2human(result['vms_overview']['SourceVmsSize'])})
-    table_values.append({'key': 'SuccessBackupPercents', 'value': str(result['vms_overview']['SuccessBackupPercents']) + '%'})
-    table_values.append({'key': 'SuccessfulJobRuns', 'value': result['job_statistics']['SuccessfulJobRuns']})
-    table_values.append({'key': 'SuccessfulVmLastestStates', 'value': result['overview']['SuccessfulVmLastestStates']})
-    table_values.append({'key': 'TotalJobRuns', 'value': result['job_statistics']['TotalJobRuns']})
-    table_values.append({'key': 'WarningsJobRuns', 'value': result['job_statistics']['WarningsJobRuns']})
-    table_values.append({'key': 'WarningVmLastestStates', 'value': result['overview']['WarningVmLastestStates']})
 
     # build the message
     msg = msg[:-2] + '\n\n' + lib.base3.get_table(

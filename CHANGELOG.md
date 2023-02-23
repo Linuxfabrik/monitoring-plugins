@@ -17,8 +17,8 @@ Monitoring Plugins:
 
 * redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
 * service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters).
+* veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
 * Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib)).
-
 
 
 ### Added

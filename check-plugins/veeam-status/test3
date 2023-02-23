@@ -25,7 +25,7 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --username=test --password=test --test=examples/EXAMPLE01,,0'))
-        self.assertIn('1 VM failed [CRITICAL], 2 VMs with warnings [WARNING], 5 Jobs failed [CRITICAL], 3 Jobs with warnings [WARNING]', stdout)
+        self.assertIn('5 Jobs failed [CRITICAL], 1 VM failed [CRITICAL], "Backup_2014-10-18T044119" ran for 1D 9m [WARNING], Fileserver02 Replication ran for 1D 3h [WARNING], 3 Jobs with warnings [WARNING], 2 VMs with warnings [WARNING], "Omega Cloud Vol2" 0.3% used - total: 300.0GiB, used: 915.0MiB, free: 299.1GiB, "Alpha Cloud Repository" 0.0% used - total: 10.0GiB, used: 0.0B, free: 10.0GiB, "Backup Volume 01" 18.3% used - total: 1005.5GiB, used: 184.2GiB, free: 821.3GiB, "Default Backup Repository" 17.6% used - total: 119.7GiB, used: 21.0GiB, free: 98.6GiB, "Omega Cloud Vol1" 1.7% used - total: 500.0GiB, used: 8.6GiB, free: 491.4GiB', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
@@ -35,6 +35,12 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --username=test --password=test --failed-job-runs=10 --failed-vm-lastest-states=10 --max-backup-job-duration=8640000 --max-replica-job-duration=864000 --warnings-job-runs=10 --warning-vm-lastest-states=10 --test=examples/EXAMPLE03,,0'))
+        self.assertIn('"Backup Volume 01" 18.3% used - total: 1005.5GiB, used: 184.2GiB, free: 821.3GiB', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
 if __name__ == '__main__':
     unittest.main()
