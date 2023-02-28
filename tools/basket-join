@@ -96,6 +96,7 @@ class BasketJoiner:
             with open(filename, 'w') as file:
                 json.dump(self.data, file, sort_keys=False, indent=4, separators=(',', ': '))
                 file.write('\n')
+                print('Written to file {}'.format(filename))
         except FileNotFoundError as e:
             err_print('{}.'.format(e))
             return False
@@ -116,24 +117,28 @@ class BasketJoiner:
                     err_print(str(e))
                     return False
 
-            if 'Datafield' in basket_data:
-                for key, value in basket_data['Datafield'].items():
-                    uuid = value.get('uuid')
-                    if uuid in self.uuids2datafields:
-                        current_value = self.data['Datafield'][self.uuids2datafields[uuid]]
-                        if current_value != value:
-                            err_print('The objects "[Datafield][{}]" and "[Datafield][{}]" have the same uuid ("{}") but not the same content. Please fix this, aborting...'.format(
-                                value["varname"],
-                                current_value["varname"],
-                                uuid,
-                            ))
-                            return False
-                    else:
-                        self.highest_datafield_id += 1
-                        if uuid:
-                            self.uuids2datafields[uuid] = str(self.highest_datafield_id)
-                        self.data['Datafield'][str(self.highest_datafield_id)] = value
-                        new_datafield_ids[key] = self.highest_datafield_id
+            try:
+                if 'Datafield' in basket_data:
+                    for key, value in basket_data['Datafield'].items():
+                        uuid = value.get('uuid')
+                        if uuid in self.uuids2datafields:
+                            current_value = self.data['Datafield'][self.uuids2datafields[uuid]]
+                            if current_value != value:
+                                err_print('The objects "[Datafield][{}]" and "[Datafield][{}]" have the same uuid ("{}") but not the same content. Please fix this, aborting...'.format(
+                                    value["varname"],
+                                    current_value["varname"],
+                                    uuid,
+                                ))
+                                return False
+                        else:
+                            self.highest_datafield_id += 1
+                            if uuid:
+                                self.uuids2datafields[uuid] = str(self.highest_datafield_id)
+                            self.data['Datafield'][str(self.highest_datafield_id)] = value
+                            new_datafield_ids[key] = self.highest_datafield_id
+            except:
+                err_print('Invalid basket definition file {}'.format(basket_file))
+                return False
 
             for parent_key, parent_value in basket_data.items():
                 if parent_key == 'Datafield':
