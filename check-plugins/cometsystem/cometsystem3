@@ -1,0 +1,201 @@
+#! /usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""Have a look at the check's README for further details.
+"""
+
+import os
+
+# considering a virtual environment
+ACTIVATE_THIS = False
+venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
+if os.path.exists(venv_path):
+    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
+
+if os.getenv('MONITORING_PLUGINS_VENV3'):
+    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
+
+if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
+    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
+
+
+import argparse # pylint: disable=C0413
+import sys # pylint: disable=C0413
+import json # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.shell3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.time3 # pylint: disable=C0413
+from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+
+__author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
+                originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
+__version__ = '2022121201'
+
+DESCRIPTION = """This check targets the JSON endpoint of https://www.cometsystem.com/ Web Sensors.
+                 Alert states can be set per measurement and on low and high threshold violations."""
+
+DEFAULT_HIGH = 'CRITICAL'
+DEFAULT_INSECURE = False
+DEFAULT_LOW = 'WARN'
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--high',
+        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
+             'If only one state is provided it gets applied to all high'
+             'threashold volations.'
+             'Default: CRITCAL',
+        dest='HIGH',
+        default=DEFAULT_HIGH,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure"'
+        ' SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--low',
+        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
+             'If only one state is provided it gets applied to all low'
+             'threashold volations.'
+             'Default: CRITCAL',
+        dest='LOW',
+        default=DEFAULT_LOW,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--perfdata',
+        help='send perfdata. Default: False',
+        dest='PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Set the URL of the values as JSON.  http://example.com/values.jsonfile',
+        dest='URL',
+        type=str,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        URL = args.URL
+        if URL[0:4] != 'http':
+            lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        # fetch the URL
+        result = lib.base3.coe(lib.url3.fetch(
+            URL,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT))
+        if 'ch1' not in result:
+            lib.base3.oao('Malformed Web Sensors status file.', STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    c = result.read(2048).decode("ISO-8859-1")
+    j = json.load(c)
+    results = null
+    print(results)
+    exit(0)
+    for ch in ["ch1", "ch2", "ch3", "ch4"]:
+        #print(j[ch]["name"]+": "+j[ch]["aval"]+j[ch]["unit"])
+        name = j[ch]['name']
+        unit = j[ch]['unit']
+        value = j[ch]['aval']
+        alarm = j[ch]['alarm']
+
+    # build the message
+    state = lib.base3.get_state(value, args.WARN, args.CRIT)
+    msg += '{}% used{}'.format(value, lib.base3.state2str(state, prefix=' '))
+    perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100) if args.PERFDATA else None
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

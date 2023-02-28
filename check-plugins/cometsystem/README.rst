@@ -48,7 +48,7 @@ Help
       --low                 comma sparated states [OK,CRITCAL,WARNING] per sensor value.
                             If only one state is provided it gets applied to all low
 			    threashold volations
-                            Default: CRITCAL
+                            Default: WARN
       --no-proxy            Do not use a proxy. Default: False
       --perfdata            send perfdata. Default: False
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
