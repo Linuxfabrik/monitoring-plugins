@@ -167,117 +167,34 @@ def main():
                     value = hsm_msg.split('=')[1].split('%')[0]
                     perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
                     state = lib.base3.get_state(value, args.WARN, args.CRIT)
-                    print(value)
                     msg += '{} {}'.format(lib.base3.state2str(state, empty_ok=False), hsm_msg.replace("\t", ''))
                     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
                 if 'NORMAL MODE' not in hsm_msg:
-                    """ sounds about right """
-                    state = STATE_CRITICAL
+                    """ what if not normal """
+                    state = STATE_CRIT
             if 'hsmstate' in line:
                 """ Known error message """
-                state = STATE_CRITICAL
+                state = STATE_CRIT
                 msg = '{} {}'.format(lib.base3.state2str(state), line)
                 break
             if 'Command Result' in line:
                 """ command not success """
                 if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
+                    state = STATE_CRIT
                     msg = '{} {}'.format(lib.base3.state2str(state), line)
         lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'cpu':
+    else:
         msg += stdout 
         for line in stdout.split('\n'):
             if 'Command Result' in line:
                 """ command not success """
                 if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'date':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'disk':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'interface':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'mac':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'mem':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'netstat':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'ps':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'time':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
-                    msg = '{} {}'.format(lib.base3.state2str(state), stdout)
-        lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
-    elif args.COMMAND == 'zone':
-        msg += stdout 
-        for line in stdout.split('\n'):
-            if 'Command Result' in line:
-                """ command not success """
-                if 'Command Result : 0' not in line:
-                    state = STATE_CRITICAL
+                    state = STATE_CRIT
                     msg = '{} {}'.format(lib.base3.state2str(state), stdout)
         lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
     # over and out
-
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 if __name__ == '__main__':

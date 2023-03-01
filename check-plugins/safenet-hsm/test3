@@ -23,27 +23,43 @@ class TestCheck(unittest.TestCase):
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
-    def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
-        self.assertIn('There are critical errors.', stdout)
+    def test_if_check_runs_HSM_STATUS_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check +
+                                                                   ' --test=examples/HSM_STATUS_EXAMPLE01,,0' +
+                                                                   ' --hostname test' +
+                                                                   ' --password test'
+                                                                   ))
+        self.assertIn('[OK]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_HSM_STATUS_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check +
+                                                                   ' --test=examples/HSM_STATUS_EXAMPLE02,,2' +
+                                                                   ' --hostname test' +
+                                                                   ' --password test'
+                                                                   ))
+        self.assertIn('[CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
-    def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
-        self.assertIn('There are critical errors.', stdout)
+    def test_if_check_runs_HSM_STATUS_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check +
+                                                                   ' --test=examples/HSM_STATUS_EXAMPLE03,,1' +
+                                                                   ' --hostname test' +
+                                                                   ' --password test'
+                                                                   ))
+        self.assertIn('[WARNING]', stdout)
         self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
+        self.assertEqual(retc, STATE_WARN)
 
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
-        self.assertIn('There are critical errors.', stdout)
-        self.assertEqual(stderr, '')
-        self.assertEqual(retc, STATE_CRIT)
-
-    def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE04,,0'))
-        self.assertIn('There are critical errors.', stdout)
+    def test_if_check_runs_HSM_STATUS_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check +
+                                                                   ' --test=examples/HSM_STATUS_EXAMPLE04,,2' +
+                                                                   ' --hostname test' +
+                                                                   ' --password test'
+                                                                   ))
+        self.assertIn('[CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
