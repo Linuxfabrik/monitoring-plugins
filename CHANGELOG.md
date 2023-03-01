@@ -15,11 +15,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Monitoring Plugins:
 
-* pip-updates: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
+* journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
+* journald-usage3: Switch `--warning` parameter from MiB to GiB
+* pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
 * redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
-* service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters).
+* service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters)
 * veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
-* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib)).
+* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
 
 
 ### Added
@@ -55,6 +57,7 @@ Notification Plugins:
 Icinga Director:
 
 * AIDE Service Set
+* Add new apache service set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
 * Remove DiagTrack from Windows Service Sets, since it's windows telemetry
 
@@ -80,7 +83,7 @@ Monitoring Plugins:
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
 * infomaniak-swiss-backup-\*: Apply new API version
-* journald-usage: Increase DEFAULT_WARN to 6 GB
+* journald-usage: Increase DEFAULT_WARN to 6 GiB
 * matomo-reporting3: Perfdata now is also aware of percentages
 * mysql-storage-engines3: Improve recognition of schema.table
 * mysql-user-security: Ignore mysql.sys and mariadb.sys users
