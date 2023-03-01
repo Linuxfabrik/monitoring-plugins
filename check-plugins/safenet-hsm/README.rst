@@ -99,6 +99,12 @@ Perfdata / Metrics
     Name,                                       Type,               Description                                           
     usage_percent,                              Percentage,         Percentag of possible usage.
 
+Troubleshooting
+---------------
+
+Output is empty
+    On the `check_source`, as the user icinga runs as, manually connect via SSH to the HSM. This will add the HSM to the list of known hosts.
+
 
 Credits, License
 ----------------
