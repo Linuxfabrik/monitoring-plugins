@@ -64,6 +64,7 @@ Icinga Director:
 * AIDE Service Set
 * Add new apache service set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
+* Create new basic service set for debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
 * Remove DiagTrack from Windows Service Sets, since it's windows telemetry
 
 
