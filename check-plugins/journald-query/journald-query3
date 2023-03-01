@@ -25,18 +25,19 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023030101'
 
-DESCRIPTION = """Query the systemd journal and alert on any events found. For help on any of the
-                 journalctl-specific parameters, have a look at `man journalctl`."""
+DESCRIPTION = """Query the systemd journal and alert on any events found.
+                 Only logs for the current boot will be shown.
+                 For help on any of the journalctl-specific parameters, see `man journalctl`."""
 
+DEFAULT_CASE_SENSITIVE = None
+DEFAULT_FACILITY = None
+DEFAULT_GREP = None
+DEFAULT_IDENTIFIER = None
 DEFAULT_PRIORITY = 'emerg..err'
 DEFAULT_SERVERITY = 'warn'
 DEFAULT_SINCE = '-24h'
-DEFAULT_FACILITY = None
-DEFAULT_CASE_SENSITIVE = None
-DEFAULT_IDENTIFIER = None
-DEFAULT_GREP = None
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
 
@@ -94,6 +95,7 @@ def parse_args():
         help='''journalctl: Filter output to entries where the MESSAGE= field matches the
                 specified regular expression. If the pattern is all lowercase, matching is
                 case insensitive. Otherwise, matching is case sensitive. 
+                Requires journalctl v247.3-7+.
                 Default: %(default)s''',
         dest='GREP',
         default=DEFAULT_GREP,
@@ -171,7 +173,9 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        cmd = 'journalctl --reverse '
+        cmd = 'journalctl '
+        cmd += '--boot '  # logs for the current boot will be shown
+        cmd += '--reverse '
         cmd += '--priority={} '.format(args.PRIORITY)
         cmd += '--since={} '.format(args.SINCE)
         if args.FACILITY:
@@ -190,8 +194,8 @@ def main():
             # found on fresh rhel 7+, ubuntu 16+ and debian 9+ systems altogether, if no unit
             # is provided. And yes, if called without any --unit parameter(s), we therefore ignore
             # errors on any specific application services like httpd etc. To check for application
-            # services, call this check using --unit=httpd, for example.
-            # Attention: '*' is the only wildcard that is working.
+            # services, call this check separately using --unit=httpd, for example.
+            # Attention: '*' is the only wildcard that works.
             units = [
                 '--unit="accounts-daemon.service"',
                 '--unit="acpid.service"',

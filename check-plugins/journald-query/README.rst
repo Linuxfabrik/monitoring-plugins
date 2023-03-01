@@ -37,14 +37,15 @@ Help
 
 .. code-block:: text
 
-    usage: journald-query3 [-h] [-V] [--always-ok] [--case-sensitive]
-                           [--facility FACILITY] [--identifier IDENTIFIER]
-                           [--grep GREP] [--priority PRIORITY]
-                           [--severity {warn,crit}] [--since SINCE] [--test TEST]
-                           [--unit UNIT] [--user-unit USER_UNIT]
+    usage: journald-query [-h] [-V] [--always-ok] [--case-sensitive]
+                          [--facility FACILITY] [--grep GREP]
+                          [--identifier IDENTIFIER] [--priority PRIORITY]
+                          [--severity {warn,crit}] [--since SINCE] [--test TEST]
+                          [--unit UNIT] [--user-unit USER_UNIT]
 
-    Query the systemd journal and alert on any events found. For help on any of
-    the journalctl-specific parameters, have a look at `man journalctl`.
+    Query the systemd journal and alert on any events found. Only logs for the
+    current boot will be shown. For help on any of the journalctl-specific
+    parameters, see `man journalctl`.
 
     options:
       -h, --help            show this help message and exit
@@ -59,7 +60,8 @@ Help
                             MESSAGE= field matches the specified regular
                             expression. If the pattern is all lowercase, matching
                             is case insensitive. Otherwise, matching is case
-                            sensitive. Default: None
+                            sensitive. Requires journalctl v247.3-7+. Default:
+                            None
       --identifier IDENTIFIER
                             journalctl: Show messages for the specified syslog
                             identifier. Default: None
@@ -77,7 +79,8 @@ Help
                             multiple times. Default: None
       --user-unit USER_UNIT
                             journalctl: Show messages for the specified user
-                            session 
+                            session unit. This parameter can be specified multiple
+                            times.
 
 
 Usage Examples
