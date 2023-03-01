@@ -102,7 +102,7 @@ Perfdata / Metrics
 Troubleshooting
 ---------------
 
-Output is empty
+Output is: `sshpass: Host public key is unknown. sshpass exits without confirming the new key.`
     On the `check_source`, as the user icinga runs as, manually connect via SSH to the HSM. This will add the HSM to the list of known hosts.
 
 

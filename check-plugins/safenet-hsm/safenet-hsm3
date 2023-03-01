@@ -149,6 +149,22 @@ def main():
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
+        if retc == 1:
+            lib.base3.oao('sshpass: Invalid command line argument', STATE_UNKNOWN)
+        if retc == 2:
+            lib.base3.oao('sshpass: Conflicting arguments given', STATE_UNKNOWN)
+        if retc == 3:
+            lib.base3.oao('sshpass: General runtime error', STATE_UNKNOWN)
+        if retc == 4:
+            lib.base3.oao('sshpass: Unrecognized response from ssh (parse error)', STATE_UNKNOWN)
+        if retc == 5:
+            lib.base3.oao('sshpass: Invalid/incorrect password', STATE_UNKNOWN)
+        if retc == 6:
+            lib.base3.oao('sshpass: Host public key is unknown. sshpass exits without confirming the new key.',
+                          STATE_UNKNOWN)
+        if retc == 7:
+            lib.base3.oao('sshpass: IP public key changed. sshpass exits without confirming the new key.',
+                          STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
