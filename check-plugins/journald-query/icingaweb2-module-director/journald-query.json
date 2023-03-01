@@ -5,17 +5,19 @@
                 "--always-ok": {
                     "set_if": "$journald_query_always_ok$"
                 },
-                "--case-sensitive": {
-                    "set_if": "$journald_query_case_sensitive$"
-                },
                 "--facility": {
                     "value": "$journald_query_facility$"
                 },
-                "--grep": {
-                    "value": "$journald_query_grep$"
-                },
                 "--identifier": {
                     "value": "$journald_query_identifier$"
+                },
+                "--ignore-pattern": {
+                    "value": "$journald_query_ignore_pattern$",
+                    "repeat_key": true
+                },
+                "--ignore-regex": {
+                    "value": "$journald_query_ignore_regex$",
+                    "repeat_key": true
                 },
                 "--priority": {
                     "value": "$journald_query_priority$"
@@ -130,7 +132,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Query the systemd journal and alert on any events found. For help on any of the journalctl-specific parameters, have a look at `man journalctl`.",
+            "notes": "Query the systemd journal and alert on any events found. Only logs for the current boot will be shown. For help on any of the journalctl-specific parameters, see `man journalctl`.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-query",
             "object_name": "tpl-service-journald-query",
             "object_type": "template",
@@ -141,6 +143,8 @@
             "use_var_overrides": null,
             "vars": {
                 "journald_query_always_ok": false,
+                "journald_query_ignore_pattern": [],
+                "journald_query_ignore_regex": [],
                 "journald_query_priority": "emerg..err",
                 "journald_query_severity": "warn",
                 "journald_query_since": "\\-24h"
@@ -182,15 +186,6 @@
             "uuid": "560110e0-80de-4cc0-b0b9-463fc35295f0"
         },
         "2": {
-            "varname": "journald_query_case_sensitive",
-            "caption": "Journald Query: Case Sensitive?",
-            "description": "journalctl: Make pattern matching case sensitive or case insensitive. ",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "b83f5e1d-1c4f-4871-a8a6-5de05c6a09d9"
-        },
-        "3": {
             "varname": "journald_query_facility",
             "caption": "Journald Query: Facility",
             "description": "journalctl: Filter output by syslog facility. Takes a comma-separated list of numbers or facility names.",
@@ -201,18 +196,7 @@
             },
             "uuid": "ac2f79f6-71e4-43cc-a7ef-714c2f5f9163"
         },
-        "4": {
-            "varname": "journald_query_grep",
-            "caption": "Journald Query: Grep",
-            "description": "journalctl: Filter output to entries where the MESSAGE= field matches the specified regular expression. If the pattern is all lowercase, matching is case insensitive. Otherwise, matching is case sensitive.  ",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "bdf277a7-8ac9-4335-8427-8932f5113d75"
-        },
-        "5": {
+        "3": {
             "varname": "journald_query_identifier",
             "caption": "Journald Query: Identifier",
             "description": "journalctl: Show messages for the specified syslog identifier.",
@@ -222,6 +206,28 @@
                 "visibility": "visible"
             },
             "uuid": "f8067419-b975-4dc2-8907-1d55b64f4895"
+        },
+        "4": {
+            "varname": "journald_query_ignore_pattern",
+            "caption": "Journald Query: Ignore Pattern",
+            "description": "Any line containing this pattern on the MESSAGE field will be ignored (must be lowercase; repeating).', So, unlike `journalctl`, you can easily use strings to ignore certain messages.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "38241f89-41dc-40c9-8210-4d2e9f4d1064"
+        },
+        "5": {
+            "varname": "journald_query_ignore_regex",
+            "caption": "Journald Query: Ignore Regex",
+            "description": "Any line matching this Python regex on the MESSAGE field will be ignored (repeated). So, unlike `journalctl`, you can easily use regular expressions to ignore certain messages.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "49e141c2-b6c4-498d-85b1-5f7a26d7aa1a"
         },
         "6": {
             "varname": "journald_query_priority",

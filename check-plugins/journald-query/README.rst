@@ -37,9 +37,10 @@ Help
 
 .. code-block:: text
 
-    usage: journald-query [-h] [-V] [--always-ok] [--case-sensitive]
-                          [--facility FACILITY] [--grep GREP]
-                          [--identifier IDENTIFIER] [--priority PRIORITY]
+    usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
+                          [--identifier IDENTIFIER]
+                          [--ignore-pattern IGNORE_PATTERN]
+                          [--ignore-regex IGNORE_REGEX] [--priority PRIORITY]
                           [--severity {warn,crit}] [--since SINCE] [--test TEST]
                           [--unit UNIT] [--user-unit USER_UNIT]
 
@@ -51,20 +52,22 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --case-sensitive      journalctl: Make pattern matching case sensitive or
-                            case insensitive. Default: None
       --facility FACILITY   journalctl: Filter output by syslog facility. Takes a
                             comma-separated list of numbers or facility names.
                             Default: None
-      --grep GREP           journalctl: Filter output to entries where the
-                            MESSAGE= field matches the specified regular
-                            expression. If the pattern is all lowercase, matching
-                            is case insensitive. Otherwise, matching is case
-                            sensitive. Requires journalctl v247.3-7+. Default:
-                            None
       --identifier IDENTIFIER
                             journalctl: Show messages for the specified syslog
                             identifier. Default: None
+      --ignore-pattern IGNORE_PATTERN
+                            Any line containing this pattern on the MESSAGE field
+                            will be ignored (must be lowercase; repeating).', So,
+                            unlike `journalctl`, you can easily use strings to
+                            ignore certain messages.
+      --ignore-regex IGNORE_REGEX
+                            Any line matching this Python regex on the MESSAGE
+                            field will be ignored (repeated). So, unlike
+                            `journalctl`, you can easily use regular expressions
+                            to ignore certain messages.
       --priority PRIORITY   journalctl: Filter output by message priorities or
                             priority ranges. Default: emerg..err
       --severity {warn,crit}
@@ -83,6 +86,7 @@ Help
                             times.
 
 
+
 Usage Examples
 --------------
 
@@ -96,7 +100,7 @@ Output:
 
 .. code-block:: text
 
-    27 events. Latest event at 2022-07-28 15:08:04 from systemd-resolved, level err: Failed to send hostname reply: Transport endpoint is not connected [WARNING]. 
+    27 events. Latest event at 2022-07-28 15:08:04 from systemd-resolved, level err: `Failed to send hostname reply: Transport endpoint is not connected` [WARNING]. 
     Attention: Table below is shortened and just shows the 5 newest and the 5 oldest messages.
 
     Timestamp           ! Unit             ! Prio ! Message                                                                                                                                   
@@ -120,13 +124,13 @@ Explicitly search for error messages in the Apache httpd unit only:
 
 .. code-block:: bash
 
-    ./journald-query --unit=httpd --priority=emerg..err --severity=crit
+    ./journald-query --unit=httpd --priority=emerg..err --severity=crit --ignore-regex='mod_qos.*: access denied, invalid request line'
 
 Output:
 
 .. code-block:: text
 
-    994 events. Latest event at 2022-07-28 18:00:04 from httpd, level err: [proxy_fcgi:error] [pid 896:tid 929] [client 127.0.0.1:50256] AH01071: Got error 'Primary script unknown' [CRITICAL].
+    994 events. Latest event at 2022-07-28 18:00:04 from httpd, level err: `[proxy_fcgi:error] [pid 896:tid 929] [client 127.0.0.1:50256] AH01071: Got error 'Primary script unknown'` [CRITICAL].
     Attention: Table below is shortened and just shows the 5 newest and the 5 oldest messages.
 
     Timestamp           ! Unit  ! Prio ! Message                                                                                                   

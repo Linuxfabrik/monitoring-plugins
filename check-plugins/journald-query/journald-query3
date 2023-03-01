@@ -13,6 +13,7 @@
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args3  # pylint: disable=C0413
@@ -31,9 +32,7 @@ DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
                  For help on any of the journalctl-specific parameters, see `man journalctl`."""
 
-DEFAULT_CASE_SENSITIVE = None
 DEFAULT_FACILITY = None
-DEFAULT_GREP = None
 DEFAULT_IDENTIFIER = None
 DEFAULT_PRIORITY = 'emerg..err'
 DEFAULT_SERVERITY = 'warn'
@@ -41,7 +40,7 @@ DEFAULT_SINCE = '-24h'
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
 
-# don't sort them, we need the indexes (0 = emerg etc.)
+# don't sort JOURNALD_PRIOS alphabetically, we need the indexes (0 = emerg etc.)
 JOURNALD_PRIOS = [
     'emerg',
     'alert',
@@ -74,15 +73,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--case-sensitive',
-        help='''journalctl: Make pattern matching case sensitive or case insensitive.
-                Default: %(default)s''',
-        dest='CASE_SENSITIVE',
-        action='store_true',
-        default=DEFAULT_CASE_SENSITIVE,
-    )
-
-    parser.add_argument(
         '--facility',
         help='''journalctl: Filter output by syslog facility. Takes a comma-separated list of
                 numbers or facility names. Default: %(default)s''',
@@ -91,21 +81,31 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--grep',
-        help='''journalctl: Filter output to entries where the MESSAGE= field matches the
-                specified regular expression. If the pattern is all lowercase, matching is
-                case insensitive. Otherwise, matching is case sensitive. 
-                Requires journalctl v247.3-7+.
-                Default: %(default)s''',
-        dest='GREP',
-        default=DEFAULT_GREP,
-    )
-
-    parser.add_argument(
         '--identifier',
         help='journalctl: Show messages for the specified syslog identifier. Default: %(default)s',
         dest='IDENTIFIER',
         default=DEFAULT_IDENTIFIER,
+    )
+
+    parser.add_argument(
+        '--ignore-pattern',
+        help='''Any line containing this pattern on the MESSAGE field will be ignored
+                (must be lowercase; repeating).',
+                So, unlike `journalctl`, you can easily use strings to ignore certain
+                messages.''',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='''Any line matching this Python regex on the MESSAGE field will be ignored (repeated).
+                So, unlike `journalctl`, you can easily use regular expressions to ignore certain
+                messages.''',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
     )
 
     parser.add_argument(
@@ -176,17 +176,14 @@ def main():
         cmd = 'journalctl '
         cmd += '--boot '  # logs for the current boot will be shown
         cmd += '--reverse '
+        cmd += '--quiet '
+        cmd += '--output=json '
         cmd += '--priority={} '.format(args.PRIORITY)
         cmd += '--since={} '.format(args.SINCE)
         if args.FACILITY:
             cmd += '--facility={} '.format(args.FACILITY)
         if args.IDENTIFIER:
             cmd += '--identifier={} '.format(args.IDENTIFIER)
-        if args.GREP:
-            cmd += '--grep={} '.format(args.GREP)
-        if args.CASE_SENSITIVE:
-            cmd += '--case-sensitive=true '
-        cmd += '--quiet --output=json '
         # unfortunately only for newer journalctl commands:
         #cmd += '--output-fields=UNIT,_SYSTEMD_UNIT,_SYSTEMD_SLICE,PRIORITY,MESSAGE '
         if args.UNIT is None and args.USER_UNIT is None:
@@ -246,26 +243,28 @@ def main():
         cmd = 'no-real-command-used'
         stdout, stderr, retc = lib.test3.test(args.TEST)
 
-    # build the message
+    # init some vars
     cnt = 0
+    table_data = []
+
+    # analyze data
     if stdout:
         # found something, so nothing good
         state = lib.base3.str2state(args.SEVERITY)
         result = stdout.splitlines()
-        cnt = len(result)
-        if cnt > 10:
-            # shorten the message
-            result = result[0:5] + result[-5:]
-            shortened = True
-        else:
-            shortened = False
 
-        table_data = []
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
         for item in result:
             try:
                 event = json.loads(item)
             except:
                 lib.base3.oao('Unable to interpret journald event: {}'.format(item), STATE_UNKNOWN)
+
+            haystack = event['MESSAGE'].lower()
+            if any(ignore_pattern in haystack for ignore_pattern in args.IGNORE_PATTERN) \
+            or any(item.search(haystack) for item in compiled_ignore_regex):
+                continue
+
             try:
                 event['unit'] = event['UNIT'].replace('.service', '')
             except:
@@ -280,7 +279,17 @@ def main():
 
             table_data.append(event)
 
-        msg = '{} {}. Latest event at {} from {}, level {}: {}{}. '.format(
+        cnt = len(table_data)
+        if cnt > 10:
+            # shorten the message
+            table_data = table_data[0:5] + table_data[-5:]
+            shortened = True
+        else:
+            shortened = False
+
+    # build the message
+    if table_data:
+        msg = '{} {}. Latest event at {} from {}, level {}: `{}`{}'.format(
             cnt,
             lib.txt3.pluralize('event', cnt),
             table_data[0]['timestamp'],
@@ -291,7 +300,7 @@ def main():
         )
         if shortened:
             msg += '\nAttention: Table below is shortened and just shows the 5 newest and ' \
-                   'the 5 oldest messages.'''
+                   'the 5 oldest messages.'
         keys = [
           'timestamp',
           'unit',
@@ -307,18 +316,17 @@ def main():
         msg += '\n\n' + lib.base3.get_table(table_data, keys, header=headers)
         if args.UNIT is None:
             msg += '\nUse `journalctl --reverse --priority={} --since={}` as a starting point ' \
-                   'for debugging. Be aware of the fact that you might see even more messages ' \
-                   'then, as we apply a lot of unit filters to only get messages from basic ' \
+                   'for debugging. Be aware of the fact that you may see even more messages ' \
+                   'then, as we use a lot of unit filters to get only messages from basic ' \
                    'system services.'.format(
                 args.PRIORITY,
                 args.SINCE,
             )
-
     else:
         msg = 'Everything is ok.'
         state = STATE_OK
 
-    msg += '\nThe full command used was:\n{}'.format(cmd)
+    msg += '\nThe full command used was:\n`{}`'.format(cmd)
     perfdata = lib.base3.get_perfdata('journald-query', cnt, 'c', None, None, 0, None)
 
     # over and out

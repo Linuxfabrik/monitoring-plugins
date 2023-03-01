@@ -23,6 +23,10 @@ Monitoring Plugins:
 * veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
 * Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
 
+Icinga Director:
+
+* Removed duplicate tags "redhat7" and "redhat8", because there is also "rhel7" and "rhel8"
+
 
 ### Added
 
