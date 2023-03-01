@@ -62,7 +62,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       -w WARN, --warning WARN
-                            Set the WARN threshold in MiB. Default: >= 500
+                            Set the WARN threshold in GiB. Default: >= 6
 
 
 Usage Examples

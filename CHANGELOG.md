@@ -16,6 +16,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Monitoring Plugins:
 
 * journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
+* journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641)) 
 * journald-usage3: Switch `--warning` parameter from MiB to GiB
 * pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
 * redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
