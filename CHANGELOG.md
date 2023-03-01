@@ -80,6 +80,7 @@ Monitoring Plugins:
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
 * infomaniak-swiss-backup-\*: Apply new API version
+* journald-usage: Increase DEFAULT_WARN to 6 GB
 * matomo-reporting3: Perfdata now is also aware of percentages
 * mysql-storage-engines3: Improve recognition of schema.table
 * mysql-user-security: Ignore mysql.sys and mariadb.sys users
