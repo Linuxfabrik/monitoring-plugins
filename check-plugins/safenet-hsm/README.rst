@@ -6,7 +6,7 @@ Overview
 
 This checks the health of a Gemalto SafeNet SHM via SSH and PSESH commands.
 
-Currently only the `hsm state` command is implemented. The other commands only report the output and CRIT if not `Command Result : 0 (Success)`.
+Currently only the `hsm state` command is implemented. The other commands only report the output and UNKNOWN if not `Command Result : 0 (Success)`.
 
 The other commands are:
 * cpu
@@ -54,7 +54,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -C COMMAND, --command COMMAND
+      --command COMMAND
                             Command to use for the check. Default: hsm state
       -c CRIT, --critical CRIT
                             Set the CRIT threshold as a percentage. Default: >= 90
@@ -63,7 +63,8 @@ Help
       -p PASSWORD, --password PASSWORD
                             Password
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".
-      -u USER, --user USER  Username [admin|pseoperator]. Defautl: pseoperator
+      -u USER, --username USER
+                            Username [admin|pseoperator]. Defautl: pseoperator
       -w WARN, --warning WARN
                             Set the WARN threshold as a percentage. Default: >= 80
 
