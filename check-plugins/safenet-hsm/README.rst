@@ -4,7 +4,7 @@ Check safenet-hsm
 Overview
 --------
 
-This checks the health of a Gemalto SafeNet SHM via SSH and PSESH commands.
+This checks the health of a Gemalto SafeNet HSM via SSH and PSESH commands.
 
 Currently only the `hsm state` command is implemented. The other commands only report the output and UNKNOWN if not `Command Result : 0 (Success)`.
 
