@@ -26,6 +26,15 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* Removed "OS - RHEL 7 Basic Service Set (Hardware)"
+* Removed "oVirt Engine 4.2 Service Set"
+* Removed "oVirt Engine 4.3 Service Set"
+* Removed "oVirt Host Service Set"
+* Removed "oVirt VM Service Set (RHEL 7)"
+* Removed "oVirt VM Service Set (RHEL 8)"
+* Removed "oVirt VM Service Set (Windows Python)"
+* Removed "oVirt VM Service Set (Windows)"
+* Removed "PostgreSQL 9.6 Service Set"
 * Removed duplicate tags "redhat7" and "redhat8", because there is also "rhel7" and "rhel8"
 
 
