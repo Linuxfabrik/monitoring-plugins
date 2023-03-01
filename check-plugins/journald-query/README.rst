@@ -65,9 +65,9 @@ Help
                             ignore certain messages.
       --ignore-regex IGNORE_REGEX
                             Any line matching this Python regex on the MESSAGE
-                            field will be ignored (repeated). So, unlike
-                            `journalctl`, you can easily use regular expressions
-                            to ignore certain messages.
+                            field will be ignored (must be lowercase; repeating).
+                            So, unlike `journalctl`, you can easily use regular
+                            expressions to ignore certain messages.
       --priority PRIORITY   journalctl: Filter output by message priorities or
                             priority ranges. Default: emerg..err
       --severity {warn,crit}
@@ -84,7 +84,6 @@ Help
                             journalctl: Show messages for the specified user
                             session unit. This parameter can be specified multiple
                             times.
-
 
 
 Usage Examples
@@ -124,6 +123,7 @@ Explicitly search for error messages in the Apache httpd unit only:
 
 .. code-block:: bash
 
+    # --ignore parameter value must be lowercase
     ./journald-query --unit=httpd --priority=emerg..err --severity=crit --ignore-regex='mod_qos.*: access denied, invalid request line'
 
 Output:
