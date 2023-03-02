@@ -10,12 +10,12 @@ The output table is sorted by the "Tags" column.
 
 Hints:
 
-* In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance" and "Busy" for the API result "operation_in_progress".
+* In the table output, the column header "Dev" means the number of devices created, "Maint." stands for "Maintenance" and "Busy" for the API result "has_operation_in_progress".
 
 Links:
 
 * Swiss Backup: https://www.infomaniak.com/en/swiss-backup
-* API Documentation: https://developer.infomaniak.com/, https://api.infomaniak.com/doc
+* API Documentation: https://developer.infomaniak.com/docs/api/get/1/swiss_backups
 * API Tokens: https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token
 
 
@@ -76,7 +76,7 @@ Output:
 
     Everything is ok.
 
-    ID    ! Customer     ! Tags ! Size (alloc/avail)  ! Dev ! Expires in ! Maint. ! Locked ! Busy  
+    ID    ! Customer     ! Tag  ! Size (alloc/avail)  ! Dev ! Expires in ! Maint. ! Locked ! Busy
     ------+--------------+------+---------------------+-----+------------+--------+--------+-------
     55577 ! BK-200999-1  ! prod ! 9.1TiB / 9.1TiB     ! 1   ! 11M 2W     ! False  ! False  ! False 
     55556 ! BK-200999-2  ! test ! 186.3GiB / 186.3GiB ! 2   ! 10M 5D     ! False  ! False  ! False 

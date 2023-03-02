@@ -8,11 +8,8 @@ Checks some metrics of the crash-safe, non-transactional Aria Storage Engine in 
 
 Hints:
 
-* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
-* Compared to check_mysql / MySQLTuner this check currently:
-
-    * supports only simple login with username/password (not via SSL/TLS)
-    * does not support a connection via socket
+ * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* Requires a user account with high privileges to access schemas like INFORMATION_SCHEMA. `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
 
 
 Fact Sheet
@@ -33,8 +30,8 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-aria [-h] [-V] [--always-ok] [-H HOSTNAME] -p PASSWORD
-                      [--port PORT] -u USERNAME
+    usage: mysql-aria3 [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
+                       [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
     Checks some metrics of the Aria Storage Engine in MySQL/MariaDB.
 
@@ -42,14 +39,16 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -H HOSTNAME, --hostname HOSTNAME
-                            MySQL/MariaDB hostname. Default: 127.0.0.1
-      -p PASSWORD, --password PASSWORD
-                            Use the indicated password to authenticate the
-                            connection.
-      --port PORT           MySQL/MariaDB port. Default: 3306
-      -u USERNAME, --username USERNAME
-                            MySQL/MariaDB username.
+      --defaults-file DEFAULTS_FILE
+                            Specifies a cnf file to read parameters like user,
+                            host and password from (instead of specifying them on
+                            the command line), for example
+                            `/var/spool/icinga2/.my.cnf`. Default:
+                            /var/spool/icinga2/.my.cnf
+      --defaults-group DEFAULTS_GROUP
+                            Group/section to read from in the cnf file. Default:
+                            client
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -57,13 +56,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-aria --username mon-aria --password mypassword
-    
+    ./mysql-aria --defaults-file=/var/spool/icinga2/.my.cnf
+
 Output:
 
 .. code-block:: text
 
-    Aria pagecache size / total Aria indexes: 128.0MiB/0.0B, 99.9% Aria pagecache hit rate (1.5G cached / 763.3K reads)
+    Aria pagecache size / total Aria indexes: 128.0MiB/328.0KiB, 97.2% Aria pagecache hit rate (1.1K cached / 30.0 reads)
 
 
 States

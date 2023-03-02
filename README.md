@@ -29,7 +29,7 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 
 ## Installation
 
-Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options.
+Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
 
 
 ## Icons
@@ -37,18 +37,9 @@ Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/b
 You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
-## sudoers
-
-On Linux, some check plugins require `sudo`-permissions to run. To do this, we provide a `sudoers` file for your operating system in `monitoring-plugins/assets/sudoers`, for example `CentOS8.sudoers`. You need to place this file in `/etc/sudoers.d/` on the target host.
-
-**Note**
-
-> We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if `nagios-plugins-all` installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
-
-
 ## Check Plugin Poster
 
-See most of our check plugins at a glance on an Icinga server:
+See some of our check plugins at a glance on an Icinga server:
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins.png)
 
@@ -57,40 +48,56 @@ If you zoom in, for example on *CPU Usage*:
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png)
 
 
-
 ## Feedback from our Community
 
-A few comments about our monitoring plugins:
+Some comments from the community about our monitoring plugins:
+
+
+> ... thanks for your awesome plugins.
+
+-- [Robert Christian](https://github.com/soulsymphonies)
+
+
+> ... Thanks for your awesome work & have a good day.
+
+-- [\Barney](https://github.com/bangerer)
+
 
 > ... I can recommend this family of plugins, they are the highest quality I have seen around. ...
 
 -- [u/exekewtable@reddit](https://www.reddit.com/r/icinga/comments/xcewsg/icinga_python_script_for_qradar_log_source/)
 
+
 > Ich bin vor kurzem (via Video vom Icinga Camp) über Eure Monitoringplugins gestolpert. Ganz herzlichen Dank dafür, großartige Arbeit!!
 
 -- Christian Lox
+
 
 > ... many thanks for your great collection of monitoring plugins! I've just found them - clean structure and output, cross-platform, Icinga Directory Basket configurations - loving it and currently migrating step by step most of my checks to use them where possible. 😍
 
 -- [Bernd Bestel](https://github.com/berrnd)
 
+
 > Nachdem ich beim Versuch, Nagios-Plugins auf VMwares Photon-OS zum laufen zu kriegen, graue Haare gekriegt habe, haben mir eure Plugins zum Ziel verholfen.
 
 -- [MajorTwip](https://twitter.com/MajorTwip)
 
+
 > A well engineered, regularly updated and maintained collection of plugins. Specially focused on Linux servers/VMs and used at large scale by the company developing it.
 
 -- [straessler](https://exchange.icinga.com/straessler)
+
 
 > Hello, I stumbled across your collection and am thrilled! Especially the extensive documentary and the Director Baskets are a dream.
 
 -- Stefan Beining
 
 
-In order to keep improving the Monitoring Plugins and better answer your needs, we would like to ask for your help:
+## Merchandise! ;-)
 
-* Give feedback: [Tell us which check we should develop next](https://cloud.linuxfabrik.io/index.php/apps/forms/WQRMnkYTW3j8Aaa6).
+The "Linuxfabrik Monitoring Plugins" on a card of our popular Open Source Quartet 2023. 🙂 [Click here if you want to get one to play](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023) (20 CHF). For more info, [here's the story](https://www.linuxfabrik.ch/en/blog/the-linuxfabrik-open-source-quartet-2023/).
 
+[![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-quartets-card-2023.png)](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023)
 
 
 ## Human Readable Numbers
@@ -207,9 +214,12 @@ We stopped maintaining the Python 2-based plugins on 2021-12-31.
 
 ### For a single Plugin
 
-For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, `check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json`). Import this via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it.
+For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, `check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json`). Import this
 
-Alternatively, you can manually configure the plugin as follows.
+* via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it
+* via `icingacli director basket restore < cpu-usage.json -v`
+
+Alternatively, you can manually configure the plugin as follows:
 
 Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
@@ -241,22 +251,25 @@ Now use this command within a Service Template, a Service Set and/or a Single Se
 
 To use our Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
 
-If you are using our [Fork of the Icinga Director](https://git.linuxfabrik.ch/linuxfabrik/icingaweb2-module-director), you can use the following command:
+If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), you can use the following command:
 
 ``` bash
 ./tools/basket-join
 ```
 
-If not, generate a Basket without `guids`:
+If not, generate a Basket without `uuids`:
 
 ``` bash
 ./tools/basket-join
-./tools/remove-guids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-guids.json
+./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
 ```
 
-Import the resulting `icingaweb2-module-director-basket.json` via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it.
+Import the resulting `icingaweb2-module-director-basket.json`
 
-If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, you must either load the basket from the command line with `icingacli director basket restore < /tmp/icingaweb2-module-director-basket.json`, or adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket](https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
+* via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it
+* via `icingacli director basket restore < icingaweb2-module-director-basket.json -v`
+
+If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket](https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
 
 * PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service)
 * MariaDB/MySQL: increase `max_allowed_packet`
@@ -282,6 +295,12 @@ If you want to create a custom dashboards that contains a different selection of
 # for more options, see
 ./tools/grafana-tool --help
 ```
+
+
+## Tips & Tricks
+
+How can I remove the performance data after the `|`?
+    Bash: `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 
 ## Reporting Issues

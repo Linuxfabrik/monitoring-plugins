@@ -13,14 +13,48 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Breaking Changes
 
-* service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters).
+Features:
+
+* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
+
+Monitoring Plugins:
+
+* journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
+* journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641)) 
+* journald-usage3: Switch `--warning` parameter from MiB to GiB
+* mysql-\*3: Removed parameters `--hostname`, `--password`, `--port` and `--username` and switched to option-file authentication (therefore all checks come with new parameters)
+* pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
+* redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
+* service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters)
+* veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
+
+Icinga Director:
+
+* Removed "OS - RHEL 7 Basic Service Set (Hardware)"
+* Removed "oVirt Engine 4.2 Service Set"
+* Removed "oVirt Engine 4.3 Service Set"
+* Removed "oVirt Host Service Set"
+* Removed "oVirt VM Service Set (RHEL 7)"
+* Removed "oVirt VM Service Set (RHEL 8)"
+* Removed "oVirt VM Service Set (Windows Python)"
+* Removed "oVirt VM Service Set (Windows)"
+* Removed "PostgreSQL 9.6 Service Set"
+* Removed duplicate tags "redhat7" and "redhat8", because there is also "rhel7" and "rhel8"
 
 
 ### Added
 
+Features:
+
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te)
+* Add new sudoers files for Alma 9, RHEL 9, Rocky 9, Fedora 37, Oracle 7, Oracle 8, Oracle 9 ([#627](https://github.com/Linuxfabrik/monitoring-plugins/issues/627) and more)
+
 Monitoring Plugins:
 
 * crypto-policy
+* csv-values
+* grassfish-licenses
+* infomaniak-events
 * journald-query
 * journald-usage
 * ntp-chronyd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
@@ -32,25 +66,51 @@ Monitoring Plugins:
 * systemd-timedate-status
 * tuned-profile
 
+Notification Plugins:
+
+* notify-host-rocketchat-telegram
+* notify-host-zoom
+* notify-service-rocketchat-telegram
+
 Icinga Director:
 
 * AIDE Service Set
+* Add new apache service set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
+* Create new basic service set for debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
+* Remove DiagTrack from Windows Service Sets, since it's windows telemetry
 
 
 ### Changed
 
+Features:
+
+* Enhanced sudoers files
+
 Monitoring Plugins:
 
+* about-me3: Add detection of restic
+* about-me3: Add detection of Snap
+* about-me3: Add Maker and Model ([#637](https://github.com/Linuxfabrik/monitoring-plugins/issues/637))
+* about-me3: Improve detection of coturn
+* about-me3: Improve psutil error handling
+* about-me3: Make external IP search configurable with 3rd party providers (and disabled by default) ([#645](https://github.com/Linuxfabrik/monitoring-plugins/issues/645)) 
+* about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
+* about-me3: Remove unstable bonding detection
+* disk-usage: Move state output to usage column
+* dmesg3: add additional message to ignorelist
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
-* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603)) 
+* infomaniak-swiss-backup-\*: Apply new API version
+* journald-usage: Increase DEFAULT_WARN to 6 GiB
 * matomo-reporting3: Perfdata now is also aware of percentages
-* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621)) 
-
-Libs:
-
-* lib/human3.py: human2bytes() is now also able to interpret "3.0M"
+* mysql-storage-engines3: Improve recognition of schema.table
+* mysql-user-security: Ignore mysql.sys and mariadb.sys users
+* php-status3: Improve output in case of startup/config/module errors
+* php-status3: URL to monitoring.php should be optional
+* php-version: Add PHP 8.3
+* qts-version3: Add support for firmware 5.0.1+
+* redis-status: Do not warn on "Peak memory"
 
 Icinga Director:
 
@@ -58,6 +118,7 @@ Icinga Director:
 * Enhanced RHEL 8+-based Service Sets by Crypto Policy
 * Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
 * Enhanced all Service Sets checking for a Systemd Service by Systemd TimeDate Status
+* Notifications are enabled only for critical hardware-related services (assuming you want to stay up at 2 a.m.)
 * Split up the MariaDB/MySQL service sets into smaller sets:
 
     * MySQL/MariaDB InnoDB Service Set
@@ -72,14 +133,30 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* disk-usage: ignore type CDFS by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
+* docker-stats missing shortening of containername in perfdata output ([#600](https://github.com/Linuxfabrik/monitoring-plugins/issues/600))
+* file-age: critical reported for new files because modification time is negative or not set ([#618](https://github.com/Linuxfabrik/monitoring-plugins/issues/618))
+* fs-ro: Exclude squashfs filesystems ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412))
+* fs-ro: Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
+* infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
 * mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
-* mysql-user-security: Ignore mysql.sys and mariadb.sys users
-* ntp-offset: Remove debug print message
+* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
+* nextcloud-stats: Fix error non-existing ALWAYS_OK Attribute ([#640](https://github.com/Linuxfabrik/monitoring-plugins/pull/640))
 * ping: ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
+* rpm-lastactivity: do | sort | tail -1 with Python Code ([#94](https://github.com/Linuxfabrik/monitoring-plugins/issues/94))
+* rpm-lastactivity: ValueError: invalid literal for int() with base 10: '' ([#616](https://github.com/Linuxfabrik/monitoring-plugins/issues/616))
+* service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
+* systemd-timedate-status: UNKNOWN with "unknown operation show" on RHEL7 ([#605]https://github.com/Linuxfabrik/monitoring-plugins/issues/605))
+* updates: On Windows with closed firewall a PowerShell error is returned ([#633]https://github.com/Linuxfabrik/monitoring-plugins/issues/633))
 
 
 ### Removed
+
+Features:
+
+* All plugins: Remove code for self-handling Python virtual environments (venv). ([#543](https://github.com/Linuxfabrik/monitoring-plugins/issues/543))")
 
 Monitoring Plugins:
 
@@ -140,10 +217,6 @@ Monitoring Plugins:
 * strongswan-connections
 * xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583), thanks to [dominik.riva](https://git.linuxfabrik.ch/dominik.riva))
 
-Libs:
-
-* lib/distro3.py
-
 Icinga Director:
 
 * duplicity Service Set
@@ -188,15 +261,6 @@ Monitoring Plugins:
 * php-status: Change behavior when handling default values ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
 * systemd-units-failed: Allow wildcards for the `--ignore` parameter ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
-* Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
-
-Libs:
-
-* lib/cache3.py: Use more unique default names for sqlite databases
-* lib/db_mysql3.py: Enhanced for new mysql-checks
-* lib/db_mysql3.py: Switch from mysql.connector to PyMySQL  ([#570](https://github.com/Linuxfabrik/monitoring-plugins/issues/570))
-* lib/db_mysql3.py: Use more unique default names for sqlite databases
-* lib/disk3.py: Add file_exists() function
 * Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
 
 Icinga Director:
@@ -247,12 +311,6 @@ This is a "we migrated everything from GitLab to GitHub, but had to adjust many 
 * The Git branches "master" and "develop" no longer exist - in the future we will only work with the "main" branch and create releases based on tags.
 * Due to the removal of binaries (zip and png files), all commit hashes have changed.
 * Removed all checks compiled for Windows from Git and moved them to our [download server](https://download.linuxfabrik.ch//monitoring-plugins/windows).
-* Many functions have been moved out of the base3.py library into new specialized, smaller libraries:
-
-    * human3.py: Collects functions to convert raw numbers, times etc. to a human readable representation.
-    * shell3.py: Communicates with the Shell.
-    * time3.py: Provides date/time functions.
-    * txt3.py: Text-related functions, handles stable encoding and decoding.
 
 
 ### Added
@@ -317,7 +375,7 @@ Monitoring Plugins:
 * added unit-test examples
 * adjusted director baskets for the new windows variants
 * adjusted huawei service names
-* All Python3 Plugins: Use new library "human.py" ([#521](https://github.com/Linuxfabrik/monitoring-plugins/issues/521))
+* All Python3 Plugins: Use new §rary "human.py" ([#521](https://github.com/Linuxfabrik/monitoring-plugins/issues/521))
 * All Python3 Plugins: Use new library "shell3.py" ([#525](https://github.com/Linuxfabrik/monitoring-plugins/issues/525))
 * All Python3 Plugins: Use new library "time3.py" ([#524](https://github.com/Linuxfabrik/monitoring-plugins/issues/524))
 * All Python3 Plugins: Use new library "txt3.py" ([#522](https://github.com/Linuxfabrik/monitoring-plugins/issues/522))
@@ -411,34 +469,6 @@ Monitoring Plugins:
 * Windows: New Service Set for Windows-Servers running "DNS Server" ([#470](https://github.com/Linuxfabrik/monitoring-plugins/issues/470))
 * Windows: New ServiceSet for Windows-Servers running "Veeam Backup & Replication" ([#464](https://github.com/Linuxfabrik/monitoring-plugins/issues/464))
 
-Libs:
-
-* Added "get_systems\*()" functions for Systems collection
-* base3: Move "x2human" and "human2x" Functions to a new "human.py" Library ([#49](https://github.com/Linuxfabrik/lib/issues/49))
-* base3: Move Date/Time-related Functions to a new "time3.py" Library ([#55](https://github.com/Linuxfabrik/lib/issues/55))
-* base3: Move filter_str() to db_sqlite3.py ([#52](https://github.com/Linuxfabrik/lib/issues/52))
-* base3: Move get_owner() to nextcloud-version3 ([#53](https://github.com/Linuxfabrik/lib/issues/53))
-* base3: Move sha1sum() to db_sqlite3.py ([#50](https://github.com/Linuxfabrik/lib/issues/50))
-* base3: Move Shell-related Functions to a new "shell3.py" Library ([#56](https://github.com/Linuxfabrik/lib/issues/56))
-* base3: Move Text-related Functions to a new "txt3.py" Library ([#51](https://github.com/Linuxfabrik/lib/issues/51))
-* base3: Remove function yesterday() - not needed anywhere ([#54](https://github.com/Linuxfabrik/lib/issues/54))
-* base: tuple object does not support item assignment ([#43](https://github.com/Linuxfabrik/lib/issues/43))
-* bugfixing after pylinting
-* extended fetch_json() to make fetch_json_ext() obsolete
-* hashlib.md5() on FIPS compliant systems ([#30](https://github.com/Linuxfabrik/lib/issues/30))
-* Let the new txt3 library do all encoding and decoding ([#59](https://github.com/Linuxfabrik/lib/issues/59))
-* librenms-alerts2: --lengthy causes error ([#61](https://github.com/Linuxfabrik/lib/issues/61))
-* nginx-status: TypeError: a bytes-like object is required, not 'str' ([#47](https://github.com/Linuxfabrik/lib/issues/47))
-* pylint all Libraries ([#57](https://github.com/Linuxfabrik/lib/issues/57))
-* renamed function and added exception handling
-* Standardize the try-except import statements if checking for "do I have the lib?" ([#60](https://github.com/Linuxfabrik/lib/issues/60))
-* Support PowerShell ([#40](https://github.com/Linuxfabrik/lib/issues/40))
-* url3.py: AttributeError: 'str' object has no attribute 'to_bytes' ([#62](https://github.com/Linuxfabrik/lib/issues/62))
-* url3: TypeError: a bytes-like object is required, not str ([#44](https://github.com/Linuxfabrik/lib/issues/44))
-* veeam.py: ValueError: need more than 2 values to unpack ([x45](https://github.com/Linuxfabrik/lib/issues/45))
-* veeam3.py, huawei3.py: In Python 3, getheader() should be get() ([#46](https://github.com/Linuxfabrik/lib/issues/46))
-* veeam: Use new fetch_json() instead of fetch_json_ext() ([#42](https://github.com/Linuxfabrik/lib/issues/42))
-* winrm: Add function to run shell commands ([#41](https://github.com/Linuxfabrik/lib/issues/41))
 
 
 
@@ -462,13 +492,6 @@ Monitoring Plugins:
 * Starface PBX: Account, Database and Perr Statistics; Overall, Backup and Channel Status; Java Memory Usage
 * Veeam Status
 
-Libs:
-
-* nodebb
-* jitsi
-* test (to improve unit testing)
-* veeam
-
 Event Plugins:
 
 * Cloudflare Security Level
@@ -487,11 +510,6 @@ Monitoring Plugins:
 * php-\*: Report more (don't forget to install the new `monitoring.php` as well).
 * procs: Counting is more accurate.
 * ping: Mainly used for host alive checking, now reports OK on request (using `--always-ok`) if a host cannot be reached for some reason only on the ping side, but can otherwise be checked e.g. by the Icinga agent.
-
-Libs:
-
-* base2 (the Python 2 variant): Now handles Unicode, UTF-8 and ASCII better than before.
-* db_sqlite: Supports `LIKE` statements using a regexp.
 
 
 ### Fixed
@@ -622,28 +640,6 @@ Monitoring Plugins:
 * wildfly-memory-pool-usage: Don't alert on "PS_Survivor_Space" (if it exists) ([#286](https://github.com/Linuxfabrik/monitoring-plugins/issues/286))
 * wordpress-version: Add a Python 3 version ([#382](https://github.com/Linuxfabrik/monitoring-plugins/issues/382))
 * xca-cert: Add a Python 3 version ([#375](https://github.com/Linuxfabrik/monitoring-plugins/issues/375))
-
-Libs:
-
-* base2: AttributeError: 'exceptions.ValueError' object has no attribute 'encode' ([#37](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/37))
-* base2: UnicodeDecodeError: 'ascii' codec can't decode byte 0xc2 in position 25: ordinal not in range(128) ([#38](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/38))
-* base: Add UTC Offset information function utc_offset() ([#35](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/35))
-* base: get_state() should be able to get the state against a range ([#34](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/34))
-* base: get_table() does not handle length of utf-8 correctly ([#8](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/8))
-* base: improve line drawing in get_table() ([#7](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/7))
-* base: make version() more robust ([#28](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/28))
-* base: version2float() - replace everything except numbers and a decimal point ([#26](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/26))
-* cache3: NameError: name 'base' is not defined ([#29](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/29))
-* cache: Make filename for cache configurable ([#21](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/21))
-* db_sqlite: Add REGEXP function ([#36](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/36))
-* db_sqlite: You must not use 8-bit bytestrings unless you use a text_factory that can interpret 8-bit bytestrings ([#20](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/20))
-* disk: Problems with read_csv() ([#25](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/25))
-* Error in librenms3.py ([#27](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/27))
-* get_table(): Just use ASCII chars, as this is the lowest common denominator across all terminals ([#33](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/33))
-* net: chunk = s.recv(1024) timeout: timed out ([#23](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/23))
-* net: in fetch(), port and timeout must be of type integer ([#22](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/22))
-* url: Identify as Linuxfabrik Monitoring-Plugin ([#24](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/24))
-* url: if needed, make fetch() and fetch_json() also return HTTP status code and response headers ([#32](https://git.linuxfabrik.ch/linuxfabrik/lib/-/issues/32))
 
 
 ### Removed
@@ -1038,12 +1034,6 @@ Monitoring Plugins:
 * sensors-temperatures
 * systemd-units-failed
 
-Libs:
-
-* db_mysql
-* feedparser
-* icinga
-
 
 ### Changed
 
@@ -1086,15 +1076,6 @@ Monitoring Plugins:
 * fah-stats
 
 
-### Changed
-
-Libs:
-
-* base.py: Added shell_exec().
-* net.py
-* url.py
-
-
 ### Fixed
 
 Monitoring Plugins:
@@ -1121,17 +1102,6 @@ Monitoring Plugins:
 * ping
 * rocket.chat-version
 
-Libs:
-
-* args.py
-* base.py
-* cache.py
-* db_sqlite.py
-* disk.py
-* net.py
-* rocket.py
-* url.py
-
 
 ### Removed
 
@@ -1139,9 +1109,6 @@ Monitoring Plugins:
 
 * docker-info, docker-container, network-io, redis, xca-cert for now. We will rewrite them from scratch soon.
 
-Libs:
-
-* output.py, parse_arguments.py, parse_input.py, utils.py. Don't forget to delete them.
 
 
 ## 2020031201

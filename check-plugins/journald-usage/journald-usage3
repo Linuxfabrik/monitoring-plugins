@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,42 +8,27 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.human3 # pylint: disable=C0413
-import lib.shell3 # pylint: disable=C0413
-import lib.test3 # pylint: disable=C0413
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.human3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022072802'
+__version__ = '2023030101'
 
 DESCRIPTION = """Checks the current disk usage of all journal files of the systemd journal
                  (in fact the sum of the disk usage of all archived and active journal files)."""
 
-DEFAULT_WARN = 500  # MiB
+DEFAULT_WARN = 6  # GiB; journald: "capped to 4G" per default
 
 
 def parse_args():
@@ -74,7 +59,7 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold in MiB. Default: >= %(default)s',
+        help='Set the WARN threshold in GiB. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -118,7 +103,7 @@ def main():
     value = lib.human3.human2bytes(value)
 
     # build the message
-    state = lib.base3.get_state(value, args.WARN * 1024 * 1024, None)
+    state = lib.base3.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
     msg += '{} used{} (sum of all archived and active journal files)'.format(
         lib.human3.bytes2human(value),
         lib.base3.state2str(state, prefix=' '),
@@ -126,7 +111,7 @@ def main():
     if state != STATE_OK:
         msg += '. Remove the oldest archived journal files by using `journalctl --vacuum-size=`, ' \
                '`--vacuum-time=` and/or `--vacuum-files=`.'
-    perfdata += lib.base3.get_perfdata('journald-usage', value, 'B', args.WARN, None, 0, None)
+    perfdata += lib.base3.get_perfdata('journald-usage', value, 'B', args.WARN * 1024 * 1024 * 1024, None, 0, None)
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

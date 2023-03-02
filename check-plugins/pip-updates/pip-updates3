@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,38 +8,25 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.shell3 # pylint: disable=C0413
-import lib.test3 # pylint: disable=C0413
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.txt3  # pylint: disable=C0413
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2023022401'
 
-DESCRIPTION = """Checks if there are updates for python packages installed via `pip`."""
+DESCRIPTION = """Checks if there are outdated Python packages, installed via `pip`."""
 
 DEFAULT_WARN = 10
 DEFAULT_CRIT = 100
@@ -73,10 +60,97 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--exclude',
+        help='Exclude specified package from the output.',
+        dest='EXCLUDE',
+        action='append',
+    )
+
+    parser.add_argument(
+        '--extra-index-url',
+        help='Extra URLs of package indexes to use in addition to '
+             '--index-url. Should follow the same rules as '
+             '--index-url.',
+        dest='EXTRA_INDEX_URL',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--find-links',
+        help='If a URL or path to an html file, then parse for links to '
+             'archives such as sdist (.tar.gz) or wheel (.whl) files. '
+             'If a local path or file:// URL that\'s a directory, '
+             'then look for archives in the directory listing. '
+             'Links to VCS project URLs are not supported.',
+        dest='FIND_LINKS',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--index-url',
+        help='Base URL of the Python Package Index. '
+             'This should point to a repository compliant with PEP 503 '
+             '(the simple repository API) or a local directory laid out '
+             'in the same format.',
+        dest='INDEX_URL',
+    )
+
+    parser.add_argument(
+        '--local',
+        help='If in a virtualenv that has global access, do not list '
+             'globally-installed packages.',
+        dest='LOCAL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-index',
+        help='Ignore package index (only looking at --find-links URLs instead).',
+        dest='NO_INDEX',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--not-required',
+        help='List packages that are not dependencies of installed packages.',
+        dest='NOT_REQUIRED',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--pre',
+        help='Include pre-release and development versions. By default, '
+             'pip only finds stable versions.',
+        dest='PRE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--user',
+        help='Only output packages installed in user-site.',
+        dest='USER',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--virtualenv',
+        help='Path to the virtualenv that will be activated before checking for updates. '
+             'Example: `/opt/sphinx-venv/bin/activate`',
+        dest='VIRTUALENV',
     )
 
     parser.add_argument(
@@ -86,12 +160,6 @@ def parse_args():
         default=DEFAULT_WARN,
         type=lib.args3.int_or_none,
     )
-
-    parser.add_argument(
-        '--virtualenv',
-        dest='VIRTUALENV',
-        help='Path of the virtualenv that will be activated before checking for updates. For example: "/opt/sphinx-venv/bin/activate".',
-        )
 
     return parser.parse_args()
 
@@ -108,12 +176,34 @@ def main():
 
     # fetch data
     # pip: don't use the --format=json parameter, because older pip versions don't have it
+    cmd = 'pip3 list --outdated --format=json'
     if args.TEST is None:
+        if args.EXCLUDE:
+            cmd = '{} --exclude={}'.format(cmd, ' --exclude='.join(args.EXCLUDE))
+        if args.EXTRA_INDEX_URL:
+            cmd = '{} --extra-index-url={}'.format(
+                cmd,
+                ' --extra-index-url='.join(args.EXTRA_INDEX_URL),
+            )
+        if args.FIND_LINKS:
+            cmd = '{} --find-links={}'.format(cmd, ' --find-links='.join(args.FIND_LINKS))
+        if args.INDEX_URL:
+            cmd = '{} --index-url={}'.format(cmd, args.INDEX_URL)
+        if args.LOCAL:
+            cmd = '{} --local'.format(cmd)
+        if args.NO_INDEX:
+            cmd = '{} --no-index'.format(cmd)
+        if args.NOT_REQUIRED:
+            cmd = '{} --not-required'.format(cmd)
+        if args.PRE:
+            cmd = '{} --pre'.format(cmd)
+        if args.USER:
+            cmd = '{} --user'.format(cmd)
+
         if args.VIRTUALENV:
-            cmd = '. {} && {}'.format(args.VIRTUALENV, 'pip list --outdated')
+            cmd = 'source {} && {}'.format(args.VIRTUALENV, cmd)
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
         else:
-            cmd = 'pip list --outdated'
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
     else:
         # do not call the command, put in test data
@@ -121,40 +211,53 @@ def main():
     if retc != 0:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
 
-    # init some vars
-    msg_body = ''
-    perfdata = ''
-
     # analyze data
-    cnt = 0
-    for package in stdout.splitlines():
-        if package.startswith('Package '):
-            continue
-        if package.startswith('--------'):
-            continue
-        cnt += 1
-        msg_body += '{}\n'.format(package)
+    try:
+        packages = json.loads(stdout)
+    except:
+        return lib.base3.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
 
-    # build the message
-    state = lib.base3.get_state(cnt, args.WARN, args.CRIT)
+    # init some vars
     if args.VIRTUALENV:
         msg = 'venv {}. '.format(args.VIRTUALENV)
     else:
         msg = 'Not running in a venv. '
+    state = lib.base3.get_state(len(packages), args.WARN, args.CRIT)
+    perfdata = lib.base3.get_perfdata('pip_outdated_packages', len(packages), None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
+
+    # build the message
     if not stderr and state == STATE_OK:
-        msg += 'Everyhing is ok.'
+        msg += 'Everyhing is ok. '
     elif stderr and state == STATE_OK:
         msg += 'pip is complaining about something or about itself, but '
-        if cnt > 0:
+        if len(packages) > 0:
             msg += 'most of the '
-        msg += 'packages are up to date. '.format()
+        msg += 'packages are up to date. '
     elif stderr and state != STATE_OK:
         msg += 'pip is complaining about something or about itself, plus '
-    if cnt > 0:
-        msg += '{} outdated packages{}.'.format(cnt, lib.base3.state2str(state, prefix=' '))
+    if len(packages) > 0:
+        msg += '{} outdated {}{}. '.format(
+            len(packages),
+            lib.txt3.pluralize('package', len(packages)),
+            lib.base3.state2str(state, prefix=' '),
+        )
+    msg += 'Executed command: `{}`'.format(cmd)
+
+    if packages:
         msg += '\n\n'
-        msg += msg_body
-    perfdata += lib.base3.get_perfdata('pip_outdated_packages', cnt, None, args.WARN, args.CRIT, 0, None)
+        keys = [
+            'name',
+            'version',
+            'latest_version',
+            'latest_filetype',
+        ]
+        headers = [
+            'Package',
+            'Version',
+            'Latest',
+            'Type',
+        ]
+        msg += lib.base3.get_table(packages, keys, header=headers)
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

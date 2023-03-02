@@ -4,11 +4,12 @@ Check redis-status
 Overview
 --------
 
-Returns information and statistics about the Redis server. Alerts on memory consumption, memory fragmentation, hit rates and more. Connects to Redis via 127.0.0.1:6379 by default.
+Returns information and statistics about a Redis server. Alerts on memory consumption, memory fragmentation, hit rates and more. Connects to Redis via 127.0.0.1:6379 by default.
 
 Hints:
 
 * Tested on Redis 3.0, 3.2, 6.0, 6.2 and 7.0.
+* "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
 Fact Sheet
@@ -30,8 +31,13 @@ Help
 .. code-block:: text
 
     usage: redis-status [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
-                        [--maxmemory0-ok] [-p PASSWORD] [--port PORT]
+                        [--ignore-maxmemory0] [--ignore-overcommit]
+                        [--ignore-somaxconn] [--ignore-sync-partial-err]
+                        [--ignore-thp] [-p PASSWORD] [--port PORT]
                         [--socket SOCKET] [--test TEST] [-w WARN]
+
+    Returns information and statistics about the Redis server. Alerts on memory
+    consumption, memory fragmentation, hit rates and more.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -41,12 +47,23 @@ Help
                             Set the CRIT threshold as a percentage. Default: >=
                             None
       -H HOSTNAME, --hostname HOSTNAME
-                            Server hostname. Default: 127.0.0.1
-      --maxmemory0-ok       Don't warn on maxmemory=0. Default: False
+                            Redis server hostname. Default: 127.0.0.1
+      --ignore-maxmemory0   Don't warn about redis' maxmemory=0. Default: False
+      --ignore-overcommit   Don't warn about vm.overcommit_memory<>1. Default:
+                            False
+      --ignore-somaxconn    Don't warn about net.core.somaxconn <
+                            net.ipv4.tcp_max_syn_backlog. Default: False
+      --ignore-sync-partial-err
+                            Don't warn about partial sync errors (because if you
+                            have an asynchronous replication, a small number of
+                            "denied partial resync requests" might be normal).
+                            Default: False
+      --ignore-thp          Don't warn about transparent huge page setting.
+                            Default: False
       -p PASSWORD, --password PASSWORD
-                            Password to use when connecting to the server.
-      --port PORT           Server port. Default: 6379
-      --socket SOCKET       Server socket (overrides hostname and port).
+                            Password to use when connecting to the redis server.
+      --port PORT           Redis server port. Default: 6379
+      --socket SOCKET       Redis server socket (overrides hostname and port).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       -w WARN, --warning WARN
@@ -58,26 +75,27 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./redis-status --maxmemory0-ok
+    ./redis-status --ignore-maxmemory0 --ignore-overcommit --ignore-somaxconn --ignore-sync-partial-err --ignore-thp
 
 Output:
 
 .. code-block:: text
 
-    Redis v7.0.0, standalone mode on 127.0.0.1:6379, /etc/redis/redis.conf, up 3W 3h, 22.5% memory usage (644.6MiB/2.8GiB, 1014.6MiB peak, 625.4MiB RSS), maxmemory-policy=volatile-lru, 1 DB (db0) with 13547 keys, 0.0 evicted keys, 555.5K expired keys, hit rate 62.7% (4.1M hits, 2.4M misses), Sam, I detected a few issues in this Redis instance memory implants:
+    Redis v5.0.3, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 4m 25s, 100.9% memory usage [WARNING] (9.6MiB/9.5MiB, 9.6MiB peak, 19.6MiB RSS), maxmemory-policy=noeviction, 3 DBs (db0 db3 db4) with 10 keys, 0.0 evicted keys, 0.0 expired keys, hit rate 100.0% (3.0M hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not set to "madvise" or "never", net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog (256). Sam, I detected a few issues in this Redis instance memory implants:
 
-    * Peak memory: In the past this instance used more than 150% the memory that is currently using. The allocator is normally not able to release memory after a peak, so you can expect to see a big fragmentation ratio, however this is actually harmless and is only due to the memory peak, and if the Redis instance Resident Set Size (RSS) is currently bigger than expected, the memory will be used as soon as you fill the Redis instance with more data. If the memory peak was only occasional and you want to try to reclaim memory, please try the MEMORY PURGE command, otherwise the only other option is to shutdown and restart the instance.
+     * High total RSS: This instance has a memory fragmentation and RSS overhead greater than 1.4 (this means that the Resident Set Size of the Redis process is much larger than the sum of the logical allocations Redis performed). This problem is usually due either to a large peak memory (check if there is a peak memory entry above in the report) or may result from a workload that causes the allocator to fragment memory a lot. If the problem is a large peak memory, then there is no issue. Otherwise, make sure you are using the Jemalloc allocator and not the default libc malloc. Note: The currently used allocator is "jemalloc-5.1.0".
+
+    I'm here to keep you safe, Sam. I want to help you.
 
 
 States
 ------
 
-* WARN on ``maxmemory 0`` (can be disabled by ``--maxmemory0-ok``)
 * WARN or CRIT in case of memory usage above the specified thresholds
-* WARN in case of keyspace hit ratio below 10%
-* WARN on any memory issues
-* WARN on partial sync errors
-* WARN on bad OS configuration
+* WARN on Redis' ``maxmemory 0`` setting (can be disabled)
+* WARN on any memory issues (can be disabled)
+* WARN on partial sync errors (can be disabled)
+* WARN on bad OS configuration (can be disabled)
 
 
 Perfdata / Metrics

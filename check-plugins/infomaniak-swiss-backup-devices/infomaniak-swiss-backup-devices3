@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,40 +8,25 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import json # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.human3 # pylint: disable=C0413
-import lib.infomaniak3 # pylint: disable=C0413
-import lib.test3 # pylint: disable=C0413
-import lib.time3 # pylint: disable=C0413
-import lib.txt3 # pylint: disable=C0413
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.human3  # pylint: disable=C0413
+import lib.infomaniak3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.time3  # pylint: disable=C0413
+import lib.txt3  # pylint: disable=C0413
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022052001'
+__version__ = '2023021701'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
@@ -130,7 +115,7 @@ def main():
 
     # fetch list of products
     if args.TEST is None:
-        slots = lib.base3.coe(lib.infomaniak3.get_slots(args.ACCOUNT_ID, args.TOKEN))
+        slots = lib.base3.coe(lib.infomaniak3.get_swiss_backup_slots(args.ACCOUNT_ID, args.TOKEN))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
@@ -155,15 +140,28 @@ def main():
             state = lib.base3.get_worst(state, used_state)
 
             if args.SEVERITY == 'warn':
-                locked_state = lib.base3.get_state(slot_data.get('locked', False), True, None, _operator='eq')
+                locked_state = lib.base3.get_state(
+                    slot_data.get('locked', False),
+                    True,
+                    None,
+                    _operator='eq',
+                )
             else:
-                locked_state = lib.base3.get_state(slot_data.get('locked', False), None, True, _operator='eq')
+                locked_state = lib.base3.get_state(
+                    slot_data.get('locked', False),
+                    None,
+                    True,
+                    _operator='eq',
+                )
             state = lib.base3.get_worst(state, locked_state)
 
-            perfdata += lib.base3.get_perfdata('{}-locked'.format(slot_data.get('id')), int(slot_data.get('locked', False)), None, None, None, 0, None)
-            perfdata += lib.base3.get_perfdata('{}-percent'.format(slot_data.get('id')), used, '%', args.WARN, args.CRIT, 0, 100)
-            perfdata += lib.base3.get_perfdata('{}-total'.format(slot_data.get('id')), slot_data.get('size'), 'B', None, None, 0, slot_data.get('size'))
-            perfdata += lib.base3.get_perfdata('{}-usage'.format(slot_data.get('id')), slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size'))
+            perfdata += lib.base3.get_perfdata('{}-locked'.format(slot_data.get('id')), int(slot_data.get('locked', False)), None, None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-percent'.format(slot_data.get('id')), used, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-total'.format(slot_data.get('id')), slot_data.get('size'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+            perfdata += lib.base3.get_perfdata('{}-usage'.format(slot_data.get('id')), slot_data.get('storage_used'), 'B', None, None, 0, slot_data.get('size')) # pylint: disable=C0301
+
+            if slot_data.get('usage_last_check') is None:
+                slot_data['usage_last_check'] = 0
 
             table_data.append({
                 'activate_notifications': slot_data.get('activate_notifications'),
@@ -172,14 +170,17 @@ def main():
                 'customer_name': slot_data.get('customer_name'),
                 'id': slot_data.get('id'),
                 'lang': slot_data.get('lang'),
-                'locked': '{}{}'.format(slot_data.get('locked', False), lib.base3.state2str(locked_state, prefix=' ')),
+                'locked': '{}{}'.format(
+                    slot_data.get('locked', False),
+                    lib.base3.state2str(locked_state, prefix=' '),
+                ),
                 'product_customer_name': slot.get('product_customer_name'),
                 'product_tags': ', '.join([i['name'] for i in slot.get('product_tags')]),
                 'subtype': slot_data.get('subtype'),
                 'type': slot_data.get('type'),
                 'unit_admin': slot_data.get('unit_admin'),
                 'usage_last_check': '{} ago'.format(
-                    lib.human3.seconds2human(lib.time3.now(as_type='epoch') - slot_data.get('usage_last_check', 0)),
+                    lib.human3.seconds2human(lib.time3.now(as_type='epoch') - slot_data['usage_last_check']), # pylint: disable=C0301
                 ),
                 'used': '{} / {}'.format(
                     lib.human3.bytes2human(slot_data.get('storage_used')),
@@ -194,10 +195,36 @@ def main():
 
     # build the message
     if table_data:
-        keys = ['id', 'product_customer_name', 'product_tags', 'username', 'customer_name', 'connection_type', 'used_percent', 'used', 'usage_last_check', 'locked']
-        headers = ['ID', 'Customer', 'Tags', 'User', 'Name', 'Type', 'Used %', 'Used', 'Usage Upd.', 'Locked']
+        keys = [
+            'id',
+            'product_customer_name',
+            'product_tags',
+            'username',
+            'customer_name',
+            'connection_type',
+            'used_percent',
+            'used',
+            'usage_last_check',
+            'locked',
+        ]
+        headers = [
+            'ID',
+            'Customer',
+            'Tag',
+            'User',
+            'Name',
+            'Type',
+            'Used %',
+            'Used',
+            'Usage Upd.',
+            'Locked',
+        ]
         # sort table by user tags
-        msg += lib.base3.get_table(sorted(table_data, key=lambda d: d['product_tags']) , keys, header=headers)
+        msg += lib.base3.get_table(
+            sorted(table_data, key=lambda d: d['product_tags']),
+            keys,
+            header=headers,
+        )
 
     if state == STATE_CRIT:
         msg = 'There are critical errors.\n\n' + msg
