@@ -26,7 +26,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030201'
+__version__ = '2023030202'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
@@ -236,6 +236,7 @@ def main():
         if args.USER_UNIT is not None:
             for unit in args.USER_UNIT:
                 cmd += '--user-unit="{}" '.format(unit)
+        cmd = cmd.strip()
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
@@ -267,6 +268,9 @@ def main():
             if any(ignore_pattern.lower() in haystack for ignore_pattern in args.IGNORE_PATTERN) \
             or any(item.search(haystack) for item in compiled_ignore_regex):
                 continue
+            # shorten message if necessary
+            if len(event['MESSAGE']) > 80:
+                event['MESSAGE'] = event['MESSAGE'][0:77] + '...'
 
             try:
                 event['unit'] = event['UNIT'].replace('.service', '')
