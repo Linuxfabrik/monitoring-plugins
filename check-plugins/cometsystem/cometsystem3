@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,33 +8,20 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
-
-import os
-
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
 
 import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 import json # pylint: disable=C0413
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.shell3 # pylint: disable=C0413
-import lib.test3 # pylint: disable=C0413
-import lib.time3 # pylint: disable=C0413
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
+
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.url3   # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.time3  # pylint: disable=C0413
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
@@ -46,9 +33,11 @@ DESCRIPTION = """This check targets the JSON endpoint of https://www.cometsystem
 
 DEFAULT_HIGH = 'CRITICAL'
 DEFAULT_INSECURE = False
-DEFAULT_LOW = 'WARN'
+DEFAULT_LOW = 'WARNING'
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
+DEFAULT_PERFDATA = False
+DEFAULT_CHANNELS = ["ch1", "ch2", "ch3"]
 
 
 def parse_args():
@@ -71,13 +60,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--channels',
+        help='comma sparated channels of sensor. Default: %(default)s',
+        dest='CHANNELS',
+        default=DEFAULT_CHANNELS,
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
         '--high',
         help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
              'If only one state is provided it gets applied to all high'
              'threashold volations.'
-             'Default: CRITCAL',
+             'Default: %(default)s',
         dest='HIGH',
         default=DEFAULT_HIGH,
+        type=lib.args3.csv,
     )
 
     parser.add_argument(
@@ -94,9 +92,10 @@ def parse_args():
         help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
              'If only one state is provided it gets applied to all low'
              'threashold volations.'
-             'Default: CRITCAL',
+             'Default: %(default)s',
         dest='LOW',
         default=DEFAULT_LOW,
+        type=lib.args3.csv,
     )
 
     parser.add_argument(
@@ -109,10 +108,10 @@ def parse_args():
 
     parser.add_argument(
         '--perfdata',
-        help='send perfdata. Default: False',
+        help='send perfdata. Default: %(default)s',
         dest='PERFDATA',
         action='store_true',
-        default=False,
+        default=DEFAULT_PERFDATA,
     )
 
     parser.add_argument(
@@ -132,9 +131,9 @@ def parse_args():
 
     parser.add_argument(
         '-u', '--url',
-        help='Set the URL of the values as JSON.  http://example.com/values.jsonfile',
+        help='Set the URL of the values as JSON.  http://example.com/values.json',
         dest='URL',
-        type=str,
+        required=True,
     )
 
     return parser.parse_args()
@@ -150,17 +149,23 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if len(args.HIGH) > 1 and not len(args.HIGH) == len(args.CHANNELS):
+        lib.base3.oao('--high parameter doesn\'t match --channel length', STATE_UNKNOWN)
+    if len(args.LOW) > 1 and not len(args.LOW) == len(args.CHANNELS):
+        lib.base3.oao('--low parameter doesn\'t match --channel length', STATE_UNKNOWN)
+
     # fetch data
     if args.TEST is None:
         URL = args.URL
         if URL[0:4] != 'http':
             lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
         # fetch the URL
-        result = lib.base3.coe(lib.url3.fetch(
+        result = lib.base3.coe(lib.url3.fetch_json(
             URL,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT))
+            timeout=args.TIMEOUT,
+        ))
         if 'ch1' not in result:
             lib.base3.oao('Malformed Web Sensors status file.', STATE_UNKNOWN)
     else:
@@ -171,24 +176,71 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    alarm_reason = ''
+    alarm_name = ''
+    alarm_value = ''
+    alarm_unit = ''
 
     # analyze data
-    c = result.read(2048).decode("ISO-8859-1")
-    j = json.load(c)
-    results = null
-    print(results)
-    exit(0)
-    for ch in ["ch1", "ch2", "ch3", "ch4"]:
+    #print(result, args.HIGH, args.LOW)
+    i = 0
+    for ch in args.CHANNELS:
         #print(j[ch]["name"]+": "+j[ch]["aval"]+j[ch]["unit"])
-        name = j[ch]['name']
-        unit = j[ch]['unit']
-        value = j[ch]['aval']
-        alarm = j[ch]['alarm']
+        name = result[ch]['name']
+        unit = result[ch]['unit'].replace('\udcb0', '°')#.decode("ISO-8859-1")
+        value = result[ch]['aval']
+        alarm = result[ch]['alarm']
+        if len(args.HIGH) > 1:
+            high = args.HIGH[i]
+        else:
+            high = args.HIGH[0]
+        if len(args.LOW) > 1:
+            low = args.LOW[i]
+        else:
+            low = args.LOW[0]
+        if alarm == 0:
+            """ no alarm """
+            ch_state = STATE_OK
+        if alarm == 1:
+            """ high alarm """
+            ch_state = lib.base3.str2state(high)
+        if alarm == 2:
+            """ low alarm """
+            ch_state = lib.base3.str2state(low)
+        if ch_state > state or i == 0:
+            """ get worst state or fist channel in hope that it is most important """
+            state = ch_state
+            alarm_reason = ['', ' high', ' low'][alarm]
+            alarm_type = alarm
+            alarm_name = name
+            alarm_value = value
+            alarm_unit = unit
+            alarm_ch = ch
+        msg += '\n{} = {} {} {} {}'.format(
+            ch,
+            name,
+            value,
+            unit,
+            lib.base3.state2str(ch_state)
+        )
+        if '%' in unit and args.PERFDATA:
+            perfdata += lib.base3.get_perfdata(name, value, '%', _min=0, _max=100)
+        elif args.PERFDATA:
+            if '°' in unit:
+                unit = unit[-1]
+            perfdata += lib.base3.get_perfdata(name, value, unit,)
+        i = i + 1
 
-    # build the message
-    state = lib.base3.get_state(value, args.WARN, args.CRIT)
-    msg += '{}% used{}'.format(value, lib.base3.state2str(state, prefix=' '))
-    perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100) if args.PERFDATA else None
+
+    prefix_msg = '{}{}{}: {} {}'.format(
+        lib.base3.state2str(state, suffix=' '),
+        alarm_name,
+        alarm_reason,
+        alarm_value,
+        alarm_unit
+    )
+    msg = prefix_msg + msg
+
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
