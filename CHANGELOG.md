@@ -13,16 +13,20 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Breaking Changes
 
+Features:
+
+* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
+
 Monitoring Plugins:
 
 * journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
 * journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641)) 
 * journald-usage3: Switch `--warning` parameter from MiB to GiB
+* mysql-\*3: Removed parameters `--hostname`, `--password`, `--port` and `--username` and switched to authentication via cnf-file (therefore all checks come with new parameters)
 * pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
 * redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
 * service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters)
 * veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
-* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
 
 Icinga Director:
 
