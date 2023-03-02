@@ -75,10 +75,12 @@ Notification Plugins:
 Icinga Director:
 
 * AIDE Service Set
-* Add new apache service set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
+* Apache Service Set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
-* Create new basic service set for debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
-* Remove DiagTrack from Windows Service Sets, since it's windows telemetry
+* Basic Service Set for debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
+* FreeIPA Server Service Set
+* Grav Service Set
+* UPS Service Set (Network UPS Tools, nut)
 
 
 ### Changed
@@ -161,6 +163,11 @@ Features:
 Monitoring Plugins:
 
 * ntp-offset (due to "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
+
+Icinga Director:
+
+* Remove DiagTrack from Windows Service Sets, since it's windows telemetry
+
 
 
 ## 2022072001
