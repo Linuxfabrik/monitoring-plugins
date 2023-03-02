@@ -29,7 +29,7 @@ __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
 __version__ = '2022121201'
 
 DESCRIPTION = """This check targets the JSON endpoint of https://www.cometsystem.com/ Web Sensors.
-                 Alert states can be set per measurement and on low and high threshold violations."""
+                 Alert states can be set per measurements low and high threshold violations."""
 
 DEFAULT_HIGH = 'CRITICAL'
 DEFAULT_INSECURE = False
@@ -69,10 +69,9 @@ def parse_args():
 
     parser.add_argument(
         '--high',
-        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
-             'If only one state is provided it gets applied to all high'
-             'threashold volations.'
-             'Default: %(default)s',
+        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value. '
+             'If only one state is provided it gets applied to all high '
+             'threashold volations. Default: %(default)s',
         dest='HIGH',
         default=DEFAULT_HIGH,
         type=lib.args3.csv,
@@ -89,10 +88,9 @@ def parse_args():
 
     parser.add_argument(
         '--low',
-        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value'
-             'If only one state is provided it gets applied to all low'
-             'threashold volations.'
-             'Default: %(default)s',
+        help='comma sparated states [OK,CRITCAL,WARNING] per sensor value. '
+             'If only one state is provided it gets applied to all low '
+             'threashold volations. Default: %(default)s',
         dest='LOW',
         default=DEFAULT_LOW,
         type=lib.args3.csv,
@@ -171,6 +169,7 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
+        result = json.loads(stdout)
 
     # init some vars
     msg = ''
@@ -182,7 +181,6 @@ def main():
     alarm_unit = ''
 
     # analyze data
-    #print(result, args.HIGH, args.LOW)
     i = 0
     for ch in args.CHANNELS:
         #print(j[ch]["name"]+": "+j[ch]["aval"]+j[ch]["unit"])
@@ -207,20 +205,22 @@ def main():
         if alarm == 2:
             """ low alarm """
             ch_state = lib.base3.str2state(low)
+        reason = ['', ' high', ' low'][alarm]
         if ch_state > state or i == 0:
             """ get worst state or fist channel in hope that it is most important """
             state = ch_state
-            alarm_reason = ['', ' high', ' low'][alarm]
+            alarm_reason = reason
             alarm_type = alarm
             alarm_name = name
             alarm_value = value
             alarm_unit = unit
             alarm_ch = ch
-        msg += '\n{} = {} {} {} {}'.format(
+        msg += '\n{} = {} {} {}{} {}'.format(
             ch,
             name,
             value,
             unit,
+            reason,
             lib.base3.state2str(ch_state)
         )
         if '%' in unit and args.PERFDATA:

@@ -24,10 +24,40 @@ class TestCheck(unittest.TestCase):
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
-        self.assertIn('There are critical errors.', stdout)
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0 --url http://example.com/values.json'))
+        self.assertIn('Temperature: 28.9 °C', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --url http://example.com/values.json'))
+        self.assertIn('[CRITICAL] Temperature high: 27.3 °C', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE02_with_str2status(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --url http://example.com/values.json --high gobbledygook,WARNING,CRITICAL'))
+        self.assertIn('unknown state: gobbledygook', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE02_perfdata(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --url http://example.com/values.json --channels ch1,ch2,ch3,ch4 --perfdata'))
+        self.assertIn('''|'Temperature'=27.3C;;;; 'Relative humidity'=43.1%;;;0;100 'Dew point'=13.7C;;;; 'Atmospheric pressure'=958.6hPa;;;;''', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)        
+
+    def test_if_check_runs_EXAMPLE02_low(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --url http://example.com/values.json --channels ch1,ch2,ch3,ch4 --low CRITICAL --perfdata'))
+        self.assertIn('low [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)        
+
+    def test_if_check_runs_EXAMPLE02_low_high_ok(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --url http://example.com/values.json --channels ch1,ch2,ch3,ch4 --low OK --high OK --perfdata'))
+        self.assertIn('low ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)        
 
 
 if __name__ == '__main__':
