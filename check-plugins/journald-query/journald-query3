@@ -26,7 +26,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030103'
+__version__ = '2023030201'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
@@ -90,7 +90,7 @@ def parse_args():
     parser.add_argument(
         '--ignore-pattern',
         help='''Any line containing this pattern on the MESSAGE field will be ignored
-                (must be lowercase; repeating).',
+                (repeating).',
                 So, unlike `journalctl`, you can easily use strings to ignore certain
                 messages.''',
         action='append',
@@ -264,7 +264,7 @@ def main():
             if event['MESSAGE'] is None:
                 continue
             haystack = event['MESSAGE'].lower()
-            if any(ignore_pattern in haystack for ignore_pattern in args.IGNORE_PATTERN) \
+            if any(ignore_pattern.lower() in haystack for ignore_pattern in args.IGNORE_PATTERN) \
             or any(item.search(haystack) for item in compiled_ignore_regex):
                 continue
 
