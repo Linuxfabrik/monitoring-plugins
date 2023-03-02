@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030201'
+__version__ = '2023030202'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -149,6 +149,8 @@ def get_other_process_memory():
     if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'cmdline', 'memory_info']):
+                if not p.info['cmdline']:
+                    continue
                 cmdline = ' '.join(p.info['cmdline'])
                 if not cmdline.strip():
                     continue
