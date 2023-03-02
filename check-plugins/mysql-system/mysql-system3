@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030201'
+__version__ = '2023030202'
 
 DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
 
@@ -112,8 +112,13 @@ def main():
         for param in params:
             cmd = 'sysctl -n {} 2> /dev/null'.format(param)
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-            if stdout:
+            try:
                 kernel[param] = int(stdout)
+            except:
+                lib.base3.oao(
+                    '`{}` failed, maybe insufficient permissions'.format(cmd),
+                    STATE_UNKNOWN,
+                )
 
         if kernel['vm.swappiness'] > 10:
             state = STATE_WARN
