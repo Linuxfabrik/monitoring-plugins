@@ -4,7 +4,7 @@ Check load
 Overview
 --------
 
-On the *No Sheep* blog, Zachary Tirrell `defines the load average <http://nosheep.net/story/defining-unix-load-average/>` on GNU/Linux operating system:
+On the *No Sheep* blog, Zachary Tirrell `defines the load average <http://nosheep.net/story/defining-unix-load-average/>`_ on GNU/Linux operating system:
 
     *In short it is the average sum of the number of processes waiting in the run-queue plus the number currently executing over 1, 5, and 15 minutes time periods.*
 
