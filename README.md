@@ -97,7 +97,7 @@ Some comments from the community about our monitoring plugins:
 
 The "Linuxfabrik Monitoring Plugins" on a card of our popular Open Source Quartet 2023. 🙂 [Click here if you want to get one to play](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023) (20 CHF). For more info, [here's the story](https://www.linuxfabrik.ch/en/blog/the-linuxfabrik-open-source-quartet-2023/).
 
-[![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-quartets-card-2023.png)](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023)
+[![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-quartets-card-2023.png)](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023?)
 
 
 ## Human Readable Numbers
