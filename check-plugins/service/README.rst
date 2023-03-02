@@ -61,7 +61,7 @@ Help
 Usage Examples
 --------------
 
-Check if exactly one service named "AppIDSvc" (exact match) is running, otherwise WARN:
+Check that exactly one service named "AppIDSvc" (exact match) is running, otherwise WARN:
 
 .. code-block:: bash
 
@@ -77,7 +77,7 @@ Output:
     -------------+----------------------+---------+---------
     AppIDSvc     ! Application Identity ! stopped ! manual
 
-Check if at least 10 but not more than 20 Windows Services named "myapp followed by a 4-digit serial number" meet the status "running":
+Check that there are at least 10 but not more than 20 Windows Services named "myapp followed by a 4-digit serial number" meet the status "running":
 
 .. code-block:: bash
 

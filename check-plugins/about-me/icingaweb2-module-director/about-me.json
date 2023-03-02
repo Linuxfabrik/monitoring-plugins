@@ -1,10 +1,28 @@
 {
     "Command": {
         "cmd-check-about-me": {
-            "arguments": {},
+            "arguments": {
+                "--public-ip-url": {
+                    "value": "$about_me_public_ip_url$"
+                },
+                "--tags": {
+                    "set_if": "$about_me_tags$"
+                }
+            },
             "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/about-me",
             "disabled": false,
-            "fields": [],
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
@@ -13,7 +31,7 @@
             "timeout": 30,
             "vars": {},
             "zone": null,
-            "guid": "d624853d-8a26-43c7-bd75-aca8e4b8ab87"
+            "uuid": "d624853d-8a26-43c7-bd75-aca8e4b8ab87"
         }
     },
     "ServiceTemplate": {
@@ -55,10 +73,34 @@
             "template_choice": null,
             "use_agent": null,
             "use_var_overrides": null,
-            "vars": {},
+            "vars": {
+                "about_me_tags": false
+            },
             "volatile": null,
             "zone": null,
-            "guid": "4452f374-221c-43e6-98c6-0016d42e76e5"
+            "uuid": "4452f374-221c-43e6-98c6-0016d42e76e5"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "about_me_public_ip_url",
+            "caption": "About Me: Public Ip URL",
+            "description": "If you want this check to return the public IP address, specify one ore more comma-separated URLs to \"what is my ip\" online services. For example (all located in the United States): \"https://ipv4.icanhazip.com,https://ipecho.net/plain,https://ipinfo.io/ip\".",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d8dad468-3de3-4ffd-9db8-ff414b55e619"
+        },
+        "2": {
+            "varname": "about_me_tags",
+            "caption": "About Me: Tags?",
+            "description": "Guess a list of tags to apply in Icinga Director (Linuxfabrik Basket Config).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c1687513-03a9-4599-bac4-468e29b45ae2"
         }
     }
 }

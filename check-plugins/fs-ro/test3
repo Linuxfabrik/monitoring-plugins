@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -85,6 +85,12 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(stdout, r'1 read-only mount point found')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE12(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE12,,0'))
+        self.assertRegex(stdout, r'Everything is ok. 22 mount points checked.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
     # non-existent test file
     def test_if_check_runs_EXAMPLE99(self):

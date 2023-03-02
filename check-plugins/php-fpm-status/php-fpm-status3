@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,40 +8,25 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import json # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.human3 # pylint: disable=C0413
-import lib.test3 # pylint: disable=C0413
-import lib.time3 # pylint: disable=C0413
-import lib.txt3 # pylint: disable=C0413
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.human3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.time3  # pylint: disable=C0413
+import lib.txt3  # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021503'
+__version__ = '2023021701'
 
 DESCRIPTION = """This check collects information from the PHP-FPM status page and alerts on certain
                 overuse. In addition, a table is printed which contains each pool process in the
@@ -196,7 +181,7 @@ def main():
             lib.txt3.pluralize('req', result['listen queue']),
             queue_usage,
             lib.base3.state2str(queue_state, prefix=' '),
-            )
+        )
     if result.get('max children reached', 0):
         msg += '{}x max children reached{}, '.format(
             result['max children reached'],
@@ -206,17 +191,20 @@ def main():
         msg += '{} slow requests{}, '.format(
             result['slow requests'],
             lib.base3.state2str(slow_req_state, prefix=' '),
-            )
-    msg += '{} connections, {} req/s, '.format(result['accepted conn'], req_per_sec)
+        )
+    msg += '{} connections, {} req/s, '.format(
+        lib.human3.number2human(result['accepted conn']),
+        req_per_sec,
+    )
     msg += '{} processes ({} active, {} idle), '.format(
         result['total processes'],
         result['active processes'],
         result['idle processes'],
-        )
+    )
     msg += 'Up {} (since {}), '.format(
         lib.human3.seconds2human(result['start since']),
         lib.time3.epoch2iso(result['start time']),
-        )
+    )
 
     for value in result.get('processes', ''):
         if value['state'] != 'Running':
@@ -237,7 +225,7 @@ def main():
             'script': value['script'],
             'last request cpu': value['last request cpu'],
             'last request memory': value['last request memory'],
-            })
+        })
 
     msg = msg[:-2] + '\n\n'
     if len(table_values) > 0:
@@ -245,7 +233,7 @@ def main():
             table_values,
             ['pid', 'requests', 'request duration', 'request uri', 'content length', 'user'],
             header=['PID', 'Reqs', 'ReqDur', 'Request URI', 'POST', 'AuthUser'],
-            )
+        )
 
     perfdata += lib.base3.get_perfdata('accepted conn', result['accepted conn'], 'c', None, None, 0, None)
     perfdata += lib.base3.get_perfdata('active processes', result['active processes'], None, None, None, 0, result['total processes'])

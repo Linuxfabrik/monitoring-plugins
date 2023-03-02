@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,35 +8,21 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import os  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import json # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.base3 # pylint: disable=C0413
-import lib.shell3 # pylint: disable=C0413
-from lib.globals3 import  STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+import lib.base3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022062701'
+__version__ = '2023021701'
 
 DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
 
@@ -130,38 +116,41 @@ def main():
     # include EOL for old version
     # https://github.com/nextcloud/server/wiki/Maintenance-and-Release-Schedule
     major = config['system']['version'].split('.')[0]
+    eol = ''
+    if major == '25':
+        eol = ' (EOL 2023-10)'
     if major == '24':
         eol = ' (EOL 2023-05)'
     if major == '23':
-        eol = ' (EOL 2022-12)'
+        eol = ' (EOL since 2022-12)'
     if major == '22':
-        eol = ' (EOL 2022-07)'
+        eol = ' (EOL since 2022-07)'
     if major == '21':
-        eol = ' (EOL 2022-02)'
+        eol = ' (EOL since 2022-02)'
     if major == '20':
-        eol = ' (EOL 2021-11)'
+        eol = ' (EOL since 2021-11)'
     if major == '19':
-        eol = ' (EOL 2021-06)'
+        eol = ' (EOL since 2021-06)'
     if major == '18':
-        eol = ' (EOL 2021-01)'
+        eol = ' (EOL since 2021-01)'
     if major == '17':
-        eol = ' (EOL 2020-10)'
+        eol = ' (EOL since 2020-10)'
     if major == '16':
-        eol = ' (EOL 2020-06)'
+        eol = ' (EOL since 2020-06)'
     if major == '15':
-        eol = ' (EOL 2019-12)'
+        eol = ' (EOL since 2019-12)'
     if major == '14':
-        eol = ' (EOL 2019-09)'
+        eol = ' (EOL since 2019-09)'
     if major == '13':
-        eol = ' (EOL 2019-02)'
+        eol = ' (EOL since 2019-02)'
     if major == '12':
-        eol = ' (EOL 2018-11)'
+        eol = ' (EOL since 2018-11)'
     if major == '11':
-        eol = ' (EOL 2018-03)'
+        eol = ' (EOL since 2018-03)'
     if major == '10':
-        eol = ' (EOL 2017-08)'
+        eol = ' (EOL since 2017-08)'
     if major == '9':
-        eol = ' (EOL 2017-04)'
+        eol = ' (EOL since 2017-04)'
 
     lib.base3.oao('Nextcloud v{}{} installed, {}'.format(
         config['system']['version'],

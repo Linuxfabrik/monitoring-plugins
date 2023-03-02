@@ -4,7 +4,7 @@ Check fs-ro
 Overview
 --------
 
-The fs-ro plugin checks for read only mount points, for example like ``/`` mounted read only due to filesystem errors, mounted CD-ROMs or ISO files etc.
+This plugin checks for read-only mount points, such as ``/`` mounted read-only due to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores ramfs and squashfs (snapd) by default.
 
 
 Fact Sheet

@@ -568,10 +568,12 @@ Fine-tune a Basket File
 For example, to set the timeout to 30s, to enable notifications and some other options, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
 
 .. code-block:: yml
+    :caption: Full-fledged example
 
     ---
     variants:
       - linux
+      - windows
 
     overwrites:
       '["Command"]["cmd-check-new-check"]["command"]': '/usr/bin/sudo /usr/lib64/nagios/plugins/new-check'
@@ -628,7 +630,7 @@ To run ``check2basket`` against all checks, for example due to a change in the `
 Service Sets
 ~~~~~~~~~~~~
 
-If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique GUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
+If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
 
 
 

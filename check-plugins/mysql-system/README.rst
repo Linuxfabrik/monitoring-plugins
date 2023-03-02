@@ -10,13 +10,10 @@ Unlike MySQLTuner, this plugin does not check if all processes other than MySQL/
 
 Hints:
 
+ * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * Does not need access to MySQL/MariaDB itself.
 * Must be running locally on the MySQL/MariaDB server to be able to check the system requirements.
 * On Windows there are no kernel settings that can be checked.
-* Compared to check_mysql / MySQLTuner this check currently:
-
-    * supports only simple login with username/password (not via SSL/TLS)
-    * does not support a connection via socket
 
 
 Fact Sheet

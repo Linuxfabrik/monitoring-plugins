@@ -5,17 +5,19 @@
                 "--always-ok": {
                     "set_if": "$journald_query_always_ok$"
                 },
-                "--case-sensitive": {
-                    "set_if": "$journald_query_case_sensitive$"
-                },
                 "--facility": {
                     "value": "$journald_query_facility$"
                 },
-                "--grep": {
-                    "value": "$journald_query_grep$"
-                },
                 "--identifier": {
                     "value": "$journald_query_identifier$"
+                },
+                "--ignore-pattern": {
+                    "value": "$journald_query_ignore_pattern$",
+                    "repeat_key": true
+                },
+                "--ignore-regex": {
+                    "value": "$journald_query_ignore_regex$",
+                    "repeat_key": true
                 },
                 "--priority": {
                     "value": "$journald_query_priority$"
@@ -39,52 +41,52 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 172,
+                    "datafield_id": 1,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 173,
+                    "datafield_id": 2,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 174,
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 175,
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 176,
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 177,
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 178,
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 179,
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 180,
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 181,
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -97,7 +99,7 @@
             "timeout": "10",
             "vars": {},
             "zone": null,
-            "guid": "bb30fab7-0bfa-455d-993c-bc5e04a2aee8"
+            "uuid": "bb30fab7-0bfa-455d-993c-bc5e04a2aee8"
         }
     },
     "ServiceTemplate": {
@@ -115,7 +117,7 @@
             "enable_active_checks": null,
             "enable_event_handler": null,
             "enable_flapping": null,
-            "enable_notifications": true,
+            "enable_notifications": false,
             "enable_passive_checks": null,
             "enable_perfdata": true,
             "event_command": null,
@@ -130,7 +132,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Query the systemd journal and alert on any events found. For help on any of the journalctl-specific parameters, have a look at `man journalctl`.",
+            "notes": "Query the systemd journal and alert on any events found. Only logs for the current boot will be shown. For help on any of the journalctl-specific parameters, see `man journalctl`.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-query",
             "object_name": "tpl-service-journald-query",
             "object_type": "template",
@@ -141,13 +143,15 @@
             "use_var_overrides": null,
             "vars": {
                 "journald_query_always_ok": false,
+                "journald_query_ignore_pattern": [],
+                "journald_query_ignore_regex": [],
                 "journald_query_priority": "emerg..err",
                 "journald_query_severity": "warn",
                 "journald_query_since": "\\-24h"
             },
             "volatile": null,
             "zone": null,
-            "guid": "05c83f7f-ed1c-43b9-a700-48784db7dce6"
+            "uuid": "05c83f7f-ed1c-43b9-a700-48784db7dce6"
         }
     },
     "DataList": {
@@ -168,29 +172,20 @@
                     "allowed_roles": null
                 }
             ],
-            "guid": "c37421ec-29a5-465a-a592-834a6146de1f"
+            "uuid": "c37421ec-29a5-465a-a592-834a6146de1f"
         }
     },
     "Datafield": {
-        "172": {
+        "1": {
             "varname": "journald_query_always_ok",
             "caption": "Journald Query: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "guid": "560110e0-80de-4cc0-b0b9-463fc35295f0"
+            "uuid": "560110e0-80de-4cc0-b0b9-463fc35295f0"
         },
-        "173": {
-            "varname": "journald_query_case_sensitive",
-            "caption": "Journald Query: Case Sensitive?",
-            "description": "journalctl: Make pattern matching case sensitive or case insensitive. ",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "guid": "b83f5e1d-1c4f-4871-a8a6-5de05c6a09d9"
-        },
-        "174": {
+        "2": {
             "varname": "journald_query_facility",
             "caption": "Journald Query: Facility",
             "description": "journalctl: Filter output by syslog facility. Takes a comma-separated list of numbers or facility names.",
@@ -199,20 +194,9 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "ac2f79f6-71e4-43cc-a7ef-714c2f5f9163"
+            "uuid": "ac2f79f6-71e4-43cc-a7ef-714c2f5f9163"
         },
-        "175": {
-            "varname": "journald_query_grep",
-            "caption": "Journald Query: Grep",
-            "description": "journalctl: Filter output to entries where the MESSAGE= field matches the specified regular expression. If the pattern is all lowercase, matching is case insensitive. Otherwise, matching is case sensitive.  ",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "guid": "bdf277a7-8ac9-4335-8427-8932f5113d75"
-        },
-        "176": {
+        "3": {
             "varname": "journald_query_identifier",
             "caption": "Journald Query: Identifier",
             "description": "journalctl: Show messages for the specified syslog identifier.",
@@ -221,9 +205,31 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "f8067419-b975-4dc2-8907-1d55b64f4895"
+            "uuid": "f8067419-b975-4dc2-8907-1d55b64f4895"
         },
-        "177": {
+        "4": {
+            "varname": "journald_query_ignore_pattern",
+            "caption": "Journald Query: Ignore Pattern",
+            "description": "Any line containing this pattern on the MESSAGE field will be ignored (must be lowercase; repeating).', So, unlike `journalctl`, you can easily use strings to ignore certain messages.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "38241f89-41dc-40c9-8210-4d2e9f4d1064"
+        },
+        "5": {
+            "varname": "journald_query_ignore_regex",
+            "caption": "Journald Query: Ignore Regex",
+            "description": "Any line matching this Python regex on the MESSAGE field will be ignored (repeated). So, unlike `journalctl`, you can easily use regular expressions to ignore certain messages.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "49e141c2-b6c4-498d-85b1-5f7a26d7aa1a"
+        },
+        "6": {
             "varname": "journald_query_priority",
             "caption": "Journald Query: Priority",
             "description": "journalctl: Filter output by message priorities or priority ranges. ",
@@ -232,9 +238,9 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "365b15ae-a51c-4e48-a457-994549b05d76"
+            "uuid": "365b15ae-a51c-4e48-a457-994549b05d76"
         },
-        "178": {
+        "7": {
             "varname": "journald_query_severity",
             "caption": "Journald Query: Severity",
             "description": "Severity for alerts if journalctl returns results. One of \"warn\" or \"crit\". ",
@@ -245,9 +251,9 @@
                 "data_type": "string",
                 "datalist": "journald_query_severity_list"
             },
-            "guid": "13f9360c-fa85-47f2-9503-9e91a73695f7"
+            "uuid": "13f9360c-fa85-47f2-9503-9e91a73695f7"
         },
-        "179": {
+        "8": {
             "varname": "journald_query_since",
             "caption": "Journald Query: Since",
             "description": "journalctl: Start showing entries on or newer than the specified date. ",
@@ -256,9 +262,9 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "858a4298-5f7e-41af-be65-a0028115b7be"
+            "uuid": "858a4298-5f7e-41af-be65-a0028115b7be"
         },
-        "180": {
+        "9": {
             "varname": "journald_query_unit",
             "caption": "Journald Query: Unit",
             "description": "journalctl: Show messages for the specified systemd unit UNIT|PATTERN. This parameter can be specified multiple times.",
@@ -267,9 +273,9 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "8a6371ec-9b10-4bd3-b689-731b4dfeea67"
+            "uuid": "8a6371ec-9b10-4bd3-b689-731b4dfeea67"
         },
-        "181": {
+        "10": {
             "varname": "journald_query_user_unit",
             "caption": "Journald Query: User Unit",
             "description": "journalctl: Show messages for the specified user session unit. This parameter can be specified multiple times.",
@@ -278,7 +284,7 @@
             "settings": {
                 "visibility": "visible"
             },
-            "guid": "68787d9f-3bcd-46c8-8341-5f8d199bf098"
+            "uuid": "68787d9f-3bcd-46c8-8341-5f8d199bf098"
         }
     }
 }

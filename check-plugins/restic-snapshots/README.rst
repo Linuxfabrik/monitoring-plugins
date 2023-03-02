@@ -8,6 +8,10 @@ This plugin checks the age of the newest of all snapshots stored in the restic r
 
 Refer to the `online manual <https://restic.readthedocs.io/en/latest/index.html>`_ for more details about restic.
 
+Hints:
+
+* Requires restic 0.12.1+
+
 
 Fact Sheet
 ----------

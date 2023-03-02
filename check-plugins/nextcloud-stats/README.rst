@@ -4,9 +4,9 @@ Check nextcloud-stats
 Overview
 --------
 
-This plugin lets you track if app updates are available, the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, still takes a few seconds.
+This plugin lets you track the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, still takes a few seconds.
 
-To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (or a separate user) for that purpose.
+To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (at https://cloud.example.com/index.php/settings/user/security) or a separate user for that purpose.
 
 Hints:
 
@@ -37,14 +37,13 @@ Help
     usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                            --password PASSWORD [--url URL] [--username USERNAME]
 
-    This plugin lets you track if app updates are available, the number of active
-    users over time, the number of shares in various categories and some storage
-    statistics against a Nextcloud server.
+    This plugin lets you track the number of active users over time, the number of
+    shares in various categories and some storage statistics against a Nextcloud
+    server.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
-      --always-ok          Always returns OK.
       --insecure           This option explicitly allows to perform "insecure" SSL
                            connections. Default: False
       --no-proxy           Do not use a proxy. Default: False
@@ -65,20 +64,19 @@ Output:
 
 .. code-block:: text
 
-    11 users (6/6/6 in the last 5min/1h/24h), 0 files, 52 apps, v20.0.10.2
-    * Shares: 110 (17 groups, 34 links [33 w/o password], 4 mails, 0 rooms, 20 users, 1 federated sent)
+    8 users (3/5/7 in the last 5min/1h/24h), 116.4K files, 50 apps, v24.0.8.3
+    * Shares: 142 (18 groups, 57 links [56 w/o password], 0 mails, 0 rooms, 14 users, 0 federated sent)
     * Federated Shares: 0 received
-    * Storages: 0 (12 home, 5 other, 1 local)
-    * PHP: v7.4.20, upload_max_filesize=11.0GiB, max_execution_time=3600s, memory_limit=2.0GiB
-    * DB: mysql v10.3.29, size=222.0MiB
-    * Web: Apache/2.4.6 (CentOS), local memcache: Memcache\APCu, locking memcache: Memcache\Redis
+    * Storages: 14 (0 home, 14 other, 0 local)
+    * PHP: v8.1.13, upload_max_filesize=9.8GiB, max_execution_time=3600s, memory_limit=1.0GiB
+    * DB: mysql v10.6.11, size=148.7MiB
+    * Web: Apache, local memcache: Memcache\Redis, locking memcache: Memcache\Redis
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if app updates are available.
+* Always returns OK.
 
 
 Perfdata / Metrics

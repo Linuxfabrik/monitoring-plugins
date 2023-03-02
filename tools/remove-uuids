@@ -19,9 +19,9 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022070701'
+__version__ = '2023020901'
 
-DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without guids).'
+DESCRIPTION = 'A tool to join icingaweb2 director baskets (with or without uuids).'
 
 
 skip_plugins = [
@@ -89,7 +89,7 @@ def raise_on_duplicate_keys(ordered_pairs):
     return dict_out
 
 
-class BasketGUIDRemover:
+class BasketUUIDRemover:
     def __init__(self):
         self.data = None
 
@@ -118,28 +118,28 @@ class BasketGUIDRemover:
         return True
 
 
-    def remove_guids(self):
+    def remove_uuids(self):
         if self.data:
             for parent_key, parent_value in self.data.items():
                 for key, value in parent_value.items():
-                    if 'guid' in value:
-                        del self.data[parent_key][key]['guid']
+                    if 'uuid' in value:
+                        del self.data[parent_key][key]['uuid']
 
                     # descent into services of Service Sets
                     if 'services' in value and value['services']:
                         for service_key, service_value in value['services'].items():
-                            if 'guid' in service_value:
-                                del self.data[parent_key][key]['services'][service_key]['guid']
+                            if 'uuid' in service_value:
+                                del self.data[parent_key][key]['services'][service_key]['uuid']
 
 
 def main():
     args = parse_args()
 
-    basket_guid_remover = BasketGUIDRemover()
-    basket_guid_remover.load_basket(args.INPUT_FILE)
-    basket_guid_remover.remove_guids()
+    basket_uuid_remover = BasketUUIDRemover()
+    basket_uuid_remover.load_basket(args.INPUT_FILE)
+    basket_uuid_remover.remove_uuids()
 
-    if basket_guid_remover.save_json_to_file(args.OUTPUT_FILE) is False:
+    if basket_uuid_remover.save_json_to_file(args.OUTPUT_FILE) is False:
         sys.exit(3)
 
 if __name__ == '__main__':

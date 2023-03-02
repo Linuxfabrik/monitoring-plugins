@@ -4,18 +4,22 @@ Check about-me
 Overview
 --------
 
-Reports a overview about the host dimensions, its network interfaces, deployed software and recurring jobs:
+Reports an overview about the host dimensions, its network interfaces, deployed software and recurring jobs:
 
-* OS, disks: system information
-* Interfaces: all IPv4 network interfaces with their IP address
-* Software: lists well-known packages installed by your package manager
-* Apps (if any): manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
-* Tools (if any): tools like dig, wget etc., normally not installed on a minimal server system
-* Python modules: reports version of installed Python modules some of our checks depend on
-* systemd default target: the default systemd target that will be booted into
-* systemd timers: a list of all system systemd timers (excluding user timers)
-* systemd enabled units: a list of all enabled systemd system units (excluding user units)
-* crontabs: a list of crontabs that are found in the usual locations. note that this list is not complete
+* System information (OS, CPUs, disks, ram, UEFI y/n etc.)
+* Python modules: Reports version of installed Python modules some of our checks depend on
+* Interfaces: All IPv4 network interfaces with their IP address
+* Listening TCP ports
+* Software installed: Lists well-known packages installed by your package manager
+* Software found/guessed: Manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
+* Tools: Admin-preferred tools like dig, vim, wget etc. - normally not installed on a minimal server system
+* Non-default system users
+* systemctl get-default: Default systemd target that will be booted into
+* systemctl List-unit-files: List of all systemd system units (excluding user units)
+* systemctl List-timers: List of all system systemd timers (excluding user timers)
+* crontab: List of crontabs that are found in the usual locations. note that this list is not complete
+
+Have a look at the output examples below.
 
 Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
@@ -30,7 +34,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day or once a week"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil``"
+    "Requirements",                         "Python module ``psutil`` (optional)"
 
 
 Help
@@ -38,13 +42,22 @@ Help
 
 .. code-block:: text
 
-    usage: about-me [-h] [-V]
+    usage: about-me [-h] [-V] [--public-ip-url PUBLIC_IP_URL] [--tags]
 
     Reports a quick overview about the host dimensions and installed software.
 
-    optional arguments:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
+    options:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --public-ip-url PUBLIC_IP_URL
+                            If you want this check to return the public IP
+                            address, specify one ore more comma-separated URLs to
+                            "what is my ip" online services. For example (all
+                            located in the United States): "https://ipv4.icanhazip
+                            .com,https://ipecho.net/plain,https://ipinfo.io/ip".
+                            Default: None
+      --tags                Guess a list of tags to apply in Icinga Director
+                            (Linuxfabrik Basket Config).
 
 
 Usage Examples
@@ -54,215 +67,144 @@ Usage Examples
 
     ./about-me
 
-Output:
+Output (first line) on a VM:
 
 .. code-block:: text
 
-    myhostname - Fedora release 35 (Thirty Five) on bare-metal, UEFI boot, 8 CPUs, 15.3GiB RAM, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, LVM, SELinux; Missing: nftables. About-me v2022061901
+    myhostname: Rocky Linux release 8.7 (Green Obsidian) virtualized on kvm, QEMU Standard PC (i440FX + PIIX, 1996), Firmware: n/a, SerNo: n/a, Proc: pc-i440fx-7.0, #Cores: 4, #Threads: 4, Current Speed: 2000 MHz, 6 GB RAM, BIOS boot, Disk vda 128G, tuned profile "virtual-guest", Public IP 92.107.220.171, born 2022-09-02. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
 
-    # Python 3rd party libraries required by any of the plugins
-    * Installed: bs4 4.11.0, pymysql, psutil 5.8.0
-    * Missing: smbprotocol.exceptions, vici
+Output (first line) on a Laptop:
 
-    # Interfaces (IPv4)
-    * virbr0 192.168.122.1/24
-    * wlp0s20f3 10.80.32.245/24
+.. code-block:: text
 
-    # Listening TCP Ports
-    * 192.168.122.1:53/tcp4
-    * 127.0.0.53:53/tcp4
-    * 127.0.0.1:631/tcp4
-    * ::1:631/tcp6
-    * [::]:5355/tcp6
-    * 0.0.0.0:5355/tcp4
-    * 127.0.0.1:5900/tcp4
-    * 127.0.0.1:5939/tcp4
-    * 0.0.0.0:7070/tcp4
+    myhostname: Fedora release 37 (Thirty Seven) on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: ABC1234, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16 GB RAM, UEFI boot, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
 
-    # Software
-    * Apache httpd 2.4.49
-    * Docker Compose 1.28.6
-    * Docker/Podman 3.3.1
-    * Firefox 92.0
-    * g++ 11.2.1
-    * gcc 11.2.1
-    * Git 2.31.1
-    * Glances 3.1.4.1
-    * GNOME Display Manager 40.1
-    * GNOME Shell 40.4
-    * Java openjdk 11.0.12 2021-07-20
-    * LibreOffice 7.1.6.2.0
-    * Linux Kernel 5.13.19-200.fc34.x86_64
-    * MySQL 8.0.26
-    * Node 14.17.6
-    * npm 6.14.15
-    * ntpd ntpsec-1.2.1
-    * OpenSSL 1.1.1l
-    * OpenVPN 2.5.3
-    * Perl 5.32.1
-    * PHP 7.4.23
-    * PHP-FPM 7.4.23
-    * pip 21.0.1
-    * Python mapped to 3.9.7
-    * Python2 2.7.18
-    * Python3 3.9.7
-    * QEMU Guest Agent 5.2.0
-    * SPICE Agent
-    * ssh 8.6p1
-    * Sublime Text 4113
-    * sudo 1.9.5p2
-    * systemd 248
-    * TeamViewer 15.21.4
-    * tmate 2.4.0
-    * vsftpd 3.0.3
+Output (first line) on a Raspberry Pi:
 
-    # Apps
-    * Brother Printer SW
-    * F5 VPN SW
-    * Google Chrome
-    * KeeWeb
-    * Nextcloud
-    * Rambox
-    * VMware Tools
+.. code-block:: text
 
-    # Tools
+    myhostname: Raspbian GNU/Linux 10 (buster) on Bare-Metal, Raspberry Pi 4 Model B Rev 1.4, 4 CPUs, 7.7GiB RAM, BIOS boot, Public IP 1.2.3.4, Missing: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
+
+Example for full Output:
+
+.. code-block:: text
+
+    myhostname - Rocky Linux release 8.6 (Green Obsidian) virtualized on kvm, BIOS boot, sys dimensions n/a (consider installing psutil), Disk vda 128G, tuned profile "virtual-guest", Public IP 1.2.3.4, born 2022-09-02. Features: lvm, selinux. Missing: firewalld, iptables, nftables. About-me v2023010501
+
+    SW installed:
+    * chronyd 4.2
+    * Exim 4.96
+    * g++ 8.5.0
+    * gcc 8.5.0
+    * gpg (GnuPG) 2.2.20
+    * ipmitool 1.8.18
+    * Linux Kernel 4.18.0-372.19.1.el8_6.x86_64
+    * OpenSSL 1.1.1k
+    * Perl 5.26.3
+    * Python 3.6.8
+    * `python3` cmd mapped to 3.6.8
+    * QEMU Guest Agent 6.2.0
+    * ssh 8.0p1
+    * sudo 1.8.29
+    * systemd 239
+
+    SW found/guessed:
+    * Firewall Builder
+
+    Tools:
     * dig
+    * hdparm
     * lsof
     * nano
-    * ncat
-    * nmap
     * rsync
-    * tcpdump
     * telnet
-    * tmux
-    * unzip
+    * vim
     * wget
-    * whois
-    * wireshark
 
-    # systemd default target
-    * graphical.target
+    Non-default Users:
+    user    ! pw ! uid  ! gid  ! comment ! home_dir        ! user_shell    
+    --------+----+------+------+---------+-----------------+---------------
+    exim    ! x  ! 93   ! 93   !         ! /var/spool/exim ! /sbin/nologin 
+    vagrant ! x  ! 1000 ! 1000 !         ! /home/vagrant   ! /bin/bash     
 
-    # systemd timers
-    * dnf-makecache.timer
-    * systemd-tmpfiles-clean.timer
-    * mlocate-updatedb.timer
-    * unbound-anchor.timer
-    * fstrim.timer
+    systemctl get-default:
+    * multi-user.target
 
-    # systemd enabled units
-    * abrt-journal-core.service
-    * abrt-oops.service
-    * abrt-vmcore.service
-    * abrt-xorg.service
-    * abrtd.service
-    * accounts-daemon.service
-    * anydesk.service
-    * atd.service
+    systemctl list-unit-files --type service --state enabled:
     * auditd.service
-    * avahi-daemon.service
-    * bluetooth.service
+    * autovt@.service
     * chronyd.service
     * crond.service
-    * cups.service
-    * dbus-broker.service
-    * firewalld.service
-    * flatpak-add-fedora-repos.service
-    * gdm.service
+    * dbus-org.freedesktop.nm-dispatcher.service
+    * dbus-org.freedesktop.timedate1.service
     * getty@.service
+    * haveged.service
     * import-state.service
-    * iscsi.service
-    * libvirtd.service
-    * lm_sensors.service
-    * low-memory-monitor.service
+    * irqbalance.service
+    * loadmodules.service
     * lvm2-monitor.service
-    * mcelog.service
-    * mdmonitor.service
-    * ModemManager.service
-    * multipathd.service
-    * mysqld.service
-    * netcf-transaction.service
     * NetworkManager-dispatcher.service
     * NetworkManager-wait-online.service
     * NetworkManager.service
-    * nfs-convert.service
-    * ostree-remount.service
+    * nfs-server.service
+    * nis-domainname.service
     * qemu-guest-agent.service
-    * rngd.service
-    * rpmdb-rebuild.service
-    * rtkit-daemon.service
+    * rpcbind.service
+    * rsyncd.service
+    * rsyslog.service
     * selinux-autorelabel-mark.service
-    * smartd.service
+    * snmpd.service
+    * sshd.service
     * sssd.service
-    * switcheroo-control.service
-    * systemd-oomd.service
-    * systemd-resolved.service
-    * teamviewerd.service
-    * thermald.service
-    * udisks2.service
-    * upower.service
-    * uresourced.service
-    * vboxservice.service
-    * vgauthd.service
-    * vmtoolsd.service
-    * vpnagentd.service
+    * syslog.service
+    * sysstat.service
+    * timedatex.service
+    * tuned.service
     * vsftpd.service
 
-    # systemd mounts
+    systemctl list-unit-files --type mount --state static --state generated:
     * -.mount
-    * boot-efi.mount
     * boot.mount
     * dev-hugepages.mount
     * dev-mqueue.mount
     * proc-fs-nfsd.mount
+    * proc-sys-fs-binfmt_misc.mount
     * sys-fs-fuse-connections.mount
     * sys-kernel-config.mount
     * sys-kernel-debug.mount
-    * sys-kernel-tracing.mount
-    * tmp.mount
-    * var-lib-machines.mount
     * var-lib-nfs-rpc_pipefs.mount
 
-    # systemd automounts
+    systemctl list-unit-files --type automount --state enabled --state static:
     * proc-sys-fs-binfmt_misc.automount
 
-    # non-default users
-    user                ! pw ! uid  ! gid  ! comment                                                    ! home_dir                  ! user_shell        
-    --------------------+----+------+------+------------------------------------------------------------+---------------------------+-------------------
-    apache              ! x  ! 48   ! 48   ! Apache                                                     ! /usr/share/httpd          ! /sbin/nologin     
-    avahi               ! x  ! 70   ! 70   ! Avahi mDNS/DNS-SD Stack                                    ! /var/run/avahi-daemon     ! /sbin/nologin     
-    colord              ! x  ! 983  ! 983  ! User for colord                                            ! /var/lib/colord           ! /sbin/nologin     
-    dnsmasq             ! x  ! 987  ! 987  ! Dnsmasq DHCP and DNS server                                ! /var/lib/dnsmasq          ! /usr/sbin/nologin 
-    fahclient           ! x  ! 977  ! 975  ! Folding@home Client                                        ! /var/lib/fahclient        ! /sbin/nologin     
-    flatpak             ! x  ! 980  ! 978  ! User for flatpak system helper                             ! /                         ! /sbin/nologin     
-    gdm                 ! x  ! 42   ! 42   !                                                            ! /var/lib/gdm              ! /sbin/nologin     
-    geoclue             ! x  ! 985  ! 985  ! User for geoclue                                           ! /var/lib/geoclue          ! /sbin/nologin     
-    gluster             ! x  ! 996  ! 992  ! GlusterFS daemons                                          ! /run/gluster              ! /sbin/nologin     
-    gnome-initial-setup ! x  ! 979  ! 977  !                                                            ! /run/gnome-initial-setup/ ! /sbin/nologin     
-    bash         
-    mysql               ! x  ! 27   ! 27   ! MySQL Server                                               ! /var/lib/mysql            ! /bin/false        
-    nagios              ! x  ! 972  ! 965  !                                                            ! /var/spool/nagios         ! /sbin/nologin     
-    nginx               ! x  ! 975  ! 973  ! Nginx web server                                           ! /var/lib/nginx            ! /sbin/nologin     
-    nm-openconnect      ! x  ! 995  ! 990  ! NetworkManager user for OpenConnect                        ! /                         ! /sbin/nologin     
-    nm-openvpn          ! x  ! 981  ! 979  ! Default user for running openvpn spawned by NetworkManager ! /                         ! /sbin/nologin     
-    ntp                 ! x  ! 38   ! 38   !                                                            ! /var/lib/ntp              ! /sbin/nologin     
-    openvpn             ! x  ! 982  ! 980  ! OpenVPN                                                    ! /etc/openvpn              ! /sbin/nologin     
-    pipewire            ! x  ! 997  ! 995  ! PipeWire System Daemon                                     ! /var/run/pipewire         ! /sbin/nologin     
-    pkg-build           ! x  ! 976  ! 974  ! lpf local package build user                               ! /var/lib/lpf              ! /sbin/nologin     
-    pulse               ! x  ! 171  ! 171  ! PulseAudio System Daemon                                   ! /var/run/pulse            ! /sbin/nologin     
-    qemu                ! x  ! 107  ! 107  ! qemu user                                                  ! /                         ! /sbin/nologin     
-    radvd               ! x  ! 75   ! 75   ! radvd user                                                 ! /                         ! /sbin/nologin     
-    rtkit               ! x  ! 172  ! 172  ! RealtimeKit                                                ! /proc                     ! /sbin/nologin     
-    saslauth            ! x  ! 993  ! 76   ! Saslauthd user                                             ! /run/saslauthd            ! /sbin/nologin     
-    setroubleshoot      ! x  ! 974  ! 969  !                                                            ! /var/lib/setroubleshoot   ! /sbin/nologin     
-    usbmuxd             ! x  ! 113  ! 113  ! usbmuxd user                                               ! /                         ! /sbin/nologin     
-    vboxadd             ! x  ! 978  ! 1    !                                                            ! /var/run/vboxadd          ! /sbin/nologin     
+    systemctl list-timers:
+    * sysstat-collect.timer
+    * dnf-makecache.timer
+    * mlocate-updatedb.timer
+    * unbound-anchor.timer
+    * sysstat-summary.timer
+    * systemd-tmpfiles-clean.timer
 
-    # crontabs
+    crontab:
     01 * * * * root run-parts /etc/cron.hourly
     1   5   cron.daily      nice run-parts /etc/cron.daily
     7   25  cron.weekly     nice run-parts /etc/cron.weekly
     @monthly 45 cron.monthly        nice run-parts /etc/cron.monthly
+
+    3rd-party Python libraries required by any of the plugins:
+    * Installed: none
+    * Missing: bs4, psutil, pymysql.cursors, smbprotocol.exceptions, vici
+
+    Tags:
+    * chronyd
+    * exim
+    * fwbuilder
+    * ipmi
+    * OS: Rocky Linux release 8.6 (Green Obsidian), family "RedHat"
+    * nfs-server
+    * rsyncd
+    * snmpd
+    * vsftpd
 
 
 States
@@ -274,10 +216,19 @@ States
 Perfdata / Metrics
 ------------------
 
-* cpu: Number of CPUs
-* ram: Size of memory
-* disks: Number of disks
-* osversion: as a Number. "Fedora 33" becomes "33", "CentOS 7.4.1708" becomes "741708" - to see when an update happened
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                Type,               Description                                           
+    cpu,                 Number,             Number of CPUs (if ``dmidecode`` is not available)
+    cpu_cores_enabled,   Number,             Number of enabled CPU cores (if ``dmidecode`` is available)
+    cpu_speed,           Number,             CPU speed (if ``dmidecode`` is available)
+    cpu_threads,         Number,             Number of CPU cores with Hyper-Threading enabled (if ``dmidecode`` is available)
+    disks,               Number,             Number of disks
+    osversion,           None,               "'Fedora 33' becomes '33', 'CentOS 7.4.1708' becomes '741708' - to see when an upgrade happened"
+    ram,                 Bytes,              Size of memory (if ``dmidecode`` is not available)
+    ram,                 Bytes,              Size of memory (if ``dmidecode`` is available)
 
 
 Credits, License

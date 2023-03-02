@@ -36,7 +36,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "App updatenotification"
+    "Requirements",                         "App ``updatenotification`` must be enabled"
 
 
 Help
@@ -89,6 +89,9 @@ Troubleshooting
 
 sudo: unknown user: #-1, sudo: error initializing audit plugin sudoers_audit
     Nextcloud installation was not found.
+
+There are no commands defined in the "update" namespace.
+    Nextcloud app ``updatenotification`` is not enabled.
 
 
 Credits, License

@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8; py-indent-offset: 4 -*-
 #
 # Author:  Linuxfabrik GmbH, Zurich, Switzerland
@@ -8,40 +8,26 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-"""Have a look at the check's README for further details.
+"""See the check's README for more details.
 """
 
-import os
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
 
-# considering a virtual environment
-ACTIVATE_THIS = False
-venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-if os.path.exists(venv_path):
-    ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-if os.getenv('MONITORING_PLUGINS_VENV3'):
-    ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-    exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
-
-import argparse # pylint: disable=C0413
-import sys # pylint: disable=C0413
-
-import lib.args3 # pylint: disable=C0413
-import lib.base3 # pylint: disable=C0413
-import lib.shell3 # pylint: disable=C0413
-from lib.globals3 import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN # pylint: disable=C0413
-
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2022021501'
+__version__ = '2023022201'
 
 DESCRIPTION = 'Checks the number of pending Windows updates.'
 
-DEFAULT_WARN = 2
-DEFAULT_CRIT = 50
+DEFAULT_CRIT = 50      # #updates
+DEFAULT_TIMEOUT = 300  # seconds
+DEFAULT_WARN = 2       # #updates
 
 
 def parse_args():
@@ -69,6 +55,14 @@ def parse_args():
         dest='CRIT',
         help='Set the critical threshold for the number of pending updates. Default: %(default)s',
         type=lib.args3.int_or_none,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -105,7 +99,7 @@ def main():
     "'''
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, timeout=args.TIMEOUT))
     if stderr:
         # Could not find any documentation in the return codes of 'query user'.
         # Therefore we assume any is ok.
@@ -121,7 +115,7 @@ def main():
             'There are {} pending updates:\n\n* '.format(count) + result.replace('\n', '\n* '),
             state,
             perfdata,
-            always_ok=args.ALWAYS_OK
+            always_ok=args.ALWAYS_OK,
         )
 
     lib.base3.oao('There are no pending updates.', STATE_OK, perfdata, always_ok=args.ALWAYS_OK)
