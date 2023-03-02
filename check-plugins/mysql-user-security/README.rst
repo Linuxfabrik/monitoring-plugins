@@ -10,11 +10,7 @@ The users ``mysql.sys`` and ``mariadb.sys``, which are system users used as the 
 
 Hints:
 
-* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
-* Compared to check_mysql / MySQLTuner this check currently:
-
-    * supports only simple login with username/password (not via SSL/TLS)
-    * does not support a connection via socket
+ * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 
 
 Fact Sheet
@@ -35,9 +31,10 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-user-security [-h] [-V] [--always-ok] [-H HOSTNAME]
-                               [-p PASSWORD] [--port PORT]
-                               [--severity {warn,crit}] [-u USERNAME]
+    usage: mysql-user-security [-h] [-V] [--always-ok]
+                               [--defaults-file DEFAULTS_FILE]
+                               [--defaults-group DEFAULTS_GROUP]
+                               [--severity {warn,crit}] [--timeout TIMEOUT]
 
     Check user's security in MySQL/MariaDB.
 
@@ -45,17 +42,19 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -H HOSTNAME, --hostname HOSTNAME
-                            MySQL/MariaDB hostname. Default: 127.0.0.1
-      -p PASSWORD, --password PASSWORD
-                            Use the indicated password to authenticate the
-                            connection. Default:
-      --port PORT           MySQL/MariaDB port. Default: 3306
+      --defaults-file DEFAULTS_FILE
+                            Specifies a cnf file to read parameters like user,
+                            host and password from (instead of specifying them on
+                            the command line), for example
+                            `/var/spool/icinga2/.my.cnf`. Default:
+                            /var/spool/icinga2/.my.cnf
+      --defaults-group DEFAULTS_GROUP
+                            Group/section to read from in the cnf file. Default:
+                            client
       --severity {warn,crit}
                             Severity for alerts that do not depend on thresholds.
                             One of "warn" or "crit". Default: warn
-      -u USERNAME, --username USERNAME
-                            MySQL/MariaDB username. Default: root
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -63,7 +62,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-user-security --hostname localhost --username root --password mypassword
+    ./mysql-user-security --defaults-file=/var/spool/icinga2/.my.cnf
 
 Output:
 

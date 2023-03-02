@@ -8,11 +8,7 @@ MySQL/MariaDB tracks the number of threads it caches for re-use. This plugin che
 
 Hints:
 
-* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
-* Compared to check_mysql / MySQLTuner this check currently:
-
-    * supports only simple login with username/password (not via SSL/TLS)
-    * does not support a connection via socket
+ * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 
 
 Fact Sheet
@@ -33,8 +29,10 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-thread-cache [-h] [-V] [--always-ok] [-H HOSTNAME] [-p PASSWORD]
-                              [--port PORT] [-u USERNAME]
+    usage: mysql-thread-cache [-h] [-V] [--always-ok]
+                              [--defaults-file DEFAULTS_FILE]
+                              [--defaults-group DEFAULTS_GROUP]
+                              [--timeout TIMEOUT]
 
     Checks the number of threads MySQL/MariaDB caches for re-use.
 
@@ -42,14 +40,16 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -H HOSTNAME, --hostname HOSTNAME
-                            MySQL/MariaDB hostname. Default: 127.0.0.1
-      -p PASSWORD, --password PASSWORD
-                            Use the indicated password to authenticate the
-                            connection. Default:
-      --port PORT           MySQL/MariaDB port. Default: 3306
-      -u USERNAME, --username USERNAME
-                            MySQL/MariaDB username. Default: root
+      --defaults-file DEFAULTS_FILE
+                            Specifies a cnf file to read parameters like user,
+                            host and password from (instead of specifying them on
+                            the command line), for example
+                            `/var/spool/icinga2/.my.cnf`. Default:
+                            /var/spool/icinga2/.my.cnf
+      --defaults-group DEFAULTS_GROUP
+                            Group/section to read from in the cnf file. Default:
+                            client
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -57,7 +57,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-thread-cache --hostname localhost --username root --password mypassword
+    ./mysql-thread-cache --defaults-file=/var/spool/icinga2/.my.cnf
 
 Output:
 

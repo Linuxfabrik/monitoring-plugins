@@ -13,14 +13,12 @@ Depending on your site's policy for DB management, you could ignore lines matchi
 
 Hints:
 
-* On RHEL 7+, one way to install the Python MySQL Connector is via ``pip install pymysql``
+ * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * Must be running locally on the MySQL/MariaDB server to be able to check the log.
 * Compared to MySQLTuner this check
 
-    * is able to ignore log lines using simple lowercase string patterns or Python regular expressions
+    * is able to ignore log lines using simple string patterns or Python regular expressions
     * even checks the log if MySQL/MariaDB is down
-    * supports only simple login with username/password (not via SSL/TLS)
-    * does not support a connection via socket
 
   
 Fact Sheet
@@ -43,9 +41,11 @@ Help
 .. code-block:: text
 
     usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                         [-H HOSTNAME] [--ignore-pattern IGNORE_PATTERN]
-                         [--ignore-regex IGNORE_REGEX] [-p PASSWORD]
-                         [--port PORT] [--server-log SERVER_LOG] [-u USERNAME]
+                         [--defaults-file DEFAULTS_FILE]
+                         [--defaults-group DEFAULTS_GROUP] [-H HOSTNAME]
+                         [--ignore-pattern IGNORE_PATTERN]
+                         [--ignore-regex IGNORE_REGEX] [--port PORT]
+                         [--server-log SERVER_LOG] [--timeout TIMEOUT]
 
     Checks MySQL/MariaDB log content the same way MySQLTuner does, but also in
     case the DB is down.
@@ -57,6 +57,15 @@ Help
       --cache-expire CACHE_EXPIRE
                             The amount of time after which the cached data
                             expires, in minutes. Default: 7200
+      --defaults-file DEFAULTS_FILE
+                            Specifies a cnf file to read parameters like user,
+                            host and password from (instead of specifying them on
+                            the command line), for example
+                            `/var/spool/icinga2/.my.cnf`. Default:
+                            /var/spool/icinga2/.my.cnf
+      --defaults-group DEFAULTS_GROUP
+                            Group/section to read from in the cnf file. Default:
+                            client
       -H HOSTNAME, --hostname HOSTNAME
                             MySQL/MariaDB hostname. Default: 127.0.0.1
       --ignore-pattern IGNORE_PATTERN
@@ -64,17 +73,13 @@ Help
                             be lowercase; repeating).
       --ignore-regex IGNORE_REGEX
                             Any line matching this python regex will be ignored.
-      -p PASSWORD, --password PASSWORD
-                            Use the indicated password to authenticate the
-                            connection. Default:
       --port PORT           MySQL/MariaDB port. Default: 3306
       --server-log SERVER_LOG
                             One of: Path to error log file (including filename);
                             docker:CONTAINER; podman:CONTAINER; kubectl:CONTAINER;
                             systemd:UNITNAME. If ommitted, this check tries to
                             fetch the logfile location automatically.
-      -u USERNAME, --username USERNAME
-                            MySQL/MariaDB username. Default: root
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
 Usage Examples
@@ -83,8 +88,7 @@ Usage Examples
 .. code-block:: bash
 
     ./mysql-logfile --ignore-pattern 'aborted connection' --ignore-pattern 'access denied'
-    ./mysql-logfile --username mon-log --password mypassword
-    ./mysql-logfile --server-log=systemd:mariadb
+    ./mysql-logfile  --defaults-file=/var/spool/icinga2/.my.cnf --server-log=systemd:mariadb
     ./mysql-logfile --server-log=docker:mariadb
     
 Output:

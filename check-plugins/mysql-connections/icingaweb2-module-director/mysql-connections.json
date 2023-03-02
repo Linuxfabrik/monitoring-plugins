@@ -5,23 +5,17 @@
                 "--always-ok": {
                     "set_if": "$mysql_connections_always_ok$"
                 },
-                "--hostname": {
-                    "value": "$mysql_connections_hostname$"
+                "--defaults-file": {
+                    "value": "$mysql_connections_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$mysql_connections_defaults_group$"
                 },
                 "--ignore-name-resolution": {
                     "set_if": "$mysql_connections_ignore_name_resolution$"
                 },
-                "--password": {
-                    "value": "$mysql_connections_password$"
-                },
-                "--port": {
-                    "value": "$mysql_connections_port$"
-                },
                 "--timeout": {
                     "value": "$mysql_connections_timeout$"
-                },
-                "--username": {
-                    "value": "$mysql_connections_username$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-connections",
@@ -51,16 +45,6 @@
                     "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 6,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -78,28 +62,32 @@
                 "--always-ok": {
                     "set_if": "$mysql_connections_windows_always_ok$"
                 },
-                "--hostname": {
-                    "value": "$mysql_connections_windows_hostname$"
+                "--defaults-file": {
+                    "value": "$mysql_connections_windows_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$mysql_connections_windows_defaults_group$"
                 },
                 "--ignore-name-resolution": {
                     "set_if": "$mysql_connections_windows_ignore_name_resolution$"
                 },
-                "--password": {
-                    "value": "$mysql_connections_windows_password$"
-                },
-                "--port": {
-                    "value": "$mysql_connections_windows_port$"
-                },
                 "--timeout": {
                     "value": "$mysql_connections_windows_timeout$"
-                },
-                "--username": {
-                    "value": "$mysql_connections_windows_username$"
                 }
             },
             "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\mysql-connections.exe",
             "disabled": false,
             "fields": [
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
                 {
                     "datafield_id": 8,
                     "is_required": "n",
@@ -112,26 +100,6 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 11,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 12,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 13,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -179,7 +147,7 @@
             "enable_active_checks": null,
             "enable_event_handler": null,
             "enable_flapping": null,
-            "enable_notifications": true,
+            "enable_notifications": false,
             "enable_passive_checks": null,
             "enable_perfdata": true,
             "event_command": null,
@@ -205,12 +173,10 @@
             "use_var_overrides": null,
             "vars": {
                 "mysql_connections_always_ok": false,
-                "mysql_connections_hostname": "127.0.0.1",
+                "mysql_connections_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "mysql_connections_defaults_group": "client",
                 "mysql_connections_ignore_name_resolution": false,
-                "mysql_connections_password": "",
-                "mysql_connections_port": "3306",
-                "mysql_connections_timeout": 3,
-                "mysql_connections_username": "root"
+                "mysql_connections_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -256,12 +222,10 @@
             "use_var_overrides": null,
             "vars": {
                 "mysql_connections_windows_always_ok": false,
-                "mysql_connections_windows_hostname": "127.0.0.1",
+                "mysql_connections_windows_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "mysql_connections_windows_defaults_group": "client",
                 "mysql_connections_windows_ignore_name_resolution": false,
-                "mysql_connections_windows_password": "",
-                "mysql_connections_windows_port": "3306",
-                "mysql_connections_windows_timeout": 3,
-                "mysql_connections_windows_username": "root"
+                "mysql_connections_windows_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -279,17 +243,28 @@
             "uuid": "a80ad5b5-f711-41f6-8b3d-4c9629ee395d"
         },
         "2": {
-            "varname": "mysql_connections_hostname",
-            "caption": "MySQL Connections: Hostname",
-            "description": "MySQL/MariaDB hostname.",
+            "varname": "mysql_connections_defaults_file",
+            "caption": "MySQL Connections: Defaults File",
+            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "5d5b5e85-cb64-4f39-a177-59cb43d74ede"
+            "uuid": "c1517dd1-7c99-4fa6-aba6-c65d1df70a13"
         },
         "3": {
+            "varname": "mysql_connections_defaults_group",
+            "caption": "MySQL Connections: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d2176323-1326-4871-8775-441fb0d4f300"
+        },
+        "4": {
             "varname": "mysql_connections_ignore_name_resolution",
             "caption": "MySQL Connections: Ignore Name Resolution?",
             "description": "Do not check if name resolution is active.",
@@ -298,29 +273,7 @@
             "settings": {},
             "uuid": "824329c6-235a-480c-bcc3-7481733a72f3"
         },
-        "4": {
-            "varname": "mysql_connections_password",
-            "caption": "MySQL Connections: Password",
-            "description": "Use the indicated password to authenticate the connection.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "hidden"
-            },
-            "uuid": "ff55dda9-d472-403e-b44d-f27c332dd55c"
-        },
         "5": {
-            "varname": "mysql_connections_port",
-            "caption": "MySQL Connections: Port",
-            "description": "MySQL/MariaDB port.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "e4d5b4ba-4b14-4087-8e54-0e7ef88e8ae7"
-        },
-        "6": {
             "varname": "mysql_connections_timeout",
             "caption": "MySQL Connections: Timeout",
             "description": "Network timeout in seconds.",
@@ -331,18 +284,7 @@
             },
             "uuid": "636cc7a2-a618-488a-8176-e5da07e52d71"
         },
-        "7": {
-            "varname": "mysql_connections_username",
-            "caption": "MySQL Connections: Username",
-            "description": "MySQL/MariaDB username.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "e15faa48-d872-42d0-8aca-d3de6085fa45"
-        },
-        "8": {
+        "6": {
             "varname": "mysql_connections_windows_always_ok",
             "caption": "MySQL Connections: Always OK?",
             "description": "Always returns OK.",
@@ -351,18 +293,29 @@
             "settings": {},
             "uuid": "637ac53e-3536-4afc-966b-db484fde50ae"
         },
-        "9": {
-            "varname": "mysql_connections_windows_hostname",
-            "caption": "MySQL Connections: Hostname",
-            "description": "MySQL/MariaDB hostname.",
+        "7": {
+            "varname": "mysql_connections_windows_defaults_file",
+            "caption": "MySQL Connections: Defaults File",
+            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "89e295dd-95ff-4f04-8f81-9ae481d6d0ba"
+            "uuid": "fe0246af-4da3-46ec-991d-c04e49d8f2a2"
         },
-        "10": {
+        "8": {
+            "varname": "mysql_connections_windows_defaults_group",
+            "caption": "MySQL Connections: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c140d20c-3c78-40ea-bb7d-326419e7ad99"
+        },
+        "9": {
             "varname": "mysql_connections_windows_ignore_name_resolution",
             "caption": "MySQL Connections: Ignore Name Resolution?",
             "description": "Do not check if name resolution is active.",
@@ -371,29 +324,7 @@
             "settings": {},
             "uuid": "3cb92853-0289-446d-bee1-fdf0e0e73cdf"
         },
-        "11": {
-            "varname": "mysql_connections_windows_password",
-            "caption": "MySQL Connections: Password",
-            "description": "Use the indicated password to authenticate the connection.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "hidden"
-            },
-            "uuid": "ca550f48-3dd0-4e1f-a2b7-849e8423315b"
-        },
-        "12": {
-            "varname": "mysql_connections_windows_port",
-            "caption": "MySQL Connections: Port",
-            "description": "MySQL/MariaDB port.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "17b0cb28-6c3a-4601-95c1-44a9276e26c2"
-        },
-        "13": {
+        "10": {
             "varname": "mysql_connections_windows_timeout",
             "caption": "MySQL Connections: Timeout",
             "description": "Network timeout in seconds.",
@@ -403,17 +334,6 @@
                 "visibility": "visible"
             },
             "uuid": "17f854f5-454c-468d-ad66-ccee6b011479"
-        },
-        "14": {
-            "varname": "mysql_connections_windows_username",
-            "caption": "MySQL Connections: Username",
-            "description": "MySQL/MariaDB username.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "9fa20544-f4cb-4964-aed5-206d172c6baa"
         }
     }
 }

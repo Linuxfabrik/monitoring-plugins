@@ -20,15 +20,13 @@ from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023030201'
 
 DESCRIPTION = """Checks for missing indexes in MySQL/MariaDB tables."""
 
-DEFAULT_HOSTNAME = '127.0.0.1'
-DEFAULT_PORT = 3306
-DEFAULT_PASSWORD = ''
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
-DEFAULT_USERNAME = 'root'
 
 
 def parse_args():
@@ -51,25 +49,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='MySQL/MariaDB hostname. Default: %(default)s',
-        dest='HOSTNAME',
-        default=DEFAULT_HOSTNAME,
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and password from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
     )
 
     parser.add_argument(
-        '-p', '--password',
-        help='Use the indicated password to authenticate the connection. Default: %(default)s',
-        dest='PASSWORD',
-        default=DEFAULT_PASSWORD,
-    )
-
-    parser.add_argument(
-        '--port',
-        help='MySQL/MariaDB port. Default: %(default)s',
-        dest='PORT',
-        type=int,
-        default=DEFAULT_PORT,
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
     )
 
     parser.add_argument(
@@ -78,13 +70,6 @@ def parse_args():
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-    )
-
-    parser.add_argument(
-        '-u', '--username',
-        help='MySQL/MariaDB username. Default: %(default)s',
-        dest='USERNAME',
-        default=DEFAULT_USERNAME,
     )
 
     return parser.parse_args()
@@ -104,11 +89,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     mysql_connection = {
-        'user':               args.USERNAME,
-        'password':           args.PASSWORD,
-        'host':               args.HOSTNAME,
-        'port':               args.PORT,
-        'timeout':            args.TIMEOUT,
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
     }
     conn = lib.base3.coe(lib.db_mysql3.connect(mysql_connection))
     lib.base3.coe(lib.db_mysql3.check_select_privileges(conn))
