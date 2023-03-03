@@ -36,12 +36,12 @@ Help
     -h, --help           show this help message and exit
     -V, --version        show program's version number and exit
     --always-ok          Always returns OK.
-    --channels CHANNELS  comma separated channels one per sensor. Default: ['ch1', 'ch2', 'ch3']
-    --high HIGH          comma separated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
-                         gets applied to all highthreashold volations. Default: CRITICAL
+    --channels CHANNELS  Comma separated channels one per sensor. Default: ['ch1', 'ch2', 'ch3']
+    --high HIGH          Comma separated states [OK,CRITICAL,WARNING] per sensor value. If only one state is provided it
+                         gets applied to all high threshold violations. Default: CRITICAL
     --insecure           This option explicitly allows to perform "insecure" SSL connections. Default: False
-    --low LOW            comma separated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
-                         gets applied to all lowthreashold volations. Default: WARNING
+    --low LOW            Comma separated states [OK,CRITICAL,WARNING] per sensor value. If only one state is provided it
+                         gets applied to all low threshold violations. Default: WARNING
     --no-proxy           Do not use a proxy. Default: False
     --perfdata           send perfdata. Default: False
     --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".
