@@ -3,25 +3,59 @@ How to install the Linuxfabrik Monitoring Plugins Collection
 
 In general, you have two options:
 
-* Using the compiled plugins (available as OS packages or simple archives).
-* Using the plugins from the source code (requires Python).
+* Using the compiled plugins (available as OS packages, EXE files or simple archives).
+* Using the plugins from the source code (requires Python runtime).
 
 
-Linux: Using your OS Package Manager
-------------------------------------
+Linux
+-----
+
+Using your OS Package Manager (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We provide repositories for RPM and DEB packages. Have a look at `repo.linuxfabrik.ch <https://repo.linuxfabrik.ch/monitoring-plugins>`_ for the installation instructions for your distro.
 
 We currently just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
 
 
-Linux: Using Binaries from an Archive
--------------------------------------
+Using Binaries from an Archive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice (normally ``/usr/lib64/nagios/plugins``) by using one of these files:
 
 * `tar <https://download.linuxfabrik.ch/monitoring-plugins/tar>`_
 * `zip <https://download.linuxfabrik.ch/monitoring-plugins/zip>`_
+
+
+sudoers
+~~~~~~~
+
+On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide a ``sudoers`` file for your operating system in ``monitoring-plugins/assets/sudoers``, for example ``CentOS8.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the target host.
+
+**Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+
+
+SELinux
+~~~~~~~
+
+If you are running the plugins on an instance with SELinux enabled, you may need one of our `Linuxfabrik Monitoring Plugins SELinux Policy Rulesets <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/selinux/>`_ to grant some plugins access to certain resources.
+
+On any client, activate the ruleset like so:
+
+.. code-block:: bash
+
+    checkmodule --mls -m --output linuxfabrik-monitoring-plugins.mod linuxfabrik-monitoring-plugins.te
+    semodule_package --outfile linuxfabrik-monitoring-plugins.pp --module linuxfabrik-monitoring-plugins.mod
+    semodule --install linuxfabrik-monitoring-plugins.pp
+
+On an Icinga server that has the ``icinga2-selinux`` package installed, use this policy instead:
+
+.. code-block:: bash
+
+    checkmodule --mls -m --output linuxfabrik-monitoring-plugins-icinga.mod linuxfabrik-monitoring-plugins-icinga.te
+    semodule_package --outfile linuxfabrik-monitoring-plugins-icinga.pp --module linuxfabrik-monitoring-plugins-icinga.mod
+    semodule --install linuxfabrik-monitoring-plugins-icinga.pp
+
 
 
 Windows
