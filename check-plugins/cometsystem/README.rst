@@ -36,7 +36,7 @@ Help
     -h, --help           show this help message and exit
     -V, --version        show program's version number and exit
     --always-ok          Always returns OK.
-    --channels CHANNELS  comma separated channels of sensor. Default: ['ch1', 'ch2', 'ch3']
+    --channels CHANNELS  comma separated channels one per sensor. Default: ['ch1', 'ch2', 'ch3']
     --high HIGH          comma separated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
                          gets applied to all highthreashold volations. Default: CRITICAL
     --insecure           This option explicitly allows to perform "insecure" SSL connections. Default: False
