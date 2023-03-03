@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030202'
+__version__ = '2023030301'
 
 DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
 
@@ -72,6 +72,12 @@ def get_opened_ports():
     return len(opened_ports)
 
 
+def get_sysctl(key):
+    cmd = 'sysctl --values {} 2> /dev/null'.format(key)
+    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+    return stdout.strip()
+
+
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -103,46 +109,32 @@ def main():
 
     # get kernel settings on linux
     if lib.base3.LINUX:
-        kernel = {}
-        params = [
-            'fs.aio-max-nr',
-            'sunrpc.tcp_slot_table_entries',
-            'vm.swappiness',
-        ]
-        for param in params:
-            cmd = 'sysctl -n {} 2> /dev/null'.format(param)
-            stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-            try:
-                kernel[param] = int(stdout)
-            except:
-                lib.base3.oao(
-                    '`{}` failed, maybe insufficient permissions'.format(cmd),
-                    STATE_UNKNOWN,
-                )
-
-        if kernel['vm.swappiness'] > 10:
+        result = get_sysctl('vm.swappiness')
+        if int(result) > 10:
             state = STATE_WARN
             msg += 'vm.swappiness is {}, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). '.format(
-                kernel['vm.swappiness'],
+                result,
             )
-        perfdata += lib.base3.get_perfdata('mysql_kernel_vm.swappiness', kernel['vm.swappiness'], '%', None, None, 0, 100)
+        perfdata += lib.base3.get_perfdata('mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100)
 
         # only if /proc/sys/sunrpc exists
         if os.path.isdir('/proc/sys/sunrpc'):
-            if kernel.get('sunrpc.tcp_slot_table_entries', '') == '' or kernel['sunrpc.tcp_slot_table_entries'] <= 100:
+            result = get_sysctl('sunrpc.tcp_slot_table_entries')
+            if int(result) <= 100:
                 state = STATE_WARN
                 msg += 'sunrpc.tcp_slot_table_entries is {}, should be > 100 (use `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`). '.format(
-                    kernel['sunrpc.tcp_slot_table_entries'],
+                    result,
                 )
-            perfdata += lib.base3.get_perfdata('mysql_kernel_sunrpc.tcp_slot_table_entries', kernel['sunrpc.tcp_slot_table_entries'], None, None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('mysql_kernel_sunrpc.tcp_slot_table_entries', result, None, None, None, 0, None)
 
         if os.path.isfile('/proc/sys/fs/aio-max-nr'):
-            if kernel['fs.aio-max-nr'] < 1000000:
+            result = get_sysctl('fs.aio-max-nr')
+            if int(result) < 1000000:
                 state = STATE_WARN
                 msg += 'fs.aio-max-nr is {}, should be > 1M (use `echo 1048576 > /proc/sys/fs/aio-max-nr`). '.format(
-                    kernel['fs.aio-max-nr'],
+                    result,
                 )
-            perfdata += lib.base3.get_perfdata('mysql_kernel_fs.aio-max-nr', kernel['fs.aio-max-nr'], None, None, None, 0, None)
+            perfdata += lib.base3.get_perfdata('mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None)
 
     if not msg:
         msg = 'Everything is ok.'
