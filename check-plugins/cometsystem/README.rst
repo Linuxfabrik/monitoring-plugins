@@ -36,11 +36,11 @@ Help
     -h, --help           show this help message and exit
     -V, --version        show program's version number and exit
     --always-ok          Always returns OK.
-    --channels CHANNELS  comma sparated channels of sensor. Default: ['ch1', 'ch2', 'ch3']
-    --high HIGH          comma sparated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
+    --channels CHANNELS  comma separated channels of sensor. Default: ['ch1', 'ch2', 'ch3']
+    --high HIGH          comma separated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
                          gets applied to all highthreashold volations. Default: CRITICAL
     --insecure           This option explicitly allows to perform "insecure" SSL connections. Default: False
-    --low LOW            comma sparated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
+    --low LOW            comma separated states [OK,CRITCAL,WARNING] per sensor value. If only one state is provided it
                          gets applied to all lowthreashold volations. Default: WARNING
     --no-proxy           Do not use a proxy. Default: False
     --perfdata           send perfdata. Default: False
