@@ -110,6 +110,8 @@ def main():
     # get kernel settings on linux
     if lib.base3.LINUX:
         result = get_sysctl('vm.swappiness')
+        if not result:
+            lib.base3.oao('Permission denied reading `vm.swappiness`', STATE_UNKNOWN)
         if int(result) > 10:
             state = STATE_WARN
             msg += 'vm.swappiness is {}, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). '.format(
