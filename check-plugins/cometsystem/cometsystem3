@@ -223,12 +223,19 @@ def main():
             reason,
             lib.base3.state2str(ch_state)
         )
-        if '%' in unit and args.PERFDATA:
-            perfdata += lib.base3.get_perfdata(name, value, '%', _min=0, _max=100)
-        elif args.PERFDATA:
-            if '°' in unit:
+        if args.PERFDATA:
+            if '%' in unit:
+                perfdata += lib.base3.get_perfdata(name, value, '%', _min=0, _max=100)
+            elif '°' in unit:
                 unit = unit[-1]
-            perfdata += lib.base3.get_perfdata(name, value, unit,)
+                if unit == 'C':
+                    perfdata += lib.base3.get_perfdata(name, value, unit, _min=-60, _max=80)
+                elif unit == 'F':
+                    perfdata += lib.base3.get_perfdata(name, value, unit, _min=-20, _max=176)
+                else:
+                    perfdata += lib.base3.get_perfdata(name, value, unit,)
+            else:
+                perfdata += lib.base3.get_perfdata(name, value, unit,)
         i = i + 1
 
 
