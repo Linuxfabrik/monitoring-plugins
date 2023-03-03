@@ -24,7 +24,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023022401'
+__version__ = '2023030301'
 
 DESCRIPTION = """Checks if there are outdated Python packages, installed via `pip`."""
 
@@ -201,7 +201,8 @@ def main():
             cmd = '{} --user'.format(cmd)
 
         if args.VIRTUALENV:
-            cmd = 'source {} && {}'.format(args.VIRTUALENV, cmd)
+            # `source` does not work on every environment, so use `.`
+            cmd = '. {} && {}'.format(args.VIRTUALENV, cmd)
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=True))
         else:
             stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
