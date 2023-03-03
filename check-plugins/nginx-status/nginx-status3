@@ -24,7 +24,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023030301'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -114,10 +114,13 @@ def main():
     #   server accepts handled requests
     #    2 2 3
     #   Reading: 0 Writing: 1 Waiting: 1
-    tmp, active_connections = result[0].strip().split(': ')
-    total_connections_accepted, total_connections_handled, total_requests = result[2].strip().split(' ')
-    requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
-    tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
+    try:
+        tmp, active_connections = result[0].strip().split(': ')
+        total_connections_accepted, total_connections_handled, total_requests = result[2].strip().split(' ')
+        requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
+        tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
+    except:
+        lib.base3.oao('Got no valuable response from {}.'.format(args.URL), STATE_UNKNOWN)
 
     # identify any alerts
     if total_connections_handled != total_connections_accepted:
