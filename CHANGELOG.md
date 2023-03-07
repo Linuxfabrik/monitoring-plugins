@@ -75,11 +75,12 @@ Notification Plugins:
 Icinga Director:
 
 * AIDE Service Set
-* Apache Service Set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
 * All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
-* Basic Service Set for debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
+* Apache Service Set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
+* Basic Service Set for Debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
 * FreeIPA Server Service Set
 * Grav Service Set
+* Ubuntu 22 Service Set
 * UPS Service Set (Network UPS Tools, nut)
 
 
