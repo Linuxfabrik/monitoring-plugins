@@ -235,8 +235,8 @@ Tab "Arguments":
 * Create those you want to be customizable:
     * Argument name `--always-ok`, Value type: String, Condition (set_if): `$cpu_usage_always_ok$`
     * Argument name `--count`, Value type: String, Value: `$cpu_usage_count$`
-    * Argument name `--critical`, Value type: String, Value: `` `$cpu_usage_critical$ ``
-    * Argument name `--warning`, Value type: String, Value: `` `$cpu_usage_warning$ ``
+    * Argument name `--critical`, Value type: String, Value: `$cpu_usage_critical$ `
+    * Argument name `--warning`, Value type: String, Value: `$cpu_usage_warning$ `
 
 Tab "Fields":
 
@@ -253,13 +253,13 @@ To use our Icinga Director Configuration including Host Templates, Notifcation T
 
 If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), you can use the following command:
 
-``` bash
+```bash
 ./tools/basket-join
 ```
 
 If not, generate a Basket without `uuids`:
 
-``` bash
+```bash
 ./tools/basket-join
 ./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
 ```
@@ -287,7 +287,7 @@ If you want to use provisioning, take a look at [Grafana Provisioning](https://g
 
 If you want to create a custom dashboards that contains a different selection of panels, you can do so using the `tools/grafana-tool` utility.
 
-``` bash
+```bash
 # interactive usage
 ./tools/grafana-tool assets/grafana/all-panels-external.json
 ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
