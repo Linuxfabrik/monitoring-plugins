@@ -39,7 +39,7 @@ Icinga Director:
 * Removed "oVirt VM Service Set (Windows Python)"
 * Removed "oVirt VM Service Set (Windows)"
 * Removed "PostgreSQL 9.6 Service Set"
-* Removed duplicate tags "redhat7" and "redhat8", because there is also "rhel7" and "rhel8"
+* Removed tags "redhat7" and "redhat8", because there are also "rhel7" and "rhel8"
 
 
 ### Added
@@ -54,6 +54,8 @@ Monitoring Plugins:
 * crypto-policy
 * csv-values
 * grassfish-licenses
+* grassfish-players
+* grassfish-screens
 * infomaniak-events
 * journald-query
 * journald-usage
@@ -300,7 +302,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* Remove gpsvc on windows
+* Remove gpsvc on Windows
 
 
 
