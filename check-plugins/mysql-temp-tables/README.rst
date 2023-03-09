@@ -8,7 +8,7 @@ Checks the number of on-disk versus in-memory temporary tables created in MySQL/
 
 Hints:
 
- * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 
 
 Fact Sheet

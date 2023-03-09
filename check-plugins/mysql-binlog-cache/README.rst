@@ -8,7 +8,7 @@ Checks if a certain amount of transactions used a temporary disk cache because t
 
 Hints:
 
- * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * If ``log_bin`` is set to ``OFF``, this check makes no sense.
 
 

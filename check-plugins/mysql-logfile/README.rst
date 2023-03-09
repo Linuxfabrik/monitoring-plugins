@@ -13,7 +13,7 @@ Depending on your site's policy for DB management, you could ignore lines matchi
 
 Hints:
 
- * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * Must be running locally on the MySQL/MariaDB server to be able to check the log.
 * Compared to MySQLTuner this check
 

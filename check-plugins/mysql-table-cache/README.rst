@@ -8,7 +8,7 @@ Checks the hit rate for open tables cache lookups in MySQL/MariaDB. Logic is tak
 
 Hints:
 
- * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * Requires MySQL/MariaDB v5.1+.
 
 

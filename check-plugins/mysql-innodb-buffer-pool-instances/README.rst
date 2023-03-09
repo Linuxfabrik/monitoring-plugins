@@ -8,7 +8,7 @@ Checks the InnoDB buffer pool instance configuration in MySQL/MariaDB. Logic is 
 
 Hints:
 
- * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
+* See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
 * MariaDB: Applies only to versions < 10.5.1.
 
 
