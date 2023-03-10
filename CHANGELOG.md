@@ -11,7 +11,12 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-tbd
+### Changed
+
+Monitoring Plugins:
+
+* journald-query: Lower default for `--since` from 24h to 8h
+
 
 
 

@@ -26,7 +26,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023030601'
+__version__ = '2023031001'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
@@ -36,7 +36,7 @@ DEFAULT_FACILITY = None
 DEFAULT_IDENTIFIER = None
 DEFAULT_PRIORITY = 'emerg..err'
 DEFAULT_SERVERITY = 'warn'
-DEFAULT_SINCE = '-24h'
+DEFAULT_SINCE = '-8h'
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
 
@@ -334,7 +334,7 @@ def main():
         state = STATE_OK
 
     msg += '\nThe full command used was:\n`{}`'.format(cmd)
-    perfdata = lib.base3.get_perfdata('journald-query', cnt, 'c', None, None, 0, None)
+    perfdata = lib.base3.get_perfdata('sudo journald-query', cnt, 'c', None, None, 0, None)
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
