@@ -11,11 +11,18 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
+
+
 ### Changed
 
 Monitoring Plugins:
 
-* journald-query: Lower default for `--since` from 24h to 8h
+* journald-query3: Lower default for `--since` from 24h to 8h
 
 
 

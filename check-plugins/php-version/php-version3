@@ -16,25 +16,155 @@ import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base3  # pylint: disable=C0413
-import lib.cache3  # pylint: disable=C0413
 import lib.shell3  # pylint: disable=C0413
 import lib.time3  # pylint: disable=C0413
-import lib.url3  # pylint: disable=C0413
 from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023031103'
 
-DESCRIPTION = """With this plugin you can check whether a PHP minor *upgrade* is available or
-                whether the installed PHP version is EOL. For example, if you installed PHP 7.3
-                while PHP 7.4 is available, you will get a warning. If you're running PHP 7.4 and
-                PHP 8 is available (which is a major upgrade), you won't get a warning. To check for
-                available upgrades, this plugin uses https://www.php.net/releases/index.php.
-                To compare against the current/installed version of PHP, the check calls
-                ``php --version``."""
+DESCRIPTION = '''With this plugin you can check if the installed PHP version is EOL.
+                 Does not care about patch levels.'''
 
-DEFAULT_CACHE_EXPIRE = 24 # hours
+# from https://endoflife.date/api/php.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "8.2",
+    "support": "2024-12-08",
+    "eol": "2025-12-08",
+    "latest": "8.2.3",
+    "latestReleaseDate": "2023-02-13",
+    "releaseDate": "2022-12-06",
+    "lts": False
+  },
+  {
+    "cycle": "8.1",
+    "support": "2023-11-25",
+    "eol": "2024-11-25",
+    "latest": "8.1.16",
+    "latestReleaseDate": "2023-02-14",
+    "releaseDate": "2021-11-23",
+    "lts": False
+  },
+  {
+    "cycle": "8.0",
+    "support": "2022-11-26",
+    "eol": "2023-11-26",
+    "latest": "8.0.28",
+    "latestReleaseDate": "2023-02-14",
+    "releaseDate": "2020-11-24",
+    "lts": False
+  },
+  {
+    "cycle": "7.4",
+    "support": "2021-11-28",
+    "eol": "2022-11-28",
+    "latest": "7.4.33",
+    "latestReleaseDate": "2022-10-31",
+    "releaseDate": "2019-11-26",
+    "lts": False
+  },
+  {
+    "cycle": "7.3",
+    "support": "2020-12-06",
+    "eol": "2021-12-06",
+    "latest": "7.3.33",
+    "latestReleaseDate": "2021-11-16",
+    "releaseDate": "2018-12-04",
+    "lts": False
+  },
+  {
+    "cycle": "7.2",
+    "support": "2019-11-30",
+    "eol": "2020-11-30",
+    "latest": "7.2.34",
+    "latestReleaseDate": "2020-09-30",
+    "releaseDate": "2017-11-28",
+    "lts": False
+  },
+  {
+    "cycle": "7.1",
+    "support": "2018-12-01",
+    "eol": "2019-12-01",
+    "latest": "7.1.33",
+    "latestReleaseDate": "2019-10-22",
+    "releaseDate": "2016-11-30",
+    "lts": False
+  },
+  {
+    "cycle": "7.0",
+    "support": "2018-01-04",
+    "eol": "2019-01-10",
+    "latest": "7.0.33",
+    "latestReleaseDate": "2018-12-04",
+    "releaseDate": "2015-12-01",
+    "lts": False
+  },
+  {
+    "cycle": "5.6",
+    "support": "2017-01-19",
+    "eol": "2018-12-31",
+    "latest": "5.6.40",
+    "latestReleaseDate": "2019-01-09",
+    "releaseDate": "2014-08-27",
+    "lts": False
+  },
+  {
+    "cycle": "5.5",
+    "support": "2015-07-10",
+    "eol": "2016-07-21",
+    "latest": "5.5.38",
+    "latestReleaseDate": "2016-07-20",
+    "releaseDate": "2013-06-19",
+    "lts": False
+  },
+  {
+    "cycle": "5.4",
+    "support": "2014-09-14",
+    "eol": "2015-09-14",
+    "latest": "5.4.45",
+    "latestReleaseDate": "2015-09-01",
+    "releaseDate": "2012-02-29",
+    "lts": False
+  },
+  {
+    "cycle": "5.3",
+    "support": "2011-06-30",
+    "eol": "2014-08-14",
+    "latest": "5.3.29",
+    "latestReleaseDate": "2014-08-13",
+    "releaseDate": "2009-06-29",
+    "lts": False
+  },
+  {
+    "cycle": "5.2",
+    "support": "2008-11-02",
+    "eol": "2011-01-06",
+    "latest": "5.2.17",
+    "latestReleaseDate": "2011-01-06",
+    "releaseDate": "2006-11-01",
+    "lts": False
+  },
+  {
+    "cycle": "5.1",
+    "support": "2006-08-24",
+    "eol": "2006-08-24",
+    "latest": "5.1.6",
+    "latestReleaseDate": "2006-08-23",
+    "releaseDate": "2005-11-23",
+    "lts": False
+  },
+  {
+    "cycle": "5.0",
+    "support": "2005-09-05",
+    "eol": "2005-09-05",
+    "latest": "5.0.5",
+    "latestReleaseDate": "2005-09-05",
+    "releaseDate": "2004-07-15",
+    "lts": False
+  }
+]
 
 
 def parse_args():
@@ -56,14 +186,6 @@ def parse_args():
         default=False,
     )
 
-    parser.add_argument(
-        '--cache-expire',
-        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
-        dest='CACHE_EXPIRE',
-        type=int,
-        default=DEFAULT_CACHE_EXPIRE,
-    )
-
     return parser.parse_args()
 
 
@@ -71,8 +193,7 @@ def get_installed_version():
     success, result = lib.shell3.shell_exec('php --version')
     if not success:
         return ''
-    stdout, stderr, retc = result
-    stdout = stdout.strip()
+    stdout = result[0].strip()
     # where to find the version number in output?
     version_regex = r'PHP (.*?) \(.*'
     try:
@@ -80,36 +201,6 @@ def get_installed_version():
         return stdout.group(1).strip()
     except:
         return ''
-
-
-def get_latest_version(expire, major, minor=None):
-    # get version online, but first from cache
-    if minor is None:
-        latest_version = lib.cache3.get('latest-version-php-{}'.format(major))
-        if latest_version:
-            return latest_version
-
-        # nothing found in cache, get the latest version
-        jsonst = lib.base3.coe(lib.url3.fetch_json('https://www.php.net/releases/index.php?json&version={}'.format(major)))
-        try:
-            latest_version = jsonst['version']
-            lib.cache3.set('latest-version-php-{}'.format(major), latest_version, lib.time3.now() + expire)
-            return latest_version
-        except:
-            lib.base3.oao('PHP.net does not know anything about PHP v{}.'.format(major), STATE_UNKNOWN)
-
-    latest_version = lib.cache3.get('latest-version-php-{}-{}'.format(major, minor))
-    if latest_version:
-        return latest_version
-
-    # nothing found in cache, get the latest version
-    jsonst = lib.base3.coe(lib.url3.fetch_json('https://www.php.net/releases/index.php?json&version={}.{}'.format(major, minor)))
-    try:
-        latest_version = jsonst['version']
-        lib.cache3.set('latest-version-php-{}-{}'.format(major, minor), latest_version, lib.time3.now() + expire)
-        return latest_version
-    except:
-        lib.base3.oao('PHP.net does not know anything about PHP v{}.{}.'.format(major, minor), STATE_UNKNOWN)
 
 
 def main():
@@ -122,6 +213,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     installed_version = get_installed_version()
     if not installed_version:
         lib.base3.oao('PHP not found.', STATE_UNKNOWN)
@@ -129,95 +221,25 @@ def main():
         # we got something unusual like "5.640-0+deb8u12" what is too troublesome to check
         lib.base3.oao('PHP v{} found. Due to the unusual version number, no update check is carried out.'.format(installed_version), STATE_OK)
 
-    # we got a "normal" version number like "5.4.0" or 7.3.38"
-    installed_major, installed_minor, installed_patch = installed_version.split('.')
-    #latest_patch_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major, installed_minor)
-    latest_minor_version = get_latest_version(args.CACHE_EXPIRE*60*60, installed_major)
-    latest_major, latest_minor, latest_patch = latest_minor_version.split('.')
-
-    # for example as of 2021-07-05:
-    #   installed_version:    7.3.10
-    #   latest_patch_version: 7.3.29
-    #   latest_minor_version: 7.4.21
-    # ==> raises a warning because 7.4 is available
-
     # init some vars
-    state = STATE_OK
-    perfdata = lib.base3.get_perfdata('php-version', '{}.{}{}'.format(
-        installed_major,
-        installed_minor,
-        installed_patch), None, None, None, 0, None
-    )
+    installed_major, installed_minor, installed_patch = installed_version.split('.')
     msg = 'PHP v{}'.format(installed_version)
+    state = STATE_OK
+    perfdata = lib.base3.get_perfdata('php-version', '{}.{}{}'.format(installed_major, installed_minor, installed_patch), None, None, None, 0, None)
 
-    # check the installed vs available version
-    if lib.base3.version('{}.{}'.format(installed_major, installed_minor)) < lib.base3.version(latest_major + '.' + latest_minor):
-        state = STATE_WARN
-
-    # check EOL
-    # unfortunately, the "museum" tag in json response doesn't help here, so we have to maintain
-    # this list manually (available on https://en.wikipedia.org/wiki/PHP)
-
-    # old version
-    if '{}.{}'.format(installed_major, installed_minor) == '5.0':
-        msg += ' (EOL 2005-09-05)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.1':
-        msg += ' (EOL 2006-08-24)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.2':
-        msg += ' (EOL 2011-01-06)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.3':
-        msg += ' (EOL 2014-08-14)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.4':
-        msg += ' (EOL 2015-09-03)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.5':
-        msg += ' (EOL 2016-07-10)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '5.6':
-        msg += ' (EOL 2018-12-31)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '7.0':
-        msg += ' (EOL 2019-01-10)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '7.1':
-        msg += ' (EOL 2019-12-01)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '7.2':
-        msg += ' (EOL 2020-11-30)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '7.3':
-        msg += ' (EOL 2021-12-06)'
-        state = STATE_WARN
-
-    # older version, still maintained
-    if '{}.{}'.format(installed_major, installed_minor) == '7.4' and lib.time3.now(as_type='iso') > '2022-11-28':
-        msg += ' (EOL 2022-11-28)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '8.0' and lib.time3.now(as_type='iso') > '2023-11-26':
-        msg += ' (EOL 2023-11-26)'
-        state = STATE_WARN
-    if '{}.{}'.format(installed_major, installed_minor) == '8.1' and lib.time3.now(as_type='iso') > '2024-11-25':
-        msg += ' (EOL 2024-11-25)'
-        state = STATE_WARN
-
-    # latest version
-    if '{}.{}'.format(installed_major, installed_minor) == '8.2' and lib.time3.now(as_type='iso') > '2025-12-08':
-        msg += ' (EOL 2025-12-08)'
-        state = STATE_WARN
-
-    # future version
-    if '{}.{}'.format(installed_major, installed_minor) == '8.3' and lib.time3.now(as_type='iso') > '2026-11-23':
-        msg += ' (EOL 2026-11-23)'
-        state = STATE_WARN
-
-    if lib.base3.version(installed_version) >= lib.base3.version(latest_minor_version):
-        msg += ' is up to date'
+    # check EOL (json from https://endoflife.date)
+    eol = lib.base3.lookup_lod(
+        ENDOFLIFE_DATE,
+        'cycle',
+        '{}.{}'.format(installed_major, installed_minor),
+    )
+    if eol:
+        if lib.time3.now(as_type='datetime') > lib.time3.timestr2datetime(eol['eol'], pattern='%Y-%m-%d'):
+            state = STATE_WARN
+        msg += ' (EOL {}){}'.format(eol['eol'], lib.base3.state2str(STATE_WARN, prefix=' '))
     else:
-        msg += ' installed, PHP v{} available at php.net'.format(latest_minor_version)
+        state = STATE_UNKNOWN
+        msg += ' (unknown version)'
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
