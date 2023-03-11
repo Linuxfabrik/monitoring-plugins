@@ -19,6 +19,13 @@ Monitoring Plugins:
 * php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 
 
+### Added
+
+Monitoring Plugins:
+
+* postfix-version
+
+
 ### Changed
 
 Monitoring Plugins:
