@@ -4,7 +4,7 @@ Check keycloak-version
 Overview
 --------
 
-This plugin lets you track if a Keycloak update is available. To check for updates, this plugin uses the Git Repo at https://github.com/keycloak/keycloak/releases. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
+This plugin lets you track if a Keycloak update is available. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
 
 
 Fact Sheet
@@ -18,7 +18,6 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Available for",                        "Python 2, Python 3"
     "Requirements",                         "None"
-    "Uses SQLite DBs",                      "Yes"
 
 
 Help
@@ -26,20 +25,16 @@ Help
 
 .. code-block:: text
 
-    usage: keycloak-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                            [--path PATH]
+    usage: keycloak-version [-h] [-V] [--always-ok] [--path PATH]
 
     This plugin lets you track if server updates are available.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --cache-expire CACHE_EXPIRE
-                            The amount of time after which the update check cache
-                            expires, in hours. Default: 24
-      --path PATH           Local path to your Keycloak installation. Default:
-                            /opt/keycloak
+    options:
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --path PATH    Local path to your Keycloak installation. Default:
+                     /opt/keycloak
 
 
 Usage Examples
@@ -47,13 +42,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./keycloak-version --path /opt/keycloak --cache-expire 8 --always-ok
-    
+    ./keycloak-version --path /opt/keycloak
+
 Output:
 
 .. code-block:: text
 
-    Keycloak v13.0.1 is up to date
+    Keycloak v18.0.0 (EOL 2022-07-27) [WARNING]
 
 
 States
@@ -66,7 +61,12 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    keycloak-version,                           Number,             Installed Keycloak version as a float. "18.0.3" gets "18.03".
 
 
 Credits, License
