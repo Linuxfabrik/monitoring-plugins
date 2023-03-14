@@ -41,7 +41,7 @@ Monitoring Plugins:
 
 Features:
 
-* Move all [CHANGELOG items for the "libs"](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG/) into its own file (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
+* Move all CHANGELOG items for the "libs" [into its own file](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG.md) (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
 
 Monitoring Plugins:
 
