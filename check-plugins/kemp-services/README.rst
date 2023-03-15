@@ -37,7 +37,7 @@ Help
 
     Warns if virtual services provided by a kemp loadbalancer appliance are down.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
