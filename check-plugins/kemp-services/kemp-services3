@@ -21,8 +21,7 @@ import lib.base3  # pylint: disable=C0413
 import lib.test3  # pylint: disable=C0413
 import lib.txt3  # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
-from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals3 import (STATE_UNKNOWN, STATE_OK)  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2023031501'
@@ -145,55 +144,58 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        # https://support.kemptechnologies.com/hc/en-us/articles/10113769677581-RESTful-API-Programmer-Guide
         # get the values the normal way
         url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
 
-        # Authorization
-        header = {}
+        # authorization
         auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
         encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
-        header['Authorization'] = 'Basic {}'.format(encoded_auth)
 
         result = lib.base3.coe(lib.url3.fetch(
-            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT, header=header
+            url,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+            header={'Authorization': 'Basic {}'.format(encoded_auth)},
         ))
     else:
         # do not call the command, put in test data
         result, stderr, retc = lib.test3.test(args.TEST)
 
+    # init some vars
     state = STATE_OK
+    perfdata = ''
     count = 0
     table = []
-    root = ET.fromstring(result)
-    for service in root.findall('.Success/Data/VS'):
+
+    # analyze data
+    for service in ET.fromstring(result).findall('.Success/Data/VS'):
         name = service.find('NickName').text
         if not args.FILTER or args.FILTER in name:
             count += 1
-            status = service.find('Status').text
-            service_state = STATE_OK if status.lower() != 'down' else \
-                STATE_WARN if args.SEVERITY == 'warn' else STATE_CRIT
+            status = service.find('Status').text  # = Up, Down, Unchecked
+            if status.lower() == 'down':
+                service_state = lib.base3.str2state(args.SEVERITY)
+                status = '{}{}'.format(status, lib.base3.state2str(service_state, prefix=' '))
+                state = lib.base3.get_worst(state, service_state)
             table.append({
                 'name': name,
-                'state': lib.base3.state2str(service_state, empty_ok=False),
+                'status': status,
             })
-            state = lib.base3.get_worst(state, service_state)
 
-    # create the message
-    msg = '{} {} checked. '.format(
-        count,
-        lib.txt3.pluralize('service', count),
-    )
-
+    # build the message
+    msg = '{} {} checked. '.format(count,lib.txt3.pluralize('service', count))
     if len(table) > 0:
         msg += '\n\n' + lib.base3.get_table(
             table,
-            ['name', 'state'],
-            header=['NickName', 'State'],
+            ['name', 'status'],
+            header=['NickName', 'Status'],
         )
+    perfdata += lib.base3.get_perfdata('services', count, None, None, None, 0, None)
 
     # over and out
-    lib.base3.oao(msg, state, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

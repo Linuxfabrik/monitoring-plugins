@@ -72,14 +72,15 @@ Output:
 
 .. code-block:: text
 
-    4 services checked. 
+    5 services checked.
 
-    NickName               ! State 
-    -----------------------+-------
-    KEMP LoadBalancer PROD ! [OK]  
-    website1 PROD          ! [OK]  
-    website2 PROD          ! [OK]  
-    website01 DEV          ! [OK]
+    NickName               ! Status         
+    -----------------------+----------------
+    KEMP LoadBalancer PROD ! Up             
+    website1 PROD          ! Down [WARNING] 
+    website2 PROD          ! Up             
+    website01 DEV          ! Up             
+    Redirect 192.2.0.1     ! Disabled
 
 
 States
@@ -91,7 +92,12 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    services,                                   Number,             Number of Virtual Services checked.
 
 
 Credits, License
