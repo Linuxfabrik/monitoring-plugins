@@ -33,6 +33,12 @@ Monitoring Plugins:
 * journald-query3: Lower default for `--since` from 24h to 8h
 
 
+### Fixed
+
+Monitoring Plugins:
+
+* kemp-services3: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
+
 
 
 ## 2023030801
@@ -46,7 +52,7 @@ Features:
 Monitoring Plugins:
 
 * journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
-* journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641)) 
+* journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641))
 * journald-usage3: Switch `--warning` parameter from MiB to GiB
 * mysql-\*3: Removed parameters `--hostname`, `--password`, `--port` and `--username` and switched to option-file authentication (therefore all checks come with new parameters)
 * pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))

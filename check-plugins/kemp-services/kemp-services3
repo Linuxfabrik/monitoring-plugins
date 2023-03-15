@@ -25,7 +25,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023031501'
 
 DESCRIPTION = '''Warns if virtual services provided by a kemp loadbalancer appliance are down.'''
 
@@ -147,11 +147,13 @@ def main():
     if args.TEST is None:
         # get the values the normal way
         url = 'https://{}:{}/access/listvs'.format(args.HOSTNAME, args.PORT)
-        header = {
-            'Authorization': "Basic {}".format(
-                base64.b64encode(args.USERNAME + ':' + args.PASSWORD)
-            )
-        }
+
+        # Authorization
+        header = {}
+        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+        encoded_auth = lib.txt3.to_text(base64.b64encode(lib.txt3.to_bytes(auth)))
+        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+
         result = lib.base3.coe(lib.url3.fetch(
             url, insecure=args.INSECURE, no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT, header=header
