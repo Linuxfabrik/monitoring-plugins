@@ -9,7 +9,7 @@ Kemp is a virtual load balancer (https://kemptechnologies.com). This check warns
 Hints:
 
 * Use ``--filter`` to only check services that contain a certain string in their NickName.
-* Use ``--state`` to choose which state should be returned.
+* Use ``--severity`` to choose which state should be returned.
 
 
 Fact Sheet
@@ -66,7 +66,7 @@ Usage Examples
 
     ./kemp-services --hostname localhost --username user --password password
     ./kemp-services --hostname localhost --username user --password password --filter PROD
-    ./kemp-services --hostname localhost --username user --password password --filter PROD --state crirt
+    ./kemp-services --hostname localhost --username user --password password --filter PROD --severity crit
 
 Output:
 
