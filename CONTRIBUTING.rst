@@ -18,6 +18,8 @@ Better write three separate checks:
 * ``myapp-memory-usage --warning 80 --critical 90``
 * ``myapp-deployment-status``
 
+All plugins are written in Python and will be licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
+
 
 Setting up your development environment
 ---------------------------------------
@@ -38,7 +40,6 @@ Deliverables
 * The plugin itself.
 * A nice 16x16 transparent PNG icon, for example based on font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
-* LICENSE file
 * if Windows: see `Compiling for Windows <#compiling-for-windows>`_
 * optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
