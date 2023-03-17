@@ -56,6 +56,7 @@ To persist on a system where Fail2ban is managed by Systemd, add the following t
     ExecStartPost=/usr/bin/chgrp fail2ban /var/run/fail2ban/fail2ban.sock
     ExecStartPost=/usr/bin/chmod g+w /var/run/fail2ban/fail2ban.sock
 
+
 Preparing Fail2ban by using sudo
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -80,8 +81,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fail2ban"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux"
 
 
 Help

@@ -21,8 +21,9 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/xca-cert"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``pymysql``; User with SELECT privileges on the XCA database, locked down to ``127.0.0.1`` - for example ``mon-xca@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Compiled for",                         "Linux"
+    "Requirements",                         "User with SELECT privileges on the XCA database, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "3rd Party Python modules",             "``pymysql``"
 
 
 Help

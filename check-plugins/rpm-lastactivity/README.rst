@@ -16,8 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rpm-lastactivity"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux"
 
 
 Help

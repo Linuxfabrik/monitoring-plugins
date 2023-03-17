@@ -23,8 +23,9 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``; ``w`` on Linux, ``query users`` on Windows"
+    "Compiled for",                         "Linux, Windows"
+    "Requirements",                         "``w`` on Linux, ``query users`` on Windows"
+    "3rd Party Python modules",             "``psutil``"
 
 
 Help

@@ -27,8 +27,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-drives"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help

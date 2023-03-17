@@ -22,8 +22,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting"
     "Check Interval Recommendation",        "Once a day (or after a system update only)"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Red Hat: ``needs-restarting``, Debian: None, optional ``needrestart``"
+    "Compiled for",                         "Linux"
+    "Requirements",                         "RHEL: ``needs-restarting``, Debian: None, optional ``needrestart``"
 
 
 Help

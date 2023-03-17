@@ -83,8 +83,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/json-values"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python modules ``PySmbClient``, ``smbprotocol``"
+    "Compiled for",                         "Linux, Windows"
+    "3rd Party Python modules",             "``PySmbClient``, ``smbprotocol``"
 
 
 Help

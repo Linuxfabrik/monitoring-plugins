@@ -27,7 +27,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-groups"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 3, Windows"
+    "Compiled for",                         "Linux, Windows"
     "Requirements",                         "NodeBB v1.14.4+"
 
 

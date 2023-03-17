@@ -24,8 +24,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-stats"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 3, Windows"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help

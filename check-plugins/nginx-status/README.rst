@@ -31,7 +31,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
+    "Compiled for",                         "Linux, Windows"
     "Requirements",                         "Enable ``stub_status``"
     "Perfdata compatible to Prometheus",    "Yes"
 

@@ -16,8 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-bonding"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, python 3"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux"
 
 
 Help

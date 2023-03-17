@@ -35,7 +35,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
+    "Compiled for",                         "Linux, Windows"
     "Requirements",                         "App ``updatenotification`` must be enabled"
 
 

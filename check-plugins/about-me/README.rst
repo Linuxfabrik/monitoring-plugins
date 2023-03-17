@@ -33,8 +33,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/about-me"
     "Check Interval Recommendation",        "Once a day or once a week"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3"
-    "Requirements",                         "Python module ``psutil`` (optional)"
+    "Compiled for",                         "Linux"
+    "3rd Party Python modules",             "``psutil`` (optional)"
 
 
 Help

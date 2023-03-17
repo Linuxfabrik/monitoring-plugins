@@ -18,8 +18,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python modules ``PySmbClient``, ``smbprotocol``"
+    "Compiled for",                         "Linux, Windows"
+    "3rd Party Python modules",             "``PySmbClient``, ``smbprotocol``"
 
 
 Help

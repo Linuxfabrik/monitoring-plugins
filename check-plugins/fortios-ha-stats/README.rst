@@ -16,8 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-ha-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux, Windows"
     "Handles Periods",                      "Yes"
 
 

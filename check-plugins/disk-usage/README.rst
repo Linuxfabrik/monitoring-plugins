@@ -20,8 +20,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``"
+    "Compiled for",                         "Linux, Windows"
+    "3rd Party Python modules",             "``psutil``"
 
 
 Help

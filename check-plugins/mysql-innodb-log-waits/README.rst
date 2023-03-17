@@ -20,8 +20,9 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-innodb-log-waits"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 3, Windows"
-    "Requirements",                         "Python module ``pymysql``; User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "Compiled for",                         "Linux, Windows"
+    "Requirements",                         "User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "3rd Party Python modules",             "``pymysql``"
 
 
 Help

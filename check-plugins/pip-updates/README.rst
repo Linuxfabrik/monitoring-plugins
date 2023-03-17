@@ -20,7 +20,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/pip-updates"
     "Check Interval Recommendation",        "Once a week"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3, Windows"
+    "Compiled for",                         "Linux, Windows"
     "Requirements",                         "``pip`` v20.3+"
 
 

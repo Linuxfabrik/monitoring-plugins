@@ -58,8 +58,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-memory-pool-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help

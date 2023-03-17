@@ -22,8 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-events"
     "Check Interval Recommendation",        "Every minute"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 3, Windows"
-    "Requirements",                         "None"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help

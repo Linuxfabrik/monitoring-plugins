@@ -26,8 +26,9 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 3, Windows"
-    "Requirements",                         "PowerShell, optionally Python module ``winrm`` if you want to execute it via WinRM"
+    "Compiled for",                         "Linux, Windows"
+    "Requirements",                         "PowerShell"
+    "3rd Party Python modules",             "optionally Python module ``winrm`` if you want to execute it via WinRM"
 
 
 Help

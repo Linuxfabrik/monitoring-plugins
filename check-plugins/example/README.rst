@@ -28,8 +28,9 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes|No"
-    "Available for",                        "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``, command-line tool ``foo``"
+    "Compiled for",                         "Linux, Windows"
+    "Requirements",                         "command-line tool ``foo``; User with higher permissions"
+    "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"
     "Perfdata compatible with Prometheus",  "Yes"
@@ -38,7 +39,7 @@ Hints for the Author (delete those):
 
 * Check Interval Recommendation: other texts are "Every 15 minutes", "Once a day" etc.
 * Available for: delete inappropriate ones
-* Requirements: "None" if none
+* Requirements: delete if none
 * Handles Periods: delete if not
 * Uses SQLite DBs: delete if not
 * Perfdata compatible with Prometheus: delete if not

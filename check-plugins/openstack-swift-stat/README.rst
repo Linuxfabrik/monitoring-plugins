@@ -38,8 +38,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-swift-stat"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Available for",                        "Python 3"
-    "Requirements",                         "Python module ``python-swiftclient``, Python module ``python-keystoneclient``"
+    "Compiled for",                         "Linux"
+    "3rd Party Python modules",             "``python-swiftclient``, ``python-keystoneclient``"
 
 
 Help

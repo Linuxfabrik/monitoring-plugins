@@ -48,8 +48,8 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Available for ",                       "Python 2, Python 3, Windows"
-    "Requirements",                         "Python module ``psutil``"
+    "Compiled for",                         "Linux, Windows"
+    "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "Yes"
 

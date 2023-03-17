@@ -28,7 +28,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/veeam-status"
     "Check Interval Recommendation",        "Every 8 hours"
     "Can be called without parameters",     "No"
-    "Available for",                        "Python 2, Python 3, Windows"
+    "Compiled for",                         "Linux, Windows"
     "Requirements",                         "Veeam Enterprise License"
 
 
