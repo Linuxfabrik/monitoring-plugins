@@ -633,26 +633,3 @@ Service Sets
 
 If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
 
-
-
-Virtual Environments
---------------------
-
-To allow the check plugins to activate a virtual environment as described in the README, place this at the top of the check plugin (do not forget to adjust it to the python version):
-
-.. code-block:: python
-
-    import os
-
-    # considering a virtual environment
-    ACTIVATE_THIS = False
-    venv_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'monitoring-plugins-venv3')
-    if os.path.exists(venv_path):
-        ACTIVATE_THIS = os.path.join(venv_path, 'bin/activate_this.py')
-
-    if os.getenv('MONITORING_PLUGINS_VENV3'):
-        ACTIVATE_THIS = os.path.join(os.getenv('MONITORING_PLUGINS_VENV3') + 'bin/activate_this.py')
-
-    if ACTIVATE_THIS and os.path.isfile(ACTIVATE_THIS):
-        exec(open(ACTIVATE_THIS).read(), {'__file__': ACTIVATE_THIS}) # pylint: disable=W0122
-
