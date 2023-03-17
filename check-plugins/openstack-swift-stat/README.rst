@@ -18,7 +18,7 @@ You have to provide a path to an rc file to authenticate. A working rc file migh
     export OS_PROJECT_NAME=MYPROJECT
     export OS_REGION_NAME=default
     export OS_USER_DOMAIN_NAME=default
-    export OS_USERNAME=U-MYUSER
+    export OS_USERNAME=MYUSER
     OS_PASSWORD='linuxfabrik'
     [ -z "$OS_PASSWORD" ] && read -e -p "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: " OS_PASSWORD
     export OS_PASSWORD
@@ -98,7 +98,7 @@ Output:
 States
 ------
 
-* If a quota is set on a container, alerts when there are only a few GB left, as specified by the ``-warning`` and ``-critical`` parameters.
+* If a quota is set on a container, alerts when there are only a few GB left, as specified by the ``--warning`` and ``--critical`` parameters.
 
 
 Perfdata / Metrics
