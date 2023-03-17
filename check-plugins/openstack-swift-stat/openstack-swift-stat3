@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.disk3  # pylint: disable=C0413
+import lib.human3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.time3  # pylint: disable=C0413
+import lib.txt3  # pylint: disable=C0413
+from lib.globals3 import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
+
+try:
+    from swiftclient.service import SwiftService
+except ImportError:
+    lib.base3.oao('Python module "python-swiftclient" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023031701'
+
+DESCRIPTION = """The OpenStack Object Store project, known as Swift, offers cloud storage 
+                 software so that you can store and retrieve lots of data with a simple API.
+                 This monitoring plugin displays and checks information for a Swift account
+                 and depending containers."""
+
+DEFAULT_CRIT = 10  # GiB free space left
+DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
+DEFAULT_WARN = 50 # GiB free space left
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='CRIT when only so many GiB are available. Default: <= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--rc-file',
+        help='Specifies a rc file to read connection parameters like OS_USERNAME from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
+        dest='RC_FILE',
+        default=DEFAULT_RC_FILE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='WARN when only so many GiB are available. Default: <= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://github.com/openstack/python-swiftclient/tree/master/examples
+    if args.TEST is None:
+    # set a bunch of possible OpenStack credentials
+        env = lib.base3.coe(lib.disk3.read_env(args.RC_FILE))
+        _opts = {
+            'auth_version': env.get('ST_AUTH_VERSION', 3),  # Should be '3'
+            'object_dd_threads': 20,
+            'os_auth_url': env.get('OS_AUTH_URL', None),
+            'os_identity_api_version': env.get('OS_IDENTITY_API_VERSION', None),
+            'os_interface': env.get('OS_INTERFACE', 'public'),
+            'os_password': env.get('OS_PASSWORD', None),
+            'os_project_domain_id': env.get('OS_PROJECT_DOMAIN_ID', None),
+            'os_project_domain_name': env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
+            'os_project_id': env.get('OS_PROJECT_ID', None),
+            'os_project_name': env.get('OS_PROJECT_NAME', None),
+            'os_region_name': env.get('OS_REGION_NAME', None),
+            'os_user_domain_name': env.get('OS_USER_DOMAIN_NAME', 'default'),
+            'os_username': env.get('OS_USERNAME', None),
+        }
+        with SwiftService(options=_opts) as swift:
+            # general statistics
+            stat_account = swift.stat()
+            if 'error' in stat_account and isinstance(stat_account["error"], Exception):
+                lib.base3.oao(str(stat_account['error']), STATE_UNKNOWN)
+            # get stat for each container
+            containers = {}
+            for list_account_part in swift.list():
+                for lap in list_account_part['listing']:
+                    stat_container = swift.stat(container=lap['name'])
+                    if stat_container['success']:
+                        containers[lap['name']] = stat_container['headers']
+    else:
+        # do not call the command, put in test data
+        # general statistics
+        stat_account = json.loads(lib.base3.coe(lib.disk3.read_file('{}-stat_account'.format(args.TEST[0]))))
+        # get stat for each container
+        containers = {}
+        list_account_part = json.loads(lib.base3.coe(lib.disk3.read_file('{}-list_account_part'.format(args.TEST[0])))) # pylint: disable=C0301
+        for lap in list_account_part['listing']:
+            stat_container = json.loads(lib.base3.coe(lib.disk3.read_file('{}-stat_container-{}'.format(args.TEST[0], lap['name'])))) # pylint: disable=C0301
+            if stat_container['success']:
+                containers[lap['name']] = stat_container['headers']
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    # analyze data
+    for name, container in containers.items():
+        item = {
+            'name': name,
+            'accept-ranges': container.get('accept-ranges', None),
+            'content-length': container.get('content-length', None),
+            'content-type': container.get('content-type', None),
+            'date': container.get('date', None),
+            'last-modified': container.get('last-modified', None),
+            'strict-transport-security': container.get('strict-transport-security', None),
+            'vary': container.get('vary', None),
+            'x-container-bytes-used': int(container.get('x-container-bytes-used', 0)),
+            'x-container-meta-quota-bytes': int(container.get('x-container-meta-quota-bytes', 0)),
+            'x-container-object-count': lib.human3.number2human(int(container.get('x-container-object-count', 0))), # pylint: disable=C0301
+            'x-openstack-request-id': container.get('x-openstack-request-id', None),
+            'x-storage-policy': container.get('x-storage-policy', None),
+            'x-timestamp': container.get('x-timestamp', None),
+            'x-trans-id': container.get('x-trans-id', None),
+            'used': lib.human3.bytes2human(int(container.get('x-container-bytes-used', 0))),
+            'quota': lib.human3.bytes2human(int(container.get('x-container-meta-quota-bytes', 0))),
+        }
+        if item['x-container-meta-quota-bytes']:
+            # quota is set
+            container_state = lib.base3.get_state(
+                item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'],
+                args.WARN * 1024 * 1024 * 1024,
+                args.CRIT * 1024 * 1024 * 1024,
+                'le',
+            )
+            state = lib.base3.get_worst(state, container_state)
+            item['free'] = '{}{}'.format(
+                lib.human3.bytes2human(item['x-container-meta-quota-bytes'] - item['x-container-bytes-used']),# pylint: disable=C0301
+                lib.base3.state2str(container_state, prefix=' '),
+            )
+            percent = round(
+                float(item['x-container-bytes-used']) / float(item['x-container-meta-quota-bytes']) * 100, # pylint: disable=C0301
+                1,
+            )
+            item['used'] += ' ({}%)'.format(percent)
+        else:
+            item['free'] = ''
+        table_data.append(item)
+
+        perfdata += lib.base3.get_perfdata('{}_items'.format(name), container.get('x-container-object-count', 0), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_used'.format(name), container.get('x-container-bytes-used', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+
+    # build the message
+    msg += 'Account: '
+    if 'x-account-container-count' in stat_account['headers'] \
+    and int(stat_account['headers']['x-account-container-count']):
+        msg += '{} {}, '.format(
+            stat_account['headers']['x-account-container-count'],
+            lib.txt3.pluralize('container', int(stat_account['headers']['x-account-container-count'])), # pylint: disable=C0301
+        )
+    if 'x-account-object-count' in stat_account['headers'] \
+    and int(stat_account['headers']['x-account-object-count']):
+        msg += '{} {}, '.format(
+            lib.human3.number2human(stat_account['headers']['x-account-object-count']),
+            lib.txt3.pluralize('object', int(stat_account['headers']['x-account-object-count'])),
+        )
+    if 'x-account-meta-quota-bytes' in stat_account['headers'] \
+    and int(stat_account['headers']['x-account-bytes-used']):
+        msg += '{} used, '.format(
+            lib.human3.bytes2human(int(stat_account['headers']['x-account-bytes-used'])),
+        )
+    if 'x-account-meta-quota-bytes' in stat_account['headers'] \
+    and int(stat_account['headers']['x-account-meta-quota-bytes']):
+        msg += '{} quota, '.format(
+            lib.human3.bytes2human(int(stat_account['headers']['x-account-meta-quota-bytes'])),
+        )
+    if msg.endswith(', '):
+        msg = msg[:-2]
+
+    if table_data:
+        keys = [
+            'name',
+            'x-container-object-count',
+            'used',
+            'free',
+            'quota',
+        ]
+        headers = [
+            'Container',
+            'Items',
+            'Used',
+            'Free',
+            'Quota',
+        ]
+        msg += '\n\n' + lib.base3.get_table(table_data, keys, header=headers)
+    else:
+        msg += '. Nothing checked.'
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

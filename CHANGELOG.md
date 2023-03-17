@@ -23,6 +23,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* openstack-swift-stat
 * postfix-version
 
 

@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import unittest
+
+from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base3
+import lib.shell3
+
+
+class TestCheck(unittest.TestCase):
+
+    check = './openstack-swift-stat3'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
+        self.assertIn('Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota', stdout)
+        self.assertIn('Container ! Items  ! Used           ! Free              ! Quota    ', stdout)
+        self.assertIn('----------+--------+----------------+-------------------+----------', stdout)
+        self.assertIn('01        ! 2.4M   ! 2.2TiB         !                   ! 0.0B     ', stdout)
+        self.assertIn('02        ! 324.4K ! 3.1TiB (99.5%) ! 17.2GiB [WARNING] ! 3.1TiB   ', stdout)
+        self.assertIn('03        ! 107.7K ! 111.8GiB       !                   ! 0.0B     ', stdout)
+        self.assertIn('04        ! 2.0    ! 2.0GiB (1.0%)  ! 202.9GiB          ! 204.9GiB', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()
