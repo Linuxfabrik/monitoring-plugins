@@ -8,19 +8,24 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
 import lib.shell3
 
-        
+
 class TestCheck(unittest.TestCase):
 
-    check = './docker-info3'
+    check = '../docker-info3'
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,examples/STDERR02,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,stderr/STDERR02,0'))
         self.assertIn('ERROR: an error happened, ERROR: invalid empty security option, WARNING: bridge-nf-call-iptables is disabled, WARNING: bridge-nf-call-ip6tables is disabled', stdout)
         self.assertIn('7 Containers (2 running, 0 paused, 5 stopped), 5 Images, Storage Driver: overlay2', stdout)
         self.assertEqual(stderr, '')

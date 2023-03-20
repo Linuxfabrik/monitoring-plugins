@@ -8,6 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
@@ -17,14 +22,14 @@ import lib.shell3
 
 class TestCheck(unittest.TestCase):
 
-    check = './huawei-dorado-backup-power3'
+    check = '../huawei-dorado-backup-power3'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
         self.assertIn('There are warnings.\n\nUUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain ! Volt ! Health ! Running   \n-----------+------------+------------+--------------+----------+--------+------+--------+-----------\n210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7        ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)

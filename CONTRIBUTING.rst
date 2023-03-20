@@ -41,7 +41,7 @@ Deliverables
 * A nice 16x16 transparent PNG icon, for example based on font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
 * if Windows: see `Compiling for Windows <#compiling-for-windows>`_
-* optional: ``test`` - the unittest file (see `Unit Tests <#unit-tests>`_)
+* optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
 * optional: Icinga Director Basket Config
 * optional: Icinga Web 2 Grafana Module .ini file
@@ -424,10 +424,10 @@ Unit Tests
 
 Implementing tests:
 
-* | Use the ``unittest`` framework (`https://docs.python.org/2.7/library/unittest.html <https://docs.python.org/2.7/library/unittest.html>`_).
-  | Within your ``test`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
+* | Use the ``unittest`` framework (`https://docs.python.org/3/library/unittest.html <https://docs.python.org/3/library/unittest.html>`_).
+  | Within your ``unit-test/run`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
    against stdout, stderr and retc.
-* To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``examples`` and a ``--test`` parameter to feed "example/stdout-file,expected-stderr,expected-retc" into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
+* To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``unit-test/stdout``, ``unit-test/stderr`` and/or ``unit-test/retc`` and a ``--test`` parameter to feed ``stdout/stdout-file,stderr/stderr-file,expected-retc`` into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
 For example, have a look at the ``fs-ro`` plugin on how to do this.
 
@@ -435,8 +435,10 @@ Running a complete unit test:
 
 .. code:: bash
 
-    # cd into the plugin directory and run the Python 3 based test:
-    ./test3
+    # cd into the plugin directory, then:
+    cd unit-test
+    # run the Python based test:
+    ./run
 
 
 sudoers File

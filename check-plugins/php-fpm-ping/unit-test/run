@@ -8,31 +8,36 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
 import lib.base3
 import lib.shell3
 
-        
+
 class TestCheck(unittest.TestCase):
 
-    check = './php-fpm-ping2'
+    check = '../php-fpm-ping3'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,'))
         self.assertIn('pong', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02_warn(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,'))
         self.assertIn('Lorem ipsum', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_crit(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --severity crit --test=examples/EXAMPLE02,,'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --severity crit --test=stdout/EXAMPLE02,,'))
         self.assertIn('Lorem ipsum', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)

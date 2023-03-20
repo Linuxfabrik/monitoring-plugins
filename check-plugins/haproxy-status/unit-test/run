@@ -8,51 +8,58 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
-from lib.globals3 import *
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
 
-import lib.base3
-import lib.shell3
+
 
 import unittest
 
-        
+from lib.globals3 import *
+import lib.base3
+import lib.shell3
+
+
 class TestCheck(unittest.TestCase):
 
-    check = './haproxy-status3'
+    check = '../haproxy-status3'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0'))
-        self.assertRegexpMatches(stdout, r'frontend-https FRONTEND: 2666 sessions \(88.9%\) \[WARNING\], frontend-https-8443 FRONTEND: STOP')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0'))
-        self.assertRegexpMatches(stdout, r'Malformed HAProxy status info\.')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Malformed HAProxy status info.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0'))
-        self.assertRegexpMatches(stdout, r'Everything is ok\.\n\nProxy name      ')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Proxy name          ! Server name ! Status ! Sessions  ! RqBytes   ! RspBytes ! Rsp5xx ! Rq/s', stdout)
+        self.assertIn('--------------------+-------------+--------+-----------+-----------+----------+--------+------', stdout)
+        self.assertIn('frontend-https      ! FRONTEND    ! OPEN   ! 1.0/3.0K  ! 267.3MiB  ! 439.1MiB ! 588.0  ! 0', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE01_lengthy(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=examples/EXAMPLE01,,0'))
-        self.assertRegexpMatches(stdout, r'frontend-https FRONTEND: 2666 sessions \(88.9%\) \[WARNING\], frontend-https-8443 FRONTEND: STOP')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_lengthy(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=examples/EXAMPLE02,,0'))
-        self.assertRegexpMatches(stdout, r'Malformed HAProxy status info\.')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Malformed HAProxy status info.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE03_lengthy(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=examples/EXAMPLE03,,0'))
-        self.assertRegexpMatches(stdout, r'Everything is ok\.\n\nProxy name      ')
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --lengthy --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('Everything is ok.\n\nProxy name      ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 

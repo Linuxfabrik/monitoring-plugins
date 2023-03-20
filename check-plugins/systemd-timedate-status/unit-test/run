@@ -8,6 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
@@ -17,77 +22,77 @@ import lib.shell3
 
 class TestCheck(unittest.TestCase):
 
-    check = './systemd-timedate-status3'
+    check = '../systemd-timedate-status3'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE_20121017_ok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20121017-ok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20121017-ok,,0'))
         self.assertIn('NTP synchronized: yes, NTP enabled: yes', stdout)
         self.assertIn('RTC in local TZ: no', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE_20121017_nok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20121017-nok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20121017-nok,,0'))
         self.assertIn('NTP synchronized: no, NTP enabled: no', stdout)
         self.assertIn('The system is configured to read the RTC time in the local time zone. ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE_20140318_ok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20140318-ok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20140318-ok,,0'))
         self.assertIn('NTP synchronized: yes, NTP enabled: yes', stdout)
         self.assertIn('RTC in local TZ: no', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE_20140318_nok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20140318-nok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20140318-nok,,0'))
         self.assertIn('NTP synchronized: no, NTP enabled: no', stdout)
         self.assertIn('The system is configured to read the RTC time in the local time zone. ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE_20150407_ok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20150407-ok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20150407-ok,,0'))
         self.assertIn('NTP synchronized: yes', stdout)
         self.assertIn('RTC in local TZ: no', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE_20150407_nok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20150407-nok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20150407-nok,,0'))
         self.assertIn('NTP synchronized: no', stdout)
         self.assertIn('The system is configured to read the RTC time in the local time zone. ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE_20170921_ok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20170921-ok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20170921-ok,,0'))
         self.assertIn('System clock synchronized: yes, systemd-timesyncd.service active: yes', stdout)
         self.assertIn('RTC in local TZ: no', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE_20170921_nok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20170921-nok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20170921-nok,,0'))
         self.assertIn('System clock synchronized: no, systemd-timesyncd.service active: no', stdout)
         self.assertIn('The system is configured to read the RTC time in the local time zone. ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE_20201026_ok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20201026-ok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20201026-ok,,0'))
         self.assertIn('System clock synchronized: yes, NTP service: yes', stdout)
         self.assertIn('RTC in local TZ: no', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE_20201026_nok(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE-20201026-nok,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE-20201026-nok,,0'))
         self.assertIn('System clock synchronized: no, NTP service: no', stdout)
         self.assertIn('The system is configured to read the RTC time in the local time zone. ', stdout)
         self.assertEqual(stderr, '')

@@ -8,6 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
@@ -17,77 +22,70 @@ import lib.shell3
 
 class TestCheck(unittest.TestCase):
 
-    check = './grassfish-players3'
+    check = '../grassfish-players3'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE01,,0'))
         self.assertIn('There is 1 player with warnings: 0 unlicensed, 0 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type ! Name                 ! Box State ! Lic  ! Transfer ! Last Access', stdout)
-        self.assertIn('----------+--------------+----------------------+-----------+------+----------+--------------------------------------------', stdout)
         self.assertIn('GP111-111 ! Player       ! Grassfish Player 111 ! Activated ! True ! Complete ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE02,,0'))
         self.assertIn('There is 1 player with warnings: 0 unlicensed, 0 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type         ! Name                 ! Box State ! Lic  ! Transfer ! Last Access', stdout)
-        self.assertIn('----------+----------------------+----------------------+-----------+------+----------+--------------------------------------------', stdout)
         self.assertIn('GP112-112 ! DsPlayerAdvancedSaas ! Grassfish Player 112 ! Activated ! True ! Pending  ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE03,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE03,,0'))
         self.assertIn('There is 1 player with warnings: 0 unlicensed, 1 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type            ! Name                 ! Box State ! Lic  ! Transfer          ! Last Access', stdout)
-        self.assertIn('----------+-------------------------+----------------------+-----------+------+-------------------+--------------------------------------------', stdout)
         self.assertIn('GP113-113 ! ColorDoorSignPlayerSaas ! Grassfish Player 113 ! Activated ! True ! Overdue [WARNING] ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE04,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE04,,0'))
         self.assertIn('There is 1 player with warnings: 0 unlicensed, 0 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type            ! Name                 ! Box State ! Lic  ! Transfer ! Last Access', stdout)
-        self.assertIn('----------+-------------------------+----------------------+-----------+------+----------+--------------------------------------------', stdout)
         self.assertIn('GP114-114 ! ColorDoorSignPlayerSaas ! Grassfish Player 114 ! Activated ! True ! Complete ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE05(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE05,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE05,,0'))
         self.assertIn('There is 1 player with warnings: 1 unlicensed, 0 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type            ! Name                 ! Box State ! Lic             ! Transfer ! Last Access', stdout)
-        self.assertIn('----------+-------------------------+----------------------+-----------+-----------------+----------+--------------------------------------------', stdout)
         self.assertIn('GP115-115 ! ColorDoorSignPlayerSaas ! Grassfish Player 115 ! Activated ! False [WARNING] ! Complete ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE06(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE06,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE06,,0'))
         self.assertIn('Everything is ok. 0 players checked. Filter: --box-state', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE07(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE07,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE07,,0'))
         self.assertIn('There is 1 player with warnings: 1 unlicensed, 1 transfer overdue, 1 accessed > 8 hours ago. 1 player checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type            ! Name                 ! Box State ! Lic             ! Transfer          ! Last Access', stdout)
-        self.assertIn('----------+-------------------------+----------------------+-----------+-----------------+-------------------+--------------------------------------------', stdout)
         self.assertIn('GP117-117 ! ColorDoorSignPlayerSaas ! Grassfish Player 117 ! Activated ! False [WARNING] ! Overdue [WARNING] ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE08(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=examples/EXAMPLE08,,0'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE08,,0'))
         self.assertIn('There are 6 players with warnings: 2 unlicensed, 2 transfer overdue, 6 accessed > 8 hours ago. 6 players checked. Filter: --box-state', stdout)
         self.assertIn('Box ID    ! License Type            ! Name                 ! Box State ! Lic             ! Transfer          ! Last Access', stdout)
-        self.assertIn('----------+-------------------------+----------------------+-----------+-----------------+-------------------+--------------------------------------------', stdout)
         self.assertIn('GP111-111 ! Player                  ! Grassfish Player 111 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)

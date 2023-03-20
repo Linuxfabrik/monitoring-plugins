@@ -8,6 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
 
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
 import unittest
 
 from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
@@ -17,34 +22,34 @@ import lib.shell3
 
 class TestCheck(unittest.TestCase):
 
-    check = './kemp-services3'
+    check = '../kemp-services3'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0 --hostname localhost --username user --password password'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname localhost --username user --password password'))
         self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE01_with_filter(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE01,,0 --hostname localhost --username user --password password --filter PROD'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname localhost --username user --password password --filter PROD'))
         self.assertRegex(stdout.splitlines()[0], r'3 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE02,,0 --hostname localhost --username user --password password'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --hostname localhost --username user --password password'))
         self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_with_severity(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --severity crit --test=examples/EXAMPLE02,,0 --hostname localhost --username user --password password'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --severity crit --test=stdout/EXAMPLE02,,0 --hostname localhost --username user --password password'))
         self.assertRegex(stdout.splitlines()[0], r'5 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=examples/EXAMPLE03,,0 --hostname localhost --username user --password password'))
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0 --hostname localhost --username user --password password'))
         self.assertRegex(stdout.splitlines()[0], r'2 services checked\.')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
