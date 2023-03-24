@@ -6,7 +6,7 @@ Overview
 
 With this plugin you can check if the installed Nextcloud version is EOL. Does not care about patch levels.
 
-The check has to run on the Nextcloud server itself. It uses ``sudo -u #48 /path/to/nextcloud/occ config:list`` to get the installed version and therefore requires access to the Nextcloud installation directory.
+The check has to run on the Nextcloud server itself. It uses ``sudo -u $OWNER /path/to/nextcloud/occ config:list`` to get the installed version and therefore requires access to the Nextcloud installation directory.
 
 
 Fact Sheet
@@ -78,9 +78,6 @@ Troubleshooting
 
 sudo: unknown user: #-1, sudo: error initializing audit plugin sudoers_audit
     Nextcloud installation was not found.
-
-There are no commands defined in the "update" namespace.
-    Nextcloud app ``updatenotification`` is not enabled.
 
 
 Credits, License
