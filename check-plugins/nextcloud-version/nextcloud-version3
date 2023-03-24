@@ -18,15 +18,109 @@ import sys  # pylint: disable=C0413
 
 import lib.base3  # pylint: disable=C0413
 import lib.shell3  # pylint: disable=C0413
+import lib.time3  # pylint: disable=C0413
 from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023032401'
 
-DESCRIPTION = """This plugin lets you track if Nextcloud server updates are available."""
+DESCRIPTION = '''With this plugin you can check if the installed Nextcloud version is EOL.
+                 Does not care about patch levels.'''
 
 DEFAULT_PATH = '/var/www/html/nextcloud'
+
+# from https://endoflife.date/api/nextcloud.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "26",
+    "releaseDate": "2023-03-21",
+    "eol": "2024-03-01",
+    "latest": "26.0.0",
+    "latestReleaseDate": "2023-03-21",
+    "lts": False
+  },
+  {
+    "cycle": "25",
+    "releaseDate": "2022-10-18",
+    "eol": "2023-10-01",
+    "latest": "25.0.5",
+    "latestReleaseDate": "2023-03-23",
+    "lts": False
+  },
+  {
+    "cycle": "24",
+    "releaseDate": "2022-05-02",
+    "eol": "2023-05-01",
+    "latest": "24.0.11",
+    "latestReleaseDate": "2023-03-23",
+    "lts": False
+  },
+  {
+    "cycle": "23",
+    "releaseDate": "2021-11-26",
+    "eol": "2022-12-01",
+    "latest": "23.0.12",
+    "latestReleaseDate": "2022-12-08",
+    "lts": False
+  },
+  {
+    "cycle": "22",
+    "releaseDate": "2021-07-05",
+    "eol": "2022-07-01",
+    "latest": "22.2.10",
+    "latestReleaseDate": "2022-07-18",
+    "lts": False
+  },
+  {
+    "cycle": "21",
+    "releaseDate": "2021-02-19",
+    "eol": "2022-02-01",
+    "latest": "21.0.9",
+    "latestReleaseDate": "2022-02-15",
+    "lts": False
+  },
+  {
+    "cycle": "20",
+    "releaseDate": "2020-10-02",
+    "eol": "2021-01-01",
+    "latest": "20.0.14",
+    "latestReleaseDate": "2021-11-11",
+    "lts": False
+  },
+  {
+    "cycle": "19",
+    "releaseDate": "2020-05-26",
+    "eol": "2021-06-01",
+    "latest": "19.0.13",
+    "latestReleaseDate": "2021-07-01",
+    "lts": False
+  },
+  {
+    "cycle": "18",
+    "releaseDate": "2020-01-17",
+    "eol": "2021-01-01",
+    "latest": "18.0.14",
+    "latestReleaseDate": "2021-01-25",
+    "lts": False
+  },
+  {
+    "cycle": "17",
+    "releaseDate": "2019-09-26",
+    "eol": "2020-01-01",
+    "latest": "17.0.10",
+    "latestReleaseDate": "2020-10-08",
+    "lts": False
+  },
+  {
+    "cycle": "16",
+    "releaseDate": "2019-04-24",
+    "eol": "2020-06-01",
+    "latest": "16.0.11",
+    "latestReleaseDate": "2020-06-04",
+    "lts": False
+  }
+]
 
 
 def parse_args():
@@ -50,7 +144,8 @@ def parse_args():
 
     parser.add_argument(
         '--path',
-        help='Local path to your Nextcloud installation, typically within your Webserver\'s Document Root. Default: %(default)s',
+        help='Local path to your Nextcloud installation, typically within your Webserver\'s '
+             'Document Root. Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -74,8 +169,11 @@ def run_occ(path, cmd, _format='json'):
     # get the owner of config.php
     user = get_owner(os.path.join(path, 'config/config.php'))
     occ = os.path.join(path, 'occ')
-    # When running a command as a UID, many shells require that the `#` be escaped with a backslash (`\`).
-    stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd)))
+    # When running a command as a UID, many shells require
+    # that the `#` be escaped with a backslash (`\`).
+    stdout, stderr, retc = lib.base3.coe(
+        lib.shell3.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd))
+    )
     if stderr:
         lib.base3.oao('{}'.format(stderr), STATE_UNKNOWN)
     try:
@@ -96,67 +194,36 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     config = run_occ(args.PATH, 'config:list')
 
-    if not config['system'].get('has_internet_connection', True):
-        lib.base3.oao('Nextcloud is running in a closed network, so checking for a new version is not possible.',  STATE_OK)
+    # init some vars
+    try:
+        # varying version strings: '16.0.11' (2 dots) or '25.0.4.2' (3 dots)
+        version = config['system']['version'].split('.')
+        installed_major = version[0]
+    except:
+        lib.base3.oao('Unable to get Nextcloud version information.', STATE_UNKNOWN)
+    msg = 'Nextcloud v{}'.format('.'.join(version))
+    state = STATE_OK
+    perfdata = lib.base3.get_perfdata('nextcloud-version', '{}.{}'.format(installed_major, ''.join(version[1:])), None, None, None, 0, None)
 
-    # If you entered your subscription key in the support app, you should be able to find the update URL
-    # in your config.php under the key "updater.server.url". It is usually in the form
-    # "https://updates.nextcloud.com/customers/YOUR-SUBSCRIPTION-KEY/".
-    # But you can't simply ping this URL, as the updater code is sending a rather complex request
-    # there to check for updates. Instead, if you have the app "updatenotification" enabled, you can
-    # use "occ update:check" and parse the output to check the state. See
-    # https://github.com/nextcloud/server/blob/master/apps/updatenotification/lib/Command/Check.php#L92
-    result = run_occ(args.PATH, 'update:check', _format='text')
+    # check EOL (json from https://endoflife.date)
+    eol = lib.base3.lookup_lod(
+        ENDOFLIFE_DATE,
+        'cycle',
+        installed_major,
+    )
+    if eol:
+        if lib.time3.now(as_type='datetime') > lib.time3.timestr2datetime(eol['eol'], pattern='%Y-%m-%d'):
+            state = STATE_WARN
+        msg += ' (EOL {}){}'.format(eol['eol'], lib.base3.state2str(state, prefix=' '))
+    else:
+        state = STATE_UNKNOWN
+        msg += ' (unknown version)'
 
-    if result == 'Everything up to date':
-        lib.base3.oao('Nextcloud v{} is up to date'.format(config['system']['version']), STATE_OK)
-
-    # include EOL for old version
-    # https://github.com/nextcloud/server/wiki/Maintenance-and-Release-Schedule
-    major = config['system']['version'].split('.')[0]
-    eol = ''
-    if major == '25':
-        eol = ' (EOL 2023-10)'
-    if major == '24':
-        eol = ' (EOL 2023-05)'
-    if major == '23':
-        eol = ' (EOL since 2022-12)'
-    if major == '22':
-        eol = ' (EOL since 2022-07)'
-    if major == '21':
-        eol = ' (EOL since 2022-02)'
-    if major == '20':
-        eol = ' (EOL since 2021-11)'
-    if major == '19':
-        eol = ' (EOL since 2021-06)'
-    if major == '18':
-        eol = ' (EOL since 2021-01)'
-    if major == '17':
-        eol = ' (EOL since 2020-10)'
-    if major == '16':
-        eol = ' (EOL since 2020-06)'
-    if major == '15':
-        eol = ' (EOL since 2019-12)'
-    if major == '14':
-        eol = ' (EOL since 2019-09)'
-    if major == '13':
-        eol = ' (EOL since 2019-02)'
-    if major == '12':
-        eol = ' (EOL since 2018-11)'
-    if major == '11':
-        eol = ' (EOL since 2018-03)'
-    if major == '10':
-        eol = ' (EOL since 2017-08)'
-    if major == '9':
-        eol = ' (EOL since 2017-04)'
-
-    lib.base3.oao('Nextcloud v{}{} installed, {}'.format(
-        config['system']['version'],
-        eol,
-        result,
-    ), STATE_WARN, always_ok=args.ALWAYS_OK)
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

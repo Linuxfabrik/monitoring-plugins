@@ -4,26 +4,9 @@ Check nextcloud-version
 Overview
 --------
 
-This plugin lets you track if Nextcloud server updates are available.
+With this plugin you can check if the installed Nextcloud version is EOL. Does not care about patch levels.
 
-To check for updates, this plugin could, but does *not* use
-
-* the Git Repo at https://github.com/nextcloud/server/releases
-* the downloads at https://download.nextcloud.com/server/releases
-* the downloads at https://updates.nextcloud.com/customers/YOUR-SUBSCRIPTION-KEY
-
-Instead it uses the internal ``occ update:check`` command, assuming that the *updatenotification* app is installed and enabled. The check has to run on the Nextcloud server itself and needs access to the Nextcloud installation directory.
-
-In detail, it fires these two commands:
-
-.. code-block:: bash
-
-    # check if internet connection is available
-    sudo -u \#48 /path/to/nextcloud/occ config:list
-
-    # check if Nextcloud thinks that everything is up to date
-    sudo -u \#48 /path/to/nextcloud/occ update:check
-
+The check has to run on the Nextcloud server itself. It uses ``sudo -u #48 /path/to/nextcloud/occ config:list`` to get the installed version and therefore requires access to the Nextcloud installation directory.
 
 
 Fact Sheet
@@ -36,7 +19,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
-    "Requirements",                         "App ``updatenotification`` must be enabled"
 
 
 Help
@@ -46,15 +28,17 @@ Help
 
     usage: nextcloud-version [-h] [-V] [--always-ok] [--path PATH]
 
-    This plugin lets you track if Nextcloud server updates are available.
+    With this plugin you can check if the installed Nextcloud version is EOL. Does
+    not care about patch levels.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
       --always-ok    Always returns OK.
       --path PATH    Local path to your Nextcloud installation, typically within
                      your Webserver's Document Root. Default:
                      /var/www/html/nextcloud
+
 
 
 Usage Examples
@@ -68,20 +52,25 @@ Output:
 
 .. code-block:: text
 
-    Nextcloud v20.0.10.2 is up to date
+    Nextcloud v16.0.2 (EOL 2020-06-01) [WARNING]
 
 
 States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if update is available.
+* else returns WARN if installed Nextcloud version is End-of-Life (EOL)
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    nextcloud-version,                          Number,             Installed Nextcloud version as a float. "25.0.4.2" gets "25.042".
 
 
 Troubleshooting

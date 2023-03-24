@@ -34,6 +34,7 @@ Monitoring Plugins:
 
 * journald-query3: Lower default for `--since` from 24h to 8h
 * kemp-services3: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
+* nextcloud-version3: Simplified, no longer cares about patch levels, no longer needs internet access
 * Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
 
 
