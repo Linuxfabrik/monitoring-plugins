@@ -26,13 +26,14 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023032901'
 
 DESCRIPTION = """Check the age of the newest restic repository snapshot."""
 
 DEFAULT_CRIT = None
-DEFAULT_GROUP_BY = 'host,tags,paths'
+DEFAULT_GROUP_BY = 'host,paths'
 DEFAULT_LATEST = 3  # count
+DEFAULT_LENGTHY = False
 DEFAULT_WARN = 24   # hours
 
 
@@ -77,6 +78,14 @@ def parse_args():
         dest='LATEST',
         type=int,
         default=DEFAULT_LATEST,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -141,7 +150,7 @@ def get_snapshot_data(snapshot, args):
     return snapshot
 
 
-def get_message(table_data):
+def get_message(table_data, args):
     """Build the message. Show latest/newest snapshot on top, which is the last one in the list.
     """
     msg = '\n\nLatest snapshot {} ago{} ({}@{}:{}, ID {}); {} {} found\n\n'.format(
@@ -156,24 +165,42 @@ def get_message(table_data):
     )
     table_data[-1]['age_hr'] += lib.base3.state2str(table_data[-1]['state'], prefix=' ')
     if table_data:
-        keys = [
-            'short_id',
-            'ts',
-            'age_hr',
-            'hostname',
-            'p',
-            'tags',
-            #'username',
-        ]
-        headers = [
-            'Short ID',
-            'Timestamp',
-            'Age',
-            'Host',
-            'Paths',
-            'Tags',
-            #'User',
-        ]
+        if not args.LENGTHY:
+            keys = [
+                'short_id',
+                'ts',
+                'age_hr',
+                'hostname',
+                'p',
+                #'username',
+            ]
+            headers = [
+                'Short ID',
+                'Timestamp',
+                'Age',
+                'Host',
+                'Paths',
+                #'User',
+            ]
+        else:
+            keys = [
+                'short_id',
+                'ts',
+                'age_hr',
+                'hostname',
+                'p',
+                'tags',
+                #'username',
+            ]
+            headers = [
+                'Short ID',
+                'Timestamp',
+                'Age',
+                'Host',
+                'Paths',
+                'Tags',
+                #'User',
+            ]
         msg += lib.base3.get_table(
             table_data,
             keys,
@@ -243,14 +270,14 @@ def main():
             table_data = []
             for s in snapshot['snapshots']:
                 table_data.append(get_snapshot_data(s, args))
-            snapshot_msg, snapshot_state = get_message(table_data)
+            snapshot_msg, snapshot_state = get_message(table_data, args)
             snapshot_count += len(table_data)
             msg += snapshot_msg
             state = lib.base3.get_worst(snapshot_state, state)
     else:
         for snapshot in snapshots:
             table_data.append(get_snapshot_data(snapshot, args))
-        msg, state = get_message(table_data)
+        msg, state = get_message(table_data, args)
         snapshot_count = len(table_data)
 
     perfdata += lib.base3.get_perfdata('snapshots', snapshot_count, '', None, None, 0, None)

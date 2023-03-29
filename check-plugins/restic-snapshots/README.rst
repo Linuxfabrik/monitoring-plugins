@@ -31,7 +31,7 @@ Help
 .. code-block:: text
 
     usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
-                            [--host HOST] [--latest LATEST]
+                            [--host HOST] [--latest LATEST] [--lengthy]
                             [--password-file PASSWORD_FILE] [--path PATH] --repo
                             REPO [--tag TAG] [--test TEST] [-w WARN]
 
@@ -45,11 +45,12 @@ Help
                             the start of the last backup (in each group) (in
                             hours). Default: None
       --group-by GROUP_BY   String for grouping snapshots by host,paths,tags.
-                            Default: host,tags,paths
+                            Default: host,paths
       --host HOST           Only consider snapshots for this host (can be
                             specified multiple times).
       --latest LATEST       Only show the last n snapshots for each host and path.
                             Default: 3
+      --lengthy             Extended reporting.
       --password-file PASSWORD_FILE
                             File to read the repository password from.
       --path PATH           Only consider snapshots for this path (can be
@@ -73,7 +74,7 @@ Just show the latest three snapshots for host www.example.com, grouped by hosts,
 
 .. code-block:: bash
 
-    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='hosts,tags,paths' --warn=8
+    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='hosts,tags,paths' --warn=8 --lengthy
 
 Output:
 
