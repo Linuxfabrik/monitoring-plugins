@@ -43,6 +43,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* disk-smart3: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
 * kemp-services3: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
 
