@@ -4,9 +4,9 @@ Check disk-io
 Overview
 --------
 
-Checks the disk throughput over a period of time. For this purpose, the check logs the maximum throughput and warns if the throughput over the last n measured values is above a certain percentage (by default 80/90% over the last 5 values). So the whole thing works similarly to Load5, only on disk I/O level.
+Checks the disk throughput over a period of time. The check tracks the maximum throughput and warns if the throughput over the last n readings is above a certain percentage (by default 80/90% over the last 5 readings). This works similar to Load5, but at the disk I/O level.
 
-Disk I/O is always starting with 10Mib/sec but saves the highest mesured throughput, so it adjusts the ``RWmax/s`` value accordingly. For this reason, this check needs some time to warm up its (cached) measured values: The check will throw a few warnings and criticals during the first major disk activities above 10Mib/sec until the maximum throughput of the disk has been determined.
+Disk I/O always starts with 10 MiB/sec, but stores the highest measured throughput, so it adjusts the ``RWmax/s`` value accordingly. For this reason, this check takes some time to warm up its (cached) readings: The check will throw some warnings and criticals during the first major disk activities above 10Mib/sec until the maximum throughput of the disk has been determined.
 
 Example: The result of ``./disk-io --count 5 --warning 80 --critical 90`` could look like this:
 
@@ -30,12 +30,12 @@ The table columns mean:
 * RWmax: Here, a maximum throughput of 44.9 MB/sec was determined.
 * R1, W1: The current throughput is 23.6 MB/sec read and 17.2 MB/sec write.
 * R5, W5: The throughput from now to 5 measured values in the past is 23.1 MB/sec read and 18.6 MB/sec write.
-* RW5: Compared to the current values, there was a higher throughput for a while. Since a maximum of 44.9 MB/sec throughput has been measured for this disk so far, a mean throughput (RW5) value of 41.7 MB/sec results in a warning (``41.7 MB/sec >= 44.9 MB/sec * 80%``). The current value of 23.6 MB/sec doesn't matter, this is only a snapshot. The check alerts because there is unusual high disk I/O over a certain amount of time.
+* RW5: Compared to the current values, there was a higher throughput for a while. Since a maximum of 44.9 MB/sec throughput has been measured for this disk so far, a mean throughput (RW5) value of 41.7 MB/sec results in a warning (``41.7 MB/sec >= 44.9 MB/sec * 80%``). The current value of 23.6 MB/sec doesn't matter, this is only a peak. The check alerts because there is unusual high disk I/O over a certain amount of time.
 
 Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any of your disks was above a threshold in the last 5 minutes.
-* The check uses the SQLite databases ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and ``$TEMP/linuxfabrik-monitoring-plugins-sqlite.db`` to store its historical data.
+* The check uses the SQLite databases ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` to store its historical data.
 * If you are wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the kernel, used by LVM. Use ``dmsetup ls`` to see what is behind it.
 
 
