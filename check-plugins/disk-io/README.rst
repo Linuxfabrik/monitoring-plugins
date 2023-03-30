@@ -64,7 +64,7 @@ Help
 
     Checks disk IO.
 
-    optional arguments:
+    options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
@@ -73,10 +73,8 @@ Help
       --critical CRIT  Set the CRIT threshold for disk I/O read/write rate over
                        the entire period as a percentage of the maximum disk I/O
                        rate. Default: >= 90
-      --ignore IGNORE  Ignore some disks like "sr0" or "zram0" (repeating).
-                       Default: ['sr0', 'loop0', 'loop1', 'loop2', 'loop3',
-                       'loop4', 'loop5', 'loop6', 'loop7', 'loop8', 'loop9',
-                       'zram0']
+      --ignore IGNORE  Ignore disk names starting with a string like "sr"
+                       (repeating). Default: ['sr', 'loop', 'zram']
       --warning WARN   Set the CRIT threshold for disk I/O read/write rate over
                        the entire period as a percentage of the maximum disk I/O
                        rate. Default: >= 80
@@ -98,7 +96,6 @@ Output:
     Disk ! RWmax/s ! R1/s    ! W1/s     ! R5/s    ! W5/s     ! RW5/s             
     -----+---------+---------+----------+---------+----------+-------------------
     dm-0 ! 47.1MiB ! 26.0MiB ! 21.1MiB  ! 21.9MiB ! 18.4MiB  ! 40.3MiB [WARNING] 
-    dm-1 ! 10.0MiB ! 0.0B    ! 7.7KiB   ! 585.1B  ! 3.2KiB   ! 3.7KiB            
     sda  ! 15.6MiB ! 3.4MiB  ! 167.7KiB ! 5.7MiB  ! 148.5KiB ! 5.8MiB            
     sda1 ! 15.6MiB ! 3.4MiB  ! 167.7KiB ! 5.7MiB  ! 148.5KiB ! 5.8MiB            
     sdb  ! 46.0MiB ! 22.6MiB ! 20.9MiB  ! 16.3MiB ! 18.2MiB  ! 34.5MiB           
@@ -139,7 +136,7 @@ Per disk:
 Troubleshooting
 ---------------
 
-psutil raised error "not sure how to interpret line '...'"
+``psutil raised error "not sure how to interpret line '...'"`` or ``Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+``
     Update the ``psutil`` library. On RHEL 8+, use at least ``python38`` and ``python38-psutil``.
 
 

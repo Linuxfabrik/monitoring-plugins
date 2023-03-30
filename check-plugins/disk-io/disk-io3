@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033001'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -39,10 +39,10 @@ DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a
 DEFAULT_WARN = 80       # %
 DEFAULT_CRIT = 90       # %
 DEFAULT_IGNORE = [
-    'sr0',
-    'loop0', 'loop1', 'loop2', 'loop3', 'loop4', 'loop5', 'loop6', 'loop7', 'loop8', 'loop9',
-    'zram0',
-    ]
+    'sr',
+    'loop',
+    'zram',
+]
 
 
 def parse_args():
@@ -74,7 +74,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical',
-        help='Set the CRIT threshold for disk I/O read/write rate over the entire period as a percentage of the maximum disk I/O rate. Default: >= %(default)s',
+        help='Set the CRIT threshold for disk I/O read/write rate over the entire period as a '
+             'percentage of the maximum disk I/O rate. Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -82,7 +83,8 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Ignore some disks like "sr0" or "zram0" (repeating). Default: %(default)s',
+        help='Ignore disk names starting with a string like "sr" (repeating). '
+             'Default: %(default)s',
         dest='IGNORE',
         default=DEFAULT_IGNORE,
         action='append',
@@ -90,7 +92,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning',
-        help='Set the CRIT threshold for disk I/O read/write rate over the entire period as a percentage of the maximum disk I/O rate. Default: >= %(default)s',
+        help='Set the CRIT threshold for disk I/O read/write rate over the entire period as a '
+             'percentage of the maximum disk I/O rate. Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -117,9 +120,14 @@ def main():
             lib.base3.version(platform.release()) >= lib.base3.version('4.18.0'),
             lib.base3.version(psutil.__version__) < lib.base3.version('5.7.0')
         ]):
-        lib.base3.oao('Nothing checked. Running Kernel >= 4.18, this check needs the Python module "psutil" v5.7.0+ (installed {}; have a look at  https://github.com/giampaolo/psutil/pull/1665 for details).'.format(psutil.__version__), STATE_OK, always_ok=args.ALWAYS_OK)
+        lib.base3.oao('Nothing checked. Running Kernel >= 4.18, this check needs the Python module '
+            'psutil v5.7.0+ (installed {}; have a look at '
+            'https://github.com/giampaolo/psutil/pull/1665 '
+            'for details).'.format(psutil.__version__), STATE_OK, always_ok=args.ALWAYS_OK)
 
-    conn = lib.base3.coe(lib.db_sqlite3.connect(filename='linuxfabrik-monitoring-plugins-disk-io.db'))
+    conn = lib.base3.coe(
+        lib.db_sqlite3.connect(filename='linuxfabrik-monitoring-plugins-disk-io.db')
+    )
 
     # create the perfdata table
     definition = '''
@@ -146,7 +154,7 @@ def main():
 
     disks = []
     for disk, values in disk_io_counters.items():
-        if disk in args.IGNORE:
+        if not disk or any(disk.startswith(i) for i in args.IGNORE):
             continue
         # read_count and write_count are the same value for all disks, so simply ignore them
         data = {}
@@ -174,12 +182,19 @@ def main():
     table_values = []
 
     max_rw = 0       # disk with the highest sum of r/w: show this on top later on
-    # we warn about a "count" period/amount of time, not about the current situation above (what might be a peak only)
+    # we warn about a "count" period/amount of time, not about the current situation above
+    # (what might be a peak only)
     for disk in sorted(disks):
         # get all historical data rows for a specific disk, newest item first
-        diskdata = lib.base3.coe(lib.db_sqlite3.select(conn,
-            'SELECT * FROM perfdata WHERE name = :name ORDER BY timestamp DESC',
-            {'name': disk}
+        diskdata = lib.base3.coe(lib.db_sqlite3.select(
+            conn,
+            '''
+            SELECT *
+            FROM perfdata
+            WHERE name = :name
+            ORDER BY timestamp DESC
+            ''',
+            {'name': disk},
         ))
         if len(diskdata) < 2:
             lib.db_sqlite3.close(conn)
@@ -189,78 +204,97 @@ def main():
         timestamp_diff = diskdata[0]['timestamp'] - diskdata[1]['timestamp'] # in seconds
         if timestamp_diff == 0:
             timestamp_diff = 1
-        read_bytes_per_second1 = int(float(diskdata[0]['read_bytes'] - diskdata[1]['read_bytes']) / timestamp_diff)
-        write_bytes_per_second1 = int(float(diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff)
+        read_bytes_per_second1 = int(float(diskdata[0]['read_bytes'] - diskdata[1]['read_bytes']) / timestamp_diff) # pylint: disable=C0301
+        write_bytes_per_second1 = int(float(diskdata[0]['write_bytes'] - diskdata[1]['write_bytes']) / timestamp_diff) # pylint: disable=C0301
         throughput1 = read_bytes_per_second1 + write_bytes_per_second1
-        if timestamp_diff < 0 or read_bytes_per_second1 < 0 or write_bytes_per_second1 < 0 or throughput1 < 0:
+        if any([
+            timestamp_diff < 0,
+            read_bytes_per_second1 < 0,
+            write_bytes_per_second1 < 0,
+            throughput1 < 0,
+        ]):
             # happens after a reboot
             lib.db_sqlite3.close(conn)
             lib.base3.oao('Waiting for more data.', state)
 
         # store the max. measured throughput in cache
-        throughput_db = lib.cache3.get('disk-io-{}-throughput-max'.format(disk), filename='linuxfabrik-monitoring-plugins-disk-io.db')
+        throughput_db = lib.cache3.get(
+            'disk-io-{}-throughput-max'.format(disk),
+            filename='linuxfabrik-monitoring-plugins-disk-io.db',
+        )
         if throughput_db is False:
             # unknown disk, no value
             throughput_max = 10 * 1024 * 1024      # Disk should be capable of 10 MB/sec
-            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max, filename='linuxfabrik-monitoring-plugins-disk-io.db')
+            lib.cache3.set(
+                'disk-io-{}-throughput-max'.format(disk),
+                throughput_max,
+                filename='linuxfabrik-monitoring-plugins-disk-io.db',
+            )
         elif throughput1 > int(throughput_db):
             throughput_max = throughput1
-            lib.cache3.set('disk-io-{}-throughput-max'.format(disk), throughput_max, filename='linuxfabrik-monitoring-plugins-disk-io.db')
+            lib.cache3.set(
+                'disk-io-{}-throughput-max'.format(disk),
+                throughput_max,
+                filename='linuxfabrik-monitoring-plugins-disk-io.db',
+            )
         else:
             throughput_max = int(throughput_db)
 
         # perfdata
-        perfdata += lib.base3.get_perfdata('{}_busy_time'.format(disk), diskdata[0]['busy_time'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_read_bytes'.format(disk), diskdata[0]['read_bytes'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_read_merged_count'.format(disk), diskdata[0]['read_merged_count'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_read_time'.format(disk), diskdata[0]['read_time'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_write_bytes'.format(disk), diskdata[0]['write_bytes'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_write_merged_count'.format(disk), diskdata[0]['write_merged_count'], 'c', None, None, 0, None)
-        perfdata += lib.base3.get_perfdata('{}_write_time'.format(disk), diskdata[0]['write_time'], 'c', None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('{}_busy_time'.format(disk), diskdata[0]['busy_time'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_read_bytes'.format(disk), diskdata[0]['read_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_read_merged_count'.format(disk), diskdata[0]['read_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_read_time'.format(disk), diskdata[0]['read_time'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_write_bytes'.format(disk), diskdata[0]['write_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_write_merged_count'.format(disk), diskdata[0]['write_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_write_time'.format(disk), diskdata[0]['write_time'], 'c', None, None, 0, None) # pylint: disable=C0301
 
-        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second1'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second1'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base3.get_perfdata('{}_throughput1'.format(disk), throughput1, None, None, None, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second1'.format(disk), read_bytes_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second1'.format(disk), write_bytes_per_second1, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_throughput1'.format(disk), throughput1, None, None, None, 0, throughput_max) # pylint: disable=C0301
 
         if throughput1 > max_rw:
             msg = '{}: {}/s read, {}/s write (current)'.format(
                 disk,
                 lib.human3.bytes2human(read_bytes_per_second1),
                 lib.human3.bytes2human(write_bytes_per_second1),
-                )
+            )
             max_rw = read_bytes_per_second1 + write_bytes_per_second1
 
         # calculate read/write rate over the entire period
         if len(diskdata) != args.COUNT:
             # not enough data yet
             continue
-        timestamp_diff = diskdata[0]['timestamp'] - diskdata[args.COUNT - 1]['timestamp']            # in seconds
+        timestamp_diff = diskdata[0]['timestamp'] - diskdata[args.COUNT - 1]['timestamp'] # in seconds # pylint: disable=C0301
         if timestamp_diff == 0:
             timestamp_diff = 1
-        read_bytes_per_second15 = float((diskdata[0]['read_bytes'] - diskdata[args.COUNT - 1]['read_bytes']) / timestamp_diff)
+        read_bytes_per_second15 = float((diskdata[0]['read_bytes'] - diskdata[args.COUNT - 1]['read_bytes']) / timestamp_diff) # pylint: disable=C0301
         read_bytes_per_second15 = max(read_bytes_per_second15, 0)
-        write_bytes_per_second15 = float((diskdata[0]['write_bytes'] - diskdata[args.COUNT - 1]['write_bytes']) / timestamp_diff)
+        write_bytes_per_second15 = float((diskdata[0]['write_bytes'] - diskdata[args.COUNT - 1]['write_bytes']) / timestamp_diff) # pylint: disable=C0301
         write_bytes_per_second15 = max(write_bytes_per_second15, 0)
-        throughput15 = read_bytes_per_second15 + write_bytes_per_second15   # let's just call it like in cpu-usage
+        throughput15 = read_bytes_per_second15 + write_bytes_per_second15   # let's just call it like in cpu-usage # pylint: disable=C0301
 
-        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second15'.format(disk), read_bytes_per_second15, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second15'.format(disk), write_bytes_per_second15, 'B', None, None, 0, throughput_max)
-        perfdata += lib.base3.get_perfdata('{}_throughput15'.format(disk), throughput15, None, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100, 0, throughput_max)
+        perfdata += lib.base3.get_perfdata('{}_read_bytes_per_second15'.format(disk), read_bytes_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_write_bytes_per_second15'.format(disk), write_bytes_per_second15, 'B', None, None, 0, throughput_max) # pylint: disable=C0301
+        perfdata += lib.base3.get_perfdata('{}_throughput15'.format(disk), throughput15, None, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100, 0, throughput_max) # pylint: disable=C0301
 
         # get state based on max measured I/O values
-        disk_state = lib.base3.get_state(throughput15, throughput_max * args.WARN / 100, throughput_max * args.CRIT / 100)
+        disk_state = lib.base3.get_state(
+            throughput15,
+            throughput_max * args.WARN / 100,
+            throughput_max * args.CRIT / 100,
+        )
         state = lib.base3.get_worst(disk_state, state)
 
-        if throughput15:
-            table_values.append({
-                'name': disk,
-                'max': lib.human3.bytes2human(throughput_max),
-                'r1': lib.human3.bytes2human(read_bytes_per_second1),
-                'w1': lib.human3.bytes2human(write_bytes_per_second1),
-                'r15': lib.human3.bytes2human(read_bytes_per_second15),
-                'w15': lib.human3.bytes2human(write_bytes_per_second15),
-                't15': lib.human3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '),
-                })
+        table_values.append({
+            'name': disk,
+            'max': lib.human3.bytes2human(throughput_max),
+            'r1': lib.human3.bytes2human(read_bytes_per_second1),
+            'w1': lib.human3.bytes2human(write_bytes_per_second1),
+            'r15': lib.human3.bytes2human(read_bytes_per_second15),
+            'w15': lib.human3.bytes2human(write_bytes_per_second15),
+            't15': lib.human3.bytes2human(throughput15) + lib.base3.state2str(disk_state, prefix=' '), # pylint: disable=C0301
+        })
 
     lib.db_sqlite3.close(conn)
 
@@ -268,9 +302,25 @@ def main():
     if len(table_values) > 0:
         msg += lib.base3.get_table(
             table_values,
-            ['name', 'max', 'r1', 'w1', 'r15', 'w15', 't15'],
-            header=['Disk', 'RWmax/s', 'R1/s', 'W1/s', 'R{}/s'.format(args.COUNT), 'W{}/s'.format(args.COUNT), 'RW{}/s'.format(args.COUNT)],
-            )
+            [
+                'name',
+                'max',
+                'r1',
+                'w1',
+                'r15',
+                'w15',
+                't15',
+            ],
+            header=[
+                'Disk',
+                'RWmax/s',
+                'R1/s',
+                'W1/s',
+                'R{}/s'.format(args.COUNT),
+                'W{}/s'.format(args.COUNT),
+                'RW{}/s'.format(args.COUNT)
+            ],
+        )
 
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
