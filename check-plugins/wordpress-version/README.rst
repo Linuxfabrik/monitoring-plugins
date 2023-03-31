@@ -4,7 +4,7 @@ Check wordpress-version
 Overview
 --------
 
-This plugin lets you track if a WordPress update is available. To check for updates, this plugin uses the Git Repo at https://github.com/WordPress/WordPress/releases. To compare against the current/installed version of WordPress, the check has to run on the WordPress server itself and needs access to the WordPress installation directory.
+This plugin lets you track if WordPress is End-of-Life (EOL). To compare against the current/installed version of WordPress, the check has to run on the WordPress server itself and needs access to the WordPress installation directory.
 
 
 Fact Sheet
@@ -16,8 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
-    "Uses SQLite DBs",                      "Yes"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help
@@ -25,20 +24,17 @@ Help
 
 .. code-block:: text
 
-    usage: wordpress-version2 [-h] [-V] [--always-ok]
-                              [--cache-expire CACHE_EXPIRE] [--path PATH]
+    usage: wordpress-version [-h] [-V] [--always-ok] [--path PATH]
 
-    This plugin lets you track if server updates are available.
+    Tracks if WordPress is EOL.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --cache-expire CACHE_EXPIRE
-                            The amount of time after which the update check cache
-                            expires, in hours. Default: 24
-      --path PATH           Local path to your WordPress installation. Default:
-                            /var/www/html/wordpress
+    options:
+      -h, --help     show this help message and exit
+      -V, --version  show program's version number and exit
+      --always-ok    Always returns OK.
+      --path PATH    Local path to your WordPress installation, typically within
+                     your Webserver's Document Root. Default:
+                     /var/www/html/wordpress
 
 
 Usage Examples
@@ -47,25 +43,30 @@ Usage Examples
 .. code-block:: bash
 
     ./wordpress-version --path /var/www/html/wordpress
-    
+
 Output:
 
 .. code-block:: text
 
-    WordPress v5.7.2 is up to date
+    WordPress v4.0.38 (EOL 2022-12-01) [WARNING]
 
 
 States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if update is available.
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    wordpress-version,                          Number,             Installed WordPress version as float. "4.0.38" becomes "4.038".
 
 
 Credits, License

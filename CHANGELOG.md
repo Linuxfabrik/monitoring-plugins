@@ -17,6 +17,7 @@ Monitoring Plugins:
 
 * keycloak-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
+* wordpress-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * Remove all Python 2 based monitoring plugins from the project
 
 
