@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
+from lib.globals3 import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023033102'
+
+DESCRIPTION = 'Tracks if Apache httpd is EOL.'
+
+# from https://endoflife.date/api/apache.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "2.4",
+    "releaseDate": "2012-02-21",
+    "eol": False,
+    "latest": "2.4.56",
+    "latestReleaseDate": "2023-03-07",
+    "link": "https://downloads.apache.org/httpd/Announcement2.4.html",
+    "lts": False
+  },
+  {
+    "cycle": "2.2",
+    "releaseDate": "2005-12-01",
+    "eol": "2017-07-11",
+    "latest": "2.2.34",
+    "latestReleaseDate": "2017-07-11",
+    "lts": False
+  },
+  {
+    "cycle": "2.0",
+    "releaseDate": "2002-04-06",
+    "eol": "2013-07-10",
+    "latest": "2.0.65",
+    "latestReleaseDate": "2013-07-10",
+    "lts": False
+  },
+  {
+    "cycle": "1.3",
+    "releaseDate": "1998-06-06",
+    "eol": "2010-02-03",
+    "latest": "1.3.42",
+    "latestReleaseDate": "2010-02-03",
+    "lts": False
+  }
+]
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version():
+    success, result = lib.shell3.shell_exec('httpd -v') # on RHEL
+    if not success:
+        success, result = lib.shell3.shell_exec('apache2 -v') # on other systems
+        if not success:
+            return ''
+    stdout = result[0].strip()
+    # where to find the version number in output?
+    version_regex = r'/(\d+\.\d+\.\d+)'
+    try:
+        stdout = re.search(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version()
+    if not installed_version:
+        lib.base3.oao('Apache httpd not found.', STATE_UNKNOWN)
+    try:
+        installed_major, installed_minor, installed_patch = installed_version.split('.')
+    except:
+        installed_patch = '0'
+        installed_major, installed_minor = installed_version.split('.')
+
+    state, msg = lib.version3.check_eol(
+        ENDOFLIFE_DATE,
+        '{}.{}'.format(installed_major, installed_minor),
+    )
+
+    # over and out
+    lib.base3.oao(
+        'Apache httpd v{} ({})'.format(installed_version, msg),
+        state,
+        lib.base3.get_perfdata(
+            'apache-httpd-version',
+            '{}.{}{}'.format(installed_major, installed_minor, installed_patch),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

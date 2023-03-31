@@ -25,6 +25,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* apache-httpd-version
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
 * openstack-swift-stat
 * postfix-version
