@@ -4,7 +4,7 @@ Check postfix-version
 Overview
 --------
 
-With this plugin you can check if the installed Postfix version is EOL. Does not care about patch levels.
+This plugin lets you track if Postfix is End-of-Life (EOL). To compare against the current/installed version of Postfix, the check has to run on the Postfix server itself.
 
 
 Fact Sheet
@@ -24,9 +24,9 @@ Help
 
 .. code-block:: text
 
-    usage: postfix-version3 [-h] [-V] [--always-ok]
+    usage: postfix-version [-h] [-V] [--always-ok]
 
-    Tracks if Postfix is EOL.
+    Tracks if postfix is EOL.
 
     options:
       -h, --help     show this help message and exit
@@ -45,13 +45,14 @@ Output:
 
 .. code-block:: text
 
-    Postfix v3.5.8 (no EOL)
+    Postfix v3.3.22 (EOL 2022-02-05) [WARNING]
 
 
 States
 ------
 
-* WARN on EOL
+* If wanted, always returns OK,
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
@@ -62,7 +63,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    postfix-version,                            Number,             Installed Postfix version as a float. "3.5.8" gets "3.58".
+    postfix-version,                            Number,             Installed Postfix version as float. "3.3.22" becomes "3.322".
 
 
 Credits, License

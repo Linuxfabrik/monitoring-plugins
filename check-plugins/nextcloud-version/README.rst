@@ -4,9 +4,7 @@ Check nextcloud-version
 Overview
 --------
 
-With this plugin you can check if the installed Nextcloud version is EOL. Does not care about patch levels.
-
-The check has to run on the Nextcloud server itself. It uses ``sudo -u $OWNER /path/to/nextcloud/occ config:list`` to get the installed version and therefore requires access to the Nextcloud installation directory.
+This plugin lets you track if Nextcloud is End-of-Life (EOL). To compare against the current/installed version of Nextcloud, the check has to run on the nextcloud server itself and needs access to the Nextcloud installation directory.
 
 
 Fact Sheet
@@ -28,8 +26,7 @@ Help
 
     usage: nextcloud-version [-h] [-V] [--always-ok] [--path PATH]
 
-    With this plugin you can check if the installed Nextcloud version is EOL. Does
-    not care about patch levels.
+    Tracks if Nextcloud is EOL.
 
     options:
       -h, --help     show this help message and exit
@@ -40,26 +37,25 @@ Help
                      /var/www/html/nextcloud
 
 
-
 Usage Examples
 --------------
 
 .. code-block:: bash
 
     ./nextcloud-version --path /var/www/html/nextcloud
-    
+
 Output:
 
 .. code-block:: text
 
-    Nextcloud v16.0.2 (EOL 2020-06-01) [WARNING]
+    Nextcloud v23.0.12 (EOL 2022-12-01) [WARNING]
 
 
 States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if installed Nextcloud version is End-of-Life (EOL)
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
@@ -70,14 +66,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    nextcloud-version,                          Number,             Installed Nextcloud version as a float. "25.0.4.2" gets "25.042".
-
-
-Troubleshooting
----------------
-
-sudo: unknown user: #-1, sudo: error initializing audit plugin sudoers_audit
-    Nextcloud installation was not found.
+    nextcloud-version,                          Number,             Installed Nextcloud version as float. "23.0.12" becomes "23.012".
 
 
 Credits, License

@@ -4,7 +4,7 @@ Check php-version
 Overview
 --------
 
-With this plugin you can check if the installed PHP version is EOL. Does not care about patch levels.
+This plugin lets you track if PHP is End-of-Life (EOL). To compare against the current/installed version of PHP, the check has to run on the PHP server itself.
 
 
 Fact Sheet
@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for",                         "Linux"
 
 
 Help
@@ -24,10 +24,9 @@ Help
 
 .. code-block:: text
 
-    usage: php-version3 [-h] [-V] [--always-ok]
+    usage: php-version [-h] [-V] [--always-ok]
 
-    With this plugin you can check if the installed PHP version is EOL. Does
-    not care about patch levels.
+    Tracks if PHP is EOL.
 
     options:
       -h, --help     show this help message and exit
@@ -53,7 +52,7 @@ States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if installed PHP version is End-of-Life (EOL)
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
@@ -64,7 +63,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    php-version,                                Number,             Installed PHP version as a float. "7.4.16" gets "7.416".
+    php-version,                                Number,             Installed PHP version as float. "7.4.33" becomes "7.433".
 
 
 Credits, License

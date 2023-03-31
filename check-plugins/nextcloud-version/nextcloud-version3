@@ -19,14 +19,13 @@ import sys  # pylint: disable=C0413
 import lib.base3  # pylint: disable=C0413
 import lib.shell3  # pylint: disable=C0413
 import lib.time3  # pylint: disable=C0413
-from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+import lib.version3  # pylint: disable=C0413
+from lib.globals3 import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023032401'
+__version__ = '2023033101'
 
-DESCRIPTION = '''With this plugin you can check if the installed Nextcloud version is EOL.
-                 Does not care about patch levels.'''
+DESCRIPTION = 'Tracks if Nextcloud is EOL.'
 
 DEFAULT_PATH = '/var/www/html/nextcloud'
 
@@ -196,34 +195,35 @@ def main():
 
     # fetch data
     config = run_occ(args.PATH, 'config:list')
-
-    # init some vars
     try:
         # varying version strings: '16.0.11' (2 dots) or '25.0.4.2' (3 dots)
-        version = config['system']['version'].split('.')
-        installed_major = version[0]
+        installed_version = config['system']['version'].split('.')
+        installed_major = installed_version[0]
     except:
         lib.base3.oao('Unable to get Nextcloud version information.', STATE_UNKNOWN)
-    msg = 'Nextcloud v{}'.format('.'.join(version))
-    state = STATE_OK
-    perfdata = lib.base3.get_perfdata('nextcloud-version', '{}.{}'.format(installed_major, ''.join(version[1:])), None, None, None, 0, None)
+    if not installed_version:
+        lib.base3.oao('Nextcloud not found.', STATE_UNKNOWN)
 
-    # check EOL (json from https://endoflife.date)
-    eol = lib.base3.lookup_lod(
+    state, msg = lib.version3.check_eol(
         ENDOFLIFE_DATE,
-        'cycle',
         installed_major,
     )
-    if eol:
-        if lib.time3.now(as_type='datetime') > lib.time3.timestr2datetime(eol['eol'], pattern='%Y-%m-%d'):
-            state = STATE_WARN
-        msg += ' (EOL {}){}'.format(eol['eol'], lib.base3.state2str(state, prefix=' '))
-    else:
-        state = STATE_UNKNOWN
-        msg += ' (unknown version)'
 
     # over and out
-    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(
+        'Nextcloud v{} ({})'.format('.'.join(installed_version), msg),
+        state,
+        lib.base3.get_perfdata(
+            'nextcloud-version',
+            '{}'.format(installed_major, ''.join(installed_version[1:])),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ Check keycloak-version
 Overview
 --------
 
-This plugin lets you track if a Keycloak update is available. To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
+This plugin lets you track if Keycloak is End-of-Life (EOL). To compare against the current/installed version of Keycloak, the check has to run on the Keycloak server itself and needs access to the Keycloak installation directory.
 
 
 Fact Sheet
@@ -26,7 +26,7 @@ Help
 
     usage: keycloak-version [-h] [-V] [--always-ok] [--path PATH]
 
-    This plugin lets you track if server updates are available.
+    Tracks if Keycloak is EOL.
 
     options:
       -h, --help     show this help message and exit
@@ -54,7 +54,7 @@ States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if update is available.
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
@@ -65,7 +65,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    keycloak-version,                           Number,             Installed Keycloak version as a float. "18.0.3" gets "18.03".
+    keycloak-version,                           Number,             Installed Keycloak version as float. "18.0.3" becomes "18.03".
 
 
 Credits, License
