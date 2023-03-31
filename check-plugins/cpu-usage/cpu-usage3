@@ -18,6 +18,7 @@ from collections import Counter  # pylint: disable=C0413
 import lib.base3  # pylint: disable=C0413
 import lib.db_sqlite3  # pylint: disable=C0413
 import lib.human3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
@@ -28,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033101'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -164,7 +165,7 @@ def main():
     # interrupts: number of interrupts since boot
     # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
-    if lib.base3.version(psutil.__version__) >= lib.base3.version('4.1.0'):
+    if lib.version3.version(psutil.__version__) >= lib.version3.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
         extstats['ctx_switches'] = getattr(cpu_stats, 'ctx_switches', 0)
         extstats['interrupts'] = getattr(cpu_stats, 'interrupts', 0)
@@ -213,7 +214,7 @@ def main():
     # list top3 processes which consumed the most cpu time
     cnt = Counter()
     msg += '\nTop3 processes which consumed the most cpu time:\n'
-    if lib.base3.version(psutil.__version__) >= lib.base3.version('5.3.0'):
+    if lib.version3.version(psutil.__version__) >= lib.version3.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'cpu_times']):
                 cnt[p.info['name']] += sum(p.info['cpu_times'][:2])

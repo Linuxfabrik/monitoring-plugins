@@ -20,6 +20,7 @@ import lib.cache3  # pylint: disable=C0413
 import lib.db_sqlite3  # pylint: disable=C0413
 import lib.human3  # pylint: disable=C0413
 import lib.time3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
@@ -30,7 +31,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023033001'
+__version__ = '2023033101'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -117,8 +118,8 @@ def main():
     # To prevent "ValueError: not sure how to interpret line",
     # we check the version of psutil first.
     if all([
-            lib.base3.version(platform.release()) >= lib.base3.version('4.18.0'),
-            lib.base3.version(psutil.__version__) < lib.base3.version('5.7.0')
+            lib.version3.version(platform.release()) >= lib.version3.version('4.18.0'),
+            lib.version3.version(psutil.__version__) < lib.version3.version('5.7.0')
         ]):
         lib.base3.oao('Nothing checked. Running Kernel >= 4.18, this check needs the Python module '
             'psutil v5.7.0+ (installed {}; have a look at '

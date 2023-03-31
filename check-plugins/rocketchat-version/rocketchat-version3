@@ -19,11 +19,12 @@ import lib.cache3  # pylint: disable=C0413
 import lib.rocket3  # pylint: disable=C0413
 import lib.time3  # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033101'
 
 DESCRIPTION = """This plugin lets you track if server updates are available. Requires a user with
                  strong password and "view-statistics" permission (only)."""
@@ -124,7 +125,7 @@ def main():
     latest_version = lib.base3.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
 
     # over and out
-    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
+    if lib.version3.version(installed_version) >= lib.version3.version(latest_version):
         lib.base3.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
     lib.base3.oao('Rocket.Chat v{} installed, Rocket.Chat v{} available'.format(
         installed_version,
