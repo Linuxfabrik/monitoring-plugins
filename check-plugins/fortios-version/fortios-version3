@@ -17,17 +17,57 @@ import urllib.parse  # pylint: disable=C0413
 
 import lib.base3  # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
-from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+import lib.time3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
+from lib.globals3 import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033101'
 
-DESCRIPTION = 'Checks for a new version of a FortiOS appliance.'
+DESCRIPTION = 'Tracks if FortiOS is EOL.'
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT  = 3
+
+# from https://endoflife.date/api/fortios.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "7.2",
+    "eol": "2026-09-30",
+    "support": "2025-03-31",
+    "releaseDate": "2022-03-31",
+    "lts": False
+  },
+  {
+    "cycle": "7.0",
+    "eol": "2025-09-30",
+    "support": "2024-03-30",
+    "releaseDate": "2021-03-30",
+    "lts": False
+  },
+  {
+    "cycle": "6.4",
+    "eol": "2024-09-30",
+    "support": "2023-03-31",
+    "releaseDate": "2020-03-31",
+    "lts": False
+  },
+  {
+    "cycle": "6.2",
+    "eol": "2023-09-28",
+    "support": "2022-03-28",
+    "releaseDate": "2019-03-28",
+    "lts": False
+  },
+  {
+    "cycle": "6.0",
+    "eol": "2022-09-29",
+    "support": "2021-03-29",
+    "releaseDate": "2018-03-29",
+    "lts": False
+  }
+]
 
 
 def parse_args():
@@ -51,14 +91,15 @@ def parse_args():
 
     parser.add_argument(
         '-H', '--hostname',
-        help='FortiOS-based Appliance address, optional including port ("192.168.1.1:443").',
+        help='FortiOS-based Appliance address, optional including port ("192.0.2.1:443").',
         dest='HOSTNAME',
         required = True,
     )
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -101,26 +142,45 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    url = 'https://{}/api/v2/monitor/system/firmware/?access_token={}'.format(args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
-    result = lib.base3.coe(lib.url3.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
-
+    url = 'https://{}/api/v2/monitor/system/firmware/?access_token={}'.format(
+        args.HOSTNAME,
+        urllib.parse.quote(args.PASSWORD),
+    )
+    result = lib.base3.coe(lib.url3.fetch_json(
+        url,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
     installed_version = result['results']['current']['version'].replace('v', '')
-    if len(result['results']['available']) > 0:
-        latest_version = result['results']['available'][0]['version'].replace('v', '')
-    else:
-        # no available version found, assume 0.0.0
-        latest_version = '0.0.0'
+    if not installed_version:
+        lib.base3.oao('FortIOS not found.', STATE_UNKNOWN)
+    try:
+        installed_major, installed_minor, installed_patch = installed_version.split('.')
+    except:
+        installed_patch = '0'
+        installed_major, installed_minor = installed_version.split('.')
+
+    state, msg = lib.version3.check_eol(
+        ENDOFLIFE_DATE,
+        '{}.{}'.format(installed_major, installed_minor),
+    )
 
     # over and out
-    if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
-        lib.base3.oao('{} v{} is up to date'.format(result['results']['current']['name'], installed_version), STATE_OK)
-    else:
-        lib.base3.oao('{} v{} installed, {} v{} available'.format(
-            result['results']['current']['name'],
-            installed_version,
-            result['results']['current']['name'],
-            latest_version,
-        ), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base3.oao(
+        'FortIOS v{} ({})'.format(installed_version, msg),
+        state,
+        lib.base3.get_perfdata(
+            'fortios-version',
+            '{}.{}{}'.format(installed_major, installed_minor, installed_patch),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
 
 
 if __name__ == '__main__':

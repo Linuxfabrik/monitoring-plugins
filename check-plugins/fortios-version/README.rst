@@ -4,7 +4,7 @@ Check fortios-version
 Overview
 --------
 
-This plugin lets you track if an FortiOS update for a Forti Appliance like FortiGate is available, using the FortiOS REST API.
+This plugin lets you track if FortiOS is End-of-Life (EOL). To compare against the current/installed version of FortiOS, the check has to fetch the REST API of the FortiOS appliance.
 
 
 Fact Sheet
@@ -12,10 +12,10 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-
+    
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-version"
     "Check Interval Recommendation",        "Once a day"
-    "Can be called without parameters",     "No"
+    "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
 
 
@@ -27,13 +27,15 @@ Help
     usage: fortios-version [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
                            [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
 
-    optional arguments:
+    Tracks if FortiOS is EOL.
+
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -H HOSTNAME, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
-                            port ("192.168.1.1:443").
+                            port ("192.0.2.1:443").
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
@@ -46,26 +48,31 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fortios-version --hostname fortigate-cluster.linuxfabrik.io --password mypass
+    ./fortios-version --hostname fortigate-cluster.example.com --password mypass
 
 Output:
 
 .. code-block:: text
 
-    FortiOS v6.2.7 is up to date
+    FortiOS v6.0.1 (EOL 2022-09-29) [WARNING]
 
 
 States
 ------
 
 * If wanted, always returns OK,
-* else returns WARN if update is available.
+* else returns WARN if Software is EOL
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    fortios-version,                            Number,             Installed FortiOS version as float. "6.0.1" becomes "6.01".
 
 
 Credits, License
