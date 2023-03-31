@@ -29,6 +29,7 @@ import lib.human3  # pylint: disable=C0413
 import lib.net3  # pylint: disable=C0413
 import lib.shell3  # pylint: disable=C0413
 import lib.txt3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 try:
@@ -39,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023022401'
+__version__ = '2023033101'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -701,7 +702,10 @@ def find_software(): # pylint: disable=R0915
     output = run_cmd('uname -r')
     s['linux'] = {
         'display-name': 'Linux Kernel',
-        'tag-name': 'OS: {}, family "{}"'.format(get_os_info(), lib.distro3.get_distribution_facts()['os_family']),
+        'tag-name': 'OS: {}, family "{}"'.format(
+            lib.version3.get_os_info(),
+            lib.distro3.get_distribution_facts()['os_family']
+        ),
         'guessed': False,
         'installed': output is not False,
         'version': output if output is not False else None,
@@ -1770,25 +1774,6 @@ def get_nondefault_users():
     )
 
 
-def get_os_info():
-    release_files = [
-        '/etc/centos-release',
-        '/etc/oracle-release',
-        '/etc/fedora-release',
-        '/etc/redhat-release',
-        '/etc/system-release',
-    ]
-    for release_file in release_files:
-        if os.path.isfile(release_file):
-            return lib.base3.coe(lib.disk3.read_file(release_file)).strip()
-
-    success, result = lib.shell3.shell_exec('. /etc/os-release && echo $NAME $VERSION', shell=True)
-    if success:
-        stdout, stderr, retc = result
-        return stdout.strip()
-    return ''
-
-
 def get_python_modules():
     """Return a list for each of the installed and missing libraries used in total by all plugins
     (except built-in libraries, which are used, but always there and therefore commented).
@@ -1995,7 +1980,7 @@ def main():
     interfaces = get_interfaces()
     mounts = get_systemd_units('systemctl list-unit-files --type mount --state static --state generated --no-legend') # pylint: disable=C0301
     nondefault_users = get_nondefault_users()
-    os_info = get_os_info()
+    os_info = lib.version3.get_os_info()
     pm_installed, pm_missing = get_python_modules()
     ports = get_listening_ports()
     sys_dimensions = get_sys_dimensions()
