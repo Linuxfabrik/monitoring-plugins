@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023033101'
+__version__ = '2023033102'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -125,6 +125,16 @@ def find_software(): # pylint: disable=R0915
         'installed': output is not False,
         'version': run_regex(output, r'/(\d+\.\d+\.\d+)') if output is not False else None,
     }
+
+    if 'apache-httpd' not in s:
+        output = run_cmd('apache2 -v')
+        s['apache-httpd'] = {
+            'display-name': 'Apache httpd',
+            'tag-name': 'apache-httpd',
+            'guessed': False,
+            'installed': output is not False,
+            'version': run_regex(output, r'/(\d+\.\d+\.\d+)') if output is not False else None,
+        }
 
     output = run_cmd('tomcat version')
     s['apache-tomcat'] = {
