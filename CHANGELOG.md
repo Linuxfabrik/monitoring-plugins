@@ -28,6 +28,7 @@ Monitoring Plugins:
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
 * openstack-swift-stat
 * postfix-version
+* rhel-version
 
 
 ### Changed
@@ -41,6 +42,7 @@ Monitoring Plugins:
 * nextcloud-version3: Simplified, no longer cares about patch levels, no longer needs internet access
 * restic-snapshots3: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
 * Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
+* Unified most of the \*-version3 checks in behavior, also using data from https://endoflife.date (no need for internet access).
 
 
 ### Fixed
