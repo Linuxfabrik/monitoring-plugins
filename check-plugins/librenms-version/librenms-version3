@@ -16,10 +16,11 @@ import sys  # pylint: disable=C0413
 
 import lib.base3  # pylint: disable=C0413
 import lib.librenms3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033101'
 
 DESCRIPTION = '''This check displays LibreNMS instance information, using its API. This is not a
                  "is there a new version out there" g itself (if running the Git version).'''
@@ -122,15 +123,15 @@ def main():
     msg += 'Python {}, '.format(result['python_ver'])
     msg += 'RRD-Tool {}'.format(result['rrdtool_ver'])
 
-    perfdata += lib.base3.get_perfdata('librenms-version', lib.base3.version2float(result['local_ver']), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('librenms-version', lib.version3.version2float(result['local_ver']), None, None, None, 0, None)
     try:
-        perfdata += lib.base3.get_perfdata('db-version', lib.base3.version2float(result['database_ver']), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('db-version', lib.version3.version2float(result['database_ver']), None, None, None, 0, None)
     except:
-        perfdata += lib.base3.get_perfdata('db-version', lib.base3.version2float(result['mysql_ver']), None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('netsnmp-version', lib.base3.version2float(result['netsnmp_ver']), None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('php-version', lib.base3.version2float(result['php_ver']), None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('python-version', lib.base3.version2float(result['python_ver']), None, None, None, 0, None)
-    perfdata += lib.base3.get_perfdata('rrdtool-version', lib.base3.version2float(result['rrdtool_ver']), None, None, None, 0, None)
+        perfdata += lib.base3.get_perfdata('db-version', lib.version3.version2float(result['mysql_ver']), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('netsnmp-version', lib.version3.version2float(result['netsnmp_ver']), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('php-version', lib.version3.version2float(result['php_ver']), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('python-version', lib.version3.version2float(result['python_ver']), None, None, None, 0, None)
+    perfdata += lib.base3.get_perfdata('rrdtool-version', lib.version3.version2float(result['rrdtool_ver']), None, None, None, 0, None)
 
     # over and out
     lib.base3.oao(msg, state, perfdata)

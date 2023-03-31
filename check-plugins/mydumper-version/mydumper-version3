@@ -20,11 +20,12 @@ import lib.cache3  # pylint: disable=C0413
 import lib.shell3  # pylint: disable=C0413
 import lib.time3  # pylint: disable=C0413
 import lib.url3  # pylint: disable=C0413
+import lib.version3  # pylint: disable=C0413
 from lib.globals3 import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023033101'
 
 DESCRIPTION = 'This plugin lets you track if mydumper updates are available.'
 
@@ -107,7 +108,7 @@ def main():
         lib.base3.oao('mydumper/myloader not found', STATE_UNKNOWN)
 
     latest_version = lib.base3.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
-    perfdata = lib.base3.get_perfdata('mydumper-version', lib.base3.version2float(installed_version), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata = lib.base3.get_perfdata('mydumper-version', lib.version3.version2float(installed_version), None, None, None, 0, None) # pylint: disable=C0301
 
     if lib.base3.version(installed_version) >= lib.base3.version(latest_version):
         lib.base3.oao(
