@@ -212,14 +212,11 @@ We stopped maintaining the Python 2-based plugins on 2021-12-31.
 
 ## How to install the Plugins into Icinga Director
 
-### For a single Plugin
+### Single / selected Plugins
 
-For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, `check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json`). Import this
+**By defining them manually**
 
-* via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it
-* via `icingacli director basket restore < cpu-usage.json -v`
-
-Alternatively, you can manually configure the plugin as follows:
+If you want to define plugins manually, this is how to do it (example).
 
 Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
 
@@ -244,10 +241,17 @@ Tab "Fields":
 * Label "CPU Usage: Critical", Field name "cpu_usage_critical", Mandatory "n"
 * Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
 
-Now use this command within a Service Template, a Service Set and/or a Single Service.
+**or by importing Baskets**
+
+For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, `check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json`). Import this:
+
+* either via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it
+* or via `icingacli director basket restore < cpu-usage.json -v`
+
+Now use the new commands within Service Templates, Service Sets and/or a Single Services.
 
 
-### All Plugins / Linuxfabrik Icinga Director Configuration
+### All Plugins (Linuxfabrik Icinga Director Configuration)
 
 To use the Linuxfabrik Icinga Director configuration, including host templates, notification templates and predefined service sets, you need to *generate* a single Icinga Director basket file containing the baskets for each check plus [all-the-rest.json](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/icingaweb2-module-director/all-the-rest.json). Use [`tools/basket-join`](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/basket-join) to do this.
 
@@ -259,7 +263,7 @@ Create the Icinga Director Basket json file:
     ./tools/basket-join
     ```
 
-* If not, create a basket without uuids:
+* If you are not using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), create a basket without uuids:
 
     ```bash
     ./tools/basket-join
