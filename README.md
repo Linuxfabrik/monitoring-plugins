@@ -210,7 +210,7 @@ We stopped maintaining the Python 2-based plugins on 2021-12-31.
 
 
 
-## Icinga Director
+## How to install the Plugins into Icinga Director
 
 ### For a single Plugin
 
@@ -247,34 +247,36 @@ Tab "Fields":
 Now use this command within a Service Template, a Service Set and/or a Single Service.
 
 
-### Linuxfabrik's Director Configuration
+### All Plugins / Linuxfabrik Icinga Director Configuration
 
-To use our Icinga Director Configuration including Host Templates, Notifcation Templates and Service Sets, you can generate a single Basket file.
+To use the Linuxfabrik Icinga Director configuration, including host templates, notification templates and predefined service sets, you need to *generate* a single Icinga Director basket file containing the baskets for each check plus [all-the-rest.json](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/icingaweb2-module-director/all-the-rest.json). Use [`tools/basket-join`](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/basket-join) to do this.
 
-If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), you can use the following command:
+Create the Icinga Director Basket json file:
 
-```bash
-./tools/basket-join
-```
+* If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), which introduced uuids, you can use the following command:
 
-If not, generate a Basket without `uuids`:
+    ```bash
+    ./tools/basket-join
+    ```
 
-```bash
-./tools/basket-join
-./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
-```
+* If not, create a basket without uuids:
 
-Import the resulting `icingaweb2-module-director-basket.json`
+    ```bash
+    ./tools/basket-join
+    ./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
+    ```
 
-* via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it
-* via `icingacli director basket restore < icingaweb2-module-director-basket.json -v`
+Import the resulting `icingaweb2-module-director-basket.json`:
 
-If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket](https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
+* either via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it
+* or via `icingacli director basket restore < icingaweb2-module-director-basket.json -v`.
 
-* PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service)
-* MariaDB/MySQL: increase `max_allowed_packet`
+If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket] (https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
 
-If you did not name your master zone `master` during the initial `icinga2 node wizard`, then search and replace `"zone": "master"` with `"zone": "your-master-zone-name"` in the `icingaweb2-module-director-basket.json`.
+* PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service).
+* MariaDB/MySQL: increase `max_allowed_packet`.
+
+If you did not name your master zone `master` during the initial `icinga2 node wizard`, find and replace `"zone": "master"` with `"zone": "your-master-zone-name"` in the `icingaweb2-module-director-basket.json` file.
 
 
 ## Grafana
