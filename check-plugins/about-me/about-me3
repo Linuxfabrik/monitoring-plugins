@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023033102'
+__version__ = '2023040201'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -62,8 +62,9 @@ def parse_args():
         '--public-ip-url',
         help='If you want this check to return the public IP address, specify one ore more '
              'comma-separated URLs to "what is my ip" online services. '
-             'For example (all located in the United States): '
-             '"https://ipv4.icanhazip.com,https://ipecho.net/plain,https://ipinfo.io/ip". '
+             'For example: '
+             '"https://ipv4.icanhazip.com,https://ipecho.net/plain,https://ipinfo.io/ip" '
+             '(all examples are located in the United States). '
              'Default: %(default)s',
         dest='PUBLIC_IP_URL',
         default=DEFAULT_PUBLIC_IP_URL,
@@ -115,6 +116,15 @@ def find_software(): # pylint: disable=R0915
         'guessed': False,
         'installed': output is not False,
         'version': run_regex(output, r'(.*)') if output is not False else None,
+    }
+
+    output = run_cmd('command -v cockpit-bridge')
+    s['cockpit'] = {
+        'display-name': 'Cockpit',
+        'tag-name': None,
+        'guessed': False,
+        'installed': output is not False,
+        'version': None,
     }
 
     output = run_cmd('httpd -v')
@@ -1231,6 +1241,15 @@ def find_software(): # pylint: disable=R0915
         'version': None,
     }
 
+    output = run_cmd('rasdaemon --version')
+    s['rasdaemon'] = {
+        'display-name': 'rasdaemon',
+        'tag-name': None,
+        'guessed': False,
+        'installed': output is not False,
+        'version': run_regex(output, r'n (.*)') if output is not False else None,
+    }
+
     output = run_cmd('redis-server --version')
     s['redis-server'] = {
         'display-name': 'Redis Server',
@@ -1400,6 +1419,15 @@ def find_software(): # pylint: disable=R0915
         'version': None,
     }
 
+    output = run_cmd('stap --version')
+    s['stap'] = {
+        'display-name': 'SystemTap',
+        'tag-name': None,
+        'guessed': False,
+        'installed': output is not False,
+        'version': run_regex(output, r'n (.*)\)') if output is not False else None,
+    }
+
     s['tarifpool'] = {
         'display-name': 'Tarifpool',
         'tag-name': 'tarifppol-v2',
@@ -1524,6 +1552,12 @@ def find_tools(): # pylint: disable=R0915
         'installed': output is not False,
     }
 
+    output = run_cmd('command -v dot')
+    s['dot'] = {
+        'display-name': 'dot (graphviz)',
+        'installed': output is not False,
+    }
+
     output = run_cmd('command -v hdparm')
     s['hdparm'] = {
         'display-name': 'hdparm',
@@ -1536,9 +1570,27 @@ def find_tools(): # pylint: disable=R0915
         'installed': output is not False,
     }
 
+    output = run_cmd('command -v iptraf-ng')
+    s['iptraf-ng'] = {
+        'display-name': 'iptraf-ng',
+        'installed': output is not False,
+    }
+
     output = run_cmd('command -v lsof')
     s['lsof'] = {
         'display-name': 'lsof',
+        'installed': output is not False,
+    }
+
+    output = run_cmd('command -v ltrace')
+    s['ltrace'] = {
+        'display-name': 'ltrace',
+        'installed': output is not False,
+    }
+
+    output = run_cmd('command -v memtest-setup')
+    s['memtest86+'] = {
+        'display-name': 'memtest86+',
         'installed': output is not False,
     }
 
@@ -1563,6 +1615,18 @@ def find_tools(): # pylint: disable=R0915
     output = run_cmd('command -v rsync')
     s['rsync'] = {
         'display-name': 'rsync',
+        'installed': output is not False,
+    }
+
+    output = run_cmd('command -v staprun')
+    s['staprun'] = {
+        'display-name': 'staprun',
+        'installed': output is not False,
+    }
+
+    output = run_cmd('command -v strace')
+    s['strace'] = {
+        'display-name': 'strace',
         'installed': output is not False,
     }
 
@@ -1605,6 +1669,12 @@ def find_tools(): # pylint: disable=R0915
     output = run_cmd('command -v whois')
     s['whois'] = {
         'display-name': 'whois',
+        'installed': output is not False,
+    }
+
+    output = run_cmd('command -v valgrind')
+    s['valgrind'] = {
+        'display-name': 'valgrind',
         'installed': output is not False,
     }
 
