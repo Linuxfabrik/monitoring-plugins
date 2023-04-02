@@ -109,13 +109,13 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 | Value             | Symbol   | Origin       | Type              | Description |
 | ----------------- | -------- | ------------ | ----------------- | --------------------------------- |
 | 1000\^1           | K        |              | Number            | Thousand |
-| 1000\^2           | M        | SI Symbol    | Number            | Million ^1^, Million ^2^ |
-| 1000\^3           | G        | SI Symbol    | Number            | Milliard ^1^, Billion ^2^ |
-| 1000\^4           | T        | SI Symbol    | Number            | Billion ^1^, Trillion ^2^ |
-| 1000\^5           | P        | SI Symbol    | Number            | Billiard ^1^, Quadrillion ^2^ |
-| 1000\^6           | E        | SI Symbol    | Number            | Trillion ^1^, Quintillion ^2^ |
-| 1000\^7           | Z        | SI Symbol    | Number            | Trilliard ^1^, Sextillion ^2^ |
-| 1000\^8           | Y        | SI Symbol    | Number            | Quadrillion ^1^, Septillion ^2^ |
+| 1000\^2           | M        | SI Symbol    | Number            | Million (1), Million (2) |
+| 1000\^3           | G        | SI Symbol    | Number            | Milliard (1), Billion (2) |
+| 1000\^4           | T        | SI Symbol    | Number            | Billion (1), Trillion (2) |
+| 1000\^5           | P        | SI Symbol    | Number            | Billiard (1), Quadrillion (2) |
+| 1000\^6           | E        | SI Symbol    | Number            | Trillion (1), Quintillion (2) |
+| 1000\^7           | Z        | SI Symbol    | Number            | Trilliard (1), Sextillion (2) |
+| 1000\^8           | Y        | SI Symbol    | Number            | Quadrillion (1), Septillion (2) |
 | 1024\^0           | B        |              | Bytes             | Bytes |
 | 1024\^1           | KiB      | IEC unit     | Bytes             | Kibibytes |
 | 1024\^2           | MiB      | IEC unit     | Bytes             | Mebibytes |
@@ -153,8 +153,8 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 | 60\*60\*24\*30    | M        |              | Time              | Months |
 | 60\*60\*24\*365   | Y        |              | Time              | Years |
 
-* 1: Traditional European (Peletier, long scale)
-* 2: US, Canada and modern British (short scale)
+* (1): Traditional European (Peletier, long scale)
+* (2): US, Canada and modern British (short scale)
 
 
 
