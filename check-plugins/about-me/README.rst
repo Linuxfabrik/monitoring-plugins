@@ -52,10 +52,10 @@ Help
       --public-ip-url PUBLIC_IP_URL
                             If you want this check to return the public IP
                             address, specify one ore more comma-separated URLs to
-                            "what is my ip" online services. For example (all
-                            located in the United States): "https://ipv4.icanhazip
-                            .com,https://ipecho.net/plain,https://ipinfo.io/ip".
-                            Default: None
+                            "what is my ip" online services. For example: "https:/
+                            /ipv4.icanhazip.com,https://ipecho.net/plain,https://i
+                            pinfo.io/ip" (all examples are located in the United
+                            States). Default: None
       --tags                Guess a list of tags to apply in Icinga Director
                             (Linuxfabrik Basket Config).
 
