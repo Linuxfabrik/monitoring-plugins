@@ -117,38 +117,28 @@ Output:
 
 .. code-block:: text
 
-    192.168.122.97: 256/400 workers busy (64.0%; 0 "G"), 144 idle, 0 free; 78.7K accesses, 8.4GiB traffic, 2537.5 req/s, 0.04s/req, 278.6MiB/s, 112.4KiB/req in the last 31s; Up 2m 3s
+    192.168.122.97: 2/400 workers busy (0.5%; 0 "G"), 98 idle, 300 free; 54.0 accesses, 122.0KiB traffic; Up 1W 1D
 
     Key                            ! Value                                               
-    ------------------------------ ! --------------------------------------------------- 
-    Current Time                   ! Friday, 09-Jul-2021 16:11:17 CEST                   
-    Restart Time                   ! Friday, 09-Jul-2021 16:09:14 CEST                   
-    Interval                       ! 31s                                                 
-    Uptime                         ! 2m 3s                                               
-    Connections                    ! 314                                                 
-      Async Writing                ! 0                                                   
-      Async KeepAlive              ! 0                                                   
-      Async Closing                ! 140                                                 
-    Requests per Second            ! 2537.5                                              
-    Bytes per Second               ! 278.6MiB                                            
-    Bytes per Request              ! 112.4KiB                                            
-    Seconds per Request            ! 0.04                                                
-    Requests                       ! 78.7K                                               
-    Bytes                          ! 8.4GiB                                              
-    Request Duration               ! 58m 39s                                             
-    Load1                          ! 2.32                                                
-    Load5                          ! 0.56                                                
-    Load15                         ! 0.19                                                
-    Processes                      ! 16                                                  
-      Stopping                     ! 0                                                   
+    -------------------------------+-----------------------------------------------------
+    Current Time                   ! Wednesday, 28-Jul-2021 14:40:48 CEST                
+    Restart Time                   ! Monday, 19-Jul-2021 20:17:11 CEST                   
+    Check Interval                 ! 3m 52s                                              
+    Uptime                         ! 1W 1D                                               
+    Requests                       ! 54.0                                                
+    Bytes                          ! 122.0KiB                                            
+    Request Duration               ! 10s 28ms                                            
+    Load1                          ! 0.08                                                
+    Load5                          ! 0.06                                                
+    Load15                         ! 0.01                                                
     Workers Total                  ! 400                                                 
-      Busy                         ! 256                                                 
-      Idle                         ! 144                                                 
-      Usage (%)                    ! 64.0                                                
-    Parent Server ConfigGeneration ! 1                                                   
-    Parent Server MPMGeneration    ! 0                                                   
+      Busy                         ! 2                                                   
+      Idle                         ! 98                                                  
+      Usage (%)                    ! 0.5                                                 
+    Parent Server ConfigGeneration ! 19                                                  
+    Parent Server MPMGeneration    ! 18                                                  
     Server Name                    ! 192.168.122.97                                      
-    Server MPM                     ! event                                               
+    Server MPM                     ! worker                                              
     Server Version                 ! Apache/2.4.48 (Fedora) OpenSSL/1.1.1k mod_qos/11.66 
     Server Built                   ! Jun  2 2021 00:00:00
 
@@ -169,15 +159,12 @@ Perfdata / Metrics
     Name,                                       Type,               Description                                           
     Accesses,                                   Number,             "A total number of accesses and byte count served"
     BusyWorkers,                                Number,             workers_closing + workers_dns + workers_idle + workers_keepalive + workers_logging + workers_reading + workers_replying + workers_starting
-    Bytes,                                      Bytes,              
-    BytesPerReq,                                Bytes,              "Average number of bytes per request"
-    BytesPerSec,                                Bytes,              "Average number of bytes served per second"
+    Bytes,                                      Number,             Bytes sent
     ConnsAsyncClosing,                          Number,             
     ConnsAsyncKeepAlive,                        Number,             
     ConnsAsyncWriting,                          Number,             
     ConnsTotal,                                 Number,             
     CPULoad,                                    Number,             
-    DurationPerReq,                             Number,             
     IdleWorkers,                                Number,             workers_finishing + workers_waiting
     Load1,                                      Number,             
     Load15,                                     Number,             
@@ -185,7 +172,6 @@ Perfdata / Metrics
     ParentServerConfigGeneration,               Number,             
     ParentServerMPMGeneration,                  Number,             
     Processes,                                  Number,             
-    ReqPerSec,                                  Number,             "Average number of requests per second"
     Stopping,                                   Number,             
     Total Duration,                             Seconds,            
     TotalWorkers,                               Number,             

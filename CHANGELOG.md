@@ -36,6 +36,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* apache-httpd-status: Remove `ReqPerSec`, `BytesPerSec`, `BytesPerReq`, `DurationPerReq` perfdata as they are wrong
 * disk-io3: `--ignore` now ignores all disks "starting with" the given parameter value
 * fortios-version3: Simplified, returns version information in perfdata
 * journald-query3: Lower default for `--since` from 24h to 8h
