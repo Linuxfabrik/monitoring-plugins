@@ -451,37 +451,6 @@ If the plugin requires ``sudo``-permissions to run, please add the plugin to the
     The newline at the end is required!
 
 
-Compiling for Windows
----------------------
-
-To allow running the check plugins under Windows without installing Python, compile the check plugins using `nuitka <https://nuitka.net/>`_. For this, you need a Windows Machine with Python 3 and Nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for its simplicity).
-
-Use the `Linuxfabrik lfops monitoring-plugins role <https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins>`_:
-
-.. code-block:: bash
-
-   ansible-playbook --inventory inventory linuxfabrik.lfops.monitoring_plugins --tags monitoring_plugins,monitoring_plugins:nuitka_compile --extra-vars 'monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' --limit windows-machine
-
-To let the Ansible role know which check-plugin to compile for Windows, create an empty `.windows` file in the check-plugin folder.
-
-Then copy ``C:\\nuitka-compile-temp`` to a Linux Machine and zip it:
-
-.. code-block:: bash
-
-    cd /path/to/nuitka-compile-temp
-    mkdir output
-    for dir in */; do
-        echo $dir
-        file=$(basename $dir | sed 's/.dist//')
-        cp -rv $dir* output
-    done
-
-    cd output
-    zip -r ../monitoring-plugins.zip .
-
-Rename the ``monitoring-plugins.zip`` to the correct version.
-
-
 Grafana Dashboards
 ------------------
 

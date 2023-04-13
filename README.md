@@ -29,7 +29,16 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 
 ## Installation
 
-Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
+* Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
+* For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.rst).
+
+
+## Reporting Issues
+
+For now, there are two ways:
+
+1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
+2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
 
 
 ## Icons
@@ -157,7 +166,6 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 * (2): US, Canada and modern British (short scale)
 
 
-
 ## Threshold and Ranges
 
 If a check supports ranges, they can be used as follows:
@@ -183,7 +191,6 @@ Examples:
 | @         | not in (0..inf)     | in (0..inf) |
 
 
-
 ## Command, Parameters and Arguments
 
 Shell commands like `./file-age --filename='/tmp/*'` have two basic parts:
@@ -199,7 +206,6 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 * Short parameters: `./file-age -w-60:3600` (so simply not putting any space nor escaping it in any special way).
 
 
-
 ## Python 3 vs Python 2
 
 All check plugins are available for Python 3.6+, and most of them also for Python 2.7. The Python 2 check plugins have the suffix "2" (for example `cpu-usage2`), the Python 3 plugins have the suffix "3" (for example `cpu-usage3`).
@@ -209,109 +215,22 @@ The Python 3-based check plugins use `#!/usr/bin/env python3`, while the Python 
 We stopped maintaining the Python 2-based plugins on 2021-12-31.
 
 
-
-## How to install the Plugins into Icinga Director
-
-### Single / selected Plugins
-
-**By defining them manually**
-
-If you want to define plugins manually, this is how to do it (example).
-
-Create a command for "cpu-usage" in Icinga Director > Commands > Commands:
-
-* Click "+Add", choose Command type: `Plugin Check Command`
-* Command name: `cmd-check-cpu-usage`
-* Command: `/usr/lib64/nagios/plugins/cpu-usage`
-* Timeout: set it according to hints in the check's README (usually `10` seconds)
-* Click the "Add" button
-
-Tab "Arguments":
-
-* Run `/usr/lib64/nagios/plugins/cpu-usage --help` to get a list of all arguments.
-* Create those you want to be customizable:
-    * Argument name `--always-ok`, Value type: String, Condition (set_if): `$cpu_usage_always_ok$`
-    * Argument name `--count`, Value type: String, Value: `$cpu_usage_count$`
-    * Argument name `--critical`, Value type: String, Value: `$cpu_usage_critical$ `
-    * Argument name `--warning`, Value type: String, Value: `$cpu_usage_warning$ `
-
-Tab "Fields":
-
-* Label "CPU Usage: Count", Field name "cpu_usage_count", Mandatory "n"
-* Label "CPU Usage: Critical", Field name "cpu_usage_critical", Mandatory "n"
-* Label "CPU Usage: Warning", Field name "cpu_usage_warning", Mandatory "n"
-
-**or by importing Baskets**
-
-For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, `check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json`). Import this:
-
-* either via the WebGUI using Icinga Director > Configuration Baskets > Upload, select the latest entry in the Snapshots tab and restore it
-* or via `icingacli director basket restore < cpu-usage.json -v`
-
-Now use the new commands within Service Templates, Service Sets and/or a Single Services.
-
-
-### All Plugins (Linuxfabrik Icinga Director Configuration)
-
-To use the Linuxfabrik Icinga Director configuration, including host templates, notification templates and predefined service sets, you need to *generate* a single Icinga Director basket file containing the baskets for each check plus [all-the-rest.json](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/icingaweb2-module-director/all-the-rest.json). Use [`tools/basket-join`](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/basket-join) to do this.
-
-Create the Icinga Director Basket json file:
-
-* If you are using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), which introduced uuids, you can use the following command:
-
-    ```bash
-    ./tools/basket-join
-    ```
-
-* If you are not using our [Fork of the Icinga Director](https://github.com/Linuxfabrik/icingaweb2-module-director), create a basket without uuids:
-
-    ```bash
-    ./tools/basket-join
-    ./tools/remove-uuids --input-file icingaweb2-module-director-basket.json --output-file icingaweb2-module-director-basket-no-uuids.json
-    ```
-
-Import the resulting `icingaweb2-module-director-basket.json`:
-
-* either via the WebGUI using *Icinga Director > Configuration Baskets > Upload*, select the latest entry in the Snapshots tab and restore it
-* or via `icingacli director basket restore < icingaweb2-module-director-basket.json -v`.
-
-If you get the error message `File 'icingaweb2-module-director-basket.json' exeeds the defined ini size.`, adjust your PHP and/or MariaDB/MySQL settings (as described in [Cant Upload Director Basket] (https://github.com/Icinga/icingaweb2-module-director/issues/2458)): 
-
-* PHP: increase `upload_max_filesize` and `post_max_size` (if you use PHP-FPM, don't forget to restart this service).
-* MariaDB/MySQL: increase `max_allowed_packet`.
-
-If you did not name your master zone `master` during the initial `icinga2 node wizard`, find and replace `"zone": "master"` with `"zone": "your-master-zone-name"` in the `icingaweb2-module-director-basket.json` file.
-
-
 ## Grafana
 
-There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
+See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst)
 
-When importing via the WebGUI simply import the `plugin-name.grafana-external.json` file.
 
-If you want to use provisioning, take a look at [Grafana Provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/). Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
+## Contributing
 
-If you want to create a custom dashboards that contains a different selection of panels, you can do so using the `tools/grafana-tool` utility.
+See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
 
-```bash
-# interactive usage
-./tools/grafana-tool assets/grafana/all-panels-external.json
-./tools/grafana-tool assets/grafana/all-panels-provisioning.json
 
-# for more options, see
-./tools/grafana-tool --help
-```
+## Compiling
+
+See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
 
 
 ## Tips & Tricks
 
-How can I remove the performance data after the `|`?
-    Bash: `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
-
-
-## Reporting Issues
-
-For now, there are two ways:
-
-1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
-2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
+* Q: How can I remove the performance data after the `|`?  
+A: In Bash: `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`

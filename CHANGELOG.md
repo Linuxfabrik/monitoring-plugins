@@ -23,6 +23,10 @@ Monitoring Plugins:
 
 ### Added
 
+Features:
+
+* Question/Documentation: Are the tools to compile the download binary part of this repo? (fix [#660](https://github.com/Linuxfabrik/monitoring-plugins/issues/660))
+
 Monitoring Plugins:
 
 * apache-httpd-version

@@ -1,25 +1,50 @@
 How to install the Linuxfabrik Monitoring Plugins Collection
 ============================================================
 
+What to choose when
+-------------------
+
 In general, you have two options:
 
 * Using the compiled plugins (available as OS packages, EXE files or simple archives).
 * Using the plugins from the source code (requires Python runtime).
 
+.. csv-table::
+    :header-rows: 1
+    :widths: 10, 60, 30
+
+    OS, Motivation, Install
+    Linux,  "Want to use my OS's package manager and have distro that uses rpm/deb package formats","Package from `Linuxfabrik's Repo Server <https://repo.linuxfabrik.ch>`_"
+    Linux,  "Don't want to use my OS's package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.6+",Binaries from .tar or .zip file on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_
+    Linux,  "Want to use the latest development version and Python 3.6+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
+    Windows,"Want to use EXE files",Binaries in ``/windows`` on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/windows/>`_
+    Windows,"Want to use the latest development version and Python 3.6+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
+
+FAQ:
+
+* | Q: What is your recommendation?
+  | A: Use the OS's package manager to install the packages from the Linuxfabrik's Repo Server.
+
+* | Q: Do the OS packages have external dependencies?
+  | A: No.
+
+* | Q: Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?
+  | A: Of course. Just don't forget to install the libs either.
+
 
 Linux
 -----
 
-Using your OS Package Manager (recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installing using OS Package Manager (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We provide repositories for RPM and DEB packages. Have a look at `repo.linuxfabrik.ch <https://repo.linuxfabrik.ch/monitoring-plugins>`_ for the installation instructions for your distro.
 
 We currently just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
 
 
-Using Binaries from an Archive
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Installing using Binaries from an Archive
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice (normally ``/usr/lib64/nagios/plugins``) by using one of these files:
 
@@ -38,24 +63,14 @@ On Linux, some check plugins require ``sudo``-permissions to run. To do this, we
 SELinux
 ~~~~~~~
 
-If you are running the plugins on an instance with SELinux enabled, you may need one of our `Linuxfabrik Monitoring Plugins SELinux Policy Rulesets <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/selinux/>`_ to grant some plugins access to certain resources.
-
-On any client, activate the ruleset like so:
+To make SELinux happy, after installing from source, run:
 
 .. code-block:: bash
 
-    checkmodule --mls -m --output linuxfabrik-monitoring-plugins.mod linuxfabrik-monitoring-plugins.te
-    semodule_package --outfile linuxfabrik-monitoring-plugins.pp --module linuxfabrik-monitoring-plugins.mod
-    semodule --install linuxfabrik-monitoring-plugins.pp
+    restorecon -Fvr /usr/lib64/nagios
+    setsebool -P nagios_run_sudo on
 
-On an Icinga server that has the ``icinga2-selinux`` package installed, use this policy instead:
-
-.. code-block:: bash
-
-    checkmodule --mls -m --output linuxfabrik-monitoring-plugins-icinga.mod linuxfabrik-monitoring-plugins-icinga.te
-    semodule_package --outfile linuxfabrik-monitoring-plugins-icinga.pp --module linuxfabrik-monitoring-plugins-icinga.mod
-    semodule --install linuxfabrik-monitoring-plugins-icinga.pp
-
+If installing using the rpm-packages, this is automatically done for you.
 
 
 Windows
@@ -87,23 +102,6 @@ Python: Run from Source Code
 You may use this if nothing from the above fits your needs.
 
 If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3 on the remote host. The plugins work with at least Python 3.6, but some of them (currently ``disk-io``) will only run if Python 3.8+ is available.
-
-
-Virtual Environment (optional)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If you want to use a virtual environment for Python, you could create one in the same directory as the check-plugins.
-
-.. code-block:: bash
-
-    cd /usr/lib64/nagios/plugins
-    python3 -m venv --system-site-packages monitoring-plugins-venv3
-
-If you prefer to place the virtual environment somewhere else, you can point the ``MONITORING_PLUGINS_VENV3`` environment variable to your virtual environment. This takes precedence over the virtual environment above.
-
-.. warning::
-
-    Make sure the ``bin/activate_this.py`` file is owned by root and not writeable by any other user, as it is executed by the check plugins (where some are executed using ``sudo``).
 
 
 Installation
