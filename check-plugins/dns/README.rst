@@ -78,7 +78,12 @@ States
 Perfdata / Metrics
 ------------------
 
-* time: DNS lookup time
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+
+    Name,                                       Type,               Description
+    time,                                       Milliseconds,       DNS lookup time
 
 
 Credits, License
