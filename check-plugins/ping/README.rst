@@ -76,17 +76,47 @@ States
 Perfdata / Metrics
 ------------------
 
-* transmitted packets
-* received packets
-* duplicate packets
-* checksum_corrupted packets
-* errors
-* packet_loss (%)
-* time (ms)
-* rtt_min (ms)
-* rtt_avg (ms)
-* rtt_max (ms)
-* rtt_mdev (ms)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    checksum_corrupted,                         Number,             Packets with corrupted checksum
+    duplicates,                                 Number,             "Duplicate packets. If duplicate packets are received, they are not included in the packet loss calculation, although the round trip time of these packets is used in calculating the minimum/average/maximum/mdev round-trip time numbers."
+    errors,                                     Number,             Packets with errors
+    packet_loss,                                Percentage,         Packet loss in %
+    received,                                   Number,             Received packets
+    rtt_avg,                                    Milliseconds,       Average round trip time
+    rtt_max,                                    Milliseconds,       Maximum round trip time
+    rtt_mdev,                                   Milliseconds,       "Population standard deviation (mdev), essentially an average of how far each ping RTT is from the mean RTT. The higher mdev is, the more variable the RTT is (over time)."
+    rtt_min,                                    Milliseconds,       Minimum round trip time
+    time,                                       Milliseconds,       Time
+    transmitted,                                Number,             Transmitted packets
+
+
+Troubleshooting
+---------------
+
+From ``man ping`` and related to this check:
+
+.. code-block:: text
+
+    When using ping for fault isolation, it should first be run on the
+    local host, to verify that the local network interface is up and
+    running. Then, hosts and gateways further and further away should be
+    “pinged”. Round-trip times and packet loss statistics are computed. If
+    duplicate packets are received, they are not included in the packet
+    loss calculation, although the round trip time of these packets is used
+    in calculating the minimum/average/maximum/mdev round-trip time
+    numbers.
+
+    Population standard deviation (mdev), essentially an average of how far
+    each ping RTT is from the mean RTT. The higher mdev is, the more
+    variable the RTT is (over time). With a high RTT variability, you will
+    have speed issues with bulk transfers (they will take longer than is
+    strictly speaking necessary, as the variability will eventually cause
+    the sender to wait for ACKs) and you will have middling to poor VoIP
+    quality.
 
 
 Credits, License
