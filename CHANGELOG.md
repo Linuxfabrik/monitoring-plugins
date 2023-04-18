@@ -35,6 +35,11 @@ Monitoring Plugins:
 * postfix-version
 * rhel-version
 
+Grafana:
+
+* Add new panels, update existing ones
+* Written in Jsonnet, to be maintained by [Grizzly](https://github.com/grafana/grizzly)
+
 
 ### Changed
 
