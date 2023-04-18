@@ -1,0 +1,358 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: general
+  name: ntp-chronyd
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Icinga
+    - Grizzly
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: NTP - chronyd
+  uid: linuxfabrik-monitoring-plugins-ntp-chronyd
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: cmd-check-ntp-chronyd
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "cmd-check-ntp-chronyd" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: NTP - chronyd - Stratum
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 16
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: stratum
+      refId: stratum
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: stratum
+
+
+  - title: NTP - chronyd - Times
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 3
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: last_offset
+      refId: last_offset
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: last_offset
+
+    - alias: rms_offset
+      refId: rms_offset
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: rms_offset
+
+    - alias: root_delay
+      refId: root_delay
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: root_delay
+
+    - alias: root_dispersion
+      refId: root_dispersion
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: root_dispersion
+
+
+  - title: NTP - chronyd - PPM
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        unit: ppm
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: frequency
+      refId: frequency
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: frequency
+
+    - alias: residual_freq
+      refId: residual_freq
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: residual_freq
+
+    - alias: skew
+      refId: skew
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: NTP - chronyd
+      - condition: AND
+        key: metric
+        operator: '='
+        value: skew
