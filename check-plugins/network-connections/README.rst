@@ -139,16 +139,28 @@ States
 Perfdata / Metrics
 ------------------
 
-Depends on your connections. As an example:
+Depends on your connections. ``<prefix>`` represents the status of a ``tcp`` or ``tcp6`` connection. For UDP and UNIX sockets this is always going to be ``udp_NONE`` / ``udp6_NONE``.
 
-* tcp_CLOSE_WAIT
-* tcp_ESTABLISHED
-* tcp_LISTEN
-* tcp_TIME_WAIT
-* tcp6_ESTABLISHED
-* tcp6_LISTEN
-* udp_NONE
-* udp6_NONE
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    <prefix>_BOUND,                             Number,             Solaris only
+    <prefix>_CLOSE,                             Number,
+    <prefix>_CLOSE_WAIT,                        Number,
+    <prefix>_CLOSING,                           Number,
+    <prefix>_DELETE_TCB,                        Number,             Windows only
+    <prefix>_ESTABLISHED,                       Number,
+    <prefix>_FIN_WAIT1,                         Number,
+    <prefix>_FIN_WAIT2,                         Number,
+    <prefix>_IDLE,                              Number,             Solaris only
+    <prefix>_LAST_ACK,                          Number,
+    <prefix>_LISTEN,                            Number,
+    <prefix>_NONE,                              Number,
+    <prefix>_SYN_RECV,                          Number,
+    <prefix>_SYN_SENT,                          Number,
+    <prefix>_TIME_WAIT,                         Number,
 
 
 Credits, License
