@@ -1,0 +1,627 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: general
+  name: php-status
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Icinga
+    - Grizzly
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: PHP Status
+  uid: linuxfabrik-monitoring-plugins-php-status
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: cmd-check-php-status
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "cmd-check-php-status" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: PHP Status - OPcache - Percentages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 100
+        min: 0
+        unit: percent
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - php-opcache-interned_strings_usage-percentage
+            - php-opcache-memory_usage-percentage
+            - php-opcache-opcache_statistics-num_cached_keys-percentage
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+      - matcher:
+          id: byName
+          options: php-opcache-interned_strings_usage-percentage
+        properties:
+        - id: displayName
+          value: interned_strings_usage
+      - matcher:
+          id: byName
+          options: php-opcache-memory_usage-current_wasted-percentage
+        properties:
+        - id: displayName
+          value: memory_usage-current_wasted
+      - matcher:
+          id: byName
+          options: php-opcache-memory_usage-percentage
+        properties:
+        - id: displayName
+          value: memory_usage
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-num_cached_keys-percentage
+        properties:
+        - id: displayName
+          value: num_cached_keys
+
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: php-opcache-interned_strings_usage-percentage
+      refId: php-opcache-interned_strings_usage-percentage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-interned_strings_usage-percentage
+
+    - alias: php-opcache-memory_usage-current_wasted-percentage
+      refId: php-opcache-memory_usage-current_wasted-percentage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-memory_usage-current_wasted-percentage
+
+    - alias: php-opcache-memory_usage-percentage
+      refId: php-opcache-memory_usage-percentage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-memory_usage-percentage
+
+    - alias: php-opcache-opcache_statistics-num_cached_keys-percentage
+      refId: php-opcache-opcache_statistics-num_cached_keys-percentage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-num_cached_keys-percentage
+
+
+
+  - title: PHP Status - OPcache - Hits
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-hits
+        properties:
+        - id: displayName
+          value: hits
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-misses
+        properties:
+        - id: displayName
+          value: misses
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: php-opcache-opcache_statistics-hits
+      refId: php-opcache-opcache_statistics-hits
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-hits
+
+    - alias: php-opcache-opcache_statistics-misses
+      refId: php-opcache-opcache_statistics-misses
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-misses
+
+
+  - title: PHP Status - OPcache - Restarts
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-hash_restarts
+        properties:
+        - id: displayName
+          value: hash_restarts
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-manual_restarts
+        properties:
+        - id: displayName
+          value: manual_restarts
+      - matcher:
+          id: byName
+          options: php-opcache-opcache_statistics-oom_restarts
+        properties:
+        - id: displayName
+          value: oom_restarts
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: php-opcache-opcache_statistics-hash_restarts
+      refId: php-opcache-opcache_statistics-hash_restarts
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-hash_restarts
+
+    - alias: php-opcache-opcache_statistics-manual_restarts
+      refId: php-opcache-opcache_statistics-manual_restarts
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-manual_restarts
+
+    - alias: php-opcache-opcache_statistics-oom_restarts
+      refId: php-opcache-opcache_statistics-oom_restarts
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-opcache-opcache_statistics-oom_restarts
+
+
+  - title: PHP Status - Errors
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 3
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: php-config-errors
+        properties:
+        - id: mappings
+          value:
+          - options:
+              '0':
+                text: OK
+              '1':
+                text: WARN
+              '2':
+                text: CRIT
+              '3':
+                text: UNKN
+            type: value
+      - matcher:
+          id: byName
+          options: php-module-errors
+        properties:
+        - id: mappings
+          value:
+          - options:
+              '0':
+                text: OK
+              '1':
+                text: WARN
+              '2':
+                text: CRIT
+              '3':
+                text: UNKN
+            type: value
+      - matcher:
+          id: byName
+          options: php-startup-errors
+        properties:
+        - id: mappings
+          value:
+          - options:
+              '0':
+                text: OK
+              '1':
+                text: WARN
+              '2':
+                text: CRIT
+              '3':
+                text: UNKN
+            type: value
+    options:
+      legend:
+        calcs:
+        - min
+        - max
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: php-config-errors
+      refId: php-config-errors
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-config-errors
+
+    - alias: php-module-errors
+      refId: php-module-errors
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-module-errors
+
+    - alias: php-startup-errors
+      refId: php-startup-errors
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: PHP Status
+      - condition: AND
+        key: metric
+        operator: '='
+        value: php-startup-errors
