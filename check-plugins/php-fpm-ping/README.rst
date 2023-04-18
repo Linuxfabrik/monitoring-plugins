@@ -83,7 +83,12 @@ States
 Perfdata / Metrics
 ------------------
 
-* ping: 0 (= STATE_OK) if response is as expected, 1 (STATE_WARN) or 2 (STATE_CRIT) otherwise
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    ping,                                       Number,             "0 (= STATE_OK) if response is as expected, 1 (STATE_WARN) or 2 (STATE_CRIT)otherwise"
 
 
 Credits, License
