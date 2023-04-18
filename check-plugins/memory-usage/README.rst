@@ -74,14 +74,19 @@ States
 Perfdata / Metrics
 ------------------
 
-* available: The memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory values depending on the platform and it is supposed to be used to monitor actual memory usage in a cross platform fashion.
-* buffers (Linux, BSD): Cache for things like file system metadata.
-* cached (Linux, BSD): Cache for various things.
-* free: Memory not being used at all (zeroed) that is readily available; note that this doesn't reflect the actual memory available (use ``available`` instead). ``total - used`` does not necessarily match ``free``.
-* shared (Linux, BSD): memory that may be simultaneously accessed by multiple processes.
-* total: Total physical memory (exclusive swap).
-* usage_percent
-* used: Memory used, calculated differently depending on the platform and designed for informational purposes only. ``total - free`` does not necessarily match ``used``.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    available,                                  Bytes,              "The memory that can be given instantly to processes without the system going into swap. This is calculated by summing different memory values depending on the platform and it is supposed to be used to monitor actual memory usage in a cross platform fashion."
+    "buffers",                                  Bytes,              "Cache for things like file system metadata  (Linux, BSD)."
+    "cached",                                   Bytes,              "Cache for various things  (Linux, BSD)."
+    free,                                       Bytes,              "Memory not being used at all (zeroed) that is readily available; note that this doesn't reflect the actual memory available (use ``available`` instead). ``total - used`` does not necessarily match ``free``."
+    "shared",                                   Bytes,              "Memory that may be simultaneously accessed by multiple processes  (Linux, BSD)."
+    total,                                      Bytes,              "Total physical memory (exclusive swap)."
+    usage_percent,                              Percentage,         
+    used,                                       Bytes,              "Memory used, calculated differently depending on the platform and designed for informational purposes only. ``total - free`` does not necessarily match ``used``."
 
 
 Troubleshooting
