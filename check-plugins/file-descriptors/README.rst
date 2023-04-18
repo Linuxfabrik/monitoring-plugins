@@ -69,7 +69,12 @@ States
 Perfdata / Metrics
 ------------------
 
-* File descriptors (%)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+
+    Name,                                       Type,               Description
+    fd,                                         Percentage,         Number of allocated file handles / number of system-wide maximum number of file handles \* 100
 
 
 Credits, License
