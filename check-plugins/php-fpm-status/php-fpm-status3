@@ -26,7 +26,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023021701'
+__version__ = '2023041801'
 
 DESCRIPTION = """This check collects information from the PHP-FPM status page and alerts on certain
                 overuse. In addition, a table is printed which contains each pool process in the
@@ -156,20 +156,28 @@ def main():
     table_values = []
 
     # analyze data
-    if result['start since']:
-        req_per_sec = round(float(result['accepted conn']) / float(result['start since']), 1)
-    else:
-        req_per_sec = 0
     if result['listen queue len']:
         queue_usage = round(float(result['listen queue']) / float(result['listen queue len']) * 100, 1)
     else:
         queue_usage = 0
 
-    queue_state = lib.base3.get_state(queue_usage, args.WARN, args.CRIT)
+    queue_state = lib.base3.get_state(
+        queue_usage,
+        args.WARN,
+        args.CRIT,
+    )
     state = lib.base3.get_worst(queue_state, state)
-    children_state = lib.base3.get_state(result['max children reached'], args.WARN_MAX_CHILDREN, args.CRIT_MAX_CHILDREN)
+    children_state = lib.base3.get_state(
+        result['max children reached'],
+        args.WARN_MAX_CHILDREN,
+        args.CRIT_MAX_CHILDREN,
+    )
     state = lib.base3.get_worst(children_state, state)
-    slow_req_state = lib.base3.get_state(result['slow requests'], args.WARN_SLOW_REQUESTS, args.CRIT_SLOW_REQUESTS)
+    slow_req_state = lib.base3.get_state(
+        result['slow requests'],
+        args.WARN_SLOW_REQUESTS,
+        args.CRIT_SLOW_REQUESTS,
+    )
     state = lib.base3.get_worst(slow_req_state, state)
 
     # build the message
@@ -186,15 +194,14 @@ def main():
         msg += '{}x max children reached{}, '.format(
             result['max children reached'],
             lib.base3.state2str(children_state, prefix=' '),
-            )
+        )
     if result.get('slow requests', 0):
         msg += '{} slow requests{}, '.format(
             result['slow requests'],
             lib.base3.state2str(slow_req_state, prefix=' '),
         )
-    msg += '{} connections, {} req/s, '.format(
+    msg += '{} connections, '.format(
         lib.human3.number2human(result['accepted conn']),
-        req_per_sec,
     )
     msg += '{} processes ({} active, {} idle), '.format(
         result['total processes'],
@@ -246,7 +253,6 @@ def main():
     perfdata += lib.base3.get_perfdata('start since', result['start since'], 's', None, None, 0, None)
 
     perfdata += lib.base3.get_perfdata('queue usage', queue_usage, '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base3.get_perfdata('req per sec', req_per_sec, None, None, None, 0, None)
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

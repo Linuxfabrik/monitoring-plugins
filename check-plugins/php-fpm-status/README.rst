@@ -92,7 +92,7 @@ Output:
 
 .. code-block:: text
 
-    Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129k connections, 10.3 req/s, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)
+    Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129k connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)
 
     PID     Reqs ReqDur Request URI           POST    AuthUser
     ---     ---- ------ -----------           ----    --------
@@ -114,23 +114,27 @@ States
 ------
 
 * WARN or CRIT on queue usage over certain thresholds (default 80/90%)
-* WARN or CRIT if numer of max children is over certain thresholds (default 1/100)
-* WARN or CRIT if numer of slow queries is over certain thresholds (default 1/100)
+* WARN or CRIT if number of max children is over certain thresholds (default 1/100)
+* WARN or CRIT if number of slow queries is over certain thresholds (default 1/100)
 
 
 Perfdata / Metrics
 ------------------
 
-* accepted conn: the number of request accepted by the pool
-* active processes: the number of active processes
-* idle processes: the number of idle processes
-* listen queue len: the size of the socket queue of pending connections
-* listen queue: the number of request in the queue of pending connections
-* max children reached: number of times, the process limit has been reached, when pm tries to start more children (works only for pm 'dynamic' and 'ondemand')
-* queue usage: the number of request in the queue of pending connections, in %
-* req per sec: the number of request accepted by the pool divided by number of seconds since FPM has started
-* slow requests: the number of slow requests
-* start since: number of seconds since FPM has started
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    accepted conn,                              Continous Counter,  "Number of requests accepted by the pool"
+    active processes,                           Number,             "Number of active processes"
+    idle processes,                             Number,             "Number of idle processes"
+    listen queue len,                           Number,             "Size of the socket queue of pending connections"
+    listen queue,                               Number,             "Number of requests in the queue of pending connections"
+    max children reached,                       Number,             "Number of times, the process limit has been reached, when pm tries to start more children (works only for pm 'dynamic' and 'ondemand')"
+    queue usage,                                Percentage,         "Number of requests in the queue of pending connections, in %"
+    slow requests,                              Number,             "Number of slow requests"
+    start since,                                Seconds,            "Number of seconds since FPM has started"
 
 
 Credits, License

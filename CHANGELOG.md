@@ -46,6 +46,7 @@ Monitoring Plugins:
 * journald-query3: Lower default for `--since` from 24h to 8h
 * kemp-services3: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
 * nextcloud-version3: Simplified, no longer cares about patch levels, no longer needs internet access
+* php-fpm-status: Remove `req per sec` perfdata as it is meaningless
 * restic-snapshots3: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
 * Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
 * Unified most of the \*-version3 checks in behavior, also using data from https://endoflife.date (no need for internet access).
