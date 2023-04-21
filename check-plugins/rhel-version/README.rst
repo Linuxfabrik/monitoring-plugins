@@ -6,10 +6,10 @@ Overview
 
 This plugin lets you track if RHEL (and compatible) is End-of-Life (EOL). To compare against the current/installed version of RHEL, the check has to run on the RHEL server itself.
 
-Note:
+Hints:
 
 * Also works for Alma, CentOS, CentOS Stream, Oracle, Rocky, etc., but (currently) reports the EOL date for RHEL.
-* Doesn't work on Fedora Workstation or Fedora Server (actually: works, but can't report EOL here).
+* On Fedora Workstation or Fedora Server, use https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fedora-version.
 
 
 Fact Sheet
@@ -29,7 +29,7 @@ Help
 
 .. code-block:: text
 
-    usage: rhel-version [-h] [-V] [--always-ok] [--path PATH]
+    usage: rhel-version [-h] [-V] [--always-ok]
 
     Tracks if RHEL is EOL.
 
