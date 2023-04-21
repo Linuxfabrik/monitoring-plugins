@@ -30,6 +30,7 @@ Features:
 Monitoring Plugins:
 
 * apache-httpd-version
+* fedora-version
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
 * openstack-swift-stat
 * postfix-version
@@ -38,7 +39,7 @@ Monitoring Plugins:
 Grafana:
 
 * Add new panels, update existing ones
-* Written in Jsonnet, to be maintained by [Grizzly](https://github.com/grafana/grizzly)
+* Panels written in Jsonnet, to be maintained by [Grizzly](https://github.com/grafana/grizzly)
 
 
 ### Changed
