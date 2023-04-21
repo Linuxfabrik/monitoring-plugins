@@ -95,7 +95,7 @@ OR
 .. csv-table::
     :widths: 25, 15, 60
     :header-rows: 1
-    
+
     Name,                                       Type,               Description                                           
     allocation_btree_compares_total,            Continous Counter,  Number of allocation B-tree compares for a filesystem.
     allocation_btree_lookups_total,             Bytes,              Number of allocation B-tree lookups for a filesystem.
