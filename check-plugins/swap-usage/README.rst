@@ -48,13 +48,13 @@ Usage Examples
 .. code-block:: bash
 
     ./swap-usage --warning 70 --critical 90
-    
+
 Output:
 
 .. code-block:: text
 
-    38.6% - total: 11.7GiB, used: 4.5GiB, free: 7.2GiB
-    swapped in: 1.6GiB, swapped out: 11.9GiB
+    22.4% - total: 8.0GiB, used: 1.8GiB, free: 6.2GiB
+    swapped in: 1.1GiB, swapped out: 3.6GiB (both cumulative)
 
 
 States
@@ -66,12 +66,17 @@ States
 Perfdata / Metrics
 ------------------
 
-* Swap Usage (%)
-* Total Swap Space (Bytes)
-* Used (Bytes)
-* Free (Bytes)
-* Swap In (Bytes)
-* Swap Out (Bytes)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+
+    Name,                                       Type,               Description                                           
+    free,                                       Bytes,              Free swap memory in bytes
+    sin,                                        Bytes,              The number of bytes the system has swapped in to disk (cumulative)
+    sout,                                       Bytes,              The number of bytes the system has swapped out to disk (cumulative)
+    total,                                      Bytes,              Total swap memory in bytes
+    usage_percent,                              Percentage,         The percentage usage calculated as (total - available) / total \* 100
+    used,                                       Bytes,              Used swap memory in bytes
 
 
 Credits, License
