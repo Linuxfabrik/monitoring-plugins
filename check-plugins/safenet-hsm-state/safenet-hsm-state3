@@ -25,7 +25,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2023042201'
+__version__ = '2023042202'
 
 DESCRIPTION = """This monitoring plugin checks the current state of a Gemalto SafeNet
                  ProtectServer Network HSM via SSH and a PSESH command, and displays the
@@ -35,7 +35,7 @@ DEFAULT_COMMAND = 'hsm state'
 DEFAULT_CRIT = 90
 DEFAULT_SEVERITY = 'crit'
 DEFAULT_TIMEOUT = 3
-DEFAULT_USER = 'pseoperator'
+DEFAULT_USERNAME = 'pseoperator'
 DEFAULT_WARN = 80
 
 
@@ -106,9 +106,9 @@ def parse_args():
     parser.add_argument(
         '-u', '--username',
         help='SafeNet HSM Username, for example "admin" or "pseoperator". Default: %(default)s',
-        dest='USER',
+        dest='USERNAME',
         choices=['admin', 'pseoperator'],
-        default=DEFAULT_USER,
+        default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
@@ -139,7 +139,7 @@ def main():
         cmd = "sshpass -p {} ssh -o ConnectTimeout={} -T '{}'@'{}' '{}'".format(
             args.PASSWORD,
             args.TIMEOUT,
-            args.USER,
+            args.USERNAME,
             args.HOSTNAME,
             'hsm state',
         )
