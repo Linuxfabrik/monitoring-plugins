@@ -15,29 +15,24 @@ import argparse # pylint: disable=C0413
 import sys # pylint: disable=C0413
 import json # pylint: disable=C0413
 
-import lib.args3  # pylint: disable=C0413
-import lib.base3  # pylint: disable=C0413
-import lib.url3   # pylint: disable=C0413
-import lib.test3  # pylint: disable=C0413
-import lib.time3  # pylint: disable=C0413
+import lib.args3 # pylint: disable=C0413
+import lib.base3 # pylint: disable=C0413
+import lib.test3 # pylint: disable=C0413
+import lib.url3  # pylint: disable=C0413
 from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2022121201'
+__version__ = '2023042201'
 
 DESCRIPTION = """This check targets the JSON endpoint of https://www.cometsystem.com/ Web Sensors.
-                 Alert states can be set per measurements low and high threshold violations."""
+              """
 
-DEFAULT_HIGH = 'CRITICAL'
 DEFAULT_INSECURE = False
-DEFAULT_LOW = 'WARNING'
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT = 3
-DEFAULT_PERFDATA = False
-DEFAULT_CHANNELS = ["ch1", "ch2", "ch3"]
+DEFAULT_TIMEOUT = 5
 
 
 def parse_args():
@@ -60,40 +55,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--channels',
-        help='Comma separated channels one per sensor. Default: %(default)s',
-        dest='CHANNELS',
-        default=DEFAULT_CHANNELS,
-        type=lib.args3.csv,
-    )
-
-    parser.add_argument(
-        '--high',
-        help='Comma separated states [OK,CRITICAL,WARNING] per sensor value. '
-             'If only one state is provided it gets applied to all high '
-             'threshold violations. Default: %(default)s',
-        dest='HIGH',
-        default=DEFAULT_HIGH,
-        type=lib.args3.csv,
-    )
-
-    parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure"'
-        ' SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
-        '--low',
-        help='Comma separated states [OK,CRITICAL,WARNING] per sensor value. '
-             'If only one state is provided it gets applied to all low '
-             'threshold violations. Default: %(default)s',
-        dest='LOW',
-        default=DEFAULT_LOW,
-        type=lib.args3.csv,
     )
 
     parser.add_argument(
@@ -105,11 +72,15 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--perfdata',
-        help='send perfdata. Default: %(default)s',
-        dest='PERFDATA',
-        action='store_true',
-        default=DEFAULT_PERFDATA,
+        '--severity',
+        help='Severity for alerting, order matters, first match on part of a channel name wins. '
+             'Have a look at the README for details. Example: '
+             '`--severity temp:high:crit --severity dew:low:crit --severity humi:ok '
+             '--severity warn`. '
+             'Repeating. Default: warn',
+        dest='SEVERITY',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -129,12 +100,43 @@ def parse_args():
 
     parser.add_argument(
         '-u', '--url',
-        help='Set the URL of the values as JSON.  http://example.com/values.json',
+        help='Comet system URL pointing to the JSON file (http://example.com/values.json).',
         dest='URL',
         required=True,
     )
 
     return parser.parse_args()
+
+
+def get_channel_state(channel, args):
+    """Return the state for a given Web Sensor channel dict.
+    Order of args.SEVERITY matters, first match wins.
+    """
+    if args.SEVERITY is not None:
+        for severity in args.SEVERITY:
+            sev = severity.split(':')
+            if len(sev) == 1 and channel['alarm']:
+                # there is no ":"
+                return lib.base3.str2state(sev[0])
+            if len(sev) == 2:
+                # "humi:warn"
+                if sev[0].lower() in channel['name'].lower() and channel['alarm']:
+                    return lib.base3.str2state(sev[1])
+            else:
+                # "humi:low:warn", "temp:high:crit"
+                # alarm == 1: high alarm
+                if sev[0].lower() in channel['name'].lower() \
+                and sev[1].lower().startswith('high') \
+                and channel['alarm'] == 1:
+                    return lib.base3.str2state(sev[2])
+                # alarm == 2: low alarm
+                if sev[0].lower() in channel['name'].lower() \
+                and sev[1].lower().startswith('low') \
+                and channel['alarm'] == 2:
+                    return lib.base3.str2state(sev[2])
+    if not channel['alarm']:
+        return STATE_OK
+    return STATE_WARN # the default state for any alarm, no matter if high or low
 
 
 def main():
@@ -147,107 +149,78 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if len(args.HIGH) > 1 and not len(args.HIGH) == len(args.CHANNELS):
-        lib.base3.oao('--high parameter doesn\'t match --channel length', STATE_UNKNOWN)
-    if len(args.LOW) > 1 and not len(args.LOW) == len(args.CHANNELS):
-        lib.base3.oao('--low parameter doesn\'t match --channel length', STATE_UNKNOWN)
-
     # fetch data
     if args.TEST is None:
-        URL = args.URL
-        if URL[0:4] != 'http':
-            lib.base3.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        if not args.URL.startswith('http'):
+            lib.base3.oao(
+                '--url parameter has to start with "http://" or https://".',
+                STATE_UNKNOWN,
+            )
         # fetch the URL
         result = lib.base3.coe(lib.url3.fetch_json(
-            URL,
+            args.URL,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         ))
-        if 'ch1' not in result:
-            lib.base3.oao('Malformed Web Sensors status file.', STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test3.test(args.TEST)
         result = json.loads(stdout)
+    if 'ch1' not in result:
+        lib.base3.oao('Malformed Comet System Web Sensors status file.', STATE_UNKNOWN)
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    alarm_reason = ''
-    alarm_name = ''
-    alarm_value = ''
-    alarm_unit = ''
+    table_data = []
 
     # analyze data
-    i = 0
-    for ch in args.CHANNELS:
-        #print(j[ch]["name"]+": "+j[ch]["aval"]+j[ch]["unit"])
-        name = result[ch]['name']
-        unit = result[ch]['unit'].replace('\udcb0', '°')#.decode("ISO-8859-1")
-        value = result[ch]['aval']
-        alarm = result[ch]['alarm']
-        if len(args.HIGH) > 1:
-            high = args.HIGH[i]
-        else:
-            high = args.HIGH[0]
-        if len(args.LOW) > 1:
-            low = args.LOW[i]
-        else:
-            low = args.LOW[0]
-        if alarm == 0:
-            """ no alarm """
-            ch_state = STATE_OK
-        if alarm == 1:
-            """ high alarm """
-            ch_state = lib.base3.str2state(high, ignore_error=False)
-        if alarm == 2:
-            """ low alarm """
-            ch_state = lib.base3.str2state(low, ignore_error=False)
-        reason = ['', ' high', ' low'][alarm]
-        if ch_state > state or i == 0:
-            """ get worst state or fist channel in hope that it is most important """
-            state = ch_state
-            alarm_reason = reason
-            alarm_type = alarm
-            alarm_name = name
-            alarm_value = value
-            alarm_unit = unit
-            alarm_ch = ch
-        msg += '\n{} = {} {} {}{} {}'.format(
-            ch,
-            name,
-            value,
-            unit,
-            reason,
-            lib.base3.state2str(ch_state)
-        )
-        if args.PERFDATA:
-            if '%' in unit:
-                perfdata += lib.base3.get_perfdata(name, value, '%', _min=0, _max=100)
-            elif '°' in unit:
-                unit = unit[-1]
-                if unit == 'C':
-                    perfdata += lib.base3.get_perfdata(name, value, unit, _min=-60, _max=80)
-                elif unit == 'F':
-                    perfdata += lib.base3.get_perfdata(name, value, unit, _min=-20, _max=176)
-                else:
-                    perfdata += lib.base3.get_perfdata(name, value, unit,)
+    for key, value in result.items():
+        if key.startswith('ch'):  # this is a channel
+            if '%' in value['unit']:
+                perfdata += lib.base3.get_perfdata(value['name'], value['aval'], '%', _min=0, _max=100) # pylint: disable=C0301
             else:
-                perfdata += lib.base3.get_perfdata(name, value, unit,)
-        i = i + 1
+                perfdata += lib.base3.get_perfdata(value['name'], value['aval'])
+            value['ch'] = key
+            if value['unit'].endswith('C') or value['unit'].endswith('F'): # strip °
+                value['unit'] = value['unit'][-1]
+            channel_state = get_channel_state(value, args)
+            state = lib.base3.get_worst(channel_state, state)
+            if value['alarm'] == 0:
+                value['alarm'] = ''
+            if value['alarm'] == 1:
+                value['alarm'] = 'high'
+            if value['alarm'] == 2:
+                value['alarm'] = 'low'
+            value['aval'] = '{}{}{}'.format(
+                value['aval'],
+                value['unit'],
+                lib.base3.state2str(channel_state, prefix=' '),
+            )
+            table_data.append(value)
 
-
-    prefix_msg = '{}{}{}: {} {}'.format(
-        lib.base3.state2str(state, suffix=' '),
-        alarm_name,
-        alarm_reason,
-        alarm_value,
-        alarm_unit
+    # build the message
+    msg += ' on {} SN {}.\n\n'.format(
+        result['devname'],
+        result['devsn'],
     )
-    msg = prefix_msg + msg
+    if table_data:
+        msg += lib.base3.get_table(
+            table_data,
+            ['ch', 'name', 'alarm', 'aval'],
+            ['Ch#', 'Name', 'Alarm', 'Value'],
+        )
 
+    if state == STATE_CRIT:
+        msg = 'There are critical errors' + msg
+    elif state == STATE_WARN:
+        msg = 'There are warnings' + msg
+    elif state == STATE_UNKNOWN:
+        msg = 'Unknown states' + msg
+    else:
+        msg = 'Everything is ok' + msg
 
     # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

@@ -30,6 +30,7 @@ Features:
 Monitoring Plugins:
 
 * apache-httpd-version
+* cometsystem
 * fedora-version
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
 * openstack-swift-stat
