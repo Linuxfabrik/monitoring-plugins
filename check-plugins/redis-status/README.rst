@@ -138,8 +138,8 @@ Latest info can be found `here <https://redis.io/commands/INFO>`_.
     replication_repl_backlog_histlen,           Bytes,              Size in bytes of the data in the replication backlog buffer
     replication_repl_backlog_size,              Bytes,              Total size in bytes of the replication backlog buffer
     server_uptime_in_seconds,                   Seconds,            Number of seconds since Redis server start
-    stats_evicted_keys,                         Number,             Number of evicted keys due to maxmemory limit
-    stats_expired_keys,                         Number,             "Total number of key expiration events. If there are no expirable keys, it can be an indication that you are not setting TTLs on keys. In such cases, when your instance data reaches the maxmemory-gb limit, there are no keys to evict which can result in an out of memory condition. If the metric shows many expired keys, but you still see memory pressure on your instance, you should lower maxmemory-gb."
+    stats_evicted_keys,                         Continous Counter,  Number of evicted keys due to maxmemory limit
+    stats_expired_keys,                         Continous Counter,  "Total number of key expiration events. If there are no expirable keys, it can be an indication that you are not setting TTLs on keys. In such cases, when your instance data reaches the maxmemory-gb limit, there are no keys to evict which can result in an out of memory condition. If the metric shows many expired keys, but you still see memory pressure on your instance, you should lower maxmemory-gb."
     stats_instantaneous_input,                  Number,             The network read rate per second in KB/sec
     stats_instantaneous_ops_per_sec,            Number,             Number of commands processed per second
     stats_instantaneous_output,                 Number,             The networks write rate per second in KB/sec
