@@ -1,0 +1,402 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: general
+  name: procs
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Icinga
+    - Grizzly
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Procs
+  uid: linuxfabrik-monitoring-plugins-procs
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: cmd-check-procs
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "cmd-check-procs" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: Procs
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - procs
+            - procs_sleeping
+            - procs_zombies
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: procs
+      refId: procs
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs
+
+    - alias: procs_dead
+      refId: procs_dead
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_dead
+
+    - alias: procs_running
+      refId: procs_running
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_running
+
+    - alias: procs_sleeping
+      refId: procs_sleeping
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_sleeping
+
+    - alias: procs_stopped
+      refId: procs_stopped
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_stopped
+
+    - alias: procs_uninterruptible
+      refId: procs_uninterruptible
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_uninterruptible
+
+    - alias: procs_zombies
+      refId: procs_zombies
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_zombies
+
+
+  - title: Procs - Percentages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 110
+        min: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: procs_mem_percent
+      refId: procs_mem_percent
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_mem_percent
+
+
+  - title: Procs - Age
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        min: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: procs_age
+      refId: procs_age
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Procs
+      - condition: AND
+        key: metric
+        operator: '='
+        value: procs_age
