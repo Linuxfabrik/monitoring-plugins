@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args3  # pylint: disable=C0413
+import lib.base3  # pylint: disable=C0413
+import lib.shell3  # pylint: disable=C0413
+import lib.test3  # pylint: disable=C0413
+import lib.txt3  # pylint: disable=C0413
+from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+
+__author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
+                originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
+__version__ = '2023042201'
+
+DESCRIPTION = """This monitoring plugin checks the current state of a Gemalto SafeNet
+                 ProtectServer Network HSM via SSH and a PSESH command, and displays the
+                 current state of the HSM adapter."""
+
+DEFAULT_COMMAND = 'hsm state'
+DEFAULT_CRIT = 90
+DEFAULT_SEVERITY = 'crit'
+DEFAULT_TIMEOUT = 3
+DEFAULT_USER = 'pseoperator'
+DEFAULT_WARN = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='SafeNet HSM hostname',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='SafeNet HSM password',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args3.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='SafeNet HSM Username, for example "admin" or "pseoperator". Default: %(default)s',
+        dest='USER',
+        choices=['admin', 'pseoperator'],
+        default=DEFAULT_USER,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        # -o: Give options in the format used in the configuration file.
+        # -T: Disable pseudo-terminal allocation.
+        cmd = "sshpass -p {} ssh -o ConnectTimeout={} -T '{}'@'{}' '{}'".format(
+            args.PASSWORD,
+            args.TIMEOUT,
+            args.USER,
+            args.HOSTNAME,
+            'hsm state',
+        )
+        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
+        switch = {
+            1: 'Invalid command line argument',
+            2: 'Conflicting arguments given',
+            3: 'General runtime error',
+            4: 'Unrecognized response from ssh (parse error)',
+            5: 'Invalid/incorrect password',
+            6: 'Host public key is unknown. sshpass exits without confirming the new key.',
+            7: 'IP public key changed. sshpass exits without confirming the new key.',
+        }
+        if switch.get(retc, ''):
+            lib.base3.oao('sshpass: {}'.format(switch[retc]), STATE_UNKNOWN)
+        if stderr:
+            lib.base3.oao(stderr, STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test3.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    if 'HSM in NORMAL MODE' not in stdout \
+    or 'Command Result : 0' not in stdout:
+        state = lib.base3.str2state(args.SEVERITY)
+    value = lib.txt3.extract_str(stdout, 'Level=', '%')
+    if value:
+        state = lib.base3.get_worst(state, lib.base3.get_state(value, args.WARN, args.CRIT))
+        perfdata += lib.base3.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+
+    # build the message
+    msg = '{}{}'.format(
+        ' '.join(stdout.partition('\n')[0].split()), # get the first line, strip all whitespaces
+        lib.base3.state2str(state, prefix=' '),
+    )
+
+    # over and out
+    lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base3.cu()

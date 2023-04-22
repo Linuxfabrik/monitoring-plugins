@@ -36,6 +36,7 @@ Monitoring Plugins:
 * openstack-swift-stat
 * postfix-version
 * rhel-version
+* safenet-hsm-state
 
 Grafana:
 
