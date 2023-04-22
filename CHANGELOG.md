@@ -30,6 +30,7 @@ Features:
 Monitoring Plugins:
 
 * apache-httpd-version
+* by-ssh
 * cometsystem
 * fedora-version
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
