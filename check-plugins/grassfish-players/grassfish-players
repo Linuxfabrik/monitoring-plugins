@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.grassfish  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """This monitoring plugin shows you a list of Grassfish players whose data transfer
+                 status is overdue, whose last access date is more than `--warning` hours ago
+                 or who are unlicensed.
+                 The list of players can be filtered.
+                 You must provide both the Grassfish hostname and a Grassfish token for this
+                 check to work."""
+
+DEFAULT_API_VERSION = '1.12'
+DEFAULT_BOX_STATE = ['activated']
+DEFAULT_CRIT = None
+DEFAULT_IS_INSTALLED = None
+DEFAULT_IS_LICENSED = None
+DEFAULT_LENGTHY = False
+DEFAULT_PORT = '443'
+DEFAULT_TRANSFER_STATUS = None
+DEFAULT_URL = '/gv2/webservices/API'
+DEFAULT_WARN = 8  # hours
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--api-version',
+        help='Grassfish API Version. Default: %(default)s',
+        dest='API_VERSION',
+        default=DEFAULT_API_VERSION,
+    )
+
+    parser.add_argument(
+        '--box-id',
+        help='Filter by specific box IDs. Supports Python Regular Expressions (regex).',
+        dest='BOX_ID',
+    )
+
+    parser.add_argument(
+        '--box-state',
+        help='Filter by specific box state. Repeating.',
+        dest='BOX_STATE',
+        action='append',
+        choices=[
+            'activated',
+            'deleted',
+            'new',
+            'reserved',
+            'undefined',
+        ],
+    )
+
+    parser.add_argument(
+        '--custom-id',
+        help='Filter by specific custom IDs. Supports Python Regular Expressions (regex).',
+        dest='CUSTOM_ID',
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Grassfish hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--is-installed',
+        help='Filter by boxes that are installed (= "yes") or not (= "no"). Repeating.',
+        dest='IS_INSTALLED',
+        action='append',
+        choices=[
+            'yes',
+            'no',
+        ],
+    )
+
+    parser.add_argument(
+        '--is-licensed',
+        help='Filter by boxes that are licensed (= "yes") or not (= "no"). Repeating.',
+        dest='IS_LICENSED',
+        action='append',
+        choices=[
+            'yes',
+            'no',
+        ],
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='Grassfish port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--token',
+        help='Grassfish API token',
+        dest='TOKEN',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--transfer-status',
+        help='Filter by specific data transfer status. Repeating.',
+        dest='TRANSFER_STATUS',
+        action='append',
+        choices=[
+            'complete',
+            'overdue',
+            'pending',
+        ],
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold for Last Access in hours (considers player is offline). '
+             'Default: > %(default)s h',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Grassfish API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.BOX_ID:
+        try:
+            compiled_box_id_regex = re.compile(args.BOX_ID, re.IGNORECASE)
+        except re.error as rerr:
+            lib.base.oao('Invalid regex "{}": {}'.format(args.BOX_ID, rerr), STATE_UNKNOWN)
+    if args.CUSTOM_ID:
+        try:
+            compiled_custom_id_regex = re.compile(args.CUSTOM_ID, re.IGNORECASE)
+        except re.error as rerr:
+            lib.base.oao('Invalid regex "{}": {}'.format(args.CUSTOM_ID, rerr), STATE_UNKNOWN)
+
+    # due to https://bugs.python.org/issue16399, set the default value here
+    if args.BOX_STATE is None:
+        args.BOX_STATE = DEFAULT_BOX_STATE
+    if args.IS_INSTALLED is None:
+        args.IS_INSTALLED = DEFAULT_IS_INSTALLED
+    if args.IS_LICENSED is None:
+        args.IS_LICENSED = DEFAULT_IS_LICENSED
+    if args.TRANSFER_STATUS is None:
+        args.TRANSFER_STATUS = DEFAULT_TRANSFER_STATUS
+
+    # fetch data
+    if args.TEST is None:
+        players = lib.base.coe(lib.grassfish.fetch_json(
+            args.TOKEN,
+            args.HOSTNAME,
+            args.PORT,
+            args.URL,
+            args.API_VERSION,
+            'Players',
+        ))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+        players = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    shortened = False
+
+    cnt = {}
+    cnt['players'] = 0
+    cnt['unlicensed'] = 0
+    cnt['transfer_overdue'] = 0
+    cnt['access_overdue'] = 0
+    cnt['warnings'] = 0
+
+    # analyze data
+    for player in players:
+        # set defaults
+        player = lib.grassfish.set_player_defaults(player)
+
+        # filter
+        if args.BOX_ID:
+            if 'BoxId' not in player:
+                continue
+            matches = re.search(compiled_box_id_regex, player['BoxId'])
+            if not matches:
+                continue
+        if args.BOX_STATE:
+            if player['BoxState'].lower() not in args.BOX_STATE:
+                continue
+        if args.CUSTOM_ID:
+            if 'CustomId' not in player:
+                continue
+            matches = re.search(compiled_custom_id_regex, player['CustomId'])
+            if not matches:
+                continue
+        if args.IS_INSTALLED:
+            if player['IsInstalled'] and 'yes' not in args.IS_INSTALLED:
+                continue
+            if not player['IsInstalled'] and 'no' not in args.IS_INSTALLED:
+                continue
+        if args.IS_LICENSED:
+            if player['IsLicensed'] and 'yes' not in args.IS_LICENSED:
+                continue
+            if not player['IsLicensed'] and 'no' not in args.IS_LICENSED:
+                continue
+        if args.TRANSFER_STATUS:
+            if player['TransferStatus'].lower() not in args.TRANSFER_STATUS:
+                continue
+
+        cnt['players'] += 1
+
+        # timestamp handling
+        ts = player['LastAccess'].replace('T', ' ').replace('Z', '')
+        player['LastAccessDelta'] = lib.time.timestrdiff(lib.time.now(as_type='iso'), ts)
+        player['LastAccess'] = '{} ({} ago)'.format(
+            ts,
+            lib.human.seconds2human(player['LastAccessDelta']),
+        )
+
+        # warn (and only append players with warnings)
+        if not player['IsLicensed'] \
+        or player['TransferStatus'].lower() == 'overdue' \
+        or player['LastAccessDelta'] > args.WARN*60*60:
+            cnt['warnings'] += 1
+            state = STATE_WARN
+            if not player['IsLicensed']:
+                cnt['unlicensed'] += 1
+                player['IsLicensed'] = str(player['IsLicensed']) + lib.base.state2str(STATE_WARN, prefix=' ')
+            if player['TransferStatus'].lower() == 'overdue':
+                cnt['transfer_overdue'] += 1
+                player['TransferStatus'] = player['TransferStatus'] + lib.base.state2str(STATE_WARN, prefix=' ')
+            if player['LastAccessDelta'] > args.WARN*60*60:
+                cnt['access_overdue'] += 1
+                player['LastAccess'] = player['LastAccess'] + lib.base.state2str(STATE_WARN, prefix=' ')
+            if len(table_data) < 10:
+                table_data.append(player)
+            else:
+                shortened = True
+
+    # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok. '
+    else:
+        msg = 'There {} {} {} with warnings: {} unlicensed, {} transfer overdue, {} accessed > {} {} ago. '.format(
+            lib.txt.pluralize('', cnt['warnings'], 'is,are'),
+            cnt['warnings'],
+            lib.txt.pluralize('player', cnt['warnings']),
+            cnt['unlicensed'],
+            cnt['transfer_overdue'],
+            cnt['access_overdue'],
+            args.WARN,
+            lib.txt.pluralize('hour', args.WARN),
+        )
+    msg += '{} {} checked. '.format(
+        cnt['players'],
+        lib.txt.pluralize('player', cnt['players']),
+    )
+
+    _filter = ''
+    if args.BOX_ID:
+        _filter += '--box-id={}, '.format(args.BOX_ID)
+    if args.BOX_STATE:
+        _filter += '--box-state={}, '.format(args.BOX_STATE)
+    if args.CUSTOM_ID:
+        _filter += '--custom-id={}, '.format(args.CUSTOM_ID)
+    if args.IS_INSTALLED:
+        _filter += '--is-installed={}, '.format(args.IS_INSTALLED)
+    if args.IS_LICENSED:
+        _filter += '--is-licensed={}, '.format(args.IS_LICENSED)
+    if _filter:
+        msg += 'Filter: {}'.format(_filter[:-2])
+
+    msg += '\n\n'
+
+    if table_data:
+        if shortened:
+            msg += 'Attention: Table below is truncated, showing first 10 items.\n\n'''
+        if not args.LENGTHY:
+            keys = [
+                # 'Id',
+                # 'CustomId',
+                'BoxId',
+                'LicenseType',
+                'Name',
+                # 'LocationId',
+                # 'EditionId',
+                # 'ConfigurationGroupId',
+                # 'Address',
+                # 'PostCode',
+                # 'City',
+                # 'Country',
+                # 'TemperatureUnit',
+                'BoxState',
+                # 'TimezoneId',
+                # 'RootPasswordSet',
+                # 'IsInstalled',
+                'IsLicensed',
+                'TransferStatus',
+                # 'Created',
+                # 'Modified',
+                'LastAccess',
+            ]
+            headers = [
+                # 'Id',
+                # 'Custom ID',
+                'Box ID',
+                'License Type',
+                'Name',
+                # 'LocationId',
+                # 'EditionId',
+                # 'ConfigurationGroupId',
+                # 'Address',
+                # 'ZIP',
+                # 'City',
+                # 'Country',
+                # 'TemperatureUnit',
+                'Box State',
+                # 'TimezoneId',
+                # 'RootPasswordSet',
+                # 'Inst',
+                'Lic',
+                'Transfer',
+                # 'Created',
+                # 'Modified',
+                'Last Access',
+            ]
+        else:
+            keys = [
+                # 'Id',
+                'CustomId',
+                'BoxId',
+                'LicenseType',
+                'Name',
+                # 'LocationId',
+                # 'EditionId',
+                # 'ConfigurationGroupId',
+                'Address',
+                'PostCode',
+                'City',
+                # 'Country',
+                # 'TemperatureUnit',
+                'BoxState',
+                # 'TimezoneId',
+                # 'RootPasswordSet',
+                'IsInstalled',
+                'IsLicensed',
+                'TransferStatus',
+                # 'Created',
+                # 'Modified',
+                'LastAccess',
+            ]
+            headers = [
+                # 'Id',
+                'Custom ID',
+                'Box ID',
+                'License Type',
+                'Name',
+                # 'LocationId',
+                # 'EditionId',
+                # 'ConfigurationGroupId',
+                'Address',
+                'ZIP',
+                'City',
+                # 'Country',
+                # 'TemperatureUnit',
+                'Box State',
+                # 'TimezoneId',
+                # 'RootPasswordSet',
+                'Inst',
+                'Lic',
+                'Transfer',
+                # 'Created',
+                # 'Modified',
+                'Last Access',
+            ]
+        msg += lib.base.get_table(table_data, keys, header=headers)
+
+    perfdata += lib.base.get_perfdata('grassfish_play_players', cnt['players'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('grassfish_play_unlicensed', cnt['unlicensed'], None, None, None, 0, cnt['players'])
+    perfdata += lib.base.get_perfdata('grassfish_play_transfer_overdue', cnt['transfer_overdue'], None, None, args.WARN, 0, cnt['players'])
+    perfdata += lib.base.get_perfdata('grassfish_play_access_overdue', cnt['access_overdue'], None, None, None, 0, cnt['players'])
+    perfdata += lib.base.get_perfdata('grassfish_play_warnings', cnt['warnings'], None, None, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

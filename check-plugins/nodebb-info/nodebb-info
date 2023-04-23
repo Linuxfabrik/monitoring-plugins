@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.nodebb  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Get NodeBB process/system information."""
+
+DEFAULT_CRIT = 95
+DEFAULT_INSECURE = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:4567/forum'
+DEFAULT_WARN = 90
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-p', '--token',
+        help='NodeBB API Bearer token.',
+        dest='TOKEN',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='NodeBB API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.nodebb.get_data(args, '/api/admin/development/info')
+    else:
+        # do not call the command, put in test data
+        import json
+        stdout, stderr, retc = lib.test.test(args.TEST)
+        result = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    for proc in result['info']:
+        if proc['process']['title'].endswith('/node'):
+            try:
+                heap_used_percent = round(float(proc['process']['memoryUsage']['heapUsed']) / float(proc['process']['memoryUsage']['heapTotal']) * 100, 1)
+                heap_state = lib.base.get_state(heap_used_percent, args.WARN, args.CRIT)
+                state = lib.base.get_worst(state, heap_state)
+                msg += 'NodeBB {}, {} {}, Heap {}% used ({} of {}){}, RSS {}, Up {}'.format(
+                    proc['id'],
+                    proc['process']['title'],
+                    proc['process']['version'],
+                    heap_used_percent,
+                    lib.human.bytes2human(proc['process']['memoryUsage']['heapUsed']),
+                    lib.human.bytes2human(proc['process']['memoryUsage']['heapTotal']),
+                    lib.base.state2str(heap_state, prefix=' '),
+                    lib.human.bytes2human(proc['process']['memoryUsage']['rss']),
+                    lib.human.seconds2human(proc['process']['uptime']),
+                )
+
+                perfdata += lib.base.get_perfdata('nodebb_heap_used_percent', heap_used_percent, '%', args.WARN, args.CRIT, 0, 100)
+                perfdata += lib.base.get_perfdata('nodebb_heap_used', proc['process']['memoryUsage']['heapUsed'], 'B', None, None, 0, proc['process']['memoryUsage']['heapTotal'])
+                perfdata += lib.base.get_perfdata('nodebb_rss', proc['process']['memoryUsage']['rss'], 'B', None, None, 0, None)
+                perfdata += lib.base.get_perfdata('nodebb_uptime', proc['process']['uptime'], 's', None, None, 0, None)
+            except:
+                pass
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

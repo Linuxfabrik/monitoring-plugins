@@ -15,51 +15,51 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../sap-open-concur-com3'
+    check = '../sap-open-concur-com'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegexpMatches(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test1(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=us --service=All --utc-offset=+0200'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=us --service=All --utc-offset=+0200'))
         self.assertIn('Everything is ok. (@us, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test2(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=us2 --service=All --utc-offset=+0200'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=us2 --service=All --utc-offset=+0200'))
         self.assertIn('Everything is ok. (@us2, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
-    def test3(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=eu --service=All --utc-offset=+0200'))
+    def test(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=eu --service=All --utc-offset=+0200'))
         self.assertIn('Everything is ok. (@eu, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test4(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=eu2 --service=All --utc-offset=+0200'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=eu2 --service=All --utc-offset=+0200'))
         self.assertIn('Everything is ok. (@eu2, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test5(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=cn --service=All --utc-offset=+0200'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=cn --service=All --utc-offset=+0200'))
         self.assertIn('Everything is ok. (@cn, UTC+0200)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test6(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --datacenter=pscc --service=All --utc-offset=+0200'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --datacenter=pscc --service=All --utc-offset=+0200'))
         self.assertIn('HTTP error "400 Bad Request" while fetching ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)

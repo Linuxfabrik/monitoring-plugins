@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = '''This plugin checks the state of systemd-timesyncd.'''
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None:
+        cmd = 'timedatectl show-timesync --all'
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    peer_used = False
+
+    # analyze data
+    for line in stdout.splitlines():
+        line = line.strip()
+        if line.startswith('ServerAddress='):
+            peer_used = line.split('=')[-1] != '(null)'
+            continue
+        if line.startswith('NTPMessage='):
+            for ntpmsg in line.replace('NTPMessage={ ', '').replace(' }', '').split(', '):
+                if ntpmsg.startswith('Stratum'):
+                    stratum = int(ntpmsg.split('=')[-1])
+                    break
+
+    if not peer_used:
+        lib.base.oao('No NTP server used.', STATE_WARN)
+
+    # build the message
+    msg += 'Stratum is {}'.format(stratum)
+    if stratum >= 9:
+        stratum_state = STATE_WARN
+        state = lib.base.get_worst(state, stratum_state)
+        msg += ' is >= 9{}'.format(lib.base.state2str(stratum_state, prefix=' '))
+
+    perfdata += lib.base.get_perfdata('stratum', stratum, None, 9, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg + '\n\n' + stdout, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

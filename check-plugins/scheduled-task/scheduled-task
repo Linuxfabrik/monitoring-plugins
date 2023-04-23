@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import csv  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Check the status of a scheduled task.'
+
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_STATUS = ['Ready', 'Running']
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity if something is found. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--status',
+        help='Expected task status (repeating). Default: %(default)s',
+        dest='STATUS',
+        default=DEFAULT_STATUS,
+        action='append',
+        choices=['Disabled', 'Queued', 'Ready', 'Running', 'Unknown'],
+    )
+
+    parser.add_argument(
+        '--task',
+        help='Name of the scheduled task.',
+        dest='TASK',
+        required=True,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    problem_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
+
+    # execute the shell command and return its result and exit code
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('schtasks /query /fo csv /nh'))
+    if stderr or retc != 0:
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    reader = csv.reader(stdout.strip().splitlines())
+    for row in reader:
+        task_name, next_run_time, status = row
+        if task_name == args.TASK:
+            if status in args.STATUS:
+                lib.base.oao('{} is {}'.format(args.TASK, status), STATE_OK)
+            lib.base.oao('{} is {}, but supposed to be {}'.format(
+                args.TASK,
+                status,
+                args.STATUS,
+            ), problem_state)
+
+    lib.base.oao('Scheduled Task {} not found'.format(args.TASK), STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

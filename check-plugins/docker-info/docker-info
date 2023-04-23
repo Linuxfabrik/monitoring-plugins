@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Displays system-wide docker information.'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument('--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument('--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data, get docker or podman info
+    if args.TEST is None:
+        cmd = 'podman info --format json'
+        success, result = lib.shell.shell_exec(cmd)
+        if not success:
+            cmd = 'docker info'
+            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        else:
+            stdout, stderr, retc = result
+        if retc != 0:
+            lib.base.oao('{}\n{}'.format(stderr, stdout), STATE_CRIT)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    try:
+        result = json.loads(stdout)
+        podman_found = True
+    except:
+        podman_found = False
+    containers, containers_paused, containers_running, containers_stopped, cpus, images, logging_driver, memory, registry, storage_driver, ver = '', '', '', '', '', '', '', '', '', '', ''
+    warn, crit = '', ''
+
+    if podman_found:
+        containers = result['store']['containerStore']['number']
+        perfdata += lib.base.get_perfdata('containers', containers, None, None, None, 0, None)
+        containers_paused = result['store']['containerStore']['paused']
+        perfdata += lib.base.get_perfdata('containers_paused', containers_paused, None, None, None, 0, None)
+        containers_running = result['store']['containerStore']['running']
+        perfdata += lib.base.get_perfdata('containers_running', containers_running, None, None, None, 0, None)
+        containers_stopped = result['store']['containerStore']['stopped']
+        perfdata += lib.base.get_perfdata('containers_stopped', containers_stopped, None, None, None, 0, None)
+        cpus = result['host']['cpus']
+        perfdata += lib.base.get_perfdata('cpu', cpus, None, None, None, 0, None)
+        images = result['store']['imageStore']['number']
+        perfdata += lib.base.get_perfdata('images', images, None, None, None, 0, None)
+        logging_driver = result['host']['eventLogger']
+        memory = result['host']['memTotal']
+        perfdata += lib.base.get_perfdata('ram', memory, 'B', None, None, 0, None)
+        registry = len(result['registries']['search'])
+        storage_driver = result['store']['graphDriverName']
+        ver = result['version']['Version']
+    else:
+        for row in stdout.strip().split('\n'):
+            lcrow = row.lower()
+            if ' containers: ' in lcrow:
+                containers = lcrow.replace('containers: ', '').strip()
+                perfdata += lib.base.get_perfdata('containers', containers, None, None, None, 0, None)
+            if '  paused: ' in lcrow:
+                containers_paused = lcrow.replace('paused: ', '').strip()
+                perfdata += lib.base.get_perfdata('containers_paused', containers_paused, None, None, None, 0, None)
+            if '  running: ' in lcrow:
+                containers_running = lcrow.replace('running: ', '').strip()
+                perfdata += lib.base.get_perfdata('containers_running', containers_running, None, None, None, 0, None)
+            if '  stopped: ' in lcrow:
+                containers_stopped = lcrow.replace('stopped: ', '').strip()
+                perfdata += lib.base.get_perfdata('containers_stopped', containers_stopped, None, None, None, 0, None)
+            if ' cpus: ' in lcrow:
+                cpus = lcrow.replace('cpus: ', '').strip()
+                perfdata += lib.base.get_perfdata('cpu', cpus, None, None, None, 0, None)
+            if ' images: ' in lcrow:
+                images = lcrow.replace('images: ', '').strip()
+                perfdata += lib.base.get_perfdata('images', images, None, None, None, 0, None)
+            if ' logging driver: ' in lcrow:
+                logging_driver = lcrow.replace('logging driver: ', '').strip()
+            if ' total memory: ' in lcrow:
+                memory = row.replace('Total Memory: ', '').strip()
+                perfdata += lib.base.get_perfdata('ram', lib.human.human2bytes(memory), 'B', None, None, 0, None)
+            if ' registry: ' in lcrow:
+                registry = lcrow.replace('registry: ', '').strip()
+            if ' storage driver: ' in lcrow:
+                storage_driver = lcrow.replace('storage driver: ', '').strip()
+            if ' server version: ' in lcrow:
+                ver = lcrow.replace('server version: ', '').strip()
+
+        for row in stderr.strip().split('\n'):
+            lcrow = row.lower()
+            if 'warning: ' in lcrow:
+                warn += '{}, '.format(row)
+                state = lib.base.get_worst(state, STATE_WARN)
+            if 'error: ' in lcrow:
+                crit += '{}, '.format(row)
+                state = lib.base.get_worst(state, STATE_CRIT)
+
+    # create output
+    if crit:
+        msg += '{}'.format(crit)
+    if warn:
+        msg += '{}'.format(warn)
+    if containers != '':
+        msg += '{} Containers'.format(containers)
+    if containers_running != '':
+        msg += ' ({} running, {} paused, {} stopped)'.format(containers_running, containers_paused, containers_stopped)
+    if images != '':
+        msg += ', {} Images'.format(images)
+    if storage_driver != '':
+        msg += ', Storage Driver: {}'.format(storage_driver)
+    if logging_driver != '':
+        msg += ', Logging Driver: {}'.format(logging_driver)
+    if podman_found:
+        msg += ', {} {}'.format(registry, lib.txt.pluralize('Registr', registry, 'y,ies'))
+    else:
+        if registry != '':
+            msg += ', Registry: {}'.format(registry)
+    if podman_found:
+        msg += ', Podman'
+    else:
+        msg += ', Docker'
+    msg += ' v{}'.format(ver)
+    msg += ', {} CPUs'.format(cpus)
+    if podman_found:
+        msg += ', {} Memory'.format(lib.human.bytes2human(memory))
+    else:
+        msg += ', {} Memory'.format(memory)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

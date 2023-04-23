@@ -15,17 +15,17 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../snmp3'
+    check = '../snmp'
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname 127.0.0.1 --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.1 --test=stdout/EXAMPLE01,,0'))
         self.assertIn('Key                    ! Value                                                                                                                                         ! State     ', stdout)
         self.assertIn('-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+-----------', stdout)
         self.assertIn('Name                   ! BRW38B1DB3B30F4                                                                                                                               ! [OK]      ', stdout)
@@ -34,7 +34,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname 127.0.0.2 --test=stdout/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.2 --test=stdout/EXAMPLE02,,0'))
         self.assertIn('Key                                ! Value                                                                                                                                         ! State     ', stdout)
         self.assertIn('-----------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------+-----------', stdout)
         self.assertIn('Name                               ! None                                                                                                                                          ! [OK]      ', stdout)

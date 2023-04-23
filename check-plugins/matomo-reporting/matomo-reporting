@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
+                 or several websites and for any given date and period."""
+
+DEFAULT_URL      = 'https://demo.matomo.org'
+DEFAULT_IDSITE   = 1
+DEFAULT_PERIOD   = 'day'
+DEFAULT_DATE     = 'today'
+DEFAULT_PASSWORD = 'anonymous'
+
+DEFAULT_METRIC   = []
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 3
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--date',
+        help='REST API date, for example "date=last10" or "date="today". Default: %(default)s',
+        dest='DATE',
+        default=DEFAULT_DATE,
+    )
+
+    parser.add_argument(
+        '--idsite',
+        help='REST API idSite, for example "idsite=1", "idsite=1,4,5" or "idsite=all". Default: %(default)s',
+        dest='IDSITE',
+        default=DEFAULT_IDSITE,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--metric',
+        help='Filter the output and optionally check against thresholds or ranges, for example "--metric nb_visits,100:,50:" (repeating, csv, works with ranges). Default: %(default)s',
+        dest='METRIC',
+        type=lib.args.csv,
+        action='append',
+        default=DEFAULT_METRIC,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='REST API Access Token. Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
+        '--period',
+        help='REST API period, for example "period=range" or "period=day". Default: %(default)s',
+        dest='PERIOD',
+        default=DEFAULT_PERIOD,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u', '--url',
+        help='Matomo URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
+    result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    if 'result' in result and result['result'] == 'error':
+        lib.base.oao('{}'.format(result['message']), STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    if args.METRIC:
+        # just print and check some of all those possible values
+        for metric in args.METRIC:
+            key = metric[0]
+            try:
+                value = result[key]
+            except:
+                continue
+            try:
+                warn = metric[1]
+            except:
+                warn = None
+            try:
+                crit = metric[2]
+            except:
+                crit = None
+
+            if not lib.base.coe(lib.base.match_range(value, crit)):
+                sensor_state = STATE_CRIT
+            elif not lib.base.coe(lib.base.match_range(value, warn)):
+                sensor_state = STATE_WARN
+            else:
+                sensor_state = STATE_OK
+
+            msg += '{}: {}{}, '.format(key, lib.human.number2human(value), lib.base.state2str(sensor_state, prefix=' (', suffix=')'))
+            state = lib.base.get_worst(state, sensor_state)
+            if 'time' in key:
+                perfdata += lib.base.get_perfdata(key, value, 's', None, None, 0, None)
+            elif 'percent' in key or 'rate' in key:
+                perfdata += lib.base.get_perfdata(key, value, '%', None, None, 0, 100)
+            else:
+                perfdata += lib.base.get_perfdata(key, value, None, None, None, 0, None)
+    else:
+        for key, value in lib.base.sort(result, reverse=False, sort_by_key=True):
+            # print all values
+            msg += '{}: {}, '.format(key, lib.human.number2human(value))
+            perfdata += lib.base.get_perfdata(key, value, 's' if 'time' in key else None, None, None, 0, None)
+
+    # over and out
+    lib.base.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

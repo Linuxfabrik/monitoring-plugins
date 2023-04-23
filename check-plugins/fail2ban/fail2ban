@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses (for a list of jails).'
+
+cmd = 'fail2ban-client'
+
+DEFAULT_CRIT = 10000
+DEFAULT_WARN = 2500
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for banned IPs. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for banned IPs. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # fail2ban-client ping
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' ping'))
+    if retc:
+        lib.base.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
+
+    # fail2ban-client status
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' status'))
+    if retc != 0:
+        lib.base.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
+
+    # extract the jail list
+    jail_list = re.search(r'Jail list:\t(.*)\n', stdout)
+    jail_list = jail_list.group(1).strip().split(', ')
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    # let's do the checks
+    # for each jail_name:
+    #     fail2ban-client status jail_name
+    for jail in jail_list:
+
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' status {}'.format(jail)))
+        if retc != 0:
+            lib.base.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
+
+        f2b_filelist = re.search(r'File list:\t(.*)\n', stdout)
+        if f2b_filelist:
+            f2b_filelist = f2b_filelist.group(1).strip()
+        f2b_currently_banned = re.search(r'Currently banned:\t(.*)\n', stdout)
+        # important to convert the result to an integer
+        # for the comparison later on
+        if f2b_currently_banned:
+            f2b_currently_banned = int(f2b_currently_banned.group(1).strip())
+        else:
+            f2b_currently_banned = 0
+
+        msg += '{} {} banned in jail "{}"'.format(
+            f2b_currently_banned,
+            lib.txt.pluralize('IP', f2b_currently_banned),
+            jail,
+        )
+        if f2b_filelist:
+            msg += ' (acting on {})'.format(f2b_filelist)
+        msg += ', '
+
+        perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None)
+        state = lib.base.get_state(f2b_currently_banned, args.WARN, args.CRIT)
+
+    # over and out
+    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

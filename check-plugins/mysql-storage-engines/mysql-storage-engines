@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.db_mysql  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Checks storage engines, fragmented tables and autoindex usage in MySQL/MariaDB."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_TIMEOUT = 3
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and password from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    return parser.parse_args()
+
+
+def get_vars(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global variables
+        where variable_name like 'innodb_file_per_table'
+            ;
+          """
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:check_storage_engines(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    lib.base.coe(lib.db_mysql.check_select_privileges(conn))
+
+    myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    engines = lib.db_mysql.get_engines(conn)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # MySQL 5.1.5+ servers can have table sizes calculated quickly from information schema
+    enginestats = {}
+    sql = '''
+        select ENGINE as engine,
+            sum(DATA_LENGTH+INDEX_LENGTH) as size,
+            count(ENGINE) as count,
+            sum(DATA_LENGTH) as dsize,
+            sum(INDEX_LENGTH) as isize
+        from information_schema.tables
+        where TABLE_SCHEMA NOT IN ('information_schema', 'performance_schema', 'mysql')
+            and ENGINE is not null
+        group by ENGINE
+        order by ENGINE asc;
+    '''
+    templist = lib.base.coe(lib.db_mysql.select(conn, sql))
+    for temp in templist:
+        if not temp:
+            continue
+        engine = temp['engine']
+        enginestats[engine] = temp.get('size', 0)
+
+    # If the storage engine isn't being used, recommend it to be disabled
+    if enginestats.get('InnoDB', None) is None \
+    and engines.get('have_innodb', '') \
+    and engines['have_innodb'] == 'YES':
+        msg += '* InnoDB is enabled but isn\'t being used. Add skip-innodb to MySQL configuration to disable InnoDB\n'
+    if enginestats.get('BerkeleyDB', None) is None \
+    and engines.get('have_bdb', '') \
+    and engines['have_bdb'] == 'YES':
+        msg += '* BDB is enabled but isn\'t being used. Add skip-bdb to MySQL configuration to disable BDB\n'
+    if enginestats.get('ISAM', None) is None \
+    and engines.get('have_isam', '') \
+    and engines['have_isam'] == 'YES':
+        msg += '* MYISAM is enabled but isn\'t being used. Add skip-isam to MySQL configuration to disable ISAM (MySQL 4.1.0+)\n'
+
+    # Fragmented tables
+    not_innodb = ''
+    if not myvar.get('innodb_file_per_table', ''):
+        not_innodb = 'and not ENGINE="InnoDB"'
+    elif myvar['innodb_file_per_table'] == 'OFF':
+        not_innodb = 'and not ENGINE="InnoDB"'
+    sql = '''
+        select concat(concat(TABLE_SCHEMA, '.'),TABLE_NAME) as full_table_name,
+            cast(DATA_FREE as signed) as data_free
+        from information_schema.tables
+        where TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'mysql')
+            and DATA_LENGTH/1024/1024 > 100
+            and cast(DATA_FREE as signed)*100/(DATA_LENGTH+INDEX_LENGTH+cast(DATA_FREE as signed)) > 10
+            and not ENGINE='MEMORY'
+            {}
+    '''.format(not_innodb)
+    fragtables = lib.base.coe(lib.db_mysql.select(conn, sql))
+    if len(fragtables) > 0:
+        msg += '* {} fragmented {}\n'.format(
+            len(fragtables),
+            lib.txt.pluralize('table', len(fragtables)),
+        )
+        total_free = 0
+        for fragtable in fragtables:
+            table_schema, table_name = fragtable['full_table_name'].rsplit('.', 1)  # my.schema.my_table
+            data_free = fragtable.get('data_free', 0)
+            total_free += data_free
+            msg += '* OPTIMIZE TABLE `{}`.`{}`; -- can free {}\n'.format(
+                table_schema,
+                table_name,
+                lib.human.bytes2human(data_free),
+            )
+        msg += '* Total freed space after all OPTIMIZE TABLEs: {}\n'.format(
+            lib.human.bytes2human(total_free),
+        )
+
+    sql = '''
+        select ENGINE as engine, SUPPORT as support
+        from information_schema.engines
+        order by ENGINE asc;
+    '''
+    engineresults = lib.base.coe(lib.db_mysql.select(conn, sql))
+
+    # Auto increments
+    tblist = {}
+
+    # Find the maximum integer
+    sql = 'select ~0 as maxint;'
+    maxint = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
+
+    sql = 'show databases;'
+    dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
+
+    # Now we use a database list, and loop through it to get storage engine stats for tables
+    for db in dblist:
+        if db['Database'] == 'information_schema':
+            continue
+        sql = 'show table status from `{}`;'.format(db['Database'])
+        tblist = lib.base.coe(lib.db_mysql.select(conn, sql))
+        for tbl in tblist:
+            if not tbl['Auto_increment']:
+                continue
+            percent = tbl['Auto_increment'] / maxint['maxint'] * 100
+            if percent >= 75:
+                msg += '* {}.{} has an autoincrement value near max capacity ({}%)\n'.format(
+                    db['Database'],
+                    tbl['Name'],
+                    round(percent, 1),
+                )
+
+    lib.db_mysql.close(conn)
+
+    if msg:
+        state = STATE_WARN
+        msg = 'There are warnings.\n\n' + msg
+    else:
+        msg = 'Everyhing is ok.'
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

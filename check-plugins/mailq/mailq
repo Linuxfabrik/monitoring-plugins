@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Checks the mail queue.'
+
+DEFAULT_WARN  =    2     # mails
+DEFAULT_CRIT  =  250     # mails
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for mails in the queue. Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for mails in the queue. Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        # for `exim`, `mailq` is an alias for `exim -bq`
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('mailq'))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    mailq_err_msg = None
+    if stderr:
+        # does mailq report something unusual?
+        mailq_err_msg = stderr.strip()
+
+    # count the mails in the queue
+    mailq_count = 0
+    stdout = stdout.strip()
+    if stdout and stdout != 'Mail queue is empty' and stdout != '0 mails to deliver':
+        # "-- 2 Kbytes in 3 Requests."
+        mailq_count = re.search(r' in (.*) Requests?\.', stdout)
+        if mailq_count:
+            mailq_count = int(mailq_count.group(1).strip())
+        else:
+            # other mailq version? "17 mails to deliver"
+            mailq_count = re.search(r'(.*) mails to deliver', stdout)
+            if mailq_count:
+                mailq_count = int(mailq_count.group(1).strip())
+            else:
+                # exim? for now, just count the lines (could be done better in the future)
+                mailq_count = stdout.count('\n')
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+
+    if mailq_err_msg:
+        msg += '{}. '.format(mailq_err_msg)
+    if mailq_count:
+        msg += '{} {} to deliver.'.format(mailq_count, lib.txt.pluralize('mail', mailq_count))
+    else:
+        msg += 'Mail queue is empty.'
+
+    perfdata += lib.base.get_perfdata('mailq', mailq_count, None, args.WARN, args.CRIT, 0, None)
+
+    state = lib.base.get_state(mailq_count, args.WARN, args.CRIT, _operator='ge')
+    if mailq_err_msg:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

@@ -15,21 +15,21 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../grassfish-licenses3'
+    check = '../grassfish-licenses'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE01,,0'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE01,,0'))
         self.assertIn('Everything is ok.', stdout)
         self.assertIn('License Type     ! Usage', stdout)
         self.assertIn('-----------------+---------------------------', stdout)
@@ -38,7 +38,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE02,,0'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname=HOSTNAME --token=TOKEN --test=stdout/EXAMPLE02,,0'))
         self.assertIn('No more licenses available: DsPlayerEntry, EntryPlayer', stdout)
         self.assertIn('License Type     ! Usage', stdout)
         self.assertIn('-----------------+---------------------------', stdout)

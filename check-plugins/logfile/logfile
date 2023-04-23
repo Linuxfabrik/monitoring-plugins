@@ -1,0 +1,435 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import datetime  # pylint: disable=C0413
+import os  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.db_sqlite  # pylint: disable=C0413
+import lib.icinga  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
+
+DEFAULT_ALARM_DURATION = 60 # minutes (1 hour)
+DEFAULT_CRIT = 1
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_NO_SUMMARY = False
+DEFAULT_TIMEOUT = 5
+DEFAULT_WARN = 1
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--alarm-duration',
+        help='How long should this check return an alarm on new matches (in minutes)? This is overwritten by --icinga-callback. Default: %(default)s',
+        dest='ALARM_DURATION',
+        type=int,
+        default=DEFAULT_ALARM_DURATION,
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for the number of found critical matches. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-pattern',
+        help='Any line containing this pattern will count as a critical.',
+        action='append',
+        default=[],
+        dest='CRIT_PATTERN',
+    )
+
+    parser.add_argument(
+        '--critical-regex',
+        help='Any line matching this python regex will count as a critical.',
+        action='append',
+        dest='CRIT_REGEX',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--filename',
+        help='Set the path of the logfile.',
+        dest='FILENAME',
+        required=True,
+        type=str,
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help='Get the service acknowledgement from Icinga. This overwrites --alarm-duration. Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help='Icinga API password.',
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help='Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-server!my-service-name`.',
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help='Icinga API URL, for example https://icinga-server:5665.',
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help='Icinga API username.',
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore-pattern',
+        help='Any line containing this pattern will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_PATTERN',
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help='Any line matching this python regex will be ignored.',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--suppress-lines',
+        help='Suppress the found lines in the output, only report the number of findings.',
+        dest='SUPPRESS_OUTPUT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the number of found warning matches. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line containing this pattern will count as a warning.',
+        action='append',
+        default=[],
+        dest='WARN_PATTERN',
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex will count as a warning.',
+        action='append',
+        dest='WARN_REGEX',
+        default=[],
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not any((args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)):
+        lib.base.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
+
+    if args.ICINGA_CALLBACK and not all((args.ICINGA_URL, args.ICINGA_PASSWORD, args.ICINGA_USERNAME, args.ICINGA_SERVICE_NAME)):
+        lib.base.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.', STATE_UNKNOWN)
+
+    # create the db table
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-logfile-{}.db'.format(
+            os.path.basename(args.FILENAME)
+        ))
+    )
+    definition = '''
+        filename TEXT NOT NULL PRIMARY KEY,
+        offset INTEGER NOT NULL,
+        inode INTEGER NOT NULL
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='file_stats'))
+    definition = '''
+        filename TEXT NOT NULL,
+        state INTEGER NOT NULL,
+        line TEXT NOT NULL,
+        found_at TIMESTAMP NOT NULL
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='matching_lines'))
+
+    file_stat = os.stat(args.FILENAME)
+    current_inode = file_stat.st_ino
+    current_size = file_stat.st_size
+
+    old_file_stats = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        SELECT *
+        FROM file_stats
+        WHERE filename = :filename
+        ''',
+        {'filename': args.FILENAME,},
+        fetchone=True,
+    ))
+
+    if old_file_stats:
+        # this is not the first time we are scanning this logfile, try to continue where we left off
+        offset = old_file_stats.get('offset', 0)
+
+        if (current_inode != old_file_stats.get('inode')
+        or current_size < offset):
+            # this means the file has been rotated
+            offset = 0
+    else:
+        offset = 0
+
+    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
+    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+
+    warn_matches = []
+    crit_matches = []
+    line_counter = 0
+    try:
+        with open(args.FILENAME) as logfile:
+            logfile.seek(offset)
+            for line in logfile:
+                line_counter += 1
+                # due to lazy evaluation, the regex will only be executed if the pattern does not match
+                # see https://docs.python.org/3/reference/expressions.html#boolean-operations
+                if any(warn_pattern in line for warn_pattern in args.WARN_PATTERN)\
+                or any(item.search(line) for item in compiled_warn_regex):
+                    if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
+                    and not any(item.search(line) for item in compiled_ignore_regex):
+                        warn_matches.append(line.strip())
+
+                if any(crit_pattern in line for crit_pattern in args.CRIT_PATTERN)\
+                or any(item.search(line) for item in compiled_crit_regex):
+                    if not any(ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN)\
+                    and not any(item.search(line) for item in compiled_ignore_regex):
+                        crit_matches.append(line.strip())
+
+            offset = logfile.tell()
+    except FileNotFoundError:
+        lib.base.oao(f"Could not find logfile '{args.FILENAME}'.", STATE_UNKNOWN)
+        # make sure conn is always closed
+        lib.db_sqlite.close(conn)
+    except PermissionError:
+        lib.base.oao(f"Permission denied opening '{args.FILENAME}'.", STATE_UNKNOWN)
+        # make sure conn is always closed
+        lib.db_sqlite.close(conn)
+
+    # Save the current position for the next run
+    new_file_stats = {
+        'filename': args.FILENAME,
+        'offset': offset,
+        'inode': current_inode,
+    }
+    lib.base.coe(lib.db_sqlite.replace(conn, new_file_stats, table='file_stats'))
+
+    # if we are using the alarm duration (aka not using the icinga callback), remove all outdated matches from the db now
+    now = lib.time.now(as_type='datetime')
+    if not args.ICINGA_CALLBACK:
+        outdated = now - datetime.timedelta(minutes=args.ALARM_DURATION)
+        lib.base.coe(lib.db_sqlite.delete(
+            conn,
+            '''
+            DELETE
+            FROM matching_lines
+            WHERE filename = :filename and found_at <= :outdated
+            ''',
+            {'filename': args.FILENAME, 'outdated': outdated},
+        ))
+
+    # get the old matches and take them into consideration for the state
+    # for example, if there are no new lines we still want to alarm the old ones until the service is acknowledged
+    old_warn_matches = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        SELECT *
+        FROM matching_lines
+        WHERE filename = :filename and state = :state
+        ''',
+        {'filename': args.FILENAME, 'state': STATE_WARN},
+        fetchone=False,
+    ))
+    old_crit_matches = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        SELECT *
+        FROM matching_lines
+        WHERE filename = :filename and state = :state
+        ''',
+        {'filename': args.FILENAME, 'state': STATE_CRIT},
+        fetchone=False,
+    ))
+
+    state = lib.base.get_worst(
+        lib.base.get_state(len(warn_matches) + len(old_warn_matches), args.WARN, None),
+        lib.base.get_state(len(crit_matches) + len(old_crit_matches), None, args.CRIT),
+    )
+
+    msg_addendum = ''
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        # check if the service is acknowledged
+        success, icinga = lib.icinga.get_service(
+            args.ICINGA_URL,
+            args.ICINGA_USERNAME,
+            args.ICINGA_PASSWORD,
+            servicename=args.ICINGA_SERVICE_NAME,
+            attrs='state,acknowledgement'
+        )
+        if success:
+            try:
+                if icinga['results'][0]['attrs']['acknowledgement']:
+                    # this means the service is acknowledged
+                    state = STATE_OK
+                    lib.base.coe(lib.db_sqlite.delete(
+                        conn,
+                        '''
+                        DELETE
+                        FROM matching_lines
+                        WHERE filename = :filename
+                        ''',
+                        {'filename': args.FILENAME},
+                    ))
+                    old_warn_matches = []
+                    old_crit_matches = []
+                else:
+                    msg_addendum += 'Note: Acknowledge this service to reset the state to OK.'
+            except IndexError:
+                msg_addendum += 'Note: Could not determine the acknowledgement from the Icinga API, this could be due to an incorrect service name.'
+        else:
+            msg_addendum += 'Note: Could not determine the acknowledgement from the Icinga API:\n{}.'.format(icinga)
+
+    # save to db, these lines will be alarmed until the service is acknowledged in icinga2
+    for match in warn_matches:
+        lib.base.coe(lib.db_sqlite.insert(
+            conn,
+            {
+                'filename': args.FILENAME,
+                'state': STATE_WARN,
+                'line': match.strip(),
+                'found_at': now,
+            },
+            table='matching_lines',
+        ))
+    for match in crit_matches:
+        lib.base.coe(lib.db_sqlite.insert(
+            conn,
+            {
+                'filename': args.FILENAME,
+                'state': STATE_CRIT,
+                'line': match.strip(),
+                'found_at': now,
+            },
+            table='matching_lines',
+        ))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.db_sqlite.close(conn)
+
+    # Build the message
+    msg = 'Scanned {} lines'.format(line_counter)
+    if warn_matches:
+        msg += ', {} warning {}'.format(
+            len(warn_matches),
+            lib.txt.pluralize('match', len(warn_matches), 'es'),
+        )
+
+    if crit_matches:
+        msg += ', {} critical {}'.format(
+            len(crit_matches),
+            lib.txt.pluralize('match', len(crit_matches), 'es'),
+        )
+
+    if old_warn_matches:
+        msg += ', {} old warning {}'.format(
+            len(old_warn_matches),
+            lib.txt.pluralize('match', len(old_warn_matches), 'es'),
+        )
+
+    if old_crit_matches:
+        msg += ', {} old critical {}'.format(
+            len(old_crit_matches),
+            lib.txt.pluralize('match', len(old_crit_matches), 'es'),
+        )
+
+    if not args.SUPPRESS_OUTPUT:
+        if warn_matches:
+            msg += '\n\nWarning matches:\n* ' + '\n* '.join(warn_matches)
+
+        if crit_matches:
+            msg += '\n\nCritical matches:\n* ' + '\n* '.join(crit_matches)
+
+        if old_warn_matches:
+            msg += '\n\nOld warning matches:\n* ' + '\n* '.join([match['line'] for match in old_warn_matches])
+
+        if old_crit_matches:
+            msg += '\n\nOld critical matches:\n* ' + '\n* '.join([match['line'] for match in old_crit_matches])
+
+    perfdata = lib.base.get_perfdata('scanned_lines', line_counter, None, None, None, None, None)
+    perfdata += lib.base.get_perfdata('warn_matches', len(warn_matches), None, args.WARN, None, None, None)
+    perfdata += lib.base.get_perfdata('crit_matches', len(crit_matches), None, args.WARN, None, None, None)
+
+    lib.base.oao(msg + '\n\n' + msg_addendum, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        lib.base.cu()

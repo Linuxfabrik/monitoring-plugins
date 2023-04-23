@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Tracks if WordPress is EOL.'
+
+DEFAULT_PATH = '/var/www/html/wordpress'
+
+# from https://endoflife.date/api/wordpress.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "6.2",
+    "eol": False,
+    "support": True,
+    "releaseDate": "2023-03-29",
+    "latest": "6.2.0",
+    "latestReleaseDate": "2023-03-29",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2",
+    "lts": False
+  },
+  {
+    "cycle": "6.1",
+    "eol": False,
+    "support": "2023-03-29",
+    "releaseDate": "2022-11-02",
+    "latest": "6.1.1",
+    "latestReleaseDate": "2022-11-15",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1, 8.2",
+    "lts": False
+  },
+  {
+    "cycle": "6.0",
+    "eol": False,
+    "support": "2022-11-01",
+    "releaseDate": "2022-05-24",
+    "latest": "6.0.3",
+    "latestReleaseDate": "2022-10-17",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1",
+    "lts": False
+  },
+  {
+    "cycle": "5.9",
+    "eol": False,
+    "support": "2022-05-24",
+    "releaseDate": "2022-01-25",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.9.5",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0, 8.1",
+    "lts": False
+  },
+  {
+    "cycle": "5.8",
+    "eol": False,
+    "support": "2022-01-25",
+    "releaseDate": "2021-07-20",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.8.6",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0",
+    "lts": False
+  },
+  {
+    "cycle": "5.7",
+    "eol": False,
+    "support": "2021-07-20",
+    "releaseDate": "2021-03-09",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.7.8",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0",
+    "lts": False
+  },
+  {
+    "cycle": "5.6",
+    "eol": False,
+    "support": "2021-03-09",
+    "releaseDate": "2020-12-08",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.6.10",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4, 8.0",
+    "lts": False
+  },
+  {
+    "cycle": "5.5",
+    "eol": False,
+    "support": "2020-12-08",
+    "releaseDate": "2020-08-11",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.5.11",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4",
+    "lts": False
+  },
+  {
+    "cycle": "5.4",
+    "eol": False,
+    "support": "2020-08-11",
+    "releaseDate": "2020-03-31",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.4.12",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4",
+    "lts": False
+  },
+  {
+    "cycle": "5.3",
+    "eol": False,
+    "support": "2020-03-31",
+    "releaseDate": "2019-11-12",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.3.14",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3, 7.4",
+    "lts": False
+  },
+  {
+    "cycle": "5.2",
+    "eol": False,
+    "support": "2019-11-12",
+    "releaseDate": "2019-05-07",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.2.17",
+    "supportedPHPVersions": "5.6, 7.0, 7.1, 7.2, 7.3",
+    "lts": False
+  },
+  {
+    "cycle": "5.1",
+    "eol": False,
+    "support": "2019-05-07",
+    "releaseDate": "2019-02-21",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.1.15",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0, 7.1, 7.2, 7.3",
+    "lts": False
+  },
+  {
+    "cycle": "5.0",
+    "eol": False,
+    "support": "2019-02-21",
+    "releaseDate": "2018-12-06",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "5.0.18",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0, 7.1, 7.2, 7.3",
+    "lts": False
+  },
+  {
+    "cycle": "4.9",
+    "eol": False,
+    "support": "2018-12-06",
+    "releaseDate": "2017-11-16",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.9.22",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0, 7.1, 7.2",
+    "lts": False
+  },
+  {
+    "cycle": "4.8",
+    "eol": False,
+    "support": "2017-11-16",
+    "releaseDate": "2017-06-08",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.8.21",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0, 7.1",
+    "lts": False
+  },
+  {
+    "cycle": "4.7",
+    "eol": False,
+    "support": "2017-06-08",
+    "releaseDate": "2016-12-06",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.7.25",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0, 7.1",
+    "lts": False
+  },
+  {
+    "cycle": "4.6",
+    "eol": False,
+    "support": "2016-12-06",
+    "releaseDate": "2016-08-16",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.6.25",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0",
+    "lts": False
+  },
+  {
+    "cycle": "4.5",
+    "eol": False,
+    "support": "2016-08-16",
+    "releaseDate": "2016-04-12",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.5.28",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0",
+    "lts": False
+  },
+  {
+    "cycle": "4.4",
+    "eol": False,
+    "support": "2016-04-12",
+    "releaseDate": "2015-12-09",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.4.29",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6, 7.0",
+    "lts": False
+  },
+  {
+    "cycle": "4.3",
+    "eol": False,
+    "support": "2015-12-08",
+    "releaseDate": "2015-08-18",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.3.30",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6",
+    "lts": False
+  },
+  {
+    "cycle": "4.2",
+    "eol": False,
+    "support": "2015-08-18",
+    "releaseDate": "2015-04-23",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.2.34",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6",
+    "lts": False
+  },
+  {
+    "cycle": "4.1",
+    "eol": False,
+    "support": "2015-04-23",
+    "releaseDate": "2014-12-18",
+    "latestReleaseDate": "2022-10-17",
+    "latest": "4.1.37",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5, 5.6",
+    "lts": False
+  },
+  {
+    "cycle": "4.0",
+    "eol": "2022-12-01",
+    "support": "2014-12-18",
+    "releaseDate": "2014-09-04",
+    "latestReleaseDate": "2022-11-30",
+    "latest": "4.0.38",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5",
+    "lts": False
+  },
+  {
+    "cycle": "3.9",
+    "eol": "2022-12-01",
+    "support": "2014-09-04",
+    "releaseDate": "2014-04-16",
+    "latestReleaseDate": "2022-11-30",
+    "latest": "3.9.40",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5",
+    "lts": False
+  },
+  {
+    "cycle": "3.8",
+    "eol": "2022-12-01",
+    "support": "2014-04-16",
+    "releaseDate": "2013-12-12",
+    "latestReleaseDate": "2022-11-30",
+    "latest": "3.8.41",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5",
+    "lts": False
+  },
+  {
+    "cycle": "3.7",
+    "eol": "2022-12-01",
+    "support": "2013-12-12",
+    "releaseDate": "2013-10-24",
+    "latestReleaseDate": "2022-11-30",
+    "latest": "3.7.41",
+    "supportedPHPVersions": "5.2, 5.3, 5.4, 5.5",
+    "lts": False
+  },
+  {
+    "cycle": "3.6",
+    "eol": "2013-10-24",
+    "support": "2013-10-24",
+    "releaseDate": "2013-08-01",
+    "latestReleaseDate": "2013-09-11",
+    "latest": "3.6.1",
+    "lts": False
+  }
+]
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to your WordPress installation, typically within your Webserver\'s '
+             'Document Root. Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    try:
+        success, version = lib.disk.grep_file(
+            path + '/wp-includes/version.php', r'wp_version\s*=\s*\'(.*)\''
+        )
+    except:
+        return (False, 'Unable to get WordPress version information.')
+    if not success:
+        return (success, version)
+    if version:
+        return (True, version)
+    return (True, False)
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = lib.base.coe(get_installed_version(args.PATH))
+    if not installed_version:
+        lib.base.oao('WordPress not found.', STATE_UNKNOWN)
+    try:
+        installed_major, installed_minor, installed_patch = installed_version.split('.')
+    except:
+        installed_patch = '0'
+        installed_major, installed_minor = installed_version.split('.')
+
+    state, msg = lib.version.check_eol(
+        ENDOFLIFE_DATE,
+        '{}.{}'.format(installed_major, installed_minor),
+    )
+
+    # over and out
+    lib.base.oao(
+        'WordPress v{} ({})'.format(installed_version, msg),
+        state,
+        lib.base.get_perfdata(
+            'wordpress-version',
+            '{}.{}{}'.format(installed_major, installed_minor, installed_patch),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

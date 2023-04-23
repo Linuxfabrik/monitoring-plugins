@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+try:
+    import psutil  # pylint: disable=C0413
+    HAVE_PSUTIL = True
+except ImportError:
+    HAVE_PSUTIL = False
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
+
+DEFAULT_MAXPORTSALLOWED = 0
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--maxportsallowed',
+        help='Number of ports opened allowed on this host. Default: 0 (check disabled)',
+        dest='MAXPORTSALLOWED',
+        type=int,
+        default=DEFAULT_MAXPORTSALLOWED,
+    )
+
+    return parser.parse_args()
+
+
+def get_opened_ports():
+    opened_ports = {}
+    if HAVE_PSUTIL:
+        opened_ports = psutil.net_connections()
+    return len(opened_ports)
+
+
+def get_sysctl(key):
+    cmd = 'sysctl --values {} 2> /dev/null'.format(key)
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    return stdout.strip()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:get_kernel_info(), v1.9.8
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # count ports
+    opened_ports = get_opened_ports()
+    if args.MAXPORTSALLOWED > 0:
+        if opened_ports == 0:
+            msg += 'No ports checked (psutil missing). '
+        if opened_ports > args.MAXPORTSALLOWED:
+            state = STATE_WARN
+            msg += ('There are too many listening ports: {} opened > {} allowed '
+                    '(consider dedicating a server for your database installation with '
+                    'less services running on). ').format(opened_ports, args.MAXPORTSALLOWED)
+    perfdata += lib.base.get_perfdata('mysql_opened_ports', opened_ports, None, None, None, 0, None)
+
+    # get kernel settings on linux
+    if lib.base.LINUX:
+        result = get_sysctl('vm.swappiness')
+        if not result:
+            lib.base.oao('Permission denied reading `vm.swappiness`', STATE_UNKNOWN)
+        if int(result) > 10:
+            state = STATE_WARN
+            msg += 'vm.swappiness is {}, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). '.format(
+                result,
+            )
+        perfdata += lib.base.get_perfdata('mysql_kernel_vm.swappiness', result, '%', None, None, 0, 100)
+
+        # only if /proc/sys/sunrpc exists
+        if os.path.isdir('/proc/sys/sunrpc'):
+            result = get_sysctl('sunrpc.tcp_slot_table_entries')
+            if int(result) <= 100:
+                state = STATE_WARN
+                msg += 'sunrpc.tcp_slot_table_entries is {}, should be > 100 (use `echo 128 > /proc/sys/sunrpc/tcp_slot_table_entries`). '.format(
+                    result,
+                )
+            perfdata += lib.base.get_perfdata('mysql_kernel_sunrpc.tcp_slot_table_entries', result, None, None, None, 0, None)
+
+        if os.path.isfile('/proc/sys/fs/aio-max-nr'):
+            result = get_sysctl('fs.aio-max-nr')
+            if int(result) < 1000000:
+                state = STATE_WARN
+                msg += 'fs.aio-max-nr is {}, should be > 1M (use `echo 1048576 > /proc/sys/fs/aio-max-nr`). '.format(
+                    result,
+                )
+            perfdata += lib.base.get_perfdata('mysql_kernel_fs.aio-max-nr', result, None, None, None, 0, None)
+
+    if not msg:
+        msg = 'Everything is ok.'
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

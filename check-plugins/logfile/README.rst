@@ -121,7 +121,7 @@ Usage Examples
     test1
     warning
     test2
-    test3
+    test
     error1
     error2
     test4

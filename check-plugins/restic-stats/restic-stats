@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Walk multiple snapshots in a repository and accumulate statistics about the data
+                 stored therein. It reports on the number of unique files and their sizes,
+                 according to one of the counting modes as given by the --mode flag."""
+
+DEFAULT_MODE = 'restore-size'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--host',
+        help='Only consider snapshots for this host (can be specified multiple times).',
+        dest='HOST',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--mode',
+        help='Counting mode. Default: %(default)s',
+        dest='MODE',
+        choices=['restore-size', 'files-by-contents', 'blobs-per-file', 'raw-data'],
+        default=DEFAULT_MODE,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help='File to read the repository password from',
+        dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Only consider snapshots for this path (can be specified multiple times).',
+        dest='PATH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--repo',
+        help='Repository location',
+        dest='REPO',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--tag',
+        help='Only consider snapshots which include this taglist in the format `tag[,tag,...]` '
+             '(can be specified multiple times).',
+        dest='TAG',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        cmd = 'restic --json --repo={} --password-file={} --mode={}'.format(
+            args.REPO,
+            args.PASSWORD_FILE,
+            args.MODE,
+        )
+        if args.HOST:
+            cmd += ' --host=' + ' --host='.join(args.HOST)
+        if args.PATH:
+            cmd += ' --path=' + ' --path='.join(args.PATH)
+        if args.TAG:
+            cmd += ' --tag=' + ' --tag='.join(args.TAG)
+        cmd += ' stats'
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    try:
+        stats = json.loads(stdout)
+    except ValueError as e:
+        lib.base.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+
+    perfdata += lib.base.get_perfdata('total_file_count', stats['total_file_count'], '', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_size', stats['total_size'], '', None, None, 0, None)
+
+    # analyze data and build the message
+    msg = '{} files, {} size (total stats in {} mode over all snapshots)'.format(
+        lib.human.number2human(stats['total_file_count']),
+        lib.human.bytes2human(stats['total_size']),
+        args.MODE,
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

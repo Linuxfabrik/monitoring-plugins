@@ -15,21 +15,21 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../cometsystem3'
+    check = '../cometsystem'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --url http://example.com'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --url http://example.com'))
         self.assertIn('Everything is ok on host-name SN 20961563.', stdout)
         self.assertIn('Ch# ! Name              ! Alarm ! Value  ', stdout)
         self.assertIn('----+-------------------+-------+------------', stdout)
@@ -41,7 +41,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com'))
         self.assertIn('There are warnings on Web Sensor SN 17965562.', stdout)
         self.assertIn('Ch# ! Name                 ! Alarm ! Value  ', stdout)
         self.assertIn('----+----------------------+-------+-----------------', stdout)
@@ -53,7 +53,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_invalid_severity(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity gobbledygook'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity gobbledygook'))
         self.assertIn('Unknown states on Web Sensor SN 17965562.', stdout)
         self.assertIn('Ch# ! Name                 ! Alarm ! Value', stdout)
         self.assertIn('----+----------------------+-------+-----------------', stdout)
@@ -65,7 +65,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_UNKNOWN)
 
     def test_if_check_runs_EXAMPLE02_all_crit(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity crit'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity crit'))
         self.assertIn('There are critical errors on Web Sensor SN 17965562', stdout)
         self.assertIn('Ch# ! Name                 ! Alarm ! Value', stdout)
         self.assertIn('----+----------------------+-------+-----------------', stdout)
@@ -77,7 +77,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE02_all_crit_order_matters(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity crit --severity temp:warn'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity crit --severity temp:warn'))
         self.assertIn('There are critical errors on Web Sensor SN 17965562', stdout)
         self.assertIn('Ch# ! Name                 ! Alarm ! Value', stdout)
         self.assertIn('----+----------------------+-------+-----------------', stdout)
@@ -89,7 +89,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE02_all_crit_except_temp(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity temp:warn --severity crit'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --url http://example.com --severity temp:warn --severity crit'))
         self.assertIn('There are critical errors on Web Sensor SN 17965562', stdout)
         self.assertIn('Ch# ! Name                 ! Alarm ! Value', stdout)
         self.assertIn('----+----------------------+-------+-----------------', stdout)
@@ -101,7 +101,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0 --url http://example.com --severity humi:high:ok --severity humi:low:warn --severity crit'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0 --url http://example.com --severity humi:high:ok --severity humi:low:warn --severity crit'))
         self.assertIn('There are critical errors on My device SN 13940001.', stdout)
         self.assertIn('Ch# ! Name        ! Alarm ! Value', stdout)
         self.assertIn('----+-------------+-------+-------------------', stdout)

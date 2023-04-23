@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import fnmatch  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Warns on any failed systemd units."""
+
+DEFAULT_IGNORE = []
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a unit, for example "dhcpd.service" (repeating). Supports glob according to https://docs.python.org/3/library/fnmatch.html. Default: %(default)s',
+        dest='IGNORE',
+        default=DEFAULT_IGNORE,
+        action='append',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None:
+        # get the values the normal way
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(
+            'systemctl --state=failed --no-pager --no-legend'))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    if retc != 0:
+        lib.base.oao('systemctl was unable to return any data.', STATE_UNKNOWN)
+
+    msg = 'Everything is ok.'
+    table = ''
+    state = STATE_OK
+    count = 0
+
+    failed_units = stdout.splitlines()
+    if len(failed_units) > 0:
+        table_data = []
+        offset = 0
+        for line in failed_units:
+            if line.startswith('*'):
+                offset = 1
+            unit = line.split()
+            if any([fnmatch.fnmatchcase(unit[0 + offset], ignore) for ignore in args.IGNORE]):
+                continue
+            count += 1
+            table_data.append({
+                'unit': unit[0 + offset],
+                'load': unit[1 + offset],
+                'active': unit[2 + offset],
+                'sub': unit[3 + offset],
+                'description': ' '.join(unit[4 + offset:]),
+            })
+        if count > 0:
+            state = STATE_WARN
+            msg = 'There {} {} failed {}.\n'.format(
+                lib.txt.pluralize('', count, 'is,are'),
+                count,
+                lib.txt.pluralize('unit', count),
+            )
+            table = lib.base.get_table(
+                table_data,
+                ['unit', 'load', 'active', 'sub', 'description'],
+                ['unit', 'load', 'active', 'sub', 'description'],
+            )
+
+    perfdata = lib.base.get_perfdata('systemd-units-failed', count, None, 1, None, 0, None)
+
+    # over and out
+    lib.base.oao('{}\n\n{}'.format(msg, table), state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

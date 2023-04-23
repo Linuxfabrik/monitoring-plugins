@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = '''Checks the IPMI System Event Log (SEL) and returns WARN if there are entries.
+                 Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).'''
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--authtype',
+        help='Specify an authentication type to use during IPMIv1.5 lan session activation.'
+             ' Supported types are NONE, PASSWORD, MD2, MD5, or OEM.',
+        dest='V15AUTHTYPE',
+        choices=['NONE', 'PASSWORD', 'MD2', 'MD5', 'OEM'],
+        default='NONE',
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Remote server address, can be IP address or hostname. This option is required for'
+             'lan and lanplus interfaces.',
+        dest='HOSTNAME',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--interface',
+        help='Selects IPMI interface to use. Supported types are "lan" (= IPMI v1.5) or '
+             '"lanplus" (= IPMI v2.0).',
+        dest='INTERFACE',
+        choices=['lan', 'lanplus'],
+        default='lan',
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Remote server password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--port',
+        help='Remote server UDP port to connect to. Default: %(default)s',
+        dest='PORT',
+        default=623,
+    )
+
+    parser.add_argument(
+        '--privlevel',
+        help='Force session privilege level. Can be CALLBACK, USER, OPERATOR, ADMINISTRATOR.'
+             'Default is USER.',
+        dest='PRIVLEVEL',
+        choices=['CALLBACK', 'USER', 'OPERATOR', 'ADMINISTRATOR'],
+        default='USER',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Remote server username, default is NULL user.',
+        dest='USERNAME',
+        default='NULL',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        cmd = 'ipmitool sel elist '
+        if args.HOSTNAME:
+            # use ipmi with remote parameters
+            cmd += '-A {} '.format(args.V15AUTHTYPE) if args.INTERFACE == 'lan' else ''
+            cmd += '-H {} '.format(args.HOSTNAME) if args.HOSTNAME else ''
+            cmd += '-I {} '.format(args.INTERFACE) if args.INTERFACE else ''
+            cmd += '-L {} '.format(args.PRIVLEVEL) if args.PRIVLEVEL else ''
+            cmd += '-p {} '.format(args.PORT) if args.PORT else ''
+            cmd += '-P {} '.format(args.PASSWORD) if args.PASSWORD else ''
+            cmd += '-U {} '.format(args.USERNAME) if args.USERNAME else ''
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    if retc != 0:
+        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+
+    # everything is ok
+    if 'SEL has no entries' in stderr:
+        lib.base.oao('Everything is ok.', STATE_OK)
+
+    # there are entries, so we have to throw a warning about that
+    msg = ''
+    for line in reversed(stdout.splitlines()):
+        msg += '* ' + line.replace('|', ';') + '\n'
+
+    # over and out
+    lib.base.oao(msg, STATE_WARN)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

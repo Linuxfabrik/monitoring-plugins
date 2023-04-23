@@ -24,7 +24,7 @@ All plugins are written in Python and will be licensed under the [UNLICENSE](htt
 Setting up your development environment
 ---------------------------------------
 
-Use Python 3.8 for development.
+Use at least Python 3.6 and max. Python 3.8 for development.
 
 Simply clone the libraries and monitoring plugins and start working:
 
@@ -79,7 +79,7 @@ Bytes vs. Unicode
 
 Short:
 
-* Use ``txt3.to_text()`` and ``txt3.to_bytes()``.
+* Use ``txt.to_text()`` and ``txt.to_bytes()``.
 
 The theory:
 
@@ -227,9 +227,9 @@ For all other options, use long parameters only. Separate words using a ``-``. W
 
 * ``type=float``
 * ``type=int``
-* ``type=lib.args3.csv``
-* ``type=lib.args3.float_or_none``
-* ``type=lib.args3.int_or_none``
+* ``type=lib.args.csv``
+* ``type=lib.args.float_or_none``
+* ``type=lib.args.int_or_none``
 * ``type=str`` (the default)
 * ``choices=['udp', 'udp6', 'tcp', 'tcp6']``
 * ``action='store_true'``, ``action='store_false'`` for switches
@@ -329,7 +329,7 @@ Plugin Output
 * Print a short concise message in the first line within the first 80 chars if possible.
 * Use multi-line output for details (``msg_body``), with the most important output in the first line (``msg_header``).
 * Don't print "OK".
-* Print "[WARNING]" or "[CRITICAL]" for clarification next to a specific item using ``lib.base3.state2str()``.
+* Print "[WARNING]" or "[CRITICAL]" for clarification next to a specific item using ``lib.base.state2str()``.
 * If possible give a help text to solve the problem.
 * Multiple items checked, and ...
 
@@ -341,14 +341,14 @@ Plugin Output
 
 * Use short "Units of Measurements" without white spaces, including these terms:
 
-    * Bits: use ``base.bits2human()``
-    * Bytes: use ``base.bytes2human()``
-    * I/O and Throughput: ``base.bytes2human() + '/s'`` (Byte per Second)
-    * Network: "Rx/s", "Tx/s", use ``base.bps2human()``
-    * Numbers: use ``base.number2human()``
+    * Bits: use ``human.bits2human()``
+    * Bytes: use ``human.bytes2human()``
+    * I/O and Throughput: ``human.bytes2human() + '/s'`` (Byte per Second)
+    * Network: "Rx/s", "Tx/s", use ``human.bps2human()``
+    * Numbers: use ``human.number2human()``
     * Percentage: 93.2%
     * Read/Write: "R/s", "W/s", "IO/s"
-    * Seconds, Minutes etc.: use ``base.seconds2human()``
+    * Seconds, Minutes etc.: use ``human.seconds2human()``
     * Temperatures: 7.3C, 45F.
 
 * Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
@@ -506,7 +506,7 @@ Icinga Director Basket Config
 
 Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the ``assets/icingaweb2-module-director/all-the-rest.json`` file.
 
-The Icinga Director Basket for one or all plugins can be created using the ``check2basket`` tool. Note that the tool can only create baskets of Python 3 plugins.
+The Icinga Director Basket for one or all plugins can be created using the ``check2basket`` tool.
 
 .. important:
 
@@ -520,7 +520,7 @@ After writing a new check called ``new-check``, generate a basket file using:
 
 .. code-block::
 
-    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check
 
 The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director/new-check.json``. Inspect the basket, paying special attention to:
 
@@ -562,7 +562,7 @@ Then, re-run ``check2basket`` to apply the overwrites:
 
 .. code-block::
 
-    ./tools/check2basket --plugin-file check-plugins/new-check/new-check3
+    ./tools/check2basket --plugin-file check-plugins/new-check/new-check
 
 If a parameter was added, changed or deleted in the plugin, simply re-run the ``check2basket`` to update the basket file.
 

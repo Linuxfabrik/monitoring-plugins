@@ -18,7 +18,7 @@ test0
 test1
 warning
 test2
-test3
+test
 error
 error
 test4
@@ -37,7 +37,7 @@ new test0
 new test1
 new warning
 new test2
-new test3
+new test
 new error
 new test4
 EOF
@@ -69,7 +69,7 @@ rotation test0
 rotation test1
 rotation warning
 rotation test2
-rotation test3
+rotation test
 rotation error
 rotation error
 rotation test4

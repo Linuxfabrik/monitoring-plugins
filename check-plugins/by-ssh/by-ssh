@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """This plugin uses SSH to execute a command on a remote host,
+                 returning STDOUT and, in case of failure, STDERR and the command's return code.
+                 With this information and with pattern matching on STDOUT,
+                 the plugin can alert with selectable severities.
+                 """
+
+DEFAULT_PORT = 22
+DEFAULT_SEVERITY_CONNTIMEOUT = 'unknown'
+DEFAULT_SEVERITY_RETC = 'warn'
+DEFAULT_SEVERITY_STDERR = 'warn'
+DEFAULT_SEVERITY_STDOUT = 'ok'
+DEFAULT_USERNAME = 'root'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--command',
+        help='SSH: Command that will be executed on the remote host.',
+        dest='COMMAND',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--configfile',
+        help='SSH: Specifies an alternative per-user configuration file. If a configuration '
+             'file is given on the command line, the system-wide '
+             'configuration file (`/etc/ssh/ssh_config`) will be ignored. The '
+             'default for the per-user configuration file is `~/.ssh/config`. If '
+             'set to `none`, no configuration files will be read.',
+        dest='CONFIGFILE',
+    )
+
+    parser.add_argument(
+        '--critical-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a critical. '
+             'Can be specified multiple times.',
+        dest='CRIT_PATTERN',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--critical-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a critical. '
+             'Can be specified multiple times.',
+        dest='CRIT_REGEX',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--disable-pseudo-terminal',
+        help='SSH: Disable pseudo-terminal allocation.',
+        dest='DISABLE_PSEUDO_TERMINAL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='SSH: Hostname',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--identity',
+        help='SSH: Selects a file from which the identity (private key) for public '
+             'key authentication is read. You can also specify a public key '
+             'file to use the corresponding private key that is loaded in '
+             'ssh-agent(1) when the private key file is not present locally. '
+             'The default is `~/.ssh/id_dsa`, `~/.ssh/id_ecdsa`, '
+             '`~/.ssh/id_ecdsa_sk`, `~/.ssh/id_ed25519`, `~/.ssh/id_ed25519_sk` and '
+             '`~/.ssh/id_rsa`. Identity files may also be specified on a per-'
+             'host basis in the configuration file. It is possible to have '
+             'multiple --identity options (and multiple identities specified in configuration '
+             'files). If no certificates have been explicitly specified by the '
+             'CertificateFile directive, ssh will also try to load '
+             'certificate information from the filename obtained by appending '
+             '`-cert.pub` to identity filenames.',
+        dest='IDENTITY',
+        action='append',
+    )
+
+    parser.add_argument(
+        '--ipv4',
+        help='SSH: Forces ssh to use IPv4 addresses only.',
+        dest='IPV4',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--ipv6',
+        help='SSH: Forces ssh to use IPv6 addresses only.',
+        dest='IPV6',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='SSH: Password authentication. NOT RECOMMENDED. Requires `sshpass`. '
+             'If you need to use password-based SSH login, run this plugin only on trusted hosts. '
+             '`ps` will expose the SSH password.',
+        dest='PASSWORD',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--port',
+        help='SSH: Port to connect to on the remote host. This can be specified on '
+             'a per-host basis in the configuration file. Default: %(default)s',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--quiet',
+        help='SSH: Quiet mode. Causes most warning and diagnostic messages to be '
+             'suppressed.',
+        dest='QUIET',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity-retc',
+        help='Severity for alerting if there is a return code != 0. Default: %(default)s',
+        dest='SEVERITY_RETC',
+        default=DEFAULT_SEVERITY_RETC,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-stderr',
+        help='Severity for alerting if there is an output on STDERR. Default: %(default)s',
+        dest='SEVERITY_STDERR',
+        default=DEFAULT_SEVERITY_STDERR,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-stdout',
+        help='Severity for alerting if there is an output on STDOUT. Default: %(default)s',
+        dest='SEVERITY_STDOUT',
+        default=DEFAULT_SEVERITY_STDOUT,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-timeout',
+        help='Severity on connection problems. Default: %(default)s',
+        dest='SEVERITY_CONNTIMEOUT',
+        default=DEFAULT_SEVERITY_CONNTIMEOUT,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--skip-stderr',
+        help='Ignore all (0) or first n lines on STDERR. Default: %(default)s (no ignore)',
+        dest='SKIP_STDERR',
+        type=int,
+        default=-1,
+    )
+
+    parser.add_argument(
+        '--skip-stdout',
+        help='Ignore all (0) or first n lines on STDOUT. Default: %(default)s (no ignore)',
+        dest='SKIP_STDOUT',
+        type=int,
+        default=-1,
+    )
+
+    parser.add_argument(
+        '--ssh-option',
+        help='SSH: Can be used to give options in the format used in the configuration file. '
+             'This is useful for specifying options for which there '
+             'is no separate command-line flag. For full details of the options, '
+             'and their possible values, see ssh_config(5). Can be specified multiple times.',
+        dest='SSH_OPTION',
+        action='append',
+    )
+
+    parser.add_argument(
+        '--shell',
+        help='If specified, allows you to expand '
+            'environment variables and file globs according to the shell\'s usual '
+            'mechanism, which can be a security hazard. Default: You just can '
+            'run simple shell command without globs, pipes etc.',
+        dest='SHELL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-u', '--username',
+        help='SSH: Username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a warning. '
+             'Can be specified multiple times.',
+        dest='WARN_PATTERN',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a warning. '
+             'Can be specified multiple times.',
+        dest='WARN_REGEX',
+        action='append',
+        default=[],
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data - run ssh
+    cmd = "ssh {} {} {} {} {} {} {} {} '{}'@'{}' '{}'".format(
+        "-4" if args.IPV4 else '',
+        "-6" if args.IPV6 else '',
+        "-F '{}'".format(args.CONFIGFILE) if args.CONFIGFILE else '',
+        "-i '" + "' -i '".join(args.IDENTITY) + "'" if args.IDENTITY else '',
+        "-o '" + "' -o '".join(args.SSH_OPTION) + "'" if args.SSH_OPTION else '',
+        "-p {}".format(args.PORT) if args.PORT else '',
+        "-q" if args.QUIET else '',
+        "-T" if args.DISABLE_PSEUDO_TERMINAL else '',
+        args.USERNAME,
+        args.HOSTNAME,
+        args.COMMAND,
+    )
+    cmd = ' '.join(cmd.split()) # strip all whitespaces
+    if args.PASSWORD:
+        # add sshpass in front of it
+        cmd = 'sshpass -p {} {}'.format(
+            args.PASSWORD,
+            cmd
+        )
+    timer_start = lib.time.now('float')
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=args.SHELL))
+    if args.PASSWORD and retc:
+        # stderr will not be set, we just get "Permission denied""
+        stderr = 'sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc])
+
+    perfdata = lib.base.get_perfdata('remote_runtime', lib.time.now('float') - timer_start, 's')
+
+    # strip output
+    if args.SKIP_STDOUT == 0:
+        # ignore all lines on STDOUT
+        stdout = ''
+    if args.SKIP_STDOUT > 0:
+        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT:])
+    if args.SKIP_STDERR == 0:
+        # ignore all lines on STDERR
+        stderr = ''
+    if args.SKIP_STDERR > 0:
+        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR:])
+    stdout = stdout.strip()
+    stderr = stderr.strip()
+
+    # init some vars
+    msg = ''
+    state = stdout_state = stderr_state = retc_state = STATE_OK
+
+    # analyze data
+    if stdout:
+        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)
+        state = lib.base.get_worst(state, stdout_state)
+    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
+    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    haystack = stdout.lower()
+    if any(warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN) \
+    or any(item.search(haystack) for item in compiled_warn_regex):
+        stdout_state = STATE_WARN
+    if any(crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN) \
+    or any(item.search(haystack) for item in compiled_crit_regex):
+        stdout_state = STATE_CRIT
+    state = lib.base.get_worst(state, stdout_state)
+
+    # stderr overwrites state from stdout
+    if stderr:
+        stderr_state = lib.base.str2state(args.SEVERITY_STDERR)
+        state = lib.base.get_worst(state, stderr_state)
+
+    # retc overwrites state from stderr
+    if retc:
+        if retc == 255 and not stdout and not stderr:
+            stderr = 'ssh: Could not connect. The full command used was: `{}`'.format(cmd)
+            state = lib.base.str2state(args.SEVERITY_CONNTIMEOUT)
+        else:
+            retc_state = lib.base.str2state(args.SEVERITY_RETC)
+            state = lib.base.get_worst(state, retc_state)
+
+    # build the message
+    if retc:
+        msg += 'retc: {}{}; '.format(
+            retc,
+            lib.base.state2str(retc_state, prefix=' '),
+        )
+    if stderr:
+        msg += 'stderr: {}{}; '.format(
+            stderr,
+            lib.base.state2str(stderr_state, prefix=' '),
+        )
+    msg += '{}{}'.format(
+        stdout if stdout else 'stdout: None',
+        lib.base.state2str(stdout_state, prefix=' '),
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

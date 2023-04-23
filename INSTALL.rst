@@ -116,7 +116,7 @@ Goal: After installing/copying, the directory on the remote host should look lik
     |-- disk-smart
     |-- ...
     |-- lib
-    |   |-- base3.py
+    |   |-- base.py
     |   |-- ...
     |-- ...
 
@@ -145,26 +145,25 @@ The check plugins require the `Linuxfabrik Python libraries <https://github.com/
     git checkout tags/$RELEASE
     cd ..
 
-Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, and copy some or all Python check plugins to ``/usr/lib64/nagios/plugins`` while removing the Python version suffix, for example by doing the following on your deployment host:
+Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, and copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, for example by doing the following on your deployment host:
 
 .. code-block:: bash
 
     REMOTE_USER=root
     REMOTE_HOST=192.0.2.74
-    PYVER=3
     SOURCE_LIBS=/path/to/lib
     SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
     TARGET_DIR=/usr/lib64/nagios/plugins
 
     ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $TARGET_DIR/lib"
     scp $SOURCE_LIBS/* $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/lib/
-    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f$PYVER $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
+    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
 
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well, using your package manager, pip or whatever (depends on your environment):
 
 * BeautifulSoup4 (bs4)
 * psutil
-* PyMySQL (pymysql.cursors - on RHEL, use ``yum install python36-mysql``, ``dnf install python3-mysql`` or similar)
+* PyMySQL
 * smbprotocol (smbprotocol.exceptions)
 * vici
 

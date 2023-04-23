@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.wildfly  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Returns metrics about Non-XA Datasources of a Wildfly/JBossAS over HTTP.'
+
+DEFAULT_CRIT = 90
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:9990'
+DEFAULT_USERNAME = 'wildfly-monitoring'
+DEFAULT_WARN = 80
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--critical',
+        help='Set the critical threshold.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--datasource',
+        help='The name of a specific datasource (repeating). Default: %(default)s',
+        dest='DATASOURCE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--instance',
+        help='The instance (server-config) to check if running in domain mode.',
+        dest='INSTANCE',
+    )
+
+    parser.add_argument(
+        '--mode',
+        help='The mode the server is running.',
+        dest='MODE',
+        choices=['standalone', 'domain'],
+        default='standalone',
+    )
+
+    parser.add_argument(
+        '--node',
+        help='The node (host) if running in domain mode.',
+        dest='NODE',
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='WildFly API password.',
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='WildFly API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='WildFly API username. Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+        required=True,
+    )
+
+    parser.add_argument(
+        '--warning',
+        help='Set the warning threshold.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def check_non_xa_datasource(args):
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'recursive': 'true',
+        # /subsystem/datasources/data-source/" + ds_name + "/statistics/pool/
+        'address': [{'subsystem': 'datasources'}, {'data-source': '*'}, {'statistics': 'pool'}],
+        'json': 1,
+    }
+    res = lib.wildfly.get_data(args, data)
+
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+
+    ds_stat_types = [
+        'BlockingFailureCount',
+        'CreatedCount',
+        'DestroyedCount',
+        'IdleCount',
+        'InUseCount',
+        'MaxWaitCount',
+        'WaitCount',
+        # 'XACommitCount',
+        # 'XAEndCount',
+        # 'XAForgetCount',
+        # 'XAPrepareCount',
+        # 'XARecoverCount',
+        # 'XARollbackCount',
+        # 'XAStartCount',
+    ]
+
+    for ds in res:
+        name = ''
+        # get the datasource name
+        for v in ds['address']:
+            if 'data-source' in v:
+                name = v['data-source']
+                break
+
+        if args.DATASOURCE is not None:
+            # filter for specific datasource
+            if not name in args.DATASOURCE:
+                continue
+
+        available = int(ds['result']['AvailableCount'])
+        if available == 0:
+            msg += 'Statistics are not enabled for data source {}; '.format(name)
+            continue
+
+        msg += '{}: '.format(name)
+
+        active = int(ds['result']['ActiveCount'])
+        max_used = int(ds['result']['MaxUsedCount'])
+        if available != 0:
+            active_pct = round(float(active) / float(available) * 100, 1)
+            max_used_pct = round(float(max_used) / float(available) * 100, 1)
+        else:
+            active_pct = 0
+            max_used_pct = 0
+
+        local_state = lib.base.get_state(active_pct, args.WARN, args.CRIT)
+        msg += '{}% active used ({}/{}){}, '.format(active_pct, active, available, lib.base.state2str(local_state, prefix=' '))
+        state = lib.base.get_worst(local_state, state)
+
+        local_state = lib.base.get_state(active_pct, args.WARN, args.CRIT)
+        msg += '{}% max used ({}/{}){}, '.format(max_used_pct, max_used, available, lib.base.state2str(local_state, prefix=' '))
+        state = lib.base.get_worst(local_state, state)
+
+        perfdata += lib.base.get_perfdata('non-xa-ds-{}-available'.format(name), available, None, None, None, 0, available)
+        perfdata += lib.base.get_perfdata('non-xa-ds-{}-active'.format(name), active, None, None, None, 0, active)
+        perfdata += lib.base.get_perfdata('non-xa-ds-{}-active-pct'.format(name), active_pct, '%', args.WARN, args.CRIT, 0, 100)
+        perfdata += lib.base.get_perfdata('non-xa-ds-{}-maxused'.format(name), max_used, None, None, None, 0, available)
+        perfdata += lib.base.get_perfdata('non-xa-ds-{}-maxused-pct'.format(name), max_used_pct, '%', args.WARN, args.CRIT, 0, 100)
+
+        for metric in ds_stat_types:
+            if metric in ds['result']:
+                if ds['result'][metric] > 0:
+                    msg += '{}={}, '.format(metric, ds['result'][metric])
+                perfdata += lib.base.get_perfdata('non-xa-ds-{}-{}'.format(name, metric.lower()), ds['result'][metric], None, None, None, 0, None)
+        msg = msg[:-2] + '; '
+
+    if msg:
+        lib.base.oao('{}'.format(msg[:-2]), state, perfdata, always_ok=args.ALWAYS_OK)
+    else:
+        lib.base.oao('No datasources found.', state)
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://docs.wildfly.org/23/Admin_Guide.html
+    return check_non_xa_datasource(args)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

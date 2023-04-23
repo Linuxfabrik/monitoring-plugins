@@ -206,13 +206,9 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 * Short parameters: `./file-age -w-60:3600` (so simply not putting any space nor escaping it in any special way).
 
 
-## Python 3 vs Python 2
+## Python
 
-All check plugins are available for Python 3.6+, and most of them also for Python 2.7. The Python 2 check plugins have the suffix "2" (for example `cpu-usage2`), the Python 3 plugins have the suffix "3" (for example `cpu-usage3`).
-
-The Python 3-based check plugins use `#!/usr/bin/env python3`, while the Python 2-based check plugins use `#!/usr/bin/env python2` explicitly.
-
-We stopped maintaining the Python 2-based plugins on 2021-12-31.
+When running from source, almost all check plugins are happy with at least Python 3.6. All plugins define the `#!/usr/bin/env python3` shebang.
 
 
 ## Grafana
@@ -232,5 +228,5 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rs
 
 ## Tips & Tricks
 
-* Q: How can I remove the performance data after the `|`?  
-A: In Bash: `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
+* Q: How can I remove the performance data after the `|` from the check output?  
+A: In Bash use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`

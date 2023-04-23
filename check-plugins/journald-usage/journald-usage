@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Checks the current disk usage of all journal files of the systemd journal
+                 (in fact the sum of the disk usage of all archived and active journal files)."""
+
+DEFAULT_WARN = 6  # GiB; journald: "capped to 4G" per default
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold in GiB. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        cmd = 'journalctl --disk-usage'
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+
+    # possible values of stdout according to systemd journalctl.c source code history:
+    #   Archived and active journals take up %s on disk.\n
+    #   Archived and active journals take up %s in the file system.\n
+    #   Journals take up %s on disk.\n
+    # currently no need for re module, let's do simple string matching
+    pos1 = stdout.find(' take up ') + len(' take up ')
+    pos2 = stdout.find(' ', pos1)
+    value = stdout[pos1:pos2]
+    value = lib.human.human2bytes(value)
+
+    # build the message
+    state = lib.base.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
+    msg += '{} used{} (sum of all archived and active journal files)'.format(
+        lib.human.bytes2human(value),
+        lib.base.state2str(state, prefix=' '),
+    )
+    if state != STATE_OK:
+        msg += '. Remove the oldest archived journal files by using `journalctl --vacuum-size=`, ' \
+               '`--vacuum-time=` and/or `--vacuum-files=`.'
+    perfdata += lib.base.get_perfdata('journald-usage', value, 'B', args.WARN * 1024 * 1024 * 1024, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

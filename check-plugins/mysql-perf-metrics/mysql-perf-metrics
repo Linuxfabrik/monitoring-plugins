@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.db_mysql  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Checks some performance metrics and best practice configurations
+                 for MySQL/MariaDB."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_TIMEOUT = 3
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and password from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    return parser.parse_args()
+
+
+def get_vars(conn):
+    # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
+    # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
+    # the current connection to MariaDB.
+    sql = """
+        show global variables
+        where variable_name like 'concurrent_insert'
+            or variable_name like 'innodb_file_per_table'
+            or variable_name like 'innodb_stats_on_metadata'
+            ;
+          """
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # logic taken from mysqltuner.pl:check_metadata_perf(), v1.9.8
+    # including variable names
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    mysql_connection = {
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    lib.base.coe(lib.db_mysql.check_select_privileges(conn))
+
+    myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    engines = lib.db_mysql.get_engines(conn)
+    lib.db_mysql.close(conn)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # Performance Metrics
+    if myvar.get('innodb_stats_on_metadata', 0):
+        if myvar['innodb_stats_on_metadata'] == 'ON':
+            metastat_state = STATE_WARN
+            state = lib.base.get_worst(state, metastat_state)
+            msg += 'Stat are updated during querying INFORMATION_SCHEMA{}. Set innodb_stats_on_metadata to OFF. '.format(
+                lib.base.state2str(metastat_state, prefix=' '),
+            )
+
+    if myvar['concurrent_insert'] == '0' or myvar['concurrent_insert'] == 'NEVER':
+        concins_state = STATE_WARN
+        state = lib.base.get_worst(state, concins_state)
+        msg += 'Concurrent INSERTs are off{}. Set concurrent_insert to AUTO or ALWAYS. '.format(
+            lib.base.state2str(concins_state, prefix=' '),
+        )
+
+    if engines.get('have_innodb', ''):
+        if engines['have_innodb'] == 'YES':
+            if myvar['innodb_file_per_table'] != 'ON':
+                ifpt_state = STATE_WARN
+                state = lib.base.get_worst(state, ifpt_state)
+                msg += 'InnoDB File per table is not activated{}. Set innodb_file_per_table to ON. '.format(
+                    lib.base.state2str(ifpt_state, prefix=' '),
+                )
+
+    if not msg:
+        msg = 'Everything is ok.'
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.jitsi  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """Checks the number of participants on a Jitsi Videobridge and returns 
+                a bunch of performance data using the REST version of the COLIBRI protocol."""
+
+DEFAULT_CRIT = 100  # number of participants
+DEFAULT_WARN = 25   # number of participants
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:8080'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold for the number of participants. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Jitsi API password.',
+        dest='PASSWORD',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Jitsi API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Jitsi API username. Default: %(default)s',
+        dest='USERNAME',
+        default=None,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold for the number of participants. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        # Fetch the `/colibri/stats` endpoint.
+        args.URL += '/colibri/stats'
+        result = lib.base.coe(lib.jitsi.get_data(args))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+        import json  # pylint: disable=C0413
+        result = {}
+        result['response_json'] = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    state = lib.base.get_state(result['response_json']['participants'], args.WARN, args.CRIT)
+
+    # build the message
+    perfdata += lib.base.get_perfdata('bit_rate_download', result['response_json']['bit_rate_download'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('bit_rate_upload', result['response_json']['bit_rate_upload'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('conferences', result['response_json']['conferences'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('dtls_failed_endpoints', result['response_json']['dtls_failed_endpoints'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('endpoints_sending_audio', result['response_json']['endpoints_sending_audio'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('endpoints_sending_video', result['response_json']['endpoints_sending_video'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('endpoints_with_high_outgoing_loss', result['response_json']['endpoints_with_high_outgoing_loss'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('inactive_conferences', result['response_json']['inactive_conferences'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('inactive_endpoints', result['response_json']['inactive_endpoints'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('incoming_loss', result['response_json']['incoming_loss'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('largest_conference', result['response_json']['largest_conference'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('local_active_endpoints', result['response_json']['local_active_endpoints'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('muc_clients_configured', result['response_json']['muc_clients_configured'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('muc_clients_connected', result['response_json']['muc_clients_connected'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('mucs_configured', result['response_json']['mucs_configured'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('mucs_joined', result['response_json']['mucs_joined'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('outgoing_loss', result['response_json']['outgoing_loss'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('overall_loss', result['response_json']['overall_loss'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('p2p_conferences', result['response_json']['p2p_conferences'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('participants', result['response_json']['participants'], None, args.WARN, args.CRIT, 0, None)
+    perfdata += lib.base.get_perfdata('receive_only_endpoints', result['response_json']['receive_only_endpoints'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rtt_aggregate', result['response_json']['rtt_aggregate'], 'ms', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('stress_level', result['response_json']['stress_level'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('threads', result['response_json']['threads'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('videochannels', result['response_json']['videochannels'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('version', lib.version.version2float(result['response_json']['version']), None, None, None, 0, None)
+
+    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_received', result['response_json']['total_colibri_web_socket_messages_received'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_sent', result['response_json']['total_colibri_web_socket_messages_sent'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_conference_seconds', result['response_json']['total_conference_seconds'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_conferences_created', result['response_json']['total_conferences_created'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_data_channel_messages_received', result['response_json']['total_data_channel_messages_received'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_data_channel_messages_sent', result['response_json']['total_data_channel_messages_sent'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_dominant_speaker_changes', result['response_json']['total_dominant_speaker_changes'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_failed_conferences', result['response_json']['total_failed_conferences'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_ice_failed', result['response_json']['total_ice_failed'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_ice_succeeded', result['response_json']['total_ice_succeeded'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_ice_succeeded_relayed', result['response_json']['total_ice_succeeded_relayed'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_ice_succeeded_tcp', result['response_json']['total_ice_succeeded_tcp'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_loss_controlled_participant_seconds', result['response_json']['total_loss_controlled_participant_seconds'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_loss_degraded_participant_seconds', result['response_json']['total_loss_degraded_participant_seconds'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_loss_limited_participant_seconds', result['response_json']['total_loss_limited_participant_seconds'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total_partially_failed_conferences', result['response_json']['total_partially_failed_conferences'], 'c', None, None, 0, None)
+
+    msg += '{} {}{} in {} {}'.format(
+        result['response_json']['participants'],
+        lib.txt.pluralize('participant',result['response_json']['participants']),
+        lib.base.state2str(state, prefix=' '),
+        result['response_json']['conferences'],
+        lib.txt.pluralize('conference',result['response_json']['conferences']),
+    )
+    if result['response_json']['participants'] > 0:
+        msg += ' ({} {} in the largest conference), '.format(
+            result['response_json']['largest_conference'],
+            lib.txt.pluralize('participant',result['response_json']['participants']),
+        )
+        msg += '{} Video Channels, '.format(
+            result['response_json']['videochannels'],
+        )
+        msg += 'Stress Level {}, '.format(
+            result['response_json']['stress_level'],
+        )
+        msg += '{} JVM threads, '.format(
+            result['response_json']['threads'],
+        )
+        msg += '{} download, {} upload'.format(
+            lib.human.bps2human(result['response_json']['bit_rate_download']*1000),
+            lib.human.bps2human(result['response_json']['bit_rate_upload']*1000),
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

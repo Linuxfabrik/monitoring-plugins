@@ -15,35 +15,35 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../axenita-stats3'
+    check = '../axenita-stats'
 
     def test_if_check_runs_achilles_admin_readmodel(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/achilles-admin-readmodel-state,,'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/achilles-admin-readmodel-state,,'))
         self.assertIn('ReadModel: ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_achilles_admin_userinfo(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/achilles-admin-userinfo-numberofcurrentsessions,,'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/achilles-admin-userinfo-numberofcurrentsessions,,'))
         self.assertIn('35 users logged in, ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_achilles_buildinfo(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/achilles-buildinfo,,'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/achilles-buildinfo,,'))
         self.assertIn('release-14.0.8-20210312134147-cf77b213090 ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_achilles_login_maintenance(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/achilles-login-maintenancestateactive,,'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/achilles-login-maintenancestateactive,,'))
         self.assertIn('Axenita/Achilles is in maintenance mode', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)

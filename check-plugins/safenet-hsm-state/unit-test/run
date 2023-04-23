@@ -15,45 +15,45 @@ sys.path.append("..") # Adds higher directory to python modules path.
 
 import unittest
 
-from lib.globals3 import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
-import lib.base3
-import lib.shell3
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
 
 
 class TestCheck(unittest.TestCase):
 
-    check = '../safenet-hsm-state3'
+    check = '../safenet-hsm-state'
 
     #self.assertEqual(retc, STATE_CRIT)
     #self.assertIn('Waiting for more data (1).', stdout)
     #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
 
     def test_if_check_runs_EXAMPLE01(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname hsm.example.com --password linuxfabrik'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname hsm.example.com --password linuxfabrik'))
         self.assertIn('hsmstate: Cannot initialize HSM communication library (11) [CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
     def test_if_check_runs_EXAMPLE01_severity_warn(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname hsm.example.com --password linuxfabrik --severity warn'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0 --hostname hsm.example.com --password linuxfabrik --severity warn'))
         self.assertIn('hsmstate: Cannot initialize HSM communication library (11) [WARNING]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --hostname hsm.example.com --password linuxfabrik'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0 --hostname hsm.example.com --password linuxfabrik'))
         self.assertIn('HSM device 0: HSM in NORMAL MODE. RESPONDING to requests. Usage Level=3.1%', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
     def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0 --hostname hsm.example.com --password linuxfabrik'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0 --hostname hsm.example.com --password linuxfabrik'))
         self.assertIn('HSM device 0: HSM in NORMAL MODE. RESPONDING to requests. Usage Level=85% [WARNING]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04(self):
-        stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0 --hostname hsm.example.com --password linuxfabrik'))
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0 --hostname hsm.example.com --password linuxfabrik'))
         self.assertIn('HSM device 0: HSM in NORMAL MODE. RESPONDING to requests. Usage Level=95% [CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)

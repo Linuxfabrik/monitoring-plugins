@@ -1,0 +1,449 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.cache  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
+                 information on a network entity. The object identifiers (OIDs) of interest have
+                 to be defined in a CSV file, including optional WARN and CRIT parameters."""
+
+
+CSV_COL_OID = 0
+CSV_COL_NAME = 1
+CSV_COL_RECALC = 2
+CSV_COL_UNIT = 3
+CSV_COL_WARN = 4
+CSV_COL_CRIT = 5
+CSV_COL_SIFL = 6
+CSV_COL_RCA = 7
+CSV_COL_VALUE = 8
+
+MAX_OIDS_PER_REQUEST = 25
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--community',
+        help='SNMP Version 1 or 2c specific. Set the community string. Default: %(default)s.',
+        default='public',
+        dest='COMMUNITY',
+    )
+
+    parser.add_argument(
+        '--device',
+        help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. Default: %(default)s.',
+        dest='DEVICE',
+        default='any-any-any.csv',
+    )
+
+    parser.add_argument(
+        '--hide-ok',
+        help="Don't print OIDs with OK state. Default: %(default)s.",
+        dest='HIDEOK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-H','--hostname',
+        help='SNMP Appliance address.',
+        dest='HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--mib',
+        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves like the `-m` option of `snmpget`.',
+        dest='MIB',
+    )
+
+    parser.add_argument(
+        '--mib-dir',
+        help='Look in given list of directories for MIBs. Behaves like the `-M` option of `snmpget`. Default: %(default)s.',
+        dest='MIB_DIR',
+        default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
+    )
+
+    parser.add_argument(
+        '--snmp-version',
+        help='Specifies SNMP version to use. Default: %(default)s.',
+        dest='SNMP_VERSION',
+        choices=['1', '2c', '3'],
+        default='2c',
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-t','--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds).',
+        dest='TIMEOUT',
+        type=int,
+        default=7,
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot',
+        help='SNMP Version 3 specific. Set authentication protocol.',
+        dest='V3_AUTH_PROT',
+        choices=['MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'],
+    )
+
+    parser.add_argument(
+        '--v3-auth-prot-password',
+        help='SNMP Version 3 specific. Set authentication protocol pass phrase.',
+        dest='V3_AUTH_PROT_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--v3-boots-time',
+        help='SNMP Version 3 specific. Set destination engine boots/time.',
+        dest='V3_BOOTS_TIME',
+    )
+
+    parser.add_argument(
+        '--v3-context',
+        help='SNMP Version 3 specific. Set context name (e.g. bridge1).',
+        dest='V3_CONTEXT',
+    )
+
+    parser.add_argument(
+        '--v3-context-engine-id',
+        help='SNMP Version 3 specific. Set context engine ID (e.g. 800000020109840301).',
+        dest='V3_CONTEXT_ENGINE_ID',
+    )
+
+    parser.add_argument(
+        '--v3-level',
+        help='SNMP Version 3 specific. Set security level.',
+        dest='V3_LEVEL',
+        choices=['noAuthNoPriv', 'authNoPriv', 'authPriv'],
+    )
+
+    parser.add_argument(
+        '--v3-priv-prot',
+        help='SNMP Version 3 specific. Set privacy protocol.',
+        dest='V3_PRIV_PROT',
+        choices=['DES', 'AES', 'AES-192', 'AES-256'],
+    )
+
+    parser.add_argument(
+        '--v3-priv-prot-password',
+        help='SNMP Version 3 specific. Set privacy protocol pass phrase.',
+        dest='V3_PRIV_PROT_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--v3-security-engine-id',
+        help='SNMP Version 3 specific. Set security engine ID (e.g. 800000020109840301).',
+        dest='V3_SECURITY_ENGINE_ID',
+    )
+
+    parser.add_argument(
+        '--v3-username',
+        help='SNMP Version 3 specific. Set security name (e.g. bert).',
+        dest='V3_USERNAME',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # check if snmpget is installed
+    success, result = lib.shell.shell_exec('command -v snmpget')
+    if not success:
+        lib.base.oao('snmpget not found', STATE_UNKNOWN)
+    stdout, stderr, retc = result
+    if retc != 0:
+        lib.base.oao('snmpget not found', STATE_UNKNOWN)
+
+    # read oid list for our device from the CSV file
+    plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+    snmp_objects = lib.base.coe(
+        lib.disk.read_csv(os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)), as_dict=False, skip_empty_rows=True)
+    )
+
+    # build parameters for snmpget
+    # -r 0: set the number of retries to zero
+    # -O: Toggle various defaults controlling output display:
+    #     q:  quick print for easier parsing
+    #     S:  print MIB module-id plus last element
+    #     t:  print timeticks unparsed as numeric integers
+    #     U:  don't print units
+    if args.SNMP_VERSION in ['1', '2c']:
+        cmd = 'snmpget -v {} '.format(args.SNMP_VERSION)
+        cmd += '-c {} '.format(args.COMMUNITY) if args.COMMUNITY else ''
+    else:
+        cmd = 'snmpget -v 3 '
+        cmd += '-a {} '.format(args.V3_AUTH_PROT) if args.V3_AUTH_PROT else ''
+        cmd += '-A {} '.format(args.V3_AUTH_PROT_PASSWORD) if args.V3_AUTH_PROT_PASSWORD else ''
+        cmd += '-e {} '.format(args.V3_SECURITY_ENGINE_ID) if args.V3_SECURITY_ENGINE_ID else ''
+        cmd += '-E {} '.format(args.V3_CONTEXT_ENGINE_ID) if args.V3_CONTEXT_ENGINE_ID else ''
+        cmd += '-l {} '.format(args.V3_LEVEL) if args.V3_LEVEL else ''
+        cmd += '-n {} '.format(args.V3_CONTEXT) if args.V3_CONTEXT else ''
+        cmd += '-u {} '.format(args.V3_USERNAME) if args.V3_USERNAME else ''
+        cmd += '-x {} '.format(args.V3_PRIV_PROT) if args.V3_PRIV_PROT else ''
+        cmd += '-X {} '.format(args.V3_PRIV_PROT_PASSWORD) if args.V3_PRIV_PROT_PASSWORD else ''
+        cmd += '-Z {} '.format(args.V3_BOOTS_TIME) if args.V3_BOOTS_TIME else ''
+    cmd += '-OSqtU -r 0 '
+    cmd += '-t {} '.format(args.TIMEOUT) if args.TIMEOUT else ''
+    cmd += '-M {} '.format(args.MIB_DIR) if args.MIB_DIR else ''
+    cmd += '-m {} '.format(args.MIB) if args.MIB else ''
+    cmd += '{} '.format(args.HOSTNAME) if args.HOSTNAME else ''
+    cmd += '_OIDS_'
+
+    # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
+    # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
+    # only ask for 25 OIDs per request.
+    oids = []
+    count = 0
+    tmp = ''
+    for snmp_object in snmp_objects[1:]:        # ignore the header row in csv
+        tmp += '{} '.format(snmp_object[CSV_COL_OID])
+        count += 1
+        if count == MAX_OIDS_PER_REQUEST:
+            oids.append(tmp)
+            count = 0
+            tmp = ''
+    if tmp:
+        oids.append(tmp)
+
+    # fetch the data: execute the shell command and return its result and exit code
+    stdout = ''
+    if args.TEST is None:
+        for oid in oids:
+            tmp, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec(cmd.replace('_OIDS_', oid)))
+            if (stderr or retc != 0):
+                lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            stdout += tmp
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    def index_of_oid(snmp_objects, oid, start=0):
+        """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
+        idx = start
+        for snmp_object in snmp_objects[start:]:
+            if snmp_object[0] == oid:
+                return idx
+            idx += 1
+        return None
+
+    # enrich snmp_objects with results from snmpget run
+    value = ''
+    oid_index = 0
+    for row in stdout.splitlines():
+        space_index = row.find(' ') # find first space char (the delimiter used by snmpget)
+        oid = row[0:space_index]
+        oid_index = index_of_oid(snmp_objects, oid, oid_index + 1)
+        if oid_index is None:
+            # nothing found, oid_index is None
+            oid_index = 0
+        else:
+            value = row[space_index+1:].replace('Wrong Type (should be Timeticks): ', '').strip()
+            snmp_objects[oid_index].append(value)
+
+    # init some vars
+    msg, msg_header = '', ''
+    state = STATE_OK
+    perfdata = ''
+    values = {}     # all values in a single dict, for re-calc column
+    table_values = []
+
+    # evaluate results
+    for snmp_object in snmp_objects[1:]:
+        try:
+            value = snmp_object[CSV_COL_VALUE]
+        except:
+            # we got no value from snmpget
+            value = None
+
+        name = snmp_object[CSV_COL_NAME] if snmp_object[CSV_COL_NAME] else snmp_object[CSV_COL_OID]
+        oid = snmp_object[CSV_COL_OID]
+
+        # snmpget error handling
+        if not value is None and value.lower().startswith('no such '):
+            # No Such Instance currently exists at this OID
+            # No Such Object available on this agent at this OID
+            table_values.append({
+                'name': oid,
+                'value': value,
+                'state': lib.base.state2str(STATE_UNKNOWN),
+                })
+            state = lib.base.get_worst(state, STATE_UNKNOWN)
+            continue
+
+        recalc = snmp_object[CSV_COL_RECALC]
+        unit = snmp_object[CSV_COL_UNIT]
+        warn = snmp_object[CSV_COL_WARN]
+        crit = snmp_object[CSV_COL_CRIT]
+
+        show_in_first_line = snmp_object[CSV_COL_SIFL]
+        report_change = snmp_object[CSV_COL_RCA]
+
+        if recalc:
+            # we got a formula
+            try:
+                value = eval(recalc, {}, {'value': value, 'values': values}) # pylint: disable=W0123
+            except Exception as e:
+                table_values.append({
+                    'name': name,
+                    'value': "The recalc in {} failed with {}: '{}'.".format(args.DEVICE, type(e).__name__, e),
+                    'state': lib.base.state2str(STATE_UNKNOWN),
+                    })
+                state = lib.base.get_worst(state, STATE_UNKNOWN)
+                continue
+        values[name] = value
+
+        # check the state
+        check_state = True
+        value_state = STATE_OK
+        if check_state and crit:
+            if eval(crit, {}, {'value': value, 'values': values}): # pylint: disable=W0123
+                value_state = STATE_CRIT
+                msg_header += '{}: {}{} (CRIT), '.format(name, value, unit)
+                check_state = False   # no more checks for this value necessary
+        if check_state and warn:
+            if eval(warn, {}, {'value': value, 'values': values}): # pylint: disable=W0123
+                value_state = STATE_WARN
+                msg_header += '{}: {}{} (WARN), '.format(name, value, unit)
+                check_state = False
+        if check_state and report_change:
+            cache_key = '{}::{}'.format(args.DEVICE, oid)
+            cache_value = lib.cache.get(cache_key, filename='linuxfabrik-monitoring-plugins-snmp.db')
+            if cache_value:                 # there is a previous value
+                if cache_value != value:    # that is different from the current one
+                    if report_change.lower().startswith('crit'):
+                        value_state = STATE_CRIT
+                        msg_header += '{}: {}{} (CRIT, changed from "{}"), '.format(name, value, unit, cache_value)
+                    else:
+                        value_state = STATE_WARN
+                        msg_header += '{}: {}{} (WARN, changed from "{}"), '.format(name, value, unit, cache_value)
+            else:
+                lib.cache.set(cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db')
+        state = lib.base.get_worst(state, value_state)
+
+        # create message body (the table)
+        if ',' in unit:
+            # example: "b,c" - convert the first part to human readable bytes, but suffix the perfdata as a continous counter
+            unit, perfdata_unit = unit.split(',')
+        else:
+            perfdata_unit = unit
+        if unit == 's':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.human.seconds2human(value), lib.base.state2str(value_state))
+            if not args.HIDEOK or value_state:
+                table_values.append({
+                    'name': name,
+                    'value': '{}{}'.format(lib.human.seconds2human(value), ''),
+                    'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
+        elif unit.lower() == 'b':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.human.bytes2human(value), lib.base.state2str(value_state))
+            if not args.HIDEOK or value_state:
+                table_values.append({
+                    'name': name,
+                    'value': '{}{}'.format(lib.human.bytes2human(value), ''),
+                    'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
+        elif unit.lower() == 'bps':
+            if show_in_first_line:
+                msg_header += '{}: {}{}, '.format(name, lib.human.bps2human(value), lib.base.state2str(value_state))
+            if not args.HIDEOK or value_state:
+                table_values.append({
+                    'name': name,
+                    'value': '{}{}'.format(lib.human.bps2human(value), ''),
+                    'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
+        else:
+            if show_in_first_line:
+                msg_header += '{}: {}{}{}, '.format(name, value, unit, lib.base.state2str(value_state))
+            if not args.HIDEOK or value_state:
+                table_values.append({
+                    'name': name,
+                    'value': '{}{}'.format(value, unit),
+                    'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
+
+        # create perfdata for numeric values
+        value_type = lib.base.guess_type(value)
+        if isinstance(value_type, (int, float)):
+            if perfdata_unit == '%':
+                perfdata += lib.base.get_perfdata(name, value, '%', None, None, 0, 100)
+            elif perfdata_unit.upper() in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
+                perfdata += lib.base.get_perfdata(name, value, perfdata_unit.upper(), None, None, 0, None)
+            elif perfdata_unit.lower() in ['c', 's', 'ms', 'us',]:
+                perfdata += lib.base.get_perfdata(name, value, perfdata_unit.lower(), None, None, 0, None)
+            else:
+                # unknown perfdata suffixes, so do not use them
+                perfdata += lib.base.get_perfdata(name, value, None, None, None, 0, None)
+
+    # create output
+    if msg_header:
+        msg +=  msg_header[:-2] + '\n\n'
+    if len(table_values) > 0:
+        msg += lib.base.get_table(
+            table_values,
+            ['name', 'value', 'state'],
+            header=['Key', 'Value', 'State'],
+            )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
