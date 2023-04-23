@@ -1,19 +1,55 @@
 Importing the Grafana Dashboards and Panels
 ===========================================
 
-There are two options to import the Grafana dashboards. You can either import them via the WebGUI or use provisioning.
+To provision Grafana dashboards, we use `Grizzly <https://github.com/grafana/grizzly>`_. Grizzly is a utility for managing various observability resources with Jsonnet. With Grizzly, Grafana elements such as datasources or dashboards can be defined in YAML and maintained "as code". Grizzly uses the Grafana REST API.
 
-When importing via the WebGUI simply import the ``plugin-name.grafana-external.json`` file.
 
-If you want to use provisioning, take a look at `Grafana Provisioning <https://grafana.com/docs/grafana/latest/administration/provisioning/>`_. Beware that you also need to provision the datasources if you want to use provisioning for the dashboards.
+Install Grizzly
+---------------
 
-If you want to create a custom dashboards that contains a different selection of panels, you can do so using the ``tools/grafana-tool`` utility.
+For example on your deployment host:
 
 .. code-block:: bash
 
-    # interactive usage
-    ./tools/grafana-tool assets/grafana/all-panels-external.json
-    ./tools/grafana-tool assets/grafana/all-panels-provisioning.json
+    VER=0.2.0
+    sudo curl --fail --show-error --location --output "/usr/local/bin/grr" "https://github.com/grafana/grizzly/releases/download/v$VER/grr-linux-amd64"
+    sudo chmod a+x "/usr/local/bin/grr"
 
-    # for more options, see
-    ./tools/grafana-tool --help
+    # should work
+    grr --help
+
+In Grafana: Configure authentication on top of a "Service Account"
+
+* Grafana > Configuration > Service Accounts > Add service account: Name = grizzy, Role = Editor
+* After that: Click on "Add service account token"
+
+.. note::
+
+    If you want to create folders or deploy datasources, the Service Account needs to have the admin role.
+
+
+Deploy Dashboards
+-----------------
+
+On your deployment host, set environment variables:
+
+.. code-block:: bash
+
+    export GRAFANA_URL=http://grafana.example.com:3000
+    export GRAFANA_USER=grizzly
+    export GRAFANA_TOKEN=mytoken
+
+Create the dashboard folder for all the Linuxfabrik Monitoring Plugin dashboards:
+
+.. code-block:: bash
+
+    # needs admin role
+    grr apply monitoring-plugins/assets/grafana/folder.yml
+
+Now deploy the dashboard for the "CPU Usage" plugin, for example:
+
+.. code-block:: bash
+
+    # needs editor role
+    grr apply monitoring-plugins/check-plugins/cpu-usage/grafana/cpu-usage.yml
+
