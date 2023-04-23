@@ -43,6 +43,7 @@ Grafana:
 
 * Add new panels, update existing ones
 * Panels written in Jsonnet, to be maintained by [Grizzly](https://github.com/grafana/grizzly)
+* Add a grafana dashboard for the inbuilt icinga command ([#577](https://github.com/Linuxfabrik/monitoring-plugins/issues/577))
 
 
 ### Changed

@@ -1,0 +1,1553 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: icinga
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Icinga
+    - Grizzly
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Icinga
+  uid: linuxfabrik-monitoring-plugins-icinga
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: icinga
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "icinga" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: Icinga - Active Checks
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: active_host_checks
+      refId: active_host_checks
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: active_host_checks
+
+    - alias: active_service_checks
+      refId: active_service_checks
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: active_service_checks
+
+
+  - title: Icinga - API Num
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - api_num_endpoints
+            - api_num_http_clients
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: api_num_conn_endpoints
+      refId: api_num_conn_endpoints
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_conn_endpoints
+
+    - alias: api_num_endpoints
+      refId: api_num_endpoints
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_endpoints
+
+    - alias: api_num_http_clients
+      refId: api_num_http_clients
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_http_clients
+
+    - alias: api_num_not_conn_endpoints
+      refId: api_num_not_conn_endpoints
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_not_conn_endpoints
+
+
+  - title: Icinga - API Num JSON RPC
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - api_num_json_rpc_relay_queue_item_rate
+            - api_num_json_rpc_sync_queue_item_rate
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: api_num_json_rpc_anonymous_clients
+      refId: api_num_json_rpc_anonymous_clients
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_anonymous_clients
+
+    - alias: api_num_json_rpc_relay_queue_item_rate
+      refId: api_num_json_rpc_relay_queue_item_rate
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_relay_queue_item_rate
+
+    - alias: api_num_json_rpc_relay_queue_items
+      refId: api_num_json_rpc_relay_queue_items
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_relay_queue_items
+
+    - alias: api_num_json_rpc_sync_queue_item_rate
+      refId: api_num_json_rpc_sync_queue_item_rate
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_sync_queue_item_rate
+
+    - alias: api_num_json_rpc_sync_queue_items
+      refId: api_num_json_rpc_sync_queue_items
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_sync_queue_items
+
+    - alias: api_num_json_rpc_work_queue_items
+      refId: api_num_json_rpc_work_queue_items
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: api_num_json_rpc_work_queue_items
+
+
+  - title: Icinga - Avg Execution Time & Latency
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        min: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: avg_execution_time
+      refId: avg_execution_time
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: avg_execution_time
+
+    - alias: avg_latency
+      refId: avg_latency
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: avg_latency
+
+
+  - title: Icinga - Checker Component
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: checkercomponent_checker_idle
+      refId: checkercomponent_checker_idle
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: checkercomponent_checker_idle
+
+    - alias: checkercomponent_checker_pending
+      refId: checkercomponent_checker_pending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: checkercomponent_checker_pending
+
+
+  - title: Icinga - Current
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: current_concurrent_checks
+      refId: current_concurrent_checks
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: current_concurrent_checks
+
+    - alias: current_pending_callbacks
+      refId: current_pending_callbacks
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: current_pending_callbacks
+
+
+  - title: Icinga - InfluxDB
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: influxdbwriter_influxdb_data_queue_items
+      refId: influxdbwriter_influxdb_data_queue_items
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: influxdbwriter_influxdb_data_queue_items
+
+    - alias: influxdbwriter_influxdb_work_queue_items
+      refId: influxdbwriter_influxdb_work_queue_items
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: influxdbwriter_influxdb_work_queue_items
+
+
+  - title: Icinga - Num Hosts
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - num_hosts_down
+            - num_hosts_up
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: num_hosts_acknowledged
+      refId: num_hosts_acknowledged
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_acknowledged
+
+    - alias: num_hosts_down
+      refId: num_hosts_down
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_down
+
+    - alias: num_hosts_flapping
+      refId: num_hosts_flapping
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_flapping
+
+    - alias: num_hosts_handled
+      refId: num_hosts_handled
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_handled
+
+    - alias: num_hosts_in_downtime
+      refId: num_hosts_in_downtime
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_in_downtime
+
+    - alias: num_hosts_pending
+      refId: num_hosts_pending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_pending
+
+    - alias: num_hosts_problem
+      refId: num_hosts_problem
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_problem
+
+    - alias: num_hosts_unreachable
+      refId: num_hosts_unreachable
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_unreachable
+
+    - alias: num_hosts_up
+      refId: num_hosts_up
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_hosts_up
+
+
+  - title: Icinga - Num Services
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - num_services_critical
+            - num_services_ok
+            - num_services_warning
+            - num_services_unknown
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: num_services_acknowledged
+      refId: num_services_acknowledged
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_acknowledged
+
+    - alias: num_services_critical
+      refId: num_services_critical
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_critical
+
+    - alias: num_services_flapping
+      refId: num_services_flapping
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_flapping
+
+    - alias: num_services_handled
+      refId: num_services_handled
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_handled
+
+    - alias: num_services_in_downtime
+      refId: num_services_in_downtime
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_in_downtime
+
+    - alias: num_services_ok
+      refId: num_services_ok
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_ok
+
+    - alias: num_services_pending
+      refId: num_services_pending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_pending
+
+    - alias: num_services_problem
+      refId: num_services_problem
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_problem
+
+    - alias: num_services_unknown
+      refId: num_services_unknown
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_unknown
+
+    - alias: num_services_unreachable
+      refId: num_services_unreachable
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_unreachable
+
+    - alias: num_services_warning
+      refId: num_services_warning
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: num_services_warning
+
+
+  - title: Uptime
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        min: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: uptime
+      refId: uptime
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Icinga
+      - condition: AND
+        key: metric
+        operator: '='
+        value: uptime
