@@ -51,7 +51,7 @@ Fact Sheet
     "Compiled for",                         "Linux, Windows"
     "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db``"
 
 
 Help
@@ -100,6 +100,11 @@ Output:
     sda1 ! 15.6MiB ! 3.4MiB  ! 167.7KiB ! 5.7MiB  ! 148.5KiB ! 5.8MiB            
     sdb  ! 46.0MiB ! 22.6MiB ! 20.9MiB  ! 16.3MiB ! 18.2MiB  ! 34.5MiB           
     sdb2 ! 46.0MiB ! 22.6MiB ! 20.9MiB  ! 16.3MiB ! 18.2MiB  ! 34.5MiB
+
+    Top3 processes that generated the most I/O traffic:
+    1. firefox: 334.0MiB/689.9MiB (r/w)
+    2. nextcloud: 141.0MiB/150.3MiB (r/w)
+    3. spotify: 209.6MiB/33.4MiB (r/w)
 
 
 States

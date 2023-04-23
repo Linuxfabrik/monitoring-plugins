@@ -31,7 +31,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023033101'
+__version__ = '2023042302'
 
 DESCRIPTION = """Checks disk IO."""
 
@@ -323,6 +323,35 @@ def main():
             ],
         )
 
+    # Top3 processes that generated the most I/O traffic
+    cnt = {}
+    try:
+        for p in [x.as_dict(attrs=['name', 'io_counters']) for x in psutil.process_iter()]:
+            if p['io_counters']:
+                if p['name'] not in cnt.keys():
+                    cnt[p['name']] = {'r': 0, 'w': 0}
+                cnt[p['name']]['r'] += p['io_counters'].read_bytes
+                cnt[p['name']]['w'] += p['io_counters'].write_bytes
+    except psutil.NoSuchProcess:
+        pass
+    # cnt.items: [
+    #     ('WebKitNetworkProcess', {'r': 1716224, 'w': 0}),
+    #     ('ibus-x11', {'r': 0, 'w': 0}), ...
+    if cnt:
+        cnt = sorted(cnt.items(), key=lambda x: x[1]['r']+x[1]['w'], reverse=True)
+        if cnt[0][1]['r'] + cnt[0][1]['w'] > 0: # don't print "1. python3: 0.0B/0.0B (r/w)"
+            msg += '\nTop3 processes that generated the most I/O traffic:\n'
+            for i, (key, value) in enumerate(cnt):
+                if i > 2:
+                    break
+                msg += '{}. {}: {}/{} (r/w)\n'.format(
+                    i + 1,
+                    key,
+                    lib.human3.bytes2human(value['r']),
+                    lib.human3.bytes2human(value['w']),
+                )
+
+    # over and out
     lib.base3.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

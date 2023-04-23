@@ -66,9 +66,16 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* disk-io: disk-io3: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
 * disk-smart3: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
 * kemp-services3: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
+
+### Removed
+
+Monitoring Plugins:
+
+* top3-processes-which-caused-the-most-io (moved it into disk-io)
 
 
 ## 2023030801
