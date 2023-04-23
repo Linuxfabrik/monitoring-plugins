@@ -25,7 +25,7 @@ from lib.globals3 import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2023042202'
+__version__ = '2023042301'
 
 DESCRIPTION = """This monitoring plugin checks the current state of a Gemalto SafeNet
                  ProtectServer Network HSM via SSH and a PSESH command, and displays the
@@ -144,17 +144,8 @@ def main():
             'hsm state',
         )
         stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd))
-        switch = {
-            1: 'Invalid command line argument',
-            2: 'Conflicting arguments given',
-            3: 'General runtime error',
-            4: 'Unrecognized response from ssh (parse error)',
-            5: 'Invalid/incorrect password',
-            6: 'Host public key is unknown. sshpass exits without confirming the new key.',
-            7: 'IP public key changed. sshpass exits without confirming the new key.',
-        }
-        if switch.get(retc, ''):
-            lib.base3.oao('sshpass: {}'.format(switch[retc]), STATE_UNKNOWN)
+        if lib.shell3.RETC_SSHPASS.get(retc, ''):
+            lib.base3.oao('sshpass: {}'.format(lib.shell3.RETC_SSHPASS[retc]), STATE_UNKNOWN)
         if stderr:
             lib.base3.oao(stderr, STATE_UNKNOWN)
     else:
