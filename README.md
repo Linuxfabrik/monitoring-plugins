@@ -41,11 +41,6 @@ For now, there are two ways:
 2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
 
 
-## Icons
-
-You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
-
-
 ## Check Plugin Poster
 
 See some of our check plugins at a glance on an Icinga server:
@@ -206,9 +201,32 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 * Short parameters: `./file-age -w-60:3600` (so simply not putting any space nor escaping it in any special way).
 
 
+## Directory Layout explained
+
+```
+└── plugin-name
+    ├── assets                      Additional ressources, for example helper scripts like monitoring.php
+    ├── grafana                     Grafana dashboard definition
+    ├── icingaweb2-module-director  Icinga Director basket definition
+    ├── icingaweb2-module-grafana   Grafana panel definition for Icinga's Grafana module
+    ├── lib                         Link to the Linuxfabrik Python libraries
+    ├── unit-test                   File for unit tests
+    │   ├── retc                    Files for simulating return codes
+    │   ├── stdin                   Files for simulating output to STDOUT
+    │   ├── stdout                  Files for simulating output to STDERR
+    │   └── run                     The unit test
+    └── plugin-name                 The monitoring plugin
+```
+
+
 ## Python
 
 When running from source, almost all check plugins are happy with at least Python 3.6. All plugins define the `#!/usr/bin/env python3` shebang.
+
+
+## Icons
+
+You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
 ## Grafana
