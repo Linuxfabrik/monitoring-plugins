@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023040201'
+__version__ = '2023042301'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -64,7 +64,7 @@ def parse_args():
              'comma-separated URLs to "what is my ip" online services. '
              'For example: '
              '"https://ipv4.icanhazip.com,https://ipecho.net/plain,https://ipinfo.io/ip" '
-             '(all examples are located in the United States). '
+             '(these examples are located in the United States). '
              'Default: %(default)s',
         dest='PUBLIC_IP_URL',
         default=DEFAULT_PUBLIC_IP_URL,
@@ -2079,10 +2079,14 @@ def main():
 
     msg = '{}: '.format(socket.gethostname())
 
+    if os_info:
+        msg += '{} '.format(os_info)
+    msg += 'Kernel {} '.format(run_cmd('uname -r'))
+
     if virt == 'none':
-        msg += ' on Bare-Metal, '
+        msg += 'on Bare-Metal, '
     else:
-        msg += ' virtualized on {}, '.format(virt)
+        msg += 'virtualized on {}, '.format(virt)
 
     if firmware_device_model:
         msg += '{}, '.format(firmware_device_model)
@@ -2105,13 +2109,13 @@ def main():
     else:
         msg += 'sys dimensions n/a (consider installing psutil), '
 
-    msg += '{} boot, '.format(boot_mode)
-
     if disks:
         msg += '{} {}, '.format(
             lib.txt3.pluralize('Disk', disks.count(',')+1),
             disks,
         )
+
+    msg += '{} boot, '.format(boot_mode)
 
     if tuned:
         msg += 'tuned profile "{}", '.format(tuned)
@@ -2128,51 +2132,50 @@ def main():
     if features_missing:
         msg += 'Missing: {}. '.format(features_missing[:-2])
 
-    msg += 'About-me v{}, '.format(__version__)
-
-    msg = msg[:-2] + '\n'
+    msg += 'About-me v{}\n\n'.format(__version__)
 
     # multi-line content - print further lines
 
     if interfaces:
-        msg += '\nInterfaces (IPv4):\n{}'.format(interfaces)
+        msg += 'Interfaces (IPv4):\n{}\n'.format(interfaces)
 
     if ports:
-        msg += '\nListening TCP Ports:\n'
+        msg += 'Listening TCP Ports:\n'
         for p in ports:
             msg += '* {}:{}/{}\n'.format(p['ip'], p['port'], p['proto'])
+        msg += '\n'
 
     if installed:
-        msg += '\nSW installed:\n{}'.format(installed)
+        msg += 'SW installed:\n{}\n'.format(installed)
 
     if guessed:
-        msg += '\nSW found/guessed:\n{}'.format(guessed)
+        msg += 'SW found/guessed:\n{}\n'.format(guessed)
 
     if tools:
-        msg += '\nTools:\n{}'.format(tools)
+        msg += 'Tools:\n{}\n'.format(tools)
 
     if nondefault_users:
-        msg += '\nNon-default Users:\n{}'.format(nondefault_users)
+        msg += 'Non-default Users:\n{}\n'.format(nondefault_users)
 
     if systemd_default_target:
-        msg += '\nsystemctl get-default:\n{}'.format(systemd_default_target)
+        msg += 'systemctl get-default:\n{}\n'.format(systemd_default_target)
 
     if enabled_units:
-        msg += '\nsystemctl list-unit-files --type service --state enabled:\n{}'.format(enabled_units) # pylint: disable=C0301
+        msg += 'systemctl list-unit-files --type service --state enabled:\n{}\n'.format(enabled_units) # pylint: disable=C0301
 
     if mounts:
-        msg += '\nsystemctl list-unit-files --type mount --state static --state generated:\n{}'.format(mounts) # pylint: disable=C0301
+        msg += 'systemctl list-unit-files --type mount --state static --state generated:\n{}\n'.format(mounts) # pylint: disable=C0301
 
     if automounts:
-        msg += '\nsystemctl list-unit-files --type automount --state enabled --state static:\n{}'.format(automounts) # pylint: disable=C0301
+        msg += 'systemctl list-unit-files --type automount --state enabled --state static:\n{}\n'.format(automounts) # pylint: disable=C0301
 
     if timers:
-        msg += '\nsystemctl list-timers:\n{}'.format(timers)
+        msg += 'systemctl list-timers:\n{}\n'.format(timers)
 
     if crontab:
-        msg += '\ncrontab:\n{}\n'.format(crontab)
+        msg += 'crontab:\n{}\n'.format(crontab)
 
-    msg += '3rd-party Python libraries required by any of the plugins:\n'
+    msg += '3rd-party Python libs required by any of the plugins when running in source code variant:\n'
     if pm_installed:
         msg += '* Installed: {}\n'.format(', '.join(pm_installed))
     else:
@@ -2181,9 +2184,10 @@ def main():
         msg += '* Missing: {}\n'.format(', '.join(pm_missing))
     else:
         msg += '* Missing: none\n'
+    msg += '\n'
 
     if tags:
-        msg += '\nGuessed Tags:\n{}\n'.format(tags)
+        msg += 'Guessed Tags:\n{}\n'.format(tags)
 
     # perfdata
     if os_info:
