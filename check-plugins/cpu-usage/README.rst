@@ -25,7 +25,7 @@ Fact Sheet
     "Compiled for",                         "Linux, Windows"
     "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db``"
 
 
 Help
@@ -68,7 +68,7 @@ Output:
     guest: 0.0%, iowait: 0.0%, guest_nice: 0.0%, steal: 0.0%, nice: 0.0%
     interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
 
-    Top3 processes which consumed the most cpu time:
+    Top3 processes using the most cpu time:
     1. Xorg: 2h 13m
     2. gnome-shell: 2h 1m
     3. firefox: 1h 24m
