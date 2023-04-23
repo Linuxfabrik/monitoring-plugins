@@ -54,7 +54,7 @@ Help
                             address, specify one ore more comma-separated URLs to
                             "what is my ip" online services. For example: "https:/
                             /ipv4.icanhazip.com,https://ipecho.net/plain,https://i
-                            pinfo.io/ip" (all examples are located in the United
+                            pinfo.io/ip" (these examples are located in the United
                             States). Default: None
       --tags                Guess a list of tags to apply in Icinga Director
                             (Linuxfabrik Basket Config).
@@ -67,144 +67,164 @@ Usage Examples
 
     ./about-me
 
-Output (first line) on a VM:
+Full output example:
 
 .. code-block:: text
 
-    myhostname: Rocky Linux release 8.7 (Green Obsidian) virtualized on kvm, QEMU Standard PC (i440FX + PIIX, 1996), Firmware: n/a, SerNo: n/a, Proc: pc-i440fx-7.0, #Cores: 4, #Threads: 4, Current Speed: 2000 MHz, 6 GB RAM, BIOS boot, Disk vda 128G, tuned profile "virtual-guest", Public IP 92.107.220.171, born 2022-09-02. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
+    myhostname: Fedora Linux 36 (Thirty Six) Kernel 6.2.10-100.fc36.x86_64 virtualized on kvm, OpenStack Foundation OpenStack Nova, Firmware: n/a, SerNo: 8259353c-789d-4c63-be49-e246ae23b31c, Proc: pc-i440fx-5.2, #Cores: 2, #Threads: 2, Current Speed: 2000 MHz, 4.0GiB RAM, Disk vda 20G, BIOS boot, born 2022-05-25. Features: iptables, lvm, nftables, selinux. Missing: firewalld. About-me v2023042301
 
-Output (first line) on a Laptop:
-
-.. code-block:: text
-
-    myhostname: Fedora release 37 (Thirty Seven) on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: ABC1234, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16 GB RAM, UEFI boot, Disk nvme0n1 953.9G, Public IP 1.2.3.4, born 2022-01-16. Features: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
-
-Output (first line) on a Raspberry Pi:
-
-.. code-block:: text
-
-    myhostname: Raspbian GNU/Linux 10 (buster) on Bare-Metal, Raspberry Pi 4 Model B Rev 1.4, 4 CPUs, 7.7GiB RAM, BIOS boot, Public IP 1.2.3.4, Missing: firewalld, iptables, lvm, nftables, selinux. About-me v2023021401
-
-Example for full Output:
-
-.. code-block:: text
-
-    myhostname - Rocky Linux release 8.6 (Green Obsidian) virtualized on kvm, BIOS boot, sys dimensions n/a (consider installing psutil), Disk vda 128G, tuned profile "virtual-guest", Public IP 1.2.3.4, born 2022-09-02. Features: lvm, selinux. Missing: firewalld, iptables, nftables. About-me v2023010501
+    Listening TCP Ports:
+    * 0.0.0.0:22/tcp4
+    * [::]:22/tcp6
+    * 127.0.0.1:25/tcp4
+    * 127.0.0.54:53/tcp4
+    * 127.0.0.53:53/tcp4
+    * 0.0.0.0:80/tcp4
+    * 0.0.0.0:443/tcp4
+    * [::]:3306/tcp6
+    * [::]:5355/tcp6
+    * 0.0.0.0:5355/tcp4
+    * [::]:5665/tcp6
 
     SW installed:
-    * chronyd 4.2
-    * Exim 4.96
-    * g++ 8.5.0
-    * gcc 8.5.0
-    * gpg (GnuPG) 2.2.20
-    * ipmitool 1.8.18
-    * Linux Kernel 4.18.0-372.19.1.el8_6.x86_64
-    * OpenSSL 1.1.1k
-    * Perl 5.26.3
-    * Python 3.6.8
-    * `python3` cmd mapped to 3.6.8
+    * Apache httpd 2.4.56
+    * chronyd 4.3
+    * duplicity 0.8.23
+    * FreeIPA 4.9.11
+    * gcc 12.2.1
+    * Git 2.39.2
+    * Glances 3.3.1
+    * gpg (GnuPG) 2.3.7
+    * Icinga2 r2.13.6-1
+    * Linux Kernel 6.2.10-100.fc36.x86_64
+    * MariaDB 10.5.18-MariaDB
+    * Node 16.17.1
+    * npm 8.15.0
+    * OpenSSL 3.0.8
+    * Perl 5.34.1
+    * PHP 7.4.33
+    * PHP-FPM 7.4.33
+    * pip 21.3.1
+    * Postfix 3.6.4
+    * Python 3.10.10
+    * `python` cmd mapped to 3.10.10
+    * `python3` cmd mapped to 3.10.10
     * QEMU Guest Agent 6.2.0
-    * ssh 8.0p1
-    * sudo 1.8.29
-    * systemd 239
+    * ssh 8.8p1
+    * sudo 1.9.13p2
+    * systemd 250
 
     SW found/guessed:
     * Firewall Builder
+    * mod_security
 
     Tools:
     * dig
     * hdparm
+    * iftop
     * lsof
     * nano
     * rsync
-    * telnet
+    * tmux
     * vim
     * wget
 
     Non-default Users:
-    user    ! pw ! uid  ! gid  ! comment ! home_dir        ! user_shell    
-    --------+----+------+------+---------+-----------------+---------------
-    exim    ! x  ! 93   ! 93   !         ! /var/spool/exim ! /sbin/nologin 
-    vagrant ! x  ! 1000 ! 1000 !         ! /home/vagrant   ! /bin/bash     
+    user        ! pw ! uid  ! gid  ! comment           ! home_dir           ! user_shell    
+    ------------+----+------+------+-------------------+--------------------+---------------
+    apache      ! x  ! 48   ! 48   ! Apache            ! /usr/share/httpd   ! /sbin/nologin 
+    icinga      ! x  ! 993  ! 991  ! icinga            ! /var/spool/icinga2 ! /sbin/nologin 
+    linuxfabrik ! x  ! 1000 ! 1000 ! fedora Cloud User ! /home/linuxfabrik  ! /bin/bash     
+    mysql       ! x  ! 27   ! 27   ! MySQL Server      ! /var/lib/mysql     ! /sbin/nologin 
+    nginx       ! x  ! 992  ! 988  ! Nginx web server  ! /var/lib/nginx     ! /sbin/nologin 
+    postfix     ! x  ! 89   ! 89   !                   ! /var/spool/postfix ! /sbin/nologin 
 
     systemctl get-default:
     * multi-user.target
 
     systemctl list-unit-files --type service --state enabled:
+    * atd.service
     * auditd.service
-    * autovt@.service
+    * bluetooth.service
     * chronyd.service
-    * crond.service
-    * dbus-org.freedesktop.nm-dispatcher.service
-    * dbus-org.freedesktop.timedate1.service
+    * dbus-broker.service
+    * fwb.service
     * getty@.service
-    * haveged.service
+    * httpd.service
+    * icinga2.service
     * import-state.service
-    * irqbalance.service
-    * loadmodules.service
     * lvm2-monitor.service
+    * mariadb.service
+    * mdmonitor.service
     * NetworkManager-dispatcher.service
     * NetworkManager-wait-online.service
     * NetworkManager.service
-    * nfs-server.service
+    * nfs-convert.service
     * nis-domainname.service
+    * oddjobd.service
+    * php-fpm.service
+    * postfix.service
     * qemu-guest-agent.service
-    * rpcbind.service
-    * rsyncd.service
-    * rsyslog.service
+    * rngd.service
+    * rpmdb-rebuild.service
     * selinux-autorelabel-mark.service
-    * snmpd.service
     * sshd.service
     * sssd.service
-    * syslog.service
-    * sysstat.service
-    * timedatex.service
-    * tuned.service
-    * vsftpd.service
+    * supervisord.service
+    * systemd-homed-activate.service
+    * systemd-homed.service
+    * systemd-oomd.service
+    * systemd-resolved.service
+    * udisks2.service
 
     systemctl list-unit-files --type mount --state static --state generated:
     * -.mount
     * boot.mount
+    * data.mount
     * dev-hugepages.mount
     * dev-mqueue.mount
+    * home.mount
     * proc-fs-nfsd.mount
-    * proc-sys-fs-binfmt_misc.mount
     * sys-fs-fuse-connections.mount
     * sys-kernel-config.mount
     * sys-kernel-debug.mount
+    * sys-kernel-tracing.mount
+    * tmp.mount
     * var-lib-nfs-rpc_pipefs.mount
+    * var-log-audit.mount
+    * var-log.mount
+    * var-tmp.mount
+    * var.mount
 
     systemctl list-unit-files --type automount --state enabled --state static:
     * proc-sys-fs-binfmt_misc.automount
 
     systemctl list-timers:
-    * sysstat-collect.timer
-    * dnf-makecache.timer
-    * mlocate-updatedb.timer
+    * logrotate.timer
     * unbound-anchor.timer
-    * sysstat-summary.timer
+    * duba.timer
+    * fstrim.timer
     * systemd-tmpfiles-clean.timer
+    * notify-and-schedule.timer
+    * raid-check.timer
 
-    crontab:
-    01 * * * * root run-parts /etc/cron.hourly
-    1   5   cron.daily      nice run-parts /etc/cron.daily
-    7   25  cron.weekly     nice run-parts /etc/cron.weekly
-    @monthly 45 cron.monthly        nice run-parts /etc/cron.monthly
+    3rd-party Python libs required by any of the plugins when running in source code variant:
+    * Installed: psutil 5.8.0, pymysql.cursors 0.10.1
+    * Missing: bs4, pysmbclient, smbprotocol.exceptions, vici
 
-    3rd-party Python libraries required by any of the plugins:
-    * Installed: none
-    * Missing: bs4, psutil, pymysql.cursors, smbprotocol.exceptions, vici
-
-    Tags:
+    Guessed Tags:
+    * apache-httpd
     * chronyd
-    * exim
+    * duplicity
     * fwbuilder
-    * ipmi
-    * OS: Rocky Linux release 8.6 (Green Obsidian), family "RedHat"
-    * nfs-server
-    * rsyncd
-    * snmpd
-    * vsftpd
+    * OS: Fedora Linux 36 (Thirty Six), family "RedHat"
+    * mariadb* / mysql*
+    * mod_qos
+    * php
+    * php-fpm
+    * pip
+    * postfix-mta
+    * system-update
 
 
 States
