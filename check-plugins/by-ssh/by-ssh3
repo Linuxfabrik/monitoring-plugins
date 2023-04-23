@@ -311,16 +311,7 @@ def main():
     stdout, stderr, retc = lib.base3.coe(lib.shell3.shell_exec(cmd, shell=args.SHELL))
     if args.PASSWORD and retc:
         # stderr will not be set, we just get "Permission denied""
-        switch = {
-            1: 'Invalid command line argument',
-            2: 'Conflicting arguments given',
-            3: 'General runtime error',
-            4: 'Unrecognized response from ssh (parse error)',
-            5: 'Invalid/incorrect password',
-            6: 'Host public key is unknown. sshpass exits without confirming the new key.',
-            7: 'IP public key changed. sshpass exits without confirming the new key.',
-        }
-        stderr = 'sshpass: {}'.format(switch[retc])
+        stderr = 'sshpass: {}'.format(lib.shell3.RETC_SSHPASS[retc])
 
     perfdata = lib.base3.get_perfdata('remote_runtime', lib.time3.now('float') - timer_start, 's')
 
