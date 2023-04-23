@@ -32,7 +32,7 @@ Fact Sheet
     "Requirements",                         "command-line tool ``foo``; User with higher permissions"
     "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-example.db``"
     "Perfdata compatible with Prometheus",  "Yes"
 
 Hints for the Author (delete those):

@@ -24,7 +24,7 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db``"
 
 
 Help

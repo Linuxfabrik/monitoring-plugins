@@ -47,7 +47,7 @@ Fact Sheet
     "Compiled for",                         "Linux, Windows"
     "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-network-io.db``"
 
 
 Help

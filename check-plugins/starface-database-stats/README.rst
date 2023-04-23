@@ -26,7 +26,7 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "`Monitoring module for Starface PBX <https://wiki.fluxpunkt.de/display/FPW/Monitoring>`_"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-starface.db``"
 
 
 Help

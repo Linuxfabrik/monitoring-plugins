@@ -30,7 +30,7 @@ Fact Sheet
     "Compiled for",                         "Linux, Windows"
     "3rd Party Python modules",             "``BeautifulSoup4`` (Version 4) with Python module ``lxml``"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-feed.db``"
 
 
 Help

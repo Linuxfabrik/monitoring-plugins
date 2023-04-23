@@ -23,7 +23,7 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
     "Handles Periods",                      "Yes"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-fortios-cpu-usage.db``"
 
 
 Help

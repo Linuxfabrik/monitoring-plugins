@@ -80,11 +80,12 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
 
-    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/json-values"
+    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/csv-values"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
     "3rd Party Python modules",             "``PySmbClient``, ``smbprotocol``"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-csv-values-*.db``"
 
 
 Help

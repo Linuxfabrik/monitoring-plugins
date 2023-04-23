@@ -19,7 +19,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-metabase-stats.db``"
 
 
 Help

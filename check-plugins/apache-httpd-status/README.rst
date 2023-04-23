@@ -80,6 +80,7 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "Enable ``mod_status`` and set ``ExtendedStatus`` to ``On``"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-apache-httpd-status.db``"
 
 
 Help

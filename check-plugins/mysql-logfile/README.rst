@@ -33,7 +33,7 @@ Fact Sheet
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "3rd Party Python modules",             "``pymysql``"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-mysql-logfile.db``"
 
 
 Help

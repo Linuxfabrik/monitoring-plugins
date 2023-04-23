@@ -23,6 +23,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Every 8 hours"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-grassfish-screens.db``"
 
 
 Help

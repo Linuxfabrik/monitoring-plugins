@@ -42,7 +42,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db``"
 
 
 Help

@@ -28,7 +28,7 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux"
     "Requirements",                         "``snmpget`` from ``net-snmp-utils``"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``"
 
 
 Help
