@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023033101'
+__version__ = '2023042301'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -211,9 +211,9 @@ def main():
             perfdata += lib.base3.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
         msg = msg[:-2] + '\n'
 
-    # list top3 processes which consumed the most cpu time
+    # Top3 processes using the most cpu time
     cnt = Counter()
-    msg += '\nTop3 processes which consumed the most cpu time:\n'
+    msg += '\nTop3 processes using the most cpu time:\n'
     if lib.version3.version(psutil.__version__) >= lib.version3.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'cpu_times']):
@@ -226,7 +226,6 @@ def main():
                 cnt[p['name']] += sum(p['cpu_times'][:2])
         except psutil.NoSuchProcess:
             pass
-
     for i, p in enumerate(cnt.most_common(3)):
         msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.human3.seconds2human(p[1]))
 
