@@ -37,14 +37,15 @@ Simply clone the libraries and monitoring plugins and start working:
 Deliverables
 ------------
 
+Checklist:
+
 * The plugin itself.
 * A nice 16x16 transparent PNG icon, for example based on https://simpleicons.org or font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
 * if Windows: see `Compiling for Windows <#compiling-for-windows>`_
 * optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
-* optional: Grafana panel (see `Grafana Dashboards <#grafana-dashboards>`_)
+* optional: Grafana panel (see :doc:`GRAFANA`) and Icinga Web 2 Grafana Module .ini file
 * optional: Icinga Director Basket Config
-* optional: Icinga Web 2 Grafana Module .ini file
 * optional: sudoers file (see `sudoers File <#sudoers-file>`_)
 
 
