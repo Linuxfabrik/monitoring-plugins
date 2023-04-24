@@ -605,3 +605,4 @@ Service Sets
 
 If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
 
+If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
