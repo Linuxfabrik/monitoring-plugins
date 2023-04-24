@@ -163,7 +163,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    journald-query,                             Continous Counter,  Number of events found in journald
+    journald-query,                             Number,             Number of events found in journald
 
 
 Credits, License
