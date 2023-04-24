@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042305'
+
+DESCRIPTION = 'Tracks if Grafana is EOL.'
+
+# from https://endoflife.date/api/grafana.json
+ENDOFLIFE_DATE = [
+  {
+    "cycle": "9.4",
+    "support": True,
+    "eol": False,
+    "releaseDate": "2023-02-27",
+    "latest": "9.4.7",
+    "latestReleaseDate": "2023-03-16",
+    "lts": False
+  },
+  {
+    "cycle": "9.3",
+    "support": "2023-02-27",
+    "eol": False,
+    "releaseDate": "2022-11-29",
+    "latest": "9.3.11",
+    "latestReleaseDate": "2023-03-16",
+    "lts": False
+  },
+  {
+    "cycle": "9.2",
+    "support": "2022-11-29",
+    "eol": "2023-02-27",
+    "releaseDate": "2022-10-11",
+    "latest": "9.2.15",
+    "latestReleaseDate": "2023-03-22",
+    "lts": False
+  },
+  {
+    "cycle": "9.1",
+    "support": "2022-10-11",
+    "eol": "2022-11-29",
+    "releaseDate": "2022-08-16",
+    "latest": "9.1.8",
+    "latestReleaseDate": "2022-10-11",
+    "lts": False
+  },
+  {
+    "cycle": "9.0",
+    "support": "2022-08-16",
+    "eol": "2022-10-11",
+    "releaseDate": "2022-06-13",
+    "latest": "9.0.9",
+    "latestReleaseDate": "2022-09-20",
+    "lts": False
+  },
+  {
+    "cycle": "8",
+    "support": "2022-06-13",
+    "eol": False,
+    "releaseDate": "2021-06-08",
+    "latest": "8.5.22",
+    "latestReleaseDate": "2023-03-22",
+    "lts": False
+  },
+  {
+    "cycle": "7",
+    "support": "2021-06-08",
+    "eol": "2022-06-14",
+    "releaseDate": "2020-05-15",
+    "latest": "7.5.17",
+    "latestReleaseDate": "2022-09-26",
+    "lts": False
+  },
+  {
+    "cycle": "6",
+    "support": "2020-05-15",
+    "eol": "2021-06-08",
+    "releaseDate": "2019-02-25",
+    "latest": "6.7.6",
+    "latestReleaseDate": "2021-03-18",
+    "lts": False
+  }
+]
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version():
+    success, result = lib.shell.shell_exec('grafana-server -v')
+    if not success:
+        return ''
+    stdout = result[0].strip()
+    # where to find the version number in output?
+    version_regex = r'Version (.*?) '
+    try:
+        stdout = re.match(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version()
+    if not installed_version:
+        lib.base.oao('Grafana not found.', STATE_UNKNOWN)
+    try:
+        installed_major, installed_minor, installed_patch = installed_version.split('.')
+    except:
+        installed_patch = '0'
+        installed_major, installed_minor = installed_version.split('.')
+
+    state, msg = lib.version.check_eol(
+        ENDOFLIFE_DATE,
+        '{}.{}'.format(installed_major, installed_minor),
+    )
+
+    # over and out
+    lib.base.oao(
+        'Grafana v{} ({})'.format(installed_version, msg),
+        state,
+        lib.base.get_perfdata(
+            'grafana-version',
+            '{}.{}{}'.format(installed_major, installed_minor, installed_patch),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
