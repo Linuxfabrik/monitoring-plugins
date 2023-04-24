@@ -1,0 +1,183 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: disk-usage
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - dynamic
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Disk Usage
+  uid: linuxfabrik-monitoring-plugins-disk-usage
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: cmd-check-disk-usage
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "cmd-check-disk-usage" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: Disk Usage - Percentages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 110
+        min: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+    transformations:
+    - id: renameByRegex
+      options:
+        regex: (.*)-percent$
+        renamePattern: $1
+
+    targets:
+
+    - alias: $tag_metric
+      refId: disk-usage
+      groupBy:
+      - params:
+        - $__interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - 'null'
+        type: fill
+      measurement: /^$command$/
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: =
+        value: Disk Usage
+      - condition: AND
+        key: metric
+        operator: =~
+        value: /-percent$/
+
+
+  - title: Disk Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: bytes
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: disk-usage
+      groupBy:
+      - params:
+        - $__interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - 'null'
+        type: fill
+      measurement: /^$command$/
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: =
+        value: Disk Usage
+      - condition: AND
+        key: metric
+        operator: =~
+        value: /-usage$/
+    transformations:
+    - id: renameByRegex
+      options:
+        regex: (.*)-usage$
+        renamePattern: $1
