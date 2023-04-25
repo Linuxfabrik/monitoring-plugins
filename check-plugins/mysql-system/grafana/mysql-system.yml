@@ -1,0 +1,316 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: mysql-system
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: MySQL System
+  uid: linuxfabrik-monitoring-plugins-mysql-system
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - hide: 2
+      label: Command
+      name: command
+      query: cmd-check-mysql-system
+      type: constant
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "cmd-check-mysql-system" WITH KEY = "hostname"
+      refresh: 2
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: MySQL System - Kernel fs
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_kernel_fs.aio-max-nr
+        properties:
+        - id: displayName
+          value: Kernel fs.aio-max-nr
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_kernel_fs.aio-max-nr
+      refId: mysql_kernel_fs.aio-max-nr
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL System
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_kernel_fs.aio-max-nr
+
+
+  - title: MySQL System - Kernel sunrpc
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_kernel_sunrpc.tcp_slot_table_entries
+        properties:
+        - id: displayName
+          value: Kernel sunrpc.tcp_slot_table_entries
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_kernel_sunrpc.tcp_slot_table_entries
+      refId: mysql_kernel_sunrpc.tcp_slot_table_entries
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL System
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_kernel_sunrpc.tcp_slot_table_entries
+
+
+  - title: MySQL System - Kernel vm - Percentages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 110
+        min: 0
+        unit: percent
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_kernel_vm.swappiness
+        properties:
+        - id: displayName
+          value: Kernel vm.swappiness
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_kernel_vm.swappiness
+      refId: mysql_kernel_vm.swappiness
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL System
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_kernel_vm.swappiness
+
+
+  - title: MySQL System - Opened Ports
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: mysql_opened_ports
+        properties:
+        - id: displayName
+          value: Opened ports
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: mysql_opened_ports
+      refId: mysql_opened_ports
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL System
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_opened_ports
+
