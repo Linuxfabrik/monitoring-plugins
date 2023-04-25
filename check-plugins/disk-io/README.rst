@@ -123,17 +123,17 @@ Per disk:
     :header-rows: 1
     
     Name,                               Type,                   Description                                           
-    <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in milliseconds).
+    <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in seconds).
     <disk>_read_bytes,                  Continous Counter,      Number of bytes read.
     <disk>_read_bytes_per_second1,      Bytes,                  Current number of bytes read.
     <disk>_read_bytes_per_second15,     Bytes,                  Current number of bytes read.
     <disk>_read_merged_count,           Continous Counter,      Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt.
-    <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in milliseconds).
+    <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in seconds).
     <disk>_write_bytes,                 Continous Counter,      Number of bytes written.
     <disk>_write_bytes_per_second1,     Bytes,                  Current number of bytes written.
     <disk>_write_bytes_per_second15,    Bytes,                  Current number of bytes written.
     <disk>_write_merged_count,          Continous Counter,      Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt.
-    <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in milliseconds).
+    <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in seconds).
     <disk>_throughput1,                 None,                   Bytes per second. read_bytes_per_second1 + write_bytes_per_second1.
     <disk>_throughput15,                None,                   Bytes per second. read_bytes_per_second15 + write_bytes_per_second15.
 

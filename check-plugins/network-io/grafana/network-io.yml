@@ -2,13 +2,13 @@ apiVersion: grizzly.grafana.com/v1alpha1
 kind: Dashboard
 metadata:
   folder: linuxfabrik-monitoring-plugins
-  name: cpu-usage
+  name: network-io
 spec:
   schemaVersion: 2023041201
   tags:
     - Linuxfabrik
     - Grizzly
-    - static
+    - repeating
   time:
     from: now-90d
     to: now
@@ -17,8 +17,7 @@ spec:
     refresh_intervals:
     - 1m
   timezone: browser
-  title: CPU Usage
-  uid: linuxfabrik-monitoring-plugins-cpu-usage
+  title: Network I/O
   editable: true
   liveNow: true
   refresh: 1m
@@ -27,24 +26,45 @@ spec:
     - hide: 2
       label: Command
       name: command
-      query: cmd-check-cpu-usage
+      query: cmd-check-network-io
       type: constant
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-cpu-usage" WITH KEY = "hostname"
+      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "hostname"
       refresh: 2
+      sort: 1
+      type: query
+    - hide: 2
+      includeAll: true
+      label: Metric
+      multi: true
+      name: metric
+      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "metric" WHERE hostname =~ /$hostname/
+      refresh: 2
+      regex: /^(.*)_.*_.*_.*_.*$/
       sort: 1
       type: query
 
   panels:
 
-  - title: CPU Usage - Percentages
+  - title: $metric
+    type: row
+    gridPos:
+      h: 1
+      w: 24
+      x: 0
+      y: 0
+    repeat: metric
+    repeatDirection: h
+
+
+  - title: Network I/O - $metric - Bytes per Second
     type: timeseries
     gridPos:
       h: 8
       w: 12
       x: 0
-      y: 0
+      y: 1
     fieldConfig:
       defaults:
         color:
@@ -52,10 +72,10 @@ spec:
         custom:
           lineInterpolation: smooth
           spanNulls: true
-        decimals: 0
-        max: 110
+        decimals: 1
+        mappings: []
         min: 0
-        unit: percent
+        unit: binBps
       overrides:
       - __systemRef: hideSeriesFrom
         matcher:
@@ -63,7 +83,7 @@ spec:
           options:
             mode: exclude
             names:
-            - cpu-usage
+            - throughput1
             prefix: 'All except:'
         properties:
         - id: custom.hideFrom
@@ -80,19 +100,16 @@ spec:
         displayMode: table
         placement: bottom
         showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
 
     targets:
 
-    - alias: cpu-usage
-      refId: cpu-usage
+    - alias: bytes_recv_per_second1
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-bytes_recv_per_second1
       resultFormat: time_series
       select:
       - - params:
@@ -100,26 +117,27 @@ spec:
           type: field
         - params: []
           type: mean
+        - params: []
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: cpu-usage
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_recv_per_second1/
 
-    - alias: guest
-      refId: guest
+    - alias: bytes_recv_per_second15
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-bytes_recv_per_second15
       resultFormat: time_series
       select:
       - - params:
@@ -127,26 +145,27 @@ spec:
           type: field
         - params: []
           type: mean
+        - params: []
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: guest
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_recv_per_second15/
 
-    - alias: guest_nice
-      refId: guest_nice
+    - alias: bytes_sent_per_second1
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-bytes_sent_per_second1
       resultFormat: time_series
       select:
       - - params:
@@ -154,26 +173,27 @@ spec:
           type: field
         - params: []
           type: mean
+        - params: []
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: guest_nice
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_sent_per_second1/
 
-    - alias: iowait
-      refId: iowait
+    - alias: bytes_sent_per_second15
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-bytes_sent_per_second15
       resultFormat: time_series
       select:
       - - params:
@@ -181,27 +201,27 @@ spec:
           type: field
         - params: []
           type: mean
+        - params: []
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: iowait
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_sent_per_second15/
 
-
-    - alias: irq
-      refId: irq
+    - alias: throughput1
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-throughput1
       resultFormat: time_series
       select:
       - - params:
@@ -209,26 +229,27 @@ spec:
           type: field
         - params: []
           type: mean
+        - params: []
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: irq
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_throughput1/
 
-    - alias: nice
-      refId: nice
+    - alias: throughput15
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-throughput15
       resultFormat: time_series
       select:
       - - params:
@@ -236,135 +257,28 @@ spec:
           type: field
         - params: []
           type: mean
-      tags:
-      - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
-      - condition: AND
-        key: service
-        operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: nice
-
-    - alias: soft_irq
-      refId: soft_irq
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: /^$command$/
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
         - params: []
-          type: mean
+          type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: soft_irq
-
-    - alias: steal
-      refId: steal
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: /^$command$/
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
-      - condition: AND
-        key: service
-        operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: steal
-
-    - alias: system
-      refId: system
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: /^$command$/
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
-      - condition: AND
-        key: service
-        operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: system
-
-    - alias: user
-      refId: user
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: /^$command$/
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
-      - condition: AND
-        key: service
-        operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: user
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_throughput15/
 
 
-  - title: CPU Usage - Interrupts and Switches
+  - title: Network I/O - $metric - Bytes
     type: timeseries
     gridPos:
       h: 8
       w: 12
       x: 12
-      y: 0
+      y: 1
     fieldConfig:
       defaults:
         color:
@@ -372,7 +286,97 @@ spec:
         custom:
           lineInterpolation: smooth
           spanNulls: true
-        decimals: 0
+        decimals: 1
+        mappings: []
+        min: 0
+        unit: bytes
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+
+    targets:
+
+    - alias: bytes_recv
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: network-io-bytes_recv
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_recv/
+
+    - alias: bytes_sent
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: network-io-bytes_sent
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_bytes_sent/
+
+
+  - title: Network I/O - $metric - Packets
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 9
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        mappings: []
         min: 0
         unit: short
     options:
@@ -386,19 +390,16 @@ spec:
         displayMode: table
         placement: bottom
         showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
 
     targets:
 
-    - alias: ctx_switches
-      refId: ctx_switches
+    - alias: packets_recv
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-packets_recv
       resultFormat: time_series
       select:
       - - params:
@@ -410,24 +411,23 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: ctx_switches
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_packets_recv/
 
-    - alias: interrupts
-      refId: interrupts
+    - alias: packets_sent
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-packets_sent
       resultFormat: time_series
       select:
       - - params:
@@ -439,24 +439,69 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
-      - condition: AND
-        key: metric
-        operator: '='
-        value: interrupts
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_packets_sent/
 
-    - alias: soft_interrupts
-      refId: soft_interrupts
+
+  - title: Network I/O - $metric - Stats
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 9
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 2
+        mappings: []
+        unit: short
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - read_time
+            - write_time
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+
+    targets:
+
+    - alias: dropin
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
+      refId: network-io-dropin
       resultFormat: time_series
       select:
       - - params:
@@ -466,15 +511,111 @@ spec:
           type: mean
         - params: []
           type: non_negative_difference
+        - params:
+          - / 1000
+          type: math
       tags:
       - key: hostname
-        operator: '=~'
+        operator: =~
         value: /^$hostname$/
       - condition: AND
         key: service
         operator: '='
-        value: CPU Usage
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_dropin/
+
+    - alias: dropout
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: network-io-dropout
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+        - params:
+          - / 1000
+          type: math
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
       - condition: AND
-        key: metric
+        key: service
         operator: '='
-        value: soft_interrupts
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_dropout/
+
+    - alias: errin
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: network-io-errin
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+        - params:
+          - / 1000
+          type: math
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_errin/
+
+    - alias: errin
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: network-io-errin
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+        - params: []
+          type: non_negative_difference
+        - params:
+          - / 1000
+          type: math
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Network I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_errin/
+
