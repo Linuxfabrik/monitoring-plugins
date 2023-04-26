@@ -55,7 +55,26 @@ For other distros, or if you don't want to use your package manager, you can unp
 sudoers
 ~~~~~~~
 
-On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide a ``sudoers`` file for your operating system in ``monitoring-plugins/assets/sudoers``, for example ``CentOS8.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the target host.
+On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide ``sudoers`` files for various operating system families in ``monitoring-plugins/assets/sudoers``, for example ``RedHat.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the target host. The file name is compatible to `ansible_facts['os_family'] <https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267>`_.
+
+Currently available:
+
+* ``Debian.sudoers``: for Debian, Raspbian, Ubuntu
+* ``RedHat.sudoers``: for Alma, Amazon, Ascendos, CentOS, CloudLinux, Fedora, OEL, OracleLinux, OVS, PSBM, RedHat, Rocky Linux, Scientific, SLC, XenServer
+* ``Suse.sudoers``: for openSUSE, SLED, SLES, SLES_SAP, SuSE
+
+Currently not implemented:
+
+* ``AIX.sudoers``: for AIX
+* ``Alpine.sudoers``: for Alpine
+* ``Archlinux.sudoers``: for Archlinux, Manjaro
+* ``Darwin.sudoers``: for MacOSX
+* ``FreeBSD.sudoers``: for FreeBSD
+* ``Gentoo.sudoers``: for Funtoo, Gentoo
+* ``HPUX.sudoers``: for HPUX
+* ``Mandrake.sudoers``: for Mandrake, Mandriva
+* ``Slackware.sudoers``: for Slackware
+* ``Solaris.sudoers``: for Nexenta, OmniOS, OpenIndiana, SmartOS, Solaris
 
 **Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
