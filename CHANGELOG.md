@@ -58,6 +58,7 @@ Monitoring Plugins:
 * kemp-services3: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
 * nextcloud-version3: Simplified, no longer cares about patch levels, no longer needs internet access
 * php-fpm-status3: Remove `req per sec` perfdata as it is meaningless
+* php-status: Move monitoring.php
 * php-status3: Rename perfdata item from `php-opcache-memory_usage-current_wasted_percentage` to `php-opcache-memory_usage-current_wasted-percentage`
 * restic-snapshots3: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
 * Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
