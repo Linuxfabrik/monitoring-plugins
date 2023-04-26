@@ -79,19 +79,6 @@ Currently not implemented:
 **Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
 
-SELinux
-~~~~~~~
-
-To make SELinux happy, after installing from source, run:
-
-.. code-block:: bash
-
-    restorecon -Fvr /usr/lib64/nagios
-    setsebool -P nagios_run_sudo on
-
-If installing using the rpm-packages, this is automatically done for you.
-
-
 Windows
 -------
 
@@ -185,6 +172,13 @@ We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possi
 * PyMySQL
 * smbprotocol (smbprotocol.exceptions)
 * vici
+
+To make SELinux happy, after installing from source, run:
+
+.. code-block:: bash
+
+    restorecon -Fvr /usr/lib64/nagios
+    setsebool -P nagios_run_sudo on
 
 
 Ansible
