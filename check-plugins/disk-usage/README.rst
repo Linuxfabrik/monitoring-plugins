@@ -64,18 +64,18 @@ Output:
 
 .. code-block:: text
 
-    /var/log/audit 10.7% - total: 506.7MiB, used: 54.4MiB, free: 452.3MiB
+    / 61.4% - total: 4.0GiB, used: 2.4GiB, free: 1.5GiB
 
-    mountpoint     ! type ! used     ! total     ! percent 
-    ---------------+------+----------+-----------+------------------
-    /              ! xfs  ! 4.0GiB   ! 4.0GiB    ! 100.0% [CRITICAL]
-    /var           ! xfs  ! 2.2GiB   ! 4.0GiB    ! 53.9%   
-    /var/log       ! xfs  ! 172.3MiB ! 1014.0MiB ! 17.0%   
-    /home          ! xfs  ! 40.1MiB  ! 1014.0MiB ! 4.0%    
-    /boot          ! xfs  ! 163.8MiB ! 1014.0MiB ! 16.2%   
-    /tmp           ! xfs  ! 136.2MiB ! 5.0GiB    ! 2.6%    
-    /var/tmp       ! xfs  ! 39.4MiB  ! 1014.0MiB ! 3.9%    
-    /var/log/audit ! xfs  ! 54.4MiB  ! 506.7MiB  ! 10.7%
+    Mountpoint     ! Type ! Free     ! Used     ! Total     ! Usage 
+    ---------------+------+----------+----------+-----------+-------
+    /              ! xfs  ! 1.5GiB   ! 2.4GiB   ! 4.0GiB    ! 61.4% 
+    /boot          ! xfs  ! 726.9MiB ! 287.1MiB ! 1014.0MiB ! 28.3% 
+    /var           ! xfs  ! 2.6GiB   ! 1.4GiB   ! 4.0GiB    ! 34.4% 
+    /tmp           ! xfs  ! 974.5MiB ! 39.5MiB  ! 1014.0MiB ! 3.9%  
+    /var/log       ! xfs  ! 825.0MiB ! 189.0MiB ! 1014.0MiB ! 18.6% 
+    /var/tmp       ! xfs  ! 974.6MiB ! 39.4MiB  ! 1014.0MiB ! 3.9%  
+    /var/log/audit ! xfs  ! 438.5MiB ! 68.2MiB  ! 506.7MiB  ! 13.5% 
+    /home          ! xfs  ! 883.9MiB ! 130.1MiB ! 1014.0MiB ! 12.8%
 
 
 States

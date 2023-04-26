@@ -26,7 +26,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023042305'
+__version__ = '2023042601'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -148,6 +148,7 @@ def main():
             'mountpoint': '{}'.format(part.mountpoint),
             'type': '{}'.format(part.fstype),
             'used': lib.human.bytes2human(usage.used),
+            'free': lib.human.bytes2human(usage.free),
             'total': lib.human.bytes2human(usage.total),
             'percent': '{}% {}'.format(usage.percent, lib.base.state2str(disk_state, prefix=' ')),
         })
@@ -157,8 +158,8 @@ def main():
 
     table = lib.base.get_table(
         table_data,
-        ['mountpoint', 'type', 'used', 'total', 'percent'],
-        ['mountpoint', 'type', 'used', 'total', 'percent'],
+        ['mountpoint', 'type', 'free', 'used', 'total', 'percent'],
+        ['Mountpoint', 'Type', 'Free', 'Used', 'Total', 'Usage'],
         'percent',
     )
 
