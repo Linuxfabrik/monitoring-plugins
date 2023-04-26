@@ -64,7 +64,7 @@ Output:
 
 .. code-block:: text
 
-    / 61.4% - total: 4.0GiB, used: 2.4GiB, free: 1.5GiB
+    / 61.4% - total: 4.0GiB, free: 1.5GiB, used: 2.4GiB
 
     Mountpoint     ! Type ! Free     ! Used     ! Total     ! Usage 
     ---------------+------+----------+----------+-----------+-------

@@ -54,15 +54,15 @@ Grafana:
 Monitoring Plugins:
 
 * apache-httpd-status: Remove `ReqPerSec`, `BytesPerSec`, `BytesPerReq`, `DurationPerReq` perfdata as they are wrong
-* disk-io3: `--ignore` now ignores all disks "starting with" the given parameter value
-* fortios-version3: Simplified, returns version information in perfdata
-* journald-query3: Lower default for `--since` from 24h to 8h
-* kemp-services3: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
-* nextcloud-version3: Simplified, no longer cares about patch levels, no longer needs internet access
-* php-fpm-status3: Remove `req per sec` perfdata as it is meaningless
+* disk-io: `--ignore` now ignores all disks "starting with" the given parameter value
+* fortios-version: Simplified, returns version information in perfdata
+* journald-query: Lower default for `--since` from 24h to 8h
+* kemp-services: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
+* nextcloud-version: Simplified, no longer cares about patch levels, no longer needs internet access
+* php-fpm-status: Remove `req per sec` perfdata as it is meaningless
 * php-status: Move monitoring.php
-* php-status3: Rename perfdata item from `php-opcache-memory_usage-current_wasted_percentage` to `php-opcache-memory_usage-current_wasted-percentage`
-* restic-snapshots3: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
+* php-status: Rename perfdata item from `php-opcache-memory_usage-current_wasted_percentage` to `php-opcache-memory_usage-current_wasted-percentage`
+* restic-snapshots: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
 * Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
 * Unified most of the \*-version3 checks in behavior, also using data from https://endoflife.date (no need for internet access).
 
@@ -71,10 +71,11 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* disk-io: disk-io3: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
-* disk-smart3: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
-*  disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
-* kemp-services3: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
+* disk-io: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
+* disk-smart: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
+* disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
+* disk-usage: module 'psutil' has no attribute 'disk_partitions' ([#663](https://github.com/Linuxfabrik/monitoring-plugins/issues/663))
+* kemp-services: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
 
 ### Removed

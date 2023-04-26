@@ -26,7 +26,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023042601'
+__version__ = '2023042602'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -102,7 +102,14 @@ def main():
     msg = ''
 
     # analyze data
-    parts = psutil.disk_partitions(all=False)
+    try:
+        parts = psutil.disk_partitions(all=False)
+    except AttributeError:
+        lib.base.oao(
+            'Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).',
+            STATE_UNKNOWN,
+        )
+
     override_allowed = True
     for part in parts:
         # ignore partitions in ignore list
@@ -126,13 +133,13 @@ def main():
         perfdata += lib.base.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100)
         perfdata += lib.base.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total)
 
-        msg_header = '{} {}%{} - total: {}, used: {}, free: {}'.format(
+        msg_header = '{} {}%{} - total: {}, free: {}, used: {}'.format(
             part.mountpoint,
             usage.percent,
             lib.base.state2str(disk_state, prefix=' '),
             lib.human.bytes2human(usage.total),
-            lib.human.bytes2human(usage.used),
             lib.human.bytes2human(usage.free),
+            lib.human.bytes2human(usage.used),
         )
 
         # the disk with the most severe state should be in the first line of the plugin output
