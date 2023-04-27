@@ -27,7 +27,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023042701'
+__version__ = '2023042703'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -115,6 +115,15 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+    # args.WARN[0] = number, args.WARN[1] = unit, args.WARN[2] = USED|FREE
+    try:
+        float(args.WARN[0])
+        float(args.CRIT[0])
+    except ValueError:
+        lib.base.oao(
+            'Invalid parameter value.',
+            STATE_UNKNOWN,
+        )
 
     # init some vars
     msg = ''
@@ -227,9 +236,13 @@ def main():
             )
 
         state = lib.base.get_worst(state, disk_state)
+
         perfdata += lib.base.get_perfdata('{}-total'.format(part.mountpoint), usage.total, 'B', None, None, 0, usage.total) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
         perfdata += lib.base.get_perfdata('{}-usage'.format(part.mountpoint), usage.used, 'B', None, None, 0, usage.total) # pylint: disable=C0301
+        # Maybe implement all various combinations for warn and crit thresholds later
+        # (args.WARN[1] == '%', args.WARN[2] == 'FREE', args.CRIT[1] != '%', ...)
+        # Until then: None, None
+        perfdata += lib.base.get_perfdata('{}-percent'.format(part.mountpoint), usage.percent, '%', None, None, 0, 100) # pylint: disable=C0301
 
         msg_header = '{} {}%{} - total: {}, used: {}, avail: {} (warn={} crit={})'.format(
             part.mountpoint,
