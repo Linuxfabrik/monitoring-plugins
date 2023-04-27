@@ -12,6 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
@@ -27,13 +28,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023042705'
+__version__ = '2023042706'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
 DEFAULT_WARN = '90%USED'
 DEFAULT_CRIT = '95%USED'
-DEFAULT_IGNORE = []
 
 
 def parse_args():
@@ -74,15 +74,51 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--ignore',
-        help='Mountpoint to be ignored (repeating). '
-             'The mountpoint is ignored if it starts with the specified value. '
-             'Example: "/boot" ignores "/boot" as well as "/boot/efi". '
+        '--exclude-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a exclude. '
+             'The mountpoint is excluded if it contains the specified value. '
+             'Example: "boot" excludes "/boot" as well as "/boot/efi". '
+             'Can be specified multiple times. '
              'On Windows, use drive letters without backslash ("Y:" or "Y"). '
-             'Default: %(default)s',
-        dest='IGNORE',
-        default=DEFAULT_IGNORE,
+             'Includes are matched before excludes.',
+        dest='EXCLUDE_PATTERN',
         action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--exclude-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a exclude. '
+             'Can be specified multiple times. '
+             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+             'Includes are matched before excludes.',
+        dest='EXCLUDE_REGEX',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--include-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a include. '
+             'The mountpoint is included if it contains the specified value. '
+             'Example: "boot" includes "/boot" as well as "/boot/efi". '
+             'Can be specified multiple times. '
+             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+             'Includes are matched before excludes.',
+        dest='INCLUDE_PATTERN',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--include-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a include. '
+             'Can be specified multiple times. '
+             'On Windows, use drive letters without backslash ("Y:" or "Y"). '
+             'Includes are matched before excludes.',
+        dest='INCLUDE_REGEX',
+        action='append',
+        default=[],
     )
 
     parser.add_argument(
@@ -139,15 +175,10 @@ def main():
             STATE_UNKNOWN,
         )
 
-    override_allowed = True
-    for part in parts:
-        # ignore partitions in ignore list
-        # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
-        # impossible to specify a "Y:\" on the command line ('Y:\' or 'Y:\\' all don't work).
-        # so check using "startswith()":
-        if not part or any(part.mountpoint.startswith(i) for i in args.IGNORE):
-            continue
+    compiled_include_regex = [re.compile(item, re.IGNORECASE) for item in args.INCLUDE_REGEX]
+    compiled_exclude_regex = [re.compile(item, re.IGNORECASE) for item in args.EXCLUDE_REGEX]
 
+    for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
         # sdiskpart(
         #   device='/dev/sr0',
@@ -159,10 +190,24 @@ def main():
         if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
             continue
 
+        # include (first) and exclude (second) specific partitions
+        # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
+        # impossible to specify a "Y:\" on the command line ('Y:\' or 'Y:\\' all don't work).
+        mountpoint = part.mountpoint.lower()
+        if args.INCLUDE_PATTERN or args.INCLUDE_REGEX:
+            if not any(include_pattern.lower() in mountpoint for include_pattern in args.INCLUDE_PATTERN) \
+            and not any(item.search(mountpoint) for item in compiled_include_regex):
+                continue
+        if args.EXCLUDE_PATTERN or args.EXCLUDE_REGEX:
+            if any(exclude_pattern.lower() in mountpoint for exclude_pattern in args.EXCLUDE_PATTERN) \
+            or any(item.search(mountpoint) for item in compiled_exclude_regex):
+                continue
+
         usage = psutil.disk_usage(part.mountpoint)
+
+        # check % vs. USED|FREE and K|M|G|T|P vs. USED|FREE, first WARN, then CRIT
         disk_state = STATE_OK
 
-        # check % vs. USED|FREE
         if args.WARN[1] == '%' and args.WARN[2] == 'USED':
             disk_state = lib.base.get_state(
                 usage.percent,
@@ -170,6 +215,28 @@ def main():
                 None,
                 'ge',
             )
+        elif args.WARN[1] == '%' and args.WARN[2] == 'FREE':
+            disk_state = lib.base.get_state(
+                100.0 - usage.percent,
+                args.WARN[0],
+                None,
+                'le',
+            )
+        elif args.WARN[1] != '%' and args.WARN[2] == 'USED':
+            disk_state = lib.base.get_state(
+                usage.used,
+                lib.human.human2bytes(''.join(args.WARN[:2])),
+                None,
+                'ge',
+            )
+        elif args.WARN[1] != '%' and args.WARN[2] == 'FREE':
+            disk_state = lib.base.get_state(
+                usage.free,
+                lib.human.human2bytes(''.join(args.WARN[:2])),
+                None,
+                'le',
+            )
+
         if args.CRIT[1] == '%' and args.CRIT[2] == 'USED':
             disk_state = lib.base.get_worst(
                 disk_state,
@@ -180,14 +247,7 @@ def main():
                     'ge',
                 ),
             )
-        if args.WARN[1] == '%' and args.WARN[2] == 'FREE':
-            disk_state = lib.base.get_state(
-                100.0 - usage.percent,
-                args.WARN[0],
-                None,
-                'le',
-            )
-        if args.CRIT[1] == '%' and args.CRIT[2] == 'FREE':
+        elif args.CRIT[1] == '%' and args.CRIT[2] == 'FREE':
             disk_state = lib.base.get_worst(
                 disk_state,
                 lib.base.get_state(
@@ -197,16 +257,7 @@ def main():
                     'le',
                 ),
             )
-
-        # check K|M|G|T|P vs. USED|FREE
-        if args.WARN[1] != '%' and args.WARN[2] == 'USED':
-            disk_state = lib.base.get_state(
-                usage.used,
-                lib.human.human2bytes(''.join(args.WARN[:2])),
-                None,
-                'ge',
-            )
-        if args.CRIT[1] != '%' and args.CRIT[2] == 'USED':
+        elif args.CRIT[1] != '%' and args.CRIT[2] == 'USED':
             disk_state = lib.base.get_worst(
                 disk_state,
                 lib.base.get_state(
@@ -216,14 +267,7 @@ def main():
                     'ge',
                 ),
             )
-        if args.WARN[1] != '%' and args.WARN[2] == 'FREE':
-            disk_state = lib.base.get_state(
-                usage.free,
-                lib.human.human2bytes(''.join(args.WARN[:2])),
-                None,
-                'le',
-            )
-        if args.CRIT[1] != '%' and args.CRIT[2] == 'FREE':
+        elif args.CRIT[1] != '%' and args.CRIT[2] == 'FREE':
             disk_state = lib.base.get_worst(
                 disk_state,
                 lib.base.get_state(
@@ -252,22 +296,40 @@ def main():
             'percent': '{}%{}'.format(usage.percent, lib.base.state2str(disk_state, prefix=' ')),
         })
 
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.'
-    elif state == STATE_WARN:
-        msg = 'There are warnings.'
+    # build the message
+    if not table_data:
+        msg = 'Nothing checked.'
+    elif len(table_data) == 1:
+        msg = '{} {} - total: {}, free: {}, used: {} (warn={} crit={})'.format(
+            table_data[0]['mountpoint'],
+            table_data[0]['percent'],
+            table_data[0]['size'],
+            table_data[0]['avail'],
+            table_data[0]['used'],
+            ''.join(args.WARN),
+            ''.join(args.CRIT),
+        )
     else:
-        msg = 'Everything is ok.'
-
-    table = lib.base.get_table(
-        table_data,
-        ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
-        ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
-        'percent',
-    )
+        if state == STATE_CRIT:
+            msg = 'There are critical errors.'
+        elif state == STATE_WARN:
+            msg = 'There are warnings.'
+        else:
+            msg = 'Everything is ok.'
+        msg = '{} (warn={} crit={})\n\n{}'.format(
+            msg,
+            ''.join(args.WARN),
+            ''.join(args.CRIT),
+            lib.base.get_table(
+                table_data,
+                ['mountpoint', 'type', 'size', 'used', 'avail', 'percent'],
+                ['Mountpoint', 'Type', 'Size', 'Used', 'Avail', 'Use%'],
+                'percent',
+            ),
+        )
 
     # over and out
-    lib.base.oao(msg.strip() + '\n\n' + table, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

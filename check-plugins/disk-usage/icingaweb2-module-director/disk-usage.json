@@ -8,8 +8,20 @@
                 "--critical": {
                     "value": "$disk_usage_critical$"
                 },
-                "--ignore": {
-                    "value": "$disk_usage_ignore$",
+                "--exclude-pattern": {
+                    "value": "$disk_usage_exclude_pattern$",
+                    "repeat_key": true
+                },
+                "--exclude-regex": {
+                    "value": "$disk_usage_exclude_regex$",
+                    "repeat_key": true
+                },
+                "--include-pattern": {
+                    "value": "$disk_usage_include_pattern$",
+                    "repeat_key": true
+                },
+                "--include-regex": {
+                    "value": "$disk_usage_include_regex$",
                     "repeat_key": true
                 },
                 "--warning": {
@@ -38,6 +50,21 @@
                     "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -58,8 +85,20 @@
                 "--critical": {
                     "value": "$disk_usage_windows_critical$"
                 },
-                "--ignore": {
-                    "value": "$disk_usage_windows_ignore$",
+                "--exclude-pattern": {
+                    "value": "$disk_usage_windows_exclude_pattern$",
+                    "repeat_key": true
+                },
+                "--exclude-regex": {
+                    "value": "$disk_usage_windows_exclude_regex$",
+                    "repeat_key": true
+                },
+                "--include-pattern": {
+                    "value": "$disk_usage_windows_include_pattern$",
+                    "repeat_key": true
+                },
+                "--include-regex": {
+                    "value": "$disk_usage_windows_include_regex$",
                     "repeat_key": true
                 },
                 "--warning": {
@@ -70,22 +109,37 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 5,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 6,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -160,7 +214,10 @@
             "vars": {
                 "disk_usage_always_ok": false,
                 "disk_usage_critical": "95%USED",
-                "disk_usage_ignore": [],
+                "disk_usage_exclude_pattern": [],
+                "disk_usage_exclude_regex": [],
+                "disk_usage_include_pattern": [],
+                "disk_usage_include_regex": [],
                 "disk_usage_warning": "90%USED"
             },
             "volatile": null,
@@ -208,7 +265,10 @@
             "vars": {
                 "disk_usage_windows_always_ok": false,
                 "disk_usage_windows_critical": "95%USED",
-                "disk_usage_windows_ignore": [],
+                "disk_usage_windows_exclude_pattern": [],
+                "disk_usage_windows_exclude_regex": [],
+                "disk_usage_windows_include_pattern": [],
+                "disk_usage_windows_include_regex": [],
                 "disk_usage_windows_warning": "90%USED"
             },
             "volatile": null,
@@ -238,17 +298,50 @@
             "uuid": "f0468cc4-7e08-49f6-8258-18bde965cbc0"
         },
         "3": {
-            "varname": "disk_usage_ignore",
-            "caption": "Disk Usage: Ignore",
-            "description": "Mountpoint to be ignored (repeating). The mountpoint is ignored if it starts with the specified value. Example: \"/boot\" ignores \"/boot\" as well as \"/boot/efi\". On Windows, use drive letters without backslash (\"Y:\" or \"Y\").",
+            "varname": "disk_usage_exclude_pattern",
+            "caption": "Disk Usage: Exclude Pattern",
+            "description": "Any line matching this pattern (case-insensitive) will count as a exclude. The mountpoint is excluded if it contains the specified value. Example: \"boot\" excludes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "ed8817fa-a383-48ac-9e8c-ccbcf84ad929"
+            "uuid": "32e8f0a9-8dd4-4d2f-950e-94a23ba72df5"
         },
         "4": {
+            "varname": "disk_usage_exclude_regex",
+            "caption": "Disk Usage: Exclude Regex",
+            "description": "Any line matching this python regex (case-insensitive) will count as a exclude. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e5483599-ab4b-4748-8c81-272cebf42dc9"
+        },
+        "5": {
+            "varname": "disk_usage_include_pattern",
+            "caption": "Disk Usage: Include Pattern",
+            "description": "Any line matching this pattern (case-insensitive) will count as a include. The mountpoint is included if it contains the specified value. Example: \"boot\" includes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ce94251a-aab0-41c3-9187-ede6be9fa9a9"
+        },
+        "6": {
+            "varname": "disk_usage_include_regex",
+            "caption": "Disk Usage: Include Regex",
+            "description": "Any line matching this python regex (case-insensitive) will count as a include. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6d462170-1bee-45b1-b294-282d6e2617ba"
+        },
+        "7": {
             "varname": "disk_usage_warning",
             "caption": "Disk Usage: Warning",
             "description": "Warning threshold, of the form \"<number>[unit][method]\", where unit is one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95%% usage. `9.5M` = alert when 9.5 MiB is used. Other self-explanatory examples are `95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`.",
@@ -259,7 +352,7 @@
             },
             "uuid": "a4fbfd70-535b-493b-8da5-f357b57c6a70"
         },
-        "5": {
+        "8": {
             "varname": "disk_usage_windows_always_ok",
             "caption": "Disk Usage: Always OK?",
             "description": "Always returns OK.",
@@ -268,7 +361,7 @@
             "settings": {},
             "uuid": "62a785e4-c106-411d-adb3-95a102e3e63e"
         },
-        "6": {
+        "9": {
             "varname": "disk_usage_windows_critical",
             "caption": "Disk Usage: Critical",
             "description": "Critical threshold, of the form \"<number>[unit][method]\", where unit is one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95%% usage or more. `9.5M` = alert when 9.5 MiB or more is used. Other self-explanatory examples are `95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`.",
@@ -279,18 +372,51 @@
             },
             "uuid": "e0f6e0b2-ebd1-4fd6-97ef-e52de0cb816f"
         },
-        "7": {
-            "varname": "disk_usage_windows_ignore",
-            "caption": "Disk Usage: Ignore",
-            "description": "Mountpoint to be ignored (repeating). The mountpoint is ignored if it starts with the specified value. Example: \"/boot\" ignores \"/boot\" as well as \"/boot/efi\". On Windows, use drive letters without backslash (\"Y:\" or \"Y\").",
+        "10": {
+            "varname": "disk_usage_windows_exclude_pattern",
+            "caption": "Disk Usage: Exclude Pattern",
+            "description": "Any line matching this pattern (case-insensitive) will count as a exclude. The mountpoint is excluded if it contains the specified value. Example: \"boot\" excludes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "02550551-e65e-42e8-85da-95a59dc4aed0"
+            "uuid": "219af27c-dcf9-4821-b2c5-e0ca9061a5b9"
         },
-        "8": {
+        "11": {
+            "varname": "disk_usage_windows_exclude_regex",
+            "caption": "Disk Usage: Exclude Regex",
+            "description": "Any line matching this python regex (case-insensitive) will count as a exclude. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5ccd4d1c-1045-4f2b-93d9-22765f3d8add"
+        },
+        "12": {
+            "varname": "disk_usage_windows_include_pattern",
+            "caption": "Disk Usage: Include Pattern",
+            "description": "Any line matching this pattern (case-insensitive) will count as a include. The mountpoint is included if it contains the specified value. Example: \"boot\" includes \"/boot\" as well as \"/boot/efi\". Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1bbdfc3b-08a2-49f4-af54-43b0a7c1bd11"
+        },
+        "13": {
+            "varname": "disk_usage_windows_include_regex",
+            "caption": "Disk Usage: Include Regex",
+            "description": "Any line matching this python regex (case-insensitive) will count as a include. Can be specified multiple times. On Windows, use drive letters without backslash (\"Y:\" or \"Y\"). Includes are matched before excludes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "21a3f20b-cb9e-4a83-bb62-18728266cc17"
+        },
+        "14": {
             "varname": "disk_usage_windows_warning",
             "caption": "Disk Usage: Warning",
             "description": "Warning threshold, of the form \"<number>[unit][method]\", where unit is one of `%%|K|M|G|T|P` and method is one of `USED|FREE`. If \"unit\" is omitted, `%%` is assumed. `K` means `kibibyte` etc. If \"method\" is omitted, `USED` is assumed. `USED` means \"number ore more\", `FREE` means \"number or less\". Examples: `95` = alert at 95%% usage. `9.5M` = alert when 9.5 MiB is used. Other self-explanatory examples are `95%%USED`, `5%%FREE`, `9.5GFREE`, `1400GUSED`.",

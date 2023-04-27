@@ -73,6 +73,7 @@ Monitoring Plugins:
 
 * disk-io: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
 * disk-smart: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
+* disk-usage: Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
 * disk-usage: allow passing absolute values for warn/crit ([#114](https://github.com/Linuxfabrik/monitoring-plugins/issues/114))
 * disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
 * disk-usage: Make plugin output more generic ([#664](https://github.com/Linuxfabrik/monitoring-plugins/issues/664))

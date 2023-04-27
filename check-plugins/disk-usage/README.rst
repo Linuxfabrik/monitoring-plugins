@@ -29,8 +29,11 @@ Help
 
 .. code-block:: text
 
-    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                      [-w WARN]
+    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT]
+                      [--exclude-pattern EXCLUDE_PATTERN]
+                      [--exclude-regex EXCLUDE_REGEX]
+                      [--include-pattern INCLUDE_PATTERN]
+                      [--include-regex INCLUDE_REGEX] [-w WARN]
 
     Checks the used disk space, for each partition.
 
@@ -49,11 +52,32 @@ Help
                             or more. `9.5M` = alert when 9.5 MiB or more is used.
                             Other self-explanatory examples are `95%USED`,
                             `5%FREE`, `9.5GFREE`, `1400GUSED`. Default: 95%USED
-      --ignore IGNORE       Mountpoint to be ignored (repeating). The mountpoint
-                            is ignored if it starts with the specified value.
-                            Example: "/boot" ignores "/boot" as well as
-                            "/boot/efi". On Windows, use drive letters without
-                            backslash ("Y:" or "Y"). Default: []
+      --exclude-pattern EXCLUDE_PATTERN
+                            Any line matching this pattern (case-insensitive) will
+                            count as a exclude. The mountpoint is excluded if it
+                            contains the specified value. Example: "boot" excludes
+                            "/boot" as well as "/boot/efi". Can be specified
+                            multiple times. On Windows, use drive letters without
+                            backslash ("Y:" or "Y"). Includes are matched before
+                            excludes.
+      --exclude-regex EXCLUDE_REGEX
+                            Any line matching this python regex (case-insensitive)
+                            will count as a exclude. Can be specified multiple
+                            times. On Windows, use drive letters without backslash
+                            ("Y:" or "Y"). Includes are matched before excludes.
+      --include-pattern INCLUDE_PATTERN
+                            Any line matching this pattern (case-insensitive) will
+                            count as a include. The mountpoint is included if it
+                            contains the specified value. Example: "boot" includes
+                            "/boot" as well as "/boot/efi". Can be specified
+                            multiple times. On Windows, use drive letters without
+                            backslash ("Y:" or "Y"). Includes are matched before
+                            excludes.
+      --include-regex INCLUDE_REGEX
+                            Any line matching this python regex (case-insensitive)
+                            will count as a include. Can be specified multiple
+                            times. On Windows, use drive letters without backslash
+                            ("Y:" or "Y"). Includes are matched before excludes.
       -w WARN, --warning WARN
                             Warning threshold, of the form
                             "<number>[unit][method]", where unit is one of
@@ -70,6 +94,8 @@ Help
 Usage Examples
 --------------
 
+Simple usage:
+
 .. code-block:: bash
 
     ./disk-usage
@@ -78,7 +104,7 @@ Output:
 
 .. code-block:: text
 
-    / 61.4% - total: 4.0GiB, used: 2.4GiB, avail: 1.5GiB (warn=90%USED crit=95%USED)
+    Everything is ok. (warn=90%USED crit=95%USED)
 
     Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%  
     ---------------+------+-----------+----------+----------+-------
@@ -86,12 +112,42 @@ Output:
     /boot          ! xfs  ! 1014.0MiB ! 287.1MiB ! 726.9MiB ! 28.3% 
     /var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4% 
     /tmp           ! xfs  ! 1014.0MiB ! 39.5MiB  ! 974.5MiB ! 3.9%  
-    /var/log       ! xfs  ! 1014.0MiB ! 180.1MiB ! 833.9MiB ! 17.8% 
+    /var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8% 
     /var/tmp       ! xfs  ! 1014.0MiB ! 39.4MiB  ! 974.6MiB ! 3.9%  
-    /var/log/audit ! xfs  ! 506.7MiB  ! 61.9MiB  ! 444.8MiB ! 12.2% 
+    /var/log/audit ! xfs  ! 506.7MiB  ! 63.9MiB  ! 442.7MiB ! 12.6% 
     /home          ! xfs  ! 1014.0MiB ! 130.1MiB ! 883.9MiB ! 12.8%
 
-Other examples:
+For each ``/var`` partition, except ``/var/tmp``, alert when any of these partitions has only 450 MiB of free space left:
+
+.. code-block:: bash
+
+    ./disk-usage --include-pattern=var --exclude-pattern=tmp --critical 450MFREE
+
+Output:
+
+.. code-block:: text
+
+    There are critical errors. (warn=90%USED crit=450MFREE)
+
+    Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%             
+    ---------------+------+-----------+----------+----------+------------------
+    /var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4%            
+    /var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8%            
+    /var/log/audit ! xfs  ! 506.7MiB  ! 64.2MiB  ! 442.5MiB ! 12.7% [CRITICAL]|
+
+Check exactly one partition:
+
+.. code-block:: bash
+
+    ./disk-usage --include-pattern=audit --warning 60MUSED
+
+Output:
+
+.. code-block:: text
+
+    /var/log/audit 12.6% [WARNING] - total: 506.7MiB, free: 442.7MiB, used: 63.9MiB (warn=60MUSED crit=95%USED)
+
+Some other examples:
 
 .. code-block:: bash
 
