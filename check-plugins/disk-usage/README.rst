@@ -29,24 +29,42 @@ Help
 
 .. code-block:: text
 
-    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE] [-w WARN]
+    usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
+                      [-w WARN]
 
     Checks the used disk space, for each partition.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical threshold partition usage percentage.
-                            Default: 95
-      --ignore IGNORE       Mountpoint to be ignored (repeating). The mountpoint is
-                            ignored if it starts with the specified value. Example:
-                            "/boot" ignores "/boot" as well as "/boot/efi". On Windows,
-                            use drive letters without backslash ("Y:" or "Y"). Default: []
+                            Critical threshold, of the form
+                            "<number>[unit][method]", where unit is one of
+                            `%|K|M|G|T|P` and method is one of `USED|FREE`. If
+                            "unit" is omitted, `%` is assumed. `K` means
+                            `kibibyte` etc. If "method" is omitted, `USED` is
+                            assumed. `USED` means "number ore more", `FREE` means
+                            "number or less". Examples: `95` = alert at 95% usage
+                            or more. `9.5M` = alert when 9.5 MiB or more is used.
+                            Other self-explanatory examples are `95%USED`,
+                            `5%FREE`, `9.5GFREE`, `1400GUSED`. Default: 95%USED
+      --ignore IGNORE       Mountpoint to be ignored (repeating). The mountpoint
+                            is ignored if it starts with the specified value.
+                            Example: "/boot" ignores "/boot" as well as
+                            "/boot/efi". On Windows, use drive letters without
+                            backslash ("Y:" or "Y"). Default: []
       -w WARN, --warning WARN
-                            Set the warning threshold partition usage percentage. Default:
-                            90
+                            Warning threshold, of the form
+                            "<number>[unit][method]", where unit is one of
+                            `%|K|M|G|T|P` and method is one of `USED|FREE`. If
+                            "unit" is omitted, `%` is assumed. `K` means
+                            `kibibyte` etc. If "method" is omitted, `USED` is
+                            assumed. `USED` means "number ore more", `FREE` means
+                            "number or less". Examples: `95` = alert at 95% usage.
+                            `9.5M` = alert when 9.5 MiB is used. Other self-
+                            explanatory examples are `95%USED`, `5%FREE`,
+                            `9.5GFREE`, `1400GUSED`. Default: 90%USED
 
 
 Usage Examples
@@ -55,27 +73,34 @@ Usage Examples
 .. code-block:: bash
 
     ./disk-usage
-    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80 --critical=90
-
-    # on Windows:
-    ./disk-usage --ignore=E: --ignore=Y: --warning=80 --critical=90
 
 Output:
 
 .. code-block:: text
 
-    / 61.4% - total: 4.0GiB, free: 1.5GiB, used: 2.4GiB
+    / 61.4% - total: 4.0GiB, used: 2.4GiB, avail: 1.5GiB (warn=90%USED crit=95%USED)
 
-    Mountpoint     ! Type ! Free     ! Used     ! Total     ! Usage 
-    ---------------+------+----------+----------+-----------+-------
-    /              ! xfs  ! 1.5GiB   ! 2.4GiB   ! 4.0GiB    ! 61.4% 
-    /boot          ! xfs  ! 726.9MiB ! 287.1MiB ! 1014.0MiB ! 28.3% 
-    /var           ! xfs  ! 2.6GiB   ! 1.4GiB   ! 4.0GiB    ! 34.4% 
-    /tmp           ! xfs  ! 974.5MiB ! 39.5MiB  ! 1014.0MiB ! 3.9%  
-    /var/log       ! xfs  ! 825.0MiB ! 189.0MiB ! 1014.0MiB ! 18.6% 
-    /var/tmp       ! xfs  ! 974.6MiB ! 39.4MiB  ! 1014.0MiB ! 3.9%  
-    /var/log/audit ! xfs  ! 438.5MiB ! 68.2MiB  ! 506.7MiB  ! 13.5% 
-    /home          ! xfs  ! 883.9MiB ! 130.1MiB ! 1014.0MiB ! 12.8%
+    Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%  
+    ---------------+------+-----------+----------+----------+-------
+    /              ! xfs  ! 4.0GiB    ! 2.4GiB   ! 1.5GiB   ! 61.4% 
+    /boot          ! xfs  ! 1014.0MiB ! 287.1MiB ! 726.9MiB ! 28.3% 
+    /var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4% 
+    /tmp           ! xfs  ! 1014.0MiB ! 39.5MiB  ! 974.5MiB ! 3.9%  
+    /var/log       ! xfs  ! 1014.0MiB ! 180.1MiB ! 833.9MiB ! 17.8% 
+    /var/tmp       ! xfs  ! 1014.0MiB ! 39.4MiB  ! 974.6MiB ! 3.9%  
+    /var/log/audit ! xfs  ! 506.7MiB  ! 61.9MiB  ! 444.8MiB ! 12.2% 
+    /home          ! xfs  ! 1014.0MiB ! 130.1MiB ! 883.9MiB ! 12.8%
+
+Other examples:
+
+.. code-block:: bash
+
+    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80 --critical=90
+    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80%USED --critical=90%USED
+    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80%USED --critical=3GFREE
+
+    # on Windows:
+    ./disk-usage --ignore=E: --ignore=Y: --warning=80 --critical=90
 
 
 States
