@@ -80,6 +80,7 @@ Monitoring Plugins:
 * disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
 * disk-usage: Make plugin output more generic ([#664](https://github.com/Linuxfabrik/monitoring-plugins/issues/664))
 * disk-usage: module 'psutil' has no attribute 'disk_partitions' ([#663](https://github.com/Linuxfabrik/monitoring-plugins/issues/663))
+* file-age: Type object 'SMBDirEntry' has no attribute 'from_filename' ([#665](https://github.com/Linuxfabrik/monitoring-plugins/issues/665))
 * kemp-services: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
 
