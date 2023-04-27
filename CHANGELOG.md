@@ -15,6 +15,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Monitoring Plugins:
 
+* disk-usage: Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662)) (so dropped `--ignore` parameter)
 * keycloak-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * wordpress-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
