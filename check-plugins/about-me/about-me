@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023042305'
+__version__ = '2023042701'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -750,13 +750,24 @@ def find_software(): # pylint: disable=R0915
     }
 
     output = run_cmd('mysqld --version')
-    s['mariadb'] = {
-        'display-name': 'MariaDB' if output is not False and 'MariaDB' in output else 'MySQL',
-        'tag-name': 'mariadb* / mysql*',
-        'guessed': False,
-        'installed': output is not False,
-        'version': run_regex(output, r'Ver (.*?) ') if output is not False else None,
-    }
+    if output:
+        s['mariadb'] = {
+            'display-name': 'MariaDB' if output is not False and 'MariaDB' in output else 'MySQL',
+            'tag-name': 'mariadb* / mysql*',
+            'guessed': False,
+            'installed': output is not False,
+            'version': run_regex(output, r'(?i)ver (.*?) ') if output is not False else None,
+        }
+    else:
+        output = run_cmd('mysql --version')
+        if output:
+            s['mariadb'] = {
+                'display-name': 'MariaDB' if output is not False and 'MariaDB' in output else 'MySQL',
+                'tag-name': 'mariadb* / mysql*',
+                'guessed': False,
+                'installed': output is not False,
+                'version': run_regex(output, r'(?i)ver (.*?) ') if output is not False else None,
+            }
 
     s['mariadb-columnstore'] = {
         'display-name': 'MariaDB ColumnStore',
