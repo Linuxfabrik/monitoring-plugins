@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023042701'
+
+DESCRIPTION = 'Tracks if MySQL/MariaDB is EOL.'
+
+# from https://endoflife.date/api/mariadb.json
+ENDOFLIFE_DATE_MARIADB = [
+  {
+    "cycle": "10.11",
+    "eol": "2028-02-16",
+    "latest": "10.11.2",
+    "lts": True,
+    "releaseDate": "2023-02-16",
+    "latestReleaseDate": "2023-02-16"
+  },
+  {
+    "cycle": "10.10",
+    "eol": "2023-11-17",
+    "latest": "10.10.3",
+    "releaseDate": "2022-11-07",
+    "latestReleaseDate": "2023-02-06",
+    "lts": False
+  },
+  {
+    "cycle": "10.9",
+    "eol": "2023-08-22",
+    "latest": "10.9.5",
+    "releaseDate": "2022-08-15",
+    "latestReleaseDate": "2023-02-06",
+    "lts": False
+  },
+  {
+    "cycle": "10.8",
+    "eol": "2023-05-20",
+    "latest": "10.8.7",
+    "releaseDate": "2022-05-20",
+    "latestReleaseDate": "2023-02-06",
+    "lts": False
+  },
+  {
+    "cycle": "10.7",
+    "eol": "2023-02-14",
+    "latest": "10.7.8",
+    "latestReleaseDate": "2023-02-06",
+    "releaseDate": "2022-02-08",
+    "lts": False
+  },
+  {
+    "cycle": "10.6",
+    "eol": "2026-07-06",
+    "latest": "10.6.12",
+    "lts": True,
+    "latestReleaseDate": "2023-02-06",
+    "releaseDate": "2021-07-05"
+  },
+  {
+    "cycle": "10.5",
+    "eol": "2025-06-24",
+    "latest": "10.5.19",
+    "latestReleaseDate": "2023-02-06",
+    "releaseDate": "2020-06-23",
+    "lts": False
+  },
+  {
+    "cycle": "10.4",
+    "eol": "2024-06-18",
+    "latest": "10.4.28",
+    "latestReleaseDate": "2023-02-06",
+    "releaseDate": "2019-06-17",
+    "lts": False
+  },
+  {
+    "cycle": "10.3",
+    "eol": "2023-05-25",
+    "latest": "10.3.38",
+    "latestReleaseDate": "2023-02-06",
+    "releaseDate": "2018-05-23",
+    "lts": False
+  },
+  {
+    "cycle": "10.2",
+    "eol": "2022-05-23",
+    "latest": "10.2.44",
+    "latestReleaseDate": "2022-05-20",
+    "releaseDate": "2017-05-15",
+    "lts": False
+  },
+  {
+    "cycle": "10.1",
+    "eol": "2020-10-17",
+    "latest": "10.1.48",
+    "latestReleaseDate": "2020-10-30",
+    "releaseDate": "2016-09-29",
+    "lts": False
+  },
+  {
+    "cycle": "10.0",
+    "eol": "2019-03-31",
+    "latest": "10.0.38",
+    "latestReleaseDate": "2019-01-29",
+    "releaseDate": "2014-06-12",
+    "lts": False
+  },
+  {
+    "cycle": "5.5",
+    "eol": "2020-04-11",
+    "latest": "5.5.68",
+    "lts": True,
+    "latestReleaseDate": "2020-05-06",
+    "releaseDate": "2013-01-29"
+  }
+]
+
+# from https://endoflife.date/api/mysql.json
+ENDOFLIFE_DATE_MYSQL = [
+  {
+    "cycle": "8.0",
+    "latest": "8.0.33",
+    "support": "2025-04-30",
+    "eol": "2026-04-30",
+    "latestReleaseDate": "2023-03-16",
+    "releaseDate": "2018-04-08",
+    "lts": False
+  },
+  {
+    "cycle": "5.7",
+    "latest": "5.7.42",
+    "support": "2020-10-31",
+    "eol": "2023-10-31",
+    "latestReleaseDate": "2023-03-16",
+    "releaseDate": "2015-10-09",
+    "lts": False
+  },
+  {
+    "cycle": "5.6",
+    "latest": "5.6.51",
+    "support": "2018-02-28",
+    "eol": "2021-02-28",
+    "latestReleaseDate": "2021-01-05",
+    "releaseDate": "2013-02-01",
+    "lts": False
+  },
+  {
+    "cycle": "5.5",
+    "latest": "5.5.63",
+    "support": "2015-12-31",
+    "eol": "2018-12-31",
+    "latestReleaseDate": "2018-12-21",
+    "releaseDate": "2010-12-03",
+    "lts": False
+  }
+]
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version():
+    success, result = lib.shell.shell_exec('mysqld --version')
+    if success:
+        stdout = result[0].strip()
+        # where to find the version number in output?
+        version_regex = r'Ver (.*?) '
+        try:
+            stdout = re.search(version_regex, stdout)
+            return stdout.group(1).strip()
+        except:
+            pass
+    success, result = lib.shell.shell_exec('mysql --version')
+    if not success:
+        return ''
+    stdout = result[0].strip()
+    # where to find the version number in output?
+    version_regex = r'(?i)b (.*?),'
+    try:
+        stdout = re.search(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version()
+    if not installed_version:
+        lib.base.oao('MariaDB/MySQL not found.', STATE_UNKNOWN)
+
+    mariadb = 'MariaDB' in installed_version
+
+    installed_version = installed_version.replace('-MariaDB', '')
+    try:
+        installed_major, installed_minor, installed_patch = installed_version.split('.')
+    except:
+        installed_patch = '0'
+        installed_major, installed_minor = installed_version.split('.')
+
+    if mariadb:
+        state, msg = lib.version.check_eol(
+            ENDOFLIFE_DATE_MARIADB,
+            '{}.{}'.format(installed_major, installed_minor),
+        )
+    else:
+        state, msg = lib.version.check_eol(
+            ENDOFLIFE_DATE_MYSQL,
+            '{}.{}'.format(installed_major, installed_minor),
+        )
+
+    # over and out
+    lib.base.oao(
+        '{} v{} ({})'.format('MariaDB' if mariadb else 'MySQL', installed_version, msg),
+        state,
+        lib.base.get_perfdata(
+            'mysql-version',
+            '{}.{}{}'.format(installed_major, installed_minor, installed_patch),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
