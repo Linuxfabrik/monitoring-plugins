@@ -87,6 +87,12 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--skip-non-smart',
+        help='Skip disks that do not support SMART monitoring.',
+        dest='SKIP_NON_SMART',
+    )
+
     return parser.parse_args()
 
 
@@ -790,6 +796,15 @@ def parse_sections(smartctl):
 
     return report
 
+def check_smart_support(device):
+    try:
+        output = subprocess.check_output(['smartctl', '-i', device]).decode()
+        if 'SMART support is: Available - device has SMART capability.' in output:
+            return (0, 'Device supports SMART')
+        else:
+            return (2, 'Device does not support SMART')
+    except subprocess.CalledProcessError as e:
+        return (3, 'Error: ' + str(e))
 
 def main():
     """The main function. Hier spielt die Musik.
@@ -827,7 +842,10 @@ def main():
 
     for line in stdout.splitlines():
         disk, disk_type = line.strip().split(maxsplit=1)
-        if not disk or disk in args.IGNORE or (lib.base.LINUX and 'disk' not in disk_type):
+
+        status, message = check_smart_support('/dev/' + disk)
+
+        if not disk or disk in args.IGNORE or (lib.base.LINUX and 'disk' not in disk_type) or status != 0:
             continue
 
         if args.TEST is None:
