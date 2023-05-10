@@ -34,7 +34,7 @@ Monitoring Plugins:
 
 * apache-httpd-version
 * by-ssh
-* cometsystem
+* cometsystem ([PR #650](https://github.com/Linuxfabrik/monitoring-plugins/pull/650), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 * fedora-version
 * grafana-version
 * mysql-version
@@ -42,7 +42,7 @@ Monitoring Plugins:
 * openstack-swift-stat
 * postfix-version
 * rhel-version
-* safenet-hsm-state
+* safenet-hsm-state ([PR #648](https://github.com/Linuxfabrik/monitoring-plugins/pull/648), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 
 Grafana:
 
@@ -272,7 +272,7 @@ Features:
 
 Monitoring Plugins:
 
-* diacos ([PR #567](https://github.com/Linuxfabrik/monitoring-plugins/pull/567), thanks to [dominik.riva](https://git.linuxfabrik.ch/dominik.riva))
+* diacos ([PR #567](https://github.com/Linuxfabrik/monitoring-plugins/pull/567), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 * infomaniak-swiss-backup-devices
 * infomaniak-swiss-backup-products
 * mysql-aria
@@ -307,7 +307,7 @@ Monitoring Plugins:
 * nodebb-info
 * nodebb-users
 * strongswan-connections
-* xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583), thanks to [dominik.riva](https://git.linuxfabrik.ch/dominik.riva))
+* xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 
 Icinga Director:
 
@@ -580,7 +580,7 @@ Monitoring Plugins:
 * Jitsi Videobridge Statistics and Status
 * NodeBB Statistics, Status and Version
 * Redis
-* SAP Open Concur (thanks to [dominik.riva](https://git.linuxfabrik.ch/dominik.riva))
+* SAP Open Concur (thanks to [Dominik Riva](https://github.com/slalomsk8er))
 * Starface PBX: Account, Database and Perr Statistics; Overall, Backup and Channel Status; Java Memory Usage
 * Veeam Status
 
