@@ -17,17 +17,17 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 1500,
+                    "datafield_id": 1,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 1501,
+                    "datafield_id": 2,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 1502,
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -58,6 +58,65 @@
             "vars": {},
             "zone": null,
             "uuid": "db65caee-5c64-4aa4-8a38-7d01c4e9dd44"
+        },
+        "cmd-check-path-rw-test-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$path_rw_test_windows_always_ok$"
+                },
+                "--path": {
+                    "value": "$path_rw_test_windows_path$",
+                    "repeat_key": true
+                },
+                "--severity": {
+                    "value": "$path_rw_test_windows_severity$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\path-rw-test.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-path-rw-test-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "22aa6bef-afba-47bc-bf1f-b0b63812beda"
+        },
+        "cmd-check-path-rw-test-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\path-rw-test.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-path-rw-test-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-path-rw-test-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "b6b0aaac-a4e4-49dc-b366-afaa95d0ebb9"
         }
     },
     "ServiceTemplate": {
@@ -155,6 +214,56 @@
             "volatile": null,
             "zone": null,
             "uuid": "13283d82-a3fd-4088-b76f-7da961427a24"
+        },
+        "tpl-service-path-rw-test-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-path-rw-test-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "path-rw-test.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Tests whether a file can be written to a specific path and then deleted.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/path-rw-test",
+            "object_name": "tpl-service-path-rw-test-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "path_rw_test_windows_always_ok": false,
+                "path_rw_test_windows_path": [
+                    "/tmp"
+                ],
+                "path_rw_test_windows_severity": "warn"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "14affe4b-dc0c-4b96-84bc-a640475081a9"
         }
     },
     "DataList": {
@@ -176,10 +285,29 @@
                 }
             ],
             "uuid": "e3e060cd-c001-4f7b-be7e-38503362125e"
+        },
+        "path_rw_test_windows_severity_list": {
+            "list_name": "path_rw_test_windows_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "81e26284-5b93-486c-839a-874207d7582c"
         }
     },
     "Datafield": {
-        "1500": {
+        "1": {
             "varname": "path_rw_test_always_ok",
             "caption": "Path RW Test: Always OK?",
             "description": "Always returns OK.",
@@ -188,7 +316,7 @@
             "settings": {},
             "uuid": "3da6dfb3-63b4-4521-b8f6-633edd9fc0e3"
         },
-        "1501": {
+        "2": {
             "varname": "path_rw_test_path",
             "caption": "Path RW Test: Path",
             "description": "Path to which the file is to be written and from which it will be deleted (repeating).",
@@ -199,7 +327,7 @@
             },
             "uuid": "6f80bd32-0b34-4930-a7d1-50863013b047"
         },
-        "1502": {
+        "3": {
             "varname": "path_rw_test_severity",
             "caption": "Path RW Test: Severity",
             "description": "Severity for alerting.",
@@ -211,6 +339,39 @@
                 "datalist": "path_rw_test_severity_list"
             },
             "uuid": "24862773-1f7f-415c-bc26-b2d229055b3f"
+        },
+        "4": {
+            "varname": "path_rw_test_windows_always_ok",
+            "caption": "Path RW Test: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9b87d0c0-7a1e-46bd-8427-52cde5789ac7"
+        },
+        "5": {
+            "varname": "path_rw_test_windows_path",
+            "caption": "Path RW Test: Path",
+            "description": "Path to which the file is to be written and from which it will be deleted (repeating).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "79938d65-9f58-4ce3-88ef-48b8a3122f3e"
+        },
+        "6": {
+            "varname": "path_rw_test_windows_severity",
+            "caption": "Path RW Test: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "path_rw_test_windows_severity_list"
+            },
+            "uuid": "2f0f3ad0-32bd-4feb-8fd6-5628d4227486"
         }
     }
 }
