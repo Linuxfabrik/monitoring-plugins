@@ -527,7 +527,7 @@ The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director
 
 * Command: ``timeout``
 * ServiceTemplate: ``check_interval``
-* ServiceTemplate: ``enable_notifications``
+* ServiceTemplate: ``criticality``
 * ServiceTemplate: ``enable_perfdata``
 * ServiceTemplate: ``max_check_attempts``
 * ServiceTemplate: ``retry_interval``
@@ -553,11 +553,11 @@ For example, to set the timeout to 30s, to enable notifications and some other o
       '["Command"]["cmd-check-new-check"]["timeout"]': 30
       '["ServiceTemplate"]["tpl-service-new-check"]["check_command"]': 'cmd-check-new-check-sudo'
       '["ServiceTemplate"]["tpl-service-new-check"]["check_interval"]': 3600
-      '["ServiceTemplate"]["tpl-service-new-check"]["enable_notifications"]': true
       '["ServiceTemplate"]["tpl-service-new-check"]["enable_perfdata"]': true
       '["ServiceTemplate"]["tpl-service-new-check"]["max_check_attempts"]': 5
       '["ServiceTemplate"]["tpl-service-new-check"]["retry_interval"]': 30
       '["ServiceTemplate"]["tpl-service-new-check"]["use_agent"]': false
+      '["ServiceTemplate"]["tpl-service-new-check"]["vars"]["criticality"]': 'C'
 
 Then, re-run ``check2basket`` to apply the overwrites:
 
