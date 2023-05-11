@@ -36,6 +36,7 @@ Monitoring Plugins:
 * by-ssh
 * cometsystem ([PR #650](https://github.com/Linuxfabrik/monitoring-plugins/pull/650), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 * fedora-version
+* githubstatus
 * grafana-version
 * mysql-version
 * network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))

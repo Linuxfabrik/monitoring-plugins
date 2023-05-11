@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
+                          STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023051102'
+
+DESCRIPTION = """Checks the GitHub status page, including a status indicator,
+                 component statuses and unresolved incidents."""
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.base.coe(
+            lib.url.fetch_json('https://www.githubstatus.com/api/v2/summary.json'),
+        )
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+        result = json.loads(stdout)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    components, incidents = 0, 0
+    table_data = []
+
+    # analyze data
+    for incident in result.get('incidents', {}):
+        incident['updated_at'] = incident.get('updated_at').replace('T', ' ')[:19]
+        msg += '{}, {} impact, {}: {}. {} '.format(
+            incident.get('updated_at'),
+            incident.get('impact'),
+            incident.get('status'),
+            incident.get('name'),
+            incident.get('incident_updates', [])[0].get('body', ''),
+        )
+        state = STATE_WARN
+        incidents += 1
+
+    for component in result.get('components', {}):
+        if 'githubstatus.com' in component.get('name'):
+            # "Visit www.githubstatus.com for more information"
+            continue
+        component['updated_at'] = component.get('updated_at').replace('T', ' ')[:19]
+        if component.get('status') != 'operational':
+            state = STATE_WARN
+            components += 1
+
+        table_data.append({
+            'name': component.get('name'),
+            'status': component.get('status'),
+            'updated_at': component.get('updated_at'),
+        })
+
+    if not result.get('incidents', {}) and not result.get('components', {}):
+        if result.get('status', {}).get('indicator', 'none') != 'none':
+            state = STATE_WARN
+            msg = '{} ({})'.format(
+                result.get('status', {}).get('description', 'none'),
+                result.get('status', {}).get('indicator', 'none'),
+            )
+
+    # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.'
+    else:
+        msg = '{} {}, {} {} affected. {}'.format(
+            incidents,
+            lib.txt.pluralize('incindent', incidents),
+            components,
+            lib.txt.pluralize('component', components),
+            msg,
+        )
+    if table_data:
+        keys = [
+            'name',
+            'status',
+            'updated_at',
+        ]
+        headers = [
+            'Component',
+            'Status',
+            'Updated ({})'.format(result['page'].get('time_zone', 'TZ n/a')),
+        ]
+        msg +=  '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+    perfdata += lib.base.get_perfdata('components', components, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('incidents', incidents, None, None, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
