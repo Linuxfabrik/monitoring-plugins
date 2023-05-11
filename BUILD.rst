@@ -1,7 +1,7 @@
 Compiling the Linuxfabrik Monitoring Plugins
 ============================================
 
-HOWTO build / compile / make them and put them into Linux packages like rpm or deb or exe for Windows.
+HOWTO build / compile / make the Linuxfabrik Monitoring Plugins, package them for Linux (rpm or deb) or for Windows (exe).
 
 
 Compiling for Linux
@@ -127,12 +127,11 @@ Ubuntu 22
 
         apt-get install -y ruby ruby-dev rubygems build-essential
 
-Now FPM can be installed:
+All OS - now FPM can be installed:
+    .. code-block:: bash
 
-.. code-block:: bash
-
-    # install fpm using gem
-    gem install fpm
+        # install fpm using gem
+        gem install fpm
 
 
 Compile
@@ -175,8 +174,10 @@ Compile
 02: git clone, checkout
     .. code-block:: bash
 
-        RELEASE=2023030801 # has to start with a digit
+        RELEASE=yyyymmddxx # version number has to start with a digit, for example 2023123101; "main" for the latest development version
         RELEASE_TYPE='release' # or 'testing'
+
+    .. code-block:: bash
 
         git clone https://github.com/Linuxfabrik/monitoring-plugins.git
         git clone https://github.com/Linuxfabrik/lib.git
@@ -191,6 +192,8 @@ Compile
         cd ..
 
 03: Create compile script
+    Compile script works for any release > 2023030801, or for the "main" branch.
+
     .. code-block:: bash
 
         cat > make << 'EOF'
@@ -274,7 +277,6 @@ Create the ``.fpm`` config file:
     cd notification-plugins
 
     cat > .fpm << EOF
-    --after-install rpm-post-install
     --architecture all
     --chdir /tmp/dist/summary/notification-plugins
     --description "Notification scripts for Icinga."
@@ -346,36 +348,4 @@ Debian 10+ / Ubuntu 18+
 Compiling for Windows
 ---------------------
 
-To allow running the check plugins under Windows without installing Python, compile the check plugins using `Nuitka <https://nuitka.net/>`_. For this, you need a Windows Machine with Python 3 and Nutika installed (see the `official installation guide <https://nuitka.net/doc/user-manual.html#installation>`_, we recommend using ``pip`` for simplicity).
-
-Use the `Linuxfabrik LFOps "monitoring-plugins" role <https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins>`_:
-
-.. code-block:: bash
-
-    ansible-playbook \
-        --inventory=inventory \
-        --tags=monitoring_plugins,monitoring_plugins:nuitka_compile \
-        --extra-vars='monitoring_plugins__windows_variant=python monitoring_plugins__repo_version=main' \
-        --limit=windows-machine \
-        linuxfabrik.lfops.monitoring_plugins
-
-To let the Ansible role know which check-plugin to compile for Windows, create an empty ``.windows`` file in the check-plugin folder.
-
-Then copy ``C:\\nuitka-compile-temp`` to a Linux Machine and zip it:
-
-.. code-block:: bash
-
-    cd /path/to/nuitka-compile-temp
-    mkdir output
-    for dir in */; do
-        echo $dir
-        file=$(basename $dir | sed 's/.dist//')
-        cp -rv $dir* output
-    done
-
-    cd output
-    zip -r ../monitoring-plugins.zip .
-
-Rename the ``monitoring-plugins.zip`` to the correct version.
-
-
+Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/nuitka-compile.yml>`_.
