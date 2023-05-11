@@ -1,8 +1,11 @@
-Installing the Plugins into Icinga Director
-===========================================
+Icinga Director
+===============
+
+Installing the Plugins
+----------------------
 
 Single / specific Plugins
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By importing Baskets
     For each check, we provide an Icinga Director Basket that contains at least the Command definition and a matching Service Template (for example, ``check-plugins/cpu-usage/icingaweb2-module-director/cpu-usage.json``). Import this:
@@ -41,7 +44,7 @@ By defining them manually
 
 
 All Plugins (Linuxfabrik Icinga Director Configuration)
--------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To use the Linuxfabrik Icinga Director configuration, including host templates, notification templates and predefined service sets, you need to *generate* a single Icinga Director basket file containing the baskets for each check plus `all-the-rest.json <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/icingaweb2-module-director/all-the-rest.json>`_. Use `tools/basket-join <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/tools/basket-join>`_ to do this.
 
@@ -71,3 +74,57 @@ If you get the error message ``File 'icingaweb2-module-director-basket.json' exe
 * MariaDB/MySQL: increase ``max_allowed_packet``.
 
 If you did not name your master zone ``master`` during the initial ``icinga2 node wizard``, find and replace ``"zone": "master"`` with ``"zone": "your-master-zone-name"`` in the ``icingaweb2-module-director-basket.json`` file.
+
+
+Our Icinga Director Concept
+---------------------------
+
+Assigning services to hosts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generally all our services are in a service set, which is then applied to a host. This is done via a so-called tag from the ``tag_list``, for example, the ``OS - RHEL 8 Basic Service Set`` is applied to all hosts which have the ``rhel8`` tag set.
+
+For some services, creating a set makes no sense, for example when monitoring an external website using ``tpl-service-url``. In this case, one can create a single service on the respective host.
+
+
+Criticality
+~~~~~~~~~~~
+
+To manage notifications we use a custom variable called ``criticality``. This variable is present on both services and hosts and is used to determine if and during what time period a notification is sent.
+
+A criticality of ``A`` will send a notification 7x24, ``B`` during office hours (5x12) and ``C`` never.
+
+The criticality of the host limits the notifications that the host's services can send. This means that if you have a host with criticality ``B`` and a service on that host with criticality ``A`` has a problem, the notification will only be sent during office hours.
+
+Host notifications:
+
+.. csv-table::
+    :header-rows: 1
+    :widths: auto
+
+    Host Criticality, Result
+    ``A``, sent during (7x24)
+    ``B``, sent during (5x12)
+    ``C``, not sent
+
+
+Service notifications:
+
+.. csv-table::
+    :header-rows: 1
+    :widths: auto
+
+    Host Criticality, Service Criticality, Result
+    ``A``, ``A``, sent during 7x24
+    ``A``, ``B``, sent during 5x12
+    ``A``, ``C``, not sent
+
+    ``B``, ``A``, sent during 5x12
+    ``B``, ``B``, sent during 5x12
+    ``B``, ``C``, not sent
+
+    ``C``, ``A``, not sent
+    ``C``, ``B``, not sent
+    ``C``, ``C``, not sent
+
+Note: for the criticality to work as described here, you have to use the notification rules provided in ``assets/icingaweb2-module-director/all-the-rest.json``.
