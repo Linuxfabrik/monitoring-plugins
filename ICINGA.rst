@@ -76,15 +76,15 @@ If you get the error message ``File 'icingaweb2-module-director-basket.json' exe
 If you did not name your master zone ``master`` during the initial ``icinga2 node wizard``, find and replace ``"zone": "master"`` with ``"zone": "your-master-zone-name"`` in the ``icingaweb2-module-director-basket.json`` file.
 
 
-Our Icinga Director Concept
----------------------------
+Linuxfabrik's Icinga Director Concept
+-------------------------------------
 
-Assigning services to hosts
+Assigning Services to Hosts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Generally all our services are in a service set, which is then applied to a host. This is done via a so-called tag from the ``tag_list``, for example, the ``OS - RHEL 8 Basic Service Set`` is applied to all hosts which have the ``rhel8`` tag set.
+In general, all of our services are in a service set, which is then applied to a host. This is done using a tag from the ``tag_list``, for example the ``OS - RHEL 8 Basic Service Set`` is applied to all hosts that have the ``rhel8`` tag set.
 
-For some services, creating a set makes no sense, for example when monitoring an external website using ``tpl-service-url``. In this case, one can create a single service on the respective host.
+For some services it does not make sense to create a set, for example when monitoring an external website using ``tpl-service-url``. In this case you can create a single service on that host.
 
 
 Criticality
@@ -92,11 +92,11 @@ Criticality
 
 To manage notifications we use a custom variable called ``criticality``. This variable is present on both services and hosts and is used to determine if and during what time period a notification is sent.
 
-A criticality of ``A`` will send a notification 7x24, ``B`` during office hours (5x12) and ``C`` never.
+A criticality of ``A`` will send a notification 7x24, ``B`` during business hours (5x12) and ``C`` never.
 
-The criticality of the host limits the notifications that the host's services can send. This means that if you have a host with criticality ``B`` and a service on that host with criticality ``A`` has a problem, the notification will only be sent during office hours.
+The criticality of the host limits the notifications that the host's services can send. This means that if you have a host with criticality ``B`` and a service on that host with criticality ``A`` has a problem, the notification will only be sent during business hours.
 
-We aim to provide sensible default criticalities in the service templates. This means, most of the time it is enough to set the host criticality when adding a new host.
+We try to provide reasonable default criticalities in the service templates. This means that in most cases, when adding a new host, it is sufficient to set the host criticality.
 
 Host notifications:
 
@@ -105,8 +105,8 @@ Host notifications:
     :widths: auto
 
     Host Criticality, Result
-    ``A``, sent during (7x24)
-    ``B``, sent during (5x12)
+    ``A``, sent during 7x24
+    ``B``, sent during 5x12
     ``C``, not sent
 
 
