@@ -96,6 +96,8 @@ A criticality of ``A`` will send a notification 7x24, ``B`` during office hours 
 
 The criticality of the host limits the notifications that the host's services can send. This means that if you have a host with criticality ``B`` and a service on that host with criticality ``A`` has a problem, the notification will only be sent during office hours.
 
+We aim to provide sensible default criticalities in the service templates. This means, most of the time it is enough to set the host criticality when adding a new host.
+
 Host notifications:
 
 .. csv-table::
