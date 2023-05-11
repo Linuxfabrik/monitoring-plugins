@@ -536,7 +536,7 @@ The basket will be saved as ``check-plugins/new-check/icingaweb2-module-director
 Fine-tune a Basket File
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-**Never directly edit a basket.** If adjustments must be made to the basket, create a YML/YAML config file for ``check2basket``.
+**Never directly edit a basket JSON file.** If adjustments must be made to the basket, create a YML/YAML config file for ``check2basket``.
 
 For example, to set the timeout to 30s, to enable notifications and some other options, the config in ``check-plugins/new-check/icingaweb2-module-director/new-check.yml`` should look as follows:
 
