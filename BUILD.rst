@@ -164,6 +164,7 @@ Compile
         pip install psutil
         pip install pymysql
         pip install pysmbclient
+        pip install pyspnego
         pip install python-keystoneclient
         pip install python-swiftclient
         pip install smbprotocol
