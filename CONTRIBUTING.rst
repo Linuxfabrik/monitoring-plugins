@@ -451,12 +451,6 @@ If the plugin requires ``sudo``-permissions to run, please add the plugin to the
     The newline at the end is required!
 
 
-Grafana Dashboards
-------------------
-
-The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
-
-
 Icinga Director Basket Config
 -----------------------------
 
@@ -561,3 +555,11 @@ Service Sets
 If you want to create a Service Set, edit ``assets/icingaweb2-module-director/all-the-rest.json`` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using ``cat assets/icingaweb2-module-director/all-the-rest.json | jq`` afterwards.
 
 If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
+
+
+Grafana Dashboards
+------------------
+
+The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
+
+
