@@ -40,16 +40,18 @@ Run everything under root (``sudo su -`` or ``sudo -i``).
 Prepare Build Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Important: Use Python 3.8+.
+Important: On RHEL, use Python 3.8+.
 
 RHEL 7
     .. code-block:: bash
 
+        subscription-manager register --username=admin --password=secret
+        subscription-manager attach --auto
+        subscription-manager repos --enable rhel-7-server-optional-rpms --enable rhel-server-rhscl-7-rpms
+
         yum -y update
         yum -y install git
         yum -y install binutils
-
-        yum -y install centos-release-scl
 
         # use latest python available from scl
         yum -y install rh-python38 rh-python38-python-devel
@@ -63,6 +65,9 @@ RHEL 7
 RHEL 8
     .. code-block:: bash
 
+        subscription-manager register --username=admin --password=secret
+        subscription-manager attach --auto
+
         yum -y update
         yum -y install git zip
         yum -y install binutils
@@ -74,6 +79,9 @@ RHEL 8
 
 RHEL 9
     .. code-block:: bash
+
+        subscription-manager register --username=admin --password=secret
+        subscription-manager attach --auto
 
         yum -y update
         yum -y install git zip
@@ -176,7 +184,7 @@ Compile
     .. code-block:: bash
 
         RELEASE=yyyymmddxx # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-        RELEASE_TYPE='release' # or 'testing'
+        PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
 
     .. code-block:: bash
 
@@ -245,6 +253,10 @@ Create the ``.fpm`` config file:
 
     # script to be run after package installation
     cat > rpm-post-install << EOF
+    if ! command -v restorecon &> /dev/null
+    then
+        exit 0
+    fi
     restorecon -r /usr/lib64/nagios
     setsebool -P nagios_run_sudo on
     EOF
@@ -255,6 +267,7 @@ Create the ``.fpm`` config file:
     --chdir /tmp/dist/summary/check-plugins
     --description "This Enterprise Class Check Plugin Collection offers a bunch of Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network."
     --input-type dir
+    --iteration $PACKET_VERSION
     --license "The Unlicense"
     --maintainer "info@linuxfabrik.ch"
     --name linuxfabrik-monitoring-plugins
@@ -282,6 +295,7 @@ Create the ``.fpm`` config file:
     --chdir /tmp/dist/summary/notification-plugins
     --description "Notification scripts for Icinga."
     --input-type dir
+    --iteration $PACKET_VERSION
     --license "The Unlicense"
     --maintainer "info@linuxfabrik.ch"
     --name linuxfabrik-notification-plugins
