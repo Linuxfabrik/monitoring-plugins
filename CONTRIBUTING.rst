@@ -24,7 +24,7 @@ All plugins are written in Python and will be licensed under the [UNLICENSE](htt
 Setting up your development environment
 ---------------------------------------
 
-Use at least Python 3.6 and max. Python 3.8 for development.
+All plugins are coded in Python. Use at least Python 3.6 and max. Python 3.8 for development.
 
 Simply clone the libraries and monitoring plugins and start working:
 
