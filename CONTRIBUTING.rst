@@ -43,7 +43,7 @@ Checklist:
 * A nice 16x16 transparent PNG icon, for example based on https://simpleicons.org or font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
 * optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
-* optional: Grafana dashboard (see :doc:`GRAFANA`) and Icinga Web 2 Grafana Module .ini file, if you also define a Service Set (you need a consistent Service Name to rely on)
+* optional: Grafana dashboard (see `GRAFANA <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst>`_) and Icinga Web 2 Grafana Module .ini file, if you also define a Service Set (you need a consistent Service Name to rely on)
 * optional: Icinga Director Basket Config
 * optional: sudoers file (see `sudoers File <#sudoers-file>`_)
 
