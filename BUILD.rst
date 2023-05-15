@@ -252,8 +252,13 @@ Create the ``.fpm`` config file:
     cd check-plugins
 
     # script to be run after package installation
-    cat > rpm-post-install << EOF
-    if ! command -v restorecon &> /dev/null
+    cat > rpm-post-install << 'EOF'
+    if ! command -v getenforce &> /dev/null
+    then
+        exit 0
+    fi
+    SELINUXSTATUS=$(getenforce)
+    if [ "$SELINUXSTATUS" != "Enforcing" ]
     then
         exit 0
     fi
