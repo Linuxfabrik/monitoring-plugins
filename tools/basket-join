@@ -208,6 +208,14 @@ def main():
         if basket_joiner.join_with_file(basket_file) is False:
             sys.exit(3)
 
+    directories = os.listdir('notification-plugins')
+    for directory in directories:
+        if directory in skip_plugins:
+            continue
+
+        basket_file = os.path.join('notification-plugins', directory, 'icingaweb2-module-director', '{}.json'.format(directory))
+        if basket_joiner.join_with_file(basket_file) is False:
+            sys.exit(3)
     if basket_joiner.validate_uuids() is False:
         sys.exit(3)
 
