@@ -23,16 +23,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023051901'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
-DEFAULT_WARN = 14 # days
 DEFAULT_CRIT = 5  # days
-DEFAULT_DATABASE = 'xca'
-DEFAULT_HOSTNAME = 'localhost'
-DEFAULT_PASSWORD = ''
-DEFAULT_USERNAME = 'root'
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 14 # days
 
 CMD_OPENSSL_CRT = 'openssl x509 -noout -dates -in /dev/stdin'
 CMD_OPENSSL_CRL = 'openssl crl -noout -nextupdate -in /dev/stdin'
@@ -58,28 +57,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--database',
-        help='Set the MySQL database containing the XCA database. Default: %(default)s',
-        dest='DATABASE',
-        type=str,
-        default=DEFAULT_DATABASE,
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and password from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='Set the hostname of the MySQL server containing the XCA database. '
-             'Default: %(default)s',
-        dest='HOSTNAME',
-        type=str,
-        default=DEFAULT_HOSTNAME,
-    )
-
-    parser.add_argument(
-        '-p', '--password',
-        help='Set the password for the MySQL server containing the XCA database. Default: %(default)s',
-        dest='PASSWORD',
-        type=str,
-        default=DEFAULT_PASSWORD,
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
     )
 
     parser.add_argument(
@@ -90,11 +80,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--username',
-        help='Set the username for the MySQL server containing the XCA database. Default: %(default)s',
-        dest='USERNAME',
-        type=str,
-        default=DEFAULT_USERNAME,
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -120,10 +110,9 @@ def main():
 
     # fetch data
     mysql_connection = {
-        'user':               args.USERNAME,
-        'password':           args.PASSWORD,
-        'host':               args.HOSTNAME,
-        'database':           args.DATABASE,
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     state = STATE_OK
