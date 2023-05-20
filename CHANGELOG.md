@@ -11,7 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-tbd
+### Changed
+
+Monitoring Plugins:
+
+* grafana-version: Add Grafana v9.5
+* systemd-unit: Encode unit-name to text before running systemd command
+
 
 
 ## 2023051201
