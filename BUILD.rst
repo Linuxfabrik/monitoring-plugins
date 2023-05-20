@@ -46,12 +46,20 @@ RHEL 7
     .. code-block:: bash
 
         subscription-manager register --username=admin --password=secret
+
+    .. code-block:: bash
+
         subscription-manager attach --auto
         subscription-manager repos --enable rhel-7-server-optional-rpms --enable rhel-server-rhscl-7-rpms
 
         yum -y update
         yum -y install git
         yum -y install binutils
+
+        # for compiling selinux policies
+        yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
+        subscription-manager repos --enable rhel-7-server-source-rpms
+        yumdownloader --source selinux-policy
 
         # use latest python available from scl
         yum -y install rh-python38 rh-python38-python-devel
@@ -66,11 +74,19 @@ RHEL 8
     .. code-block:: bash
 
         subscription-manager register --username=admin --password=secret
+
+    .. code-block:: bash
+
         subscription-manager attach --auto
 
         yum -y update
         yum -y install git zip
         yum -y install binutils
+
+        # for compiling selinux policies
+        yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
+        subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
+        yumdownloader --source selinux-policy
 
         yum -y install python39 python39-devel
         alias python3=python3.9
@@ -81,11 +97,19 @@ RHEL 9
     .. code-block:: bash
 
         subscription-manager register --username=admin --password=secret
+
+    .. code-block:: bash
+
         subscription-manager attach --auto
 
         yum -y update
         yum -y install git zip
         yum -y install binutils
+
+        # for compiling selinux policies
+        yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
+        subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
+        yumdownloader --source selinux-policy
 
         yum -y install ruby-devel gcc make rpm-build libffi-devel
 
@@ -201,7 +225,7 @@ Compile
         cd ..
 
 03: Create compile script
-    Compile script works for any release > 2023030801, or for the "main" branch.
+    Compile script works for any release >= 2023051201, or for the "main" branch.
 
     .. code-block:: bash
 
@@ -238,6 +262,14 @@ Compile
         chmod +x make
         ./make
 
+RHEL only - compile .te file to .pp for SELinux:
+    .. code-block:: bash
+
+        cd monitoring-plugins/selinux
+        make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
+        \cp -a linuxfabrik-monitoring-plugins.pp /tmp/dist/summary/check-plugins
+        cd ../..
+
 
 Build OS Packages
 ~~~~~~~~~~~~~~~~~
@@ -264,6 +296,7 @@ Create the ``.fpm`` config file:
     fi
     restorecon -r /usr/lib64/nagios
     setsebool -P nagios_run_sudo on
+    semodule --install /usr/lib64/nagios/plugins/linuxfabrik-monitoring-plugins.pp
     EOF
 
     cat > .fpm << EOF
