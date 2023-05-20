@@ -11,6 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+Grafana:
+
+* mysql-memory: Add Grafana dashboard
+
+
 ### Changed
 
 Monitoring Plugins:
