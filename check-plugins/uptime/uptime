@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023052201'
 
 DESCRIPTION = 'Tell how long the system has been running.'
 
@@ -96,7 +96,10 @@ def main():
 
     delta = lib.time.now() - psutil.boot_time()
 
-    msg = 'Up {}'.format(lib.human.seconds2human(delta))
+    msg = 'Up {} since {}'.format(
+        lib.human.seconds2human(delta),
+        lib.time.epoch2iso(psutil.boot_time()),
+    )
     perfdata = lib.base.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
     state = lib.base.get_state(delta, WARN, CRIT)
 

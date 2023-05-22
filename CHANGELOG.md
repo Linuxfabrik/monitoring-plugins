@@ -18,12 +18,13 @@ Grafana:
 * mysql-memory: Add Grafana dashboard
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
 * grafana-version: Add Grafana v9.5
 * systemd-unit: Encode unit-name to text before running systemd command
+* uptime: Additionally report last reboot time (fix #190)
 
 
 
@@ -70,37 +71,37 @@ Grafana:
 * Add a grafana dashboard for the inbuilt icinga command ([#577](https://github.com/Linuxfabrik/monitoring-plugins/issues/577))
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
 * apache-httpd-status: Remove `ReqPerSec`, `BytesPerSec`, `BytesPerReq`, `DurationPerReq` perfdata as they are wrong
 * disk-io: `--ignore` now ignores all disks "starting with" the given parameter value
+* disk-io: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
+* disk-usage: Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
+* disk-usage: allow passing absolute values for warn/crit ([#114](https://github.com/Linuxfabrik/monitoring-plugins/issues/114))
+* disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
+* disk-usage: Make plugin output more generic ([#664](https://github.com/Linuxfabrik/monitoring-plugins/issues/664))
 * fortios-version: Simplified, returns version information in perfdata
 * journald-query: Lower default for `--since` from 24h to 8h
 * kemp-services: Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
+* Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
 * nextcloud-version: Simplified, no longer cares about patch levels, no longer needs internet access
 * php-fpm-status: Remove `req per sec` perfdata as it is meaningless
 * php-status: Move monitoring.php
 * php-status: Rename perfdata item from `php-opcache-memory_usage-current_wasted_percentage` to `php-opcache-memory_usage-current_wasted-percentage`
 * restic-snapshots: Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
-* Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
 * Unified most of the \*-version3 checks in behavior, also using data from https://endoflife.date (no need for internet access).
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
-* disk-io: Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
+* kemp-services: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 * disk-smart: Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
-* disk-usage: Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
-* disk-usage: allow passing absolute values for warn/crit ([#114](https://github.com/Linuxfabrik/monitoring-plugins/issues/114))
-* disk-usage: Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
-* disk-usage: Make plugin output more generic ([#664](https://github.com/Linuxfabrik/monitoring-plugins/issues/664))
 * disk-usage: module 'psutil' has no attribute 'disk_partitions' ([#663](https://github.com/Linuxfabrik/monitoring-plugins/issues/663))
 * file-age: Type object 'SMBDirEntry' has no attribute 'from_filename' ([#665](https://github.com/Linuxfabrik/monitoring-plugins/issues/665))
-* kemp-services: Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
 
 ### Removed
@@ -187,7 +188,7 @@ Icinga Director:
 * UPS Service Set (Network UPS Tools, nut)
 
 
-### Changed
+### Changed ("enhancement")
 
 Features:
 
@@ -207,16 +208,22 @@ Monitoring Plugins:
 * dmesg3: add additional message to ignorelist
 * docker-info3: Report more info in case of failures
 * docker-stats3: Report more info in case of failures
+* fs-ro: Exclude squashfs filesystems ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412))
+* fs-ro: Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
 * infomaniak-swiss-backup-\*: Apply new API version
 * journald-usage: Increase DEFAULT_WARN to 6 GiB
 * matomo-reporting3: Perfdata now is also aware of percentages
+* mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
 * mysql-storage-engines3: Improve recognition of schema.table
 * mysql-user-security: Ignore mysql.sys and mariadb.sys users
+* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
 * php-status3: Improve output in case of startup/config/module errors
 * php-status3: URL to monitoring.php should be optional
 * php-version: Add PHP 8.3
 * qts-version3: Add support for firmware 5.0.1+
 * redis-status: Do not warn on "Peak memory"
+* rpm-lastactivity: do | sort | tail -1 with Python Code ([#94](https://github.com/Linuxfabrik/monitoring-plugins/issues/94))
+* service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
 
 Icinga Director:
 
@@ -235,25 +242,19 @@ Icinga Director:
     * MySQL/MariaDB Service Set
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
 * disk-usage: ignore type CDFS by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
 * docker-stats missing shortening of containername in perfdata output ([#600](https://github.com/Linuxfabrik/monitoring-plugins/issues/600))
 * file-age: critical reported for new files because modification time is negative or not set ([#618](https://github.com/Linuxfabrik/monitoring-plugins/issues/618))
-* fs-ro: Exclude squashfs filesystems ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412))
-* fs-ro: Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
 * infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
 * librenms-version: KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
 * matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
-* mysql-connections: add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
-* network-connections: Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
 * nextcloud-stats: Fix error non-existing ALWAYS_OK Attribute ([#640](https://github.com/Linuxfabrik/monitoring-plugins/pull/640))
 * ping: ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
-* rpm-lastactivity: do | sort | tail -1 with Python Code ([#94](https://github.com/Linuxfabrik/monitoring-plugins/issues/94))
 * rpm-lastactivity: ValueError: invalid literal for int() with base 10: '' ([#616](https://github.com/Linuxfabrik/monitoring-plugins/issues/616))
-* service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
 * systemd-timedate-status: UNKNOWN with "unknown operation show" on RHEL7 ([#605]https://github.com/Linuxfabrik/monitoring-plugins/issues/605))
 * updates: On Windows with closed firewall a PowerShell error is returned ([#633]https://github.com/Linuxfabrik/monitoring-plugins/issues/633))
 
@@ -334,7 +335,7 @@ Icinga Director:
 * strongSwan Service Set
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -367,12 +368,13 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
 * infomaniak-swiss-backup-products3: Changed thresholds from 14/5 days to 6/3 days
 * infomaniak-swiss-backup-products3: Sort output table by "Tags" column
+* ipmi-sel: Change the order of events ([#558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
 * needs-restarting3: Debian Buster/bullseye command not found ([#572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
 * php-status: Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([#461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
 * php-status: Change behavior when handling default values ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * qts-\*: Increase default connect timeout from 3 to 6 seconds
-* systemd-units-failed: Allow wildcards for the `--ignore` parameter ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 * Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
+* systemd-units-failed: Allow wildcards for the `--ignore` parameter ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 
 Icinga Director:
 
@@ -380,14 +382,13 @@ Icinga Director:
 * Increase windows service check intervals
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
 * disk-io3: Fix python3 lib calls
 * file-count3: Traceback: KeyError: 'lib'  ([#591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
 * fortios-memory-usage3: Change urllib.quote to urllib.parse.quote ([PR #599](https://github.com/Linuxfabrik/monitoring-plugins/pull/599))
-* ipmi-sel: Change the order of events ([#558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
 * logfile3: "Database locked" and "UNKNOWN" in case of massive usage on a host ([#578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
 * keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([#555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
 * xca-cert3: Checks expiry date again
@@ -456,7 +457,7 @@ Icinga Director:
 * Windows Basic Service Set extended Service Set
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -612,7 +613,7 @@ Icinga Director:
 * Four checks have been added to the Windows Basic ServiceSet (disk-io, dns, swap-usage, top3-processes-which-caused-the-most-io)
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -623,7 +624,7 @@ Monitoring Plugins:
 * ping: Mainly used for host alive checking, now reports OK on request (using `--always-ok`) if a host cannot be reached for some reason only on the ping side, but can otherwise be checked e.g. by the Icinga agent.
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -799,7 +800,7 @@ Monitoring Plugins:
 * WildFly Deployment Status, Garbage Collector Status, Memory and Memory Pool Usage, Server Status, Thread Usage, Uptime, XA and Non-XA Datasource Statistics
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -808,7 +809,7 @@ Monitoring Plugins:
 * ipmi-\*: Can now connect remotely to Supermicro's IPMI, HPE iLo and DELL iDRAC.
 
 
-### Fixed
+### Fixed ("bug")
 
 * about-me: Add Django ([#196](https://github.com/Linuxfabrik/monitoring-plugins/issues/196))
 * about-me: Add LibreNMS ([#195](https://github.com/Linuxfabrik/monitoring-plugins/issues/195))
@@ -916,7 +917,7 @@ Monitoring Plugins:
 
 ## 2021021701
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -933,7 +934,7 @@ Features:
 * Added support for using a virtual environment (see README)
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -943,7 +944,7 @@ Monitoring Plugins:
 * nextcloud-version: increase timeout for fetching the update server ([#148](https://github.com/Linuxfabrik/monitoring-plugins/issues/148))
 * procs: added thresholds for cpu & memory
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -978,7 +979,7 @@ Monitoring Plugins:
 * users (for Windows)
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -996,7 +997,7 @@ Monitoring Plugins:
 
 ## 2020112001
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
@@ -1006,7 +1007,7 @@ Monitoring Plugins:
 
 ## 2020111901
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1023,7 +1024,7 @@ Features:
 * Added sudoers for Debian 9 and 10
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1073,7 +1074,7 @@ Monitoring Plugins:
 * wordpress-version
 
 
-### Changed
+### Changed ("enhancement")
 
 Features:
 
@@ -1086,7 +1087,7 @@ Monitoring Plugins:
 * procs: new --argument parameter.
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1108,14 +1109,14 @@ Monitoring Plugins:
 * network-bonding
 
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
 * procs: new username parameter
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1146,7 +1147,7 @@ Monitoring Plugins:
 * systemd-units-failed
 
 
-### Changed
+### Changed ("enhancement")
 
 Features:
 
@@ -1155,7 +1156,7 @@ Features:
 * All checks calling shell commands force english output even if system locale is different.
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1187,7 +1188,7 @@ Monitoring Plugins:
 * fah-stats
 
 
-### Fixed
+### Fixed ("bug")
 
 Monitoring Plugins:
 
@@ -1230,7 +1231,7 @@ Monitoring Plugins:
 
 * feed
 
-### Changed
+### Changed ("enhancement")
 
 Monitoring Plugins:
 
