@@ -15,16 +15,33 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
 
-  container-test-job:
+  linux-build:
 
     runs-on:
       - self-hosted
       - rhel8
 
-    # container:
-    #   image: registry.access.redhat.com/ubi8/ubi
-
     steps:
 
-      - name: OS?
-        run: podman run --interactive --tty --name=ubi8 registry.access.redhat.com/ubi8/ubi cat /etc/os-release
+      - name: 'checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@v3'
+        path: 'repos/monitoring-plugins'
+        # ref: ''
+
+      - name: 'checkout the lib repo'
+        uses: 'actions/checkout@v3'
+        path: 'repos/lib'
+        # ref: ''
+        with:
+          repository: 'Linuxfabrik/lib'
+          path: 'lib'
+
+      - name: 'mkdir build'
+        run: 'mkdir build'
+
+      - name: 'Run RHEL8'
+        run: |-
+          podman run --interactive --tty --name=ubi8 \
+          --mount type=bind,source=build,destination=/build,relabel=private \
+          --mount type=bind,source=repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /build/rhel8/build.sh
