@@ -1,0 +1,33 @@
+name: 'Compile and build the packages for Linux'
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches:
+      - 'main'
+    tags:
+      - '*'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch: # yamllint disable-line rule:empty-values
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  container-test-job:
+
+    runs-on:
+      - self-hosted
+      - rhel8
+
+    container:
+      image: registry.access.redhat.com/ubi8/ubi
+
+    steps:
+
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: OS?
+        run: cat /etc/os-release
