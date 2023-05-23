@@ -15,6 +15,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Grafana:
 
+* mysql-connections: Add Grafana dashboard
 * mysql-memory: Add Grafana dashboard
 
 
@@ -23,6 +24,7 @@ Grafana:
 Monitoring Plugins:
 
 * grafana-version: Add Grafana v9.5
+* mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix #190)
 
