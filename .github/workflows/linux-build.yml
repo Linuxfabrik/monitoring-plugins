@@ -23,19 +23,6 @@ jobs:
 
     steps:
 
-      - name: 'checkout the monitoring-plugins repo'
-        uses: 'actions/checkout@v3'
-        with:
-          path: '${{ runner.temp }}/repos/monitoring-plugins'
-          # ref: ''
-
-      - name: 'checkout the lib repo'
-        uses: 'actions/checkout@v3'
-        with:
-          repository: 'Linuxfabrik/lib'
-          # ref: ''
-          path: '${{ runner.temp }}/repos/lib'
-
       - name: 'echo some vars'
         run: |-
           echo "GITHUB_REF: $GITHUB_REF"
@@ -43,12 +30,25 @@ jobs:
           echo "GITHUB_SHA: $GITHUB_SHA"
           echo "{{ runner.temp }}: ${{ runner.temp }}"
 
-      - name: 'mkdir ${{ runner.temp }}/build'
-        run: 'mkdir ${{ runner.temp }}/build'
+      - name: 'checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@v3'
+        with:
+          path: '${{ github.sha }}/repos/monitoring-plugins'
+          # ref: ''
+
+      - name: 'checkout the lib repo'
+        uses: 'actions/checkout@v3'
+        with:
+          repository: 'Linuxfabrik/lib'
+          # ref: ''
+          path: '${{ github.sha }}/repos/lib'
+
+      - name: 'mkdir ${{ github.sha }}/build'
+        run: 'mkdir ${{ github.sha }}/build'
 
       - name: 'Run RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ runner.temp }}/build,destination=/build,relabel=private \
-          --mount type=bind,source=${{ runner.temp }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ github.sha }}/build,destination=/build,relabel=private \
+          --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh
