@@ -6,19 +6,25 @@ RELEASE=2023051201 # version number has to start with a digit, for example 20231
 PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
 
 
+subscription-manager repos --enable rhel-7-server-optional-rpms --enable rhel-server-rhscl-7-rpms # not needed in ubi containers? TODO
+
 yum -y update
-yum -y install git zip
+yum -y install git
 yum -y install binutils
 
 # for compiling selinux policies
 yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
-# subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms # not needed in ubi containers
+subscription-manager repos --enable rhel-7-server-source-rpms
 yumdownloader --source selinux-policy
 
-yum -y install python39 python39-devel
-alias python3=python3.9
+# use latest python available from scl
+yum -y install rh-python38 rh-python38-python-devel
+scl enable rh-python38 bash
 
-yum -y install ruby-devel gcc make rpm-build libffi-devel
+# use latest ruby available from scl
+yum -y install gcc redhat-rpm-config rpm-build squashfs-tools
+yum -y install rh-ruby30 rh-ruby30-ruby-devel
+scl enable rh-ruby30 bash
 
 # install fpm using gem
 gem install fpm
@@ -42,8 +48,12 @@ make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 # create packages using fpm
 cd /tmp/fpm/check-plugins
 fpm --output-type rpm
+fpm --output-type tar
+fpm --output-type zip
 cp *.rpm /build/
 
 cd /tmp/fpm/notification-plugins
 fpm --output-type rpm
+fpm --output-type tar
+fpm --output-type zip
 cp *.rpm /build/
