@@ -26,7 +26,7 @@ jobs:
       - name: 'checkout the monitoring-plugins repo'
         uses: 'actions/checkout@v3'
         with:
-          path: '$RUNNER_TEMP/repos/monitoring-plugins'
+          path: '${{ runner.temp }}/repos/monitoring-plugins'
           # ref: ''
 
       - name: 'checkout the lib repo'
@@ -34,21 +34,21 @@ jobs:
         with:
           repository: 'Linuxfabrik/lib'
           # ref: ''
-          path: '$RUNNER_TEMP/repos/lib'
+          path: '${{ runner.temp }}/repos/lib'
 
       - name: 'echo some vars'
         run: |-
           echo "GITHUB_REF: $GITHUB_REF"
           echo "GITHUB_RUN_ID: $GITHUB_RUN_ID"
           echo "GITHUB_SHA: $GITHUB_SHA"
-          echo "RUNNER_TEMP: $RUNNER_TEMP"
+          echo "{{ runner.temp }}: ${{ runner.temp }}"
 
-      - name: 'mkdir $RUNNER_TEMP/build'
-        run: 'mkdir $RUNNER_TEMP/build'
+      - name: 'mkdir ${{ runner.temp }}/build'
+        run: 'mkdir ${{ runner.temp }}/build'
 
       - name: 'Run RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=$RUNNER_TEMP/build,destination=/build,relabel=private \
-          --mount type=bind,source=$RUNNER_TEMP/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ runner.temp }}/build,destination=/build,relabel=private \
+          --mount type=bind,source=${{ runner.temp }}/repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh
