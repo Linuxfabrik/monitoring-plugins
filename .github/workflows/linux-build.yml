@@ -56,3 +56,9 @@ jobs:
           --mount type=bind,source=${{ github.sha }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh
+
+      - name: 'upload the output as monitoring-plugins-linux-packages'
+        uses: 'actions/upload-artifact@v3'
+        with:
+          name: 'monitoring-plugins-linux-packages'
+          path: '${{ github.sha }}/build/'

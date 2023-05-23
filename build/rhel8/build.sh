@@ -25,9 +25,9 @@ gem install fpm
 . /repos/monitoring-plugins/build/shared/compile.sh
 
 # RHEL only - compile .te file to .pp for SELinux
-mkdir /build/selinux
-cp /repos/monitoring-plugins/selinux/linuxfabrik-monitoring-plugins.te /build/selinux/
-cd /build/selinux/
+mkdir /tmp/selinux
+cp /repos/monitoring-plugins/selinux/linuxfabrik-monitoring-plugins.te /tmp/selinux/
+cd /tmp/selinux/
 make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 \cp -a linuxfabrik-monitoring-plugins.pp /tmp/dist/summary/check-plugins
 
@@ -38,8 +38,10 @@ PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
 . /repos/monitoring-plugins/build/shared/prepare-fpm.sh
 
 # create packages using fpm
-cd /build/check-plugins
+cd /tmp/fpm/check-plugins
 fpm --output-type rpm
+cp *.rpm /build/
 
-cd /build/notification-plugins
+cd /tmp/fpm/notification-plugins
 fpm --output-type rpm
+cp *.rpm /build/

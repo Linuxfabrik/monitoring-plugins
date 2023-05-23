@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-mkdir /build/check-plugins
-cd /build/check-plugins
+mkdir /tmp/fpm/check-plugins
+cd /tmp/fpm/check-plugins
 
 cat > .fpm << EOF
 --after-install /repos/monitoring-plugins/build/shared/rpm-post-install
@@ -26,8 +26,8 @@ for file in $(cd /tmp/dist/summary/check-plugins; find . -type f | sort); do
 done
 
 
-mkdir /build/notification-plugins
-cd /build/notification-plugins
+mkdir /tmp/fpm/notification-plugins
+cd /tmp/fpm/notification-plugins
 
 cat > .fpm << EOF
 --architecture all
