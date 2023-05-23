@@ -19,10 +19,10 @@ yum -y install ruby-devel gcc make rpm-build libffi-devel
 gem install fpm
 
 # prepare venv
-. /build/shared/venv.sh
+. /repos/monitoring-plugins/build/shared/venv.sh
 
 # compile using pyinstaller
-. /build/shared/compile.sh
+. /repos/monitoring-plugins/build/shared/compile.sh
 
 # RHEL only - compile .te file to .pp for SELinux
 cd /repos/monitoring-plugins/selinux
@@ -33,7 +33,7 @@ RELEASE=2023051201 # version number has to start with a digit, for example 20231
 PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
 
 # prepare files for fpm
-. /build/shared/prepare-fpm.sh
+. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
 
 # create packages using fpm
 cd /build/check-plugins
