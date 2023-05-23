@@ -47,9 +47,12 @@ jobs:
       - name: 'mkdir ${{ github.sha }}/build'
         run: 'mkdir ${{ github.sha }}/build'
 
+      - name: 'mkdir ${{ github.sha }}/build/rhel8'
+        run: 'mkdir ${{ github.sha }}/build/rhel8'
+
       - name: 'Run RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ github.sha }}/build,destination=/build,relabel=private \
+          --mount type=bind,source=${{ github.sha }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh
