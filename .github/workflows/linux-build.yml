@@ -26,7 +26,7 @@ jobs:
       - name: 'checkout the monitoring-plugins repo'
         uses: 'actions/checkout@v3'
         with:
-          path: 'repos/monitoring-plugins'
+          path: '$RUNNER_TEMP/repos/monitoring-plugins'
           # ref: ''
 
       - name: 'checkout the lib repo'
@@ -34,7 +34,7 @@ jobs:
         with:
           repository: 'Linuxfabrik/lib'
           # ref: ''
-          path: 'repos/lib'
+          path: '$RUNNER_TEMP/repos/lib'
 
       - name: 'echo some vars'
         run: |-
@@ -43,15 +43,12 @@ jobs:
           echo "GITHUB_SHA: $GITHUB_SHA"
           echo "RUNNER_TEMP: $RUNNER_TEMP"
 
-      - name: 'rm -rf build'
-        run: 'rm -rf build'
-
-      - name: 'mkdir build'
-        run: 'mkdir build'
+      - name: 'mkdir $RUNNER_TEMP/build'
+        run: 'mkdir $RUNNER_TEMP/build'
 
       - name: 'Run RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=build,destination=/build,relabel=private \
-          --mount type=bind,source=repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /build/rhel8/build.sh
+          --mount type=bind,source=$RUNNER_TEMP/build,destination=/build,relabel=private \
+          --mount type=bind,source=$RUNNER_TEMP/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh
