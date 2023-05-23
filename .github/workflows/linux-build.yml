@@ -36,12 +36,22 @@ jobs:
           # ref: ''
           path: 'repos/lib'
 
+      - name: 'echo some vars'
+        run: |-
+          echo "GITHUB_REF: $GITHUB_REF"
+          echo "GITHUB_RUN_ID: $GITHUB_RUN_ID"
+          echo "GITHUB_SHA: $GITHUB_SHA"
+          echo "RUNNER_TEMP: $RUNNER_TEMP"
+
+      - name: 'rm -rf build'
+        run: 'rm -rf build'
+
       - name: 'mkdir build'
         run: 'mkdir build'
 
       - name: 'Run RHEL8'
         run: |-
-          podman run --interactive --tty --rm \
+          podman run --interactive --rm \
           --mount type=bind,source=build,destination=/build,relabel=private \
           --mount type=bind,source=repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /build/rhel8/build.sh
