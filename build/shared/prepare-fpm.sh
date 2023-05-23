@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-mkdir /tmp/fpm/check-plugins
+mkdir -p /tmp/fpm/check-plugins
 cd /tmp/fpm/check-plugins
 
 cat > .fpm << EOF
@@ -26,7 +26,7 @@ for file in $(cd /tmp/dist/summary/check-plugins; find . -type f | sort); do
 done
 
 
-mkdir /tmp/fpm/notification-plugins
+mkdir -p /tmp/fpm/notification-plugins
 cd /tmp/fpm/notification-plugins
 
 cat > .fpm << EOF
