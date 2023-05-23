@@ -14,7 +14,7 @@ yum -y install binutils
 
 # for compiling selinux policies
 yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
-subscription-manager repos --enable rhel-7-server-source-rpms
+# subscription-manager repos --enable rhel-7-server-source-rpms # not needed in ubi containers
 yumdownloader --source selinux-policy
 
 # use latest python available from scl
