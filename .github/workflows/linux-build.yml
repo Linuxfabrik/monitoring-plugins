@@ -65,7 +65,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ github.sha }}/build/rhel7,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
 
   build-rhel8:
     runs-on:
@@ -84,7 +84,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ github.sha }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
 
   # build-rhel9:
   #   runs-on:
@@ -103,7 +103,7 @@ jobs:
   #         podman run --interactive --rm \
   #         --mount type=bind,source=${{ github.sha }}/build/rhel9,destination=/build,relabel=private \
   #         --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
+  #         registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
 
   upload-outputs:
     runs-on:
