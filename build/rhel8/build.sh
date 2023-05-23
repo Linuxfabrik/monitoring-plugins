@@ -2,8 +2,8 @@
 
 set -e
 
-RELEASE=2023051201 # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
+RELEASE="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
+PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
 yum -y update
