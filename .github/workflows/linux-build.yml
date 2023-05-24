@@ -48,43 +48,43 @@ jobs:
       - name: 'mkdir ${{ github.sha }}/build'
         run: 'mkdir ${{ github.sha }}/build'
 
-  build-rhel7:
-    runs-on:
-      - self-hosted
-      - rhel8
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ github.sha }}/build/rhel7'
-        run: 'mkdir ${{ github.sha }}/build/rhel7'
-
-      - name: 'Build for RHEL7'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ github.sha }}/build/rhel7,destination=/build,relabel=private \
-          --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
-
-  build-rhel8:
-    runs-on:
-      - self-hosted
-      - rhel8
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ github.sha }}/build/rhel8'
-        run: 'mkdir ${{ github.sha }}/build/rhel8'
-
-      - name: 'Build for RHEL8'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ github.sha }}/build/rhel8,destination=/build,relabel=private \
-          --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  # build-rhel7:
+  #   runs-on:
+  #     - self-hosted
+  #     - rhel8
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}/build/rhel7'
+  #       run: 'mkdir ${{ github.sha }}/build/rhel7'
+  #
+  #     - name: 'Build for RHEL7'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}/build/rhel7,destination=/build,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #
+  # build-rhel8:
+  #   runs-on:
+  #     - self-hosted
+  #     - rhel8
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}/build/rhel8'
+  #       run: 'mkdir ${{ github.sha }}/build/rhel8'
+  #
+  #     - name: 'Build for RHEL8'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}/build/rhel8,destination=/build,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
 
   build-rhel9:
     runs-on:
@@ -114,8 +114,8 @@ jobs:
 
     steps:
 
-      - name: 'mkdir ${{ github.sha }}/build/rhel9'
-        run: 'mkdir ${{ github.sha }}/build/rhel9'
+      - name: 'mkdir ${{ github.sha }}/build/debian10'
+        run: 'mkdir ${{ github.sha }}/build/debian10'
 
       - name: 'Build for Debian 10'
         run: |-
@@ -129,8 +129,8 @@ jobs:
       - self-hosted
       - rhel8
     needs:
-      - 'build-rhel7'
-      - 'build-rhel8'
+      # - 'build-rhel7'
+      # - 'build-rhel8'
       - 'build-rhel9'
       - 'build-debian10'
 
