@@ -19,12 +19,12 @@ yumdownloader --source selinux-policy
 
 # use latest python available from scl
 yum -y install rh-python38 rh-python38-python-devel
-scl enable rh-python38 bash
+source /opt/rh/rh-python38/enable # analogous to `scl enable rh-python38 bash`
 
 # use latest ruby available from scl
 yum -y install gcc redhat-rpm-config rpm-build squashfs-tools
 yum -y install rh-ruby30 rh-ruby30-ruby-devel
-scl enable rh-ruby30 bash
+source /opt/rh/rh-ruby30/enable # analogous to `scl enable rh-ruby30 bash`
 
 # install fpm using gem
 gem install fpm
