@@ -18,6 +18,10 @@ Grafana:
 * mysql-connections: Add Grafana dashboard
 * mysql-memory: Add Grafana dashboard
 
+Monitoring Plugins:
+
+* gitlab-version
+
 
 ### Changed ("enhancement")
 
