@@ -11,13 +11,12 @@ yum -y install git zip
 yum -y install binutils
 
 # for compiling selinux policies
-yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
-# subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms # not needed in ubi containers
-yumdownloader --source selinux-policy
+yum -y install make selinux-policy-devel
 
 yum -y install python39 python39-devel
 alias python3=python3.9
 
+# dependencies for gem / fpm
 yum -y install ruby-devel gcc make rpm-build libffi-devel
 
 # install fpm using gem

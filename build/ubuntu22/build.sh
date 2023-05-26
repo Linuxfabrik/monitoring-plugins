@@ -2,14 +2,15 @@
 
 set -e
 
-RELEASE=2023051201 # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
+RELEASE="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
+PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
 apt-get -y update
 apt-get -y install git
 apt-get -y install python3-venv
 
+# dependencies for gem / fpm
 apt-get install -y ruby ruby-dev rubygems build-essential
 
 # install fpm using gem
@@ -27,8 +28,8 @@ gem install fpm
 # create packages using fpm
 cd /tmp/fpm/check-plugins
 fpm --output-type deb
-cp *.rpm /build/
+cp *.deb /build/
 
 cd /tmp/fpm/notification-plugins
 fpm --output-type deb
-cp *.rpm /build/
+cp *.deb /build/

@@ -2,8 +2,8 @@
 
 set -e
 
-RELEASE=2023051201 # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKET_VERSION=1 # 2, if there is a bugfix for this package (not for the mp)
+RELEASE="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
+PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
 yum -y update
@@ -11,10 +11,9 @@ yum -y install git zip
 yum -y install binutils
 
 # for compiling selinux policies
-yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
-# subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms # not needed in ubi containers
-yumdownloader --source selinux-policy
+yum -y install make selinux-policy-devel
 
+# dependencies for gem / fpm
 yum -y install ruby-devel gcc make rpm-build libffi-devel
 
 # install fpm using gem

@@ -13,14 +13,13 @@ yum -y install git
 yum -y install binutils
 
 # for compiling selinux policies
-yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
-# subscription-manager repos --enable rhel-7-server-source-rpms # not needed in ubi containers
-yumdownloader --source selinux-policy
+yum -y install make selinux-policy-devel
 
 # use latest python available from scl
 yum -y install rh-python38 rh-python38-python-devel
 source /opt/rh/rh-python38/enable # analogous to `scl enable rh-python38 bash`
 
+# dependencies for gem / fpm
 # use latest ruby available from scl
 yum -y install gcc redhat-rpm-config rpm-build squashfs-tools
 yum -y install rh-ruby30 rh-ruby30-ruby-devel
@@ -48,12 +47,16 @@ make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 # create packages using fpm
 cd /tmp/fpm/check-plugins
 fpm --output-type rpm
-fpm --output-type tar
-fpm --output-type zip
 cp *.rpm /build/
+fpm --output-type tar
+cp *.tar /build/
+fpm --output-type zip
+cp *.zip /build/
 
 cd /tmp/fpm/notification-plugins
 fpm --output-type rpm
-fpm --output-type tar
-fpm --output-type zip
 cp *.rpm /build/
+fpm --output-type tar
+cp *.tar /build/
+fpm --output-type zip
+cp *.zip /build/

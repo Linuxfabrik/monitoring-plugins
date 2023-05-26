@@ -59,7 +59,6 @@ RHEL 7
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-7-server-source-rpms
-        yumdownloader --source selinux-policy
 
         # use latest python available from scl
         yum -y install rh-python38 rh-python38-python-devel
@@ -86,7 +85,6 @@ RHEL 8
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
-        yumdownloader --source selinux-policy
 
         yum -y install python39 python39-devel
         alias python3=python3.9
@@ -109,7 +107,6 @@ RHEL 9
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
-        yumdownloader --source selinux-policy
 
         yum -y install ruby-devel gcc make rpm-build libffi-devel
 
