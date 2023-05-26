@@ -399,3 +399,9 @@ Compiling for Windows
 ---------------------
 
 Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/nuitka-compile.yml>`_.
+
+
+Compiling and Building for Linux
+--------------------------------
+
+Done automatically per `TODO <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-compile.yml>`_.

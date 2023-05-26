@@ -151,18 +151,22 @@ jobs:
           registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
 
 
+  # this would not work on the GitHub-hosted runners, as each job is isolated there,
+  # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
     runs-on:
       - rhel8
       - self-hosted
-    needs:
+    needs:  # we want this to run after the build jobs
       - 'build-debian10'
       - 'build-debian11'
       - 'build-rhel7'
       - 'build-rhel8'
       - 'build-rhel9'
+    if: '${{ always() }}' # however, we want to upload the artifacts even if one build job fails
 
     steps:
+
       - name: 'upload the output as monitoring-plugins-linux-packages'
         uses: 'actions/upload-artifact@v3'
         with:

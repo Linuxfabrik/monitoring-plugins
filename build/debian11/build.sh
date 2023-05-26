@@ -8,7 +8,7 @@ PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 apt-get -y update
 apt-get -y install git
-apt-get -y install python3-venv
+apt-get -y install python3-dev python3-venv
 
 # dependencies for gem / fpm
 apt-get install -y ruby ruby-dev rubygems build-essential
