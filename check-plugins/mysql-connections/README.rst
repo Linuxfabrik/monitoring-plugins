@@ -68,7 +68,7 @@ Output:
 
 .. code-block:: text
 
-    36.4% used (4/11); 0.0% aborted connections (0.0/1.3K); Name resolution is active: A reverse name resolution is made for each new connection and can reduce performance [WARNING]. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.
+    0.0% aborted connections (0.0/1.3K); max. 36.4% used (4/11); Name resolution is active: A reverse name resolution is made for each new connection and can reduce performance [WARNING]. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.
 
 
 States
