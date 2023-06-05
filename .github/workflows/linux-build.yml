@@ -17,7 +17,7 @@ on:
         required: false
         default: '1'
       package-version:
-        description: 'todo. defaults to ...'
+        description: 'Which commit / tag to build for. Defaults to the current commit.'
         required: false
         default: ''
 
@@ -26,8 +26,8 @@ jobs:
 
   prepare:
     runs-on:
-      - rhel8
-      - self-hosted
+      - 'rhel8'
+      - 'self-hosted'
 
     steps:
 
@@ -36,13 +36,13 @@ jobs:
         uses: 'actions/checkout@v3'
         with:
           path: '${{ github.sha }}/repos/monitoring-plugins'
-          # ref: ''
+          ref: '${{ inputs.package-version || github.sha }}'
 
       - name: 'checkout the lib repo'
         uses: 'actions/checkout@v3'
         with:
           repository: 'Linuxfabrik/lib'
-          # ref: ''
+          ref: '${{ inputs.package-version || github.sha }}'
           path: '${{ github.sha }}/repos/lib'
 
       - name: 'mkdir ${{ github.sha }}/build'
@@ -93,8 +93,8 @@ jobs:
   # RHEL
   build-rhel7:
     runs-on:
-      - rhel8
-      - self-hosted
+      - 'rhel8'
+      - 'self-hosted'
     needs:
       - 'prepare'
 
@@ -113,8 +113,8 @@ jobs:
 
   build-rhel8:
     runs-on:
-      - rhel8
-      - self-hosted
+      - 'rhel8'
+      - 'self-hosted'
     needs:
       - 'prepare'
 
@@ -133,8 +133,8 @@ jobs:
 
   build-rhel9:
     runs-on:
-      - rhel8
-      - self-hosted
+      - 'rhel8'
+      - 'self-hosted'
     needs:
       - 'prepare'
 
@@ -155,8 +155,8 @@ jobs:
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
     runs-on:
-      - rhel8
-      - self-hosted
+      - 'rhel8'
+      - 'self-hosted'
     needs:  # we want this to run after the build jobs
       - 'build-debian10'
       - 'build-debian11'

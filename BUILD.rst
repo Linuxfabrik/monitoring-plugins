@@ -405,3 +405,7 @@ Compiling and Building for Linux
 --------------------------------
 
 Done automatically per `TODO <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-compile.yml>`_.
+
+Note that we are not building new containers because we always want the most up-to-date package versions.
+If we need to speed up the workflow, one could try to build a container with all the required tools, and then just run an update in the container every time the workflow is triggered.
+However, since the workflow currently only runs for git tags (and maybe nightly builds in the future), the workflow duration is not very important for us.
