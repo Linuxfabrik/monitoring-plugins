@@ -17,7 +17,7 @@ on:
         required: false
         default: '1'
       package-version:
-        description: 'Which commit / tag to build for. Defaults to the current commit.'
+        description: 'Which tag to build for. Defaults to the current tag. Note: commits do not work, as the SHA is not the same in the monitoring-plugins and lib repo'
         required: false
         default: ''
 
@@ -36,13 +36,13 @@ jobs:
         uses: 'actions/checkout@v3'
         with:
           path: '${{ github.sha }}/repos/monitoring-plugins'
-          ref: '${{ inputs.package-version || github.sha }}'
+          ref: '${{ inputs.package-version }}'
 
       - name: 'checkout the lib repo'
         uses: 'actions/checkout@v3'
         with:
           repository: 'Linuxfabrik/lib'
-          ref: '${{ inputs.package-version || github.sha }}'
+          ref: '${{ inputs.package-version }}'
           path: '${{ github.sha }}/repos/lib'
 
       - name: 'mkdir ${{ github.sha }}/build'
