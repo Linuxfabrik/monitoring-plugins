@@ -170,6 +170,9 @@ We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possi
 * BeautifulSoup4 (bs4)
 * psutil
 * PyMySQL
+* python-keystoneclient
+* python-novaclient
+* python-swiftclient
 * smbprotocol (smbprotocol.exceptions)
 * vici
 
