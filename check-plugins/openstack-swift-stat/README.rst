@@ -79,7 +79,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    openstack-swift-stat3 --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
+    openstack-swift-stat --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
 
 Output:
 
