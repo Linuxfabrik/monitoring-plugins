@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+try:
+    from keystoneauth1.identity import v3
+    from keystoneauth1 import session
+    from keystoneclient.v3 import client
+except ImportError:
+    lib.base.oao('Python module "python-keystoneclient" is not installed.', STATE_UNKNOWN)
+try:
+    from novaclient import client
+except ImportError:
+    lib.base.oao('Python module "python-novaclient" is not installed.', STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023061201'
+
+DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
+                 instances (aka virtual servers).
+                 This monitoring plugin lists all virtual servers and checks their status."""
+
+DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
+DEFAULT_SEVERITY = 'crit'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--rc-file',
+        help='Specifies a rc file to read connection parameters like OS_USERNAME from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
+        dest='RC_FILE',
+        default=DEFAULT_RC_FILE,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerting. Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SEVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://github.com/openstack/python-novaclient
+    # set a bunch of possible OpenStack credentials
+    env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
+    auth = v3.Password(
+        auth_url=env.get('OS_AUTH_URL', None),
+        password=env.get('OS_PASSWORD', None),
+        project_domain_id=env.get('OS_PROJECT_DOMAIN_ID', None),
+        project_domain_name=env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
+        project_id=env.get('OS_PROJECT_ID', None),
+        project_name=env.get('OS_PROJECT_NAME', None),
+        user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
+        username=env.get('OS_USERNAME', None),
+    )
+    try:
+        nova = client.Client(2, session=session.Session(auth=auth))  # NOVA_API_VERSION=2
+    except Exception as e:
+        lib.base.oao(e.message, STATE_UNKNOWN)
+    try:
+        servers = nova.servers.list()
+    except Exception as e:
+        lib.base.oao(e.message, STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    non_active = 0
+    max_last_update = '0000000000'
+
+    # analyze data
+    for server in servers:
+        item = {
+            'addresses': ', '.join(server.addresses),
+            'created': server.created.replace('T', ' ').replace('Z', ''),
+            'id': server.id,
+            'name': server.name,
+            'progress': server.progress,
+            'status': server.status,
+            'updated': server.updated.replace('T', ' ').replace('Z', ''),
+        }
+        if server.status != 'ACTIVE':
+            state = lib.base.str2state(args.SEVERITY)
+            item['status'] += lib.base.state2str(state, prefix=' ')
+            non_active += 1
+        item['created'] = '{} ({} ago)'.format(
+            item['created'],
+            lib.human.seconds2human(
+                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['created']),
+            ),
+        )
+        max_last_update = max(max_last_update, item['updated'])
+        item['updated'] = '{} ({} ago)'.format(
+            item['updated'],
+            lib.human.seconds2human(
+                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['updated']),
+            ),
+        )
+        table_data.append(item)
+
+    perfdata += lib.base.get_perfdata('servers_total', len(servers), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('servers_non_active', non_active, None, None, None, 0, None)
+
+    # build the message
+    msg = '{} {} checked, {} in non-active state. Last status update {} UTC ({} ago)'.format(
+        len(servers),
+        lib.txt.pluralize('server', len(servers)),
+        non_active,
+        max_last_update,
+        lib.human.seconds2human(
+            lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
+        ),
+    )
+    if table_data:
+        keys = [
+            'name',
+            'id',
+            'updated',
+            'status',
+        ]
+        headers = [
+            'Name',
+            'ID',
+            'Updated (UTC)',
+            'Status',
+        ]
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            keys,
+            header=headers,
+            sort_by_key='status',
+            sort_order_reverse=True,
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

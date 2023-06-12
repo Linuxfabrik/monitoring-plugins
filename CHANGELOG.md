@@ -21,6 +21,7 @@ Grafana:
 Monitoring Plugins:
 
 * gitlab-version
+* openstack-nova-list
 
 
 ### Changed ("enhancement")
