@@ -18,6 +18,10 @@ Grafana:
 * mysql-connections: Add Grafana dashboard
 * mysql-memory: Add Grafana dashboard
 
+Icinga Director:
+
+* all-the-rest.json: Increase file size warning for `/var/log/secure`
+
 Monitoring Plugins:
 
 * gitlab-version
