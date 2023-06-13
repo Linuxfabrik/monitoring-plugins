@@ -38,6 +38,13 @@ Monitoring Plugins:
 * uptime: Additionally report last reboot time (fix #190)
 
 
+### Fixed ("bug")
+
+Monitoring Plugins:
+
+* journald-query: Rename perfdata from "sudo journald-query" to "journald-query"
+
+
 
 ## 2023051201
 
