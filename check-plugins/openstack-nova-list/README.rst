@@ -43,23 +43,20 @@ Help
 .. code-block:: text
 
     usage: openstack-nova-list [-h] [-V] [--always-ok] [--rc-file RC_FILE]
-                               [--severity {warn,crit}]
 
     Nova is the OpenStack project that provides a way to provision compute
     instances (aka virtual servers). This monitoring plugin lists all virtual
     servers and checks their status.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --rc-file RC_FILE     Specifies a rc file to read connection parameters like
-                            OS_USERNAME from (instead of specifying them on the
-                            command line), for example
-                            `/var/spool/icinga2/.openstack.cnf`. Default:
-                            /var/spool/icinga2/.openstack.cnf
-      --severity {warn,crit}
-                            Severity for alerting. Default: crit
+      -h, --help         show this help message and exit
+      -V, --version      show program's version number and exit
+      --always-ok        Always returns OK.
+      --rc-file RC_FILE  Specifies a rc file to read connection parameters like
+                         OS_USERNAME from (instead of specifying them on the
+                         command line), for example
+                         `/var/spool/icinga2/.openstack.cnf`. Default:
+                         /var/spool/icinga2/.openstack.cnf
 
 
 Usage Examples
@@ -73,18 +70,18 @@ Output:
 
 .. code-block:: text
 
-    2 servers checked, 1 in non-active state. Last status update 2023-06-12 09:11:09 UTC (2h 45s ago)
+    2 servers checked. 1 active, 0 migrating, 1 demand verify resize, 0 in error. Last status update 2023-06-13 12:34:00 UTC (3h 6m ago).
 
     Name              ! ID                                   ! Updated (UTC)                      ! Status                   
     ------------------+--------------------------------------+----------------------------------+--------------------------
-    first_server      ! 48f44934-2bdf-4aed-84f8-df0960689620 ! 2023-06-08 16:39:51 (3D 18h ago) ! VERIFY_RESIZE [CRITICAL] 
+    first_server      ! 48f44934-2bdf-4aed-84f8-df0960689620 ! 2023-06-08 16:39:51 (3D 18h ago) ! VERIFY_RESIZE [WARNING] 
     second_server     ! 38654a93-435d-40ea-bd39-64d01b186830 ! 2023-06-12 09:11:09 (2h 45s ago) ! ACTIVE
 
 
 States
 ------
 
-* Alerts when a VM returns a status other than ACTIVE.
+* Alerts when a VM returns a status other than ACTIVE, MIGRATING, REBOOT, SHELVED, SHELVED_OFFLOADED, SHUTOFF, SUSPENDED.
 
 
 Perfdata / Metrics
@@ -95,8 +92,27 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    servers_total,                              Number,             Number of total VMs
-    servers_non_active,                         Number,             Number of VMs that have a status other than ACTIVE
+    total,                                      Number,             Number of total VMs
+    ACTIVE,                                     Number,             Number of VMs in this state
+    BUILD,                                      Number,             Number of VMs in this state
+    DELETED,                                    Number,             Number of VMs in this state
+    ERROR,                                      Number,             Number of VMs in this state
+    HARD_REBOOT,                                Number,             Number of VMs in this state
+    MIGRATING,                                  Number,             Number of VMs in this state
+    PASSWORD,                                   Number,             Number of VMs in this state
+    PAUSED,                                     Number,             Number of VMs in this state
+    REBOOT,                                     Number,             Number of VMs in this state
+    REBUILD,                                    Number,             Number of VMs in this state
+    RESCUE,                                     Number,             Number of VMs in this state
+    RESIZE,                                     Number,             Number of VMs in this state
+    REVERT_RESIZE,                              Number,             Number of VMs in this state
+    SHELVED,                                    Number,             Number of VMs in this state
+    SHELVED_OFFLOADED,                          Number,             Number of VMs in this state
+    SHUTOFF,                                    Number,             Number of VMs in this state
+    SOFT_DELETED,                               Number,             Number of VMs in this state
+    SUSPENDED,                                  Number,             Number of VMs in this state
+    UNKNOWN,                                    Number,             Number of VMs in this state
+    VERIFY_RESIZE,                              Number,             Number of VMs in this state
 
 
 Credits, License

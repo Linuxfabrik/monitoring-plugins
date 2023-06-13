@@ -74,15 +74,113 @@ def parse_args():
         default=DEFAULT_RC_FILE,
     )
 
-    parser.add_argument(
-        '--severity',
-        help='Severity for alerting. Default: %(default)s',
-        dest='SEVERITY',
-        default=DEFAULT_SEVERITY,
-        choices=['warn', 'crit'],
-    )
-
     return parser.parse_args()
+
+
+def get_state(vm_state):
+    """Return OK, WARN or CRIT depending on the status of the VM in OpenStack.
+
+    From nova API guide:
+
+    -  ``ACTIVE``: The server is active.
+
+    -  ``BUILD``: The server has not yet finished the original build process.
+
+    -  ``DELETED``: The server is deleted.
+
+    -  ``ERROR``: The server is in error.
+
+    -  ``HARD_REBOOT``: The server is hard rebooting. This is equivalent to
+       pulling the power plug on a physical server, plugging it back in, and
+       rebooting it.
+
+    -  ``MIGRATING``: The server is migrating. This is caused by a
+       live migration (moving a server that is active) action.
+
+    -  ``PASSWORD``: The password is being reset on the server.
+
+    -  ``PAUSED``: The server is paused.
+
+    -  ``REBOOT``: The server is in a soft reboot state. A reboot command
+       was passed to the operating system.
+
+    -  ``REBUILD``: The server is currently being rebuilt from an image.
+
+    -  ``RESCUE``: The server is in rescue mode.
+
+    -  ``RESIZE``: Server is performing the differential copy of data that
+       changed during its initial copy. Server is down for this stage.
+
+    -  ``REVERT_RESIZE``: The resize or migration of a server failed for
+       some reason. The destination server is being cleaned up and the
+       original source server is restarting.
+
+    -  ``SHELVED``: The server is in shelved state. Depends on the shelve offload
+       time, the server will be automatically shelved off loaded.
+
+    -  ``SHELVED_OFFLOADED``: The shelved server is offloaded (removed from the
+       compute host) and it needs unshelved action to be used again.
+
+    -  ``SHUTOFF``: The server was powered down by the user, either through the
+       OpenStack Compute API or from within the server. For example, the user
+       issued a :command:`shutdown -h` command from within the server.
+       If the OpenStack Compute manager detects that the VM was powered down,
+       it transitions the server to the SHUTOFF status.
+
+    -  ``SOFT_DELETED``: The server is marked as deleted but will remain in the
+       cloud for some configurable amount of time. While soft-deleted, an
+       authorized user can restore the server back to normal state. When the time
+       expires, the server will be deleted permanently.
+
+    -  ``SUSPENDED``: The server is suspended, either by request or
+       necessity. See the
+       :nova-doc:`feature support matrix <user/support-matrix.html#operation_suspend>`
+       for supported compute drivers. When you suspend a server, its state is stored
+       on disk, all memory is written to disk, and the server is stopped.
+       Suspending a server is similar to placing a device in hibernation and its
+       occupied resource will not be freed but rather kept for when the server is
+       resumed. If an instance is infrequently used and the occupied resource needs
+       to be freed to create other servers, it should be shelved.
+
+    -  ``UNKNOWN``: The state of the server is unknown. It could be because a part
+       of the infrastructure is temporarily down (see :doc:`down_cells`
+       for more information). Contact your cloud provider.
+
+    -  ``VERIFY_RESIZE``: System is awaiting confirmation that the server is
+       operational after a move or resize.
+    """
+    if vm_state in [
+        'ACTIVE',
+        'MIGRATING',
+        'REBOOT',
+        'SHELVED',
+        'SHELVED_OFFLOADED',
+        'SHUTOFF',
+        'SUSPENDED',
+    ]:
+        return STATE_OK
+
+    if vm_state in [
+        'BUILD',
+        'HARD_REBOOT',
+        'PAUSED',
+        'REBUILD',
+        'RESIZE',
+        'REVERT_RESIZE',
+        'SOFT_DELETED',
+        'VERIFY_RESIZE',
+    ]:
+        return STATE_WARN
+
+    # if vm_state in [
+    #     'DELETED',
+    #     'ERROR',
+    #     'PASSWORD',
+    #     'RESCUE',
+    #     'UNKNOWN',
+    # ]:
+    # and any other
+    return STATE_CRIT
 
 
 def main():
@@ -123,7 +221,28 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
-    non_active = 0
+    vm_state_count = {
+        'ACTIVE': 0,
+        'BUILD': 0,
+        'DELETED': 0,
+        'ERROR': 0,
+        'HARD_REBOOT': 0,
+        'MIGRATING': 0,
+        'PASSWORD': 0,
+        'PAUSED': 0,
+        'REBOOT': 0,
+        'REBUILD': 0,
+        'RESCUE': 0,
+        'RESIZE': 0,
+        'REVERT_RESIZE': 0,
+        'SHELVED': 0,
+        'SHELVED_OFFLOADED': 0,
+        'SHUTOFF': 0,
+        'SOFT_DELETED': 0,
+        'SUSPENDED': 0,
+        'UNKNOWN': 0,
+        'VERIFY_RESIZE': 0,
+    }
     max_last_update = '0000000000'
 
     # analyze data
@@ -137,10 +256,6 @@ def main():
             'status': server.status,
             'updated': server.updated.replace('T', ' ').replace('Z', ''),
         }
-        if server.status != 'ACTIVE':
-            state = lib.base.str2state(args.SEVERITY)
-            item['status'] += lib.base.state2str(state, prefix=' ')
-            non_active += 1
         item['created'] = '{} ({} ago)'.format(
             item['created'],
             lib.human.seconds2human(
@@ -154,16 +269,26 @@ def main():
                 lib.time.timestrdiff(lib.time.now(as_type='iso'), item['updated']),
             ),
         )
+        vm_state = get_state(server.status)
+        vm_state_count[server.status] += 1
+        state = lib.base.get_worst(state, vm_state)
+        item['status'] += lib.base.state2str(vm_state, prefix=' ')
         table_data.append(item)
 
-    perfdata += lib.base.get_perfdata('servers_total', len(servers), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('servers_non_active', non_active, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('total', len(servers), None, None, None, 0, None)
+    for vm_state, cnt in vm_state_count.items():
+        perfdata += lib.base.get_perfdata(vm_state, cnt, None, None, None, 0, len(servers))
 
     # build the message
-    msg = '{} {} checked, {} in non-active state. Last status update {} UTC ({} ago)'.format(
+    msg = '{} {} checked. {} active, {} migrating, {} demand verify resize, {} in error. '.format(
         len(servers),
         lib.txt.pluralize('server', len(servers)),
-        non_active,
+        vm_state_count['ACTIVE'],
+        vm_state_count['MIGRATING'],
+        vm_state_count['VERIFY_RESIZE'],
+        vm_state_count['ERROR'],
+    )
+    msg += 'Last status update {} UTC ({} ago).'.format(
         max_last_update,
         lib.human.seconds2human(
             lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
