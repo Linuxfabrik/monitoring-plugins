@@ -43,6 +43,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * journald-query: Rename perfdata from "sudo journald-query" to "journald-query"
+* swap-usage: Fix Traceback `PdhAddEnglishCounterW failed`
 
 
 
