@@ -73,7 +73,13 @@ jobs:
       - run: 'python.exe -m pip install --upgrade pip wheel setuptools'
 
       # ordered-set is for nuitka: "Nuitka:WARNING: Using very slow fallback for ordered sets, please install 'ordered-set' or 'orderedset' PyPI packages for best Python compile time performance."
-      - run: 'pip install --upgrade ordered-set Nuitka beautifulsoup4 lxml mysql-connector Nuitka psutil requests urllib3 --only-binary lxml'
+      - run: 'pip install --upgrade ordered-set Nuitka Nuitka'
+
+      # install 3rd party libraries for all check plugins
+      - run: 'pip install --requirement requirements.txt'
+        with:
+          # Relative path under $GITHUB_WORKSPACE to place the repository
+          path: 'monitoring-plugins'
 
       # info in case of errors
       - run: 'pip list'
