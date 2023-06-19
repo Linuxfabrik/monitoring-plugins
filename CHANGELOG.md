@@ -27,6 +27,10 @@ Monitoring Plugins:
 * gitlab-version
 * openstack-nova-list
 
+Project:
+
+* Add a `requirements.txt`
+
 
 ### Changed ("enhancement")
 

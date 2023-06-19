@@ -167,14 +167,10 @@ Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, an
 
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well, using your package manager, pip or whatever (depends on your environment):
 
-* BeautifulSoup4 (bs4)
-* psutil
-* PyMySQL
-* python-keystoneclient
-* python-novaclient
-* python-swiftclient
-* smbprotocol (smbprotocol.exceptions)
-* vici
+.. code-block:: bash
+
+    pip3 install --upgrade pip
+    pip3 install --requirement requirements.txt
 
 To make SELinux happy, after installing from source, run:
 
