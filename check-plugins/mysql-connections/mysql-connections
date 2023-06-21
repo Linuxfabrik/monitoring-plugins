@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023053101'
 
 DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and 
                  if name resolution is active for new connections on MySQL/MariaDB."""
@@ -152,8 +152,24 @@ def main():
         mycalc['pct_connections_used'] = 100
     mycalc['pct_connections_aborted'] = round(int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1)
 
-    # Connections
-    msg += '{}% used ({}/{})'.format(
+    # Aborted Connections
+    msg += '{}% aborted connections ({}/{})'.format(
+        mycalc['pct_connections_aborted'],
+        lib.human.number2human(mystat['Aborted_connects']),
+        lib.human.number2human(mystat['Connections']),
+    )
+
+    if mycalc['pct_connections_aborted'] > 3:
+        conn2_state = STATE_WARN
+        state = lib.base.get_worst(state, conn2_state)
+        msg += '{}. Reduce or eliminate unclosed connections and network issues.; '.format(
+            lib.base.state2str(conn2_state, prefix=' '),
+        )
+    else:
+        msg += '; '
+
+    # Max. used Connections
+    msg += 'max. {}% used ({}/{})'.format(
         mycalc['pct_connections_used'],
         mystat['Max_used_connections'],
         myvar['max_connections'],
@@ -167,22 +183,6 @@ def main():
             myvar['max_connections'],
             myvar['wait_timeout'],
             myvar['interactive_timeout'],
-        )
-    else:
-        msg += '; '
-
-    # Aborted Connections
-    msg += '{}% aborted connections ({}/{})'.format(
-        mycalc['pct_connections_aborted'],
-        lib.human.number2human(mystat['Aborted_connects']),
-        lib.human.number2human(mystat['Connections']),
-    )
-
-    if mycalc['pct_connections_aborted'] > 3:
-        conn2_state = STATE_WARN
-        state = lib.base.get_worst(state, conn2_state)
-        msg += '{}. Reduce or eliminate unclosed connections and network issues.; '.format(
-            lib.base.state2str(conn2_state, prefix=' '),
         )
     else:
         msg += '; '

@@ -2094,6 +2094,12 @@
                 },
                 {
                     "allowed_roles": null,
+                    "entry_name": "gitlab",
+                    "entry_value": "GitLab",
+                    "format": "string"
+                },
+                {
+                    "allowed_roles": null,
                     "entry_name": "gluster-host",
                     "entry_value": "Gluster Host",
                     "format": "string"
@@ -4118,7 +4124,7 @@
                     "use_var_overrides": null,
                     "uuid": "95a0b751-1109-4212-82dd-f04a06c95c1a",
                     "vars": {
-                        "journald_query_priority": "emerg..info",
+                        "journald_query_priority": "emerg..warning",
                         "journald_query_unit": "aide-check.service"
                     },
                     "volatile": null,
@@ -4209,8 +4215,18 @@
                     "use_var_overrides": null,
                     "uuid": "70c4711d-b444-4cc0-988b-7e531d537319",
                     "vars": {
-                        "systemd_unit_severity": "crit",
-                        "systemd_unit_unit": "aide-check.service"
+                        "systemd_unit_activestate": [
+                            "activating",
+                            "active",
+                            "inactive"
+                        ],
+                        "systemd_unit_substate": [
+                            "dead",
+                            "running"
+                        ],
+                        "systemd_unit_severity": "warn",
+                        "systemd_unit_unit": "aide-check.service",
+                        "systemd_unit_unitfilestate": "disabled"
                     },
                     "volatile": null,
                     "zone": null
@@ -9055,6 +9071,58 @@
                 }
             },
             "uuid": "8f88ed31-67cf-41fb-9eaf-49ebb97eabb8"
+        },
+        "GitLab Service Set": {
+            "assign_filter": "\"gitlab\"=host.vars.tags",
+            "description": null,
+            "object_name": "GitLab Service Set",
+            "object_type": "template",
+            "services": {
+                "GitLab Version": {
+                    "action_url": null,
+                    "apply_for": null,
+                    "assign_filter": null,
+                    "check_command": null,
+                    "check_interval": null,
+                    "check_period": null,
+                    "check_timeout": null,
+                    "command_endpoint": null,
+                    "disabled": false,
+                    "display_name": null,
+                    "enable_active_checks": null,
+                    "enable_event_handler": null,
+                    "enable_flapping": null,
+                    "enable_notifications": null,
+                    "enable_passive_checks": null,
+                    "enable_perfdata": null,
+                    "event_command": null,
+                    "fields": [],
+                    "flapping_threshold_high": null,
+                    "flapping_threshold_low": null,
+                    "groups": [],
+                    "host": null,
+                    "icon_image": null,
+                    "icon_image_alt": null,
+                    "imports": [
+                        "tpl-service-gitlab-version"
+                    ],
+                    "max_check_attempts": null,
+                    "notes": null,
+                    "notes_url": null,
+                    "object_name": "GitLab Version",
+                    "object_type": "object",
+                    "retry_interval": null,
+                    "service_set": null,
+                    "template_choice": null,
+                    "use_agent": null,
+                    "use_var_overrides": null,
+                    "uuid": "24ab49db-dd7a-4599-a27b-7eaad8ad0fe9",
+                    "vars": {},
+                    "volatile": null,
+                    "zone": null
+                }
+            },
+            "uuid": "7a25ca7d-0d09-4e6c-9da1-ee5ab950455d"
         },
         "Gluster Host Service Set": {
             "assign_filter": "\"gluster-host\"=host.vars.tags",
@@ -26206,7 +26274,7 @@
                     "uuid": "096eb3e8-43da-42e3-9f19-be878c07438c",
                     "vars": {
                         "file_size_filename": "/var/log/secure",
-                        "file_size_warning": "5242880"
+                        "file_size_warning": "15728640"
                     },
                     "volatile": null,
                     "zone": null
@@ -45874,8 +45942,8 @@
             "enable_active_checks": true,
             "enable_event_handler": false,
             "enable_flapping": false,
-            "enable_notifications": false,
-            "enable_passive_checks": false,
+            "enable_notifications": true,
+            "enable_passive_checks": true,
             "enable_perfdata": false,
             "event_command": null,
             "fields": [

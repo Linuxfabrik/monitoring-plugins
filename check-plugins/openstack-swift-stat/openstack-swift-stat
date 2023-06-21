@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023061901'
 
 DESCRIPTION = """The OpenStack Object Store project, known as Swift, offers cloud storage 
                  software so that you can store and retrieve lots of data with a simple API.
@@ -188,7 +188,7 @@ def main():
             )
             state = lib.base.get_worst(state, container_state)
             item['free'] = '{}{}'.format(
-                lib.human.bytes2human(item['x-container-meta-quota-bytes'] - item['x-container-bytes-used']),# pylint: disable=C0301
+                lib.human.bytes2human(max(0, item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'])), # pylint: disable=C0301
                 lib.base.state2str(container_state, prefix=' '),
             )
             percent = round(
@@ -234,16 +234,16 @@ def main():
         keys = [
             'name',
             'x-container-object-count',
+            'quota',
             'used',
             'free',
-            'quota',
         ]
         headers = [
             'Container',
             'Items',
+            'Quota',
             'Used',
             'Free',
-            'Quota',
         ]
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
     else:

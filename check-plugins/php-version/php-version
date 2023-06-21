@@ -21,7 +21,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023060901'
 
 DESCRIPTION = 'Tracks if PHP is EOL.'
 
@@ -193,12 +193,11 @@ def get_installed_version():
         return ''
     stdout = result[0].strip()
     # where to find the version number in output?
-    version_regex = r'PHP (.*?) \(.*'
-    try:
-        stdout = re.match(version_regex, stdout)
-        return stdout.group(1).strip()
-    except:
-        return ''
+    # PHP 7.2.34-37+0~20230106.78+debian11~1.gbp1ece37 (cli) (built: Jan  6 2023 18:38:02) ( NTS )
+    # PHP 8.1.19 (cli) (built: May 10 2023 13:43:03) (NTS gcc x86_64)
+    version_regex = r'PHP (\d+\.\d+\.\d+)\W'
+    stdout = re.match(version_regex, stdout)
+    return stdout.group(1).strip()
 
 
 def main():

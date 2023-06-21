@@ -67,6 +67,10 @@ Some comments from the community about our monitoring plugins:
 -- [\Barney](https://github.com/bangerer)
 
 
+> ...  the Linux fabrik plugins are excellent.
+
+-- [u/exekewtable@reddit](https://www.reddit.com/r/icinga/comments/xq9jt6/does_somebody_know_a_plugin_like_check_interfaces/)
+
 > ... I can recommend this family of plugins, they are the highest quality I have seen around. ...
 
 -- [u/exekewtable@reddit](https://www.reddit.com/r/icinga/comments/xcewsg/icinga_python_script_for_qradar_log_source/)

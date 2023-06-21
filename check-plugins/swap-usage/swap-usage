@@ -25,7 +25,7 @@ except ImportError:
     lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023061601'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -82,7 +82,13 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    swap = psutil.swap_memory()
+    try:
+        swap = psutil.swap_memory()
+    except RuntimeError as e:
+        lib.base.oao(
+            'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).', # pylint: disable=C0301
+            STATE_UNKNOWN,
+        )
     swap_usage_percent = swap.percent
 
     msg_header = '{}% - total: {}, used: {}, free: {}'.format(
@@ -92,7 +98,7 @@ def main():
         lib.human.bytes2human(swap.free),
     )
 
-    perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata =  lib.base.get_perfdata('usage_percent', swap_usage_percent, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('total', swap.total, 'B', None, None, 0, swap.total)
     perfdata += lib.base.get_perfdata('used', swap.used, 'B', None, None, 0, swap.total)
     perfdata += lib.base.get_perfdata('free', swap.free, 'B', None, None, 0, swap.total)
@@ -104,7 +110,7 @@ def main():
             lib.human.bytes2human(getattr(swap, 'sout', 0)),
         )
         perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
-        perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None)
+        perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None) # pylint: disable=C0301
 
     # calculating the final check state
     state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
