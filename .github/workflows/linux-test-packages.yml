@@ -1,4 +1,4 @@
-name: 'Basic tests for the Linux packages'
+name: 'Basic testing for the Linux packages'
 
 # Controls when the workflow will run
 on:
@@ -33,6 +33,9 @@ jobs:
           workflow: 'linux-build.yml'
           workflow_conclusion: 'success'
           path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/'
+
+      - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/output'
+        run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/output'
 
 
   # # Debian
@@ -109,14 +112,6 @@ jobs:
       - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel8'
         run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel8'
 
-      - name: 'ls -l'
-        run: 'ls -l'
-        working-directory: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/'
-
-      - name: 'ls -l'
-        run: 'ls -l'
-        working-directory: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/packages/'
-
       - name: 'Test on RHEL8'
         run: |-
           podman run --interactive --rm \
@@ -124,6 +119,7 @@ jobs:
           --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/monitoring-plugins-linux-packages/rhel8,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/run-all
+
 
   # test-rhel9:
   #   runs-on:
