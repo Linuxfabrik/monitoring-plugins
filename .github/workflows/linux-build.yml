@@ -4,22 +4,23 @@ name: 'Compile and build the packages for Linux'
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches:  # TODO remove me
-      - 'main'  # TODO remove me
     tags:
       - '*'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
+
       package-iteration:
         description: 'The iteration to give to the package. RPM calls this the ‘release’. FreeBSD calls it ‘PORTREVISION’. Debian calls this ‘debian_revision’'
         required: false
         default: '1'
+
       package-version:
         description: 'Which tag to build for. Defaults to the current tag. Note: Specifying commits does not work, as the SHA is not the same in the monitoring-plugins and lib repo.'
         required: false
         default: ''
+
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -36,13 +37,13 @@ jobs:
         uses: 'actions/checkout@v3'
         with:
           path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos/monitoring-plugins'
-          ref: '${{ inputs.package-version }}'
+          ref: '${{ inputs.package-version || github.ref }}'
 
       - name: 'checkout the lib repo'
         uses: 'actions/checkout@v3'
         with:
           repository: 'Linuxfabrik/lib'
-          ref: '${{ inputs.package-version }}'
+          ref: '${{ inputs.package-version || github.ref }}'
           path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos/lib'
 
       - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build'
@@ -67,7 +68,7 @@ jobs:
   #         podman run --interactive --rm \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian10,destination=/build,relabel=private \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #         docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
   #
   #
   # build-debian11:
@@ -87,7 +88,7 @@ jobs:
   #         podman run --interactive --rm \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian11,destination=/build,relabel=private \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #         docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
   #
   #
   # # RHEL
@@ -108,7 +109,7 @@ jobs:
   #         podman run --interactive --rm \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel7,destination=/build,relabel=private \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #         registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
   #
 
   build-rhel8:
@@ -128,7 +129,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
   #
   #
   # build-rhel9:
@@ -148,7 +149,7 @@ jobs:
   #         podman run --interactive --rm \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel9,destination=/build,relabel=private \
   #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #         registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref }} ${{ inputs.package-iteration || '1' }}
 
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
