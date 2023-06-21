@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+
+dnf install /packages/monitoring-plugins*.rpm
+
+mkdir outputs
+for dir in /repos/monitoring-plugins/check-plugins/*; do
+    check="$(basename "$dir")"
+    if [ "$check" != "example" ]; then
+        "/usr/lib64/nagios/plugins/$check" 1> "outputs/$check-stdout" 2> "outputs/$check-stderr"
+        echo $? > "outputs/$check-retc"
+    fi
+done

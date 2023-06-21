@@ -1,0 +1,160 @@
+name: 'Basic tests for the Linux packages'
+
+# Controls when the workflow will run
+on:
+  workflow_run:
+    workflows:
+      - 'Compile and build the packages for Linux'
+    types:
+      - completed
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  prepare:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+
+    steps:
+
+      - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
+        run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
+
+      - name: 'download the monitoring-plugins-linux-packages artifact'
+        uses: 'actions/download-artifact@v3'
+        name: 'monitoring-plugins-linux-packages'
+        with:
+          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/packages/'
+
+  #
+  # # Debian
+  # test-debian10:
+  #   runs-on:
+  #     - 'rhel8'
+  #     - 'self-hosted'
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/debian10'
+  #       run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/debian10'
+  #
+  #     - name: 'Build for Debian 10'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/debian10,destination=/output,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/output/debian10/output.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #
+  #
+  # test-debian11:
+  #   runs-on:
+  #     - 'rhel8'
+  #     - 'self-hosted'
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/debian11'
+  #       run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/debian11'
+  #
+  #     - name: 'Build for Debian 10'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/debian11,destination=/output,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/output/debian11/output.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+  #
+  #
+  # # RHEL
+  # test-rhel7:
+  #   runs-on:
+  #     - 'rhel8'
+  #     - 'self-hosted'
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel7'
+  #       run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel7'
+  #
+  #     - name: 'Build for RHEL7'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/rhel7,destination=/output,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/output/rhel7/output.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+
+
+  test-rhel8:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel8'
+        run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel8'
+
+      - name: 'ls -l'
+        run: 'ls -l'
+        working-directory: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/'
+
+      - name: 'ls -l'
+        run: 'ls -l'
+        working-directory: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/packages/'
+
+      - name: 'Test on RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/rhel8,destination=/output,relabel=private \
+          --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/run-all
+
+  # test-rhel9:
+  #   runs-on:
+  #     - 'rhel8'
+  #     - 'self-hosted'
+  #   needs:
+  #     - 'prepare'
+  #
+  #   steps:
+  #
+  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel9'
+  #       run: 'mkdir ${{ github.sha }}-${{ github.run_attempt }}/output/rhel9'
+  #
+  #     - name: 'Build for RHEL9'
+  #       run: |-
+  #         podman run --interactive --rm \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/rhel9,destination=/output,relabel=private \
+  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+  #         registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/output/rhel9/output.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
+
+
+  # this would not work on the GitHub-hosted runners, as each job is isolated there,
+  # but works when self-hosted (since there are no parallel jobs)
+  upload-outputs:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:  # we want this to run after the build jobs
+      # - 'test-debian10'
+      # - 'test-debian11'
+      # - 'test-rhel7'
+      - 'test-rhel8'
+      # - 'test-rhel9'
+    # if: '${{ always() }}' # however, we want to upload the artifacts even if one build job fails
+
+    steps:
+
+      - name: 'upload the output as monitoring-plugins-test-output'
+        uses: 'actions/upload-artifact@v3'
+        with:
+          name: 'monitoring-plugins-test-output'
+          path: '${{ github.sha }}-${{ github.run_attempt }}/output/'
