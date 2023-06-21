@@ -128,7 +128,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x 'cd /repos/monitoring-plugins/ && build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}'
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.sha }} ${{ inputs.package-iteration || '1' }}
   #
   #
   # build-rhel9:
@@ -163,7 +163,7 @@ jobs:
       # - 'build-rhel7'
       - 'build-rhel8'
       # - 'build-rhel9'
-    if: '${{ always() }}' # we want to upload the artifacts even if one build job fails
+    # if: '${{ always() }}' # we want to upload the artifacts even if one build job fails
 
     steps:
 

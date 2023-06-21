@@ -10,4 +10,4 @@ pip install --upgrade setuptools
 pip install pyinstaller
 
 # install any libraries specific for the project
-pip install --requirement ../../requirements.txt
+pip install --requirement /repos/monitoring-plugins/requirements.txt
