@@ -18,22 +18,21 @@ jobs:
 
     steps:
 
-      - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
-        run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
+      # we use `${{ github.sha }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+      - name: 'checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@v3'
+        with:
+          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos/monitoring-plugins'
+          ref: '${{ inputs.package-version || github.ref }}'
 
-      # - name: 'download the monitoring-plugins-linux-packages artifact'
-      #   uses: 'actions/download-artifact@v3'
-      #   with:
-      #     name: 'monitoring-plugins-linux-packages'
-      #     path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/packages/'
-
+      # using this instead of the official `download-artifact` action since this allows cross-workflow
       - name: 'download the monitoring-plugins-linux-packages artifact'
         id: 'download-artifact'
         uses: 'dawidd6/action-download-artifact@v2'
         with:
           workflow: 'linux-build.yml'
           workflow_conclusion: 'success'
-          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/packages/'
+          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/'
 
 
   # # Debian
@@ -123,6 +122,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/output/rhel8,destination=/output,relabel=private \
           --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ github.sha }}-${{ github.run_attempt }}/monitoring-plugins-linux-packages/rhel8,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/run-all
 
   # test-rhel9:
