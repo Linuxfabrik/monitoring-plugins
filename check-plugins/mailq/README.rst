@@ -8,7 +8,7 @@ Checks the mail queue. Tested with Postfix and Exim.
 
 Hints:
 
-* Exim: By default, ``exim -bq`` (alias ``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue. Alternatively, add the icinga user to the exim group.
+* Exim: By default, ``exim -bq`` (alias ``mailq``) can be used only by an admin user. However, the ``queue_list_requires_admin`` option can be set false to allow any user to see the queue. Alternatively, add the icinga user to the exim group (sometimes the group is also called ``Debian-exim``).
 
 
 Fact Sheet
