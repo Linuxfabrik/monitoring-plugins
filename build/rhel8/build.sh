@@ -6,7 +6,7 @@ RELEASE="$1" # version number has to start with a digit, for example 2023123101;
 PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
-# yum -y update TODO
+yum -y update
 yum -y install git zip
 yum -y install binutils
 

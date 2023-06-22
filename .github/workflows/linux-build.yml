@@ -21,6 +21,9 @@ on:
         required: false
         default: ''
 
+env:
+  # we use `${{ env.BASE_DIR }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+  BASE_DIR: '${{ env.BASE_DIR }}'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -32,11 +35,11 @@ jobs:
 
     steps:
 
-      # we use `${{ github.sha }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+      # we use `${{ env.BASE_DIR }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
       - name: 'checkout the monitoring-plugins repo'
         uses: 'actions/checkout@v3'
         with:
-          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos/monitoring-plugins'
+          path: '${{ env.BASE_DIR }}/repos/monitoring-plugins'
           ref: '${{ inputs.package-version || github.ref }}'
 
       - name: 'checkout the lib repo'
@@ -44,73 +47,73 @@ jobs:
         with:
           repository: 'Linuxfabrik/lib'
           ref: '${{ inputs.package-version || github.ref }}'
-          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos/lib'
+          path: '${{ env.BASE_DIR }}/repos/lib'
 
-      - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build'
-        run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build'
+        run: 'mkdir ${{ env.BASE_DIR }}/build'
 
 
   # Debian
-  # build-debian10:
-  #   runs-on:
-  #     - 'rhel8'
-  #     - 'self-hosted'
-  #   needs:
-  #     - 'prepare'
-  #
-  #   steps:
-  #
-  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian10'
-  #       run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian10'
-  #
-  #     - name: 'Build for Debian 10'
-  #       run: |-
-  #         podman run --interactive --rm \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian10,destination=/build,relabel=private \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-  #
-  #
-  # build-debian11:
-  #   runs-on:
-  #     - 'rhel8'
-  #     - 'self-hosted'
-  #   needs:
-  #     - 'prepare'
-  #
-  #   steps:
-  #
-  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian11'
-  #       run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian11'
-  #
-  #     - name: 'Build for Debian 10'
-  #       run: |-
-  #         podman run --interactive --rm \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/debian11,destination=/build,relabel=private \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-  #
-  #
-  # # RHEL
-  # build-rhel7:
-  #   runs-on:
-  #     - 'rhel8'
-  #     - 'self-hosted'
-  #   needs:
-  #     - 'prepare'
-  #
-  #   steps:
-  #
-  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel7'
-  #       run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel7'
-  #
-  #     - name: 'Build for RHEL7'
-  #       run: |-
-  #         podman run --interactive --rm \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel7,destination=/build,relabel=private \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-  #
+  build-debian10:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
+
+      - name: 'Build for Debian 10'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian10,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  build-debian11:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
+
+      - name: 'Build for Debian 10'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian11,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  # RHEL
+  build-rhel7:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
+
+      - name: 'Build for RHEL7'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel7,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
 
   build-rhel8:
     runs-on:
@@ -121,35 +124,35 @@ jobs:
 
     steps:
 
-      - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel8'
-        run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel8'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
 
       - name: 'Build for RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel8,destination=/build,relabel=private \
-          --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel8,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-  #
-  #
-  # build-rhel9:
-  #   runs-on:
-  #     - 'rhel8'
-  #     - 'self-hosted'
-  #   needs:
-  #     - 'prepare'
-  #
-  #   steps:
-  #
-  #     - name: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel9'
-  #       run: 'mkdir ${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel9'
-  #
-  #     - name: 'Build for RHEL9'
-  #       run: |-
-  #         podman run --interactive --rm \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/rhel9,destination=/build,relabel=private \
-  #         --mount type=bind,source=${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/repos,destination=/repos,relabel=shared,ro=true \
-  #         registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  build-rhel9:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
+
+      - name: 'Build for RHEL9'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel9,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
@@ -159,12 +162,12 @@ jobs:
       - 'rhel8'
       - 'self-hosted'
     needs:  # we want this to run after the build jobs
-      # - 'build-debian10'
-      # - 'build-debian11'
-      # - 'build-rhel7'
+      - 'build-debian10'
+      - 'build-debian11'
+      - 'build-rhel7'
       - 'build-rhel8'
-      # - 'build-rhel9'
-    # if: '${{ always() }}' # we want to upload the artifacts even if one build job fails
+      - 'build-rhel9'
+    if: '${{ always() }}' # we want to upload the artifacts even if one build job fails
 
     steps:
 
@@ -172,4 +175,4 @@ jobs:
         uses: 'actions/upload-artifact@v3'
         with:
           name: 'monitoring-plugins-linux-packages'
-          path: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}/build/'
+          path: '${{ env.BASE_DIR }}/build/'
