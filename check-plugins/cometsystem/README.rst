@@ -10,7 +10,7 @@ The repeating ``--severity`` parameter can be set in different ways:
 
 * ``--severity ok|warn|crit|unknown``: High and low alarm severity for all channels and all alarm modes.
 * ``--severity part-of-channel-name:ok|warn|crit|unknown``: High and low alarm severity for a specific channel and all alarm modes. You just need to specify a part of the channel name. Case-insensitive.
-* ``--severity part-of-channel-name:low|high:ok|warn|crit|unknown``: Alarm severity for a specific channel and a specific alram mode.
+* ``--severity part-of-channel-name:low|high:ok|warn|crit|unknown``: Alarm severity for a specific channel and a specific alarm mode.
 
 The order of ``--severity`` matters, the first match wins.
 

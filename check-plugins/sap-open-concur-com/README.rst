@@ -28,20 +28,20 @@ Help
 
 .. code-block:: text
 
-    usage: sap-open-concur-com [-h] [--always-ok] [-V]
-                               [--datacenter {us,us2,eu,eu2,cn,pscc}]
-                               [--no-proxy] [--service SERVICE]
+    usage: sap-open-concur-com [-h] [--always-ok] [-V] --datacenter
+                               {us,us2,eu,eu2,cn,pscc} [--no-proxy]
+                               [--service SERVICE] [--test TEST]
                                [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
     This plugin checks for incidents mentioned at the SAP Concur Open
     (https://open.concur.com/) Service Status Dashboard.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       --always-ok           Always returns OK.
       -V, --version         show program's version number and exit
-      --datacenter {north_america,emea,china,public_sector}
-                            Datacenter to query. Default: emea
+      --datacenter {us,us2,eu,eu2,cn,pscc}
+                            Datacenter to query. Default: eu
       --no-proxy            Do not use a proxy. Default: False
       --service SERVICE     Service to check. One of "Analysis/Intelligence",
                             "Compleat (TMC Services)", "Expense", "Imaging",
@@ -49,6 +49,8 @@ Help
                             "All". Check https://open.concur.com to see which
                             service is available for which data center. Default:
                             All
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --utc-offset UTC_OFFSET
                             UTC offset. Default: +0200
