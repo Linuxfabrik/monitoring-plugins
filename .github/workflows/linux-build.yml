@@ -1,0 +1,178 @@
+name: 'Compile and build the packages for Linux'
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    tags:
+      - '*'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+
+      package-iteration:
+        description: 'The iteration to give to the package. RPM calls this the ‘release’. FreeBSD calls it ‘PORTREVISION’. Debian calls this ‘debian_revision’'
+        required: false
+        default: '1'
+
+      package-version:
+        description: 'Which tag to build for. Defaults to the current tag. Note: Specifying commits does not work, as the SHA is not the same in the monitoring-plugins and lib repo.'
+        required: false
+        default: ''
+
+env:
+  # we use `${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+  BASE_DIR: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+
+  prepare:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+
+    steps:
+
+      # we use `${{ env.BASE_DIR }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+      - name: 'checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@v3'
+        with:
+          path: '${{ env.BASE_DIR }}/repos/monitoring-plugins'
+          ref: '${{ inputs.package-version || github.ref }}'
+
+      - name: 'checkout the lib repo'
+        uses: 'actions/checkout@v3'
+        with:
+          repository: 'Linuxfabrik/lib'
+          ref: '${{ inputs.package-version || github.ref }}'
+          path: '${{ env.BASE_DIR }}/repos/lib'
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build'
+        run: 'mkdir ${{ env.BASE_DIR }}/build'
+
+
+  # Debian
+  build-debian10:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
+
+      - name: 'Build for Debian 10'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian10,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  build-debian11:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
+
+      - name: 'Build for Debian 10'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian11,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  # RHEL
+  build-rhel7:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
+
+      - name: 'Build for RHEL7'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel7,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  build-rhel8:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
+
+      - name: 'Build for RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel8,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  build-rhel9:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
+
+      - name: 'Build for RHEL9'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel9,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
+  # this would not work on the GitHub-hosted runners, as each job is isolated there,
+  # but works when self-hosted (since there are no parallel jobs)
+  upload-outputs:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:  # we want this to run after the above jobs
+      - 'build-debian10'
+      - 'build-debian11'
+      - 'build-rhel7'
+      - 'build-rhel8'
+      - 'build-rhel9'
+    if: '${{ always() }}' # however, we want to upload the artifacts even if one of the job fails
+
+    steps:
+
+      - name: 'upload the output as monitoring-plugins-linux-packages'
+        uses: 'actions/upload-artifact@v3'
+        with:
+          name: 'monitoring-plugins-linux-packages'
+          path: '${{ env.BASE_DIR }}/build/'

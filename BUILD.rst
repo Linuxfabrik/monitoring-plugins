@@ -59,7 +59,6 @@ RHEL 7
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-7-server-source-rpms
-        yumdownloader --source selinux-policy
 
         # use latest python available from scl
         yum -y install rh-python38 rh-python38-python-devel
@@ -86,7 +85,6 @@ RHEL 8
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
-        yumdownloader --source selinux-policy
 
         yum -y install python39 python39-devel
         alias python3=python3.9
@@ -109,7 +107,6 @@ RHEL 9
         # for compiling selinux policies
         yum -y install policycoreutils-devel setools-console yum-utils rpm-build make
         subscription-manager repos --enable rhel-8-for-x86_64-baseos-source-rpms
-        yumdownloader --source selinux-policy
 
         yum -y install ruby-devel gcc make rpm-build libffi-devel
 
@@ -382,3 +379,13 @@ Compiling for Windows
 ---------------------
 
 Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/nuitka-compile.yml>`_.
+
+
+Compiling and Building for Linux
+--------------------------------
+
+Done automatically per `Linux Build CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-build.yml>`_.
+
+Note that we are not building new containers because we always want the most up-to-date package versions.
+If we need to speed up the workflow, one could try to build a container with all the required tools, and then just run an update in the container every time the workflow is triggered.
+However, since the workflow currently only runs for git tags (and maybe nightly builds in the future), the workflow duration is not very important for us.
