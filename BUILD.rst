@@ -384,7 +384,7 @@ Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-
 Compiling and Building for Linux
 --------------------------------
 
-Done automatically per `TODO <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-compile.yml>`_.
+Done automatically per `Linux Build CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-build.yml>`_.
 
 Note that we are not building new containers because we always want the most up-to-date package versions.
 If we need to speed up the workflow, one could try to build a container with all the required tools, and then just run an update in the container every time the workflow is triggered.
