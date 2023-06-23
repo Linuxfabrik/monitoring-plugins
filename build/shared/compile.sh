@@ -9,7 +9,7 @@ for dir in /repos/monitoring-plugins/check-plugins/*; do
         pyinstaller --clean --distpath /tmp/dist/check-plugins --workpath /tmp/build/check-plugins --specpath /tmp/spec/check-plugins --noconfirm --noupx --onedir "$dir/${check}"
     fi
 done
-\cp -a /tmp/dist/check-plugins/*/* /tmp/dist/summary/check-plugins
+\cp -a --no-clobber /tmp/dist/check-plugins/*/* /tmp/dist/summary/check-plugins
 
 for dir in /repos/monitoring-plugins/notification-plugins/*; do
     notification="$(basename $dir)"
@@ -18,4 +18,4 @@ for dir in /repos/monitoring-plugins/notification-plugins/*; do
         pyinstaller --clean --distpath /tmp/dist/notification-plugins --workpath /tmp/build/notification-plugins --specpath /tmp/spec/notification-plugins --noconfirm --noupx --onedir "$dir/${notification}"
     fi
 done
-\cp -a /tmp/dist/notification-plugins/*/* /tmp/dist/summary/notification-plugins
+\cp -a --no-clobber /tmp/dist/notification-plugins/*/* /tmp/dist/summary/notification-plugins
