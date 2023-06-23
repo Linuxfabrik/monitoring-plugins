@@ -36,7 +36,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023061201'
+__version__ = '2023062301'
 
 DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
                  instances (aka virtual servers).
@@ -247,15 +247,18 @@ def main():
 
     # analyze data
     for server in servers:
-        item = {
-            'addresses': ', '.join(server.addresses),
-            'created': server.created.replace('T', ' ').replace('Z', ''),
-            'id': server.id,
-            'name': server.name,
-            'progress': server.progress,
-            'status': server.status,
-            'updated': server.updated.replace('T', ' ').replace('Z', ''),
-        }
+        try:
+            item = {
+                'addresses': ', '.join(server.addresses),
+                'created': server.created.replace('T', ' ').replace('Z', ''),
+                'id': server.id,
+                'name': server.name,
+                'progress': server.progress,
+                'status': server.status,
+                'updated': server.updated.replace('T', ' ').replace('Z', ''),
+            }
+        except Exception as e:
+            lib.base.oao('Error occured while fetching server attributes.', STATE_UNKNOWN)
         item['created'] = '{} ({} ago)'.format(
             item['created'],
             lib.human.seconds2human(

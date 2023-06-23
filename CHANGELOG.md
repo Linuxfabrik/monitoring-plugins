@@ -38,6 +38,7 @@ Monitoring Plugins:
 
 * grafana-version: Add Grafana v9.5
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
+* openstack-nova-list: Make more robust in case of OpenStack errors
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix #190)
 
