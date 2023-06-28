@@ -39,8 +39,12 @@ jobs:
 
       - name: 'save the list as json'
         id: 'save-json'
-        run: "echo \"::set-output name=monitoring_plugin_list_json::$(cat /tmp/windows-checks | jq -R -s -c 'split(\"\n\")[:-1]')\""
-
+        # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "monitoring_plugin_list_json<<$EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/windows-checks | jq -R -s -c 'split("\n")[:-1]' >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
 
   build-windows:
     runs-on: 'windows-latest'
