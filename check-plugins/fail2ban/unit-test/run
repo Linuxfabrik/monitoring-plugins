@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import *
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../fail2ban'
+
+    def test_if_check_runs_EXAMPLE01_ping_nok(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,1'))
+        self.assertRegex(stdout, r'Problem while testing if the fail2ban server is alive.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertRegex(stdout, r'IPs banned - apache-dos: 2, portscan: 0, sshd: 5432 \[WARNING\]')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE99(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE99,,0'))
+        self.assertRegex(stdout, r'No jails found.')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    unittest.main()
