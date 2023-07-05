@@ -33,6 +33,7 @@ Monitoring Plugins:
 
 * gitlab-version
 * openstack-nova-list
+* postgresql-version
 
 Project:
 
