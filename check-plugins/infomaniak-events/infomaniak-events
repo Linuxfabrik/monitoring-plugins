@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023062301'
+__version__ = '2023070601'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -48,6 +48,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--service',
+        help='Only report this service category (repeating). '
+             'Example: `--service=swiss_backup --service=public_cloud`. '
+             'Default: none (so report all)',
+        dest='SERVICE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -92,10 +102,17 @@ def main():
     table_data = []
 
     # analyze data
+    # use english translation only
     for event in result.get('data', {}):
-        # use english translation only
+        services = [tr['name'] for tr in event.get('services')]
+        if args.SERVICE and not services:
+            # we got a filter for a service category, but an uncategorized event message - skip
+            continue
+        if args.SERVICE and not set(services).intersection(args.SERVICE):
+            # is there any intersection (services wanted)? if not, continue
+            continue
+        services = ', '.join(services)
         title = next((tr['title'] for tr in event.get('description').get('translations') if tr['language'] == 'en'), event.get('description').get('title'))
-        services = ', '.join([tr['name'] for tr in event.get('services')])
         if event.get('status') != 'terminated':
             msg += '{}: {} ({}), '.format(
                 event.get('type'),
