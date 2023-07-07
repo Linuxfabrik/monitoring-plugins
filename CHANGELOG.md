@@ -42,6 +42,11 @@ Project:
 
 ### Changed ("enhancement")
 
+Features:
+
+* sudoers: Don't log command calls any longer.
+
+
 Monitoring Plugins:
 
 * fail2ban: Improve output, add unit-test
