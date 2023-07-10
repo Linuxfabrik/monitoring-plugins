@@ -21,130 +21,9 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023061201'
+__version__ = '2023071001'
 
 DESCRIPTION = 'Tracks if Postfix is EOL.'
-
-# from https://endoflife.date/api/postfix.json
-ENDOFLIFE_DATE = [
-  {
-    "cycle": "3.8",
-    "releaseDate": "2023-04-17",
-    "eol": False,
-    "latest": "3.8.1",
-    "latestReleaseDate": "2023-06-06",
-    "link": "https://www.postfix.org/announcements/postfix-3.8.1.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.7",
-    "eol": False,
-    "latest": "3.7.6",
-    "latestReleaseDate": "2023-06-06",
-    "releaseDate": "2022-02-06",
-    "link": "https://www.postfix.org/announcements/postfix-3.8.1.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.6",
-    "eol": False,
-    "latest": "3.6.10",
-    "latestReleaseDate": "2023-06-06",
-    "releaseDate": "2021-04-29",
-    "link": "https://www.postfix.org/announcements/postfix-3.8.1.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.5",
-    "eol": False,
-    "latest": "3.5.20",
-    "latestReleaseDate": "2023-06-06",
-    "releaseDate": "2020-03-15",
-    "link": "https://www.postfix.org/announcements/postfix-3.8.1.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.4",
-    "eol": "2023-04-17",
-    "latest": "3.4.29",
-    "latestReleaseDate": "2023-04-19",
-    "releaseDate": "2019-02-27",
-    "link": "https://www.postfix.org/announcements/postfix-3.7.5.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.3",
-    "eol": "2022-02-05",
-    "latest": "3.3.22",
-    "latestReleaseDate": "2022-02-06",
-    "releaseDate": "2018-02-22",
-    "link": "https://www.postfix.org/announcements/postfix-3.6.5.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.2",
-    "eol": "2021-04-29",
-    "latest": "3.2.22",
-    "latestReleaseDate": "2021-04-12",
-    "releaseDate": "2017-02-28",
-    "link": "https://www.postfix.org/announcements/postfix-3.5.10.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.1",
-    "eol": "2020-03-15",
-    "latest": "3.1.15",
-    "latestReleaseDate": "2020-02-03",
-    "releaseDate": "2016-02-24",
-    "link": "https://www.postfix.org/announcements/postfix-3.5.10.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.0",
-    "eol": "2019-02-27",
-    "latest": "3.1.15",
-    "latestReleaseDate": "2019-02-26",
-    "releaseDate": "2015-02-08",
-    "link": "https://www.postfix.org/announcements/postfix-3.3.3.html",
-    "lts": False
-  },
-  {
-    "cycle": "2.11",
-    "eol": "2018-02-21",
-    "latest": "2.11.11",
-    "latestReleaseDate": "2018-01-28",
-    "releaseDate": "2014-01-15",
-    "link": "https://www.postfix.org/announcements/postfix-3.2.5.html",
-    "lts": False
-  },
-  {
-    "cycle": "2.10",
-    "eol": "2017-02-28",
-    "latest": "2.10.10",
-    "latestReleaseDate": "2016-05-15",
-    "releaseDate": "2013-02-11",
-    "link": "https://www.postfix.org/announcements/postfix-3.1.1.html",
-    "lts": False
-  },
-  {
-    "cycle": "2.9",
-    "eol": "2016-02-24",
-    "latest": "2.9.15",
-    "latestReleaseDate": "2015-10-10",
-    "releaseDate": "2012-02-01",
-    "link": "https://www.postfix.org/announcements/postfix-3.0.3.html",
-    "lts": False
-  },
-  {
-    "cycle": "2.8",
-    "eol": "2015-02-08",
-    "latest": "2.8.20",
-    "latestReleaseDate": "2015-02-08",
-    "releaseDate": "2011-01-20",
-    "link": "https://www.postfix.org/announcements/postfix-2.11.4.html",
-    "lts": False
-  }
-]
 
 
 def parse_args():
@@ -204,7 +83,7 @@ def main():
         installed_major, installed_minor = installed_version.split('.')
 
     state, msg = lib.version.check_eol(
-        ENDOFLIFE_DATE,
+        'https://endoflife.date/api/postfix.json',
         '{}.{}'.format(installed_major, installed_minor),
     )
 

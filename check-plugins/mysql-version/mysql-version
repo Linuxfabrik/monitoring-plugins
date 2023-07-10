@@ -21,165 +21,9 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023062901'
+__version__ = '2023071001'
 
 DESCRIPTION = 'Tracks if MySQL/MariaDB is EOL.'
-
-# from https://endoflife.date/api/mariadb.json
-ENDOFLIFE_DATE_MARIADB = [
-  {
-    "cycle": "11.0",
-    "releaseDate": "2023-06-06",
-    "eol": "2024-06-07",
-    "latest": "11.0.2",
-    "latestReleaseDate": "2023-06-06",
-    "lts": False
-  },
-  {
-    "cycle": "10.11",
-    "releaseDate": "2023-02-16",
-    "eol": "2028-02-16",
-    "latest": "10.11.4",
-    "lts": True,
-    "latestReleaseDate": "2023-06-07"
-  },
-  {
-    "cycle": "10.10",
-    "releaseDate": "2022-11-07",
-    "eol": "2023-11-17",
-    "latest": "10.10.5",
-    "latestReleaseDate": "2023-06-07",
-    "lts": False
-  },
-  {
-    "cycle": "10.9",
-    "releaseDate": "2022-08-15",
-    "eol": "2023-08-22",
-    "latest": "10.9.7",
-    "latestReleaseDate": "2023-06-07",
-    "lts": False
-  },
-  {
-    "cycle": "10.8",
-    "releaseDate": "2022-05-20",
-    "eol": "2023-05-20",
-    "latest": "10.8.8",
-    "latestReleaseDate": "2023-05-10",
-    "lts": False
-  },
-  {
-    "cycle": "10.7",
-    "releaseDate": "2022-02-08",
-    "eol": "2023-02-09",
-    "latest": "10.7.8",
-    "latestReleaseDate": "2023-02-06",
-    "lts": False
-  },
-  {
-    "cycle": "10.6",
-    "releaseDate": "2021-07-05",
-    "eol": "2026-07-06",
-    "latest": "10.6.14",
-    "lts": True,
-    "latestReleaseDate": "2023-06-07"
-  },
-  {
-    "cycle": "10.5",
-    "releaseDate": "2020-06-23",
-    "eol": "2025-06-24",
-    "latest": "10.5.21",
-    "latestReleaseDate": "2023-06-07",
-    "lts": False
-  },
-  {
-    "cycle": "10.4",
-    "releaseDate": "2019-06-17",
-    "eol": "2024-06-18",
-    "latest": "10.4.30",
-    "latestReleaseDate": "2023-06-07",
-    "lts": False
-  },
-  {
-    "cycle": "10.3",
-    "releaseDate": "2018-05-23",
-    "eol": "2023-05-25",
-    "latest": "10.3.39",
-    "latestReleaseDate": "2023-05-10",
-    "lts": False
-  },
-  {
-    "cycle": "10.2",
-    "releaseDate": "2017-05-15",
-    "eol": "2022-05-23",
-    "latest": "10.2.44",
-    "latestReleaseDate": "2022-05-20",
-    "lts": False
-  },
-  {
-    "cycle": "10.1",
-    "releaseDate": "2016-09-29",
-    "eol": "2020-10-17",
-    "latest": "10.1.48",
-    "latestReleaseDate": "2020-10-30",
-    "lts": False
-  },
-  {
-    "cycle": "10.0",
-    "releaseDate": "2014-06-12",
-    "eol": "2019-03-31",
-    "latest": "10.0.38",
-    "latestReleaseDate": "2019-01-29",
-    "lts": False
-  },
-  {
-    "cycle": "5.5",
-    "eol": "2020-04-11",
-    "releaseDate": "2013-01-29",
-    "latest": "5.5.68",
-    "lts": True,
-    "latestReleaseDate": "2020-05-06"
-  }
-]
-
-# from https://endoflife.date/api/mysql.json
-ENDOFLIFE_DATE_MYSQL = [
-  {
-    "cycle": "8.0",
-    "latest": "8.0.33",
-    "support": "2025-04-30",
-    "eol": "2026-04-30",
-    "latestReleaseDate": "2023-03-16",
-    "releaseDate": "2018-04-08",
-    "lts": False
-  },
-  {
-    "cycle": "5.7",
-    "latest": "5.7.42",
-    "support": "2020-10-31",
-    "eol": "2023-10-31",
-    "latestReleaseDate": "2023-03-16",
-    "releaseDate": "2015-10-09",
-    "lts": False
-  },
-  {
-    "cycle": "5.6",
-    "latest": "5.6.51",
-    "support": "2018-02-28",
-    "eol": "2021-02-28",
-    "latestReleaseDate": "2021-01-05",
-    "releaseDate": "2013-02-01",
-    "lts": False
-  },
-  {
-    "cycle": "5.5",
-    "latest": "5.5.63",
-    "support": "2015-12-31",
-    "eol": "2018-12-31",
-    "latestReleaseDate": "2018-12-21",
-    "releaseDate": "2010-12-03",
-    "lts": False
-  }
-]
 
 
 def parse_args():
@@ -254,12 +98,12 @@ def main():
 
     if mariadb:
         state, msg = lib.version.check_eol(
-            ENDOFLIFE_DATE_MARIADB,
+        'https://endoflife.date/api/mariadb.json',
             '{}.{}'.format(installed_major, installed_minor),
         )
     else:
         state, msg = lib.version.check_eol(
-            ENDOFLIFE_DATE_MYSQL,
+        'https://endoflife.date/api/mysql.json',
             '{}.{}'.format(installed_major, installed_minor),
         )
 

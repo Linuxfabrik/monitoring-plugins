@@ -57,6 +57,7 @@ Monitoring Plugins:
 * openstack-nova-list: Make more robust in case of OpenStack errors
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix #190)
+* \*-version: Curl from https://endoflife.date first, then use hardcoded version (fix [#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
 
 
 ### Fixed ("bug")

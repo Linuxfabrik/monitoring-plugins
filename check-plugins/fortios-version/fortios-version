@@ -22,52 +22,13 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071001'
 
 DESCRIPTION = 'Tracks if FortiOS is EOL.'
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT  = 3
-
-# from https://endoflife.date/api/fortios.json
-ENDOFLIFE_DATE = [
-  {
-    "cycle": "7.2",
-    "eol": "2026-09-30",
-    "support": "2025-03-31",
-    "releaseDate": "2022-03-31",
-    "lts": False
-  },
-  {
-    "cycle": "7.0",
-    "eol": "2025-09-30",
-    "support": "2024-03-30",
-    "releaseDate": "2021-03-30",
-    "lts": False
-  },
-  {
-    "cycle": "6.4",
-    "eol": "2024-09-30",
-    "support": "2023-03-31",
-    "releaseDate": "2020-03-31",
-    "lts": False
-  },
-  {
-    "cycle": "6.2",
-    "eol": "2023-09-28",
-    "support": "2022-03-28",
-    "releaseDate": "2019-03-28",
-    "lts": False
-  },
-  {
-    "cycle": "6.0",
-    "eol": "2022-09-29",
-    "support": "2021-03-29",
-    "releaseDate": "2018-03-29",
-    "lts": False
-  }
-]
 
 
 def parse_args():
@@ -162,7 +123,7 @@ def main():
         installed_major, installed_minor = installed_version.split('.')
 
     state, msg = lib.version.check_eol(
-        ENDOFLIFE_DATE,
+        'https://endoflife.date/api/fortios.json',
         '{}.{}'.format(installed_major, installed_minor),
     )
 
