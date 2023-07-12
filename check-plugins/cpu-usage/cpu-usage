@@ -25,11 +25,11 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "psutil" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -139,7 +139,7 @@ def main():
         cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
     except ValueError as e:
         lib.db_sqlite.close(conn)
-        lib.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.base.cu('psutil raised error "{}"'.format(e))
 
     # this is what we want to warn about: 100% - idle - nice
     stats['cpu_usage'] = round(

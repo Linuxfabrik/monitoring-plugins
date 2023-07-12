@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -124,9 +124,9 @@ def main():
     engines = lib.db_mysql.get_engines(conn)
 
     if not engines.get('have_aria', ''):
-        lib.base.oao('Aria Storage Engine not available.', STATE_UNKNOWN)
+        lib.base.cu('Aria Storage Engine not available.')
     if engines['have_aria'] != 'YES':
-        lib.base.oao('Aria Storage Engine is disabled.', STATE_UNKNOWN)
+        lib.base.cu('Aria Storage Engine is disabled.')
 
     # Aria pagecache
     sql = """

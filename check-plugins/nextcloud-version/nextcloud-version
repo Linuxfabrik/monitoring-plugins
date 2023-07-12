@@ -22,7 +22,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071001'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Tracks if Nextcloud is EOL.'
 
@@ -81,13 +81,13 @@ def run_occ(path, cmd, _format='json'):
         lib.shell.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd))
     )
     if stderr:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base.cu(stderr)
     try:
         if _format == 'json':
             return json.loads(stdout)
         return stdout.strip()
     except:
-        lib.base.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+        lib.base.cu('ValueError: No JSON object could be decoded')
 
 
 def main():
@@ -107,9 +107,9 @@ def main():
         installed_version = config['system']['version'].split('.')
         installed_major = installed_version[0]
     except:
-        lib.base.oao('Unable to get Nextcloud version information.', STATE_UNKNOWN)
+        lib.base.cu('Unable to get Nextcloud version information.')
     if not installed_version:
-        lib.base.oao('Nextcloud not found.', STATE_UNKNOWN)
+        lib.base.cu('Nextcloud not found.')
 
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/nextcloud.json',

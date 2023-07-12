@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Checks the number of matching files.'
 
@@ -145,7 +145,7 @@ def main():
 
     # fetch data
     if args.FILENAME and args.URL:
-        lib.base.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+        lib.base.cu('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
 
     now = lib.time.now()
     msg = ''
@@ -168,12 +168,12 @@ def main():
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
-            lib.base.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+            lib.base.cu('Could not parse the protocol of the url "{}".'.format(args.URL))
         proto, url = split_url
 
         if proto == 'smb':
             if not HAVE_SMB:
-                lib.base.oao('Python module "{}" is not installed.'.format(missing_lib), STATE_UNKNOWN)
+                lib.base.cu('Python module "{}" is not installed.'.format(missing_lib))
             for item in lib.base.coe(lib.smb.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
                 if item.is_file() and args.ONLY_DIRS:
                     continue
@@ -186,7 +186,7 @@ def main():
 
                 file_count += 1
         else:
-            lib.base.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
 
     if not lib.base.coe(lib.base.match_range(file_count, args.CRIT)):
         state = STATE_CRIT

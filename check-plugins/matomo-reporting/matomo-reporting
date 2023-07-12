@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
@@ -144,7 +144,7 @@ def main():
     url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)
     result = lib.base.coe(lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     if 'result' in result and result['result'] == 'error':
-        lib.base.oao('{}'.format(result['message']), STATE_UNKNOWN)
+        lib.base.cu('{}'.format(result['message']))
 
     # init some vars
     msg = ''

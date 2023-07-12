@@ -25,11 +25,11 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
 try:
     import xmltodict
 except ImportError as e:
-    lib.base.oao('Python module "xmltodict" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "xmltodict" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -128,7 +128,7 @@ def main():
 
     auth_passed = data['authPassed']
     if auth_passed is not None and len(auth_passed) == 1 and auth_passed == "0":
-        lib.base.oao('Failed to authenticate.', STATE_UNKNOWN)
+        lib.base.cu('Failed to authenticate.')
     authSid = data['authSid']
 
     # get the current version
@@ -151,12 +151,12 @@ def main():
         # version 5.0.1+
         latest_version = xmldict['firmware']['version']
     else:
-        lib.base.oao('Version information cannot be determined.', STATE_UNKNOWN)
+        lib.base.cu('Version information cannot be determined.')
 
     if latest_version == 'none':
         latest_version = None
     elif latest_version == 'error' or len(latest_version) == 0:
-        lib.base.oao('Got an error from the QNAP API.', STATE_UNKNOWN)
+        lib.base.cu('Got an error from the QNAP API.')
 
     # build the message
     if lib.version.version('.'.join(installed_version)) >= lib.version.version(latest_version):

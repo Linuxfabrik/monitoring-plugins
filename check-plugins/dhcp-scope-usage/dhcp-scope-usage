@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
@@ -139,10 +139,10 @@ def main():
             result = lib.winrm.run_ps(args, cmd)
         else:
             if lib.base.LINUX:
-                lib.base.oao('Running this check plugin directly on Linux is not supported. Use the --winrm parameters.', STATE_UNKNOWN)
+                lib.base.cu('Running this check plugin directly on Linux is not supported. Use the --winrm parameters.')
             result = lib.powershell.run_ps(cmd)
         if not result:
-            lib.base.oao('Got nothing back.', STATE_UNKNOWN)
+            lib.base.cu('Got nothing back.')
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data

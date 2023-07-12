@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This check parses a flat json array from a file or url and simply returns the
                  message, state and perfdata from the json."""
@@ -150,7 +150,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+        lib.base.cu('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
 
     result = None
     if args.FILENAME:
@@ -160,7 +160,7 @@ def main():
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
-            lib.base.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+            lib.base.cu('Could not parse the protocol of the url "{}".'.format(args.URL))
         proto, url = split_url
 
         if proto in ['http', 'https']:
@@ -170,17 +170,17 @@ def main():
             ))
         elif proto == 'smb':
             if not HAVE_SMB:
-                lib.base.oao('Python module "{}" is not installed.'.format(missing_lib), STATE_UNKNOWN)
+                lib.base.cu('Python module "{}" is not installed.'.format(missing_lib))
             with lib.base.coe(lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)) as fd:
                 try:
                     result = json.loads(lib.txt.to_text(fd.read()))
                 except:
-                    lib.base.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+                    lib.base.cu('ValueError: No JSON object could be decoded')
         else:
-            lib.base.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
 
     if result is None:
-        lib.base.oao('Nothing returned.', STATE_UNKNOWN)
+        lib.base.cu('Nothing returned.')
 
     msg = result.get(args.MESSAGE_KEY, "") if args.MESSAGE_KEY else ""
     state = result.get(args.STATE_KEY, STATE_UNKNOWN) if args.STATE_KEY else STATE_UNKNOWN

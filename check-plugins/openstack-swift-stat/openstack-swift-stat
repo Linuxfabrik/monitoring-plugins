@@ -27,11 +27,11 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 try:
     from swiftclient.service import SwiftService
 except ImportError:
-    lib.base.oao('Python module "python-swiftclient" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "python-swiftclient" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023061901'
+__version__ = '2023071201'
 
 DESCRIPTION = """The OpenStack Object Store project, known as Swift, offers cloud storage 
                  software so that you can store and retrieve lots of data with a simple API.
@@ -131,7 +131,7 @@ def main():
             # general statistics
             stat_account = swift.stat()
             if 'error' in stat_account and isinstance(stat_account["error"], Exception):
-                lib.base.oao(str(stat_account['error']), STATE_UNKNOWN)
+                lib.base.cu(str(stat_account['error']))
             # get stat for each container
             containers = {}
             for list_account_part in swift.list():

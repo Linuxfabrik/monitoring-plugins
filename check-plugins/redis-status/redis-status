@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Returns information and statistics about a Redis server. Alerts on memory
                  consumption, memory fragmentation, hit rates and more."""
@@ -178,7 +178,7 @@ def main():
         cmd += 'info default'
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
@@ -214,7 +214,7 @@ def main():
         cmd += 'memory doctor'
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base.cu(stderr)
         if not stdout.startswith('ERR '):
             result['memory_doctor'] = stdout.strip()
 

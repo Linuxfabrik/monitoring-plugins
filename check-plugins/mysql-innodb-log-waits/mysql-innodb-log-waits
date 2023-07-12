@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = """Checks the number of times InnoDB was forced to wait for log writes to be flushed
                  due to the log buffer being too small in MySQL/MariaDB."""
@@ -134,9 +134,9 @@ def main():
     lib.db_mysql.close(conn)
 
     if not engines.get('have_innodb', ''):
-        lib.base.oao('InnoDB Storage Engine not available.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine not available.')
     if engines['have_innodb'] != 'YES':
-        lib.base.oao('InnoDB Storage Engine is disabled.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine is disabled.')
 
     # InnoDB Log Waits
     msg += '{} InnoDB log buffer waits / {} writes'.format(

@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Checks the size of the InnoDB buffer pool in MySQL/MariaDB."""
 
@@ -124,10 +124,10 @@ def main():
 
     if not engines.get('have_innodb', ''):
         lib.db_mysql.close(conn)
-        lib.base.oao('InnoDB Storage Engine not available.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine not available.')
     if engines['have_innodb'] != 'YES':
         lib.db_mysql.close(conn)
-        lib.base.oao('InnoDB Storage Engine is disabled.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine is disabled.')
 
     sql = 'select sum(data_length+index_length) as size from information_schema.tables where table_schema not in ("information_schema", "performance_schema", "mysql") and engine = "innodb";'
     enginestats = lib.base.coe(lib.db_mysql.select(conn, sql))

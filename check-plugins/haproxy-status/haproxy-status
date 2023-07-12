@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
@@ -133,7 +133,7 @@ def main():
     if args.TEST is None:
         url = args.URL
         if url[0:4] != 'http':
-            lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
         url = url + ';csv'
 
         # fetch the url
@@ -230,7 +230,7 @@ def main():
             ha_rtime = values[60]
             ha_ttime = values[61]
         except:
-            lib.base.oao('Malformed HAProxy status info.', STATE_UNKNOWN)
+            lib.base.cu('Malformed HAProxy status info.')
 
         # process status
         status_state = STATE_OK

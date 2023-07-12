@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
 `cat /var/log/borg/borg-prune.log`
@@ -88,7 +88,7 @@ def main():
         # end: 2020-04-08 23:00:13
 
     if os.path.exists(path) <= 0 and not os.path.isfile(path):
-        lib.base.oao('Logfile {} not found or empty.'.format(path), STATE_UNKNOWN)
+        lib.base.cu('Logfile {} not found or empty.'.format(path))
 
     mount_lines = ''
     with open('/proc/mounts') as mountlist:
@@ -122,7 +122,7 @@ def main():
         create_retc
         prune_retc
     except UnboundLocalError as e:
-        lib.base.oao('Could not find all expected values in the logfile.\n{}'.format(e), STATE_UNKNOWN)
+        lib.base.cu('Could not find all expected values in the logfile.\n{}'.format(e))
 
     # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK

@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -200,10 +200,10 @@ def main():
     # check if snmpget is installed
     success, result = lib.shell.shell_exec('command -v snmpget')
     if not success:
-        lib.base.oao('snmpget not found', STATE_UNKNOWN)
+        lib.base.cu('snmpget not found')
     stdout, stderr, retc = result
     if retc != 0:
-        lib.base.oao('snmpget not found', STATE_UNKNOWN)
+        lib.base.cu('snmpget not found')
 
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
@@ -263,7 +263,7 @@ def main():
             tmp, stderr, retc = lib.base.coe(
                 lib.shell.shell_exec(cmd.replace('_OIDS_', oid)))
             if (stderr or retc != 0):
-                lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+                lib.base.cu(stderr)
             stdout += tmp
     else:
         # do not call the command, put in test data

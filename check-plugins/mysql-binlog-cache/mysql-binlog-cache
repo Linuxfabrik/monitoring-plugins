@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Checks if a certain amount of transactions used a temporary disk cache because
                  they could not fit in the regular binary log cache in MySQL/MariaDB."""
@@ -135,7 +135,7 @@ def main():
     # calculations
     mycalc = {}
     if myvar['log_bin'] == 'OFF':
-        lib.base.oao('Binary logging is disabled.', STATE_UNKNOWN)
+        lib.base.cu('Binary logging is disabled.')
 
     if int(mystat['Binlog_cache_use']) != 0:
         mycalc['pct_binlog_cache'] = round((int(mystat['Binlog_cache_use']) - int(mystat['Binlog_cache_disk_use'])) / int(mystat['Binlog_cache_use']) * 100, 1)

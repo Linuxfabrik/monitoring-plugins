@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -103,11 +103,11 @@ def main():
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if stderr or retc == 2:
-        lib.base.oao(stderr, STATE_UNKNOWN)
+        lib.base.cu(stderr)
 
     result = stdout.splitlines()
     if not result[0] or not result[3]:
-        lib.base.oao('Unexpected output from ping.', STATE_UNKNOWN)
+        lib.base.cu('Unexpected output from ping.')
 
     # throwing CRIT if ping exits with 1 (CRIT instead of WARN beacuse of the
     # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).

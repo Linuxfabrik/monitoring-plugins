@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Checks the timespan since the last rpm activity, for example due to a yum/dnf
                 install/update."""
@@ -77,14 +77,14 @@ def main():
         'rpm --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"'
     ))
     if stderr:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base.cu(stderr)
 
     # stdout: '1662130946 unbound-libs\n1662130898 NetworkManager-libnm\n'
     try:
         last_activity = lib.txt.mltext2array(stdout, skip_header=False, sort_key=0) # `sort | tail -1`
         last_activity = int(last_activity[-1][0])
     except:
-        lib.base.oao('Unable to get rpm info, maybe an update never happened.', STATE_UNKNOWN)
+        lib.base.cu('Unable to get rpm info, maybe an update never happened.')
 
     # calculating the final check state
     delta = lib.time.now() - last_activity

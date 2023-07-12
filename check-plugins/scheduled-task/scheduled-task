@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Check the status of a scheduled task.'
 
@@ -82,7 +82,7 @@ def main():
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('schtasks /query /fo csv /nh'))
     if stderr or retc != 0:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base.cu(stderr)
 
     reader = csv.reader(stdout.strip().splitlines())
     for row in reader:
@@ -96,7 +96,7 @@ def main():
                 args.STATUS,
             ), problem_state)
 
-    lib.base.oao('Scheduled Task {} not found'.format(args.TASK), STATE_UNKNOWN)
+    lib.base.cu('Scheduled Task {} not found'.format(args.TASK))
 
 
 if __name__ == '__main__':

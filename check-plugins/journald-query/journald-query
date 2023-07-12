@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071201'
+__version__ = '2023071202'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
@@ -239,7 +239,7 @@ def main():
         cmd = cmd.strip()
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
         cmd = 'no-real-command-used'
@@ -260,7 +260,7 @@ def main():
             try:
                 event = json.loads(item)
             except:
-                lib.base.oao('Unable to interpret journald event: {}'.format(item), STATE_UNKNOWN)
+                lib.base.cu('Unable to interpret journald event: {}'.format(item))
 
             if event['MESSAGE'] is None:
                 continue
