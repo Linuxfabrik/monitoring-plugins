@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023061301'
+__version__ = '2023071201'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  Only logs for the current boot will be shown.
@@ -333,7 +333,9 @@ def main():
         msg = 'Everything is ok.'
         state = STATE_OK
 
-    msg += '\nThe full command used was:\n`{}`'.format(cmd)
+    msg += '\nThe full command used was:\n`{}`'.format(
+        cmd.replace(' --quiet', '').replace(' --output=json', '').replace('\\', ''),
+    )
     perfdata = lib.base.get_perfdata('journald-query', cnt, None, None, None, 0, None)
 
     # over and out

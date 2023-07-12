@@ -116,7 +116,7 @@ Output:
 
     Use `journalctl --reverse --priority=emerg..err --since=-24h` as a starting point for debugging. Be aware of the fact that you might see even more messages then, as we apply a lot of unit filters to only get messages from basic system services.
     The full command used was:
-    journalctl --reverse --priority=emerg..err --since=-24h --quiet --output=json --unit="accounts-daemon.service" --unit="acpid.service" --unit="apparmor.service" --unit="apport.service" --unit="auditd.service" --unit="cron.service" --unit="crond.service" --unit="dbus.service" --unit="dracut-*.service" --unit="haveged.service" --unit="ifplugd.service" --unit="ifup@*.service" --unit="init.scope" --unit="irqbalance.service" --unit="iscsid.service" --unit="lvm2-*.service" --unit="lxcfs.service" --unit="mdadm.service" --unit="network.service" --unit="NetworkManager*.service" --unit="open-iscsi.service" --unit="polkit.service" --unit="polkitd.service" --unit="qemu-guest-agent.service" --unit="rsyslog.service" --unit="session-*.scope" --unit="snapd*.service" --unit="ssh.service" --unit="sshd*.service" --unit="sssd.service" --unit="sysstat.service" --unit="systemd-*.service" --unit="user@*.service"
+    journalctl --reverse --priority=emerg..err --since=-24h --unit="accounts-daemon.service" --unit="acpid.service" --unit="apparmor.service" --unit="apport.service" --unit="auditd.service" --unit="cron.service" --unit="crond.service" --unit="dbus.service" --unit="dracut-*.service" --unit="haveged.service" --unit="ifplugd.service" --unit="ifup@*.service" --unit="init.scope" --unit="irqbalance.service" --unit="iscsid.service" --unit="lvm2-*.service" --unit="lxcfs.service" --unit="mdadm.service" --unit="network.service" --unit="NetworkManager*.service" --unit="open-iscsi.service" --unit="polkit.service" --unit="polkitd.service" --unit="qemu-guest-agent.service" --unit="rsyslog.service" --unit="session-*.scope" --unit="snapd*.service" --unit="ssh.service" --unit="sshd*.service" --unit="sssd.service" --unit="sysstat.service" --unit="systemd-*.service" --unit="user@*.service"
 
 Explicitly search for error messages in the Apache httpd unit only:
 
@@ -146,7 +146,7 @@ Output:
     2022-07-28 09:43:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 931] [client 127.0.0.1:34050] AH01071: Got error 'Primary script unknown' 
 
     The full command used was:
-    journalctl --reverse --priority=emerg..err --since=-24h --quiet --output=json --unit="httpd.service"
+    journalctl --reverse --priority=emerg..err --since=-24h --unit="httpd.service"
 
 
 States
