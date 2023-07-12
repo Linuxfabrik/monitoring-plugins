@@ -35,6 +35,14 @@ FAQ:
 Linux
 -----
 
+Path
+~~~~
+
+Wondering about ``/usr/lib64/nagios/plugins/`` on Debian/Ubuntu?
+
+**Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if the original Nagios-package installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+
+
 Installing using OS Package Manager (recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -75,8 +83,6 @@ Currently not implemented:
 * ``Mandrake.sudoers``: for Mandrake, Mandriva
 * ``Slackware.sudoers``: for Slackware
 * ``Solaris.sudoers``: for Nexenta, OmniOS, OpenIndiana, SmartOS, Solaris
-
-**Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if ``nagios-plugins-all`` installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
 
 
 Windows
