@@ -23,7 +23,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Simon Wunderlin,
                 adapted by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2023071203'
+__version__ = '2023071301'
 
 
 DESCRIPTION = """This plugin checks for a matching string in a XML document, fetched via http(s).
@@ -151,8 +151,8 @@ def main():
     # analyze data
     try:
         doc = ET.fromstring(lib.txt.to_bytes(result))
-    except Exception as e:
-        lib.base.cu('XML parse error "{}".'.format(e))
+    except Exception:
+        lib.base.cu('Failed to parse XML.')
 
     # https://lxml.de/xpathxslt.html
     if args.NAMESPACES:
@@ -164,13 +164,13 @@ def main():
                 lib.base.cu('Wrong namespace mapping syntax for "{}".'.format(ns))
         try:
             r = doc.xpath(args.XPATH, namespaces=namespaces)
-        except Exception as e:
-            lib.base.cu('XML xpath error "{}".'.format(e))
+        except Exception:
+            lib.base.cu('An XML xpath error occurred.')
     else:
         try:
             r = doc.xpath(args.XPATH)
-        except Exception as e:
-            lib.base.cu('XML xpath error "{}".'.format(e))
+        except Exception:
+            lib.base.cu('An XML xpath error occurred.')
 
     # over and out
     if args.EXPECT is None:

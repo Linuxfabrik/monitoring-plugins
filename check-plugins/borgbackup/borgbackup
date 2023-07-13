@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023071301'
 
 DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
 `cat /var/log/borg/borg-prune.log`
@@ -121,8 +121,8 @@ def main():
         endtime
         create_retc
         prune_retc
-    except UnboundLocalError as e:
-        lib.base.cu('Could not find all expected values in the logfile.\n{}'.format(e))
+    except UnboundLocalError:
+        lib.base.cu('Could not find all expected values in the logfile.')
 
     # We ignore retc 1, as it means operation reached its normal end, but there were warnings from borg.
     state = STATE_OK
