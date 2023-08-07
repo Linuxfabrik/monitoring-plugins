@@ -97,6 +97,8 @@ Simply download the latest zip file containing all plugins from https://download
 
     `According to Microsoft <https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default>`_, program files belong under %programfiles% instead of %programdata%, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). Nevertheless, the Icinga agent puts its files in ``c:\programdata\icinga2``. This is why we also recommend to use this directory.
 
+When using the plugins in Icinga: `According to the Icinga documentation <https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard>`_ the Icinga Agent runs as the *Network Service* user by default. This may result in *0x80070005 (E_ACCESSDENIED)* messages for some plugins. In this case, we recommend running the Icinga Agent under the *Local System* account, as plugins such as `updates <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates>`_ require additional permissions to perform certain lookups. Have a look at `#695 <https://github.com/Linuxfabrik/monitoring-plugins/issues/695#>`_ for details.
+
 
 Microsoft Windows Defender
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
