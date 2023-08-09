@@ -31,6 +31,7 @@ Help
 ----
 
 .. code-block:: text
+
     usage: xca-cert [-h] [-V] [-c CRIT] [--defaults-file DEFAULTS_FILE]
                     [--defaults-group DEFAULTS_GROUP] [--prefix PREFIX]
                     [--timeout TIMEOUT] [-w WARN]
