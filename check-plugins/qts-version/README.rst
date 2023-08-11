@@ -6,6 +6,10 @@ Overview
 
 This plugin lets you track if a QTS update is available. To check for updates, this plugin requests the in-built update check of the appliance.
 
+Hints:
+
+* Does not work on QTS 4.3 or less (see `#701 <https://github.com/Linuxfabrik/monitoring-plugins/issues/701>`_ for details).
+
 
 Fact Sheet
 ----------
