@@ -66,6 +66,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* csv-values: header included in data results despite setting "--skip-header" (fix [#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
 * journald-query: Rename perfdata from "sudo journald-query" to "journald-query"
 * swap-usage: Fix Traceback `PdhAddEnglishCounterW failed`
 
