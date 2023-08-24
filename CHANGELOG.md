@@ -31,6 +31,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* gitlab-health (fix #670)
 * gitlab-version
 * openstack-nova-list
 * postgresql-version
