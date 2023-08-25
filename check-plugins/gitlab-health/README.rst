@@ -8,6 +8,7 @@ Checks whether the GitLab application server is running. It does not hit the dat
 
 Hints:
 
+* Requires GitLab 9.1.0+
 * To access monitoring resources, the requesting client IP needs to be included in the allowlist. For details, see `how to add IPs to the allowlist for the monitoring endpoints <https://docs.gitlab.com/ee/administration/monitoring/ip_allowlist.html>`.
 * GitLab Health Checks: https://docs.gitlab.com/ee/administration/monitoring/health_check.html
 
