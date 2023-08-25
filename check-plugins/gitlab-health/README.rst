@@ -1,5 +1,5 @@
-Check example
-=============
+Check gitlab-health
+===================
 
 Overview
 --------
