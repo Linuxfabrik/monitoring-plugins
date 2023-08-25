@@ -1,0 +1,171 @@
+{
+    "Command": {
+        "cmd-check-gitlab-liveness": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$gitlab_liveness_always_ok$"
+                },
+                "--severity": {
+                    "value": "$gitlab_liveness_severity$"
+                },
+                "--timeout": {
+                    "value": "$gitlab_liveness_timeout$"
+                },
+                "--url": {
+                    "value": "$gitlab_liveness_url$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/gitlab-liveness",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-gitlab-liveness",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "f233045b-9c16-40e8-b6df-e2f5e52efeac"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-gitlab-liveness": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-gitlab-liveness",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "gitlab-liveness.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks whether the application server is running. This probe is used to know  if Rails Controllers are not deadlocked due to a multi-threading. Requires GitLab 12.4+.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-liveness",
+            "object_name": "tpl-service-gitlab-liveness",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "gitlab_liveness_always_ok": false,
+                "gitlab_liveness_severity": "warn",
+                "gitlab_liveness_timeout": 3,
+                "gitlab_liveness_url": "http://localhost/-/liveness"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "08dce95c-aa4d-43df-9dfd-6ab86f860b88"
+        }
+    },
+    "DataList": {
+        "gitlab_liveness_severity_list": {
+            "list_name": "gitlab_liveness_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "df36fd4a-0adb-4d4d-af89-c8d0aa21a74b"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "gitlab_liveness_always_ok",
+            "caption": "Gitlab Liveness: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "022c4679-9764-467f-8e1a-4b8392853f69"
+        },
+        "2": {
+            "varname": "gitlab_liveness_severity",
+            "caption": "Gitlab Liveness: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "gitlab_liveness_severity_list"
+            },
+            "uuid": "cd507035-2485-4563-9d24-f3bac1b9256a"
+        },
+        "3": {
+            "varname": "gitlab_liveness_timeout",
+            "caption": "Gitlab Liveness: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bf233a50-9d87-4538-884a-1f04beed5acb"
+        },
+        "4": {
+            "varname": "gitlab_liveness_url",
+            "caption": "Gitlab Liveness: URL",
+            "description": "GitLab health URL endpoint.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "db835a47-6d45-416a-8615-6823fb7eb1e8"
+        }
+    }
+}
