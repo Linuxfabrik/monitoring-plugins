@@ -32,10 +32,11 @@ Help
 .. code-block:: text
 
     usage: gitlab-liveness [-h] [-V] [--always-ok] [--severity {warn,crit}]
-                         [--test TEST] [--timeout TIMEOUT] [--url URL]
+                           [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-    Checks whether the GitLab application server is running. It does not hit the
-    database or verifies other services are running.
+    Checks whether the application server is running. This probe is used to know
+    if Rails Controllers are not deadlocked due to a multi-threading. Requires
+    GitLab 12.4+.
 
     options:
       -h, --help            show this help message and exit
@@ -46,8 +47,8 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      --url URL             GitLab health URL endpoint. Default:
-                            http://localhost/-/health
+      --url URL             GitLab liveness URL endpoint. Default:
+                            http://localhost/-/liveness
 
 
 Usage Examples
@@ -55,13 +56,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./gitlab-liveness --severity warn --timeout 3 --url http://localhost/-/health
+    ./gitlab-liveness --severity warn --timeout 3 --url http://localhost/-/liveness
 
 Output:
 
 .. code-block:: text
 
-    The GitLab application server is processing requests, but this does not mean that the database or other services are ready.
+    The GitLab application server is running. No Rails Controllers are deadlocked.
 
 
 States
@@ -78,7 +79,7 @@ Perfdata / Metrics
     :header-rows: 1
 
     Name,                                       Type,               Description                                           
-    gitlab-liveness-state,                        Number,             "The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN)."
+    gitlab-liveness-state,                      Number,             "The current state (0 = OK, 1 = WARN, 2 = CRIT, 3 = UNKNOWN)."
 
 
 Credits, License
