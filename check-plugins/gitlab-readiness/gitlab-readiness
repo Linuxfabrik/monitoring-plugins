@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023082501'
+__version__ = '2023082801'
 
 DESCRIPTION = """The readiness probe checks whether the GitLab instance is ready to accept 
                 traffic via Rails Controllers.
@@ -119,6 +119,7 @@ def main():
             'cache_check',
             'chat_check',
             'cluster_cache_check',
+            'cluster_shared_state_check',
             'db_check',
             'db_load_balancing_check',
             'feature_flag_check',
@@ -131,6 +132,10 @@ def main():
             'shared_state_check',
             'trace_chunks_check',
         ]:
+            try:
+                result.get(check)[0].get('status', '')
+            except TypeError:
+                continue
             if result.get(check)[0].get('status', '') != 'ok':
                 check_state = lib.base.str2state(args.SEVERITY)
                 state = lib.base.get_worst(state, check_state)
