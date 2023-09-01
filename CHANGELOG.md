@@ -53,6 +53,7 @@ Features:
 Monitoring Plugins:
 
 * All plugins: Consistently reporting errors using cu() instead of oao()
+* about-me: Show systemd timers with next runtime
 * fail2ban: Improve output, add unit-test
 * grafana-version: Add Grafana v9.5
 * infomaniak-events: Add filter for service categories

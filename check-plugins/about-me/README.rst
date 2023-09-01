@@ -200,13 +200,11 @@ Full output example:
     * proc-sys-fs-binfmt_misc.automount
 
     systemctl list-timers:
-    * logrotate.timer
-    * unbound-anchor.timer
-    * duba.timer
-    * fstrim.timer
-    * systemd-tmpfiles-clean.timer
-    * notify-and-schedule.timer
-    * raid-check.timer
+    unit                         ! activates                      ! next                         
+    -----------------------------+--------------------------------+------------------------------
+    systemd-tmpfiles-clean.timer ! systemd-tmpfiles-clean.service ! Sat 2023-09-02 05:22:46 CEST 
+    unbound-anchor.timer         ! unbound-anchor.service         ! Sat 2023-09-02 00:00:00 CEST 
+    wordpress-cron.timer         ! wordpress-cron.service         ! Fri 2023-09-01 10:15:00 CEST 
 
     3rd-party Python libs required by any of the plugins when running in source code variant:
     * Installed: psutil 5.8.0, pymysql.cursors 0.10.1
