@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023090401'
 
 DESCRIPTION = '''This check is some kind of user interface for smartctl, which is a tool for
     querying and controlling SMART (Self-Monitoring, Analysis, and Reporting Technology) data in
@@ -33,15 +33,10 @@ DESCRIPTION = '''This check is some kind of user interface for smartctl, which i
 
 DEFAULT_IGNORE = []
 
-if lib.base.LINUX:
-    # exclude some block devices with their numbers according to `/proc/devices`
-    CMD_LIST_DISKS = "lsblk --nodeps --output name,type --noheadings --exclude 9,11,230,252,253,254"
-    CMD_SMARTCTL = 'smartctl --xall {disk_path}'
-else:
-    CMD_LIST_DISKS = "smartctl --scan"
-    # Without forcing the device type (-d option), smartctl often fails with "Unable to read
-    # device ID" (especially for external / USB drives) on Windows
-    CMD_SMARTCTL = 'smartctl --device=sat --xall {disk_path}'
+CMD_LIST_DISKS = 'smartctl --scan-open'
+# Without forcing the device type (--device option), smartctl often fails with "Unable to read
+# device ID" (especially for external / USB drives)
+CMD_SMARTCTL = 'smartctl --xall {disk_path}'
 
 
 def parse_args():
@@ -827,14 +822,11 @@ def main():
 
     for line in stdout.splitlines():
         disk, disk_type = line.strip().split(maxsplit=1)
-        if not disk or disk in args.IGNORE or (lib.base.LINUX and 'disk' not in disk_type):
+        if not disk or disk in args.IGNORE:
             continue
 
         if args.TEST is None:
-            if lib.base.LINUX:
-                cmd_smartctl = CMD_SMARTCTL.format(disk_path='/dev/' + disk)
-            else:
-                cmd_smartctl = CMD_SMARTCTL.format(disk_path=disk)
+            cmd_smartctl = CMD_SMARTCTL.format(disk_path=disk)
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd_smartctl))
         else:
             # do not call the command, put in test data
