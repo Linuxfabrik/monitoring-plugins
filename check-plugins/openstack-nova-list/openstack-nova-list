@@ -36,7 +36,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071301'
+__version__ = '2023090701'
 
 DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
                  instances (aka virtual servers).
@@ -194,6 +194,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    # https://github.com/openstack/keystoneauth
     # https://github.com/openstack/python-novaclient
     # set a bunch of possible OpenStack credentials
     env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
@@ -290,7 +291,7 @@ def main():
         vm_state_count['VERIFY_RESIZE'],
         vm_state_count['ERROR'],
     )
-    msg += 'Last status update {} UTC ({} ago).'.format(
+    msg += 'Last status change {} UTC ({} ago).'.format(
         max_last_update,
         lib.human.seconds2human(
             lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
