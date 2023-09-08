@@ -104,7 +104,7 @@ def main():
     """The main function. Hier spielt die Musik.
     """
 
-    # logic taken from mysqltuner.pl:mariadb_aria(), v1.9.8
+    # logic taken from mysqltuner.pl:mariadb_aria(), v2.2.8
     # including variable names
 
     # parse the command line, exit with UNKNOWN if it fails
@@ -130,7 +130,7 @@ def main():
 
     # Aria pagecache
     sql = """
-        select ifnull(sum(index_length),0) as total_aria_indexes
+        select ifnull(sum(index_length), 0) as total_aria_indexes
         from information_schema.tables
         where table_schema not in ('information_schema')
             and engine = 'aria';
@@ -149,12 +149,17 @@ def main():
     perfdata = ''
 
     # calculations
-    if mystat.get('Aria_pagecache_read_requests', 0) and int(mystat['Aria_pagecache_read_requests']) > 0:
-        pct_aria_keys_from_mem = 100 - round(int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100, 1)
+    if mystat.get('Aria_pagecache_read_requests', 0) \
+    and int(mystat['Aria_pagecache_read_requests']) > 0:
+        pct_aria_keys_from_mem = 100 - round(
+            int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100,
+            1,
+        )
     else:
         pct_aria_keys_from_mem = 0
 
-    if int(myvar['aria_pagecache_buffer_size']) < total_aria_indexes and pct_aria_keys_from_mem < 95:
+    if int(myvar['aria_pagecache_buffer_size']) < total_aria_indexes \
+    and pct_aria_keys_from_mem < 95:
         aria_pagecache_buffer_size_state = STATE_WARN
         state = lib.base.get_worst(state, aria_pagecache_buffer_size_state)
         msg += ' (adjust aria_pagecache_buffer_size > {}){}'.format(
@@ -180,7 +185,7 @@ def main():
         if pct_aria_keys_from_mem < 95:
             pct_aria_keys_from_mem_state = STATE_WARN
             state = lib.base.get_worst(state, pct_aria_keys_from_mem_state)
-            msg += '{}.'.format(
+            msg += '{}'.format(
                 lib.base.state2str(pct_aria_keys_from_mem_state, prefix=' '),
             )
         perfdata += lib.base.get_perfdata('mysql_pct_aria_keys_from_mem', pct_aria_keys_from_mem, '%', 95, None, 0, 100)
