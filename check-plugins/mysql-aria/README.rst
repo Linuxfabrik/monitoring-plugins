@@ -9,7 +9,7 @@ Checks some metrics of the crash-safe, non-transactional Aria Storage Engine in 
 User account requires:
 
 * Access to INFORMATION_SCHEMA (user with no privileges is sufficient).
-* SELECT privileges on any schema whose tables might use the Aria engine.
+* SELECT privileges on all schemas and tables to provide accurate results.
 
 Hints:
 
@@ -28,7 +28,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
-    "Requirements",                         "User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "3rd Party Python modules",             "``pymysql``"
 
 
