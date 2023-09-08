@@ -183,7 +183,7 @@ def main():
     """The main function. Hier spielt die Musik.
     """
 
-    # logic taken from mysqltuner.pl:log_file_recommendations(), v1.9.8
+    # logic taken from mysqltuner.pl:log_file_recommendations(), v2.2.8
     # including variable names
 
     # parse the command line, exit with UNKNOWN if it fails
@@ -243,11 +243,15 @@ def main():
     perfdata = ''
 
     if log_error == 'stderr':
-        lib.base.cu('log_error is set to STDERR, so this check can\'t read it.')
+        lib.base.cu('log_error is set to STDERR, so this check can\'t read stderr.')
 
     match = re.search(r'^(docker|podman|kubectl):(.*)', log_error)
     if match:
-        cmd = "{} logs --tail={} '{}'".format(match.group(1).strip(), MAXLINES, match.group(2).strip())
+        cmd = "{} logs --tail={} '{}'".format(
+            match.group(1).strip(),
+            MAXLINES,
+            match.group(2).strip(),
+        )
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
             lib.base.cu('{} exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
@@ -255,7 +259,7 @@ def main():
 
     match = re.search(r'^systemd:(.*)', log_error)
     if match:
-        cmd = "journalctl -n {} -b -u '{}'".format(MAXLINES, match.group(1).strip())
+        cmd = "journalctl --lines {} --boot --unit '{}'".format(MAXLINES, match.group(1).strip())
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
             lib.base.cu('`{}` exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
@@ -279,7 +283,7 @@ def main():
         if size >= 32 * 1024 * 1024:
             size_state = STATE_WARN
             state = lib.base.get_worst(state, size_state)
-            msg += 'bigger than 32 MiB{} (you should analyze why or implement a rotation log), '.format(
+            msg += 'bigger than 32 MiB{} (you should analyze why or implement a rotation log strategy such as logrotate), '.format(
                 lib.base.state2str(size_state, prefix=' '),
             )
         logfile = lib.base.coe(lib.disk.read_file(log_error))
