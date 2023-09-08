@@ -60,6 +60,7 @@ Monitoring Plugins:
 * infomaniak-events: Add filter for service categories
 * infomaniak-swiss-backup-devices: Improve column ordering in output
 * journald-query: Improve output
+* mysql-logfile: Stop magic auto-configure if `--server-log` is given
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
 * openstack-nova-list: Make more robust in case of OpenStack errors
 * systemd-unit: Encode unit-name to text before running systemd command
