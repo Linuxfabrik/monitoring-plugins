@@ -12,8 +12,9 @@
 """
 
 import argparse  # pylint: disable=C0413
-import flatdict  # pylint: disable=C0413
+import json  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
+import flatdict  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
@@ -25,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023091401'
+__version__ = '2023091402'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -90,7 +91,7 @@ def concat_values(mydict, hierarchy):
     """
     result = ''
     hierarchy = hierarchy.split(':')
-    for i, item in enumerate(hierarchy):
+    for i, item in enumerate(hierarchy):  # pylint: disable=W0612
         # testing
         # * services:name
         # * services:0:name
@@ -106,6 +107,8 @@ def concat_values(mydict, hierarchy):
 
 
 def statuspalstate2state(sps):
+    """Convert Statuspal's incident level to the Nagios world.
+    """
     if sps is None:
         return STATE_OK
     if sps == 'minor':
@@ -132,7 +135,6 @@ def main():
         result = lib.base.coe(lib.url.fetch_json(args.URL))
     else:
         # do not call the command, put in test data
-        import json
         stdout, stderr, retc = lib.test.test(args.TEST)
         result = json.loads(stdout)
 
@@ -144,7 +146,6 @@ def main():
     # init some vars
     msg = ''
     state = statuspalstate2state(result['status_page']['current_incident_type'])
-    perfdata = ''
 
     # analyze data and build the message
 
@@ -174,7 +175,6 @@ def main():
 
     # services - search for any incidents in services
     flattened_result = flatdict.FlatterDict(result['services'])
-    old_key = ''
     table_data = []
     tmp = {}
     for key, value in flattened_result.items():
@@ -187,18 +187,13 @@ def main():
             tmp = {}
     if table_data:
         msg += '\n\n'
-        keys = [
-            'name',
-            'state',
-        ]
-        headers = [
-            'Service',
-            'State',
-        ]
-        msg += lib.base.get_table(table_data , keys, header=headers)
+        msg += lib.base.get_table(
+            table_data,
+            ['name', 'state'],
+            header=['Service', 'State'],
+        )
 
     # maintenance
-    old_key = ''
     table_data = []
     for maint in result['maintenances']:
         table_data.append({
@@ -207,29 +202,20 @@ def main():
             'starts_at': '{}'.format(
                 lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
             ),
-            # in case of an ongoing maint, ends_at is "None" 
+            # in case of an ongoing maint, ends_at is "None"
             'ends_at': '{}'.format(
                 lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
             ) if maint.get('ends_at') is not None else 'in progress',
         })
     if table_data:
         msg += '\n'
-        keys = [
-            'title',
-            'type',
-            'starts_at',
-            'ends_at',
-        ]
-        headers = [
-            'Maintenance',
-            'Type',
-            'Start',
-            'End',
-        ]
-        msg += lib.base.get_table(table_data , keys, header=headers)
+        msg += lib.base.get_table(
+            table_data,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=['Maintenance', 'Type', 'Start', 'End'],
+        )
 
     # upcoming_maintenances (just fyi)
-    old_key = ''
     table_data = []
     for maint in result['upcoming_maintenances']:
         table_data.append({
@@ -238,29 +224,21 @@ def main():
             'starts_at': '{}'.format(
                 lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
             ),
-            # in case of an ongoing maint, ends_at is "None" 
+            # in case of an ongoing maint, ends_at is "None"
             'ends_at': '{}'.format(
                 lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
             ) if maint.get('ends_at') is not None else 'open end',
         })
     if table_data:
         msg += '\n'
-        keys = [
-            'title',
-            'type',
-            'starts_at',
-            'ends_at',
-        ]
-        headers = [
-            'Upcoming Maintenance',
-            'Type',
-            'Start',
-            'End',
-        ]
-        msg += lib.base.get_table(table_data , keys, header=headers)
+        msg += lib.base.get_table(
+            table_data,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=['Upcoming Maintenance', 'Type', 'Start', 'End'],
+        )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, '', always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
