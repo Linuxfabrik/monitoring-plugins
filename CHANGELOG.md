@@ -37,6 +37,7 @@ Monitoring Plugins:
 * gitlab-version
 * openstack-nova-list
 * postgresql-version
+* statuspal
 
 Project:
 
