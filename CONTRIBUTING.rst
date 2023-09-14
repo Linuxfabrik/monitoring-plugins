@@ -42,10 +42,12 @@ Checklist:
 * The plugin itself.
 * A nice 16x16 transparent PNG icon, for example based on https://simpleicons.org or font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
 * README file explaining "How?" and Why?"
-* optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
-* optional: Grafana dashboard (see `GRAFANA <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst>`_) and Icinga Web 2 Grafana Module .ini file, if you also define a Service Set (you need a consistent Service Name to rely on)
-* optional: Icinga Director Basket Config
-* optional: sudoers file (see `sudoers File <#sudoers-file>`_)
+* Optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
+* Optional: ``requirements.txt``
+* If providing performance data: Grafana dashboard (see `GRAFANA <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst>`_) and ``.ini`` file for the Icinga Web 2 Grafana Module
+* Icinga Director Basket Config for the check plugin
+* Icinga Service Set in ``all-the-rest.json``
+* Optional: sudoers file (see `sudoers File <#sudoers-file>`_)
 
 
 Rules of Thumb
