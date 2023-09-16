@@ -4,7 +4,7 @@ Check rpm-lastactivity
 Overview
 --------
 
-Checks the timespan since the last rpm activity, for example due to a yum/dnf install, update or remove.
+Checks the timespan since the last package manager activity, for example due to a yum/dnf install/update.
 
 
 Fact Sheet
@@ -26,10 +26,10 @@ Help
 
     usage: rpm-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
 
-    Checks the timespan since the last rpm activity, for example due to a yum/dnf
-    install/update.
+    Checks the timespan since the last package manager activity, for example due
+    to a yum/dnf install/update.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -c CRIT, --critical CRIT
@@ -49,7 +49,7 @@ Output:
 
 .. code-block:: text
 
-    Last rpm/yum/dnf activity is 5M 2W days ago [WARNING] (thresholds 90D/365D).
+    Last package manager activity is 5M 2W ago [WARNING] (thresholds 90D/365D).
 
 
 States
