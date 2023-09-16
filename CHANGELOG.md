@@ -77,6 +77,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * csv-values: header included in data results despite setting "--skip-header" (fix [#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
+* path-rw-test: To avoid race conditions, use a unique filename (fix [#283](https://github.com/Linuxfabrik/monitoring-plugins/issues/283))
 * journald-query: Rename perfdata from "sudo journald-query" to "journald-query"
 * swap-usage: Fix Traceback `PdhAddEnglishCounterW failed`
 
