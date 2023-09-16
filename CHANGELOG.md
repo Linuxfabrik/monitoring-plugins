@@ -27,10 +27,12 @@ Grafana:
 
 Icinga Director:
 
+* all-the-rest.json: Add Debian 12 (Bookworm), add deb-lastactivity
 * all-the-rest.json: Increase file size warning for `/var/log/secure`
 
 Monitoring Plugins:
 
+* deb-lastactivity ([PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
 * gitlab-health (fix #670)
 * gitlab-liveness (fix #670)
 * gitlab-readiness (fix #670)

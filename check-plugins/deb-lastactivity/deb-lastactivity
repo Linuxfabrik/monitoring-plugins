@@ -23,10 +23,10 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023091601'
 
-DESCRIPTION = """Checks the timespan since the last deb activity, for example due to a yum/dnf
-                install/update."""
+DESCRIPTION = """Checks the timespan since the last package manager activity,
+                 for example due to an apt install/update."""
 
 DEFAULT_WARN  = 90   # days
 DEFAULT_CRIT  = 365  # days
@@ -74,18 +74,17 @@ def main():
 
     # execute the shell command and return its result and exit code
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(
-        #'deb --query --all --queryformat "%{INSTALLTIME} %{NAME}\n"'
-        'dpkg-query --show -f=''${db-fsys:Last-Modified} ${Package}\n' '*' '| grep -v '^ ''
+        "dpkg-query --show --showformat='${db-fsys:Last-Modified} ${Package}\n'"
     ))
     if stderr:
         lib.base.cu(stderr)
 
-    # stdout: '1662130946 unbound-libs\n1662130898 NetworkManager-libnm\n'
+    # stdout: 1680072089 adduser\n1680072121 apparmor\n1680072091 apt\n
     try:
-        last_activity = lib.txt.mltext2array(stdout, skip_header=False, sort_key=0) # `sort | tail -1`
+        last_activity = lib.txt.mltext2array(stdout, skip_header=False, sort_key=0)
         last_activity = int(last_activity[-1][0])
     except:
-        lib.base.cu('Unable to get deb info, maybe an update never happened.')
+        lib.base.cu('Unable to get dpkg-query info, maybe an update never happened.')
 
     # calculating the final check state
     delta = lib.time.now() - last_activity
@@ -93,7 +92,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        'Last deb/yum/dnf activity is {} days ago{} (thresholds {}D/{}D).'.format(
+        'Last package manager activity is {} ago{} (thresholds {}D/{}D).'.format(
             lib.human.seconds2human(delta),
             lib.base.state2str(state, prefix=' '),
             args.WARN,
