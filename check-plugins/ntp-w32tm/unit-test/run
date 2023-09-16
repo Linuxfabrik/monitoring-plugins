@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../ntp-w32tm'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 4 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -23 (119.209ns per tick)', stdout)
+        self.assertIn('Root Delay: 0.0296267s', stdout)
+        self.assertIn('Root Dispersion: 0.0448955s', stdout)
+        self.assertIn('ReferenceId: 0x28779426 (source IP:  40.119.148.38)', stdout)
+        self.assertIn('Last Successful Sync Time: 9/16/2023 12:47:56 PM', stdout)
+        self.assertIn('Source: time.windows.com,0x8', stdout)
+        self.assertIn('Poll Interval: 7 (128s)', stdout)
+        self.assertIn('Phase Offset: 0.0000039s', stdout)
+        self.assertIn('ClockRate: 0.0156250s', stdout)
+        self.assertIn('State Machine: 2 (Sync)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 7.8834592s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Leap Indicator: 3 (not synchronized), No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Leap Indicator: 3(not synchronized)', stdout)
+        self.assertIn('Stratum: 0 (unspecified)', stdout)
+        self.assertIn('Precision: -23 (119.209ns per tick)', stdout)
+        self.assertIn('Root Delay: 0.0267908s', stdout)
+        self.assertIn('Root Dispersion: 0.0402331s', stdout)
+        self.assertIn('ReferenceId: 0x00000000 (unspecified)', stdout)
+        self.assertIn('Last Successful Sync Time: 9/16/2023 12:52:13 PM', stdout)
+        self.assertIn('Source: time.windows.com,0x8', stdout)
+        self.assertIn('Poll Interval: 6 (64s)', stdout)
+        self.assertIn('Phase Offset: 0.7679486s', stdout)
+        self.assertIn('ClockRate: 0.0156250s', stdout)
+        self.assertIn('State Machine: 0 (Unset)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 19.2218793s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 1 (primary reference - syncd by radio clock)', stdout)
+        self.assertIn('Precision: -23 (119.209ns per tick)', stdout)
+        self.assertIn('Root Delay: 0.0003538s', stdout)
+        self.assertIn('Root Dispersion: 0.0100002s', stdout)
+        self.assertIn('ReferenceId: 0x00000000 (unspecified)', stdout)
+        self.assertIn('Last Successful Sync Time: 5/23/2023 7:51:39 PM', stdout)
+        self.assertIn('Source: VM IC Time Synchronization Provider', stdout)
+        self.assertIn('Poll Interval: 6 (64s)', stdout)
+        self.assertIn('Phase Offset: -0.0000013s', stdout)
+        self.assertIn('ClockRate: 0.0156250s', stdout)
+        self.assertIn('State Machine: 2 (Sync)', stdout)
+        self.assertIn('Time Source Flags: 3 (Authenticated Hardware )', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 15.7344985s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
+        self.assertIn('Leap Indicator: 3 (not synchronized), No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Leap Indicator: 3(not synchronized)', stdout)
+        self.assertIn('Stratum: 0 (unspecified)', stdout)
+        self.assertIn('Precision: -23 (119.209ns per tick)', stdout)
+        self.assertIn('Root Delay: 0.0000000s', stdout)
+        self.assertIn('Root Dispersion: 0.0000000s', stdout)
+        self.assertIn('ReferenceId: 0x00000000 (unspecified)', stdout)
+        self.assertIn('Last Successful Sync Time: unspecified', stdout)
+        self.assertIn('Source: Local CMOS Clock', stdout)
+        self.assertIn('Poll Interval: 6 (64s)', stdout)
+        self.assertIn('Phase Offset: 0.0000000s', stdout)
+        self.assertIn('ClockRate: 0.0156250s', stdout)
+        self.assertIn('State Machine: 0 (Unset)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 187.9314763s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('Leap Indicator: 3 (last minute has 61 seconds), Last Sync Error: 2 (The computer did not resync because only stale time data was available.)', stdout)
+        self.assertIn('Leap Indicator: 3(last minute has 61 seconds)', stdout)
+        self.assertIn('Stratum: 3 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -6 (15.625ms per tick)', stdout)
+        self.assertIn('Root Delay: 0.1794868s', stdout)
+        self.assertIn('Root Dispersion: 4.6419912s', stdout)
+        self.assertIn('ReferenceId: 0x41371515 (source IP:  65.55.21.21)', stdout)
+        self.assertIn('Last Successful Sync Time: 2011-12-05 23:25:18', stdout)
+        self.assertIn('Source: time.windows.com,0x9', stdout)
+        self.assertIn('Poll Interval: 6 (64s)', stdout)
+        self.assertIn('Phase Offset: 0.0000695s', stdout)
+        self.assertIn('ClockRate: 0.0156243s', stdout)
+        self.assertIn('State Machine: 1 (Hold)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 2 (The computer did not resync because only stale time data was available.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 1281.9919104s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE06(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0'))
+        self.assertIn('Stratum: 5 (secondary reference - syncd by (S)NTP) [WARNING]', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 5 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -6 (15.625ms per tick)', stdout)
+        self.assertIn('Root Delay: 0.1093000s', stdout)
+        self.assertIn('Root Dispersion: 0.2018032s', stdout)
+        self.assertIn('ReferenceId: 0xABCDEFAB (source IP:  n.n.n.n)', stdout)
+        self.assertIn('Last Successful Sync Time: 11/18/2012 2:26:21 AM', stdout)
+        self.assertIn('Source: DCNAME.company.com', stdout)
+        self.assertIn('Poll Interval: 14 (16384s)', stdout)
+        self.assertIn('Phase Offset: -0.0027702s', stdout)
+        self.assertIn('ClockRate: 0.0156001s', stdout)
+        self.assertIn('State Machine: 2 (Sync)', stdout)
+        self.assertIn('Time Source Flags: 2 (Authenticated )', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 10651.6021203s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE07(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 2 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -6 (15.625ms per tick)', stdout)
+        self.assertIn('Root Delay: 0.0312500s', stdout)
+        self.assertIn('Root Dispersion: 0.0314141s', stdout)
+        self.assertIn('ReferenceId: 0x81060F1E (source IP:  129.6.15.30)', stdout)
+        self.assertIn('Last Successful Sync Time: 3/25/2014 11:55:30 AM', stdout)
+        self.assertIn('Source: time-c.nist.gov', stdout)
+        self.assertIn('Poll Interval: 7 (128s)', stdout)
+        self.assertIn('Phase Offset: 0.0000667s', stdout)
+        self.assertIn('ClockRate: 0.0156001s', stdout)
+        self.assertIn('State Machine: 2 (Sync)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 64 (Time Service)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 97.2535519s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE08(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0'))
+        self.assertIn('Time since Last Good Sync Time: 38943.4367708s [WARNING]', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 4 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -6 (15.625ms per tick)', stdout)
+        self.assertIn('Root Delay: 0.0937500s', stdout)
+        self.assertIn('Root Dispersion: 1.0042565s', stdout)
+        self.assertIn('ReferenceId: 0xDEADBEEF (source IP:  n.n.n.n)', stdout)
+        self.assertIn('Last Successful Sync Time: 10/24/2012 8:25:56 AM', stdout)
+        self.assertIn('Source: DCName.acmecorp.com', stdout)
+        self.assertIn('Poll Interval: 11 (2048s)', stdout)
+        self.assertIn('Phase Offset: 0.1063193s', stdout)
+        self.assertIn('ClockRate: 0.0156005s', stdout)
+        self.assertIn('State Machine: 1 (Hold)', stdout)
+        self.assertIn('Time Source Flags: 2 (Authenticated )', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 38943.4367708s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE09(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE09,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Leap Indicator: 0(no warning)', stdout)
+        self.assertIn('Stratum: 2 (secondary reference - syncd by (S)NTP)', stdout)
+        self.assertIn('Precision: -6 (15.625ms per tick)', stdout)
+        self.assertIn('Root Delay: 0.0000000s', stdout)
+        self.assertIn('Root Dispersion: 0.0100000s', stdout)
+        self.assertIn('ReferenceId: 0x564D5450 (source IP:  86.77.84.80)', stdout)
+        self.assertIn('Last Successful Sync Time: 28/08/2014 08.52.00', stdout)
+        self.assertIn('Source: VM IC Time Synchronization Provider', stdout)
+        self.assertIn('Poll Interval: 6 (64s)', stdout)
+        self.assertIn('Phase Offset: 0.0051939s', stdout)
+        self.assertIn('ClockRate: 0.0156215s', stdout)
+        self.assertIn('State Machine: 2 (Sync)', stdout)
+        self.assertIn('Time Source Flags: 3 (Authenticated Hardware )', stdout)
+        self.assertIn('Server Role: 64 (Time Service)', stdout)
+        self.assertIn('Last Sync Error: 0 (The command completed successfully.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 3.3291425s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE10(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE10,,0'))
+        self.assertIn('Leap Indicator: 3 (not synchronized), No NTP server used [WARNING], Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Leap Indicator: 3(not synchronized)', stdout)
+        self.assertIn('Stratum: 0 (unspecified)', stdout)
+        self.assertIn('Precision: -23 (119.209ns per tick)', stdout)
+        self.assertIn('Root Delay: 0.0000000s', stdout)
+        self.assertIn('Root Dispersion: 0.0000000s', stdout)
+        self.assertIn('ReferenceId: 0x00000000 (unspecified)', stdout)
+        self.assertIn('Last Successful Sync Time: unspecified', stdout)
+        self.assertIn('Source: Local CMOS Clock', stdout)
+        self.assertIn('Poll Interval: 10 (1024s)', stdout)
+        self.assertIn('Phase Offset: 0.0000000s', stdout)
+        self.assertIn('ClockRate: 0.0156250s', stdout)
+        self.assertIn('State Machine: 0 (Unset)', stdout)
+        self.assertIn('Time Source Flags: 0 (None)', stdout)
+        self.assertIn('Server Role: 0 (None)', stdout)
+        self.assertIn('Last Sync Error: 1 (The computer did not resync because no time data was available.)', stdout)
+        self.assertIn('Time since Last Good Sync Time: 19.4881785s', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()

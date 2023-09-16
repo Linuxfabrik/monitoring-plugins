@@ -15,7 +15,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Monitoring Plugins:
 
-* Notifications Plugins now generate URLs for Icinga DB Web instead of the old IcingaWeb2 Monitoring Module (fix #643)
+* Notifications Plugins now generate URLs for Icinga DB Web instead of the old IcingaWeb2 Monitoring Module (fix [#643](https://github.com/Linuxfabrik/monitoring-plugins/issues/643))
 
 
 ### Added
@@ -33,10 +33,11 @@ Icinga Director:
 Monitoring Plugins:
 
 * deb-lastactivity ([PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
-* gitlab-health (fix #670)
-* gitlab-liveness (fix #670)
-* gitlab-readiness (fix #670)
+* gitlab-health (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
+* gitlab-liveness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
+* gitlab-readiness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
 * gitlab-version
+* ntp-w32tm (fix [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
 * openstack-nova-list
 * postgresql-version
 * statuspal
