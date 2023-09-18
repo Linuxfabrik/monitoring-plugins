@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023091801'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -125,7 +125,7 @@ def get_status(conn):
 
 
 def get_pf_memory(conn, myvar):
-    # get memory usage of Performance Schema
+    # get memory usage from Performance Schema
     if not myvar.get('performance_schema', 0):
         return 0
     if myvar['performance_schema'] == 'OFF':
@@ -135,12 +135,11 @@ def get_pf_memory(conn, myvar):
     infoPFSMemory = lib.base.coe(lib.db_mysql.select(conn, sql))
     if len(infoPFSMemory) == 0:
         return 0
-    pfmem = 0
     for item in infoPFSMemory:
         if item['Type'] == 'performance_schema' and item['Name'].startswith('memory'):
-            pfmem = int(item['Status'])
+            return int(item['Status'])
             break
-    return pfmem
+    return 0
 
 
 def get_other_process_memory():
@@ -243,8 +242,9 @@ def main():
     # Global memory
     # Max used memory is memory used by MySQL based on Max_used_connections
     # This is the max memory used theoretically calculated with the max concurrent connection number reached by mysql
-    mycalc['max_used_memory'] = mycalc['server_buffers'] + mycalc['max_total_per_thread_buffers'] + get_pf_memory(conn, myvar)
-    mycalc['max_peak_memory'] = mycalc['server_buffers'] + mycalc['total_per_thread_buffers'] + get_pf_memory(conn, myvar)
+    mycalc['pf_memory'] = get_pf_memory(conn, myvar)
+    mycalc['max_used_memory'] = mycalc['server_buffers'] + mycalc['max_total_per_thread_buffers'] + mycalc['pf_memory']
+    mycalc['max_peak_memory'] = mycalc['server_buffers'] + mycalc['total_per_thread_buffers'] + mycalc['pf_memory']
     physical_memory = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
     mycalc['pct_max_used_memory'] = round(mycalc['max_used_memory'] / physical_memory * 100, 1)
     mycalc['pct_max_physical_memory'] = round(mycalc['max_peak_memory'] / physical_memory * 100, 1)
@@ -280,6 +280,47 @@ def main():
             lib.base.state2str(mem2_state, prefix=' '),
         )
 
+    # be nice and print the calculation
+    msg += '\n\nCalculations:\n'
+    msg += '* Memory usage according to Performance Schema: pfm = {}\n'.format(
+        lib.human.bytes2human(mycalc['pf_memory']),
+    )
+    msg += '* Server Buffers: sb = {}\n'.format(
+        lib.human.bytes2human(mycalc['server_buffers']),
+    )
+    msg += '* Max Total per Thread Buffers: mtptb = {}\n'.format(
+        lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
+    )
+    msg += '* Total per Thread Buffers: tptb = {}\n'.format(
+        lib.human.bytes2human(mycalc['total_per_thread_buffers']),
+    )
+    msg += '* Max Used Memory: mum = sb + mtptb + pfm = {} + {} + {} = {}\n'.format(
+        lib.human.bytes2human(mycalc['server_buffers']),
+        lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
+        lib.human.bytes2human(mycalc['pf_memory']),
+        lib.human.bytes2human(mycalc['max_used_memory']),
+    )
+    msg += '* Possible Peak Memory: ppm = sb + tptb + pfm = {} + {} + {} = {}\n'.format(
+        lib.human.bytes2human(mycalc['server_buffers']),
+        lib.human.bytes2human(mycalc['total_per_thread_buffers']),
+        lib.human.bytes2human(mycalc['pf_memory']),
+        lib.human.bytes2human(mycalc['max_peak_memory']),
+    )
+    msg += '* Physical Memory: pm = {}\n'.format(
+        lib.human.bytes2human(physical_memory),
+    )
+    msg += '* Max Used Memory %: mump = mum / pm * 100 = {} / {} * 100 = {}%\n'.format(
+        lib.human.bytes2human(mycalc['max_used_memory']),
+        lib.human.bytes2human(physical_memory),
+        lib.human.bytes2human(mycalc['pct_max_used_memory']),
+    )
+    msg += '* Max Possible Memory Usage %: mpmu = ppm / pm * 100 = {} / {} * 100 = {}%\n'.format(
+        lib.human.bytes2human(mycalc['max_peak_memory']),
+        lib.human.bytes2human(physical_memory),
+        lib.human.bytes2human(mycalc['pct_max_physical_memory']),
+    )
+
+    # perfdata
     perfdata += lib.base.get_perfdata('mysql_aria_pagecache_buffer_size', myvar.get('aria_pagecache_buffer_size', 0), 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_innodb_buffer_pool_size', myvar['innodb_buffer_pool_size'], 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_innodb_log_buffer_size', myvar['innodb_log_buffer_size'], 'B', None, None, 0, None)
