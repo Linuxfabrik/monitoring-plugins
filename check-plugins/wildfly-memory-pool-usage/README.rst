@@ -8,7 +8,10 @@ This check plugin monitors the memory pool usage of a WildFly server, using its 
 
 Tested with WildFly 11 and WildFly 23+.
 
-`How is the java memory pool divided? <https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided>`_
+Hints:
+
+* See `additional notes for all wildfly monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.rst>`_
+* `How is the java memory pool divided? <https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided>`_
 
     **Heap memory** is the runtime data area from which the Java VM allocates memory for all class instances and arrays. The heap may be of a fixed or variable size. The garbage collector is an automatic memory management system that reclaims heap memory for objects.
 
@@ -22,31 +25,6 @@ Tested with WildFly 11 and WildFly 23+.
     * Permanent Generation: The pool containing all the reflective data of the virtual machine itself, such as class and method objects. With Java VMs that use class data sharing, this generation is divided into read-only and read-write areas.
     * Compressed Class Space
     * Metaspace
-
-To create a monitoring user, do this:
-
-.. code-block:: bash
-
-    /opt/wildfly/bin/add-user.sh 
-
-.. code-block:: text
-
-    What type of user do you wish to add? 
-     a) Management User (mgmt-users.properties) 
-     b) Application User (application-users.properties)
-    (a): a
-
-    Enter the details of the new user to add.
-    Using realm 'ManagementRealm' as discovered from the existing property files.
-    Username : wildfly-monitoring
-    Password : 
-    Re-enter Password : 
-    What groups do you want this user to belong to? (Please enter a comma separated list, or leave blank for none)[  ]: 
-    About to add user 'wildfly-monitoring' for realm 'ManagementRealm'
-    Is this correct yes/no? yes
-    Is this new user going to be used for one AS process to connect to another AS process? 
-    e.g. for a slave host controller connecting to the master or for a Remoting connection for server to server Jakarta Enterprise Beans calls.
-    yes/no? no
 
 
 Fact Sheet
