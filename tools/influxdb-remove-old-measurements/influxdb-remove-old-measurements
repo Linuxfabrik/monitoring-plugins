@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import argparse  # pylint: disable=C0413
+import sys
+import datetime
+
+import influxdb
+
+import lib.args
+import lib.base
+import lib.human
+from lib.globals import STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023092001'
+
+DESCRIPTION = """This tool removes old measurements in InfluxDB, therefore to reducing InfluxDB disk usage.
+
+    Measurements where the latest entry is older than the given threshold will be deleted (per host)."""
+
+DEFAULT_HOSTNAME = 'localhost'
+DEFAULT_PORT = 8086
+DEFAULT_THRESHOLD = 90 # days
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--database',
+        help='InfluxDB Database.',
+        dest='DATABASE',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--dry-run',
+        help='Perform a trial run with no changes made.',
+        dest='DRY_RUN',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--hostname',
+        help='InfluxDB Hostname. Default: %(default)s.',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='InfluxDB Password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--port',
+        help='InfluxDB Port.',
+        dest='PORT',
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--threshold',
+        help='Threshold in days.',
+        dest='THRESHOLD',
+        default=DEFAULT_THRESHOLD,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='InfluxDB Username.',
+        dest='USERNAME',
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    client = influxdb.InfluxDBClient(
+        host=args.HOSTNAME,
+        port=args.PORT,
+        username=args.USERNAME,
+        password=args.PASSWORD,
+        database=args.DATABASE,
+    )
+
+    try:
+        client.ping()
+    except:
+        lib.base.cu('Failed to connect to InfluxDB.')
+
+    threshold = datetime.timedelta(days=args.THRESHOLD)
+
+    for measurement in client.get_list_measurements():
+        measurement = measurement["name"]
+
+        hosts = client.query('SELECT * FROM "{}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1'.format(measurement))
+
+        for key, generator in hosts.items():
+            hostname = key[1]['hostname']
+            # remove trailing Z and floating points if present
+            timestamp = next(generator)['time'][:-1].split('.')[0]
+            time = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
+
+            delta = datetime.datetime.now() - time
+
+            if delta > threshold:
+                print('Deleting "{}" for host "{}" (last entry {} ago)'.format(
+                    measurement,
+                    hostname,
+                    lib.human.seconds2human(delta.total_seconds()),
+                ))
+
+                if not args.DRY_RUN:
+                    client.delete_series(
+                        measurement=measurement,
+                        tags={
+                            "hostname": hostname,
+                        },
+                    )
+
+if __name__ == '__main__':
+    main()
