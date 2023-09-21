@@ -58,6 +58,7 @@ Monitoring Plugins:
 
 * All plugins: Consistently reporting errors using cu() instead of oao()
 * about-me: Show systemd timers with next runtime
+* cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
 * disk-smart: Skip unsupported disks (fix #672)
 * fail2ban: Improve output, add unit-test
 * grafana-version: Add Grafana v9.5
