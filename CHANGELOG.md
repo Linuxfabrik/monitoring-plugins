@@ -66,6 +66,7 @@ Monitoring Plugins:
 * journald-query: Improve output
 * mysql-logfile: Stop magic auto-configure if `--server-log` is given
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
+* mysql-logfile: State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
 * openstack-nova-list: Make more robust in case of OpenStack errors
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix #190)
