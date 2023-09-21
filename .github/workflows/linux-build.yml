@@ -35,7 +35,13 @@ jobs:
 
     steps:
 
-      # we use `${{ env.BASE_DIR }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
+      # checkout the latest version for the build scripts
+      - name: 'checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@v3'
+        with:
+          path: '${{ env.BASE_DIR }}/repos/monitoring-plugins-latest'
+
+      # checkout the given version for the actual monitoring plugins themselves
       - name: 'checkout the monitoring-plugins repo'
         uses: 'actions/checkout@v3'
         with:
@@ -71,7 +77,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/debian10,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins-latest/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   build-debian11:
@@ -91,7 +97,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/debian11,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins-latest/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   # RHEL
@@ -112,7 +118,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel7,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   build-rhel8:
@@ -132,7 +138,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel8,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel8/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel8/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   build-rhel9:
@@ -152,7 +158,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel9,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,

@@ -17,13 +17,13 @@ apt-get install -y ruby ruby-dev rubygems build-essential
 gem install fpm
 
 # prepare venv
-. /repos/monitoring-plugins/build/shared/venv.sh
+. /repos/monitoring-plugins-latest/build/shared/venv.sh
 
 # compile using pyinstaller
-. /repos/monitoring-plugins/build/shared/compile.sh
+. /repos/monitoring-plugins-latest/build/shared/compile.sh
 
 # prepare files for fpm
-. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
+. /repos/monitoring-plugins-latest/build/shared/prepare-fpm.sh
 
 # create packages using fpm
 cd /tmp/fpm/check-plugins

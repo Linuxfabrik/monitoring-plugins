@@ -4,7 +4,7 @@ mkdir -p /tmp/fpm/check-plugins
 cd /tmp/fpm/check-plugins
 
 cat > .fpm << EOF
---after-install /repos/monitoring-plugins/build/shared/rpm-post-install
+--after-install /repos/monitoring-plugins-latest/build/shared/rpm-post-install
 --architecture all
 --chdir /tmp/dist/summary/check-plugins
 --description "This Enterprise Class Check Plugin Collection offers a bunch of Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network."
