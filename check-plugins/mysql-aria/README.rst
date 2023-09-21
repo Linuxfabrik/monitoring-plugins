@@ -75,7 +75,6 @@ States
 ------
 
 * WARN if ``aria_pagecache_buffer_size`` < ``total_aria_indexes`` and ``pct_aria_keys_from_mem`` < 95%.
-* WARN if ``aria_pagecache_read_requests`` > 0 and ``pct_aria_keys_from_mem`` < 95%.
 
 
 Perfdata / Metrics
