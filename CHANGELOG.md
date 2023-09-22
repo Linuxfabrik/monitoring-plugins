@@ -66,6 +66,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: Improve column ordering in output
 * journald-query: Improve output
 * mysql-aria: Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
+* mysql-innodb-buffer-pool-size: Improve code and output
 * mysql-logfile: Stop magic auto-configure if `--server-log` is given
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
 * mysql-logfile: State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))

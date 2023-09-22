@@ -6,13 +6,7 @@ Overview
 
 Checks the size of the InnoDB buffer pool in MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_innodb().
 
-Always take care of both ``innodb_buffer_pool_size`` and ``innodb_log_file_size`` when making adjustments. For that have a look at the following output example ``InnoDB buffer pool / data size: 36.0GiB / 49.4GiB [WARNING]. Set innodb_buffer_pool_size >= 49.4GiB. innodb_log_file_size * innodb_log_files_in_group / innodb_buffer_pool_size = 9.0GiB * 2 / 36.0GiB = 50.0% [WARNING] (should be 25%). Set innodb_log_file_size to 4.5GiB.``:
-
-* Here, buffer pool is 36 GB.
-* Data does not fit in, it needs 49 GB.
-* The check plugin complains and makes some suggestions on how to resize ``innodb_buffer_pool_size`` and ``innodb_log_file_size``.
-* If we adjust ``innodb_buffer_pool_size`` to 50 GB, and ``innodb_log_files_in_group`` is set to ``2`` (deprecated and ignored from MariaDB 10.5.2), we should set ``innodb_log_file_size`` to ``6.25`` to get the 25% log file versus pool size ratio. Then both warnings should change to OK.
-* Attention: Assuming this is a database server with entirely/primarily InnoDB tables, you need at least 64 GB, following the rule that the InnoDB buffer pool size can be set up to 80% of the total memory in this case.
+Always take care of both ``innodb_buffer_pool_size`` and ``innodb_log_file_size`` when making adjustments.
 
 User account requires:
 
@@ -78,14 +72,17 @@ Output:
 
 .. code-block:: text
 
-    InnoDB buffer pool / data size: 36.0GiB / 49.4GiB [WARNING]. Set innodb_buffer_pool_size >= 49.4GiB. innodb_log_file_size * innodb_log_files_in_group / innodb_buffer_pool_size = 9.0GiB * 2 / 36.0GiB = 50.0% [WARNING] (should be 25%). Set innodb_log_file_size to 4.5GiB.
+    Data size: 2.5GiB, innodb_buffer_pool_size: 4.0GiB
+    Ratio innodb_log_file_size (1.0GiB) * innodb_log_files_in_group (1) vs. innodb_buffer_pool_size (4.0GiB): 25%
 
 
 States
 ------
 
+* WARN on 32 bit systems when InnoDB buffer pool size > 4 GiB.
+* WARN on 64 bit systems when InnoDB buffer pool size > 16 EiB.
 * WARN if size of data does not fit into the InnoDB buffer pool.
-* WARN if the InnoDB log file size versus the InnoDB pool size ratio is not in the range of 20 to 30%.
+* WARN if the InnoDB log file size versus the InnoDB buffer pool size ratio is not in the range of 20 to 30%.
 
 
 Perfdata / Metrics
