@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092002'
+__version__ = '2023092501'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -217,6 +217,13 @@ def main():
             ['title', 'type', 'starts_at', 'ends_at'],
             header=['Maintenance', 'Type', 'Start', 'End'],
         )
+        # get newest maintenance task
+        if table_data[2]['starts_at'] <= lib.time.now(as_type='iso'):
+            msg = 'Ongoing maintenance since {}: {}\n{}'.format(
+                table_data[2]['starts_at'],
+                table_data[2]['title'],
+                msg,
+            )
 
     # upcoming_maintenances (just fyi)
     table_data = []
