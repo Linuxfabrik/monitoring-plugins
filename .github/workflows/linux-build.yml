@@ -60,7 +60,7 @@ jobs:
 
 
   # Debian
-  build-debian10:
+  build-debian12:
     runs-on:
       - 'rhel8'
       - 'self-hosted'
@@ -69,97 +69,15 @@ jobs:
 
     steps:
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/debian10'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian12'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/debian12'
 
-      - name: 'Build for Debian 10'
+      - name: 'Build for Debian 12'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian10,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian12,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins-latest/build/debian10/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-
-
-  build-debian11:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/debian11'
-
-      - name: 'Build for Debian 10'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/debian11,destination=/build,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins-latest/build/debian11/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-
-
-  # RHEL
-  build-rhel7:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel7'
-
-      - name: 'Build for RHEL7'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel7,destination=/build,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel7/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-
-
-  build-rhel8:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel8'
-
-      - name: 'Build for RHEL8'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel8,destination=/build,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel8/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-
-
-  build-rhel9:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/rhel9'
-
-      - name: 'Build for RHEL9'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/rhel9,destination=/build,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins-latest/build/rhel9/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
-
+          docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins-latest/build/debian12/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
@@ -168,11 +86,7 @@ jobs:
       - 'rhel8'
       - 'self-hosted'
     needs:  # we want this to run after the above jobs
-      - 'build-debian10'
-      - 'build-debian11'
-      - 'build-rhel7'
-      - 'build-rhel8'
-      - 'build-rhel9'
+      - 'build-debian12'
     if: '${{ always() }}' # however, we want to upload the artifacts even if one of the job fails
 
     steps:
