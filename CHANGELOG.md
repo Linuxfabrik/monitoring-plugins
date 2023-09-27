@@ -53,6 +53,9 @@ Features:
 
 * sudoers: Don't log command calls any longer.
 
+Icinga Director:
+
+* all-the-rest.json: Remove "Journald Query - aide-check.service" from the AIDE service set because it's not useful
 
 Monitoring Plugins:
 
