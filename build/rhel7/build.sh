@@ -2,8 +2,8 @@
 
 set -e
 
-RELEASE="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
+PACKAGE_VERSION="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
+PACKAGE_ITERATION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
 # subscription-manager repos --enable rhel-7-server-optional-rpms --enable rhel-server-rhscl-7-rpms # not needed in ubi containers
@@ -29,10 +29,10 @@ source /opt/rh/rh-ruby30/enable # analogous to `scl enable rh-ruby30 bash`
 gem install fpm
 
 # prepare venv
-. /repos/monitoring-plugins-latest/build/shared/venv.sh
+. /repos/monitoring-plugins/build/shared/venv.sh
 
 # compile using pyinstaller
-. /repos/monitoring-plugins-latest/build/shared/compile.sh
+. /repos/monitoring-plugins/build/shared/compile.sh
 
 # RHEL only - compile .te file to .pp for SELinux
 mkdir /tmp/selinux
@@ -42,7 +42,7 @@ make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 \cp -a linuxfabrik-monitoring-plugins.pp /tmp/dist/summary/check-plugins
 
 # prepare files for fpm
-. /repos/monitoring-plugins-latest/build/shared/prepare-fpm.sh
+. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
 
 # create packages using fpm
 cd /tmp/fpm/check-plugins

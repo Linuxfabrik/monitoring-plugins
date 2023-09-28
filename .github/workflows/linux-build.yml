@@ -11,15 +11,20 @@ on:
   workflow_dispatch:
     inputs:
 
+      package-version:
+        description: 'The version to give to the packages. Defaults to the current tag.'
+        required: false
+        default: ''
+
+      lib-repo-ref:
+        description: 'The branch, tag or SHA to checkout (lib repo). Defaults to the current tag.'
+        required: false
+        default: ''
+
       package-iteration:
         description: 'The iteration to give to the package. RPM calls this the ‘release’. FreeBSD calls it ‘PORTREVISION’. Debian calls this ‘debian_revision’'
         required: false
         default: '1'
-
-      package-version:
-        description: 'Which tag to build for. Defaults to the current tag. Note: Specifying commits does not work, as the SHA is not the same in the monitoring-plugins and lib repo.'
-        required: false
-        default: ''
 
 env:
   # we use `${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
@@ -35,25 +40,16 @@ jobs:
 
     steps:
 
-      # checkout the latest version for the build scripts
-      - name: 'checkout the monitoring-plugins repo'
-        uses: 'actions/checkout@v3'
-        with:
-          path: '${{ env.BASE_DIR }}/repos/monitoring-plugins-latest'
-          ref: '${{ github.ref }}' # use the current branch
-
-      # checkout the given version for the actual monitoring plugins themselves
       - name: 'checkout the monitoring-plugins repo'
         uses: 'actions/checkout@v3'
         with:
           path: '${{ env.BASE_DIR }}/repos/monitoring-plugins'
-          ref: '${{ inputs.package-version || github.ref }}'
 
       - name: 'checkout the lib repo'
         uses: 'actions/checkout@v3'
         with:
           repository: 'Linuxfabrik/lib'
-          ref: '${{ inputs.package-version || github.ref }}'
+          ref: '${{ inputs.lib-repo-ref || github.ref_name }}'
           path: '${{ env.BASE_DIR }}/repos/lib'
 
       - name: 'mkdir ${{ env.BASE_DIR }}/build'
@@ -78,7 +74,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/build/debian12,destination=/build,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins-latest/build/debian12/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+          docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins/build/debian12/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)

@@ -23,10 +23,10 @@ yum -y install ruby-devel gcc make rpm-build libffi-devel
 gem install fpm
 
 # prepare venv
-. /repos/monitoring-plugins-latest/build/shared/venv.sh
+. /repos/monitoring-plugins/build/shared/venv.sh
 
 # compile using pyinstaller
-. /repos/monitoring-plugins-latest/build/shared/compile.sh
+. /repos/monitoring-plugins/build/shared/compile.sh
 
 # RHEL only - compile .te file to .pp for SELinux
 mkdir /tmp/selinux
@@ -36,7 +36,7 @@ make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 \cp -a linuxfabrik-monitoring-plugins.pp /tmp/dist/summary/check-plugins
 
 # prepare files for fpm
-. /repos/monitoring-plugins-latest/build/shared/prepare-fpm.sh
+. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
 
 # create packages using fpm
 cd /tmp/fpm/check-plugins
