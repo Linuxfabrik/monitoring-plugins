@@ -84,7 +84,7 @@ Help
 
 
 Usage statuspals
---------------
+----------------
 
 .. code-block:: bash
 
