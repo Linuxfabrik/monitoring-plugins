@@ -12,10 +12,10 @@
 """
 
 import argparse  # pylint: disable=C0413
-import base64  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
+import lib.qts  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023092901'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -116,24 +116,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
-    # authenticate and get the authSid
-    url = '{}/cgi-bin/authLogin.cgi'.format(args.URL)
-    data = {
-        'user': args.USERNAME,
-        'pwd': lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(args.PASSWORD))),
-        }
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
-    data = xmltodict.parse(result)['QDocRoot']
-
-    auth_passed = data['authPassed']
-    if auth_passed is not None and len(auth_passed) == 1 and auth_passed == "0":
-        lib.base.cu('Failed to authenticate.')
-    authSid = data['authSid']
+    authSid = lib.base.coe(lib.qts.get_auth_sid(args))
 
     # get the current version
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
     data = xmltodict.parse(result)['QDocRoot']
 
     installed_version = data['firmware']['version']
