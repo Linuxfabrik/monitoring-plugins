@@ -93,3 +93,16 @@ jobs:
         with:
           name: 'monitoring-plugins-linux-packages'
           path: '${{ env.BASE_DIR }}/build/'
+
+
+  cleanup:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:  # we want this to run after the above jobs
+      - 'upload-outputs'
+
+    steps:
+
+      - name: 'rm -rf ${{ env.BASE_DIR }}'
+        run: 'rm -rf ${{ env.BASE_DIR }}'
