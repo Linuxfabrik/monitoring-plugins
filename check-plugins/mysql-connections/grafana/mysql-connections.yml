@@ -72,8 +72,62 @@ spec:
 
     targets:
 
-    - alias: mysql_connections
-      refId: mysql_connections
+    - alias: mysql_threads_connected
+      refId: mysql_threads_connected
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL Connections
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_threads_connected
+
+    - alias: mysql_threads_running
+      refId: mysql_threads_running
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL Connections
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_threads_running
+
+    - alias: mysql_aborted_connects
+      refId: mysql_aborted_connects
       groupBy:
       - params:
         - $interval
@@ -99,7 +153,34 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_connections
+        value: mysql_aborted_connects
+
+    - alias: mysql_max_connections
+      refId: mysql_max_connections
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: MySQL Connections
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_max_connections
 
 
   - title: MySQL Connections - Percentages
@@ -192,7 +273,7 @@ spec:
         value: mysql_pct_connections_used
 
 
-  - title: MySQL Connections - Max. Used
+  - title: MySQL Connections - Timeout System Variables
     type: timeseries
     gridPos:
       h: 8
@@ -208,7 +289,7 @@ spec:
           spanNulls: true
         decimals: 0
         min: 0
-        unit: none
+        unit: s
     options:
       legend:
         calcs:
@@ -226,8 +307,8 @@ spec:
 
     targets:
 
-    - alias: mysql_aborted_connects
-      refId: mysql_aborted_connects
+    - alias: mysql_interactive_timeout
+      refId: mysql_interactive_timeout
       groupBy:
       - params:
         - $interval
@@ -251,10 +332,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_aborted_connects
+        value: mysql_interactive_timeout
 
-    - alias: mysql_max_connections
-      refId: mysql_max_connections
+    - alias: mysql_wait_timeout
+      refId: mysql_wait_timeout
       groupBy:
       - params:
         - $interval
@@ -278,31 +359,4 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: mysql_max_connections
-
-    - alias: mysql_max_used_connections
-      refId: mysql_max_used_connections
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      measurement: /^$command$/
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
-      - condition: AND
-        key: service
-        operator: '='
-        value: MySQL Connections
-      - condition: AND
-        key: metric
-        operator: '='
-        value: mysql_max_used_connections
+        value: mysql_wait_timeout

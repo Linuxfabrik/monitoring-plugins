@@ -21,9 +21,9 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023053101'
+__version__ = '2023100601'
 
-DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and 
+DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and
                  if name resolution is active for new connections on MySQL/MariaDB."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
@@ -110,6 +110,9 @@ def get_status(conn):
         where variable_name like 'Aborted_connects'
             or variable_name like 'Connections'
             or variable_name like 'Max_used_connections'
+            or variable_name like 'Max_used_connections_time'
+            or variable_name like 'Threads_connected'
+            or variable_name like 'Threads_running'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
@@ -142,59 +145,64 @@ def main():
 
     # init some vars
     msg = ''
+    recommendations = ''
     state = STATE_OK
     perfdata = ''
-
-    # calculations
     mycalc = {}
-    mycalc['pct_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
-    if mycalc['pct_connections_used'] > 100:
-        mycalc['pct_connections_used'] = 100
-    mycalc['pct_connections_aborted'] = round(int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1)
 
     # Aborted Connections
-    msg += '{}% aborted connections ({}/{})'.format(
+    aborted_connections_state = STATE_OK
+    mycalc['pct_connections_aborted'] = round(int(mystat['Aborted_connects']) / int(mystat['Connections']) * 100, 1)
+    if mycalc['pct_connections_aborted'] > 3:
+        aborted_connections_state = STATE_WARN
+        state = lib.base.get_worst(state, aborted_connections_state)
+        recommendations += '* Reduce or eliminate unclosed connections and network issues.\n'
+    msg += '{}% aborted connections ({}/{}){}; '.format(
         mycalc['pct_connections_aborted'],
         lib.human.number2human(mystat['Aborted_connects']),
         lib.human.number2human(mystat['Connections']),
+        lib.base.state2str(aborted_connections_state, prefix=' '),
     )
 
-    if mycalc['pct_connections_aborted'] > 3:
-        conn2_state = STATE_WARN
-        state = lib.base.get_worst(state, conn2_state)
-        msg += '{}. Reduce or eliminate unclosed connections and network issues.; '.format(
-            lib.base.state2str(conn2_state, prefix=' '),
-        )
-    else:
-        msg += '; '
-
-    # Max. used Connections
-    msg += 'max. {}% used ({}/{})'.format(
-        mycalc['pct_connections_used'],
-        mystat['Max_used_connections'],
-        myvar['max_connections'],
-    )
-
+    # currently used Connections
+    cur_connections_state = STATE_OK
+    mycalc['pct_connections_used'] = round(int(mystat['Threads_connected']) / int(myvar['max_connections']) * 100, 1)
+    mycalc['pct_connections_used'] = min(100, mycalc['pct_connections_used']) # value cannot be higher than 100
     if mycalc['pct_connections_used'] > 85:
-        conn1_state = STATE_WARN
-        state = lib.base.get_worst(state, conn1_state)
-        msg += '{}. Reduce or eliminate persistent connections to reduce connection usage (set max_connections > {}, wait_timeout < {} and/or interactive_timeout < {}).; '.format(
-            lib.base.state2str(conn1_state, prefix=' '),
-            myvar['max_connections'],
+        cur_connections_state = STATE_WARN
+        state = lib.base.get_worst(state, cur_connections_state)
+        recommendations += '* Reduce or eliminate persistent connections to reduce connection usage (set connections > {}, wait_timeout < {} and/or interactive_timeout < {}).\n'.format(
+            mystat['Connections'],
             myvar['wait_timeout'],
             myvar['interactive_timeout'],
         )
-    else:
-        msg += '; '
+    msg += 'cur {}% used ({}/{}, {} running){}; '.format(
+        mycalc['pct_connections_used'],
+        mystat['Threads_connected'],
+        mystat['Connections'],
+        mystat['Threads_running'],
+        lib.base.state2str(cur_connections_state, prefix=' '),
+    )
+
+    # Max. used Connections
+    mycalc['pct_max_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
+    mycalc['pct_max_connections_used'] = min(100, mycalc['pct_max_connections_used']) # value cannot be higher than 100
+    msg += 'max. {}% used ({}/{}){}; '.format(
+        mycalc['pct_max_connections_used'],
+        mystat['Max_used_connections'],
+        myvar['max_connections'],
+        ' at ' + mystat['Max_used_connections_time'] if mystat.get('Max_used_connections_time') else '',
+    )
 
     # name resolution
     if not args.IGNORE_NAME_RESOLUTION and myvar.get('skip_name_resolve'):
         if myvar['skip_name_resolve'] == 'OFF':
-            conn3_state = STATE_WARN
-            state = lib.base.get_worst(state, conn3_state)
-            msg += 'Name resolution is active: A reverse name resolution is made for each new connection and can reduce performance{}. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.; '.format(
-                lib.base.state2str(conn3_state, prefix=' '),
+            name_resolution_state = STATE_WARN
+            state = lib.base.get_worst(state, name_resolution_state)
+            msg += 'Name resolution is active{}; '.format(
+                lib.base.state2str(name_resolution_state, prefix=' '),
             )
+            recommendations += '* A reverse name resolution is made for each new connection and can reduce performance. Configure your accounts with ip or subnets only, then update your configuration with skip-name-resolve=ON.'
 
     perfdata += lib.base.get_perfdata('mysql_interactive_timeout', myvar['interactive_timeout'], 's', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_max_connections', myvar['max_connections'], None, None, None, 0, None)
@@ -202,13 +210,19 @@ def main():
 
     perfdata += lib.base.get_perfdata('mysql_aborted_connects', mystat['Aborted_connects'], 'c', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_connections', mystat['Connections'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mysql_max_used_connections', mystat['Max_used_connections'], 'c', None, None, 0, None)
+    perfdata += lib.base.get_perfdata('mysql_threads_connected', mystat['Threads_connected'], None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('mysql_threads_running', mystat['Threads_running'], None, None, None, 0, None)
 
     perfdata += lib.base.get_perfdata('mysql_pct_connections_aborted', mycalc['pct_connections_aborted'], '%', None, None, 0, 100)
     perfdata += lib.base.get_perfdata('mysql_pct_connections_used', mycalc['pct_connections_used'], '%', None, None, 0, 100)
 
+    msg = msg[:-2] # remove trailing "; "
+    if recommendations:
+        msg += '\n\nRecommendations:\n'
+        msg += recommendations
+
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
