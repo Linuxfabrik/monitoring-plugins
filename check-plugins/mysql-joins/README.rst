@@ -62,7 +62,11 @@ Output:
 
 .. code-block:: text
 
-    3909 joins performed without indexes [WARNING]. Set join_buffer_size > 4194304, or always use indexes with JOINs. Raise the join_buffer_size until JOINs not using indexes are found.
+    222.0 joins without indexes while MySQL/MariaDB is 20m 13s up (approx. 15.8K joins without indexes per day)
+
+    Recommendations:
+    * Set join_buffer_size > 256.0KiB, or always use indexes with JOINs
+    * Raise the join_buffer_size until JOINs not using indexes are found
 
 
 States
