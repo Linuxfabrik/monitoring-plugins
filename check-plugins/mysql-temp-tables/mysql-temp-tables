@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023100901'
 
 DESCRIPTION = """Checks the number of on-disk versus in-memory temporary tables created
                  in MySQL/MariaDB."""
@@ -151,13 +151,16 @@ def main():
         )
         if mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] < 256 * 1024 * 1024:
             state = STATE_WARN
-            msg += '{}. Set tmp_table_size > {} and max_heap_table_size > {}. '.format(
+            msg += '{}'.format(
                 lib.base.state2str(state, prefix=' '),
-                myvar['tmp_table_size'],
-                myvar['max_heap_table_size'],
             )
-            msg += 'When making adjustments, make tmp_table_size/max_heap_table_size equal. '
-            msg += 'Reduce your SELECT DISTINCT queries which have no LIMIT clause.'
+            msg += '\n\nRecommendations:\n'
+            msg += '* Set tmp_table_size > {} and max_heap_table_size > {}\n'.format(
+                lib.human.bytes2human(int(myvar['tmp_table_size'])),
+                lib.human.bytes2human(int(myvar['max_heap_table_size'])),
+            )
+            msg += '* When making adjustments, make tmp_table_size/max_heap_table_size equal\n'
+            msg += '* Reduce your SELECT DISTINCT queries which have no LIMIT clause\n'
         elif mycalc['pct_temp_disk'] > 25 and mycalc['max_tmp_table_size'] >= 256 * 1024 * 1024:
             state = STATE_WARN
             msg += '{}. Temporary table size is already large - reduce result set size. '.format(
