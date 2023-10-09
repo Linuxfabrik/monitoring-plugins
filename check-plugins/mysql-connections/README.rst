@@ -68,7 +68,7 @@ Output:
 
 .. code-block:: text
 
-    0.0% aborted connections (0.0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; Name resolution is active [WARNING]
+    0.0% aborted connections (0.0/3.1K); current 90% used (136/151, 5 threads running) [WARNING]; peak 93% used (140/151) at 2023-10-06 10:08:47; ; interactive_timeout = 1h, wait_timeout = 1; Name resolution is active [WARNING]
 
     Recommendations:
     * Reduce or eliminate unclosed connections and network issues.

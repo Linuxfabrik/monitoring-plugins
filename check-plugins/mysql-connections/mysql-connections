@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023100901'
+__version__ = '2023100902'
 
 DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and
                  if name resolution is active for new connections on MySQL/MariaDB."""
@@ -194,6 +194,11 @@ def main():
         mystat['Max_used_connections'],
         myvar['max_connections'],
         ' at ' + mystat['Max_used_connections_time'] if mystat.get('Max_used_connections_time') else '',
+    )
+
+    msg += 'interactive_timeout = {}, wait_timeout = {}; '.format(
+        lib.human.seconds2human(myvar['interactive_timeout']),
+        lib.human.seconds2human(myvar['wait_timeout']),
     )
 
     # name resolution
