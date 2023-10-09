@@ -17,11 +17,12 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023100601'
+__version__ = '2023100901'
 
 DESCRIPTION = """Checks the connection usage rate, the rate of aborted connections and
                  if name resolution is active for new connections on MySQL/MariaDB."""
@@ -176,18 +177,19 @@ def main():
             myvar['wait_timeout'],
             myvar['interactive_timeout'],
         )
-    msg += 'cur {}% used ({}/{}, {} running){}; '.format(
+    msg += 'current {}% used ({}/{}, {} {} running){}; '.format(
         mycalc['pct_connections_used'],
         mystat['Threads_connected'],
-        mystat['Connections'],
+        myvar['max_connections'],
         mystat['Threads_running'],
+        lib.txt.pluralize('thread', mystat['Threads_running']),
         lib.base.state2str(cur_connections_state, prefix=' '),
     )
 
     # Max. used Connections
     mycalc['pct_max_connections_used'] = round(int(mystat['Max_used_connections']) / int(myvar['max_connections']) * 100, 1)
     mycalc['pct_max_connections_used'] = min(100, mycalc['pct_max_connections_used']) # value cannot be higher than 100
-    msg += 'max. {}% used ({}/{}){}; '.format(
+    msg += 'peak {}% used ({}/{}){}; '.format(
         mycalc['pct_max_connections_used'],
         mystat['Max_used_connections'],
         myvar['max_connections'],
