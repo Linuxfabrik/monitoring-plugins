@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = 'This check provides NGINX basic status information.'
 
@@ -94,7 +94,7 @@ def main():
     if args.TEST is None:
         URL = args.URL
         if URL[0:4] != 'http':
-            lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
         # fetch the URL
         result = lib.base.coe(lib.url.fetch(URL))
     else:
@@ -120,7 +120,7 @@ def main():
         requests_per_connection = round(float(total_requests) / float(total_connections_handled), 1)
         tmp, connections_reading, tmp, connections_writing, tmp, connections_waiting = result[3].strip().split(' ')
     except:
-        lib.base.oao('Got no valuable response from {}.'.format(args.URL), STATE_UNKNOWN)
+        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
 
     # identify any alerts
     if total_connections_handled != total_connections_accepted:

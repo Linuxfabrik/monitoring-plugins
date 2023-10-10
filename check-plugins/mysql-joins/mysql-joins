@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023100901'
 
 DESCRIPTION = """Checks if many joins per day without indexes were executed on MySQL/MariaDB."""
 
@@ -138,11 +138,17 @@ def main():
     # Joins
     if mycalc['joins_without_indexes_per_day'] > 250:
         state = STATE_WARN
-        msg = '{} joins performed without indexes{}. Set join_buffer_size > {}, or always use indexes with JOINs. Raise the join_buffer_size until JOINs not using indexes are found.'.format(
-            mycalc['joins_without_indexes'],
+        msg = '{} joins without indexes while MySQL/MariaDB is {} up (approx. {} joins without indexes per day){}'.format(
+            lib.human.number2human(mycalc['joins_without_indexes']),
+            lib.human.seconds2human(int(mystat['Uptime'])),
+            lib.human.number2human(mycalc['joins_without_indexes_per_day']),
             lib.base.state2str(state, prefix=' '),
-            myvar['join_buffer_size'],
         )
+        msg += '\n\nRecommendations:\n'
+        msg += '* Set join_buffer_size > {}, or always use indexes with JOINs\n'.format(
+            lib.human.bytes2human(int(myvar['join_buffer_size'])),
+        )
+        msg += '* Raise the join_buffer_size until JOINs not using indexes are found\n'
     else:
         state = STATE_OK
         msg = 'Everything is ok.'

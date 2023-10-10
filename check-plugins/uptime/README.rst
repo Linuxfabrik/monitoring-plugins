@@ -50,7 +50,7 @@ Output:
 
 .. code-block:: text
 
-    Up 1W 9h
+    Up 1W 5D since 2023-05-22 10:36:26
 
 
 States

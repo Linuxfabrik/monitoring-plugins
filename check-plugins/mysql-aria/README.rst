@@ -4,12 +4,18 @@ Check mysql-aria
 Overview
 --------
 
-Checks some metrics of the crash-safe, non-transactional Aria Storage Engine in MariaDB. Aria is used for internal temporary tables in MariaDB and not shipped with MySQL or Percona Server. The logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mariadb_aria(), v1.9.8.
+Checks some metrics of the crash-safe, non-transactional Aria Storage Engine in MariaDB. Aria is used for internal temporary tables in MariaDB and not shipped with MySQL or Percona Server. The logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mariadb_aria().
+
+User account requires:
+
+* Access to INFORMATION_SCHEMA (user with no privileges is sufficient).
+* SELECT privileges on all schemas and tables to provide accurate results.
 
 Hints:
 
 * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
-* Requires a user account with high privileges to access schemas like INFORMATION_SCHEMA. `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
+* `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
+* "total Aria indexes: 0.0B" means that there are no Aria-based tables at all, or the user performing the check does not have SELECT privileges on them.
 
 
 Fact Sheet
@@ -22,7 +28,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
-    "Requirements",                         "User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "3rd Party Python modules",             "``pymysql``"
 
 
@@ -70,7 +75,6 @@ States
 ------
 
 * WARN if ``aria_pagecache_buffer_size`` < ``total_aria_indexes`` and ``pct_aria_keys_from_mem`` < 95%.
-* WARN if ``aria_pagecache_read_requests`` > 0 and ``pct_aria_keys_from_mem`` < 95%.
 
 
 Perfdata / Metrics

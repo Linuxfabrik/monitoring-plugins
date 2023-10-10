@@ -37,7 +37,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Checks the time of last data modification for a file or directory, in seconds.'
 
@@ -180,14 +180,14 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME and args.URL:
-        lib.base.oao('The --filename and -u / --url parameter are mutually exclusive. Please only use one.', STATE_UNKNOWN)
+        lib.base.cu('The --filename and -u / --url parameter are mutually exclusive. Please only use one.')
     if args.URL:
         split_url = args.URL.split('://')
         if len(split_url) != 2:
-            lib.base.oao('Could not parse the protocol of the url "{}".'.format(args.URL), STATE_UNKNOWN)
+            lib.base.cu('Could not parse the protocol of the url "{}".'.format(args.URL))
         proto, url = split_url
         if proto != 'smb':
-            lib.base.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
 
     file_msg = ''
     file_count = 0
@@ -225,7 +225,7 @@ def main():
 
     if args.URL:
         if not HAVE_SMB:
-            lib.base.oao('Python module "{}" is not installed.'.format(missing_lib), STATE_UNKNOWN)
+            lib.base.cu('Python module "{}" is not installed.'.format(missing_lib))
         for item in lib.base.coe(lib.smb.glob(url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN)):
             try:
                 if item.is_file() and args.ONLY_DIRS:

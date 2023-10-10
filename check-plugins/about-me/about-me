@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023091401'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -507,7 +507,7 @@ def find_software(): # pylint: disable=R0915
 
     s['gitlab'] = {
         'display-name': 'GitLab',
-        'tag-name': None,
+        'tag-name': 'gitlab',
         'guessed': os.path.isdir('/opt/gitlab'),
         'installed': False,
         'version': None,
@@ -1878,6 +1878,7 @@ def get_python_modules():
         #'csv',
         #'datetime',
         #'fnmatch',
+        'flatdict',
         #'glob',
         #'json',
         #'locale',
@@ -1938,21 +1939,43 @@ def get_systemd_timers():
     # (eg systemd 239 on CentOS 7), therefore we have to parse the human output.
     # in order to list for a different user (`--user`), we would need to sudo to that user
     # first - we will skip that for now
+
+    # NEXT                         LEFT           LAST                         PASSED       UNIT                         ACTIVATES
+    # Fri 2023-09-01 10:32:28 CEST 34min left     Fri 2023-09-01 09:08:17 CEST 49min ago    dnf-makecache.timer          dnf-makecache.service
     cmd = 'systemctl list-timers'
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if stderr or retc != 0:
         return ''
 
-    msg = ''
-    start_pos = None
-    end_pos = None
+    table_data = []
+    next_pos = None
+    left_pos = None
+    last_pos = None
+    passed_pos = None
+    unit_pos = None
+    activates_pos = None
+
     for line in stdout.splitlines():
-        if start_pos is None:
-            start_pos = line.find('UNIT')
-            end_pos = line.find('ACTIVATES', start_pos)
+        if next_pos is None:
+            next_pos = line.find('NEXT')
+            left_pos = line.find('LEFT')
+            last_pos = line.find('LAST')
+            passed_pos = line.find('PASSED')
+            unit_pos = line.find('UNIT')
+            activates_pos = line.find('ACTIVATES')
         if '.timer' in line:
-            msg = '{}* {}\n'.format(msg, line[start_pos:end_pos].strip())
-    return msg
+            table_data.append({
+                'unit': line[unit_pos:activates_pos].strip(),
+                'activates': line[activates_pos:].strip(),
+                'next': line[next_pos:left_pos].strip(),
+            })
+
+    return lib.base.get_table(
+        table_data,
+        ['unit', 'activates', 'next'],
+        header=['unit', 'activates', 'next'],
+        sort_by_key='unit',
+    )
 
 
 def get_systemd_units(cmd):

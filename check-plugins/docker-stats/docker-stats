@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071301'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -165,7 +165,7 @@ def main():
             strpos2 = stdout.find('\n', strpos1)
             host_cpus = int(stdout[strpos1:strpos2])
         except:
-            lib.base.oao('{}'.format('Unable to compute docker info.'), STATE_UNKNOWN)
+            lib.base.cu('Unable to compute docker info')
 
         # get the container statistics for all running containers
         cmd = 'docker stats --no-stream'
@@ -175,7 +175,7 @@ def main():
         # b48543f756e6   mongo           0.27%     73.84MiB / 3.702GiB   1.95%     760B / 116B   6.59MB / 480kB   33    # pylint: disable=C0301
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))
         if (stderr or retc != 0):
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
         host_cpus = 1

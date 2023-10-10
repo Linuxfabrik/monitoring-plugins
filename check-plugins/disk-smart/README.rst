@@ -7,6 +7,9 @@ Overview
 Multi HDD/SSD scan. No need to provide any warning/critical thresholds, no need to maintain any
 disk or property databases, no need for any additional libraries.
 
+This check will scan for devices and attempt to open each device first. If successful,
+all information for the device will be parsed.
+
 The check calls ``smartctl``, which itself *controls the Self-Monitoring, Analysis 
 and Reporting Technology (SMART) system built into most ATA/SATA and SCSI/SAS 
 hard drives and solid-state drives. The purpose of SMART is to monitor the 

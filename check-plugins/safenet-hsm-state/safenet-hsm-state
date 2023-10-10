@@ -25,7 +25,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This monitoring plugin checks the current state of a Gemalto SafeNet
                  ProtectServer Network HSM via SSH and a PSESH command, and displays the
@@ -145,9 +145,9 @@ def main():
         )
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if lib.shell.RETC_SSHPASS.get(retc, ''):
-            lib.base.oao('sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc]), STATE_UNKNOWN)
+            lib.base.cu('sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc]))
         if stderr:
-            lib.base.oao(stderr, STATE_UNKNOWN)
+            lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
@@ -158,6 +158,7 @@ def main():
     perfdata = ''
 
     # analyze data
+    stdout = stdout.strip() # remove the empty line at the start of the output
     if 'HSM in NORMAL MODE' not in stdout \
     or 'Command Result : 0' not in stdout:
         state = lib.base.str2state(args.SEVERITY)

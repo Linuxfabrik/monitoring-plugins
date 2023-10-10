@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Checks system requirements and kernel settings specifically for MySQL/MariaDB."""
 
@@ -111,7 +111,7 @@ def main():
     if lib.base.LINUX:
         result = get_sysctl('vm.swappiness')
         if not result:
-            lib.base.oao('Permission denied reading `vm.swappiness`', STATE_UNKNOWN)
+            lib.base.cu('Permission denied reading `vm.swappiness`')
         if int(result) > 10:
             state = STATE_WARN
             msg += 'vm.swappiness is {}, should be <= 10 (use `echo 10 > /proc/sys/vm/swappiness`). '.format(

@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023092201'
 
 DESCRIPTION = """Checks the size of the InnoDB buffer pool in MySQL/MariaDB."""
 
@@ -80,13 +80,14 @@ def get_vars(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
     # Without the GLOBAL modifier, SHOW VARIABLES displays the values that are used for
     # the current connection to MariaDB.
-    sql = """
+    sql = '''
         show global variables
         where variable_name like 'innodb_buffer_pool_size'
             or variable_name like 'innodb_log_file_size'
             or variable_name like 'innodb_log_files_in_group'
+            or variable_name like 'innodb_redo_log_capacity'
             ;
-          """
+          '''
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
@@ -94,7 +95,7 @@ def main():
     """The main function. Hier spielt die Musik.
     """
 
-    # logic taken from mysqltuner.pl:mysql_innodb(), section # InnoDB Buffer Pool Size, v1.9.8
+    # logic taken from mysqltuner.pl:mysql_innodb(), section # InnoDB Buffer Pool Size, v2.2.12
     # including variable names
 
     # parse the command line, exit with UNKNOWN if it fails
@@ -116,51 +117,87 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_select_privileges(conn))
 
-    myvar = lib.db_mysql.lod2dict(get_vars(conn))
-    if myvar.get('innodb_log_files_in_group', None) is None:
-        # innodb_log_files_in_group removed in MariaDB 10.6.0
-        myvar['innodb_log_files_in_group'] = '1'
     engines = lib.db_mysql.get_engines(conn)
-
     if not engines.get('have_innodb', ''):
         lib.db_mysql.close(conn)
-        lib.base.oao('InnoDB Storage Engine not available.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine not available.')
     if engines['have_innodb'] != 'YES':
         lib.db_mysql.close(conn)
-        lib.base.oao('InnoDB Storage Engine is disabled.', STATE_UNKNOWN)
+        lib.base.cu('InnoDB Storage Engine is disabled.')
 
-    sql = 'select sum(data_length+index_length) as size from information_schema.tables where table_schema not in ("information_schema", "performance_schema", "mysql") and engine = "innodb";'
+    myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    if myvar.get('innodb_log_files_in_group', None) is None \
+    or myvar.get('innodb_log_files_in_group', 0) == 0:
+        # innodb_log_files_in_group removed in MariaDB 10.6.0
+        myvar['innodb_log_files_in_group'] = '1'
+
+    sql = '''
+        select sum(data_length+index_length) as InnoDB
+        from information_schema.tables
+        where
+            table_schema not in ("information_schema", "performance_schema", "mysql")
+            and engine = "innodb";
+    '''
     enginestats = lib.base.coe(lib.db_mysql.select(conn, sql))
-    if enginestats[0]['size'] is None:
-        enginestats[0]['size'] = 0
+    if enginestats[0]['InnoDB'] is None:
+        enginestats[0]['InnoDB'] = 0
 
     lib.db_mysql.close(conn)
 
     # calculations
     mycalc = {}
-    mycalc['innodb_log_size_pct'] = round(int(myvar['innodb_log_file_size']) * int(myvar['innodb_log_files_in_group']) / int(myvar['innodb_buffer_pool_size']) * 100, 1)
+    mycalc['innodb_log_size_pct'] = int(
+        int(myvar['innodb_log_file_size']) * int(myvar['innodb_log_files_in_group']) / \
+        int(myvar['innodb_buffer_pool_size']) * 100
+    )
 
     # InnoDB Buffer Pool Size
-    msg += 'InnoDB buffer pool / data size: {} / {}'.format(
-        lib.human.bytes2human(int(myvar['innodb_buffer_pool_size'])),
-        lib.human.bytes2human(int(enginestats[0]['size'])),
-    )
-    if int(myvar['innodb_buffer_pool_size']) <= int(enginestats[0]['size']):
-        size_state = STATE_WARN
-        state = lib.base.get_worst(state, size_state)
-        msg += '{}. Set innodb_buffer_pool_size >= {}. '.format(
-            lib.base.state2str(size_state, prefix=' '),
-            lib.human.bytes2human(int(enginestats[0]['size'])),
-        )
-    else:
-        msg += '. '
+    # Output changed compared to MySQLTuner (to be more clear).
 
-    msg += 'innodb_log_file_size * innodb_log_files_in_group / innodb_buffer_pool_size = {} * {} / {} = {}%'.format(
+    # handling innodb_redo_log_capacity is specific to MySQL only - not implemented here
+    # MariaDB: https://mariadb.com/kb/en/innodb-redo-log/
+    # MySQL: https://dev.mysql.com/doc/refman/8.0/en/innodb-parameters.html#sysvar_innodb_redo_log_capacity
+
+    if not lib.base.X86_64 and int(myvar['innodb_buffer_pool_size']) > 4294967295:
+        local_state = STATE_WARN
+        state = lib.base.get_worst(state, local_state)
+        msg += ('InnoDB Buffer Pool size ({}) limit reached for 32 bits architecture. '
+                'Limit innodb_buffer_pool_size under {}{}.').format(
+            lib.human.bytes2human(int(myvar['innodb_buffer_pool_size'])),
+            lib.human.bytes2human(4294967295),
+            lib.base.state2str(local_state),
+        )
+    if lib.base.X86_64 and int(myvar['innodb_buffer_pool_size']) > 18446744073709551615:
+        local_state = STATE_WARN
+        state = lib.base.get_worst(state, local_state)
+        msg += ('InnoDB Buffer Pool size ({}) limit reached for 64 bits architecture. '
+                'Limit innodb_buffer_pool_size under {}{}.').format(
+            lib.human.bytes2human(int(myvar['innodb_buffer_pool_size'])),
+            lib.human.bytes2human(18446744073709551615),
+            lib.base.state2str(local_state),
+        )
+
+    msg += 'Data size: {}, innodb_buffer_pool_size: {}'.format(
+        lib.human.bytes2human(int(enginestats[0]['InnoDB'])),
+        lib.human.bytes2human(int(myvar['innodb_buffer_pool_size'])),
+    )
+    if int(myvar['innodb_buffer_pool_size']) <= int(enginestats[0]['InnoDB']):
+        local_state = STATE_WARN
+        state = lib.base.get_worst(state, local_state)
+        msg += ' doesn\'t fit {}. Set innodb_buffer_pool_size >= {}. '.format(
+            lib.base.state2str(local_state),
+            lib.human.bytes2human(int(enginestats[0]['InnoDB'])),
+        )
+
+    msg += ('\nRatio innodb_log_file_size ({}) * innodb_log_files_in_group ({}) '
+            'vs. innodb_buffer_pool_size ({}): {}% ').format(
         lib.human.bytes2human(int(myvar['innodb_log_file_size'])),
         myvar['innodb_log_files_in_group'],
         lib.human.bytes2human(int(myvar['innodb_buffer_pool_size'])),
-        mycalc['innodb_log_size_pct']
+        mycalc['innodb_log_size_pct'],
     )
+
+    # badprint
     if int(mycalc['innodb_log_size_pct']) < 20 or int(mycalc['innodb_log_size_pct']) > 30:
         ratio_state = STATE_WARN
         state = lib.base.get_worst(state, ratio_state)
@@ -172,8 +209,6 @@ def main():
                 int(myvar['innodb_buffer_pool_size']) / int(myvar['innodb_log_files_in_group']) / 4
             )
         )
-    else:
-        msg += '.'
 
     perfdata += lib.base.get_perfdata('mysql_innodb_buffer_pool_size', myvar['innodb_buffer_pool_size'], 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('mysql_innodb_log_file_size', myvar['innodb_log_file_size'], 'B', None, None, 0, None)

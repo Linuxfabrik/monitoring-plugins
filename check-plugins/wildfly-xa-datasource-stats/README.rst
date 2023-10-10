@@ -8,39 +8,16 @@ This check plugin returns metrics of XA datasources of a WildFly server, using i
 
 Tested with WildFly 11 and WildFly 23+.
 
-The check recognizes if a datasource does not support statistics.
+Hints:
 
-To create a monitoring user, do this:
+* See `additional notes for all wildfly monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.rst>`_
+* The check recognizes if a datasource does not support statistics.
+* To enable database statistics:
 
-.. code-block:: bash
-
-    /opt/wildfly/bin/add-user.sh 
-
-.. code-block:: text
-
-    What type of user do you wish to add? 
-     a) Management User (mgmt-users.properties) 
-     b) Application User (application-users.properties)
-    (a): a
-
-    Enter the details of the new user to add.
-    Using realm 'ManagementRealm' as discovered from the existing property files.
-    Username : wildfly-monitoring
-    Password : 
-    Re-enter Password : 
-    What groups do you want this user to belong to? (Please enter a comma separated list, or leave blank for none)[  ]: 
-    About to add user 'wildfly-monitoring' for realm 'ManagementRealm'
-    Is this correct yes/no? yes
-    Is this new user going to be used for one AS process to connect to another AS process? 
-    e.g. for a slave host controller connecting to the master or for a Remoting connection for server to server Jakarta Enterprise Beans calls.
-    yes/no? no
-
-To enable database statistics:
-
-* Open the WildFly Admin Console
-* Go to Configuration > Subsystems > Datasources & Drivers > Datasources
-* Select your datasource
-* Click on View > Tab Attributes > Edit "Statistics Enabled"
+    * Open the WildFly Admin Console
+    * Go to Configuration > Subsystems > Datasources & Drivers > Datasources
+    * Select your datasource
+    * Click on View > Tab Attributes > Edit "Statistics Enabled"
 
 
 Fact Sheet

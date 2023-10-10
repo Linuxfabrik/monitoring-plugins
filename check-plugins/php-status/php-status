@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
@@ -113,7 +113,7 @@ def parse_args():
 def get_startup_errors():
     success, result = lib.shell.shell_exec('php --version 1> /dev/null')
     if not success:
-        lib.base.oao('PHP not found', STATE_UNKNOWN)
+        lib.base.cu('PHP not found')
     stdout, stderr, retc = result
     return stderr
 
@@ -121,7 +121,7 @@ def get_startup_errors():
 def get_config_errors(args):
     success, result = lib.shell.shell_exec('php --info 2> /dev/null')
     if not success:
-        lib.base.oao('PHP not found', STATE_UNKNOWN)
+        lib.base.cu('PHP not found')
     stdout, stderr, retc = result
     php_config = stdout.lower()
     result = ''
@@ -142,7 +142,7 @@ def get_config_errors(args):
 def get_module(args):
     success, result = lib.shell.shell_exec('php --modules 2> /dev/null')
     if not success:
-        lib.base.oao('PHP not found', STATE_UNKNOWN)
+        lib.base.cu('PHP not found')
     stdout, stderr, retc = result
     php_modules = stdout.lower()
     result = ''

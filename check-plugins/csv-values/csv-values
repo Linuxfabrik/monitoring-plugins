@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023082201'
 
 DESCRIPTION = """This check imports a CSV file into an SQLite database and can then run a separate
                  warning query and/or a critical query against it. The result - the number of
@@ -45,7 +45,7 @@ DEFAULT_INSECURE = False
 DEFAULT_NEWLINE = None
 DEFAULT_NO_PROXY = False
 DEFAULT_QUOTECHAR = '"'
-DEFAULT_SKIP_HEADER = True
+DEFAULT_SKIP_HEADER = False
 DEFAULT_TIMEOUT = 3
 
 
@@ -158,9 +158,9 @@ def parse_args():
 
     parser.add_argument(
         '--skip-header',
-        help='Treat the first row as header names. Default: %(default)s',
+        help='Treat the first row as header names, and skip this row. Default: %(default)s',
         dest='SKIP_HEADER',
-        action='store_false',
+        action='store_true',
         default=DEFAULT_SKIP_HEADER,
     )
 
@@ -247,7 +247,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
-        lib.base.oao('Nothing to check, no queries provided.', STATE_UNKNOWN)
+        lib.base.cu('Nothing to check, no queries provided.')
     if args.WARNING_QUERY is None:
         args.WARNING_QUERY = ''
     if args.CRITICAL_QUERY is None:
@@ -278,7 +278,7 @@ def main():
             )
         proto, url = split_url
         if proto not in ['http', 'https', 'smb']:
-            lib.base.oao('The protocol "{}" is not supported.'.format(proto), STATE_UNKNOWN)
+            lib.base.cu('The protocol "{}" is not supported.'.format(proto))
 
         if proto in ['http', 'https']:
             header = {}

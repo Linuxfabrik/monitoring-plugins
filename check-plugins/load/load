@@ -22,11 +22,11 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "psutil" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = 'Return the average system load per cpu over the last 1, 5 and 15 minutes. In short, "load" is the average sum of the number of processes waiting in the run-queue plus the number currently executing over 1, 5, and 15 minute time periods.'
 
@@ -88,7 +88,7 @@ def main():
     # but until then, we do this here:
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(CMD))
     if retc != 0:
-        lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+        lib.base.cu(stderr)
 
     load1, load5, load15, tmp1, tmp2 = stdout.split(' ')
     cpu_count = float(psutil.cpu_count(logical=True))

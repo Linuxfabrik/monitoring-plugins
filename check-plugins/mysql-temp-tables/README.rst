@@ -65,7 +65,12 @@ Output:
 
 .. code-block:: text
 
-    17.9% temporary tables created on disk (2.4M on disk / 13.6M total).
+    34.6% temporary tables created on disk (540.0 on disk / 1.6K total) 
+
+    Recommendations:
+    * Set tmp_table_size > 128.0MiB and max_heap_table_size > 128.0MiB
+    * When making adjustments, make tmp_table_size/max_heap_table_size equal
+    * Reduce your SELECT DISTINCT queries which have no LIMIT clause
 
 
 States

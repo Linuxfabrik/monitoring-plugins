@@ -12,7 +12,6 @@
 """
 
 import argparse  # pylint: disable=C0413
-import os  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 import tempfile  # pylint: disable=C0413
 
@@ -22,9 +21,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023091601'
 
-DESCRIPTION = """Tests whether a file can be written to a specific path and then deleted."""
+DESCRIPTION = """Tests if a temporary file can be created, written to a specified path, read,
+                 and then deleted. Especially useful with mounted file systems such as NFS or SMB.
+                 The local temporary directory is always tested, regardless of whether the check is
+                 called with or without parameters. May require sudo privileges."""
 
 DEFAULT_PATH = [tempfile.gettempdir()]
 DEFAULT_SEVERITY = 'warn'
@@ -51,7 +53,7 @@ def parse_args():
 
     parser.add_argument('--path',
         help='Path to which the file is to be written and from which it will be deleted '
-                '(repeating). Default: %(default)s',
+             '(repeating). Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
         action='append',
@@ -82,31 +84,26 @@ def main():
     msg = ''
     state = STATE_OK
 
-    filename = '__LINUXFABRIK_PATH_RW_TEST__'
-    content = 'Linuxfabrik GmbH, Zurich, Switzerland'
-    file_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
-
     # do the test
     for path in args.PATH:
-        file = os.path.join(path, filename)
-
-        # test writing the file
-        success, result = lib.disk.write_file(file, content)
-        if not success:
-            msg += '{}: {}{}, '.format(path, result, lib.base.state2str(file_state, prefix=' '))
-            state = file_state
-        else:
-            # test deleting the file
-            success, result = lib.disk.rm_file(file)
-            if not success:
-                msg += '{}: {}{}, '.format(path, result, lib.base.state2str(file_state, prefix=' '))
-                state = file_state
+        try:
+            fp = tempfile.TemporaryFile(dir=path)
+            # a bytes-like object is required, not 'str':
+            fp.write(b'Linuxfabrik GmbH, Zurich, Switzerland')
+            fp.seek(0)
+            fp.read()
+            # close the file, it will be removed
+            fp.close()
+        except Exception as e:
+            msg += '`{}` ({}), '.format(path, e)
+            state = lib.base.str2state(args.SEVERITY)
 
     # build the message
     if msg == '':
-        msg = 'Everything is ok.'
+        msg = 'Everything is ok. '
     else:
-        msg = msg[:-2]
+        msg = 'Error creating/writing/reading/deleting file in {}. '.format(msg[:-2])
+    msg += 'Tested: {}'.format(', '.join(args.PATH))
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)

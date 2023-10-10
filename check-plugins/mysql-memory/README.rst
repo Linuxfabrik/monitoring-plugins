@@ -64,7 +64,18 @@ Output:
 
 .. code-block:: text
 
-    3.1% - total: 15.3GiB, used: 492.6MiB. Maximum possible memory usage is 20.8% (possible peak: 3.2GiB). Overall possible memory usage with other process will exceed memory [WARNING]. Dedicate this server to your database for highest performance.
+    67.6% - total: 31.3GiB, used: 21.1GiB. Maximum possible memory usage is 99.5% (possible peak: 31.1GiB). Reduce your overall MySQL memory footprint for system stability. Overall possible memory usage with other processes will exceed memory . Dedicate this server to your database for highest performance.
+
+    Calculations:
+    * Memory usage according to Performance Schema: pfm = 0.0B
+    * Server Buffers: sb = 18.3GiB
+    * Max. Total per Thread Buffers: mtptb = 2.8GiB
+    * Total per Thread Buffers: tptb = 12.8GiB
+    * Max. Used Memory: mum = sb + mtptb + pfm = 18.3GiB + 2.8GiB + 0.0B = 21.1GiB
+    * Possible Peak Memory: ppm = sb + tptb + pfm = 18.3GiB + 12.8GiB + 0.0B = 31.1GiB
+    * Physical Memory: pm = 31.3GiB
+    * Max Used Memory %: mump = mum / pm * 100 = 21.1GiB / 31.3GiB * 100 = 67.6B%
+    * Max Possible Memory Usage %: mpmu = ppm / pm * 100 = 31.1GiB / 31.3GiB * 100 = 99.5B%
 
 
 States

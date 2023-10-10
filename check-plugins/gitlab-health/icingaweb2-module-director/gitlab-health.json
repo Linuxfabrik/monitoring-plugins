@@ -1,0 +1,171 @@
+{
+    "Command": {
+        "cmd-check-gitlab-health": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$gitlab_health_always_ok$"
+                },
+                "--severity": {
+                    "value": "$gitlab_health_severity$"
+                },
+                "--timeout": {
+                    "value": "$gitlab_health_timeout$"
+                },
+                "--url": {
+                    "value": "$gitlab_health_url$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/gitlab-health",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-gitlab-health",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "dfea07b5-9c0b-4946-a4bf-bef39ecbc712"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-gitlab-health": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-gitlab-health",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "gitlab-health.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks whether the GitLab application server is running. It does not hit the database or verifies other services are running.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-health",
+            "object_name": "tpl-service-gitlab-health",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "gitlab_health_always_ok": false,
+                "gitlab_health_severity": "warn",
+                "gitlab_health_timeout": 3,
+                "gitlab_health_url": "http://localhost/-/health"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "5659e80e-7ef7-431e-bfda-906a3665e19c"
+        }
+    },
+    "DataList": {
+        "gitlab_health_severity_list": {
+            "list_name": "gitlab_health_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "499b2477-e625-4ebd-82eb-a066bbfb0fa8"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "gitlab_health_always_ok",
+            "caption": "Gitlab Health: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ec81f86f-3219-4b91-ab7d-50528f033df1"
+        },
+        "2": {
+            "varname": "gitlab_health_severity",
+            "caption": "Gitlab Health: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "gitlab_health_severity_list"
+            },
+            "uuid": "7ade705a-13a3-497e-9e6d-2453585349ee"
+        },
+        "3": {
+            "varname": "gitlab_health_timeout",
+            "caption": "Gitlab Health: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f8292335-7d2a-4b53-858e-523e3786e474"
+        },
+        "4": {
+            "varname": "gitlab_health_url",
+            "caption": "Gitlab Health: URL",
+            "description": "GitLab health URL endpoint.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aa8db664-9a90-4cec-b251-8fee00b261c8"
+        }
+    }
+}

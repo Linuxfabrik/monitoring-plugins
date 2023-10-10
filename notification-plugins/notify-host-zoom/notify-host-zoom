@@ -37,7 +37,7 @@ import lib.url     # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023063001'
 
 DESCRIPTION = 'Sends notifications for hosts using the Zoom Incoming Webhook API.'
 
@@ -164,12 +164,15 @@ def main():
     if args.ICINGAWEB2_URL and args.HOSTNAME:
         params = urllib.parse.urlencode(
             {
-                'host': args.HOSTNAME,
+                'name': args.HOSTNAME,
             },
             quote_via=urllib.parse.quote
         )
 
-        link = urllib.parse.urljoin('{}/'.format(args.ICINGAWEB2_URL), 'monitoring/host/show?{}'.format(params))
+        link = urllib.parse.urljoin(
+            '{}/'.format(args.ICINGAWEB2_URL),
+            'icingadb/host?{}'.format(params)
+        )
 
     body = args.HOST_OUTPUT
 

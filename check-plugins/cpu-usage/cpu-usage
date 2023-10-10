@@ -25,11 +25,11 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "psutil" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023092101'
 
 DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
                 period into account: the cpu usage within a certain amount of time has to be equal
@@ -137,9 +137,9 @@ def main():
     # https://github.com/Linuxfabrik/monitoring-plugins/issues/57: changed from 0.25 to 1.25
     try:
         cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
-    except ValueError as e:
+    except ValueError:
         lib.db_sqlite.close(conn)
-        lib.base.oao('psutil raised error "{}"'.format(e), STATE_UNKNOWN)
+        lib.base.cu('psutil raised an error')
 
     # this is what we want to warn about: 100% - idle - nice
     stats['cpu_usage'] = round(
@@ -217,12 +217,18 @@ def main():
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'cpu_times']):
+                if lib.base.WINDOWS and p.info['name'] == 'System Idle Process':
+                    # yes, the System Idle Process on Windows consumes CPU time
+                    continue
                 cnt[p.info['name']] += sum(p.info['cpu_times'][:2])
         except psutil.NoSuchProcess:
             pass
     else:
         try:
             for p in [x.as_dict(attrs=['name', 'cpu_times']) for x in psutil.process_iter()]:
+                if lib.base.WINDOWS and p['name'] == 'System Idle Process':
+                    # yes, the System Idle Process on Windows consumes CPU time
+                    continue
                 cnt[p['name']] += sum(p['cpu_times'][:2])
         except psutil.NoSuchProcess:
             pass

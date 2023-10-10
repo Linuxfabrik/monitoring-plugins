@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../gitlab-readiness'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Service           ! Message ', stdout)
+        self.assertIn('------------------+---------', stdout)
+        self.assertIn('cache             ! Running ', stdout)
+        self.assertIn('chat              ! Running ', stdout)
+        self.assertIn('cluster_cache     ! Running ', stdout)
+        self.assertIn('db                ! Running ', stdout)
+        self.assertIn('db_load_balancing ! Running ', stdout)
+        self.assertIn('feature_flag      ! Running ', stdout)
+        self.assertIn('gitaly            ! Running ', stdout)
+        self.assertIn('master            ! Running ', stdout)
+        self.assertIn('queues            ! Running ', stdout)
+        self.assertIn('rate_limiting     ! Running ', stdout)
+        self.assertIn('repository_cache  ! Running ', stdout)
+        self.assertIn('sessions          ! Running ', stdout)
+        self.assertIn('shared_state      ! Running ', stdout)
+        self.assertIn('trace_chunks      ! Running', stdout)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('There are issues with cache_check, chat_check, cluster_cache_check, db_load_balancing_check, feature_flag_check, queues_check, rate_limiting_check, repository_cache_check, sessions_check, shared_state_check, trace_chunks_check. Run `curl http://localhost/-/readiness?all=1` for full results.', stdout)
+        self.assertIn('Service           ! Message                                                     ', stdout)
+        self.assertIn('------------------+-------------------------------------------------------------', stdout)
+        self.assertIn('cache             ! [WARNING] unexpected Cache check result: Error connectin... ', stdout)
+        self.assertIn('chat              ! [WARNING] unexpected Chat check result: Error connecting... ', stdout)
+        self.assertIn('cluster_cache     ! [WARNING] unexpected Cluster_cache check result: Error c... ', stdout)
+        self.assertIn('db                ! Running                                                     ', stdout)
+        self.assertIn('db_load_balancing ! [WARNING] unexpected Db_load_balancing check result: Err... ', stdout)
+        self.assertIn('feature_flag      ! [WARNING] unexpected Feature_flag check result: Error co... ', stdout)
+        self.assertIn('gitaly            ! Running                                                     ', stdout)
+        self.assertIn('master            ! Running                                                     ', stdout)
+        self.assertIn('queues            ! [WARNING] unexpected Queues check result: Error connecti... ', stdout)
+        self.assertIn('rate_limiting     ! [WARNING] unexpected Rate_limiting check result: Error c... ', stdout)
+        self.assertIn('repository_cache  ! [WARNING] unexpected Repository_cache check result: Erro... ', stdout)
+        self.assertIn('sessions          ! [WARNING] unexpected Sessions check result: Error connec... ', stdout)
+        self.assertIn('shared_state      ! [WARNING] unexpected Shared_state check result: Error co... ', stdout)
+        self.assertIn('trace_chunks      ! [WARNING] unexpected Trace_chunks check result: Error co...|', stdout)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('There are issues with gitaly_check. Run `curl http://localhost/-/readiness?all=1` for full results.', stdout)
+        self.assertIn('Service           ! Message                                                     ', stdout)
+        self.assertIn('------------------+-------------------------------------------------------------', stdout)
+        self.assertIn('cache             ! Running                                                     ', stdout)
+        self.assertIn('chat              ! Running                                                     ', stdout)
+        self.assertIn('cluster_cache     ! Running                                                     ', stdout)
+        self.assertIn('db                ! Running                                                     ', stdout)
+        self.assertIn('db_load_balancing ! Running                                                     ', stdout)
+        self.assertIn('feature_flag      ! Running                                                     ', stdout)
+        self.assertIn('gitaly            ! [WARNING] 14:connections to all backends failing; last e... ', stdout)
+        self.assertIn('master            ! Running                                                     ', stdout)
+        self.assertIn('queues            ! Running                                                     ', stdout)
+        self.assertIn('rate_limiting     ! Running                                                     ', stdout)
+        self.assertIn('repository_cache  ! Running                                                     ', stdout)
+        self.assertIn('sessions          ! Running                                                     ', stdout)
+        self.assertIn('shared_state      ! Running                                                     ', stdout)
+        self.assertIn('trace_chunks      ! Running', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
+        self.assertIn('There are issues with gitaly_check. Run `curl http://localhost/-/readiness?all=1` for full results.', stdout)
+        self.assertIn('Service           ! Message                                                     ', stdout)
+        self.assertIn('------------------+-------------------------------------------------------------', stdout)
+        self.assertIn('cache             ! Running                                                     ', stdout)
+        self.assertIn('chat              ! Running                                                     ', stdout)
+        self.assertIn('cluster_cache     ! Running                                                     ', stdout)
+        self.assertIn('db                ! Running                                                     ', stdout)
+        self.assertIn('db_load_balancing ! Running                                                     ', stdout)
+        self.assertIn('feature_flag      ! Running                                                     ', stdout)
+        self.assertIn('gitaly            ! [WARNING] 14:connections to all backends failing; last e... ', stdout)
+        self.assertIn('master            ! Running                                                     ', stdout)
+        self.assertIn('queues            ! Running                                                     ', stdout)
+        self.assertIn('rate_limiting     ! Running                                                     ', stdout)
+        self.assertIn('repository_cache  ! Running                                                     ', stdout)
+        self.assertIn('sessions          ! Running                                                     ', stdout)
+        self.assertIn('shared_state      ! Running                                                     ', stdout)
+        self.assertIn('trace_chunks      ! Running', stdout)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('ActiveRecord::DatabaseConnectionError : There is an issue connecting to your database with your username/password, username: gitlab.\n\nPlease check your database configuration to ensure the username/password are valid.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE06(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0'))
+        self.assertIn('Bad Gateway', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE07(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07,,0'))
+        self.assertIn('nginx returned 502 when communicating with gitlab-workhorse', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE08(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE08,,0'))
+        self.assertIn('Unknown error fetching URL http://localhost/-/readiness', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    unittest.main()

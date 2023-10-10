@@ -89,20 +89,22 @@ Help
 
 .. code-block:: text
 
-    usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: fail2ban [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] [-w WARN]
 
-    In fail2ban, checks the amount of banned IP addresses (for a list of jails).
+    In fail2ban, checks the amount of banned IP addresses per jail.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical threshold for banned IPs. Default:
-                            10000
+                            Set the critical threshold for banned IPs per jail.
+                            Default: 10000
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       -w WARN, --warning WARN
-                            Set the warning threshold for banned IPs. Default:
-                            1000
+                            Set the warning threshold for banned IPs per jail.
+                            Default: 2500
 
 
 Usage Examples
@@ -110,27 +112,30 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./fail2ban --warning 1000 --critical 10000 
+    ./fail2ban --warning 2500 --critical 10000
     
 Output:
 
 .. code-block:: text
 
-    787 IPs banned in jail "linuxfabrik-portscan" (acting on /var/log/messages), 0 IPs banned in jail "sshd"
+    IPs banned - apache-dos: 2, portscan: 0, sshd: 5432 [WARNING]
 
 
 States
 ------
 
-* WARN or CRIT if number of blocked IP addresses is above a given threshold.
+* WARN or CRIT if number of blocked IP addresses is above a given threshold per jail.
 
 
 Perfdata / Metrics
 ------------------
 
-Per jail:
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
 
-* Number of blocked IP addresses.
+    Name,                                       Type,               Description                                           
+    <jail>,                                     Number,             Number of blocked IP addresses.
 
 
 Credits, License

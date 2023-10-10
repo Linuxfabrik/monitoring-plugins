@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../statuspal'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('Major incidents @ Google (google.com, TZ Etc/UTC): We are having issues with the DB connection / We have detected an issue with our CDN (2022-01-01 00:00:00)', stdout)
+        self.assertIn('Service            ! State', stdout)
+        self.assertIn('-------------------+------------', stdout)
+        self.assertIn('Monitoring service ! [CRITICAL]', stdout)
+        self.assertIn('Maintenance                                 ! Type      ! Start               ! End           ', stdout)
+        self.assertIn('--------------------------------------------+-----------+---------------------+---------------------', stdout)
+        self.assertIn('We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00 ', stdout)
+        self.assertIn('Upcoming Maintenance                        ! Type      ! Start               ! End           ', stdout)
+        self.assertIn('--------------------------------------------+-----------+---------------------+---------------------', stdout)
+        self.assertIn('We are having issues with the DB connection ! scheduled ! 2022-01-01 00:00:00 ! 2022-01-01 00:00:00', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich)', stdout)
+        self.assertIn('Service                            ! State ', stdout)
+        self.assertIn('-----------------------------------+-------', stdout)
+        self.assertIn('Global.DNS                         ! [OK]', stdout)
+        self.assertIn('Global.Portal                      ! [OK]', stdout)
+        self.assertIn('CH-GVA-2                           ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.API                       ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.Compute                   ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('CH-GVA-2.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('CH-DK-2                            ! [OK]', stdout)
+        self.assertIn('CH-DK-2.API                        ! [OK]', stdout)
+        self.assertIn('CH-DK-2.Compute                    ! [OK]', stdout)
+        self.assertIn('CH-DK-2.Database service DBaaS     ! [OK]', stdout)
+        self.assertIn('CH-DK-2.Managed Kubernetes SKS     ! [OK]', stdout)
+        self.assertIn('CH-DK-2.Network Load Balancer NLB  ! [OK]', stdout)
+        self.assertIn('CH-DK-2.Object Storage SOS         ! [OK]', stdout)
+        self.assertIn('DE-FRA-1                           ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.API                       ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.Compute                   ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('DE-FRA-1.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('DE-MUC-1                           ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.API                       ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.Compute                   ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('DE-MUC-1.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('AT-VIE-1                           ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.API                       ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.Compute                   ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('AT-VIE-1.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('AT-VIE-2                           ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.API                       ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.Compute                   ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('AT-VIE-2.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('BG-SOF-1                           ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.API                       ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.Compute                   ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.Database service DBaaS    ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.Managed Kubernetes SKS    ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.Network Load Balancer NLB ! [OK]', stdout)
+        self.assertIn('BG-SOF-1.Object Storage SOS        ! [OK]', stdout)
+        self.assertIn('Upcoming Maintenance                                ! Type      ! Start               ! End', stdout)
+        self.assertIn('----------------------------------------------------+-----------+---------------------+----------', stdout)
+        self.assertIn('Core Network Architecture - Internal routing update ! scheduled ! 2023-09-20 07:00:00 ! open end', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('Major incidents @ Ascent Global Logistics (ascentlogistics.com, TZ America/Detroit): Service PEAK - Customer API  Production seems to be down / According to our monitoring system this service has become unresponsive, we\'re investigating. (2022-04-20 18:27:16)', stdout)
+        self.assertIn('Service                               ! State', stdout)
+        self.assertIn('--------------------------------------+------------', stdout)
+        self.assertIn('Ascent Websites.Main Ascent Website   ! [OK]', stdout)
+        self.assertIn('Ascent Websites.Drive4Ascent Website  ! [OK]', stdout)
+        self.assertIn('Ascent Websites.Charternet Website    ! [OK]', stdout)
+        self.assertIn('Ascent Websites.Pilot Pay Website     ! [OK]', stdout)
+        self.assertIn('APT                                   ! [OK]', stdout)
+        self.assertIn('APT.APT Server 11                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 12                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 15                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 13                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 14                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 16                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 17                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 18                     ! [OK]', stdout)
+        self.assertIn('APT.APT Server 19                     ! [OK]', stdout)
+        self.assertIn('APT.APT Login Service                 ! [OK]', stdout)
+        self.assertIn('PFM                                   ! [OK]', stdout)
+        self.assertIn('PFM.PFM - API Production              ! [OK]', stdout)
+        self.assertIn('PFM.PFM - API Integration             ! [OK]', stdout)
+        self.assertIn('Vision                                ! [OK]', stdout)
+        self.assertIn('PEAK                                  ! [OK]', stdout)
+        self.assertIn('PEAK.PEAK - Customer API  Integration ! [CRITICAL] ', stdout)
+        self.assertIn('PEAK.PEAK - Customer API  Production  ! [CRITICAL] ', stdout)
+        self.assertIn('Global IT Monitoring                  ! [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
+        self.assertIn('Minor incidents @ hosttech GmbH (www.hosttech.eu, TZ Europe/Zurich): Serverausfall / Sehr geehrte Kundin', stdout)
+        self.assertIn('Sehr geehrter Kunde', stdout)
+        self.assertIn('Derzeit sind diverse Serversysteme nicht erreichbar.', stdout)
+        self.assertIn('Unserer Techniker arbeiten mit Hochdruck daran, das Problem zu lösen.', stdout)
+        self.assertIn('Wir bitten um Verständnis.', stdout)
+        self.assertIn('Freundliche Grüsse  ', stdout)
+        self.assertIn('Dein Team von hosttech GmbH (2023-09-13 07:17:52)', stdout)
+        self.assertIn('Service                                 ! State     ', stdout)
+        self.assertIn('----------------------------------------+-----------', stdout)
+        self.assertIn('Webhosting & Reseller                   ! [WARNING]', stdout)
+        self.assertIn('Website Creator                         ! [OK]', stdout)
+        self.assertIn('Hosted Exchange                         ! [OK]', stdout)
+        self.assertIn('DNS Nameserver (ns1, ns2, ns3)          ! [OK]', stdout)
+        self.assertIn('Network & Services Datacenter DATAPARK  ! [OK]', stdout)
+        self.assertIn('Network & Services Datacenter DATAROCK  ! [OK]', stdout)
+        self.assertIn('myhosttech Kundencenter                 ! [OK]', stdout)
+        self.assertIn('virtual Datacenter (Region Germany)     ! [OK]', stdout)
+        self.assertIn('virtual Datacenter (Region Austria)     ! [OK]', stdout)
+        self.assertIn('virtual Datacenter (Region Switzerland) ! [OK]', stdout)
+        self.assertIn('vPower / managed Hosting                ! [OK]', stdout)
+        self.assertIn('Mailserver                              ! [OK]', stdout)
+        self.assertIn('weitere Services                        ! [OK]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('Major incidents @ Maslak API Platform (www.maslak.io, TZ Europe/Istanbul): Service TeamDefinex Web seems to be down / According to our monitoring system this service has become unresponsive, we\'re investigating. (2022-12-15 16:03:28)', stdout)
+        self.assertIn('Service         ! State', stdout)
+        self.assertIn('----------------+------------', stdout)
+        self.assertIn('API Gateway     ! [OK]', stdout)
+        self.assertIn('TeamDefinex Web ! [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+
+if __name__ == '__main__':
+    unittest.main()

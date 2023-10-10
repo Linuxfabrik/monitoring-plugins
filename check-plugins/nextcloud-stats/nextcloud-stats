@@ -23,7 +23,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """This plugin lets you track the number of active
                 users over time, the number of shares in various categories and some storage
@@ -98,9 +98,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if not args.URL.startswith('http'):
-        lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
     if not args.URL.endswith('/info'):
-        lib.base.oao('--url parameter has to end in "/info".', STATE_UNKNOWN)
+        lib.base.cu('--url parameter has to end in "/info".')
     URL = args.URL + '?format=json'
 
     # Add the authentication and api request header
@@ -122,10 +122,10 @@ def main():
     try:
         result = json.loads(jsonst)
     except:
-        lib.base.oao('ValueError: No JSON object could be decoded', STATE_UNKNOWN)
+        lib.base.cu('ValueError: No JSON object could be decoded')
 
     if result['ocs']['meta']['status'] != 'ok':
-        lib.base.oao('Sorry, something went wrong - no "ok" state returned.', STATE_UNKNOWN)
+        lib.base.cu('Sorry, something went wrong - no "ok" state returned.')
 
     # extract some application specific data
     nc_system_apps_app_updates            = result['ocs']['data']['nextcloud']['system']['apps']['app_updates'] # pylint: disable=C0301

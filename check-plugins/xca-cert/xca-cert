@@ -23,19 +23,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023091601'
 
 DESCRIPTION = 'Checks expiration date of certificates in a XCA based MySQL/MariaDB database.'
 
-DEFAULT_WARN = 14 # days
 DEFAULT_CRIT = 5  # days
-DEFAULT_DATABASE = 'xca'
-DEFAULT_HOSTNAME = 'localhost'
-DEFAULT_PASSWORD = ''
-DEFAULT_USERNAME = 'root'
-
-CMD_OPENSSL_CRT = 'openssl x509 -noout -dates -in /dev/stdin'
-CMD_OPENSSL_CRL = 'openssl crl -noout -nextupdate -in /dev/stdin'
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 14 # days
 
 
 def parse_args():
@@ -58,28 +54,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--database',
-        help='Set the MySQL database containing the XCA database. Default: %(default)s',
-        dest='DATABASE',
-        type=str,
-        default=DEFAULT_DATABASE,
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and password from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
     )
 
     parser.add_argument(
-        '-H', '--hostname',
-        help='Set the hostname of the MySQL server containing the XCA database. '
-             'Default: %(default)s',
-        dest='HOSTNAME',
-        type=str,
-        default=DEFAULT_HOSTNAME,
-    )
-
-    parser.add_argument(
-        '-p', '--password',
-        help='Set the password for the MySQL server containing the XCA database. Default: %(default)s',
-        dest='PASSWORD',
-        type=str,
-        default=DEFAULT_PASSWORD,
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
     )
 
     parser.add_argument(
@@ -90,11 +77,11 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-u', '--username',
-        help='Set the username for the MySQL server containing the XCA database. Default: %(default)s',
-        dest='USERNAME',
-        type=str,
-        default=DEFAULT_USERNAME,
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -106,6 +93,103 @@ def parse_args():
     )
 
     return parser.parse_args()
+
+
+def check_crts(conn, args, state):
+    """Check certificates for expiration.
+    """
+    result = lib.base.coe(
+        lib.db_mysql.select(
+            conn,
+            'select name, cert, ca, {}certs_serial '
+            'from xca.{}view_certs '
+            'where invaldate is null'.format(args.PREFIX, args.PREFIX)
+        )
+    )
+
+    crts = 0
+    expiring_crts = 0
+    table_crts = []
+    for row in result:
+        # get the dict keys:
+        name, cert, ca, serial = row
+        crts += 1
+
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                'openssl x509 -noout -dates -in /dev/stdin',
+                # add line break after 10th character, for the openssl command to always work
+                stdin='-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(
+                    row[cert][:10],
+                    row[cert][10:],
+                ),
+        ))
+        for line in stdout.splitlines():
+            if not line.startswith('notAfter='):
+                continue
+            timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+            timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+            delta = timestr - lib.time.now(as_type='datetime')
+            local_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
+            table_crts.append({
+                'name': row[name],
+                'ca': 'y' if row[ca] == 1 else 'n',
+                'serial': row[serial],
+                'state': lib.base.state2str(local_state, empty_ok=False),
+                'timestr': '{}'.format(timestr),
+            })
+            if local_state != STATE_OK:
+                expiring_crts += 1
+                state = lib.base.get_worst(state, local_state)
+            break
+    return state, crts, expiring_crts, table_crts
+
+
+def check_crls(conn, args, state):
+    """Check CRLs for their next update.
+    """
+    result = lib.base.coe(
+        lib.db_mysql.select(
+            conn,
+            'select name,crl '
+            'from xca.{}view_crls '
+            'order by date desc '
+            'limit 1'.format(args.PREFIX),
+        )
+    )
+
+    crls = 0
+    expiring_crls = 0
+    table_crls = []
+    for row in result:
+        # get the dict keys:
+        name, cert = row
+        crls += 1
+
+        # execute the shell command and return its result and exit code
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                'openssl crl -noout -nextupdate -in /dev/stdin',
+                stdin='-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(row[cert]),
+        ))
+        for line in stdout.splitlines():
+            if not line.startswith('nextUpdate='):
+                continue
+            timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
+            timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
+            delta = timestr - lib.time.now(as_type='datetime')
+            local_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
+            table_crls.append({
+                'name': row[name],
+                'state': lib.base.state2str(local_state, empty_ok=False),
+                'timestr': '{}'.format(timestr),
+            })
+            if local_state != STATE_OK:
+                expiring_crls += 1
+                state = lib.base.get_worst(state, local_state)
+            break
+    return state, crls, expiring_crls, table_crls
 
 
 def main():
@@ -120,126 +204,52 @@ def main():
 
     # fetch data
     mysql_connection = {
-        'user':               args.USERNAME,
-        'password':           args.PASSWORD,
-        'host':               args.HOSTNAME,
-        'database':           args.DATABASE,
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+
+    # analyze data
     state = STATE_OK
+    state, crts, expiring_crts, table_crts = check_crts(conn, args, state)
+    state, crls, expiring_crls, table_crls = check_crls(conn, args, state)
 
-    # cert checking
-    result = lib.base.coe(
-        lib.db_mysql.select(
-            conn,
-            'select name, cert, ca, {prefix}certs_serial '
-            'from xca.{prefix}view_certs '
-            'where invaldate is null'.format(prefix=args.PREFIX)
-        )
-    )
-
-    crt_count = 0
-    expiring_crt_count = 0
-    table_crts = []
-    for row in result:
-        # get the dict keys:
-        name, cert, ca, serial = row
-        crt_count += 1
-
-        # add line break after 10th character, for the openssl command to always work
-        pem_cert = '-----BEGIN CERTIFICATE-----\n{}\n{}\n-----END CERTIFICATE-----'.format(
-            row[cert][:10], row[cert][10:])
-
-        # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(CMD_OPENSSL_CRT, stdin=pem_cert))
-        for line in stdout.splitlines():
-            if line.startswith('notAfter='):
-                timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
-                timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
-                delta = timestr - lib.time.now(as_type='datetime')
-                crt_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
-                table_crts.append({
-                    'name': row[name],
-                    'ca': 'y' if row[ca] == 1 else 'n',
-                    'serial': row[serial],
-                    'state': lib.base.state2str(crt_state, empty_ok=False),
-                    'timestr': '{}'.format(timestr),
-                })
-                if crt_state != STATE_OK:
-                    expiring_crt_count += 1
-                    state = lib.base.get_worst(state, crt_state)
-                break
-
-    # crl checking
-    result = lib.base.coe(
-        lib.db_mysql.select(
-            conn,
-            'select name,crl from xca.{}view_crls order by date desc limit 1'.format(args.PREFIX)
-        )
-    )
-
-    crl_count = 0
-    expiring_crl_count = 0
-    table_crls = []
-    for row in result:
-        # get the dict keys:
-        name, cert = row
-        crl_count += 1
-
-        pem_cert = '-----BEGIN X509 CRL-----\n{}\n-----END X509 CRL-----'.format(row[cert])
-
-        # execute the shell command and return its result and exit code
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(CMD_OPENSSL_CRL, stdin=pem_cert))
-        for line in stdout.splitlines():
-            if line.startswith('nextUpdate='):
-                timestr = line.split('=')[1]       # Oct 29 08:41:00 2028 GMT
-                timestr = lib.time.timestr2datetime(timestr, pattern='%b %d %H:%M:%S %Y %Z')
-                delta = timestr - lib.time.now(as_type='datetime')
-                crl_state = lib.base.get_state(delta.days, args.WARN, args.CRIT, _operator='le')
-                table_crls.append({
-                    'name': row[name],
-                    'state': lib.base.state2str(crl_state, empty_ok=False),
-                    'timestr': '{}'.format(timestr),
-                })
-                if crl_state != STATE_OK:
-                    expiring_crl_count += 1
-                    state = lib.base.get_worst(state, crl_state)
-                break
+    lib.db_mysql.close(conn)
 
     # create the message
     msg = '{} {} and {} {} checked. '.format(
-        crt_count,
-        lib.txt.pluralize('Certificate', crt_count),
-        crl_count,
-        lib.txt.pluralize('CRL', crl_count)
+        crts,
+        lib.txt.pluralize('Certificate', crts),
+        crls,
+        lib.txt.pluralize('CRL', crls),
     )
 
-    if expiring_crt_count > 0:
+    if expiring_crts > 0:
         msg += '{} {} {} expiring. '.format(
-            expiring_crt_count,
-            lib.txt.pluralize('Certificate', expiring_crt_count),
-            lib.txt.pluralize('', expiring_crt_count, 'is,are')
+            expiring_crts,
+            lib.txt.pluralize('Certificate', expiring_crts),
+            lib.txt.pluralize('', expiring_crts, 'is,are'),
         )
-    if expiring_crl_count > 0:
+    if expiring_crls > 0:
         msg += '{} {} {} expiring.'.format(
-            expiring_crl_count,
-            lib.txt.pluralize('CRL', expiring_crl_count),
-            lib.txt.pluralize('', expiring_crl_count, 'is,are')
+            expiring_crls,
+            lib.txt.pluralize('CRL', expiring_crls),
+            lib.txt.pluralize('', expiring_crls, 'is,are'),
         )
-
     if len(table_crts) > 0:
         msg += '\n\nCertificates:\n'
         msg += lib.base.get_table(
             table_crts,
-            ['name', 'ca', 'serial', 'state', 'timestr'],
-            header=['commonName', 'CA', 'Serial', 'State', 'Expiry date'],
+            ['name', 'ca', 'serial', 'timestr', 'state'],
+            header=['commonName', 'CA', 'Serial', 'Expiry date', 'State'],
         )
     if len(table_crls) > 0:
         msg += '\nCRLs:\n'
         msg += lib.base.get_table(
             table_crls,
-            ['name', 'state', 'timestr'],
-            header=['commonName', 'State', 'Expiry date'],
+            ['name', 'timestr', 'state'],
+            header=['commonName', 'Expiry date', 'State'],
         )
 
     # over and out

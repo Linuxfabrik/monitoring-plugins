@@ -192,6 +192,23 @@ You want to get a CRIT if the command does not return ``Command Result : 0``. A 
         --shell \
         --command 'status interface | tail -1'
 
+Get a WARNING if the ``/opt`` directory does NOT have ``rwxrwxrwx`` permissions:
+
+.. code-block:: bash
+
+    ./by-ssh \
+        --hostname appserver \
+        --username nagios \
+        --warning-regex '^(?!drwxrwxrwx.*).*opt$' \
+        --command 'ls -ld /opt'
+
+    # another way:
+    ./by-ssh \
+        --hostname appserver \
+        --username nagios \
+        --warning-regex '^(?!777)\d{3}$' \
+        --command 'stat /opt -c %a'
+
 Output in case of an error will look like this:
 
 .. code-block:: text

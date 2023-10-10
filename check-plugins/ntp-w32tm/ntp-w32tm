@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023091601'
+
+DESCRIPTION = '''This monitoring plugin runs `w32tm /query /status /verbose` (Windows)
+                 to help diagnose problems with the time settings.'''
+
+DEFAULT_WARN = 28800  # s (8h)
+DEFAULT_CRIT = 129600 # s (36h)
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the critical threshold for the time since "Last Good Sync", in s. '
+             'Default: %(default)ss',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the warning threshold for the time since "Last Good Sync", in s. '
+             'Default: %(default)ss',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None:
+        cmd = 'w32tm /query /status /verbose'
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.cu(stderr)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+
+    # init some vars
+    msg = []
+    state = STATE_OK
+    perfdata = ''
+    peer_used = False
+
+    # analyze data
+    for line in stdout.splitlines():
+        line = line.strip()
+
+        if line.startswith('Stratum'):
+            stratum = int(line.split()[1])
+            peer_used = stratum != 0
+            if not peer_used:
+                msg.append('No NTP server used {}'.format(lib.base.state2str(STATE_WARN)))
+            if stratum > 4:
+                msg.append('{} {}'.format(line, lib.base.state2str(STATE_WARN)))
+                state = STATE_WARN
+            continue
+
+        if line.startswith('Leap Indicator'):
+            leap_indicator = lib.txt.extract_str(line, ': ', '(')
+            if line != 'Leap Indicator: 0(no warning)':
+                msg.append(line.replace('(', ' ('))
+                state = STATE_WARN
+        if line.startswith('Precision'):
+            precision = lib.txt.extract_str(line, ': ', '(').strip()
+        if line.startswith('Root Delay'):
+            root_delay = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            continue
+        if line.startswith('Root Dispersion'):
+            root_dispersion = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            continue
+        if line.startswith('Phase Offset'):
+            phase_offset = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            continue
+        if line.startswith('ClockRate'):
+            clock_rate = float(line.split()[-1].replace('s', '')) * 1000  # convert to ms
+            continue
+        if line.startswith('Last Sync Error'):
+            if 'Last Sync Error: 0' not in line:
+                msg.append(line)
+                state = STATE_WARN
+            continue
+        if line.startswith('Time since Last Good Sync Time'):
+            time_since_last_good_sync_time = float(line.split()[-1].replace('s', ''))
+            local_state = lib.base.get_state(time_since_last_good_sync_time, args.WARN, args.CRIT)
+            if local_state != STATE_OK:
+                msg.append('{} {}'.format(line, lib.base.state2str(STATE_WARN)))
+            state = lib.base.get_worst(local_state, state)
+
+    # build the message
+    if state == STATE_OK:
+        msg.append('Everything is ok.')
+
+    perfdata += lib.base.get_perfdata('clock_rate', clock_rate, 'ms', None, None, None, None)
+    perfdata += lib.base.get_perfdata('leap_indicator', leap_indicator, None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('phase_offset', phase_offset, 'ms', None, None, None, None)
+    perfdata += lib.base.get_perfdata('precision', precision, None, None, None, None, None)
+    perfdata += lib.base.get_perfdata('root_delay', root_delay, 'ms', None, None, None, None)
+    perfdata += lib.base.get_perfdata('root_dispersion', root_dispersion, 'ms', None, None, None, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stratum', stratum, None, 5, None, 0, None)
+    perfdata += lib.base.get_perfdata('time_since_last_good_sync_time', time_since_last_good_sync_time, 's', None, None, None, None) # pylint: disable=C0301
+
+    # over and out
+    lib.base.oao(', '.join(msg) + '\n\n' + stdout, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

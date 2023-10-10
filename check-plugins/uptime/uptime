@@ -24,11 +24,11 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.oao('Python module "psutil" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "psutil" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071201'
 
 DESCRIPTION = 'Tell how long the system has been running.'
 
@@ -96,7 +96,10 @@ def main():
 
     delta = lib.time.now() - psutil.boot_time()
 
-    msg = 'Up {}'.format(lib.human.seconds2human(delta))
+    msg = 'Up {} since {}'.format(
+        lib.human.seconds2human(delta),
+        lib.time.epoch2iso(psutil.boot_time()),
+    )
     perfdata = lib.base.get_perfdata('uptime', delta, 's', WARN, CRIT, 0, None)
     state = lib.base.get_state(delta, WARN, CRIT)
 

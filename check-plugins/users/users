@@ -21,7 +21,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -86,14 +86,14 @@ def main():
         CRIT_TTY = lib.args.int_or_none(args.CRIT[0])
         CRIT_PTS = lib.args.int_or_none(args.CRIT[1])
     except:
-        lib.base.oao('Unexpected parameter values for --warning and/or --critical.', STATE_UNKNOWN)
+        lib.base.cu('Unexpected parameter values for --warning and/or --critical.')
 
     # execute the shell command and return its result and exit code
     if lib.base.LINUX:
         cmd = '/usr/bin/w'
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if stderr or retc != 0:
-            lib.base.oao('{}'.format(stderr), STATE_UNKNOWN)
+            lib.base.cu(stderr)
         result = stdout.strip().replace('|', '!') # quote pipes in output, otherwise we will get problems with perfdata
 
         lines = result.splitlines()[1:] # ignore the first line

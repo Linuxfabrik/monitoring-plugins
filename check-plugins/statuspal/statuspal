@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+import flatdict  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023092501'
+
+DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
+                 the summary of a Statuspal status page, checks its status, services,
+                 active incidents and lists maintenances. You need to provide the
+                 URL to the Statuspal API `summary` endpoint."""
+
+DEFAULT_URL = 'https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Statuspal API URL. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def concat_values(mydict, hierarchy):
+    """Concat the values of the same hierarchy level in a dict.
+
+    >>> mydict = {
+        'services:0:name': 'Global',
+        'services:0:description': 'Lorem ipsum',
+        'services:0:children:0:name': 'DNS'
+        'services:0:children:0:id': '4711'
+        'services:0:children:0:children:1:name': 'Server01'
+    }
+    >>> concat_values(mydict, 'services:0:name')
+    >>> 'Global'
+    >>> concat_values(mydict, 'services:0:children:0:name')
+    >>> 'Global.DNS'
+    >>> concat_values(mydict, 'services:0:children:0:children:1:name')
+    >>> 'Global.DNS.Server01'
+    """
+    result = ''
+    hierarchy = hierarchy.split(':')
+    for i, item in enumerate(hierarchy):  # pylint: disable=W0612
+        # testing
+        # * services:name
+        # * services:0:name
+        # * services:0:children:name
+        # * services:0:children:0:name
+        # etc.
+        key = ':'.join(hierarchy[0:i+1]) + ':' + hierarchy[-1]
+        if key in mydict:
+            result += mydict[key] + '.'
+    if result.endswith('.'):
+        return result[:-1]
+    return result
+
+
+def statuspalstate2state(sps):
+    """Convert Statuspal's incident level to the Nagios world.
+    """
+    if sps is None or sps == 'scheduled':
+        return STATE_OK
+    if sps == 'minor':
+        return STATE_WARN
+    if sps == 'major':
+        return STATE_CRIT
+    return STATE_UNKNOWN
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # https://www.statuspal.io/api-docs/v2
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.base.coe(lib.url.fetch_json(args.URL))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test(args.TEST)
+        result = json.loads(stdout)
+
+    try:
+        result['status_page']['current_incident_type']
+    except Exception as e:
+        lib.base.oao('Unexpected response from {}'.format(args.URL), STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = statuspalstate2state(result['status_page']['current_incident_type'])
+
+    # analyze data and build the message
+
+    # status_page
+    if state == STATE_OK:
+        msg += 'All systems operational @ '
+    if state == STATE_WARN:
+        msg += 'Minor incidents @ '
+    if state == STATE_CRIT:
+        msg += 'Major incidents @ '
+    if state == STATE_UNKNOWN:
+        msg += 'Got state "{}" from {} for '.format(
+            result['status_page']['current_incident_type'],
+            args.URL,
+        )
+    msg += '{} ({}, TZ {})'.format(
+        result['status_page']['name'],
+        result['status_page']['url'],
+        result['status_page']['time_zone'],
+    )
+
+    # incidents - get newest incident message only and print it on top
+    if result['incidents']:
+        msg += ': {}'.format(result['incidents'][0]['title'])
+        if result['incidents'][0]['updates']:
+            msg += ' / {} ({})'.format(
+                result['incidents'][0]['updates'][0]['description'],
+                result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' '),
+            )
+
+    # services - search for any incidents in services
+    flattened_result = flatdict.FlatterDict(result['services'])
+    table_data = []
+    tmp = {}
+    for key, value in flattened_result.items():
+        if key.endswith(':name'):
+            tmp['name'] = concat_values(flattened_result, key)
+        if key.endswith(':current_incident_type'):
+            tmp['state'] = lib.base.state2str(statuspalstate2state(value), empty_ok=False)
+        if len(tmp) == 2:
+            table_data.append(tmp)
+            tmp = {}
+    if table_data:
+        msg += '\n\n'
+        msg += lib.base.get_table(
+            table_data,
+            ['name', 'state'],
+            header=['Service', 'State'],
+        )
+
+    # maintenance
+    table_data = []
+    for maint in result['maintenances']:
+        table_data.append({
+            'type': maint['type'],
+            'title': maint['title'],
+            'starts_at': '{}'.format(
+                lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
+            ),
+            # in case of an ongoing maint, ends_at is "None"
+            'ends_at': '{}'.format(
+                lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
+            ) if maint.get('ends_at') is not None else 'in progress',
+        })
+    if table_data:
+        msg += '\n'
+        msg += lib.base.get_table(
+            table_data,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=['Maintenance', 'Type', 'Start', 'End'],
+        )
+        # get newest maintenance task
+        if table_data[2]['starts_at'] <= lib.time.now(as_type='iso'):
+            msg = 'Ongoing maintenance since {}: {}\n{}'.format(
+                table_data[2]['starts_at'],
+                table_data[2]['title'],
+                msg,
+            )
+
+    # upcoming_maintenances (just fyi)
+    table_data = []
+    for maint in result['upcoming_maintenances']:
+        table_data.append({
+            'type': maint['type'],
+            'title': maint['title'],
+            'starts_at': '{}'.format(
+                lib.time.timestr2datetime(maint['starts_at'], pattern='%Y-%m-%dT%H:%M:%S'),
+            ),
+            # in case of an ongoing maint, ends_at is "None"
+            'ends_at': '{}'.format(
+                lib.time.timestr2datetime(maint['ends_at'], pattern='%Y-%m-%dT%H:%M:%S'),
+            ) if maint.get('ends_at') is not None else 'open end',
+        })
+    if table_data:
+        msg += '\n'
+        msg += lib.base.get_table(
+            table_data,
+            ['title', 'type', 'starts_at', 'ends_at'],
+            header=['Upcoming Maintenance', 'Type', 'Start', 'End'],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, '', always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

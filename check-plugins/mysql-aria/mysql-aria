@@ -22,7 +22,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023092101'
 
 DESCRIPTION = """Checks some metrics of the Aria Storage Engine in MySQL/MariaDB."""
 
@@ -104,7 +104,7 @@ def main():
     """The main function. Hier spielt die Musik.
     """
 
-    # logic taken from mysqltuner.pl:mariadb_aria(), v1.9.8
+    # logic taken from mysqltuner.pl:mariadb_aria(), v2.2.8
     # including variable names
 
     # parse the command line, exit with UNKNOWN if it fails
@@ -124,13 +124,13 @@ def main():
     engines = lib.db_mysql.get_engines(conn)
 
     if not engines.get('have_aria', ''):
-        lib.base.oao('Aria Storage Engine not available.', STATE_UNKNOWN)
+        lib.base.cu('Aria Storage Engine not available.')
     if engines['have_aria'] != 'YES':
-        lib.base.oao('Aria Storage Engine is disabled.', STATE_UNKNOWN)
+        lib.base.cu('Aria Storage Engine is disabled.')
 
     # Aria pagecache
     sql = """
-        select ifnull(sum(index_length),0) as total_aria_indexes
+        select ifnull(sum(index_length), 0) as total_aria_indexes
         from information_schema.tables
         where table_schema not in ('information_schema')
             and engine = 'aria';
@@ -149,12 +149,18 @@ def main():
     perfdata = ''
 
     # calculations
-    if mystat.get('Aria_pagecache_read_requests', 0) and int(mystat['Aria_pagecache_read_requests']) > 0:
-        pct_aria_keys_from_mem = 100 - round(int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100, 1)
+    if mystat.get('Aria_pagecache_read_requests', 0) \
+    and int(mystat['Aria_pagecache_read_requests']) > 0:
+        pct_aria_keys_from_mem = 100 - round(
+            int(mystat['Aria_pagecache_reads']) / int(mystat['Aria_pagecache_read_requests']) * 100,
+            1,
+        )
     else:
         pct_aria_keys_from_mem = 0
 
-    if int(myvar['aria_pagecache_buffer_size']) < total_aria_indexes and pct_aria_keys_from_mem < 95:
+    # total_aria_indexes == 0 if there are no aria tables or user has no SELECT privileges on them
+    if int(myvar['aria_pagecache_buffer_size']) < total_aria_indexes \
+    and pct_aria_keys_from_mem < 95:
         aria_pagecache_buffer_size_state = STATE_WARN
         state = lib.base.get_worst(state, aria_pagecache_buffer_size_state)
         msg += ' (adjust aria_pagecache_buffer_size > {}){}'.format(
@@ -163,9 +169,9 @@ def main():
         )
     else:
         aria_pagecache_buffer_size_state = STATE_OK
-    msg = 'Aria pagecache size / total Aria indexes: {}/{}{}, '.format(
-        lib.human.bytes2human(int(myvar['aria_pagecache_buffer_size'])),
+    msg = 'Total Aria indexes: {}, Aria pagecache size: {}{}; '.format(
         lib.human.bytes2human(int(total_aria_indexes)),
+        lib.human.bytes2human(int(myvar['aria_pagecache_buffer_size'])),
         msg,
     )
     perfdata += lib.base.get_perfdata('mysql_aria_pagecache_buffer_size', myvar['aria_pagecache_buffer_size'], 'B', None, None, 0, None)
@@ -177,12 +183,14 @@ def main():
             lib.human.number2human(mystat['Aria_pagecache_read_requests']),
             lib.human.number2human(mystat['Aria_pagecache_reads']),
         )
-        if pct_aria_keys_from_mem < 95:
-            pct_aria_keys_from_mem_state = STATE_WARN
-            state = lib.base.get_worst(state, pct_aria_keys_from_mem_state)
-            msg += '{}.'.format(
-                lib.base.state2str(pct_aria_keys_from_mem_state, prefix=' '),
-            )
+        # Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
+        # Because there's nothing we can do about it:
+        # if pct_aria_keys_from_mem < 95:
+        #     pct_aria_keys_from_mem_state = STATE_WARN
+        #     state = lib.base.get_worst(state, pct_aria_keys_from_mem_state)
+        #     msg += '{}'.format(
+        #         lib.base.state2str(pct_aria_keys_from_mem_state, prefix=' '),
+        #     )
         perfdata += lib.base.get_perfdata('mysql_pct_aria_keys_from_mem', pct_aria_keys_from_mem, '%', 95, None, 0, 100)
         perfdata += lib.base.get_perfdata('mysql_aria_pagecache_read_requests', mystat['Aria_pagecache_read_requests'], 'c', None, None, 0, None)
         perfdata += lib.base.get_perfdata('mysql_aria_pagecache_reads', mystat['Aria_pagecache_reads'], 'c', None, None, 0, None)

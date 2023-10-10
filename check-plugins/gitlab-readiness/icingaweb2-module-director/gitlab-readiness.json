@@ -1,0 +1,171 @@
+{
+    "Command": {
+        "cmd-check-gitlab-readiness": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$gitlab_readiness_always_ok$"
+                },
+                "--severity": {
+                    "value": "$gitlab_readiness_severity$"
+                },
+                "--timeout": {
+                    "value": "$gitlab_readiness_timeout$"
+                },
+                "--url": {
+                    "value": "$gitlab_readiness_url$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/gitlab-readiness",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-gitlab-readiness",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "a354fe07-e065-459c-87fe-9f5829cf61fe"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-gitlab-readiness": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-gitlab-readiness",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "gitlab-readiness.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "The readiness probe checks whether the GitLab instance is ready to accept  traffic via Rails Controllers. The check also validates the dependent services (Database, Redis, Gitaly etc.) and gives a status for each.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-readiness",
+            "object_name": "tpl-service-gitlab-readiness",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "gitlab_readiness_always_ok": false,
+                "gitlab_readiness_severity": "warn",
+                "gitlab_readiness_timeout": 3,
+                "gitlab_readiness_url": "http://localhost/-/readiness?all=1"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "183dae6f-2dab-4d15-898d-90bb52e6b5fc"
+        }
+    },
+    "DataList": {
+        "gitlab_readiness_severity_list": {
+            "list_name": "gitlab_readiness_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "d506967e-7834-4ebb-937d-7d1855f58562"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "gitlab_readiness_always_ok",
+            "caption": "Gitlab Readiness: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3d4c677b-e565-4dff-8d34-c0c57445378e"
+        },
+        "2": {
+            "varname": "gitlab_readiness_severity",
+            "caption": "Gitlab Readiness: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "gitlab_readiness_severity_list"
+            },
+            "uuid": "46d90e23-16b7-4ba0-9e19-714281ce4d51"
+        },
+        "3": {
+            "varname": "gitlab_readiness_timeout",
+            "caption": "Gitlab Readiness: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "37042d91-c602-457f-9a66-66e899aba7a7"
+        },
+        "4": {
+            "varname": "gitlab_readiness_url",
+            "caption": "Gitlab Readiness: URL",
+            "description": "GitLab readiness URL endpoint.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8a1a74fc-1d09-413e-9a6d-219f30682831"
+        }
+    }
+}

@@ -22,6 +22,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-version.db``"
 
 
 Help

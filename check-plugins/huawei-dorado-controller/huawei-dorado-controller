@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """Batch querying controllers of a Huawei OceanStor Dorado storage
                  system via the REST Interface, using the ``/controller`` endpoint."""
@@ -135,7 +135,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if not args.URL.startswith('http'):
-        lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
     if args.TEST is None:
@@ -147,7 +147,7 @@ def main():
 
     # no valuable result?
     if not result:
-        lib.base.oao('Got no valuable response from {}.'.format(args.URL), STATE_UNKNOWN)
+        lib.base.cu('Got no valuable response from {}.'.format(args.URL))
     if result.get('error').get('code') != 0:
         lib.base.oao('{} {}'.format(
             result.get('error').get('description'),

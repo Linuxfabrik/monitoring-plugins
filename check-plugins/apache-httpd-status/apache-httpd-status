@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -120,7 +120,7 @@ def main():
         # fetch the URL
         result = lib.base.coe(lib.url.fetch(URL, insecure=args.INSECURE))
         if 'Scoreboard: ' not in result:
-            lib.base.oao('Malformed Apache server info.', STATE_UNKNOWN)
+            lib.base.cu('Malformed Apache server info.')
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
@@ -152,7 +152,7 @@ def main():
         try:
             key, value = item.split(': ')
         except:
-            lib.base.oao('Malformed Apache server info.', STATE_UNKNOWN)
+            lib.base.cu('Malformed Apache server info.')
 
         if key == 'ServerUptimeSeconds':
             apache['ServerUptimeSeconds'] = int(value) # continous counter
@@ -176,7 +176,7 @@ def main():
     # parse the "scoreboard" and count the elements
     apache['TotalWorkers'] = len(apache['Scoreboard'])
     if apache['TotalWorkers'] == 0:
-        lib.base.oao('Malformed Apache server info.', STATE_UNKNOWN)
+        lib.base.cu('Malformed Apache server info.')
 
                                                                 # from mod_status.c:
     workers['closing'] = apache['Scoreboard'].count('C')        # SERVER_CLOSING

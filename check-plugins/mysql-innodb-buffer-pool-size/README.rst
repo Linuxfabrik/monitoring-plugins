@@ -4,20 +4,19 @@ Check mysql-innodb-buffer-pool-size
 Overview
 --------
 
-Checks the size of the InnoDB buffer pool in MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_innodb(), v1.9.8.
+Checks the size of the InnoDB buffer pool in MySQL/MariaDB. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_innodb().
 
-Always take care of both ``innodb_buffer_pool_size`` and ``innodb_log_file_size`` when making adjustments. For that have a look at the following output example ``InnoDB buffer pool / data size: 36.0GiB / 49.4GiB [WARNING]. Set innodb_buffer_pool_size >= 49.4GiB. innodb_log_file_size * innodb_log_files_in_group / innodb_buffer_pool_size = 9.0GiB * 2 / 36.0GiB = 50.0% [WARNING] (should be 25%). Set innodb_log_file_size to 4.5GiB.``:
+Always take care of both ``innodb_buffer_pool_size`` and ``innodb_log_file_size`` when making adjustments.
 
-* Here, buffer pool is 36 GB.
-* Data does not fit in, it needs 49 GB.
-* The check plugin complains and makes some suggestions on how to resize ``innodb_buffer_pool_size`` and ``innodb_log_file_size``.
-* If we adjust ``innodb_buffer_pool_size`` to 50 GB, and ``innodb_log_files_in_group`` is set to ``2`` (deprecated and ignored from MariaDB 10.5.2), we should set ``innodb_log_file_size`` to ``6.25`` to get the 25% log file versus pool size ratio. Then both warnings should change to OK.
-* Attention: Assuming this is a database server with entirely/primarily InnoDB tables, you need at least 64 GB, following the rule that the InnoDB buffer pool size can be set up to 80% of the total memory in this case.
+User account requires:
+
+* Access to INFORMATION_SCHEMA (user with no privileges is sufficient).
+* SELECT privileges on all schemas and tables to provide accurate results.
 
 Hints:
 
 * See `additional notes for all mysql monitoring plugins <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_
-* Requires a user account with high privileges to access schemas like INFORMATION_SCHEMA. `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
+* `For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges. <https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges>`_. `So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries <https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database>`_. Then this check provide correct results.
 * On MariaDB 10.2.2+, ``innodb_buffer_pool_size`` `can be set dynamically. <https://mariadb.com/kb/en/setting-innodb-buffer-pool-size-dynamically/>`_.
 
 
@@ -31,7 +30,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
-    "Requirements",                         "User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "3rd Party Python modules",             "``pymysql``"
 
 
@@ -74,14 +72,17 @@ Output:
 
 .. code-block:: text
 
-    InnoDB buffer pool / data size: 36.0GiB / 49.4GiB [WARNING]. Set innodb_buffer_pool_size >= 49.4GiB. innodb_log_file_size * innodb_log_files_in_group / innodb_buffer_pool_size = 9.0GiB * 2 / 36.0GiB = 50.0% [WARNING] (should be 25%). Set innodb_log_file_size to 4.5GiB.
+    Data size: 2.5GiB, innodb_buffer_pool_size: 4.0GiB
+    Ratio innodb_log_file_size (1.0GiB) * innodb_log_files_in_group (1) vs. innodb_buffer_pool_size (4.0GiB): 25%
 
 
 States
 ------
 
+* WARN on 32 bit systems when InnoDB buffer pool size > 4 GiB.
+* WARN on 64 bit systems when InnoDB buffer pool size > 16 EiB.
 * WARN if size of data does not fit into the InnoDB buffer pool.
-* WARN if the InnoDB log file size versus the InnoDB pool size ratio is not in the range of 20 to 30%.
+* WARN if the InnoDB log file size versus the InnoDB buffer pool size ratio is not in the range of 20 to 30%.
 
 
 Perfdata / Metrics

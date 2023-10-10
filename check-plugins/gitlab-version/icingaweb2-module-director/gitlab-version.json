@@ -1,0 +1,108 @@
+{
+    "Command": {
+        "cmd-check-gitlab-version": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$gitlab_version_always_ok$"
+                },
+                "--path": {
+                    "value": "$gitlab_version_path$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/gitlab-version",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-gitlab-version",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "42aa6d6e-2f0e-4a34-b399-c0de9364304b"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-gitlab-version": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-gitlab-version",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "gitlab-version.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Tracks if GitLab is EOL.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/gitlab-version",
+            "object_name": "tpl-service-gitlab-version",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "gitlab_version_always_ok": false,
+                "gitlab_version_path": "/opt/gitlab/version-manifest.txt"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "a5b5125a-d324-41e4-b575-e49fccfa7936"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "gitlab_version_always_ok",
+            "caption": "Gitlab Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8b566477-7527-4dad-a3e0-3cef431c7eed"
+        },
+        "2": {
+            "varname": "gitlab_version_path",
+            "caption": "Gitlab Version: Path",
+            "description": "Full path to GitLab's `version-manifest.txt`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e1439f84-269a-4b81-af64-4775c386aa3b"
+        }
+    }
+}

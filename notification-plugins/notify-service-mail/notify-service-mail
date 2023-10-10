@@ -43,7 +43,7 @@ import lib.url     # pylint: disable=C0413
 from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023063001'
 
 DESCRIPTION = 'Sends notifications for services using mail.'
 
@@ -359,14 +359,17 @@ def generate_mail_content(args, logo_cid):
         ]
 
     if args.ICINGAWEB2_URL and args.HOSTNAME and args.SERVICENAME:
-        params = urllib.parse.urlencode({
-            'host': args.HOSTNAME,
-            'service': args.SERVICENAME,
-        }, quote_via=urllib.parse.quote)
+        params = urllib.parse.urlencode(
+            {
+                'name': args.SERVICENAME,
+                'host.name': args.HOSTNAME,
+            },
+            quote_via=urllib.parse.quote
+        )
         rows += [
             {
                 'left_column': 'IcingaWeb2 URL:',
-                'right_column': urllib.parse.urljoin('{}/'.format(args.ICINGAWEB2_URL), 'monitoring/service/show?{}'.format(params))
+                'right_column': urllib.parse.urljoin('{}/'.format(args.ICINGAWEB2_URL), 'icingadb/service?{}'.format(params))
             },
         ]
 

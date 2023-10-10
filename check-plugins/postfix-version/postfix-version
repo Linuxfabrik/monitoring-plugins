@@ -21,66 +21,9 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Tracks if Postfix is EOL.'
-
-# from https://endoflife.date/api/postfix.json
-ENDOFLIFE_DATE = [
-  {
-    "cycle": "3.7",
-    "eol": False,
-    "latest": "3.7.4",
-    "latestReleaseDate": "2023-01-22",
-    "releaseDate": "2022-02-06",
-    "lts": False
-  },
-  {
-    "cycle": "3.6",
-    "eol": False,
-    "latest": "3.6.8",
-    "latestReleaseDate": "2023-01-22",
-    "releaseDate": "2021-04-29",
-    "link": "https://www.postfix.org/announcements/postfix-3.7.4.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.5",
-    "eol": False,
-    "latest": "3.5.18",
-    "latestReleaseDate": "2023-01-22",
-    "releaseDate": "2020-03-15",
-    "link": "https://www.postfix.org/announcements/postfix-3.7.4.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.4",
-    "eol": False,
-    "latest": "3.4.28",
-    "latestReleaseDate": "2023-01-22",
-    "releaseDate": "2019-02-27",
-    "link": "https://www.postfix.org/announcements/postfix-3.7.4.html",
-    "lts": False
-  },
-  {
-    "cycle": "3.3",
-    "eol": "2022-02-05",
-    "latest": "3.3.22",
-    "latestReleaseDate": "2022-02-06",
-    "releaseDate": "2018-02-22",
-    "link": "https://www.postfix.org/announcements/postfix-3.6.5.html",
-    "lts": False
-  },
-  {
-    "cycle": "2.8",
-    "eol": "2015-02-08",
-    "latest": "2.8.20",
-    "latestReleaseDate": "2018-02-10",
-    "releaseDate": "2018-02-10",
-    "link": "https://www.postfix.org/announcements/postfix-2.11.4.html",
-    "lts": False
-  }
-]
 
 
 def parse_args():
@@ -132,7 +75,7 @@ def main():
     # fetch data
     installed_version = get_installed_version()
     if not installed_version:
-        lib.base.oao('Postfix not found.', STATE_UNKNOWN)
+        lib.base.cu('Postfix not found.')
     try:
         installed_major, installed_minor, installed_patch = installed_version.split('.')
     except:
@@ -140,7 +83,7 @@ def main():
         installed_major, installed_minor = installed_version.split('.')
 
     state, msg = lib.version.check_eol(
-        ENDOFLIFE_DATE,
+        'https://endoflife.date/api/postfix.json',
         '{}.{}'.format(installed_major, installed_minor),
     )
 

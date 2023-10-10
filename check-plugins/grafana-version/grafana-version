@@ -21,85 +21,9 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = 'Tracks if Grafana is EOL.'
-
-# from https://endoflife.date/api/grafana.json
-ENDOFLIFE_DATE = [
-  {
-    "cycle": "9.4",
-    "support": True,
-    "eol": False,
-    "releaseDate": "2023-02-27",
-    "latest": "9.4.7",
-    "latestReleaseDate": "2023-03-16",
-    "lts": False
-  },
-  {
-    "cycle": "9.3",
-    "support": "2023-02-27",
-    "eol": False,
-    "releaseDate": "2022-11-29",
-    "latest": "9.3.11",
-    "latestReleaseDate": "2023-03-16",
-    "lts": False
-  },
-  {
-    "cycle": "9.2",
-    "support": "2022-11-29",
-    "eol": "2023-02-27",
-    "releaseDate": "2022-10-11",
-    "latest": "9.2.15",
-    "latestReleaseDate": "2023-03-22",
-    "lts": False
-  },
-  {
-    "cycle": "9.1",
-    "support": "2022-10-11",
-    "eol": "2022-11-29",
-    "releaseDate": "2022-08-16",
-    "latest": "9.1.8",
-    "latestReleaseDate": "2022-10-11",
-    "lts": False
-  },
-  {
-    "cycle": "9.0",
-    "support": "2022-08-16",
-    "eol": "2022-10-11",
-    "releaseDate": "2022-06-13",
-    "latest": "9.0.9",
-    "latestReleaseDate": "2022-09-20",
-    "lts": False
-  },
-  {
-    "cycle": "8",
-    "support": "2022-06-13",
-    "eol": False,
-    "releaseDate": "2021-06-08",
-    "latest": "8.5.22",
-    "latestReleaseDate": "2023-03-22",
-    "lts": False
-  },
-  {
-    "cycle": "7",
-    "support": "2021-06-08",
-    "eol": "2022-06-14",
-    "releaseDate": "2020-05-15",
-    "latest": "7.5.17",
-    "latestReleaseDate": "2022-09-26",
-    "lts": False
-  },
-  {
-    "cycle": "6",
-    "support": "2020-05-15",
-    "eol": "2021-06-08",
-    "releaseDate": "2019-02-25",
-    "latest": "6.7.6",
-    "latestReleaseDate": "2021-03-18",
-    "lts": False
-  }
-]
 
 
 def parse_args():
@@ -151,7 +75,7 @@ def main():
     # fetch data
     installed_version = get_installed_version()
     if not installed_version:
-        lib.base.oao('Grafana not found.', STATE_UNKNOWN)
+        lib.base.cu('Grafana not found.')
     try:
         installed_major, installed_minor, installed_patch = installed_version.split('.')
     except:
@@ -159,8 +83,8 @@ def main():
         installed_major, installed_minor = installed_version.split('.')
 
     state, msg = lib.version.check_eol(
-        ENDOFLIFE_DATE,
-        '{}.{}'.format(installed_major, installed_minor),
+        'https://endoflife.date/api/grafana.json',
+        '{}.{}'.format(installed_major, installed_minor) if int(installed_major) >= 9 else '{}'.format(installed_major), # pylint: disable=C0301
     )
 
     # over and out

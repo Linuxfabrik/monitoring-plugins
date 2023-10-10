@@ -27,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023092101'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -183,7 +183,7 @@ def main():
     """The main function. Hier spielt die Musik.
     """
 
-    # logic taken from mysqltuner.pl:log_file_recommendations(), v1.9.8
+    # logic taken from mysqltuner.pl:log_file_recommendations(), v2.2.8
     # including variable names
 
     # parse the command line, exit with UNKNOWN if it fails
@@ -192,43 +192,50 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    mysql_connection = {
-        'defaults_file':  args.DEFAULTS_FILE,
-        'defaults_group': args.DEFAULTS_GROUP,
-        'timeout':        args.TIMEOUT,
-    }
-    success, conn = lib.db_mysql.connect(mysql_connection)
-    if not success:
-        # DB seems to be down
-        # Try to get the "log_error" setting and save it to cache, so that we know where to get the
-        # log info from in case the DB is down.
-        myvar = {}
-        log_error = lib.cache.get('{}-{}'.format(
-            args.HOSTNAME,
-            args.PORT
-        ), filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
+    if args.SERVER_LOG:
+        # user told us to use this log source, so don't try to find anything else
+        log_error = args.SERVER_LOG
     else:
-        lib.base.coe(lib.db_mysql.check_select_privileges(conn))
-        myvar = lib.db_mysql.lod2dict(get_vars(conn))
-        lib.db_mysql.close(conn)
-        log_error = myvar['log_error']
-
-    if not log_error:
-        if not args.SERVER_LOG:
+        # first ask the DB where to find the logfile
+        mysql_connection = {
+            'defaults_file':  args.DEFAULTS_FILE,
+            'defaults_group': args.DEFAULTS_GROUP,
+            'timeout':        args.TIMEOUT,
+        }
+        success, conn = lib.db_mysql.connect(mysql_connection)
+        if not success:
+            # DB seems to be down
+            # Try to get the "log_error" setting and save it to cache, so that we know
+            #  where to get the log info from in case the DB is down again.
+            myvar = {}
+            log_error = lib.cache.get('{}-{}'.format(
+                    args.HOSTNAME,
+                    args.PORT
+                ),
+                filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
+            )
+        else:
+            lib.base.coe(lib.db_mysql.check_select_privileges(conn))
+            myvar = lib.db_mysql.lod2dict(get_vars(conn))
+            lib.db_mysql.close(conn)
+            log_error = myvar['log_error']
+        if not log_error:
             log_error = get_log_file_real_path(
                 myvar.get('log_error', ''),
                 myvar.get('hostname', ''),
                 myvar.get('datadir', ''),
             )
-        else:
-            log_error = args.SERVER_LOG
-    if not log_error:
-        lib.base.oao('No log file set (set log_error in MySQL/MariaDB config or use the check\'s --server-log parameter).', STATE_UNKNOWN)
+        if not log_error:
+            lib.base.cu('No log file set (set `log_error` in MySQL/MariaDB config or use the check\'s `--server-log` parameter).')
 
     lib.cache.set('{}-{}'.format(
-        args.HOSTNAME,
-        args.PORT
-    ), log_error, lib.time.now() + args.CACHE_EXPIRE*60, filename='linuxfabrik-monitoring-plugins-mysql-logfile.db')
+            args.HOSTNAME,
+            args.PORT
+        ),
+        log_error,
+        lib.time.now() + args.CACHE_EXPIRE*60,
+        filename='linuxfabrik-monitoring-plugins-mysql-logfile.db',
+    )
 
     # init some vars
     msg, msg_body = '', ''
@@ -236,34 +243,41 @@ def main():
     perfdata = ''
 
     if log_error == 'stderr':
-        lib.base.oao('log_error is set to STDERR, so this check can\'t read it.', STATE_UNKNOWN)
+        lib.base.cu('log_error is set to STDERR, so this check can\'t read stderr.')
 
     match = re.search(r'^(docker|podman|kubectl):(.*)', log_error)
     if match:
-        cmd = "{} logs --tail={} '{}'".format(match.group(1).strip(), MAXLINES, match.group(2).strip())
+        cmd = "{} logs --tail={} '{}'".format(
+            match.group(1).strip(),
+            MAXLINES,
+            match.group(2).strip(),
+        )
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
-            lib.base.oao('{} exited with error ({}, {}).'.format(cmd, retc, stderr.strip()), STATE_UNKNOWN)
+            lib.base.cu('{} exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
         msg += 'Src: {}, '.format(log_error)
 
     match = re.search(r'^systemd:(.*)', log_error)
     if match:
-        cmd = "journalctl -n {} -b -u '{}'".format(MAXLINES, match.group(1).strip())
+        cmd = "journalctl --lines {} --boot --unit '{}'".format(MAXLINES, match.group(1).strip())
         logfile, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         if retc != 0:
-            lib.base.oao('{} exited with error ({}, {}).'.format(cmd, retc, stderr.strip()), STATE_UNKNOWN)
+            lib.base.cu('`{}` exited with error ({}, {}).'.format(cmd, retc, stderr.strip()))
         msg += 'Src: {}, '.format(log_error)
     else:
         # good old logfile
         if not os.path.isabs(log_error):
             log_error = os.path.join(myvar.get('datadir', ''), log_error)
         if not os.path.isfile(log_error):
-            msg = 'Logging seems to be configured, but {} does not seem to be an existing regular file. '.format(log_error)
-            msg += 'Check the path and file permissions, or provide the --server-log parameter.'
+            msg = 'Logging seems to be configured, but `{}` does not seem to be an existing regular file. '.format(log_error)
+            msg += 'Check the path and file permissions, or provide the `--server-log` parameter.'
             lib.base.oao(msg, STATE_WARN)
         size = os.path.getsize(log_error)
         if size == 0:
-            lib.base.oao('Log file {} is empty. Assuming log-rotation. Use `--server-log` for explicit file.'.format(log_error), STATE_UNKNOWN)
+            if not args.SERVER_LOG:
+                lib.base.oao('Log file {} is empty. Assuming log-rotation. Use `--server-log` for explicit file.'.format(log_error), STATE_UNKNOWN)
+            else:
+                lib.base.oao('Log file {} is empty. `--server-log` is set explicitely, so assuming log-rotation.'.format(log_error), STATE_OK)
         msg += 'Src: Log file {} (size: {}), '.format(
             log_error,
             lib.human.bytes2human(size),
@@ -272,7 +286,7 @@ def main():
         if size >= 32 * 1024 * 1024:
             size_state = STATE_WARN
             state = lib.base.get_worst(state, size_state)
-            msg += 'bigger than 32 MiB{} (you should analyze why or implement a rotation log), '.format(
+            msg += 'bigger than 32 MiB{} (you should analyze why or implement a rotation log strategy such as logrotate), '.format(
                 lib.base.state2str(size_state, prefix=' '),
             )
         logfile = lib.base.coe(lib.disk.read_file(log_error))

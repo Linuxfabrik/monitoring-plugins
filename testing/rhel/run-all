@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+
+# using yum for RHEL7
+yum install -y /packages/linuxfabrik-monitoring-plugins*.rpm
+
+mkdir -p output
+for dir in /repos/monitoring-plugins/check-plugins/*; do
+    check="$(basename "$dir")"
+    if [ "$check" != "example" ]; then
+        "/usr/lib64/nagios/plugins/$check" 1> "/tmp/$check.stdout" 2> "/tmp/$check.stderr"
+        echo $? > "/tmp/$check.retc"
+
+        # make a nice summary file
+        cat > "output/$check" << EOF
+--------------------------------------------------------------------------------
+# $check. Retc: $(cat "/tmp/$check.retc")
+--------------------------------------------------------------------------------
+
+## STDOUT
+
+$(cat "/tmp/$check.stdout")
+
+----------------------------------------
+
+## STDERR
+
+$(cat "/tmp/$check.stderr")
+
+----------------------------------------
+EOF
+
+    fi
+done

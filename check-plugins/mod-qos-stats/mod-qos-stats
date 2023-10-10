@@ -21,7 +21,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = """mod_qos for Apache httpd features a handler showing the current connection and
                 request status. This check fetches the machine-readable version of the status
@@ -80,7 +80,7 @@ def main():
     if args.TEST is None:
         url = args.URL
         if url[0:4] != 'http':
-            lib.base.oao('--url parameter has to start with "http://" or https://".', STATE_UNKNOWN)
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
         url = url + '?auto'
 
         # fetch the url
@@ -124,7 +124,7 @@ def main():
                 configured_value = configured[0:configured.find('[')]
                 current_value = values[1]
         except:
-            lib.base.oao('Malformed mod_qos status info.', STATE_UNKNOWN)
+            lib.base.cu('Malformed mod_qos status info.')
 
 
         perfdata += lib.base.get_perfdata('{}_{}'.format(key, pattern),

@@ -4,7 +4,7 @@ Check path-rw-test
 Overview
 --------
 
-Tests whether a file (``__LINUXFABRIK_PATH_RW_TEST__``) can be written to a specific path and then deleted - much like the "__DIRECT_IO_TEST__" in oVirt. Especially useful with mounted filesystems like NFS or SMB. The local temporary directory is always tested, no matter whether the check is called with or without parameters. May need sudo.
+Tests if a temporary file can be created, written to a specified path, read, and then deleted. Especially useful with mounted file systems such as NFS or SMB. The local temporary directory is always tested, regardless of whether the check is called with or without parameters. May require sudo privileges.
 
 
 Fact Sheet
@@ -17,7 +17,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
-    "3rd Party Python modules",             "``psutil``"
 
 
 Help
@@ -28,17 +27,19 @@ Help
     usage: path-rw-test [-h] [-V] [--always-ok] [--path PATH]
                         [--severity {warn,crit}]
 
-    Tests whether a file can be written to a specific path and then deleted.
+    Tests if a temporary file can be created, written to a specified path, read,
+    and then deleted. Especially useful with mounted file systems such as NFS or
+    SMB. The local temporary directory is always tested, regardless of whether the
+    check is called with or without parameters. May require sudo privileges.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --path PATH           Path to which the file is to be written and from which
                             it will be deleted (repeating). Default: ['/tmp']
       --severity {warn,crit}
-                            Severity for alerting. One of "warn" or "crit".
-                            Default: warn
+                            Severity for alerting. Default: warn
 
 
 Usage Examples
@@ -46,13 +47,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./path-rw-test --path /mnt/nfs --path /mnt/smb --path . --severity warn
+    ./path-rw-test --path /mnt/nfs --path /mnt/smb --path /usr --severity warn
 
 Output:
 
 .. code-block:: text
 
-    /mnt/nfs: I/O error "Permission denied" while writing /mnt/nfs/__LINUXFABRIK_PATH_RW_TEST__ [WARNING]
+    Error creating/writing/reading/deleting file in `/usr` ([Errno 13] Permission denied: '/usr/tmptbt8daho'). Tested: /tmp, /mnt/nfs, /mnt/smb, /usr
 
 
 States

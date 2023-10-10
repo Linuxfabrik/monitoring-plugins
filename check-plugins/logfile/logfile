@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
 DESCRIPTION = "Scans a logfile for set of pattern or regex and alarms on the number of findings."
 
@@ -186,10 +186,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     if not any((args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)):
-        lib.base.oao('At least one pattern or regex is required.', STATE_UNKNOWN)
+        lib.base.cu('At least one pattern or regex is required.')
 
     if args.ICINGA_CALLBACK and not all((args.ICINGA_URL, args.ICINGA_PASSWORD, args.ICINGA_USERNAME, args.ICINGA_SERVICE_NAME)):
-        lib.base.oao('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.', STATE_UNKNOWN)
+        lib.base.cu('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name.')
 
     # create the db table
     conn = lib.base.coe(
@@ -265,11 +265,11 @@ def main():
 
             offset = logfile.tell()
     except FileNotFoundError:
-        lib.base.oao(f"Could not find logfile '{args.FILENAME}'.", STATE_UNKNOWN)
+        lib.base.cu("Could not find logfile '{}'.".format(args.FILENAME))
         # make sure conn is always closed
         lib.db_sqlite.close(conn)
     except PermissionError:
-        lib.base.oao(f"Permission denied opening '{args.FILENAME}'.", STATE_UNKNOWN)
+        lib.base.cu("Permission denied opening '{}'.".format(args.FILENAME))
         # make sure conn is always closed
         lib.db_sqlite.close(conn)
 

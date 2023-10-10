@@ -12,20 +12,20 @@
 """
 
 import argparse  # pylint: disable=C0413
-import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
+import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071203'
 
-DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses (for a list of jails).'
-
-cmd = 'fail2ban-client'
+DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses per jail.'
 
 DEFAULT_CRIT = 10000
 DEFAULT_WARN = 2500
@@ -52,15 +52,22 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold for banned IPs. Default: %(default)s',
+        help='Set the critical threshold for banned IPs per jail. Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold for banned IPs. Default: %(default)s',
+        help='Set the warning threshold for banned IPs per jail. Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -81,58 +88,76 @@ def main():
 
     # fetch data
     # fail2ban-client ping
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' ping'))
-    if retc:
-        lib.base.oao('Problem while testing if the fail2ban server is alive.', STATE_UNKNOWN)
+    if args.TEST is None:
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client ping'))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test([args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]])
+    if retc != 0:
+        lib.base.cu('Problem while testing if the fail2ban server is alive.')
 
     # fail2ban-client status
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' status'))
+    if args.TEST is None:
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client status'))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.test.test([args.TEST[0] + '-status', args.TEST[1], args.TEST[2]])
     if retc != 0:
-        lib.base.oao('Problem while testing the status of the fail2ban server.', STATE_UNKNOWN)
+        lib.base.cu('Problem while testing the status of the fail2ban server.')
 
     # extract the jail list
-    jail_list = re.search(r'Jail list:\t(.*)\n', stdout)
-    jail_list = jail_list.group(1).strip().split(', ')
+    jail_list = lib.txt.extract_str(stdout, 'Jail list:\t', '\n')
+    if not jail_list:
+        lib.base.cu('No jails found.')
+    jail_list = jail_list.split(', ')
 
     # init some vars
     msg = ''
     perfdata = ''
     state = STATE_OK
 
-    # let's do the checks
-    # for each jail_name:
-    #     fail2ban-client status jail_name
+    # analyze data
+    #     for each jail_name:
+    #         get status of jail_name
     for jail in jail_list:
-
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd + ' status {}'.format(jail)))
+        if args.TEST is None:
+            stdout, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec('fail2ban-client status {}'.format(jail))
+            )
+        else:
+            # do not call the command, put in test data
+            stdout, stderr, retc = lib.test.test(
+                [args.TEST[0] + '-status-{}'.format(jail),
+                args.TEST[1],
+                args.TEST[2]],
+            )
         if retc != 0:
-            lib.base.oao('Problem while testing the status of the jail "{}" on the fail2ban server.'.format(jail), STATE_UNKNOWN)
+            lib.base.oao(
+                'Problem while testing the status of the jail "{}" on the fail2ban server.'.format(
+                    jail
+                ),
+                STATE_UNKNOWN,
+            )
 
-        f2b_filelist = re.search(r'File list:\t(.*)\n', stdout)
-        if f2b_filelist:
-            f2b_filelist = f2b_filelist.group(1).strip()
-        f2b_currently_banned = re.search(r'Currently banned:\t(.*)\n', stdout)
-        # important to convert the result to an integer
-        # for the comparison later on
+        f2b_currently_banned = lib.txt.extract_str(stdout, 'Currently banned:\t', '\n')
+        # important to convert the result to an integer for the comparison later on
         if f2b_currently_banned:
-            f2b_currently_banned = int(f2b_currently_banned.group(1).strip())
+            f2b_currently_banned = int(f2b_currently_banned)
         else:
             f2b_currently_banned = 0
+        jail_state = lib.base.get_state(f2b_currently_banned, args.WARN, args.CRIT)
+        state = lib.base.get_worst(state, jail_state)
 
-        msg += '{} {} banned in jail "{}"'.format(
-            f2b_currently_banned,
-            lib.txt.pluralize('IP', f2b_currently_banned),
+        msg += '{}: {}{}, '.format(
             jail,
+            f2b_currently_banned,
+            lib.base.state2str(state, prefix=' '),
         )
-        if f2b_filelist:
-            msg += ' (acting on {})'.format(f2b_filelist)
-        msg += ', '
-
-        perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None)
-        state = lib.base.get_state(f2b_currently_banned, args.WARN, args.CRIT)
+        perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    if msg:
+        lib.base.oao('IPs banned - ' + msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

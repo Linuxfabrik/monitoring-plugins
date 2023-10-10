@@ -151,12 +151,12 @@ Some other examples:
 
 .. code-block:: bash
 
-    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80 --critical=90
-    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80%USED --critical=90%USED
-    ./disk-usage --ignore=/var/log --ignore=/tmp --warning=80%USED --critical=3GFREE
+    ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80 --critical=90
+    ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=90%USED
+    ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=3GFREE
 
     # on Windows:
-    ./disk-usage --ignore=E: --ignore=Y: --warning=80 --critical=90
+    ./disk-usage --exclude-pattern=E: --exclude-pattern=Y: --warning=80 --critical=90
 
 
 States

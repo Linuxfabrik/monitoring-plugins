@@ -98,7 +98,7 @@ Help
                       [--critical-query CRITICAL_QUERY] [--delimiter DELIMITER]
                       [--filename FILENAME] [--insecure] [--newline NEWLINE]
                       [--no-proxy] [--password PASSWORD] [--quotechar QUOTECHAR]
-                      [--skip-header] [--test TEST] [--timeout TIMEOUT] [-u URL]
+                      [--skip-header] [--timeout TIMEOUT] [-u URL]
                       [--username USERNAME] [-w WARN]
                       [--warning-query WARNING_QUERY]
 
@@ -147,9 +147,8 @@ Help
       --password PASSWORD   SMB or HTTP Basic Auth Password.
       --quotechar QUOTECHAR
                             CSV quotechar. Default: `"`
-      --skip-header         Treat the first row as header names. Default: True
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
+      --skip-header         Treat the first row as header names, and skip this
+                            row. Default: False
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u URL, --url URL     Set the url of the CSV file, either starting with
                             "http://", "https://" or "smb://". This is mutually
@@ -210,7 +209,8 @@ Checking this local CSV file: WARN if more than 6 hosts in network A have more t
         --warning-query='select * from data where network = "A" and WaitingUpdates > 3' \
         --warning=6 \
         --critical-query='select * from data where network <> "A" and WaitingUpdates > 4' \
-        --critical=2
+        --critical=2 \
+        --skip-header
 
 Output:
 

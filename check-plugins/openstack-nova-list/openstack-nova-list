@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+try:
+    from keystoneauth1.identity import v3
+    from keystoneauth1 import session
+    from keystoneclient.v3 import client
+except ImportError:
+    lib.base.cu('Python module "python-keystoneclient" is not installed.')
+try:
+    from novaclient import client
+except ImportError:
+    lib.base.cu('Python module "python-novaclient" is not installed.')
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023090701'
+
+DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
+                 instances (aka virtual servers).
+                 This monitoring plugin lists all virtual servers and checks their status."""
+
+DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
+DEFAULT_SEVERITY = 'crit'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--rc-file',
+        help='Specifies a rc file to read connection parameters like OS_USERNAME from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.openstack.cnf`. Default: %(default)s',
+        dest='RC_FILE',
+        default=DEFAULT_RC_FILE,
+    )
+
+    return parser.parse_args()
+
+
+def get_state(vm_state):
+    """Return OK, WARN or CRIT depending on the status of the VM in OpenStack.
+
+    From nova API guide:
+
+    -  ``ACTIVE``: The server is active.
+
+    -  ``BUILD``: The server has not yet finished the original build process.
+
+    -  ``DELETED``: The server is deleted.
+
+    -  ``ERROR``: The server is in error.
+
+    -  ``HARD_REBOOT``: The server is hard rebooting. This is equivalent to
+       pulling the power plug on a physical server, plugging it back in, and
+       rebooting it.
+
+    -  ``MIGRATING``: The server is migrating. This is caused by a
+       live migration (moving a server that is active) action.
+
+    -  ``PASSWORD``: The password is being reset on the server.
+
+    -  ``PAUSED``: The server is paused.
+
+    -  ``REBOOT``: The server is in a soft reboot state. A reboot command
+       was passed to the operating system.
+
+    -  ``REBUILD``: The server is currently being rebuilt from an image.
+
+    -  ``RESCUE``: The server is in rescue mode.
+
+    -  ``RESIZE``: Server is performing the differential copy of data that
+       changed during its initial copy. Server is down for this stage.
+
+    -  ``REVERT_RESIZE``: The resize or migration of a server failed for
+       some reason. The destination server is being cleaned up and the
+       original source server is restarting.
+
+    -  ``SHELVED``: The server is in shelved state. Depends on the shelve offload
+       time, the server will be automatically shelved off loaded.
+
+    -  ``SHELVED_OFFLOADED``: The shelved server is offloaded (removed from the
+       compute host) and it needs unshelved action to be used again.
+
+    -  ``SHUTOFF``: The server was powered down by the user, either through the
+       OpenStack Compute API or from within the server. For example, the user
+       issued a :command:`shutdown -h` command from within the server.
+       If the OpenStack Compute manager detects that the VM was powered down,
+       it transitions the server to the SHUTOFF status.
+
+    -  ``SOFT_DELETED``: The server is marked as deleted but will remain in the
+       cloud for some configurable amount of time. While soft-deleted, an
+       authorized user can restore the server back to normal state. When the time
+       expires, the server will be deleted permanently.
+
+    -  ``SUSPENDED``: The server is suspended, either by request or
+       necessity. See the
+       :nova-doc:`feature support matrix <user/support-matrix.html#operation_suspend>`
+       for supported compute drivers. When you suspend a server, its state is stored
+       on disk, all memory is written to disk, and the server is stopped.
+       Suspending a server is similar to placing a device in hibernation and its
+       occupied resource will not be freed but rather kept for when the server is
+       resumed. If an instance is infrequently used and the occupied resource needs
+       to be freed to create other servers, it should be shelved.
+
+    -  ``UNKNOWN``: The state of the server is unknown. It could be because a part
+       of the infrastructure is temporarily down (see :doc:`down_cells`
+       for more information). Contact your cloud provider.
+
+    -  ``VERIFY_RESIZE``: System is awaiting confirmation that the server is
+       operational after a move or resize.
+    """
+    if vm_state in [
+        'ACTIVE',
+        'MIGRATING',
+        'REBOOT',
+        'SHELVED',
+        'SHELVED_OFFLOADED',
+        'SHUTOFF',
+        'SUSPENDED',
+    ]:
+        return STATE_OK
+
+    if vm_state in [
+        'BUILD',
+        'HARD_REBOOT',
+        'PAUSED',
+        'REBUILD',
+        'RESIZE',
+        'REVERT_RESIZE',
+        'SOFT_DELETED',
+        'VERIFY_RESIZE',
+    ]:
+        return STATE_WARN
+
+    # if vm_state in [
+    #     'DELETED',
+    #     'ERROR',
+    #     'PASSWORD',
+    #     'RESCUE',
+    #     'UNKNOWN',
+    # ]:
+    # and any other
+    return STATE_CRIT
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://github.com/openstack/keystoneauth
+    # https://github.com/openstack/python-novaclient
+    # set a bunch of possible OpenStack credentials
+    env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
+    auth = v3.Password(
+        auth_url=env.get('OS_AUTH_URL', None),
+        password=env.get('OS_PASSWORD', None),
+        project_domain_id=env.get('OS_PROJECT_DOMAIN_ID', None),
+        project_domain_name=env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
+        project_id=env.get('OS_PROJECT_ID', None),
+        project_name=env.get('OS_PROJECT_NAME', None),
+        user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
+        username=env.get('OS_USERNAME', None),
+    )
+    try:
+        nova = client.Client(2, session=session.Session(auth=auth))  # NOVA_API_VERSION=2
+    except Exception as e:
+        lib.base.cu('An error occurred while connecting to Nova')
+    try:
+        servers = nova.servers.list()
+    except Exception as e:
+        lib.base.cu('An error occurred while getting the server list from Nova')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    vm_state_count = {
+        'ACTIVE': 0,
+        'BUILD': 0,
+        'DELETED': 0,
+        'ERROR': 0,
+        'HARD_REBOOT': 0,
+        'MIGRATING': 0,
+        'PASSWORD': 0,
+        'PAUSED': 0,
+        'REBOOT': 0,
+        'REBUILD': 0,
+        'RESCUE': 0,
+        'RESIZE': 0,
+        'REVERT_RESIZE': 0,
+        'SHELVED': 0,
+        'SHELVED_OFFLOADED': 0,
+        'SHUTOFF': 0,
+        'SOFT_DELETED': 0,
+        'SUSPENDED': 0,
+        'UNKNOWN': 0,
+        'VERIFY_RESIZE': 0,
+    }
+    max_last_update = '0000000000'
+
+    # analyze data
+    for server in servers:
+        try:
+            item = {
+                'addresses': ', '.join(server.addresses),
+                'created': server.created.replace('T', ' ').replace('Z', ''),
+                'id': server.id,
+                'name': server.name,
+                'status': server.status,
+                'updated': server.updated.replace('T', ' ').replace('Z', ''),
+            }
+        except Exception as e:
+            lib.base.cu('Error occured while fetching server attributes.')
+        item['created'] = '{} ({} ago)'.format(
+            item['created'],
+            lib.human.seconds2human(
+                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['created']),
+            ),
+        )
+        max_last_update = max(max_last_update, item['updated'])
+        item['updated'] = '{} ({} ago)'.format(
+            item['updated'],
+            lib.human.seconds2human(
+                lib.time.timestrdiff(lib.time.now(as_type='iso'), item['updated']),
+            ),
+        )
+        vm_state = get_state(server.status)
+        vm_state_count[server.status] += 1
+        state = lib.base.get_worst(state, vm_state)
+        item['status'] += lib.base.state2str(vm_state, prefix=' ')
+        table_data.append(item)
+
+    perfdata += lib.base.get_perfdata('total', len(servers), None, None, None, 0, None)
+    for vm_state, cnt in vm_state_count.items():
+        perfdata += lib.base.get_perfdata(vm_state, cnt, None, None, None, 0, len(servers))
+
+    # build the message
+    msg = '{} {} checked. {} active, {} migrating, {} demand verify resize, {} in error. '.format(
+        len(servers),
+        lib.txt.pluralize('server', len(servers)),
+        vm_state_count['ACTIVE'],
+        vm_state_count['MIGRATING'],
+        vm_state_count['VERIFY_RESIZE'],
+        vm_state_count['ERROR'],
+    )
+    msg += 'Last status change {} UTC ({} ago).'.format(
+        max_last_update,
+        lib.human.seconds2human(
+            lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
+        ),
+    )
+    if table_data:
+        keys = [
+            'name',
+            'id',
+            'updated',
+            'status',
+        ]
+        headers = [
+            'Name',
+            'ID',
+            'Updated (UTC)',
+            'Status',
+        ]
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            keys,
+            header=headers,
+            sort_by_key='status',
+            sort_order_reverse=True,
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

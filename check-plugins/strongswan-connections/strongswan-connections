@@ -28,11 +28,11 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
 try:
     import vici  # pylint: disable=C0413
 except ImportError:
-    lib.base.oao('Python module "vici" is not installed.', STATE_UNKNOWN)
+    lib.base.cu('Python module "vici" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023071301'
 
 DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
                  to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
@@ -230,8 +230,8 @@ def main():
         s = socket.socket(socket.AF_UNIX)
         try:
             s.connect(args.SOCKET)
-        except Exception as e:
-            lib.base.oao('{}'.format(e), STATE_UNKNOWN)
+        except Exception:
+            lib.base.cu('Failed to connect to the VICI Socket.')
         session = vici.Session(s)
         possible_connection_keys = get_possible_connection_keys(session)
         active_connection_keys = get_active_connection_keys(session)
