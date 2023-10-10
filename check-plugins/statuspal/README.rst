@@ -94,7 +94,7 @@ Output:
 
 .. code-block:: text
 
-    All systems operational @ Exoscale (exoscale.com, TZ Europe/Zurich)
+    Major incidents @ Exoscale (exoscale.com, TZ Europe/Zurich): [Network] Transient network disturbance / Situation has been resolved, we're monitoring the situation (2023-10-10 09:03:06) (see https://exoscalestatus.com/incidents/81315)
 
     Service                            ! State 
     -----------------------------------+-------
@@ -102,8 +102,9 @@ Output:
     Global.Portal                      ! [OK]  
     CH-GVA-2                           ! [OK]  
     CH-GVA-2.API                       ! [OK]  
-    CH-GVA-2.Compute                   ! [OK]  
-    BG-SOF-1.Object Storage SOS        ! [OK]  
+    AT-VIE-1.Network Load Balancer NLB ! [CRITICAL] 
+    AT-VIE-1.Object Storage SOS        ! [OK]       
+    AT-VIE-2                           ! [CRITICAL] 
 
     Upcoming Maintenance                                ! Type      ! Start               ! End      
     ----------------------------------------------------+-----------+---------------------+----------
