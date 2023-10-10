@@ -2,8 +2,8 @@
 
 set -e
 
-RELEASE="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKET_VERSION="$2" # 2, if there is a bugfix for this package (not for the mp)
+PACKAGE_VERSION="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
+PACKAGE_ITERATION="$2" # 2, if there is a bugfix for this package (not for the mp)
 
 
 apt-get -y update
@@ -17,13 +17,13 @@ apt-get install -y ruby ruby-dev rubygems build-essential
 gem install fpm
 
 # prepare venv
-. /repos/monitoring-plugins-latest/build/shared/venv.sh
+. /repos/monitoring-plugins/build/shared/venv.sh
 
 # compile using pyinstaller
-. /repos/monitoring-plugins-latest/build/shared/compile.sh
+. /repos/monitoring-plugins/build/shared/compile.sh
 
 # prepare files for fpm
-. /repos/monitoring-plugins-latest/build/shared/prepare-fpm.sh
+. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
 
 # create packages using fpm
 cd /tmp/fpm/check-plugins

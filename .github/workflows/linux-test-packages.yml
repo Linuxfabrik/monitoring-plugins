@@ -26,7 +26,7 @@ jobs:
         uses: 'actions/checkout@v3'
         with:
           path: '${{ env.BASE_DIR }}/repos/monitoring-plugins'
-          ref: '${{ inputs.package-version || github.ref }}'
+          ref: '${{ github.event.workflow_run.head_commit }}'
 
       # using this instead of the official `download-artifact` action since this allows cross-workflow
       - name: 'download the monitoring-plugins-linux-packages artifact'
@@ -54,7 +54,7 @@ jobs:
       - name: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
         run: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
 
-      - name: 'Test on RHEL8'
+      - name: 'Test on Debian 10'
         run: |-
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/debian10,destination=/output,relabel=private \
@@ -75,13 +75,34 @@ jobs:
       - name: 'mkdir ${{ env.BASE_DIR }}/output/debian11'
         run: 'mkdir ${{ env.BASE_DIR }}/output/debian11'
 
-      - name: 'Test on RHEL8'
+      - name: 'Test on Debian 11'
         run: |-
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/debian11,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
           --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian11,destination=/packages,relabel=shared,ro=true \
           docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
+
+
+  test-debian12:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/debian12'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/debian12'
+
+      - name: 'Test on RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/debian12,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian12,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
 
 
   # RHEL
@@ -157,6 +178,7 @@ jobs:
     needs:  # we want this to run after the above jobs
       - 'test-debian10'
       - 'test-debian11'
+      - 'test-debian12'
       - 'test-rhel7'
       - 'test-rhel8'
       - 'test-rhel9'
@@ -169,3 +191,16 @@ jobs:
         with:
           name: 'monitoring-plugins-test-output'
           path: '${{ env.BASE_DIR }}/output/'
+
+
+  cleanup:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:  # we want this to run after the above jobs
+      - 'upload-outputs'
+
+    steps:
+
+      - name: 'rm -rf ${{ env.BASE_DIR }}'
+        run: 'rm -rf ${{ env.BASE_DIR }}'
