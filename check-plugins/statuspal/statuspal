@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092501'
+__version__ = '2023101001'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -175,6 +175,7 @@ def main():
                 result['incidents'][0]['updates'][0]['description'],
                 result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' '),
             )
+        msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else ''
 
     # services - search for any incidents in services
     flattened_result = flatdict.FlatterDict(result['services'])
