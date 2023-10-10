@@ -42,6 +42,46 @@ jobs:
 
 
   # Debian
+  test-debian10:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
+
+      - name: 'Test on Debian 10'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/debian10,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian10,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
+
+
+  test-debian11:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/debian11'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/debian11'
+
+      - name: 'Test on Debian 11'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/debian11,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian11,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
   test-debian12:
     runs-on:
       - 'rhel8'
@@ -62,6 +102,71 @@ jobs:
           --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian12,destination=/packages,relabel=shared,ro=true \
           docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
 
+
+  # RHEL
+  test-rhel7:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel7'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel7'
+
+      - name: 'Test on RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel7,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel7,destination=/packages,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
+
+
+  test-rhel8:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel8'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel8'
+
+      - name: 'Test on RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel8,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel8,destination=/packages,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
+
+
+  test-rhel9:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel9'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel9'
+
+      - name: 'Test on RHEL8'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel9,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel9,destination=/packages,relabel=shared,ro=true \
+          registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
+
+
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
@@ -69,7 +174,12 @@ jobs:
       - 'rhel8'
       - 'self-hosted'
     needs:  # we want this to run after the above jobs
+      - 'test-debian10'
+      - 'test-debian11'
       - 'test-debian12'
+      - 'test-rhel7'
+      - 'test-rhel8'
+      - 'test-rhel9'
     if: '${{ always() }}' # however, we want to upload the artifacts even if one of the job fails
 
     steps:
