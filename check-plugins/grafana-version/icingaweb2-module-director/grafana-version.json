@@ -4,13 +4,45 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$grafana_version_always_ok$"
+                },
+                "--check-major": {
+                    "set_if": "$grafana_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$grafana_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$grafana_version_check_patch$"
+                },
+                "--offset-eol": {
+                    "value": "$grafana_version_offset_eol$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/grafana-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 1034,
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,7 +99,11 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "grafana_version_always_ok": false
+                "grafana_version_always_ok": false,
+                "grafana_version_check_major": false,
+                "grafana_version_check_minor": false,
+                "grafana_version_check_patch": false,
+                "grafana_version_offset_eol": -30
             },
             "volatile": null,
             "zone": null,
@@ -75,7 +111,7 @@
         }
     },
     "Datafield": {
-        "1034": {
+        "1": {
             "varname": "grafana_version_always_ok",
             "caption": "Grafana Version: Always OK?",
             "description": "Always returns OK.",
@@ -83,6 +119,44 @@
             "format": null,
             "settings": {},
             "uuid": "00b1a361-7ecb-45db-bb59-8157a66c038b"
+        },
+        "2": {
+            "varname": "grafana_version_check_major",
+            "caption": "Grafana Version: Check Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4d750740-3e97-456c-a7df-c3a4e0bc91d1"
+        },
+        "3": {
+            "varname": "grafana_version_check_minor",
+            "caption": "Grafana Version: Check Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c5a89480-f735-494e-98ed-cdf0a69e4013"
+        },
+        "4": {
+            "varname": "grafana_version_check_patch",
+            "caption": "Grafana Version: Check Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1c5ddac4-1396-411f-ba9c-1b4610900be4"
+        },
+        "5": {
+            "varname": "grafana_version_offset_eol",
+            "caption": "Grafana Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6c487663-d616-4922-9fad-0097d0b5f7ec"
         }
     }
 }
