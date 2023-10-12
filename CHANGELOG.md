@@ -78,6 +78,7 @@ Monitoring Plugins:
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix #190)
 * \*-version: Curl from https://endoflife.date first, then use hardcoded version (fix [#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
+* \*-version: Add eol offset date, optional warn on new major/minor/patch
 * xca-cert: refactor check, make better use of the new libraries (fix [#75](https://github.com/Linuxfabrik/monitoring-plugins/issues/75))
 
 

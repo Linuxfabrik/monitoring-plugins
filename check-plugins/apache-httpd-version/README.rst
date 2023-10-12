@@ -6,6 +6,8 @@ Overview
 
 This plugin lets you track if Apache httpd is End-of-Life (EOL). To compare against the current/installed version of Apache httpd, the check has to run on the Apache httpd server itself.
 
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+
 Hints:
 
 * Runs on all systems where the Apache is named either "httpd" or "apache2".
@@ -29,14 +31,31 @@ Help
 
 .. code-block:: text
 
-    usage: apache-httpd-version [-h] [-V] [--always-ok]
+    usage: apache-httpd-version [-h] [-V] [--always-ok] [--check-major]
+                                [--check-minor] [--check-patch]
+                                [--offset-eol OFFSET_EOL]
 
-    Tracks if apache-httpd is EOL.
+    Tracks if Apache httpd is EOL.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
 
 
 Usage Examples
@@ -44,20 +63,22 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./apache-httpd-version
+    ./apache-httpd-version --offset-eol=-30
 
 Output:
 
 .. code-block:: text
 
-    Apache httpd v2.2.34 (EOL 2017-07-11 [WARNING])
+    Apache httpd v2.4.37 (EOL unknown, patch 2.4.57 available)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if Software is EOL
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
