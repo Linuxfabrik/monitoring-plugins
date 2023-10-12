@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+import lib.version
+
+
+# Attention: NOT testing the check (as usual), but testing the library function directly
+# Here, we have MAJOR.MINOR.PATCH (or sometimes MAJOR.MINOR.PATCH.MICRO) releases.
+
+class TestCheck(unittest.TestCase):
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_php01(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/php.json',
+            '7.3.0',
+            offset_eol = -30,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertRegex(msg, 'EOL 2021-12-06 -30d \[WARNING\], major .* available, minor 7\.4\.33 available, patch 7\.3\.33 available')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_php02(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/php.json',
+            '999.999.999',
+            offset_eol = -30,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertIn('version 999.999.999 unknown', msg)
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_php03(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/php.json',
+            '7.3.0',
+            offset_eol = +9999,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertRegex(msg, 'EOL 2021-12-06 \+9999d, major .* available, minor 7\.4\.33 available, patch 7\.3\.33 available')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_php04(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/php.json',
+            '7.3.0',
+            offset_eol = -30,
+            check_major = True,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertRegex(msg, 'EOL 2021-12-06 -30d \[WARNING\], major .* available \[WARNING\], minor 7\.4\.33 available, patch 7\.3\.33 available')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_php05(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/php.json',
+            '8.1.73.alpha',
+            offset_eol = -30,
+            check_major = True,
+            check_minor = True,
+            check_patch = True,
+        )
+        self.assertRegex(msg, r'EOL 2024-11-25 -30d.*, minor 8\.2\..* available \[WARNING\]')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()
