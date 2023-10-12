@@ -68,7 +68,7 @@ Output:
 
 .. code-block:: text
 
-    Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 22.2.10 available
+    Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 22.2.10 available)
 
 
 States
