@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+import lib.version
+
+
+# Attention: NOT testing the check (as usual), but testing the library function directly
+# Here, we only have MAJOR releases.
+
+class TestCheck(unittest.TestCase):
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_fedora01(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = -30,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertIn('EOL 2020-05-26 -30d [WARNING]', msg)
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_fedora02(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '999.999.999',
+            offset_eol = -30,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertIn('version 999.999.999 unknown', msg)
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_fedora03(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = +9999,
+            check_major = False,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertIn('EOL 2020-05-26 +9999d', msg)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_fedora04(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = +9999,
+            check_major = True,
+            check_minor = False,
+            check_patch = False,
+        )
+        self.assertRegex(msg, r'EOL 2020-05-26 \+9999d, major .* available \[WARNING\]')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_fedora05(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = +9999,
+            check_major = False,
+            check_minor = True,
+            check_patch = False,
+        )
+        self.assertIn('EOL 2020-05-26 +9999d', msg)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_fedora06(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = +9999,
+            check_major = False,
+            check_minor = False,
+            check_patch = True,
+        )
+        self.assertIn('EOL 2020-05-26 +9999d', msg)
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_fedora07(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = +9999,
+            check_major = True,
+            check_minor = True,
+            check_patch = True,
+        )
+        self.assertRegex(msg, r'EOL 2020-05-26 \+9999d, major .* available \[WARNING\]')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_fedora08(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '30',
+            offset_eol = -30,
+            check_major = True,
+            check_minor = True,
+            check_patch = True,
+        )
+        self.assertRegex(msg, r'EOL 2020-05-26 -30d \[WARNING\], major .* available \[WARNING\]')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_fedora09(self):
+        retc, msg = lib.version.check_eol(
+            'https://endoflife.date/api/fedora.json',
+            '99.alpha',
+            offset_eol = -30,
+            check_major = True,
+            check_minor = True,
+            check_patch = True,
+        )
+        self.assertIn('version 99.alpha unknown', msg)
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+
+if __name__ == '__main__':
+    unittest.main()

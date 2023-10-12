@@ -2,6 +2,18 @@
     "Command": {
         "cmd-check-fedora-version": {
             "arguments": {
+                "--notify-new-major": {
+                    "set_if": "$fedora_version_notify_new_major$"
+                },
+                "--notify-new-minor": {
+                    "set_if": "$fedora_version_notify_new_minor$"
+                },
+                "--notify-new-patch": {
+                    "set_if": "$fedora_version_notify_new_patch$"
+                },
+                "--offset-eol": {
+                    "value": "$fedora_version_offset_eol$"
+                },
                 "--always-ok": {
                     "set_if": "$fedora_version_always_ok$"
                 }
@@ -10,7 +22,27 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 1680,
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,6 +99,10 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "fedora_version_notify_new_major": false,
+                "fedora_version_notify_new_minor": false,
+                "fedora_version_notify_new_patch": false,
+                "fedora_version_offset_eol": -30,
                 "fedora_version_always_ok": false
             },
             "volatile": null,
@@ -75,7 +111,45 @@
         }
     },
     "Datafield": {
-        "1680": {
+        "1": {
+            "varname": "fedora_version_notify_new_major",
+            "caption": "Fedora Version: Notify New Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a91a0add-9a18-4b78-b448-ba86e522e594"
+        },
+        "2": {
+            "varname": "fedora_version_notify_new_minor",
+            "caption": "Fedora Version: Notify New Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "85c28cde-010b-4aec-9a1d-787de5f0c837"
+        },
+        "3": {
+            "varname": "fedora_version_notify_new_patch",
+            "caption": "Fedora Version: Notify New Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "acb33b6b-4974-4060-85b2-1b13287b881f"
+        },
+        "4": {
+            "varname": "fedora_version_offset_eol",
+            "caption": "Fedora Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9b39d201-3344-423c-8a20-fa22f9869cea"
+        },
+        "5": {
             "varname": "fedora_version_always_ok",
             "caption": "Fedora Version: Always OK?",
             "description": "Always returns OK.",
