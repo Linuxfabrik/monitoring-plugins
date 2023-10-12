@@ -17,10 +17,19 @@ If you like to support our work, please consider donating
 We are happy to mention you as a sponsor!
 
 
-GitHub / PayPal Sponsors
-------------------------
+Current and Past GitHub Sponsors
+--------------------------------
 
+Have a look at https://github.com/sponsors/Linuxfabrik:
+
+* `Robert Waffen <https://github.com/rwaffen>`_
 * `MajorTwip <https://github.com/MajorTwip>`_
+* `Robert Christian <https://github.com/soulsymphonies>`_
+
+
+PayPal Sponsors
+---------------
+
 * `makeshiftmovies.info <https://makeshiftmovies.info/de>`_
 
 
