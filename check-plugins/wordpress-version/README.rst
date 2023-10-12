@@ -6,6 +6,8 @@ Overview
 
 This plugin lets you track if WordPress is End-of-Life (EOL). To compare against the current/installed version of WordPress, the check has to run on the WordPress server itself and needs access to the WordPress installation directory.
 
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+
 
 Fact Sheet
 ----------
@@ -49,14 +51,16 @@ Output:
 
 .. code-block:: text
 
-    WordPress v4.0.38 (EOL 2022-12-01) [WARNING]
+    WordPress v4.0.37 (EOL 2022-12-01 -30d [WARNING], major 6.3.1 available, minor 4.9.23 available, patch 4.0.38 available)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if Software is EOL
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
