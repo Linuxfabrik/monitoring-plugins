@@ -6,9 +6,11 @@ Overview
 
 This plugin lets you track if RHEL (and compatible) is End-of-Life (EOL). To compare against the current/installed version of RHEL, the check has to run on the RHEL server itself.
 
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+
 Hints:
 
-* Also works for Alma, CentOS, CentOS Stream, Oracle, Rocky, etc., but (currently) reports the EOL date for RHEL.
+* Also works for Alma, CentOS, CentOS Stream, Oracle, Rocky, etc., but reports the EOL date for RHEL.
 * On Fedora Workstation or Fedora Server, use https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fedora-version.
 
 
@@ -30,14 +32,30 @@ Help
 
 .. code-block:: text
 
-    usage: rhel-version [-h] [-V] [--always-ok]
+    usage: rhel-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
+                        [--check-patch] [--offset-eol OFFSET_EOL]
 
     Tracks if RHEL is EOL.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
 
 
 Usage Examples
@@ -45,20 +63,22 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./rhel-version
+    ./rhel-version --offset-eol=-30
 
 Output:
 
 .. code-block:: text
 
-    Rocky Linux 8.7 (Green Obsidian) (EOL 2029-05-31)
+    CentOS 6.8 (EOL 2020-11-30 -30d [WARNING], major 9.2 available, minor 6.10 available)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if Software is EOL
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics

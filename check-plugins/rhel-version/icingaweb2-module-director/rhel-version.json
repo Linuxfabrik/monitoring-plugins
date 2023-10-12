@@ -4,13 +4,45 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$rhel_version_always_ok$"
+                },
+                "--check-major": {
+                    "set_if": "$rhel_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$rhel_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$rhel_version_check_patch$"
+                },
+                "--offset-eol": {
+                    "value": "$rhel_version_offset_eol$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/rhel-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 530,
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,7 +99,11 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "rhel_version_always_ok": false
+                "rhel_version_always_ok": false,
+                "rhel_version_check_major": false,
+                "rhel_version_check_minor": false,
+                "rhel_version_check_patch": false,
+                "rhel_version_offset_eol": -30
             },
             "volatile": null,
             "zone": null,
@@ -75,7 +111,7 @@
         }
     },
     "Datafield": {
-        "530": {
+        "1": {
             "varname": "rhel_version_always_ok",
             "caption": "Rhel Version: Always OK?",
             "description": "Always returns OK.",
@@ -83,6 +119,44 @@
             "format": null,
             "settings": {},
             "uuid": "dcfae79b-eaa2-4be9-8a31-e6ac8d994692"
+        },
+        "2": {
+            "varname": "rhel_version_check_major",
+            "caption": "Rhel Version: Check Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9e2baaed-0c01-44fb-bd4d-0cd4004ec022"
+        },
+        "3": {
+            "varname": "rhel_version_check_minor",
+            "caption": "Rhel Version: Check Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2518f9c8-cb42-43d8-9490-07234ddf61ce"
+        },
+        "4": {
+            "varname": "rhel_version_check_patch",
+            "caption": "Rhel Version: Check Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "cd2c383b-a730-483d-8316-c46e5e048592"
+        },
+        "5": {
+            "varname": "rhel_version_offset_eol",
+            "caption": "Rhel Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2efcd6f2-d885-4f36-a152-c943d1109eb3"
         }
     }
 }
