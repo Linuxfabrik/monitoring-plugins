@@ -22,10 +22,14 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023101101'
 
 DESCRIPTION = 'Tracks if Nextcloud is EOL.'
 
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_OFFSET_EOL = -30 # days
 DEFAULT_PATH = '/var/www/html/nextcloud'
 
 
@@ -46,6 +50,48 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help='Alert me when there is a new major release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26 (not yet EOL) and v27 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help='Alert me when there is a new major.minor release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help='Alert me when there is a new major.minor.patch release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available. '
+             'Default: %(default)s',
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
+             'Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
     )
 
     parser.add_argument(
@@ -77,7 +123,7 @@ def run_occ(path, cmd, _format='json'):
     occ = os.path.join(path, 'occ')
     # When running a command as a UID, many shells require
     # that the `#` be escaped with a backslash (`\`).
-    stdout, stderr, retc = lib.base.coe(
+    stdout, stderr, _ = lib.base.coe(
         lib.shell.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd))
     )
     if stderr:
@@ -102,27 +148,23 @@ def main():
 
     # fetch data
     config = run_occ(args.PATH, 'config:list')
-    try:
-        # varying version strings: '16.0.11' (2 dots) or '25.0.4.2' (3 dots)
-        installed_version = config['system']['version'].split('.')
-        installed_major = installed_version[0]
-    except:
-        lib.base.cu('Unable to get Nextcloud version information.')
-    if not installed_version:
-        lib.base.cu('Nextcloud not found.')
 
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/nextcloud.json',
-        installed_major,
+        config['system']['version'],
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
     )
 
     # over and out
     lib.base.oao(
-        'Nextcloud v{} ({})'.format('.'.join(installed_version), msg),
+        'Nextcloud v{} ({})'.format(config['system']['version'], msg),
         state,
         lib.base.get_perfdata(
             'nextcloud-version',
-            '{}.{}'.format(installed_major, ''.join(installed_version[1:])),
+            lib.version.version2float(config['system']['version']),
             None,
             None,
             None,

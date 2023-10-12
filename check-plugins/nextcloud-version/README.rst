@@ -6,6 +6,8 @@ Overview
 
 This plugin lets you track if Nextcloud is End-of-Life (EOL). To compare against the current/installed version of Nextcloud, the check has to run on the nextcloud server itself and needs access to the Nextcloud installation directory.
 
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+
 
 Fact Sheet
 ----------
@@ -25,17 +27,34 @@ Help
 
 .. code-block:: text
 
-    usage: nextcloud-version [-h] [-V] [--always-ok] [--path PATH]
+    usage: nextcloud-version [-h] [-V] [--always-ok] [--check-major]
+                             [--check-minor] [--check-patch]
+                             [--offset-eol OFFSET_EOL] [--path PATH]
 
     Tracks if Nextcloud is EOL.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
-      --path PATH    Local path to your Nextcloud installation, typically within
-                     your Webserver's Document Root. Default:
-                     /var/www/html/nextcloud
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
+      --path PATH           Local path to your Nextcloud installation, typically
+                            within your Webserver's Document Root. Default:
+                            /var/www/html/nextcloud
 
 
 Usage Examples
@@ -49,14 +68,16 @@ Output:
 
 .. code-block:: text
 
-    Nextcloud v23.0.12 (EOL 2022-12-01) [WARNING]
+    Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 22.2.10 available
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if Software is EOL
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
