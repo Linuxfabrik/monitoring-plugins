@@ -4,13 +4,45 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$mysql_version_always_ok$"
+                },
+                "--check-major": {
+                    "set_if": "$mysql_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$mysql_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$mysql_version_check_patch$"
+                },
+                "--offset-eol": {
+                    "value": "$mysql_version_offset_eol$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 832,
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -67,7 +99,11 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "mysql_version_always_ok": false
+                "mysql_version_always_ok": false,
+                "mysql_version_check_major": false,
+                "mysql_version_check_minor": false,
+                "mysql_version_check_patch": false,
+                "mysql_version_offset_eol": -30
             },
             "volatile": null,
             "zone": null,
@@ -75,7 +111,7 @@
         }
     },
     "Datafield": {
-        "832": {
+        "1": {
             "varname": "mysql_version_always_ok",
             "caption": "MySQL Version: Always OK?",
             "description": "Always returns OK.",
@@ -83,6 +119,44 @@
             "format": null,
             "settings": {},
             "uuid": "e241b9ad-9bcb-4535-ba01-d30e04532a96"
+        },
+        "2": {
+            "varname": "mysql_version_check_major",
+            "caption": "MySQL Version: Check Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "77d94983-4a7e-4609-b442-c9fbb6caf848"
+        },
+        "3": {
+            "varname": "mysql_version_check_minor",
+            "caption": "MySQL Version: Check Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b4961a1c-f2e9-4047-959b-b4d53ea79b15"
+        },
+        "4": {
+            "varname": "mysql_version_check_patch",
+            "caption": "MySQL Version: Check Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "0234c676-3ebb-4d0c-9e17-443c90851ed4"
+        },
+        "5": {
+            "varname": "mysql_version_offset_eol",
+            "caption": "MySQL Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dfefad84-0b83-49ed-b96a-e19a7e7d0e75"
         }
     }
 }

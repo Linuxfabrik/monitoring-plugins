@@ -6,6 +6,8 @@ Overview
 
 This plugin lets you track if MySQL/MariaDB is End-of-Life (EOL). To compare against the current/installed version of MySQL/MariaDB, the check has to run on the MySQL/MariaDB server itself.
 
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
+
 
 Fact Sheet
 ----------
@@ -25,14 +27,30 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-version [-h] [-V] [--always-ok]
+    usage: mysql-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
+                         [--check-patch] [--offset-eol OFFSET_EOL]
 
-    Tracks if mysql is EOL.
+    Tracks if MySQL/MariaDB is EOL.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
 
 
 Usage Examples
@@ -40,20 +58,22 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./mysql-version
+    ./mysql-version --offset-eol=-30
 
 Output:
 
 .. code-block:: text
 
-    MariaDB v10.6.12 (EOL 2026-07-06)
+    MariaDB v10.5.21 (EOL 2025-06-24 -30d, major 11.1.2 available, minor 10.11.5 available, patch 10.5.22 available)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if Software is EOL
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
