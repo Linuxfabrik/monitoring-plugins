@@ -1,0 +1,162 @@
+{
+    "Command": {
+        "cmd-check-redis-version": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$redis_version_always_ok$"
+                },
+                "--check-major": {
+                    "set_if": "$redis_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$redis_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$redis_version_check_patch$"
+                },
+                "--offset-eol": {
+                    "value": "$redis_version_offset_eol$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/redis-version",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-redis-version",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "0e479ccc-cb6a-444b-bc02-cc1b062744c7"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-redis-version": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-redis-version",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "redis-version.png",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Tracks if Redis is EOL.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-version",
+            "object_name": "tpl-service-redis-version",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "redis_version_always_ok": false,
+                "redis_version_check_major": false,
+                "redis_version_check_minor": false,
+                "redis_version_check_patch": false,
+                "redis_version_offset_eol": -30
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "840bc7d5-49c3-4fbf-9060-00f171b026b1"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "redis_version_always_ok",
+            "caption": "Redis Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f661e5f0-ad51-4c8d-8865-630e5581b6ad"
+        },
+        "2": {
+            "varname": "redis_version_check_major",
+            "caption": "Redis Version: Check Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3c05506c-3011-4123-9cda-4be6024a12cf"
+        },
+        "3": {
+            "varname": "redis_version_check_minor",
+            "caption": "Redis Version: Check Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "dfd3b717-0341-4ea0-9d5c-2a88f38fefb3"
+        },
+        "4": {
+            "varname": "redis_version_check_patch",
+            "caption": "Redis Version: Check Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b2a725e5-e059-416b-9db7-74eca42778e8"
+        },
+        "5": {
+            "varname": "redis_version_offset_eol",
+            "caption": "Redis Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "196390e9-3534-4aac-bf51-09a88d0026d3"
+        }
+    }
+}
