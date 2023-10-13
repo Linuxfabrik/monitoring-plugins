@@ -18,11 +18,10 @@ import urllib.parse  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023101301'
 
 DESCRIPTION = """Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from Forti
                  Appliances like FortiGate running FortiOS via FortiOS REST API. The authentication
@@ -105,32 +104,57 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # try to fetch data
+    # fetch data
     url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
-        args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
-    success4, result4 = lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+        args.HOSTNAME,
+        urllib.parse.quote(args.PASSWORD),
+    )
+    success4, result4 = lib.url.fetch_json(
+        url,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
     url = 'https://{}/api/v2/monitor/firewall/policy6/select/?access_token={}'.format(
-        args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
-    success6, result6 = lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+        args.HOSTNAME,
+        urllib.parse.quote(args.PASSWORD),
+    )
+    success6, result6 = lib.url.fetch_json(
+        url,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
     # if both requests fail then exit
-    if success4 == False and success6 == False:
-       print("Both requests fail :\n"+result4+"\n"+result6+"\n")
-       sys.exit(STATE_UNKNOWN)
+    if success4 is False and success6 is False:
+        lib.base.oao(
+            'Both requests for IPv4 and IPv6 policies failed.\n* IPv4: "{}"\n* IPv6: "{}"'.format(
+                result4,
+                result6,
+            ),
+            STATE_UNKNOWN,
+        )
 
-    # create an empty dict if IPv4 request fails
-    if success4 == False:
-       result4 = {'results': []}
+    # create an empty dict if IPv4 request fails or is empty
+    if not success4:
+        result4 = {
+            'results': [],
+        }
 
-    # create an empty dict if IPv6 request fails
-    if success6 == False:
-       result6 = {'results': []}
+    # create an empty dict if IPv6 request fails or is empty
+    if not success6:
+        result6 = {
+            'results': [],
+        }
 
     # count and compute the total
     policy_count = len(result4['results']) + len(result6['results'])
-    total = lib.base.sum_dict(lib.base.sum_lod(
-        result4['results']), lib.base.sum_lod(result6['results']))
+    total = lib.base.sum_dict(
+        lib.base.sum_lod(result4['results']),
+        lib.base.sum_lod(result6['results']),
+    )
     # {
     #     u'active_sessions': 2
     #     u'asic_bytes': 0

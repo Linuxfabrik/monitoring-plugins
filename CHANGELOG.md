@@ -65,6 +65,7 @@ Monitoring Plugins:
 * cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
 * disk-smart: Skip unsupported disks (fix #672)
 * fail2ban: Improve output, add unit-test
+* fortios-firewall-stats: Allow the check to run even some FortiOS users use only IPv4 or IPv6 ([PR #719](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Pierrot la menace](https://github.com/Pierrot-la-menace))
 * grafana-version: Add Grafana v9.5
 * infomaniak-events: Add filter for service categories
 * infomaniak-swiss-backup-devices: Improve column ordering in output
