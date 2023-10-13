@@ -40,6 +40,7 @@ Monitoring Plugins:
 * ntp-w32tm (fix [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
 * openstack-nova-list
 * postgresql-version
+* redis-version
 * statuspal
 
 Project:
