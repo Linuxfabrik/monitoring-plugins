@@ -105,17 +105,29 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
+    # try to fetch data
     url = 'https://{}/api/v2/monitor/firewall/policy/select/?access_token={}'.format(
         args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
-    result4 = lib.base.coe(lib.url.fetch_json(
-        url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    success4, result4 = lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
 
     url = 'https://{}/api/v2/monitor/firewall/policy6/select/?access_token={}'.format(
         args.HOSTNAME, urllib.parse.quote(args.PASSWORD))
-    result6 = lib.base.coe(lib.url.fetch_json(
-        url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    success6, result6 = lib.url.fetch_json(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
 
+    # if both requests fail then exit
+    if success4 == False and success6 == False:
+       print("Both requests fail :\n"+result4+"\n"+result6+"\n")
+       sys.exit(STATE_UNKNOWN)
+
+    # create an empty dict if IPv4 request fails
+    if success4 == False:
+       result4 = {'results': []}
+
+    # create an empty dict if IPv6 request fails
+    if success6 == False:
+       result6 = {'results': []}
+
+    # count and compute the total
     policy_count = len(result4['results']) + len(result6['results'])
     total = lib.base.sum_dict(lib.base.sum_lod(
         result4['results']), lib.base.sum_lod(result6['results']))
