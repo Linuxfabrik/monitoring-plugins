@@ -57,6 +57,11 @@ If you zoom in, for example on *CPU Usage*:
 Some comments from the community about our monitoring plugins:
 
 
+> ... the Linuxfabrik-Monitoring-Plugins are great, thanks for your effort, we are using them very much.
+
+-- [Patric Stiffel](https://github.com/edpstiffel)
+
+
 > ... thanks for your awesome plugins.
 
 -- [Robert Christian](https://github.com/soulsymphonies)
@@ -67,9 +72,10 @@ Some comments from the community about our monitoring plugins:
 -- [\Barney](https://github.com/bangerer)
 
 
-> ...  the Linux fabrik plugins are excellent.
+> ... the Linux fabrik plugins are excellent.
 
 -- [u/exekewtable@reddit](https://www.reddit.com/r/icinga/comments/xq9jt6/does_somebody_know_a_plugin_like_check_interfaces/)
+
 
 > ... I can recommend this family of plugins, they are the highest quality I have seen around. ...
 
