@@ -72,6 +72,7 @@ Monitoring Plugins:
 * journald-query: Improve output
 * mysql-aria: Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
 * mysql-connections: Report and warn on current usage instead of peak usage, and improved output.
+* mysql-connections: Add perfdata mysql_max_used_connections
 * mysql-innodb-buffer-pool-size: Improve code and output
 * mysql-logfile: Stop magic auto-configure if `--server-log` is given
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
