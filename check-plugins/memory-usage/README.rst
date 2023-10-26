@@ -56,13 +56,15 @@ Output:
 
 .. code-block:: text
 
-    67.2% - total: 15.2GiB, used: 7.3GiB, available: 5.0GiB, free: 792.1MiB
-    shared: 2.5GiB, buffers: 310.8MiB, cached: 6.8GiB
+    36.2% - total: 3.8GiB, used: 1.1GiB, available: 2.4GiB, free: 989.4MiB
+    shared: 41.6MiB, buffers: 3.6MiB, cached: 1.8GiB
 
-    Top3 most memory consuming processes:
-    1. rambox: 15.4%
-    2. Web Content: 9.6%
-    3. packagekitd: 4.2%
+    Top5 most memory consuming processes:
+    1. php-fpm: 810.7MiB (20.7%)
+    2. forkit: 418.3MiB (10.7%)
+    3. kit_spare_001: 335.5MiB (8.6%)
+    4. mariadbd: 306.2MiB (7.8%)
+    5. icinga2: 63.8MiB (1.6%)
 
 
 States

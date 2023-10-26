@@ -13,7 +13,6 @@
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
-from collections import Counter  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
@@ -28,7 +27,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071201'
+__version__ = '2023102601'
 
 DESCRIPTION = """Displays amount of free and used memory in the system, checks against used memory
                 in percent."""
@@ -96,46 +95,71 @@ def main():
     # analyze data and build the message
     state = lib.base.get_state(getattr(virt, 'percent', 0), args.WARN, args.CRIT, _operator='ge')
 
-    msg_header += '{}% - '.format(getattr(virt, 'percent', 0))
+    msg_header += '{}%{} - '.format(
+        getattr(virt, 'percent', 0),
+        lib.base.state2str(state, prefix=' '),
+    )
     msg_header += '{}: {}, '.format('total', lib.human.bytes2human(getattr(virt, 'total', 0)))
     msg_header += '{}: {}, '.format('used', lib.human.bytes2human(getattr(virt, 'used', 0)))
-    msg_header += '{}: {}, '.format('available', lib.human.bytes2human(getattr(virt, 'available', 0)))
-    msg_header += '{}: {}, '.format('free', lib.human.bytes2human(getattr(virt, 'free', 0)))
-    if msg_header:
-        msg_header = msg_header[:-2] + '\n'
+    msg_header += '{}: {}, '.format(
+        'available',
+        lib.human.bytes2human(getattr(virt, 'available', 0)),
+    )
+    msg_header += '{}: {}'.format('free', lib.human.bytes2human(getattr(virt, 'free', 0)))
 
-    msg_body += '{}: {}, '.format('shared', lib.human.bytes2human(getattr(virt, 'shared', 0)))
+    msg_body += '\n{}: {}, '.format('shared', lib.human.bytes2human(getattr(virt, 'shared', 0)))
     msg_body += '{}: {}, '.format('buffers',lib.human.bytes2human(getattr(virt, 'buffers', 0)))
-    msg_body += '{}: {}, '.format('cached',lib.human.bytes2human(getattr(virt, 'cached', 0)))
-    if msg_body:
-        msg_body = msg_body[:-2] + '\n'
+    msg_body += '{}: {}'.format('cached',lib.human.bytes2human(getattr(virt, 'cached', 0)))
 
-    perfdata += lib.base.get_perfdata('usage_percent', getattr(virt, 'percent', 0), '%', args.WARN, args.CRIT, 0, 100)
-    perfdata += lib.base.get_perfdata('total', getattr(virt, 'total', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('used', getattr(virt, 'used', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('free', getattr(virt, 'free', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total)
-    perfdata += lib.base.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total)
+    perfdata += lib.base.get_perfdata('usage_percent', getattr(virt, 'percent', 0), '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total', getattr(virt, 'total', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('used', getattr(virt, 'used', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('free', getattr(virt, 'free', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
 
     # list top 3 most memory consuming processes
-    cnt = Counter()
-    msg_body += '\nTop3 most memory consuming processes:\n'
+    procs = {}
+    msg_body += '\n\nTop5 most memory consuming processes:\n'
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
-            for p in psutil.process_iter(attrs=['name', 'memory_percent']):
-                cnt[p.info['name']] += p.info['memory_percent']
+            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info']):
+                try:
+                    procs[p.info['name']]
+                except:
+                    procs[p.info['name']] = {
+                        '%': 0,
+                        'rss': 0,
+                    }
+                procs[p.info['name']]['%'] += p.info['memory_percent']
+                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
         except psutil.NoSuchProcess:
             pass
     else:
         try:
             for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
-                cnt[p['name']] += p['memory_percent']
+                try:
+                    procs[p.info['name']]
+                except:
+                    procs[p.info['name']] = {
+                        '%': 0,
+                        'rss': 0,
+                    }
+                procs[p.info['name']]['%'] += p.info['memory_percent']
+                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
         except psutil.NoSuchProcess:
             pass
-    for i, p in enumerate(cnt.most_common(3)):
-        msg_body += '{}. {}: {:.1f}%\n'.format(i + 1, p[0], p[1])
+    for i, p in enumerate(sorted(procs.items(), key=lambda d: d[1]['%'], reverse=True)):
+        if i >= 5:
+            break
+        msg_body += '{}. {}: {} ({:.1f}%)\n'.format(
+            i + 1,
+            p[0],
+            lib.human.bytes2human(p[1]['rss']),
+            p[1]['%'],
+        )
 
     # over and out
     lib.base.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
