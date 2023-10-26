@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023091801'
+__version__ = '2023102601'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -270,15 +270,16 @@ def main():
         mycalc['pct_max_physical_memory'],
         lib.human.bytes2human(mycalc['max_peak_memory']),
     )
-    if mycalc['pct_max_physical_memory'] > 85:
-        msg += 'Reduce your overall MySQL memory footprint for system stability. '
-
     if physical_memory < mycalc['max_peak_memory'] + get_other_process_memory():
         mem2_state = STATE_WARN
         state = lib.base.get_worst(state, mem2_state)
-        msg += 'Overall possible memory usage with other processes will exceed memory{}. Dedicate this server to your database for highest performance.'.format(
+        msg += 'Overall possible memory usage with other processes will exceed memory.{}'.format(
             lib.base.state2str(mem2_state, prefix=' '),
         )
+
+    if mycalc['pct_max_physical_memory'] > 85:
+        msg += '\n\nRecommendations:\n'
+        msg += '* Reduce your overall MySQL memory footprint for system stability.'
 
     # be nice and print the calculation
     msg += '\n\nCalculations:\n'
@@ -305,6 +306,9 @@ def main():
         lib.human.bytes2human(mycalc['total_per_thread_buffers']),
         lib.human.bytes2human(mycalc['pf_memory']),
         lib.human.bytes2human(mycalc['max_peak_memory']),
+    )
+    msg += '* Other Process Memory: {}\n'.format(
+        lib.human.bytes2human(get_other_process_memory()),
     )
     msg += '* Physical Memory: pm = {}\n'.format(
         lib.human.bytes2human(physical_memory),
