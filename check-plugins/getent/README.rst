@@ -8,7 +8,7 @@ The getent plugin checks entries from databases supported by the Name Service Sw
 
 If one or more key arguments are provided, then only the entries that match the supplied keys will be checked.
 
-Note: The ``getent --database=passwd`` command lists only local users, not all available users. To check the availability of a FreeIPA or an Active Directory (AD) connected via ``sssd``, add the name of a known network account to test if network users are resolved correctly. For example, ``getent --database=passwd -key=ldapuser``.
+Note: Calling the plugin with ``getent --database=passwd`` lists only local users, not users on an Directory server. To check the availability of a FreeIPA or an Active Directory (AD) connected via ``sssd``, add the name of a known network account to test if network users are resolved correctly. For example, ``getent --database=passwd --key=<ldapuser>``.
 
 For details have a look at ``man getent``.
 
