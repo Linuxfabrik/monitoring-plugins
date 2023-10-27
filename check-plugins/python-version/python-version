@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2023102701'
+
+DESCRIPTION = 'Tracks if Python is EOL.'
+
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_PATH = '/usr/bin/python3'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help='Alert me when there is a new major release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26 (not yet EOL) and v27 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help='Alert me when there is a new major.minor release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help='Alert me when there is a new major.minor.patch release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available. '
+             'Default: %(default)s',
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
+             'Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to your Python binary. '
+             'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    success, result = lib.shell.shell_exec('{} --version'.format(path))
+    if not success:
+        return ''
+    stdout = result[0].strip()
+    # where to find the version number in output?
+    # Python 3.11.4
+    version_regex = r'Python (\d+\.\d+\.\d+)'
+    try:
+        stdout = re.match(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version(args.PATH)
+    if not installed_version:
+        lib.base.cu('Python `{}` not found.'.format(args.PATH))
+    state, msg = lib.version.check_eol(
+        'https://endoflife.date/api/python.json',
+        installed_version,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+    )
+
+    # over and out
+    lib.base.oao(
+        'Python v{} ({})'.format(installed_version, msg),
+        state,
+        lib.base.get_perfdata(
+            'python-version',
+            lib.version.version2float(installed_version),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
