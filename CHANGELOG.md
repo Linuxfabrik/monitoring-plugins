@@ -40,6 +40,7 @@ Monitoring Plugins:
 * ntp-w32tm (fix [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
 * openstack-nova-list
 * postgresql-version
+* python-version
 * redis-version
 * statuspal
 
@@ -61,6 +62,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * All plugins: Consistently reporting errors using cu() instead of oao()
+* about-me: Add detection of yarn
 * about-me: Show systemd timers with next runtime
 * cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
 * disk-smart: Skip unsupported disks (fix #672)
