@@ -28,7 +28,7 @@ Help
 .. code-block:: text
 
     usage: php-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                       [--check-patch] [--offset-eol OFFSET_EOL]
+                       [--check-patch] [--offset-eol OFFSET_EOL] [--path PATH]
 
     Tracks if PHP is EOL.
 
@@ -51,6 +51,7 @@ Help
       --offset-eol OFFSET_EOL
                             Alert me n days before ("-30") or after an EOL date
                             ("30" or "+30"). Default: -30 days
+      --path PATH           Local path to your PHP binary. Default: /usr/bin/php
 
 
 Usage Examples

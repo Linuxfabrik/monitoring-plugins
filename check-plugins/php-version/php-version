@@ -21,7 +21,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023101101'
+__version__ = '2023112103'
 
 DESCRIPTION = 'Tracks if PHP is EOL.'
 
@@ -29,6 +29,7 @@ DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
 DEFAULT_CHECK_PATCH = False
 DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_PATH = '/usr/bin/php'
 
 
 def parse_args():
@@ -92,20 +93,31 @@ def parse_args():
         default=DEFAULT_OFFSET_EOL,
     )
 
+    parser.add_argument(
+        '--path',
+        help='Local path to your PHP binary. '
+             'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
     return parser.parse_args()
 
 
-def get_installed_version():
-    success, result = lib.shell.shell_exec('php --version')
+def get_installed_version(path):
+    success, result = lib.shell.shell_exec('{} --version'.format(path))
     if not success:
         return ''
     stdout = result[0].strip()
     # where to find the version number in output?
     # PHP 7.2.34-37+0~20230106.78+debian11~1.gbp1ece37 (cli) (built: Jan  6 2023 18:38:02) ( NTS )
     # PHP 8.1.19 (cli) (built: May 10 2023 13:43:03) (NTS gcc x86_64)
-    version_regex = r'PHP (\d+\.\d+\.\d+)\W'
-    stdout = re.match(version_regex, stdout)
-    return stdout.group(1).strip()
+    version_regex = r' (\d+\.\d+\.\d+)'
+    try:
+        stdout = re.search(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
 
 
 def main():
@@ -119,9 +131,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version()
+    installed_version = get_installed_version(args.PATH)
     if not installed_version:
-        lib.base.cu('PHP not found.')
+        lib.base.cu('PHP `{}` not found.'.format(args.PATH))
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/php.json',
         installed_version,
