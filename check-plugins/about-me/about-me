@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023110601'
+__version__ = '2023112101'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -145,6 +145,15 @@ def find_software(): # pylint: disable=R0915
             'installed': output is not False,
             'version': run_regex(output, r'/(\d+\.\d+\.\d+)') if output is not False else None,
         }
+
+    output = run_cmd('solr version')
+    s['apache-solr'] = {
+        'display-name': 'Apache Solr',
+        'tag-name': 'apache-solr',
+        'guessed': os.path.isdir('/opt/apache-solr') or os.path.isdir('/opt/solr'),
+        'installed': output is not False,
+        'version': run_regex(output, r': (.*)') if output is not False else None, # pylint: disable=C0301
+    }
 
     output = run_cmd('tomcat version')
     s['apache-tomcat'] = {
