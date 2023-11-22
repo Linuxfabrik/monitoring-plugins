@@ -66,6 +66,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * All plugins: Consistently reporting errors using cu() instead of oao()
+* about-me: Add detection of ncdu
 * about-me: Add detection of yarn
 * about-me: Show systemd timers with next runtime
 * cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
@@ -89,6 +90,7 @@ Monitoring Plugins:
 * qts-\*: 'Keyerror: func' while executing qts-plugins (fix [#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
 * qts-\*: Overall code and README improvements, tested against QuTScloud 5.1
 * qts-temperature: Is it correct to have one value for CPU and System Temperature Threshold? (fix [#313](https://github.com/Linuxfabrik/monitoring-plugins/issues/313))
+* qts-version: Shows up to date even when new firmware available (fix [#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
 * rocketchat-stats: There are new values available (fix [#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix [#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
