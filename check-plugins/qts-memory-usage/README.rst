@@ -6,6 +6,11 @@ Overview
 
 Returns the current system-wide memory utilization as a percentage from a QNAP Appliance running QTS, using the HTTP API.
 
+Hints and Recommendations:
+
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+
 
 Fact Sheet
 ----------
@@ -28,10 +33,10 @@ Help
                             [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
                             --url URL [--username USERNAME] [-w WARN]
 
-    Returns the current system-wide Memory utilization as a percentage from QNAP
+    Returns the current system-wide memory utilization as a percentage from QNAP
     Appliances running QTS via API.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -56,7 +61,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./qts-memory-usage --url http://qts:8080 --username admin --password my-password
+    ./qts-memory-usage --url http://qts:8080 --username admin --password linuxfabrik --insecure
     
 Output:
 
@@ -75,10 +80,15 @@ States
 Perfdata / Metrics
 ------------------
 
-* ``memory-usage``: The overall memory usage.
-* ``free``: The free memory.
-* ``total``: The total memory.
-* ``used``: The used memory.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    memory-usage,                               Bytes,              The overall memory usage.
+    free,                                       Bytes,              The free memory.
+    total,                                      Bytes,              The total memory.
+    used,                                       Bytes,              The used memory.
 
 
 Credits, License

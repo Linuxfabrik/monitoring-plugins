@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092901'
+__version__ = '2023112201'
 
 DESCRIPTION = 'This plugin lets you track if server updates are available.'
 
@@ -60,7 +60,8 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -68,7 +69,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -83,7 +85,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -98,7 +101,8 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='QTS User. Default: %(default)s',
+        help='QTS User. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
@@ -116,20 +120,35 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    authSid = lib.base.coe(lib.qts.get_auth_sid(args))
+    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
-    # get the current version
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    # get system information
+    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
+        args.URL,
+        auth_sid,
+    )
+    result = lib.base.coe(
+        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+    )
     data = xmltodict.parse(result)['QDocRoot']
+    if data['authPassed'] == '0':
+        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
 
     installed_version = data['firmware']['version']
     installed_number = data['firmware']['number']
     installed_build = data['firmware']['build']
 
     # check for updates
-    url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, data=data, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    url = '{}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={}'.format(args.URL, auth_sid)
+    result = lib.base.coe(
+        lib.url.fetch(
+            url,
+            data=data,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+    )
     xmldict = xmltodict.parse(result)['QDocRoot']
     if 'newVersion' in xmldict['func']['ownContent']:
         # versions prior to 5.0.1
@@ -147,17 +166,24 @@ def main():
 
     # build the message
     if lib.version.version('.'.join(installed_version)) >= lib.version.version(latest_version):
-        lib.base.oao('QTS v{}.{} Build {} is up to date'.format(
+        lib.base.oao(
+            'QTS v{}.{} Build {} is up to date'.format(
+                installed_version,
+                installed_number,
+                installed_build,
+            ),
+            STATE_OK,
+        )
+    lib.base.oao(
+        'QTS v{}.{} Build {} installed, QTS v{} available'.format(
             installed_version,
             installed_number,
             installed_build,
-        ), STATE_OK)
-    lib.base.oao('QTS v{}.{} Build {} installed, QTS v{} available'.format(
-        installed_version,
-        installed_number,
-        installed_build,
-        latest_version,
-    ), STATE_WARN, always_ok=args.ALWAYS_OK)
+            latest_version,
+        ),
+        STATE_WARN,
+        always_ok=args.ALWAYS_OK,
+    )
 
 
 if __name__ == '__main__':

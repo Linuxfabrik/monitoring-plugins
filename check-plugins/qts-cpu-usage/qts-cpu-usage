@@ -29,7 +29,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092901'
+__version__ = '2023112201'
 
 DESCRIPTION = """Returns the current system-wide CPU utilization as a percentage from QNAP
                  Appliances running QTS via API. Warns only if the overall CPU usage is above a
@@ -37,13 +37,13 @@ DESCRIPTION = """Returns the current system-wide CPU utilization as a percentage
                  done via a single API token (Token-based authentication), not via Session-based
                  authentication, which is stated as "legacy"."""
 
-DEFAULT_WARN = 80      # %
-DEFAULT_CRIT = 90      # %
 DEFAULT_COUNT = 5       # measurements; if check runs once per minute, this is a 5 minute interval
+DEFAULT_CRIT = 90      # %
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 6
 DEFAULT_USERNAME = 'admin'
+DEFAULT_WARN = 80      # %
 
 
 def parse_args():
@@ -67,7 +67,8 @@ def parse_args():
 
     parser.add_argument(
         '--count',
-        help='Number of times the value has to be above the given thresholds. Default: %(default)s',
+        help='Number of times the value has to be above the given thresholds. '
+             'Default: %(default)s',
         dest='COUNT',
         type=int,
         default=DEFAULT_COUNT,
@@ -75,7 +76,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold CPU Usage Percentage. Default: %(default)s',
+        help='Set the critical threshold CPU Usage Percentage. '
+             'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -83,7 +85,8 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -91,7 +94,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -106,7 +110,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -121,14 +126,16 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='QTS User. Default: %(default)s',
+        help='QTS User. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold CPU Usage Percentage. Default: %(default)s',
+        help='Set the warning threshold CPU Usage Percentage. '
+             'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -161,21 +168,30 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    authSid = lib.base.coe(lib.qts.get_auth_sid(args))
+    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
-    # get the cpu usage
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    # get system information
+    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
+        args.URL,
+        auth_sid,
+    )
+    result = lib.base.coe(
+        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+    )
     data = xmltodict.parse(result)['QDocRoot']
+    if data['authPassed'] == '0':
+        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
 
     stats = {}
     stats['cpu_usage'] = float(data['func']['ownContent']['root']['cpu_usage'].replace('%', ''))
 
     # create the db table
     definition = '''
-                cpu_usage REAL NOT NULL
-        '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-qts-cpu-usage.db'))
+        cpu_usage REAL NOT NULL
+    '''
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-qts-cpu-usage.db')
+    )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
 
     # save trend data to local sqlite database, limited to "count" rows max.
@@ -196,7 +212,7 @@ def main():
 
     # build the message
     msg = '{}%'.format(stats['cpu_usage'])
-    perfdata = lib.base.get_perfdata('cpu-usage', stats['cpu_usage'], '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base.get_perfdata('cpu-usage', stats['cpu_usage'], '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

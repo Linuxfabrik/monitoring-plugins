@@ -4,7 +4,14 @@ Check qts-disk-smart
 Overview
 --------
 
-Checks the disk SMART values returned by a QNAP Appliance running QTS. This check does not run SMART itself. In order to get the latest values, schedule the in-built SMART check in the QTS webinterface.
+Checks the disk SMART values returned by a QNAP Appliance running QTS. Disk temperature thresholds are determined automatically.
+
+This check does not run SMART itself. In order to get the latest values, schedule the in-built SMART check in the QTS webinterface.
+
+Hints and Recommendations:
+
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
 
 Fact Sheet
@@ -30,7 +37,7 @@ Help
 
     Checks the disk SMART values returned by QTS.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
       --always-ok          Always returns OK.
@@ -49,7 +56,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./qts-disk-smart --url http://qts:8080 --username admin --password my-password
+    ./qts-disk-smart --url http://qts:8080 --username admin --password linuxfabrik --insecure
     
 Output:
 
@@ -81,7 +88,12 @@ States
 Perfdata / Metrics
 ------------------
 
-* <name>_<model_<serno>_temperature: Temperature in °C
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    <name>_<model_<serno>_temperature,          Number,             Temperature in °C
 
 
 Credits, License

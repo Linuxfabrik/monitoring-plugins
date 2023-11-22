@@ -8,6 +8,8 @@ Returns the current system-wide CPU utilization as a percentage from a QNAP Appl
 
 Hints and Recommendations:
 
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes.
 
 
@@ -41,7 +43,7 @@ Help
     done via a single API token (Token-based authentication), not via Session-
     based authentication, which is stated as "legacy".
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -68,7 +70,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./qts-cpu-usage --url http://qts:8080 --username admin --password my-password
+    ./qts-cpu-usage --url http://qts:8080 --username admin --password linuxfabrik --insecure
     
 Output:
 
@@ -87,7 +89,12 @@ States
 Perfdata / Metrics
 ------------------
 
-* ``cpu-usage``: The overall cpu usage.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    cpu-usage,                                  Percentage,         "The overall cpu usage."
 
 
 Credits, License

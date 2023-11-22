@@ -19,7 +19,8 @@ import lib.human  # pylint: disable=C0413
 import lib.qts  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 try:
     import xmltodict
@@ -28,17 +29,17 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092901'
+__version__ = '2023112201'
 
-DESCRIPTION = """Returns the current system-wide Memory utilization as a percentage from QNAP
+DESCRIPTION = """Returns the current system-wide memory utilization as a percentage from QNAP
                  Appliances running QTS via API."""
 
-DEFAULT_WARN = 80      # %
 DEFAULT_CRIT = 90      # %
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 6
 DEFAULT_USERNAME = 'admin'
+DEFAULT_WARN = 80      # %
 
 
 def parse_args():
@@ -62,7 +63,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold Memory Usage Percentage. Default: %(default)s',
+        help='Set the critical threshold Memory Usage Percentage. '
+             'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -70,7 +72,8 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -78,7 +81,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -93,7 +97,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -108,14 +113,16 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='QTS User. Default: %(default)s',
+        help='QTS User. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold Memory Usage Percentage. Default: %(default)s',
+        help='Set the warning threshold Memory Usage Percentage. '
+             'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -134,12 +141,19 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    authSid = lib.base.coe(lib.qts.get_auth_sid(args))
+    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
-    # get the memory usage
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    # get system information
+    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
+        args.URL,
+        auth_sid,
+    )
+    result = lib.base.coe(
+        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+    )
     data = xmltodict.parse(result)['QDocRoot']
+    if data['authPassed'] == '0':
+        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
 
     total = float(data['func']['ownContent']['root']['total_memory']) * 1024 * 1024
     free = float(data['func']['ownContent']['root']['free_memory']) * 1024 * 1024
@@ -155,7 +169,7 @@ def main():
         lib.human.bytes2human(used),
         lib.human.bytes2human(free),
     )
-    perfdata = lib.base.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata = lib.base.get_perfdata('memory-usage', memory_usage, '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('total', total, 'B', None, None, 0, total)
     perfdata += lib.base.get_perfdata('used', used, 'B', None, None, 0, total)
     perfdata += lib.base.get_perfdata('free', free, 'B', None, None, 0, total)
