@@ -4,7 +4,12 @@ Check qts-temperatures
 Overview
 --------
 
-Returns system and CPU temperatures. All temperatures are expressed in celsius.
+Checks system and CPU temperatures. All temperatures are expressed in celsius. Temperature thresholds are determined automatically.
+
+Hints and Recommendations:
+
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
 
 Fact Sheet
@@ -24,31 +29,24 @@ Help
 
 .. code-block:: text
 
-    usage: qts-temperatures [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                            [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
-                            --url URL [--username USERNAME] [-w WARN]
+    usage: qts-temperatures [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                            --password PASSWORD [--timeout TIMEOUT] --url URL
+                            [--username USERNAME]
 
-    Returns the current temperatures from QNAP Appliances running QTS via API.
+    Checks the current temperatures from QNAP Appliances running QTS via API.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the sytem and CPU
-                            temperature. Default: 80
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --password PASSWORD   QTS Password.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 6 (seconds)
-      --url URL             QTS-based Appliance URL, for example
-                            https://192.168.1.1:8080.
-      --username USERNAME   QTS User. Default: admin
-      -w WARN, --warning WARN
-                            Set the warning threshold for the sytem and CPU
-                            temperature. Default: 70
-
+    options:
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --password PASSWORD  QTS Password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
+      --url URL            QTS-based Appliance URL, for example
+                           https://192.168.1.1:8080.
+      --username USERNAME  QTS User. Default: admin
 
 
 Usage Examples
@@ -56,13 +54,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./qts-temperatures --url http://qts:8080 --username admin --password my-password
+    ./qts-temperatures --url http://qts:8080 --username admin --password linuxfabrik --insecure
     
 Output:
 
 .. code-block:: text
 
-    Sys: 37°C, CPU: 60°C
+    Sys: 59°C (Thresholds: 60/70°C), CPU: 82°C (Thresholds: 80/85°C) [WARNING]
 
 
 States
@@ -74,7 +72,13 @@ States
 Perfdata / Metrics
 ------------------
 
-* temperature for system and CPU (°C)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    cputemp,                                    Number,             CPU temperature in °C.
+    systemp,                                    Number,             System temperature in °C.
 
 
 Credits, License

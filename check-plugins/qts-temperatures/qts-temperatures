@@ -18,7 +18,8 @@ import lib.base  # pylint: disable=C0413
 import lib.qts  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
-from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 try:
     import xmltodict
@@ -27,12 +28,10 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023092901'
+__version__ = '2023112201'
 
-DESCRIPTION = 'Returns the current temperatures from QNAP Appliances running QTS via API.'
+DESCRIPTION = 'Checks the current temperatures from QNAP Appliances running QTS via API.'
 
-DEFAULT_WARN = 70      # Celsius
-DEFAULT_CRIT = 80      # Celsius
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 6
@@ -59,16 +58,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-c', '--critical',
-        help='Set the critical threshold for the sytem and CPU temperature. Default: %(default)s',
-        dest='CRIT',
-        type=int,
-        default=DEFAULT_CRIT,
-    )
-
-    parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -76,7 +68,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -91,7 +84,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -106,17 +100,10 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='QTS User. Default: %(default)s',
+        help='QTS User. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
-    )
-
-    parser.add_argument(
-        '-w', '--warning',
-        help='Set the warning threshold for the sytem and CPU temperature. Default: %(default)s',
-        dest='WARN',
-        type=int,
-        default=DEFAULT_WARN,
     )
 
     return parser.parse_args()
@@ -132,29 +119,64 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    authSid = lib.base.coe(lib.qts.get_auth_sid(args))
+    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
 
-    # get the memory usage
-    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(args.URL, authSid)
-    result = lib.base.coe(lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT))
+    # get system information
+    url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
+        args.URL,
+        auth_sid,
+    )
+    result = lib.base.coe(
+        lib.url.fetch(url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT)
+    )
     data = xmltodict.parse(result)['QDocRoot']
+    if data['authPassed'] == '0':
+        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
 
-    systemp = int(data['func']['ownContent']['root']['sys_tempc'])
-    cputemp = int(data['func']['ownContent']['root']['cpu_tempc'])
-
-    systemp_state = lib.base.get_state(systemp, args.WARN, args.CRIT, _operator='gt')
-    cputemp_state = lib.base.get_state(cputemp, args.WARN, args.CRIT, _operator='gt')
+    # analyze data
+    systemp_state = lib.base.get_state(
+        int(data['func']['ownContent']['root']['sys_tempc']),
+        int(data['func']['ownContent']['root']['SysTempWarnT']),
+        int(data['func']['ownContent']['root']['SysTempErrT']),
+        _operator='ge',
+    )
+    cputemp_state = lib.base.get_state(
+        int(data['func']['ownContent']['root']['cpu_tempc']),
+        int(data['func']['ownContent']['root']['CPUTempWarnT']),
+        int(data['func']['ownContent']['root']['CPUTempErrT']),
+        _operator='ge',
+    )
     state = lib.base.get_worst(systemp_state, cputemp_state)
 
     # build the message
-    msg = 'Sys: {}°C{}, CPU: {}°C{}'.format(
-        systemp,
+    msg = 'Sys: {}°C (Thresholds: {}/{}°C){}, CPU: {}°C (Thresholds: {}/{}°C){}'.format(
+        int(data['func']['ownContent']['root']['sys_tempc']),
+        int(data['func']['ownContent']['root']['SysTempWarnT']),
+        int(data['func']['ownContent']['root']['SysTempErrT']),
         lib.base.state2str(systemp_state, prefix=' '),
-        cputemp,
+        int(data['func']['ownContent']['root']['cpu_tempc']),
+        int(data['func']['ownContent']['root']['CPUTempWarnT']),
+        int(data['func']['ownContent']['root']['CPUTempErrT']),
         lib.base.state2str(cputemp_state, prefix=' '),
     )
-    perfdata = lib.base.get_perfdata('systemp', systemp, None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('cputemp', cputemp, None, args.WARN, args.CRIT, 0, None)
+    perfdata = lib.base.get_perfdata(
+        'systemp',
+        int(data['func']['ownContent']['root']['sys_tempc']),
+        None,
+        int(data['func']['ownContent']['root']['CPUTempWarnT']),
+        int(data['func']['ownContent']['root']['CPUTempErrT']),
+        0,
+        None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cputemp',
+        int(data['func']['ownContent']['root']['cpu_tempc']),
+        None,
+        int(data['func']['ownContent']['root']['SysTempWarnT']),
+        int(data['func']['ownContent']['root']['SysTempErrT']),
+        0,
+        None,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

@@ -86,6 +86,9 @@ Monitoring Plugins:
 * openstack-nova-list: Make more robust in case of OpenStack errors
 * php-version: Check multiple installed PHP versions (fix [#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
 * ping: Check plugin to fast states "error" (fix [#691](https://github.com/Linuxfabrik/monitoring-plugins/issues/691))
+* qts-\*: 'Keyerror: func' while executing qts-plugins (fix [#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
+* qts-\*: Overall code and README improvements, tested against QuTScloud 5.1
+* qts-temperature: Is it correct to have one value for CPU and System Temperature Threshold? (fix [#313](https://github.com/Linuxfabrik/monitoring-plugins/issues/313))
 * rocketchat-stats: There are new values available (fix [#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix [#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
