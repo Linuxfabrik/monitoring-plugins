@@ -17,14 +17,14 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.rocket  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023051201'
+__version__ = '2023112202'
 
-DESCRIPTION = """This plugin lets you track statistics about a Rocket.Chat server. Requires a user
-                 with strong password and (just) "view-statistics" permission."""
+DESCRIPTION = """This plugin allows you to track statistics about a Rocket.Chat server,
+                 structured in the same way as on the https://rocket.chat/admin/info page.
+                 Requires a user with a strong password and (only) "view-statistics" permission."""
 
 DEFAULT_URL      = 'http://localhost:3000/api/v1'
 DEFAULT_USERNAME = 'rocket-stats'
@@ -78,84 +78,108 @@ def main():
 
     # fetch data
     credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
-    authToken, userId = credentials.split(':')
-    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
+    auth_token, user_id = credentials.split(':')
+    result = lib.base.coe(lib.rocket.get_stats(args.URL, auth_token, user_id))
 
-    # extract some application specific data
-    if result.get('statistics', None):
-        # version < 3.0.0
-        rc_statistics_onlineUsers               = result['statistics']['onlineUsers']
-        rc_statistics_totalDirectMessages       = result['statistics']['totalDirectMessages']
-        rc_statistics_totalLivechat             = result['statistics']['totalLivechat']
-        rc_statistics_totalPrivateGroups        = result['statistics']['totalPrivateGroups']
-        rc_statistics_totalRooms                = result['statistics']['totalRooms']
-        rc_statistics_totalUsers                = result['statistics']['totalUsers']
-        rc_statistics_uploadsTotal              = result['statistics']['uploadsTotal']
-        rc_statistics_version                   = result['statistics']['version']
-
-        rc_statistics_totalLivechatMessages     = result['statistics']['totalLivechatMessages']
-        rc_statistics_totalLivechatVisitors     = result['statistics']['totalLivechatVisitors']
-        rc_statistics_totalMessages             = result['statistics']['totalMessages']
-        rc_statistics_totalPrivateGroupMessages = result['statistics']['totalPrivateGroupMessages']
-        rc_statistics_uploadsTotalSize          = result['statistics']['uploadsTotalSize']
-    else:
-        # version >= 3.0.0
-        rc_statistics_onlineUsers               = result['onlineUsers']
-        rc_statistics_totalDirectMessages       = result['totalDirectMessages']
-        rc_statistics_totalLivechat             = result['totalLivechat']
-        rc_statistics_totalPrivateGroups        = result['totalPrivateGroups']
-        rc_statistics_totalRooms                = result['totalRooms']
-        rc_statistics_totalUsers                = result['totalUsers']
-        rc_statistics_uploadsTotal              = result['uploadsTotal']
-        rc_statistics_version                   = result['version']
-
-        rc_statistics_totalLivechatMessages     = result['totalLivechatMessages']
-        rc_statistics_totalLivechatVisitors     = result['totalLivechatVisitors']
-        rc_statistics_totalMessages             = result['totalMessages']
-        rc_statistics_totalPrivateGroupMessages = result['totalPrivateGroupMessages']
-        rc_statistics_uploadsTotalSize          = result['uploadsTotalSize']
-
-
+    # init some vars
+    msg = ''
     perfdata = ''
     state = STATE_OK
 
-    # no checks here, just for your information
-    # build a compact multiline message
-    msg_header = '{} users ({} online), {} msgs, {} uploads, {} uploads total size, v{}'.format(
-        rc_statistics_totalUsers,
-        rc_statistics_onlineUsers,
-        rc_statistics_totalMessages,
-        rc_statistics_uploadsTotal,
-        lib.human.bytes2human(rc_statistics_uploadsTotalSize),
-        rc_statistics_version,
-        )
-    msg_body = '{} rooms, {} private groups, {} private group msgs, {} direct msgs\n'.format(
-        rc_statistics_totalRooms,
-        rc_statistics_totalPrivateGroups,
-        rc_statistics_totalPrivateGroupMessages,
-        rc_statistics_totalDirectMessages,
-        )
-    msg_body += '{} livechat visitors, {} livechats, {} livechat msgs'.format(
-        rc_statistics_totalLivechatVisitors,
-        rc_statistics_totalLivechat,
-        rc_statistics_totalLivechatMessages,
-        )
+    # build a compact multiline message with the most important info first
+    msg += '{}/{} users online, {} {}, {} {}, {} upload total size, v{}'.format(
+        result.get('onlineUsers', 'n/a'),
+        result.get('totalUsers', 'n/a'),
+        lib.human.number2human(result.get('totalMessages', 0)),
+        lib.txt.pluralize('msg', result.get('totalMessages', 0)),
+        lib.human.number2human(result.get('uploadsTotal', 0)),
+        lib.txt.pluralize('upload', result.get('uploadsTotal', 0)),
+        lib.human.bytes2human(result.get('uploadsTotalSize', 0)),
+        result.get('version', 'n/a'),
+    )
 
-    perfdata += lib.base.get_perfdata('rc_onlineUsers', rc_statistics_onlineUsers, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalDirectMessages', rc_statistics_totalDirectMessages, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalLivechat', rc_statistics_totalLivechat, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalLivechatMessages', rc_statistics_totalLivechatMessages, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalLivechatVisitors', rc_statistics_totalLivechatVisitors, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalMessages', rc_statistics_totalMessages, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalPrivateGroupMessages', rc_statistics_totalPrivateGroupMessages, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalPrivateGroups', rc_statistics_totalPrivateGroups, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalRooms', rc_statistics_totalRooms, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_totalUsers', rc_statistics_totalUsers, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_uploadsTotal', rc_statistics_uploadsTotal, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rc_uploadsTotalSize', rc_statistics_uploadsTotalSize, 'B', None, None, 0, None)
+    # no checks here, just for your information
+    msg += '\n* Users: {} total, {} online, {} busy, {} away, {} offline'.format(
+        result.get('totalUsers', 'n/a'),
+        result.get('onlineUsers', 'n/a'),
+        result.get('busyUsers', 'n/a'),
+        result.get('awayUsers', 'n/a'),
+        result.get('offlineUsers', 'n/a'),
+    )
+
+    msg += '\n* Types and Distribution: {} connected, {} activated {}, {} activated {}, {} deactivated {}, {} Rocket.Chat app {}'.format( # pylint: disable=C0301
+        result.get('totalConnectedUsers', 'n/a'),
+        result.get('activeUsers', 'n/a'),
+        lib.txt.pluralize('user', result.get('activeUsers', 0)),
+        result.get('activeGuests', 'n/a'),
+        lib.txt.pluralize('guest', result.get('activeGuests', 0)),
+        result.get('nonActiveUsers', 'n/a'),
+        lib.txt.pluralize('user', result.get('nonActiveUsers', 0)),
+        result.get('appUsers', 'n/a'),
+        lib.txt.pluralize('user', result.get('appUsers', 0)),
+    )
+
+    msg += '\n* Total Uploads: {}, {} size'.format(
+        result.get('uploadsTotal', 'n/a'),
+        lib.human.bytes2human(result.get('uploadsTotalSize', 0)),
+    )
+
+    msg += '\n* Total Rooms: {} {}, {} {}, {} private {}, {} direct msg {}, {} {}, {} omnichannel {}'.format( # pylint: disable=C0301
+        result.get('totalRooms', 'n/a'),
+        lib.txt.pluralize('room', result.get('totalRooms', 0)),
+        result.get('totalChannels', 'n/a'),
+        lib.txt.pluralize('channel', result.get('totalChannels', 0)),
+        result.get('totalPrivateGroups', 'n/a'),
+        lib.txt.pluralize('group', result.get('totalPrivateGroups', 0)),
+        result.get('totalDirect', 'n/a'),
+        lib.txt.pluralize('room', result.get('totalDirect', 0)),
+        result.get('totalDiscussions', 'n/a'),
+        lib.txt.pluralize('discussion', result.get('totalDiscussions', 0)),
+        result.get('totalLivechat', 'n/a'),
+        lib.txt.pluralize('room', result.get('totalLivechat', 0)),
+    )
+
+    msg += '\n* Total Messages: {}, {} {}, {} in channels, {} in priv groups, {} in direct msg, {} in omnichannel'.format( # pylint: disable=C0301
+        lib.human.number2human(result.get('totalMessages', 0)),
+        result.get('totalThreads', 'n/a'),
+        lib.txt.pluralize('thread', result.get('totalThreads', 0)),
+        result.get('totalChannelMessages', 'n/a'),
+        lib.human.number2human(result.get('totalPrivateGroupMessages', 0)),
+        lib.human.number2human(result.get('totalDirectMessages', 0)),
+        lib.human.number2human(result.get('totalLivechatMessages', 0)),
+    )
+
+    perfdata += lib.base.get_perfdata('rc_totalUsers', result.get('totalUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_onlineUsers', result.get('onlineUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_busyUsers', result.get('busyUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_awayUsers', result.get('awayUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_offlineUsers', result.get('offlineUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('rc_totalConnectedUsers', result.get('totalConnectedUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_activeUsers', result.get('activeUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_activeGuests', result.get('activeGuests', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_nonActiveUsers', result.get('nonActiveUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_appUsers', result.get('appUsers', 0), None, None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('rc_uploadsTotal', result.get('uploadsTotal', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_uploadsTotalSize', result.get('uploadsTotalSize', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('rc_totalRooms', result.get('totalRooms', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalChannels', result.get('totalChannels', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroups', result.get('totalPrivateGroups', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalDirect', result.get('totalDirect', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalDiscussions', result.get('totalDiscussions', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalLivechat', result.get('totalLivechat', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalMessages', result.get('totalMessages', 0), None, None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('rc_totalThreads', result.get('totalThreads', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalChannelMessages', result.get('totalChannelMessages', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalPrivateGroupMessages', result.get('totalPrivateGroupMessages', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalDirectMessages', result.get('totalDirectMessages', 0), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rc_totalLivechatMessages', result.get('totalLivechatMessages', 0), None, None, None, 0, None) # pylint: disable=C0301
 
     # over and out
-    lib.base.oao(msg_header + '\n' + msg_body, state, perfdata)
+    lib.base.oao(msg, state, perfdata)
 
 
 if __name__ == '__main__':

@@ -25,13 +25,14 @@ Help
 
 .. code-block:: text
 
-    usage: rocketchat-stats [-h] [-V] -p PASSWORD [--url URL] --username
-                             USERNAME
+    usage: rocketchat-stats [-h] [-V] -p PASSWORD [--url URL] --username USERNAME
 
-    This plugin lets you track statistics about a Rocket.Chat server. Requires a
-    user with strong password and (just) "view-statistics" permission.
+    This plugin allows you to track statistics about a Rocket.Chat server,
+    structured in the same way as on the https://rocket.chat/admin/info page.
+    Requires a user with a strong password and (only) "view-statistics"
+    permission.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -p PASSWORD, --password PASSWORD
@@ -39,6 +40,7 @@ Help
       --url URL             Rocket.Chat API URL. Default:
                             http://localhost:3000/api/v1
       --username USERNAME   Rocket.Chat API username. Default: rocket-stats
+
 
 
 Usage Examples
@@ -52,10 +54,12 @@ Output:
 
 .. code-block:: text
 
-    178 users (26 online), 147778 msgs, 2506 uploads, 2.7GiB uploads total size, v3.15.0
-    
-    394 rooms, 56 private groups, 70506 private group msgs, 75791 direct msgs
-    78 livechat visitors, 95 livechats, 1478 livechat msgs
+    8/325 users online, 295.2K msgs, 6.3K uploads, 4.3GiB upload total size, v6.4.7
+    * Users: 325 total, 8 online, 0 busy, 1 away, 316 offline
+    * Types and Distribution: 9 connected, 223 activated users, 0 activated guests, 100 deactivated users, 2 Rocket.Chat app users
+    * Total Uploads: 6285, 4.3GiB size
+    * Total Rooms: 672 rooms, 1 channel, 96 private groups, 440 direct msg rooms, 0 discussions, 135 omnichannel rooms
+    * Total Messages: 295.2K, 829 threads, 5 in channels, 178.3K in priv groups, 115.0K in direct msg, 1.9K in omnichannel
 
 
 States
@@ -67,18 +71,35 @@ States
 Perfdata / Metrics
 ------------------
 
-* Online Users
-* Total Direct Messages
-* Total Livechat
-* Total Livechat Messages
-* Total Livechat Visitors
-* Total Messages
-* Total Private Group Messages
-* Total Private Groups
-* Total Rooms
-* Total Users
-* Uploads Total
-* Uploads Total Size (Byte)
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+
+    Name,                                       Type,               Description                                           
+    rc_activeGuests,                            Number,             Types and Distribution: Activated Guests
+    rc_activeUsers,                             Number,             Types and Distribution: Activated Users
+    rc_appUsers,                                Number,             Types and Distribution: Rocket.Chat App Users
+    rc_awayUsers,                               Number,             Users: Away
+    rc_busyUsers,                               Number,             Users: Busy
+    rc_nonActiveUsers,                          Number,             Types and Distribution: Deactivated Users
+    rc_offlineUsers,                            Number,             Users: Offline
+    rc_onlineUsers,                             Number,             Users: Online
+    rc_totalChannelMessages,                    Number,             Total Messages: Messages in Channels
+    rc_totalChannels,                           Number,             Total Rooms: Channels
+    rc_totalConnectedUsers,                     Number,             Types and Distribution: Connected
+    rc_totalDirect,                             Number,             Total Rooms: Direct Message Rooms
+    rc_totalDirectMessages,                     Number,             Total Messages: Messages in Direct Messages
+    rc_totalDiscussions,                        Number,             Total Rooms: Discussions
+    rc_totalLivechat,                           Number,             Total Rooms: Omnichannel Rooms
+    rc_totalLivechatMessages,                   Number,             Total Messages: Messages in Omnichannel
+    rc_totalMessages,                           Number,             Total Messages: Messages
+    rc_totalPrivateGroupMessages,               Number,             Total Messages: Messages in Private Groups
+    rc_totalPrivateGroups,                      Number,             Total Rooms: Private Groups
+    rc_totalRooms,                              Number,             Total Rooms: Rooms
+    rc_totalThreads,                            Number,             Total Messages: Threads
+    rc_totalUsers,                              Number,             Users: Total
+    rc_uploadsTotal,                            Number,             Uploads: Total Uploads
+    rc_uploadsTotalSize,                        Bytes,              Uploads: Total Upload Size
 
 
 Credits, License

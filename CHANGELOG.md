@@ -28,16 +28,20 @@ Grafana:
 Icinga Director:
 
 * all-the-rest.json: Add Debian 12 (Bookworm), add deb-lastactivity
+* all-the-rest.json: Add Apache Solr Service Set
 * all-the-rest.json: Increase file size warning for `/var/log/secure`
 
 Monitoring Plugins:
 
+* about-me: Add detection of Apache Solr
+* apache-solr-version
 * deb-lastactivity ([PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
 * gitlab-health (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
 * gitlab-liveness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
 * gitlab-readiness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
 * gitlab-version
 * ntp-w32tm (fix [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
+* openjdk-redhat-version
 * openstack-nova-list
 * postgresql-version
 * python-version
@@ -80,8 +84,10 @@ Monitoring Plugins:
 * mysql-logfile: Returns OK instead of UNKNOWN if logfile is found but empty
 * mysql-logfile: State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
 * openstack-nova-list: Make more robust in case of OpenStack errors
+* php-version: Check multiple installed PHP versions (fix [#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
+* rocketchat-stats: There are new values available (fix [#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
 * systemd-unit: Encode unit-name to text before running systemd command
-* uptime: Additionally report last reboot time (fix #190)
+* uptime: Additionally report last reboot time (fix [#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
 * \*-version: Curl from https://endoflife.date first, then use hardcoded version (fix [#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
 * \*-version: Add eol offset date, optional warn on new major/minor/patch
 * xca-cert: refactor check, make better use of the new libraries (fix [#75](https://github.com/Linuxfabrik/monitoring-plugins/issues/75))
