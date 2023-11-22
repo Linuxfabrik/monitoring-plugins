@@ -85,6 +85,7 @@ Monitoring Plugins:
 * mysql-logfile: State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
 * openstack-nova-list: Make more robust in case of OpenStack errors
 * php-version: Check multiple installed PHP versions (fix [#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
+* ping: Check plugin to fast states "error" (fix [#691](https://github.com/Linuxfabrik/monitoring-plugins/issues/691))
 * rocketchat-stats: There are new values available (fix [#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
 * systemd-unit: Encode unit-name to text before running systemd command
 * uptime: Additionally report last reboot time (fix [#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)

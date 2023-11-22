@@ -17,11 +17,10 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023071203'
+__version__ = '2023112201'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -52,7 +51,8 @@ def parse_args():
 
     parser.add_argument(
         '--count',
-        help='Stop after sending count ECHO_REQUEST packets. Default: %(default)s',
+        help='Stop after sending count ECHO_REQUEST packets. '
+             'Default: %(default)s',
         default=DEFAULT_COUNT,
         dest='COUNT',
         type=int,
@@ -60,14 +60,17 @@ def parse_args():
 
     parser.add_argument(
         '-H', '--hostname',
-        help='The ping destination. Default: %(default)s',
+        help='The ping destination. '
+             'Default: %(default)s',
         dest='HOSTNAME',
         default=DEFAULT_HOSTNAME,
     )
 
     parser.add_argument(
         '--interval',
-        help='Wait interval seconds between sending each packet. Default: %(default)s',
+        help='Wait interval seconds between sending each packet. '
+             'Real number allowed with dot as a decimal separator (regardless locale setup). '
+             'Default: %(default)s',
         default=DEFAULT_INTERVAL,
         dest='INTERVAL',
         type=float,
@@ -75,7 +78,9 @@ def parse_args():
 
     parser.add_argument(
         '-t', '--timeout',
-        help='Specify a timeout, in seconds, before ping exits regardless of how many packets have been sent or received. Default: %(default)s',
+        help='Specify a timeout, in seconds, before ping exits regardless of how many packets '
+             'have been sent or received. '
+             'Default: %(default)s',
         default=DEFAULT_DEADLINE,
         dest='DEADLINE',
         type=int,
@@ -94,76 +99,156 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    cmd = 'ping -c {count} -i {interval} -w {deadline} -q {hostname}'.format(count=args.COUNT,
+    # ping -c 5 -i 0.2 -w 5 -q 192.0.2.10
+    cmd = 'ping -c {count} -i {interval} -w {deadline} -q {hostname}'.format(
+        count=args.COUNT,
         interval=args.INTERVAL,
         deadline=args.DEADLINE,
         hostname=args.HOSTNAME
     )
 
-    # execute the shell command and return its result and exit code
+    # fetch data
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if stderr or retc == 2:
         lib.base.cu(stderr)
 
+    # If ping does not receive any reply packets at all it will exit with code 1.
+    # If a packet count and deadline are both specified, and fewer than count packets are received
+    # by the time the deadline has arrived, it will also exit with code 1.
+    # On other error it exits with code 2. Otherwise it exits with code 0.
+
+    # Since we want to be as tolerant as possible, if we send burst pings and at least
+    # one packet makes its way back, we assume the host is alive. So we don't rely on the
+    # return code of `ping` (any longer).
+    # See https://github.com/Linuxfabrik/monitoring-plugins/issues/691 for details.
+
+    # init some vars
+    # Throwing CRIT instead of WARN beacuse of the fact that this check will mainly be used
+    # for checking host-liveliness [OK=UP, CRIT=DOWN].
+    state = STATE_CRIT if '0 received' in stdout else STATE_OK
+    if state == STATE_OK:
+        msg = ''
+    else:
+        msg = 'Destination host unreachable. '
+    perfdata = ''
+
+    # analyze data
     result = stdout.splitlines()
     if not result[0] or not result[3]:
         lib.base.cu('Unexpected output from ping.')
 
-    # throwing CRIT if ping exits with 1 (CRIT instead of WARN beacuse of the
-    # fact that this check will mainly be used for checking host-liveliness [UP/DOWN]).
-    # `ping` returns 1 when: !nreceived || (deadline && nreceived < npackets));
-    state = STATE_CRIT if retc else STATE_OK
-    if state == STATE_OK:
-        msg = ''
-    else:
-        msg = 'Destination Host Unreachable. '
-
-    # we have the state, lets build the message and create some perfdata;
-
-    #['PING www.linuxfabrik.ch (185.231.52.10) 56(84) bytes of data.'
-    # ''
-    # '--- www.linuxfabrik.ch ping statistics ---'
-    # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
-    # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms']
-
+    # line 0:
     # "PING %hostname (%ip) [from %sinip %device: ]%datalen(%datalen+28)
-    ping = re.search(r'G (.*?)\(', result[0])       # regex: 45 steps
+    # 'PING www.linuxfabrik.ch (192.0.2.10) 56(84) bytes of data.'
+    ping = re.search(r'G (.*?)\(', result[0]) # regex: 45 steps
     msg += 'PING {}'.format(ping.group(1).strip()) + ': '
 
-    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]"
-    matches            = re.search(r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)', result[3])       # regex: 92 steps
-    transmitted        = matches.group(1)
-    received           = matches.group(2)
-    duplicates         = matches.group(4).replace('+', '') if matches.group(4) else 0
-    checksum_corrupted = matches.group(6).replace('+', '') if matches.group(6) else 0
-    errors             = matches.group(8).replace('+', '') if matches.group(8) else 0
-    packet_loss        = matches.group(9)
-    time               = matches.group(10)
+    # line 3:
+    # "%ntransmitted packets transmitted, %nreceived received[, +%nrepeats duplicates][, +%nchecksum corrupted][, +%nerrors errors][, %packetloss% packet loss, time %timems]" # pylint: disable=C0301
+    # '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
+    matches = re.search(
+        r'(\d+) packets transmitted, (\d+) received(, \+?(\d+) duplicates)?(, \+?(\d+) checksum corrupted)?(, \+?(\d+) errors)?, (\d+(?:\.\d+)?)% packet loss, time (\d+)', # regex: 92 steps # pylint: disable=C0301
+        result[3],
+    )
     msg += result[3] + '. '
+    perfdata += lib.base.get_perfdata(
+        'transmitted',
+        matches.group(1),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'received', matches.group(2),
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'duplicates', matches.group(4).replace('+', '') if matches.group(4) else 0,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'checksum_corrupted', matches.group(6).replace('+', '') if matches.group(6) else 0,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'errors', matches.group(8).replace('+', '') if matches.group(8) else 0,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'packet_loss',
+        matches.group(9),
+        uom='%',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'time', matches.group(10),
+        uom='ms',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
 
+    # line 4:
+    # 'rtt min/avg/max/mdev = 8.926/11.367/17.350/3.184 ms'
     rtt_min, rtt_avg, rtt_max, rtt_mdev = 0, 0, 0, 0
     if result[4] and not result[4].startswith('pipe '):
         # host is reachable
-        matches  = re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4])       # regex: 26 steps
-        rtt_min  = matches.group(1)
-        rtt_avg  = matches.group(2)
-        rtt_max  = matches.group(3)
-        rtt_mdev = matches.group(4)
+        matches  = re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', result[4]) # regex: 26 steps # pylint: disable=C0301
         msg += result[4]
-
-    perfdata = ''
-    perfdata += lib.base.get_perfdata('transmitted', transmitted, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('received', received, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('duplicates', duplicates, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('checksum_corrupted', checksum_corrupted, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('errors', errors, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('packet_loss', packet_loss, '%', None, None, 0, 100)
-    perfdata += lib.base.get_perfdata('time', time, 'ms', None, None, 0, None)
-
-    perfdata += lib.base.get_perfdata('rtt_min', rtt_min, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_avg', rtt_avg, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_max', rtt_max, 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_mdev', rtt_mdev, 'ms', None, None, 0, None)
+        perfdata += lib.base.get_perfdata(
+            'rtt_min', matches.group(1),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_avg', matches.group(2),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_max', matches.group(3),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
+        perfdata += lib.base.get_perfdata(
+            'rtt_mdev', matches.group(4),
+            uom='ms',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

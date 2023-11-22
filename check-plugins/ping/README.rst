@@ -30,20 +30,22 @@ Help
 
 .. code-block:: text
 
-    usage: ping [-h] [-V] [--count COUNT] [-H HOSTNAME] [--interval INTERVAL]
-                [-t DEADLINE]
+    usage: ping [-h] [-V] [--always-ok] [--count COUNT] [-H HOSTNAME]
+                [--interval INTERVAL] [-t DEADLINE]
 
     Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
       --count COUNT         Stop after sending count ECHO_REQUEST packets.
                             Default: 5
       -H HOSTNAME, --hostname HOSTNAME
                             The ping destination. Default: 127.0.0.1
       --interval INTERVAL   Wait interval seconds between sending each packet.
-                            Default: 0.2
+                            Real number allowed with dot as a decimal separator
+                            (regardless locale setup). Default: 0.2
       -t DEADLINE, --timeout DEADLINE
                             Specify a timeout, in seconds, before ping exits
                             regardless of how many packets have been sent or
@@ -62,7 +64,7 @@ Output:
 
 .. code-block:: text
 
-    PING localhost: 5 packets transmitted, 5 received, 0% packet loss, time 829ms. rtt min/avg/max/mdev = 0.036/0.082/0.103/0.023 ms
+    PING 192.0.2.10: 10 packets transmitted, 5 received, 50% packet loss, time 187ms. rtt min/avg/max/mdev = 105.659/105.990/106.333/0.225 ms, pipe 6
 
 
 States
