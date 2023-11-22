@@ -8,7 +8,7 @@ Returns the current system-wide CPU utilization as a percentage from a QNAP Appl
 
 Hints and Recommendations:
 
-* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if the overall CPU usage is above a threshold in the last 5 minutes.
 

@@ -10,7 +10,7 @@ This check does not run SMART itself. In order to get the latest values, schedul
 
 Hints and Recommendations:
 
-* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v4.5.6+
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
 

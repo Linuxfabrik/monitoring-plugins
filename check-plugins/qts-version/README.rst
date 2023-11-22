@@ -8,7 +8,7 @@ This plugin lets you track if a QTS update is available. To check for updates, t
 
 Hints and Recommendations:
 
-* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v5.1.
+* Tested on `QuTScloud <https://www.qnap.com/en-us/download?model=qutscloud&category=firmware>`_ v4.5.6+
 * Does not work on QTS 4.3 or less (see `#701 <https://github.com/Linuxfabrik/monitoring-plugins/issues/701>`_ for details).
 * The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
 
@@ -61,7 +61,7 @@ Output:
 
 .. code-block:: text
 
-    QTS vc5.1.0.2498 Build 20230822 is up to date
+    QTS vc5.0.1.2374 Build 20230419 installed, QTS vc5.1.0.2498 Build 20230822 available
 
 
 States
