@@ -28,7 +28,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112201'
+__version__ = '2023112501'
 
 DESCRIPTION = 'Checks the disk SMART values returned by QTS.'
 
@@ -131,7 +131,7 @@ def main():
     )
     data = xmltodict.parse(result)['QDocRoot']
     if data['authPassed'] == '0':
-        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
+        lib.base.cu('Insufficient permissions.')
 
     # get system information
     url = '{}/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1&sid={}'.format(
@@ -143,7 +143,7 @@ def main():
     )
     sysinfo = xmltodict.parse(result)['QDocRoot']
     if sysinfo['authPassed'] == '0':
-        lib.base.oao('Insufficient permissions.', STATE_UNKNOWN)
+        lib.base.cu('Insufficient permissions.')
 
     # init some vars
     disk_count = 0
@@ -215,7 +215,7 @@ def main():
         )
     else:
         # over and out
-        lib.base.oao('Did not find any disk.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+        lib.base.cu('Did not find any disk.')
 
 
 if __name__ == '__main__':
