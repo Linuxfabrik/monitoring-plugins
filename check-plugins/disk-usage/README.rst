@@ -33,7 +33,8 @@ Help
                       [--exclude-pattern EXCLUDE_PATTERN]
                       [--exclude-regex EXCLUDE_REGEX]
                       [--include-pattern INCLUDE_PATTERN]
-                      [--include-regex INCLUDE_REGEX] [-w WARN]
+                      [--include-regex INCLUDE_REGEX]
+                      [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
     Checks the used disk space, for each partition.
 
@@ -78,6 +79,10 @@ Help
                             will count as a include. Can be specified multiple
                             times. On Windows, use drive letters without backslash
                             ("Y:" or "Y"). Includes are matched before excludes.
+      --perfdata-regex PERFDATA_REGEX
+                            Only print perfdata keys matching this python regex.
+                            For a list of perfdata keys, have a look at the README
+                            and run this plugin. Can be specified multiple times.
       -w WARN, --warning WARN
                             Warning threshold, of the form
                             "<number>[unit][method]", where unit is one of
@@ -155,6 +160,9 @@ Some other examples:
     ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=90%USED
     ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=3GFREE
 
+    ./disk-usage --perfdata-pattern='/-usage'
+    ./disk-usage --perfdata-pattern='var.*-usage'
+
     # on Windows:
     ./disk-usage --exclude-pattern=E: --exclude-pattern=Y: --warning=80 --critical=90
 
@@ -167,6 +175,8 @@ States
 
 Perfdata / Metrics
 ------------------
+
+Can be limited by using ``--perfdata-regex``.
 
 .. csv-table::
     :widths: 25, 15, 60

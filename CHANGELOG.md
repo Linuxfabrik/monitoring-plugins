@@ -72,7 +72,8 @@ Monitoring Plugins:
 * about-me: Add detection of yarn
 * about-me: Show systemd timers with next runtime
 * cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
-* disk-smart: Skip unsupported disks (fix #672)
+* disk-smart: Skip unsupported disks (fix [#672](https://github.com/Linuxfabrik/monitoring-plugins/issues/672))
+* disk-usage: Add a parameter to select performance data (fix [#697](https://github.com/Linuxfabrik/monitoring-plugins/issues/697))
 * fail2ban: Improve output, add unit-test
 * fortios-firewall-stats: Allow the check to run even some FortiOS users use only IPv4 or IPv6 ([PR #719](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Pierrot la menace](https://github.com/Pierrot-la-menace))
 * grafana-version: Add Grafana v9.5
