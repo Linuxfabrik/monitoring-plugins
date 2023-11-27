@@ -565,3 +565,29 @@ Grafana Dashboards
 The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
 
 
+Special Plugins
+---------------
+
+Incomplete list of Plugins with special technical implementations and capabilities:
+
+* | `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
+  | Alerts only after a certain amount of calls (default: last 5 values over threshold).
+
+* | `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
+  | "Learns" disk thresholds on its own (implementing some kind of "threshold warm-up").
+
+* | `disk-smart <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart>`_
+  | More or less our port of `GSMartControl <https://github.com/ashaduri/gsmartcontrol>`_ to Python.
+
+* | `disk-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage>`_
+  | ``--perfdata-regex`` parameter lets you filter for a subset of performance data.
+  | Makes use of ``FREE`` and ``USED`` wording in parameters.
+
+* | mysql-*
+  | Using application's config file for authentication.
+  | More or less our port of `MySQLTuner <https://github.com/major/MySQLTuner-perl>`_ to Python.
+
+* | `redis-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status>`_
+  | Provides useful feedback from Redis' Memory Doctor.
+
+
