@@ -9,6 +9,16 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 [Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2023030801...HEAD
 
 
+## [Unreleased]
+
+### Changed ("enhancement")
+
+Icinga Director:
+
+* all-the-rest.json: Rename "Starface Java Status" to "Starface Java Memory Usage"
+
+
+
 ## 2023112901
 
 ### Breaking Changes
