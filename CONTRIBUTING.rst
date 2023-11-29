@@ -572,16 +572,21 @@ Incomplete list of Plugins with special technical implementations and capabiliti
 
 * | `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
   | Alerts only after a certain amount of calls (default: last 5 values over threshold).
+  | Cuts (truncates) its SQLite database table.
 
 * | `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
   | "Learns" disk thresholds on its own (implementing some kind of "threshold warm-up").
 
 * | `disk-smart <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart>`_
-  | More or less our port of `GSMartControl <https://github.com/ashaduri/gsmartcontrol>`_ to Python.
+  | More or less our port of `GSmartControl <https://github.com/ashaduri/gsmartcontrol>`_ to Python.
 
 * | `disk-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage>`_
   | ``--perfdata-regex`` parameter lets you filter for a subset of performance data.
   | Makes use of ``FREE`` and ``USED`` wording in parameters.
+
+* | `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
+  | Reads a file line-by-line, backwards.
+  | Makes heavy use of patterns versus compiled regexes, matching any() of them.
 
 * | mysql-*
   | Using application's config file for authentication.
