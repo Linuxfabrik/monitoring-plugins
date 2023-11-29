@@ -36,7 +36,7 @@ Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check reports a warning if any of your disks was above a threshold in the last 5 minutes.
 * The check uses the SQLite databases ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` to store its historical data.
-* If you are wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the kernel, used by LVM. Use ``dmsetup ls`` to see what is behind it.
+* If you are wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the kernel, used by LVM. Grant sudo permissions to the check plugin to see what is behind it.
 
 
 Fact Sheet
@@ -123,23 +123,26 @@ Per disk:
     :header-rows: 1
     
     Name,                               Type,                   Description                                           
-    <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in seconds).
+    <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in milliseconds).
     <disk>_read_bytes,                  Continous Counter,      Number of bytes read.
     <disk>_read_bytes_per_second1,      Bytes,                  Current number of bytes read.
     <disk>_read_bytes_per_second15,     Bytes,                  Current number of bytes read.
     <disk>_read_merged_count,           Continous Counter,      Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt.
-    <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in seconds).
+    <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in milliseconds).
     <disk>_write_bytes,                 Continous Counter,      Number of bytes written.
     <disk>_write_bytes_per_second1,     Bytes,                  Current number of bytes written.
     <disk>_write_bytes_per_second15,    Bytes,                  Current number of bytes written.
     <disk>_write_merged_count,          Continous Counter,      Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt.
-    <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in seconds).
+    <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in milliseconds).
     <disk>_throughput1,                 None,                   Bytes per second. read_bytes_per_second1 + write_bytes_per_second1.
     <disk>_throughput15,                None,                   Bytes per second. read_bytes_per_second15 + write_bytes_per_second15.
 
 
 Troubleshooting
 ---------------
+
+``Query failed: INSERT INTO "perfdata" ...``
+    Delete ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and try again.
 
 ``psutil raised error "not sure how to interpret line '...'"`` or ``Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+``
     Update the ``psutil`` library. On RHEL 8+, use at least ``python38`` and ``python38-psutil``.
