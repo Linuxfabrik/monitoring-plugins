@@ -147,7 +147,7 @@ Simple example - returns CRIT if ``dmesg --level=emerg,alert,crit`` reports crit
 
     ./by-ssh \
         --hostname appserver \
-        --username nagios \
+        --username linuxfabrik \
         --severity-stdout crit \
         --command 'sudo dmesg --level=emerg,alert,crit'
 
@@ -188,24 +188,24 @@ You want to get a CRIT if the command does not return ``Command Result : 0``. A 
         --critical-regex 'command result : (?!0).*' \
          \
         --hostname appserver \
-        --username nagios \
+        --username linuxfabrik \
         --shell \
         --command 'status interface | tail -1'
 
-Get a WARNING if the ``/opt`` directory does NOT have ``rwxrwxrwx`` permissions:
+Get a WARNING if the ``/opt`` directory does NOT have ``rwxrwxrwx`` permissions, using a negative lookahead in a Python regular expression:
 
 .. code-block:: bash
 
     ./by-ssh \
         --hostname appserver \
-        --username nagios \
+        --username linuxfabrik \
         --warning-regex '^(?!drwxrwxrwx.*).*opt$' \
         --command 'ls -ld /opt'
 
-    # another way:
+    # another more consistent way using `stat` and a more readable regex (but same logic)
     ./by-ssh \
         --hostname appserver \
-        --username nagios \
+        --username linuxfabrik \
         --warning-regex '^(?!777)\d{3}$' \
         --command 'stat /opt -c %a'
 
@@ -221,7 +221,7 @@ Calling an invalid command:
 
     ./by-ssh \
         --hostname appserver \
-        --username nagios \
+        --username linuxfabrik \
         --command 'sudo gobbledygook'
 
 Output:
