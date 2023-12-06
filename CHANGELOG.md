@@ -17,6 +17,9 @@ Icinga Director:
 
 * all-the-rest.json: Rename "Starface Java Status" to "Starface Java Memory Usage"
 
+Monitoring Plugins:
+
+* infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
 
 
 ## 2023112901
@@ -25,7 +28,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* Notifications Plugins now generate URLs for Icinga DB Web instead of the old IcingaWeb2 Monitoring Module (fix [#643](https://github.com/Linuxfabrik/monitoring-plugins/issues/643))
+* Notifications Plugins now generate URLs for Icinga DB Web instead of the old IcingaWeb2 Monitoring Module ([#643](https://github.com/Linuxfabrik/monitoring-plugins/issues/643))
 
 
 ### Added
@@ -46,11 +49,11 @@ Monitoring Plugins:
 * about-me: Add detection of Apache Solr
 * apache-solr-version
 * deb-lastactivity ([PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
-* gitlab-health (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
-* gitlab-liveness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
-* gitlab-readiness (fix [#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
+* gitlab-health ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
+* gitlab-liveness ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
+* gitlab-readiness ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
 * gitlab-version
-* ntp-w32tm (fix [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
+* ntp-w32tm ([#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
 * openjdk-redhat-version
 * openstack-nova-list
 * postgresql-version
@@ -77,13 +80,13 @@ Monitoring Plugins:
 
 * All plugins: Consistently reporting errors using cu() instead of oao()
 * \*-version: Add eol offset date, optional warn on new major/minor/patch
-* \*-version: Curl from https://endoflife.date first, then use hardcoded version (fix [#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
+* \*-version: Curl from https://endoflife.date first, then use hardcoded version ([#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
 * about-me: Add detection of ncdu
 * about-me: Add detection of yarn
 * about-me: Show systemd timers with next runtime
 * cpu-usage: On Windows, exclude "System Idle Process" from the Top3 list
-* disk-smart: Skip unsupported disks (fix [#672](https://github.com/Linuxfabrik/monitoring-plugins/issues/672))
-* disk-usage: Add a parameter to select performance data (fix [#697](https://github.com/Linuxfabrik/monitoring-plugins/issues/697))
+* disk-smart: Skip unsupported disks ([#672](https://github.com/Linuxfabrik/monitoring-plugins/issues/672))
+* disk-usage: Add a parameter to select performance data ([#697](https://github.com/Linuxfabrik/monitoring-plugins/issues/697))
 * fail2ban: Improve output, add unit-test
 * fortios-firewall-stats: Allow the check to run even some FortiOS users use only IPv4 or IPv6 ([PR #719](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Pierrot la menace](https://github.com/Pierrot-la-menace))
 * grafana-version: Add Grafana v9.5
@@ -98,26 +101,26 @@ Monitoring Plugins:
 * mysql-logfile: State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
 * mysql-logfile: Stop magic auto-configure if `--server-log` is given
 * openstack-nova-list: Make more robust in case of OpenStack errors
-* php-version: Check multiple installed PHP versions (fix [#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
-* ping: Check plugin to fast states "error" (fix [#691](https://github.com/Linuxfabrik/monitoring-plugins/issues/691))
-* qts-\*: 'Keyerror: func' while executing qts-plugins (fix [#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
+* php-version: Check multiple installed PHP versions ([#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
+* ping: Check plugin to fast states "error" ([#691](https://github.com/Linuxfabrik/monitoring-plugins/issues/691))
+* qts-\*: 'Keyerror: func' while executing qts-plugins ([#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
 * qts-\*: General code and README improvements, all tested against QuTScloud 4.5.6, 5.0.1 and 5.1
-* qts-temperature: Is it correct to have one value for CPU and System Temperature Threshold? (fix [#313](https://github.com/Linuxfabrik/monitoring-plugins/issues/313))
-* qts-version: Shows up to date even when new firmware available (fix [#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
-* rocketchat-stats: There are new values available (fix [#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
+* qts-temperature: Is it correct to have one value for CPU and System Temperature Threshold? ([#313](https://github.com/Linuxfabrik/monitoring-plugins/issues/313))
+* qts-version: Shows up to date even when new firmware available ([#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
+* rocketchat-stats: There are new values available ([#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
 * systemd-unit: Encode unit-name to text before running systemd command
-* uptime: Additionally report last reboot time (fix [#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
-* xca-cert: refactor check, make better use of the new libraries (fix [#75](https://github.com/Linuxfabrik/monitoring-plugins/issues/75))
+* uptime: Additionally report last reboot time ([#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
+* xca-cert: refactor check, make better use of the new libraries ([#75](https://github.com/Linuxfabrik/monitoring-plugins/issues/75))
 
 
 ### Fixed ("bug")
 
 Monitoring Plugins:
 
-* csv-values: header included in data results despite setting "--skip-header" (fix [#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
+* csv-values: header included in data results despite setting "--skip-header" ([#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
 * journald-query: Rename perfdata from "sudo journald-query" to "journald-query"
-* path-rw-test: To avoid race conditions, use a unique filename (fix [#283](https://github.com/Linuxfabrik/monitoring-plugins/issues/283))
-* qts-disk-smart: Plugin not working since new update (fix [#696](https://github.com/Linuxfabrik/monitoring-plugins/issues/696))
+* path-rw-test: To avoid race conditions, use a unique filename ([#283](https://github.com/Linuxfabrik/monitoring-plugins/issues/283))
+* qts-disk-smart: Plugin not working since new update ([#696](https://github.com/Linuxfabrik/monitoring-plugins/issues/696))
 * swap-usage: Fix Traceback `PdhAddEnglishCounterW failed`
 
 
@@ -133,15 +136,15 @@ Monitoring Plugins:
 * php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * wordpress-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
 * Implement a new and cleaner directory structure ([#350](https://github.com/Linuxfabrik/monitoring-plugins/issues/350))
-* Remove all Python 2 based plugins and libraries from the project, and therefore remove the "3" suffix from all Python3-based plugins and libraries as well (fix [#589](https://github.com/Linuxfabrik/monitoring-plugins/issues/589))
-* Simplify sudoers (fix [#651](https://github.com/Linuxfabrik/monitoring-plugins/issues/651))
+* Remove all Python 2 based plugins and libraries from the project, and therefore remove the "3" suffix from all Python3-based plugins and libraries as well ([#589](https://github.com/Linuxfabrik/monitoring-plugins/issues/589))
+* Simplify sudoers ([#651](https://github.com/Linuxfabrik/monitoring-plugins/issues/651))
 
 
 ### Added
 
 Features:
 
-* Question/Documentation: Are the tools to compile the download binary part of this repo? (fix [#660](https://github.com/Linuxfabrik/monitoring-plugins/issues/660))
+* Question/Documentation: Are the tools to compile the download binary part of this repo? ([#660](https://github.com/Linuxfabrik/monitoring-plugins/issues/660))
 
 Monitoring Plugins:
 
@@ -152,7 +155,7 @@ Monitoring Plugins:
 * githubstatus
 * grafana-version
 * mysql-version
-* network-io (fix [#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
+* network-io ([#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
 * openstack-swift-stat
 * postfix-version
 * rhel-version

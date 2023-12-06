@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2023120601'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -141,6 +141,10 @@ def main():
         })
 
     # build the message
+    if state == STATE_OK:
+        msg = 'Everything is ok.\n\n' + msg
+    else:
+        msg = msg[:-2] + ' - see https://infomaniakstatus.com/en/\n\n'
     if table_data:
         keys = [
             'type',
@@ -158,12 +162,7 @@ def main():
             'End',
             'Duration',
         ]
-
-    if state == STATE_OK:
-        msg = 'Everything is ok.\n\n' + msg
-    else:
-        msg = msg[:-2] + ' - see https://infomaniakstatus.com/en/\n\n'
-    msg += lib.base.get_table(table_data , keys, header=headers)
+        msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
