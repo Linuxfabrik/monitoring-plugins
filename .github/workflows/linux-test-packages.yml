@@ -169,6 +169,70 @@ jobs:
           registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
 
 
+  # Ubuntu
+  test-ubuntu1804:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu1804'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu1804'
+
+      - name: 'Test on Ubuntu 18.04'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu1804,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu1804,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/ubuntu:18.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
+
+
+  test-ubuntu2004:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2004'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2004'
+
+      - name: 'Test on Ubuntu 20.04'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2004,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2004,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/ubuntu:20.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
+
+
+  test-ubuntu2204:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2204'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2204'
+
+      - name: 'Test on Ubuntu 22.04'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2204,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2204,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/ubuntu:22.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
+
+
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
@@ -182,6 +246,9 @@ jobs:
       - 'test-rhel7'
       - 'test-rhel8'
       - 'test-rhel9'
+      - 'test-ubuntu1804'
+      - 'test-ubuntu2004'
+      - 'test-ubuntu2204'
     if: '${{ always() }}' # however, we want to upload the artifacts even if one of the job fails
 
     steps:
