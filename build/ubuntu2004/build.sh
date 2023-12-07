@@ -8,7 +8,7 @@ PACKAGE_ITERATION="$2" # 2, if there is a bugfix for this package (not for the m
 
 apt-get -y update
 apt-get -y install git
-apt-get -y install python3-venv
+apt-get -y install python3-venv python3-pip
 
 # dependencies for gem / fpm
 apt-get install -y ruby ruby-dev rubygems build-essential
