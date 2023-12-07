@@ -71,7 +71,9 @@ Output:
 
 .. code-block:: text
 
-    Tables without indexes: employees.current_dept_emp, employees.dept_emp_latest_date [WARNING]
+    Tables without indexes [WARNING]:
+    * employees.current_dept_emp
+    * employees.dept_emp_latest_date
 
 
 States

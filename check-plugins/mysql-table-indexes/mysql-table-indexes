@@ -99,6 +99,7 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
+    tables = []
 
     # TABLE_SCHEMA and TABLE_NAME must be uppercase due to MySQL 8+
     sql = '''
@@ -132,20 +133,17 @@ def main():
             '''.format(schema['TABLE_SCHEMA'], table['TABLE_NAME'])
             user_indexes = lib.base.coe(lib.db_mysql.select(conn, sql))
             if len(user_indexes) == 0:
-                msg += '{}.{}, '.format(
-                    schema['TABLE_SCHEMA'],
-                    table['TABLE_NAME'],
-                )
+                tables.append('{}.{}'.format(schema['TABLE_SCHEMA'], table['TABLE_NAME']))
 
     lib.db_mysql.close(conn)
 
-    if not msg:
+    if not tables:
         msg = 'Everyhing is ok.'
     else:
         state = STATE_WARN
-        msg = 'Tables without indexes: {}{}'.format(
-            msg[:-2],
-            lib.base.state2str(state, prefix=' ')
+        msg = 'Tables without indexes {}:\n* {}'.format(
+            lib.base.state2str(state),
+            '\n* '.join(tables),
         )
 
     # over and out
