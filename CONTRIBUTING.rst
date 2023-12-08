@@ -63,7 +63,7 @@ Rules of Thumb
 * It is not needed to execute system (shell/bash) commands by specifying their full path.
 * It is ok to use temp files if needed.
 * Much better: use a local SQLite database if you want to use a temp file.
-* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is great if the plugin executes fast and uses less resources (CPU time, memory etc.).
+* Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is ideal if the plugin executes fast and uses minimal resources (CPU time, memory etc.).
 * Timeout gracefully on errors (for example ``df`` on a failed network drive) and return WARN.
 * Return UNKNOWN on missing dependencies or wrong parameters.
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
