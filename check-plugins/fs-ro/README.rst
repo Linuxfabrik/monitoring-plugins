@@ -4,7 +4,7 @@ Check fs-ro
 Overview
 --------
 
-This plugin checks for read-only mount points, such as ``/`` mounted read-only due to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores ramfs and squashfs (snapd) by default.
+This plugin checks for read-only mount points, such as ``/`` mounted read-only due to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores loops, ramfs and squashfs (snapd) by default.
 
 
 Fact Sheet
@@ -26,16 +26,18 @@ Help
 
     usage: fs-ro [-h] [-V] [--always-ok] [--ignore IGNORE] [--test TEST]
 
-    Warns if a file system is mounted read-only.
+    This plugin checks for read-only mount points, such as `/` mounted read-only
+    due to file system errors, mounted CD-ROMs or ISO files, etc. It always
+    ignores ramfs and squashfs (snapd) by default.
 
-    optional arguments:
+    options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
       --ignore IGNORE  Mount point that should be ignored (repeatable). For
                        example, if you provide `/sys/fs`, all mount points
-                       starting with `/sys/fs` will be ignored. Default: ['/proc',
-                       '/snap', '/sys/fs']
+                       starting with `/sys/fs` will be ignored. Default:
+                       ['/dev/loop', '/proc', '/snap', '/sys/fs']
       --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                        file,expected-retc".
 
