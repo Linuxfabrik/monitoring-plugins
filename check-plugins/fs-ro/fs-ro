@@ -115,13 +115,13 @@ def main():
 
     # build the message
     if len(ros) > 0:
-        msg = '{} read-only mount {} found:\n'.format(
-            len(ros),
-            lib.txt.pluralize('point', len(ros)),
-        )
-        for item in ros:
-            msg += '* {}\n'.format(item)
-        msg = msg[:-2]
+        if len(ros) == 1:
+            msg = 'read-only mount point found: ' + ros[0]
+        else:
+            msg = '{} read-only mount points found:\n'.format(len(ros))
+            for item in ros:
+                msg += '* {}\n'.format(item)
+
         state = STATE_WARN
     else:
         msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.txt.pluralize('point', cnt))
