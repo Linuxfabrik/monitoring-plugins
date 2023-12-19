@@ -22,6 +22,7 @@ Monitoring Plugins:
 * fs-ro: Add `/dev/loop` to default ignore list
 * fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
 * infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
+* mysql-memory: Enhance output, set threshold to 95%
 
 
 ## 2023112901

@@ -37,6 +37,7 @@ DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 95 # % max peak memory usage
 
 
 def parse_args():
@@ -254,7 +255,7 @@ def main():
     if not lib.base.X86_64 and mycalc['max_used_memory'] > 2 * 1024 * 1024 * 1024:
         mem1_state = STATE_WARN
         msg += 'Allocating > 2GB RAM on 32-bit systems can cause system instability. '
-    elif mycalc['pct_max_used_memory'] > 85:
+    elif mycalc['pct_max_used_memory'] > DEFAULT_WARN:
         mem1_state = STATE_WARN
     else:
         mem1_state = STATE_OK
@@ -277,7 +278,7 @@ def main():
             lib.base.state2str(mem2_state, prefix=' '),
         )
 
-    if mycalc['pct_max_physical_memory'] > 85:
+    if mycalc['pct_max_physical_memory'] > DEFAULT_WARN:
         msg += '\n\nRecommendations:\n'
         msg += '* Reduce your overall MySQL memory footprint for system stability.'
 
@@ -286,15 +287,65 @@ def main():
     msg += '* Memory usage according to Performance Schema: pfm = {}\n'.format(
         lib.human.bytes2human(mycalc['pf_memory']),
     )
+
     msg += '* Server Buffers: sb = {}\n'.format(
         lib.human.bytes2human(mycalc['server_buffers']),
     )
-    msg += '* Max Total per Thread Buffers: mtptb = {}\n'.format(
+    msg += '      {} key_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar['key_buffer_size'])),
+    )
+    msg += '    + {} max_tmp_table_size\n'.format(
+        lib.human.bytes2human(mycalc['max_tmp_table_size']),
+    )
+    msg += '    + {} innodb_buffer_pool_size\n'.format(
+        lib.human.bytes2human(int(myvar.get('innodb_buffer_pool_size', 0))),
+    )
+    msg += '    + {} innodb_additional_mem_pool_size\n'.format(
+        lib.human.bytes2human(int(myvar.get('innodb_additional_mem_pool_size', 0))),
+    )
+    msg += '    + {} innodb_log_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar.get('innodb_log_buffer_size', 0))),
+    )
+    msg += '    + {} query_cache_size\n'.format(
+        lib.human.bytes2human(int(myvar.get('query_cache_size', 0))),
+    )
+    msg += '    + {} aria_pagecache_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar.get('aria_pagecache_buffer_size', 0))),
+    )
+
+    msg += '* Per Thread Buffers: ptb = {}\n'.format(
+        lib.human.bytes2human(mycalc['per_thread_buffers']),
+    )
+    msg += '      {} read_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar['read_buffer_size'])),
+    )
+    msg += '    + {} read_rnd_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar['read_rnd_buffer_size'])),
+    )
+    msg += '    + {} sort_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar['sort_buffer_size'])),
+    )
+    msg += '    + {} thread_stack\n'.format(
+        lib.human.bytes2human(int(myvar['thread_stack'])),
+    )
+    msg += '    + {} max_allowed_packet\n'.format(
+        lib.human.bytes2human(int(myvar['max_allowed_packet'])),
+    )
+    msg += '    + {} join_buffer_size\n'.format(
+        lib.human.bytes2human(int(myvar['join_buffer_size'])),
+    )
+
+    msg += '* Max Total per Thread Buffers: mtptb = ptb * max_used_conns = {} * {} = {}\n'.format(
+        lib.human.bytes2human(mycalc['per_thread_buffers']),
+        int(mystat['Max_used_connections']),
         lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
     )
-    msg += '* Total per Thread Buffers: tptb = {}\n'.format(
+    msg += '* Total per Thread Buffers: tptb = ptb * max_conns = {} * {} = {}\n'.format(
+        lib.human.bytes2human(mycalc['per_thread_buffers']),
+        int(myvar['max_connections']),
         lib.human.bytes2human(mycalc['total_per_thread_buffers']),
     )
+
     msg += '* Max Used Memory: mum = sb + mtptb + pfm = {} + {} + {} = {}\n'.format(
         lib.human.bytes2human(mycalc['server_buffers']),
         lib.human.bytes2human(mycalc['max_total_per_thread_buffers']),
