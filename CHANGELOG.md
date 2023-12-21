@@ -25,6 +25,13 @@ Monitoring Plugins:
 * mysql-memory: Enhance output, set threshold to 95%
 
 
+### Fixed ("bug")
+
+Monitoring Plugins:
+
+* nextcloud-stats: KeyError: apps ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
+
+
 ## 2023112901
 
 ### Breaking Changes

@@ -64,12 +64,12 @@ Output:
 
 .. code-block:: text
 
-    8 users (3/5/7 in the last 5min/1h/24h), 116.4K files, 50 apps, v24.0.8.3
-    * Shares: 142 (18 groups, 57 links [56 w/o password], 0 mails, 0 rooms, 14 users, 0 federated sent)
-    * Federated Shares: 0 received
-    * Storages: 14 (0 home, 14 other, 0 local)
-    * PHP: v8.1.13, upload_max_filesize=9.8GiB, max_execution_time=3600s, memory_limit=1.0GiB
-    * DB: mysql v10.6.11, size=148.7MiB
+    77 users (22/30/53 in the last 5min/1h/24h), 4.4M files, 75 apps (0 updates available), v27.1.3.2
+    * Shares: 557 (0 groups, 488 links [478 w/o password], 25 mails, 0 rooms, 23 users, 0 federated sent)
+    * Federated Shares: 1 received
+    * Storages: 144 (23 home, 120 other, 1 local)
+    * PHP: v8.2.13, upload_max_filesize=9.8GiB, max_execution_time=3600s, memory_limit=1.0GiB
+    * DB: mysql v10.6.16, size=2.9GiB
     * Web: Apache, local memcache: Memcache\Redis, locking memcache: Memcache\Redis
 
 

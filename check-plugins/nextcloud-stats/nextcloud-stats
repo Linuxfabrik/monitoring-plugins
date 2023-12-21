@@ -23,7 +23,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2023122101'
 
 DESCRIPTION = """This plugin lets you track the number of active
                 users over time, the number of shares in various categories and some storage
@@ -57,7 +57,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -72,14 +73,16 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Nextcloud API URL. Default: %(default)s',
+        help='Nextcloud API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='Nextcloud API username. Default: %(default)s',
+        help='Nextcloud API username. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
@@ -101,7 +104,7 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
     if not args.URL.endswith('/info'):
         lib.base.cu('--url parameter has to end in "/info".')
-    URL = args.URL + '?format=json'
+    url = args.URL + '?format=json&skipApps=false'
 
     # Add the authentication and api request header
     auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
@@ -113,7 +116,7 @@ def main():
     # and get the info from the API
     jsonst = lib.base.coe(
         lib.url.fetch(
-            URL,
+            url,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
             header=header,
@@ -128,7 +131,6 @@ def main():
         lib.base.cu('Sorry, something went wrong - no "ok" state returned.')
 
     # extract some application specific data
-    nc_system_apps_app_updates            = result['ocs']['data']['nextcloud']['system']['apps']['app_updates'] # pylint: disable=C0301
     nc_system_apps_num_installed          = result['ocs']['data']['nextcloud']['system']['apps']['num_installed'] # pylint: disable=C0301
     nc_system_apps_num_updates_available  = result['ocs']['data']['nextcloud']['system']['apps']['num_updates_available'] # pylint: disable=C0301
     nc_system_memcache_local              = result['ocs']['data']['nextcloud']['system']['memcache.local'] # pylint: disable=C0301
@@ -173,13 +175,15 @@ def main():
     perfdata = ''
 
     # build the (long) multiline message
-    msg += '{} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps, v{}\n'.format(
+    msg += '{} users ({}/{}/{} in the last 5min/1h/24h), {} files, {} apps ({} {} available), v{}\n'.format( # pylint: disable=C0301
         nc_storage_num_users,
         nc_active_users_last5min,
         nc_active_users_last1h,
         nc_active_users_last24h,
         lib.human.number2human(nc_storage_num_files),
         nc_system_apps_num_installed,
+        nc_system_apps_num_updates_available,
+        lib.txt.pluralize('update', nc_system_apps_num_updates_available),
         nc_system_version,
     )
     msg += '* Shares: {} ({} groups, {} links [{} w/o password], {} mails, {} rooms, {} users, {} federated sent)\n'.format( # pylint: disable=C0301
