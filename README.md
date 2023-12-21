@@ -56,6 +56,10 @@ If you zoom in, for example on *CPU Usage*:
 
 Some comments from the community about our monitoring plugins:
 
+> Thanks again @linuxfabrik for writing the csv-values check the way you did and not what I originally requested ;-)
+
+-- [Dominik Riva](https://community.icinga.com/t/monitor-ldap-queries-on-active-directory-controllers/13066)
+
 
 > ... the Linuxfabrik-Monitoring-Plugins are great, thanks for your effort, we are using them very much.
 
