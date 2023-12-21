@@ -12,10 +12,12 @@
 """
 
 import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
@@ -25,7 +27,7 @@ except ImportError:
     lib.base.cu('Python module "psutil" is not installed.')
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2023122101'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -72,6 +74,21 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_swap_and_name(pid):
+    """Scan for usage details in /proc-files.
+    """
+    try:
+        with open('/proc/{}/status'.format(pid)) as file:
+            content = file.read()
+            name = lib.txt.extract_str(content, 'Name:', '\n')
+            size = lib.txt.extract_str(content, 'VmSwap:', '\n')
+            if not size:
+                size = '0 kB'
+            return name.strip(), int(size.replace(' kB', '').strip())
+    except FileNotFoundError:
+        return None, 0
+
+
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -111,6 +128,21 @@ def main():
         )
         perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
         perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+
+    # On Linux only, get the top 3 processes causing the usage
+    if lib.base.LINUX and swap_usage_percent > 0:
+        process_info = {}
+        for pid in os.listdir('/proc'):
+            if pid.isdigit():
+                name, usage = get_swap_and_name(pid) # usage is in kB
+                try:
+                    process_info[name] += usage * 1024
+                except:
+                    process_info[name] = usage * 1024
+        msg_body += '\n\nTop3 processes that use the most swap space:\n'
+        process_info = lib.base.sort(process_info)
+        for i, p in enumerate(process_info[:3]):
+            msg_body += '{}. {}: {}\n'.format(i + 1, p[0], lib.human.bytes2human(p[1]))
 
     # calculating the final check state
     state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)

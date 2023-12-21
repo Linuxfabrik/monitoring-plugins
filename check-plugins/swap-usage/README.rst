@@ -53,8 +53,13 @@ Output:
 
 .. code-block:: text
 
-    22.4% - total: 8.0GiB, used: 1.8GiB, free: 6.2GiB
-    swapped in: 1.1GiB, swapped out: 3.6GiB (both cumulative)
+    77.7% - total: 2.0GiB, used: 1.6GiB, free: 456.1MiB
+    swapped in: 997.6MiB, swapped out: 2.6GiB (both cumulative)
+
+    Top3 processes that use the most swap space:
+    1. php-fpm: 1.6GiB
+    2. icinga2: 7.7MiB
+    3. tuned: 3.9MiB
 
 
 States
