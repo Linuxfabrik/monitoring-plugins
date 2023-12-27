@@ -96,7 +96,7 @@ Perfdata / Metrics
     mysql_connections,                          Continous Counter,  "Value of the MySQL ``Connections`` status variable. Number of all connection attempts (both successful and unsuccessful)."
     mysql_interactive_timeout,                  Seconds,            "Value of the MySQL ``interactive_timeout`` system variable. Time in seconds that the server waits for an interactive connection (one that connects with the mysql_real_connect() CLIENT_INTERACTIVE option) to become active before closing it."
     mysql_max_connections,                      Number,             "Value of the MySQL ``max_connections`` system variable. The maximum number of simultaneous client connections."
-    mysql_max_used_connections,                 Number,             ""Value of the MySQL ``Max_used_connections`` status variable. Max number of connections ever open at the same time."
+    mysql_max_used_connections,                 Number,             "Value of the MySQL ``Max_used_connections`` status variable. Max number of connections ever open at the same time."
     mysql_pct_connections_aborted,              Percentage,         Aborted_connects / Connections \* 100
     mysql_pct_connections_used,                 Percentage,         Threads_connected / max_connections \* 100
     mysql_threads_connected,                    None,               "Value of the MySQL ``Threads_connected`` status variable. Number of clients connected to the server. Is inaccurate when the thread pool is in use, since each client connection does not correspond to a dedicated thread in that case."
