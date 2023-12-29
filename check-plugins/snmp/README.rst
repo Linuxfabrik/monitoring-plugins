@@ -113,8 +113,11 @@ Install ``snmpget``:
 
 .. code-block:: bash
 
-    # on CentOS:
+    # on RHEL:
     yum -y install net-snmp-utils
+
+    # on Debian:
+    apt -y install snmp snmp-mibs-downloader
 
 
 Plugin Directory Strcuture
