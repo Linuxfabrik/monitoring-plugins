@@ -62,11 +62,11 @@ Output:
 
 .. code-block:: text
 
-    222.0 joins without indexes while MySQL/MariaDB is 20m 13s up (approx. 15.8K joins without indexes per day)
+    143.9K JOINs without indexes while MySQL/MariaDB is 1W 6D up (approx. 10.9K joins without indexes per day) 
 
     Recommendations:
-    * Set join_buffer_size > 256.0KiB, or always use indexes with JOINs
-    * Raise the join_buffer_size until JOINs not using indexes are found
+    * Use JOIN with indexes
+    * Otherwise set join_buffer_size > 4.0MiB
 
 
 States

@@ -17,11 +17,12 @@ import sys  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024011001'
 
 DESCRIPTION = """Checks if many joins per day without indexes were executed on MySQL/MariaDB."""
 
@@ -138,17 +139,18 @@ def main():
     # Joins
     if mycalc['joins_without_indexes_per_day'] > 250:
         state = STATE_WARN
-        msg = '{} joins without indexes while MySQL/MariaDB is {} up (approx. {} joins without indexes per day){}'.format(
+        msg = '{} {} without indexes while MySQL/MariaDB is {} up (approx. {} joins without indexes per day){}'.format(
             lib.human.number2human(mycalc['joins_without_indexes']),
+            lib.txt.pluralize('JOIN', mycalc['joins_without_indexes']),
             lib.human.seconds2human(int(mystat['Uptime'])),
             lib.human.number2human(mycalc['joins_without_indexes_per_day']),
             lib.base.state2str(state, prefix=' '),
         )
         msg += '\n\nRecommendations:\n'
-        msg += '* Set join_buffer_size > {}, or always use indexes with JOINs\n'.format(
+        msg += '* Use JOIN with indexes\n'
+        msg += '* Otherwise set join_buffer_size > {}\n'.format(
             lib.human.bytes2human(int(myvar['join_buffer_size'])),
         )
-        msg += '* Raise the join_buffer_size until JOINs not using indexes are found\n'
     else:
         state = STATE_OK
         msg = 'Everything is ok.'
