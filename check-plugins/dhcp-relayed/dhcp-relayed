@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import socket  # pylint: disable=C0413
+import struct  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+from random import randint
+from uuid import getnode
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2024011501'
+
+DESCRIPTION = """This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses.
+                 It emulates a DHCP client and checks the DHCP offer response from the DHCP server.
+              """
+
+DEFAULT_TIMEOUT = 7 # seconds
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--mac',
+        help='Network MAC address to use. Doesn\'t have to be an existing MAC address. '
+             'If you specify `--mac=random`, a random MAC address will be used. '
+             'If omitted, the hardware address is obtained as described in '
+             'https://docs.python.org/3/library/uuid.html#uuid.getnode.',
+        dest='MAC',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    return parser.parse_args()
+
+
+def get_transaction_id():
+    """Get a random 4-byte transaction ID.
+    """
+    xid = b''
+    for i in range(4): # pylint: disable=W0612
+        xid += struct.pack('!B', randint(0, 255))
+    return xid
+
+
+def randmac():
+    """Return random MAC address (6 bytes).
+    """
+    macb = b''
+    for i in range(6): # pylint: disable=W0612
+        macb += struct.pack('!B', randint(0, 255))
+    return macb
+
+
+def normalize_mac(mac):
+    """Normalize a given MAC address.
+    """
+    mac = str(mac).replace(':', '')
+    if mac.startswith('0x'):
+        # remove "hex()" prefix
+        mac = mac[2:]
+    while len(mac) < 12:
+        mac = '0' + mac
+    return mac
+
+
+def mac2bytes(mac):
+    """Convert a normalized hardware address (str) to an 48-bit positive integer in byte format.
+    """
+    macb = b''
+    for i in range(0, 12, 2):
+        macb += struct.pack('!B', int(mac[i:i + 2], 16))
+    return macb
+
+
+def create_dhcp_discover_msg(macb, xid):
+    """Create a DHCP discover message.
+
+    When a client needs an IP address for the first time, it sends a DHCPDISCOVER message
+    (with its MAC address) as a network broadcast to the available DHCP servers (there may
+    be several in the same subnet). This broadcast has 0.0.0.0 as the sender IP address and
+    255.255.255.255 as the destination address, since the sender does not yet have an IP
+    address and is sending its request "to all". The source UDP port is 68 and the destination
+    UDP port is 67. The DHCP servers respond with DHCPOFFER and make suggestions for an IP
+    address. This is done either with a broadcast to the address 255.255.255.255 with UDP
+    source port 67 and UDP destination port 68, or with a unicast to the suggested IP address
+    and the MAC address of the client, depending on whether the client has set the broadcast
+    bit in the DHCPDISCOVER message.
+
+    https://datatracker.ietf.org/doc/html/rfc2131#section-4.3.1
+    DHCP message format (simplified):
+      Op: 1 byte (Message type)
+      HTYPE: 1 byte (Hardware type)
+      HLEN: 1 byte (Hardware address length)
+      HOPS: 1 byte
+      XID: 4 bytes (Transaction ID)
+      SECS: 2 bytes (Seconds elapsed)
+      FLAGS: 2 bytes
+      CIADDR: 4 bytes (Client IP address)
+      YIADDR: 4 bytes (Your IP address)
+      SIADDR: 4 bytes (Server IP address)
+      GIADDR: 4 bytes (Gateway IP address)
+      CHADDR: 16 bytes (Client hardware address)
+      SNAME: 64 bytes (Server host name)
+      FILE: 128 bytes (Boot file name)
+      OPTIONS: variable
+    """
+
+    # ! = network byte order which is always big-endian
+    # B = 1 byte unsigned char, H = 2 bytes unsigned short, I = 4 bytes unsigned int
+    dhcp_discover =  struct.pack('!B', 1)  # Op Message type: 1 = Boot Request
+    dhcp_discover += struct.pack('!B', 1)  # HTYPE: Ethernet
+    dhcp_discover += struct.pack('!B', 6)  # HLEN
+    dhcp_discover += struct.pack('!B', 0)  # HOPS
+    dhcp_discover += xid  # Transaction ID
+    dhcp_discover += struct.pack('!H', 0)  # SECS
+    dhcp_discover += struct.pack('!H', 0x8000)  # FLAGS: 8000h = Broadcast
+    dhcp_discover += struct.pack('!I', 0)  # CIADDR: 0.0.0.0
+    dhcp_discover += struct.pack('!I', 0)  # YIADDR: 0.0.0.0
+    dhcp_discover += struct.pack('!I', 0)  # SIADDR: 0.0.0.0
+    dhcp_discover += struct.pack('!I', 0)  # GIADDR: 0.0.0.0
+    dhcp_discover += macb
+    dhcp_discover += struct.pack('!B', 0) * 10 # Client hardware address padding
+    dhcp_discover += struct.pack('!B', 0) * 64 # SNAME: Server host name not given
+    dhcp_discover += struct.pack('!B', 0) * 128 # FILE: Boot file name not given
+    # everything that follows the "Magic Cookie 0x63825363" is to be interpreted as DHCP options
+    dhcp_discover += struct.pack('!I', 0x63825363) # https://datatracker.ietf.org/doc/html/rfc951
+    # dhcp options: https://datatracker.ietf.org/doc/html/rfc2132
+    dhcp_discover += struct.pack('!B', 0x35) + struct.pack('!H', 0x0101) # code 53 (dec): DHCP Message Type = DHCP discover # pylint: disable=C0301
+    dhcp_discover += struct.pack('!H', 0x3d06) + macb # code 61 (dec): Client-identifier, 6 bytes long # pylint: disable=C0301
+    dhcp_discover += struct.pack('!I', 0xff)  # code 255 (dec): End option
+
+    return dhcp_discover
+
+
+def decode_dhcp_options(packet):
+    """Return some info from DHCP options, right after the Magic cookie.
+    """
+    # find magic cookie 99.130.83.99 (or hexadecimal number 63.82.53.63)
+    mc_pos = packet.find(b'\x63\x82\x53\x63') + 4
+
+    # https://datatracker.ietf.org/doc/html/rfc2132#section-3.3
+    pos = packet.find(b'\x01\x04', mc_pos) + 2 # option 1, len 4
+    subnet_mask = '.'.join(str(byte) for byte in packet[pos:pos+4])
+
+    # https://datatracker.ietf.org/doc/html/rfc2132#section-5.3
+    pos = packet.find(b'\x1c\x04', mc_pos) + 2 # option 28, len 4
+    bc_addr = '.'.join(str(byte) for byte in packet[pos:pos+4])
+
+    return subnet_mask, bc_addr
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    dhcps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Internet, UDP
+    dhcps.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        dhcps.bind(('', 68)) # we want to send from port 68
+    except PermissionError as e:
+        dhcps.close()
+        lib.base.oao('Permission error "{}"'.format(e.strerror), STATE_UNKNOWN)
+    except OSError as e:
+        dhcps.close()
+        lib.base.oao('OS error "{}"'.format(e.strerror), STATE_UNKNOWN)
+
+    # handle MAC address
+    if args.MAC:
+        if args.MAC.lower().startswith('r'):
+            mac = 'rand'
+            macb = randmac()
+        else:
+            mac = normalize_mac(args.MAC)
+            macb = mac2bytes(mac)
+    else:
+        mac = normalize_mac(str(hex(getnode())))
+        macb = mac2bytes(mac)
+
+    # fetch data
+    xid = get_transaction_id()
+    dhcp_discover = create_dhcp_discover_msg(macb, xid)
+    dhcps.settimeout(args.TIMEOUT)
+    dhcps.sendto(dhcp_discover, ('<broadcast>', 67))
+    try:
+        while True:
+            dhcp_offer = dhcps.recv(1024)
+            if dhcp_offer[4:8] == xid:
+                # extract addresses
+                yiaddr = '.'.join(str(byte) for byte in dhcp_offer[16:20])
+                siaddr = '.'.join(str(byte) for byte in dhcp_offer[20:24])
+                # and some options
+                subnet_mask, bc_addr = decode_dhcp_options(dhcp_offer)
+                break # jump out of the loop, otherwise we'll get a "timed out" message
+        dhcps.close()
+    except socket.timeout as e:
+        lib.base.oao('Socket timeout', STATE_WARN)
+
+    # init some vars
+    msg = 'Offered IP: {}/{} (MAC: {}); Server ID: {}; Broadcast Addr: {}'.format(
+        yiaddr,
+        subnet_mask,
+        mac,
+        siaddr,
+        bc_addr,
+    )
+    state = STATE_OK
+
+    # analyze data
+    if yiaddr == '0.0.0.0':
+        state = STATE_WARN
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
