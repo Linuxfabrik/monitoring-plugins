@@ -574,6 +574,9 @@ Incomplete list of Plugins with special technical implementations and capabiliti
   | Alerts only after a certain amount of calls (default: last 5 values over threshold).
   | Cuts (truncates) its SQLite database table.
 
+* | `dhcp-relayed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed>`_
+  | Pure/raw network communication using byte-structs and sockets.
+
 * | `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
   | "Learns" disk thresholds on its own (implementing some kind of "threshold warm-up").
 
@@ -588,7 +591,7 @@ Incomplete list of Plugins with special technical implementations and capabiliti
   | Reads a file line-by-line, backwards.
   | Makes heavy use of patterns versus compiled regexes, matching any() of them.
 
-* | mysql-*
+* | All mysql-* plugins
   | Using application's config file for authentication.
   | More or less our port of `MySQLTuner <https://github.com/major/MySQLTuner-perl>`_ to Python.
 

@@ -11,6 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* dhcp-relayed
+
+
 ### Changed ("enhancement")
 
 Icinga Director:

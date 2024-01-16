@@ -25,10 +25,11 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024011501'
+__version__ = '2024011601'
 
 DESCRIPTION = """This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses.
                  It emulates a DHCP client and checks the DHCP offer response from the DHCP server.
+                 It does not send a DHCP request.
               """
 
 DEFAULT_TIMEOUT = 7 # seconds
@@ -220,7 +221,7 @@ def main():
             mac = normalize_mac(args.MAC)
             macb = mac2bytes(mac)
     else:
-        mac = normalize_mac(str(hex(getnode())))
+        mac = normalize_mac(hex(getnode()))
         macb = mac2bytes(mac)
 
     # fetch data
@@ -240,21 +241,22 @@ def main():
                 break # jump out of the loop, otherwise we'll get a "timed out" message
         dhcps.close()
     except socket.timeout as e:
-        lib.base.oao('Socket timeout', STATE_WARN)
+        lib.base.oao('Socket timeout, perhaps the DHCP pool is exhausted.', STATE_WARN)
 
-    # init some vars
-    msg = 'Offered IP: {}/{} (MAC: {}); Server ID: {}; Broadcast Addr: {}'.format(
+    # analyze data
+    state = STATE_OK
+    if yiaddr == '0.0.0.0':
+        state = STATE_WARN
+
+    # build the message
+    msg = 'Offered IP: {}/{}{} (MAC: {}); Server ID: {}; Broadcast Addr: {}'.format(
         yiaddr,
         subnet_mask,
+        lib.base.state2str(state, prefix=' '),
         mac,
         siaddr,
         bc_addr,
     )
-    state = STATE_OK
-
-    # analyze data
-    if yiaddr == '0.0.0.0':
-        state = STATE_WARN
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
