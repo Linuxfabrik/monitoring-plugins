@@ -12,6 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
+import ipaddress  # pylint: disable=C0413
 import socket  # pylint: disable=C0413
 import struct  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -23,11 +24,12 @@ import lib.base  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024011601'
+__version__ = '2024011702'
 
-DESCRIPTION = """This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses.
+DESCRIPTION = """This plugin tests if a local or remote DHCP server can offer IPv4 addresses
+                 (to a specific subnet).
                  It emulates a DHCP client and checks the DHCP offer response from the DHCP server.
-                 It does not send a DHCP request.
+                 It only sends a DHCPDISCOVER, not a DHCPREQUEST.
               """
 
 DEFAULT_TIMEOUT = 7 # seconds
@@ -53,12 +55,39 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-H', '--hostname',
+        help='DHCP server address, can be IP address or hostname. '
+             'Default: %(default)s',
+        dest='HOSTNAME',
+        default=None,
+    )
+
+    parser.add_argument(
         '--mac',
         help='Network MAC address to use. Doesn\'t have to be an existing MAC address. '
              'If you specify `--mac=random`, a random MAC address will be used. '
              'If omitted, the hardware address is obtained as described in '
              'https://docs.python.org/3/library/uuid.html#uuid.getnode.',
         dest='MAC',
+    )
+
+    parser.add_argument(
+        '--subnet-mask',
+        help='The subnet mask option specifies the client\'s subnet mask. '
+             'Example: 255.255.255.248. '
+             'Default: %(default)s',
+        dest='SUBNET_MASK',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--subnet-selection',
+        help='The subnet selection option would override a DHCP server\'s normal methods of '
+             'selecting the subnet on which to allocate an address for a client. '
+             'Example: 192.168.122.0. '
+             'Default: %(default)s',
+        dest='SUBNET_SELECTION',
+        default=None,
     )
 
     parser.add_argument(
@@ -112,7 +141,7 @@ def mac2bytes(mac):
     return macb
 
 
-def create_dhcp_discover_msg(macb, xid):
+def create_dhcp_discover_msg(macb, xid, subnet_mask, subnet_selection):
     """Create a DHCP discover message.
 
     When a client needs an IP address for the first time, it sends a DHCPDISCOVER message
@@ -126,47 +155,80 @@ def create_dhcp_discover_msg(macb, xid):
     and the MAC address of the client, depending on whether the client has set the broadcast
     bit in the DHCPDISCOVER message.
 
-    https://datatracker.ietf.org/doc/html/rfc2131#section-4.3.1
-    DHCP message format (simplified):
-      Op: 1 byte (Message type)
-      HTYPE: 1 byte (Hardware type)
-      HLEN: 1 byte (Hardware address length)
-      HOPS: 1 byte
-      XID: 4 bytes (Transaction ID)
-      SECS: 2 bytes (Seconds elapsed)
-      FLAGS: 2 bytes
-      CIADDR: 4 bytes (Client IP address)
-      YIADDR: 4 bytes (Your IP address)
-      SIADDR: 4 bytes (Server IP address)
-      GIADDR: 4 bytes (Gateway IP address)
-      CHADDR: 16 bytes (Client hardware address)
-      SNAME: 64 bytes (Server host name)
-      FILE: 128 bytes (Boot file name)
-      OPTIONS: variable
+       FIELD      OCTETS       DESCRIPTION
+       -----      ------       -----------
+
+       op            1  Message op code / message type.
+                        1 = BOOTREQUEST, 2 = BOOTREPLY
+       htype         1  Hardware address type, see ARP section in "Assigned
+                        Numbers" RFC; e.g., '1' = 10mb ethernet.
+       hlen          1  Hardware address length (e.g.  '6' for 10mb
+                        ethernet).
+       hops          1  Client sets to zero, optionally used by relay agents
+                        when booting via a relay agent.
+       xid           4  Transaction ID, a random number chosen by the
+                        client, used by the client and server to associate
+                        messages and responses between a client and a
+                        server.
+       secs          2  Filled in by client, seconds elapsed since client
+                        began address acquisition or renewal process.
+       flags         2  Flags (see figure 2).
+       ciaddr        4  Client IP address; only filled in if client is in
+                        BOUND, RENEW or REBINDING state and can respond
+                        to ARP requests.
+       yiaddr        4  'your' (client) IP address.
+       siaddr        4  IP address of next server to use in bootstrap;
+                        returned in DHCPOFFER, DHCPACK by server.
+       giaddr        4  Relay agent IP address, used in booting via a
+                        relay agent.
+       chaddr       16  Client hardware address.
+       sname        64  Optional server host name, null terminated string.
+       file        128  Boot file name, null terminated string; "generic"
+                        name or null in DHCPDISCOVER, fully qualified
+                        directory-path name in DHCPOFFER.
+       options     var  Optional parameters field.  See the options
+                        documents for a list of defined options.
     """
 
     # ! = network byte order which is always big-endian
-    # B = 1 byte unsigned char, H = 2 bytes unsigned short, I = 4 bytes unsigned int
-    dhcp_discover =  struct.pack('!B', 1)  # Op Message type: 1 = Boot Request
-    dhcp_discover += struct.pack('!B', 1)  # HTYPE: Ethernet
-    dhcp_discover += struct.pack('!B', 6)  # HLEN
-    dhcp_discover += struct.pack('!B', 0)  # HOPS
-    dhcp_discover += xid  # Transaction ID
-    dhcp_discover += struct.pack('!H', 0)  # SECS
-    dhcp_discover += struct.pack('!H', 0x8000)  # FLAGS: 8000h = Broadcast
-    dhcp_discover += struct.pack('!I', 0)  # CIADDR: 0.0.0.0
-    dhcp_discover += struct.pack('!I', 0)  # YIADDR: 0.0.0.0
-    dhcp_discover += struct.pack('!I', 0)  # SIADDR: 0.0.0.0
-    dhcp_discover += struct.pack('!I', 0)  # GIADDR: 0.0.0.0
-    dhcp_discover += macb
-    dhcp_discover += struct.pack('!B', 0) * 10 # Client hardware address padding
-    dhcp_discover += struct.pack('!B', 0) * 64 # SNAME: Server host name not given
-    dhcp_discover += struct.pack('!B', 0) * 128 # FILE: Boot file name not given
-    # everything that follows the "Magic Cookie 0x63825363" is to be interpreted as DHCP options
-    dhcp_discover += struct.pack('!I', 0x63825363) # https://datatracker.ietf.org/doc/html/rfc951
+    # B = 1 byte unsigned char, H = 2 bytes unsigned short, I = 4 bytes unsigned int           Bytes
+    dhcp_discover =  struct.pack('!B', 1)  # Op Message type: 1 = Boot Request                    43
+    dhcp_discover += struct.pack('!B', 1)  # HTYPE: Ethernet                                      44
+    dhcp_discover += struct.pack('!B', 6)  # HLEN                                                 45
+    dhcp_discover += struct.pack('!B', 0)  # HOPS                                                 46
+    dhcp_discover += xid  # Transaction ID                                                    47..50
+    dhcp_discover += struct.pack('!H', 0)  # SECS                                              51 52
+    dhcp_discover += struct.pack('!H', 0x8000)  # FLAGS: 8000h = Broadcast                     53 54
+    dhcp_discover += struct.pack('!I', 0)  # CIADDR: 0.0.0.0                                  55..58
+    dhcp_discover += struct.pack('!I', 0)  # YIADDR: 0.0.0.0                                  59..62
+    dhcp_discover += struct.pack('!I', 0)  # SIADDR: 0.0.0.0                                  63..66
+    dhcp_discover += struct.pack('!I', 0)  # GIADDR: 0.0.0.0                                  67..70
+    dhcp_discover += macb #                                                                   71..76
+    dhcp_discover += struct.pack('!B', 0) * 10 # Client hardware address padding              77..86
+    dhcp_discover += struct.pack('!B', 0) * 64 # SNAME: Server host name not given           87..150
+    dhcp_discover += struct.pack('!B', 0) * 128 # FILE: Boot file name not given            151..278
+
     # dhcp options: https://datatracker.ietf.org/doc/html/rfc2132
+    # everything that follows the "Magic Cookie 0x63825363" is to be interpreted as DHCP options
+    # https://datatracker.ietf.org/doc/html/rfc951
+    dhcp_discover += struct.pack('!I', 0x63825363) #                                        279..282
+
     dhcp_discover += struct.pack('!B', 0x35) + struct.pack('!H', 0x0101) # code 53 (dec): DHCP Message Type = DHCP discover # pylint: disable=C0301
     dhcp_discover += struct.pack('!H', 0x3d06) + macb # code 61 (dec): Client-identifier, 6 bytes long # pylint: disable=C0301
+    if subnet_mask:
+        # https://datatracker.ietf.org/doc/html/rfc2132#section-3.3
+        dhcp_discover += struct.pack('!H', 0x0104) # code 01 (dec): Subnet Mask, 4 bytes
+        try:
+            dhcp_discover += int(ipaddress.IPv4Address(subnet_mask)).to_bytes(4, byteorder='big')
+        except ipaddress.AddressValueError:
+            lib.base.oao('Invaild subnet mask "{}"'.format(subnet_mask), STATE_UNKNOWN)
+    if subnet_selection:
+        # https://www.rfc-editor.org/rfc/rfc3011.html
+        dhcp_discover += struct.pack('!H', 0x7604) # code 118 (dec): Subnet Selection, 4 bytes
+        try:
+            dhcp_discover += int(ipaddress.IPv4Address(subnet_selection)).to_bytes(4, byteorder='big') # pylint: disable=C0301
+        except ipaddress.AddressValueError:
+            lib.base.oao('Invaild subnet selection "{}"'.format(subnet_selection), STATE_UNKNOWN)
     dhcp_discover += struct.pack('!I', 0xff)  # code 255 (dec): End option
 
     return dhcp_discover
@@ -224,9 +286,12 @@ def main():
 
     # fetch data
     xid = get_transaction_id()
-    dhcp_discover = create_dhcp_discover_msg(macb, xid)
+    dhcp_discover = create_dhcp_discover_msg(macb, xid, args.SUBNET_MASK, args.SUBNET_SELECTION)
     dhcps.settimeout(args.TIMEOUT)
-    dhcps.sendto(dhcp_discover, ('<broadcast>', 67))
+    if args.HOSTNAME:
+        dhcps.sendto(dhcp_discover, (args.HOSTNAME, 67))
+    else:
+        dhcps.sendto(dhcp_discover, ('<broadcast>', 67))
     try:
         while True:
             dhcp_offer = dhcps.recv(1024)
@@ -239,7 +304,10 @@ def main():
                 break # jump out of the loop, otherwise we'll get a "timed out" message
         dhcps.close()
     except socket.timeout as e:
-        lib.base.oao('Socket timeout, perhaps the DHCP pool is exhausted.', STATE_WARN)
+        lib.base.oao(
+            'Socket timeout. Possibly DHCP pool is exhausted, does not exist, or similar.',
+            STATE_WARN,
+        )
 
     # analyze data
     state = STATE_OK
@@ -247,13 +315,18 @@ def main():
         state = STATE_WARN
 
     # build the message
-    msg = 'Offered IP: {}/{}{} (MAC: {}); Server ID: {}; Broadcast Addr: {}'.format(
+    msg = 'DHCPOFFER: IP={}/{}{} Server ID={} Broadcast Addr={}\n'.format(
         yiaddr,
         subnet_mask,
         lib.base.state2str(state, prefix=' '),
-        mac,
         siaddr,
         bc_addr,
+    )
+    msg += 'DHCPDISCOVER: MAC={} Host={} Network={}/{}'.format(
+        mac,
+        args.HOSTNAME if args.HOSTNAME else 'Broadcast',
+        args.SUBNET_SELECTION,
+        args.SUBNET_MASK,
     )
 
     # over and out

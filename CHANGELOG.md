@@ -15,7 +15,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Monitoring Plugins:
 
-* dhcp-relayed
+* dhcp-relayed (a port of [check_dhcp_relayed](https://exchange.nagios.org/directory/Plugins/Network-Protocols/DHCP-and-BOOTP/check_dhcp_relayed/details))
 
 
 ### Changed ("enhancement")

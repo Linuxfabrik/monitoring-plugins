@@ -5,8 +5,17 @@
                 "--always-ok": {
                     "set_if": "$dhcp_relayed_always_ok$"
                 },
+                "--hostname": {
+                    "value": "$dhcp_relayed_hostname$"
+                },
                 "--mac": {
                     "value": "$dhcp_relayed_mac$"
+                },
+                "--subnet-mask": {
+                    "value": "$dhcp_relayed_subnet_mask$"
+                },
+                "--subnet-selection": {
+                    "value": "$dhcp_relayed_subnet_selection$"
                 },
                 "--timeout": {
                     "value": "$dhcp_relayed_timeout$"
@@ -29,6 +38,21 @@
                     "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -46,8 +70,17 @@
                 "--always-ok": {
                     "set_if": "$dhcp_relayed_windows_always_ok$"
                 },
+                "--hostname": {
+                    "value": "$dhcp_relayed_windows_hostname$"
+                },
                 "--mac": {
                     "value": "$dhcp_relayed_windows_mac$"
+                },
+                "--subnet-mask": {
+                    "value": "$dhcp_relayed_windows_subnet_mask$"
+                },
+                "--subnet-selection": {
+                    "value": "$dhcp_relayed_windows_subnet_selection$"
                 },
                 "--timeout": {
                     "value": "$dhcp_relayed_windows_timeout$"
@@ -57,17 +90,32 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 4,
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 5,
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 6,
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -130,7 +178,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses. It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It does not send a DHCP request. ",
+            "notes": "This plugin tests if a local or remote DHCP server can offer IPv4 addresses (to a specific subnet). It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It only sends a DHCPDISCOVER, not a DHCPREQUEST. ",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed",
             "object_name": "tpl-service-dhcp-relayed",
             "object_type": "template",
@@ -177,7 +225,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses. It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It does not send a DHCP request. ",
+            "notes": "This plugin tests if a local or remote DHCP server can offer IPv4 addresses (to a specific subnet). It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It only sends a DHCPDISCOVER, not a DHCPREQUEST. ",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed",
             "object_name": "tpl-service-dhcp-relayed-windows",
             "object_type": "template",
@@ -207,6 +255,17 @@
             "uuid": "780c9a45-836c-4608-9542-b701616f1b30"
         },
         "2": {
+            "varname": "dhcp_relayed_hostname",
+            "caption": "Dhcp Relayed: Hostname",
+            "description": "DHCP server address, can be IP address or hostname.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6d27e7ff-6626-4e8b-a276-69184f67b9e3"
+        },
+        "3": {
             "varname": "dhcp_relayed_mac",
             "caption": "Dhcp Relayed: Mac",
             "description": "Network MAC address to use. Doesn't have to be an existing MAC address. If you specify `--mac=random`, a random MAC address will be used. If omitted, the hardware address is obtained as described in https://docs.python.org/3/library/uuid.html#uuid.getnode.",
@@ -217,7 +276,29 @@
             },
             "uuid": "5d161f04-ae79-4f2a-959e-217c8820e250"
         },
-        "3": {
+        "4": {
+            "varname": "dhcp_relayed_subnet_mask",
+            "caption": "Dhcp Relayed: Subnet Mask",
+            "description": "The subnet mask option specifies the client's subnet mask. Example: 255.255.255.248.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "58bf7315-1ef6-4c17-81cc-f1738942c834"
+        },
+        "5": {
+            "varname": "dhcp_relayed_subnet_selection",
+            "caption": "Dhcp Relayed: Subnet Selection",
+            "description": "The subnet selection option would override a DHCP server's normal methods of selecting the subnet on which to allocate an address for a client. Example: 192.168.122.0.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "34ebe10c-abb0-49d9-bdd5-d1c1d583c604"
+        },
+        "6": {
             "varname": "dhcp_relayed_timeout",
             "caption": "Dhcp Relayed: Timeout",
             "description": "Network timeout in seconds.",
@@ -228,7 +309,7 @@
             },
             "uuid": "de9f8eaf-bc4a-4d1d-8c0e-0102c769ce90"
         },
-        "4": {
+        "7": {
             "varname": "dhcp_relayed_windows_always_ok",
             "caption": "Dhcp Relayed: Always OK?",
             "description": "Always returns OK.",
@@ -237,7 +318,18 @@
             "settings": {},
             "uuid": "3688f108-022f-48a9-bd8f-6a8b0b69d678"
         },
-        "5": {
+        "8": {
+            "varname": "dhcp_relayed_windows_hostname",
+            "caption": "Dhcp Relayed: Hostname",
+            "description": "DHCP server address, can be IP address or hostname.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "64d598bf-cac4-4ecf-adeb-caa2b5d289ff"
+        },
+        "9": {
             "varname": "dhcp_relayed_windows_mac",
             "caption": "Dhcp Relayed: Mac",
             "description": "Network MAC address to use. Doesn't have to be an existing MAC address. If you specify `--mac=random`, a random MAC address will be used. If omitted, the hardware address is obtained as described in https://docs.python.org/3/library/uuid.html#uuid.getnode.",
@@ -248,7 +340,29 @@
             },
             "uuid": "e2ea1619-4c62-4248-98dc-2b8b1bc4faf8"
         },
-        "6": {
+        "10": {
+            "varname": "dhcp_relayed_windows_subnet_mask",
+            "caption": "Dhcp Relayed: Subnet Mask",
+            "description": "The subnet mask option specifies the client's subnet mask. Example: 255.255.255.248.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "63a4e2b3-331b-4493-ba65-41236f5c62ef"
+        },
+        "11": {
+            "varname": "dhcp_relayed_windows_subnet_selection",
+            "caption": "Dhcp Relayed: Subnet Selection",
+            "description": "The subnet selection option would override a DHCP server's normal methods of selecting the subnet on which to allocate an address for a client. Example: 192.168.122.0.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7e7a8aeb-55c4-4efe-8ab8-bf1103b4f9f2"
+        },
+        "12": {
             "varname": "dhcp_relayed_windows_timeout",
             "caption": "Dhcp Relayed: Timeout",
             "description": "Network timeout in seconds.",

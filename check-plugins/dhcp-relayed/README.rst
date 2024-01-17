@@ -4,7 +4,7 @@ Check dhcp-relayed
 Overview
 --------
 
-This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses. It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It does not send a DHCP request.
+This plugin tests if a local or remote DHCP server can offer IPv4 addresses (to a specific subnet). It emulates a DHCP client and checks the DHCP offer response from the DHCP server. It only sends a DHCPDISCOVER, not a DHCPREQUEST.
 
 Hints:
 
@@ -30,22 +30,36 @@ Help
 
 .. code-block:: text
 
-    usage: dhcp-relayed [-h] [-V] [--always-ok] [--mac MAC] [--timeout TIMEOUT]
+    usage: dhcp-relayed [-h] [-V] [--always-ok] [-H HOSTNAME] [--mac MAC]
+                        [--subnet-mask SUBNET_MASK]
+                        [--subnet-selection SUBNET_SELECTION] [--timeout TIMEOUT]
 
-    This plugin tests if a DHCP server (local or remote) can offer IPv4 addresses.
-    It emulates a DHCP client and checks the DHCP offer response from the DHCP
-    server.
+    This plugin tests if a local or remote DHCP server can offer IPv4 addresses
+    (to a specific subnet). It emulates a DHCP client and checks the DHCP offer
+    response from the DHCP server. It only sends a DHCPDISCOVER, not a
+    DHCPREQUEST.
 
     options:
-      -h, --help         show this help message and exit
-      -V, --version      show program's version number and exit
-      --always-ok        Always returns OK.
-      --mac MAC          Network MAC address to use. Doesn't have to be an
-                         existing MAC address. If you specify `--mac=random`, a
-                         random MAC address will be used. If omitted, the hardware
-                         address is obtained as described in
-                         https://docs.python.org/3/library/uuid.html#uuid.getnode.
-      --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -H HOSTNAME, --hostname HOSTNAME
+                            DHCP server address, can be IP address or hostname.
+                            Default: None
+      --mac MAC             Network MAC address to use. Doesn't have to be an
+                            existing MAC address. If you specify `--mac=random`, a
+                            random MAC address will be used. If omitted, the
+                            hardware address is obtained as described in https://d
+                            ocs.python.org/3/library/uuid.html#uuid.getnode.
+      --subnet-mask SUBNET_MASK
+                            The subnet mask option specifies the client's subnet
+                            mask. Example: 255.255.255.248. Default: None
+      --subnet-selection SUBNET_SELECTION
+                            The subnet selection option would override a DHCP
+                            server's normal methods of selecting the subnet on
+                            which to allocate an address for a client. Example:
+                            192.168.122.0. Default: None
+      --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
 
 
 Usage Examples
@@ -57,18 +71,20 @@ Usage Examples
     ./dhcp-relayed --mac=random
     ./dhcp-relayed --mac=80:32:15:12:34:AB
     ./dhcp-relayed --mac=8032151234AB
+    ./dhcp-relayed --hostname 192.168.122.1 --subnet-mask 255.255.0.0 --subnet-selection 192.168.122.0
 
 Output:
 
 .. code-block:: text
 
-    Offered IP: 192.168.122.99/255.255.255.0 (MAC: 52540024b33a); Server ID: 192.168.122.1; Broadcast Addr: 192.168.122.255
+    DHCPOFFER: IP=192.168.122.99/255.255.255.0 Server ID=192.168.122.1 Broadcast Addr=192.168.122.255
+    DHCPDISCOVER: MAC=52540024b33a Host=192.168.122.1 Network=192.168.122.0/255.255.0.0
 
 
 States
 ------
 
-* WARN if a "Socket timeout" occurs, maybe due to DHCP pool exhaustion.
+* WARN if a "Socket timeout" occurs, perhaps because the DHCP pool is exhausted, does not exist, or similar.
 * WARN if the returned IP address is 0.0.0.0.
 
 
