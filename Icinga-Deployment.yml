@@ -1,0 +1,106 @@
+- hosts: all
+  become: yes
+  gather_facts: true
+  vars_files:
+  - ../variables/variables.yml
+  vars:
+    tag: 1.7.0
+
+  tasks:
+  - name: Create a temp folder
+    shell: mkdir -p /tmp/icinga2/
+    when : ansible_all_ipv4_addresses is search( "{{ master_node }}" )
+
+  - name: Check if the mosqitto Nomad file is available
+    stat:
+      path: /tmp/icinga2/icinga_pkg_and_conf.tar.gz
+    register: stat_result
+
+  - name: Fail if mosqitto Nomad file is not exist.
+    fail:
+      msg: Please check the icinga_pkg_and_conf.tar.gz File is synced.
+    when: not stat_result.stat.exists
+
+  - name: unzip the icinga plugin packages and config files
+    shell: tar -xvzf icinga_pkg_and_conf.tar.gz
+    args:
+      chdir: /tmp/icinga2/
+    when : ansible_all_ipv4_addresses is search( "{{ master_node }}" )
+
+  - name: Install icinga plugins
+    shell: |
+      mkdir -p /tmp/icinga2/icinga_pkg_and_conf/packages/
+      tar -xvzf /tmp/icinga2/icinga_pkg_and_conf/icinga_plugin_pkg.tar.gz -C  /tmp/icinga2/icinga_pkg_and_conf/packages/
+      yes | cp -rf /tmp/icinga2/icinga_pkg_and_conf/packages/*.rpm /opt/rpm_installs/
+      createrepo /opt/rpm_installs/
+      dnf clean all
+      dnf install nagios-* bc nagios-plugins-uptime smartmontools -y
+      pip install /tmp/icinga2/icinga_pkg_and_conf/pip/paho-mqtt-1.6.1.tar.gz --no-index --no-deps
+      cp /tmp/icinga2/icinga_pkg_and_conf/packages/check_* /usr/lib64/nagios/plugins/
+    args:
+      chdir: /tmp/icinga2/icinga_pkg_and_conf/
+
+  - name: Checking the mosqitto port is in traefik.toml file.
+    command: grep "entryPoints.icingaport" /etc/traefik/traefik.toml
+    register: mosqitto_port_traefik
+    ignore_errors: yes
+
+  - name: Adding the port in to traefik
+    shell: sed -i '/Enable web configuration/i\  [entryPoints.icingaport]\n\    address = ":2883"' /etc/traefik/traefik.toml
+    when: mosqitto_port_traefik.stdout == ""
+
+  - name: Restart traefik service.
+    shell: sudo systemctl restart traefik.service
+    ignore_errors: yes
+
+  - name: Remove icinga mosquitto service if job running
+    shell: /usr/bin/nomad job stop -purge icinga-mosquitto
+    ignore_errors: yes
+
+  - name: Coping icinga config files and scripts.
+    become: yes
+    shell: |
+      sudo mkdir -p /home/ansible-service/smartship/icinga_mosquitto/data /home/ansible-service/smartship/icinga_mosquitto/log /monitoring_tools/icinga2/
+      rm -rf /home/ansible-service/smartship/icinga_mosquitto/mosquitto.conf
+      yes | cp -rf /tmp/icinga2/icinga_pkg_and_conf/mosquitto.conf /home/ansible-service/smartship/icinga_mosquitto/
+      sudo sed -i "s/Ship_IMO/{{set_imo_number}}/g" /home/ansible-service/smartship/icinga_mosquitto/mosquitto.conf
+      yes | cp -rf /tmp/icinga2/icinga_pkg_and_conf/*.py /monitoring_tools/icinga2/
+      yes | cp -rf /tmp/icinga2/icinga_pkg_and_conf/device_IP /monitoring_tools/icinga2/
+      yes | cp -rf /tmp/icinga2/icinga_pkg_and_conf/services /monitoring_tools/icinga2/
+      sudo sed -i "s/Ship_IMO/{{set_imo_number}}/g" /monitoring_tools/icinga2/publish_icinga2.py
+      sudo sed -i "s/MQTT_ip/{{ master_node }}/g" /monitoring_tools/icinga2/publish_icinga2.py
+      
+  - name: Deploy Docker registry and update mosquitto image
+    shell : | 
+      sudo docker load --input icinga_mosquitto.tar.gz
+      cp -rf /tmp/icinga2/icinga_pkg_and_conf/icinga-mosquitto.nomad /home/ansible-service/nomad-jobs-exec/
+      sudo sed -i "s/imagetag/{{tag}}/g" /home/ansible-service/nomad-jobs-exec/icinga-mosquitto.nomad
+    args:
+      chdir: /tmp/icinga2/icinga_pkg_and_conf/
+
+  - name: Run Nomad Mosquitto job
+    become: yes
+    command: /usr/bin/nomad job run icinga-mosquitto.nomad
+    args:
+      chdir: /home/ansible-service/nomad-jobs-exec
+    when : ansible_all_ipv4_addresses is search( "{{ master_node }}" )
+
+  - name: Check crontab already added.
+    shell: grep "/monitoring_tools/icinga2/host_active_check.py" /var/spool/cron/root
+    register: icinga_cron_stat
+    ignore_errors: yes
+
+  - name: Copy icinga crontab and set hostname
+    shell: |
+      cat /tmp/icinga2/icinga_pkg_and_conf/cronjob >>/var/spool/cron/root
+      sed -i 's/HOST_NAME/{{set_vessel_name | regex_replace(' ','-') }}/g'  /var/spool/cron/root
+    when: icinga_cron_stat.stdout == ""
+
+  - name: initial icinga update
+    shell: |
+      /usr/bin/python /monitoring_tools/icinga2/host_active_check.py {{set_vessel_name | regex_replace(' ','-') }}  > /dev/null 2>&1
+      /usr/bin/python /monitoring_tools/icinga2/service_active_check.py  {{set_vessel_name | regex_replace(' ','-') }}  > /dev/null 2>&1
+      /usr/bin/python /monitoring_tools/icinga2/server_health_check.py {{set_vessel_name | regex_replace(' ','-') }}  > /dev/null 2>&1
+      /usr/bin/python /monitoring_tools/icinga2/device_active_check.py {{set_vessel_name | regex_replace(' ','-') }}  > /dev/null 2>&1
+    ignore_errors: yes
+    
