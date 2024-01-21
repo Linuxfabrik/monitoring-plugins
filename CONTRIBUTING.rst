@@ -587,6 +587,9 @@ Incomplete list of Plugins with special technical implementations and capabiliti
   | ``--perfdata-regex`` parameter lets you filter for a subset of performance data.
   | Makes use of ``FREE`` and ``USED`` wording in parameters.
 
+* | `feed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed>`_
+  | Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed.
+
 * | `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
   | Reads a file line-by-line, backwards.
   | Makes heavy use of patterns versus compiled regexes, matching any() of them.
@@ -595,7 +598,14 @@ Incomplete list of Plugins with special technical implementations and capabiliti
   | Using application's config file for authentication.
   | More or less our port of `MySQLTuner <https://github.com/major/MySQLTuner-perl>`_ to Python.
 
+* | `php-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status>`_
+  | Optionally relies on a ``monitoring.php`` that can provide more PHP insight in the context of the web server.
+
 * | `redis-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status>`_
   | Provides useful feedback from Redis' Memory Doctor.
 
+* | All wildfly-* checks
+  | They all work without the ``jolokia.war`` plugin and use the native API.
 
+* | `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
+  | Differentiates between Windows and Linux.
