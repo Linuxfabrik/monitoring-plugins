@@ -12,8 +12,8 @@ Measures the usage of all mounted disk *partitions* on physical disks only (e.g.
 
 Hints:
 
-* On Windows, if using quotes, use double quotes instead of singel quotes for parameters like ``--include-pattern`` etc.
 * On Windows, mount point folder paths are also supported.
+* Important when using parameter values on Windows: As long as there is no space in the value, it works without quotes. If you need quotes, they must be enclosed in double quotes (single quotes will not work). Working example: ``disk-usage.exe --include-pattern="Sales Documents"``
 
 
 Fact Sheet
