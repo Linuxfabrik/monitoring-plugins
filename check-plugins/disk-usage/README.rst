@@ -10,6 +10,11 @@ Measures the usage of all mounted disk *partitions* on physical disks only (e.g.
 
     UNIX usually reserves 5% of the total disk space for the root user. ``total`` and ``used`` fields on UNIX refer to the overall total and used space, whereas ``free`` represents the space available for the user and ``percent`` represents the user utilization. That is why percent value may look 5% bigger than what you would expect it to be (starting with psutil v4.3.0; quote from the `psutil documentation <https://psutil.readthedocs.io/en/latest/>`_).
 
+Hints:
+
+* On Windows, if using quotes, use double quotes instead of singel quotes for parameters like ``--include-pattern`` etc.
+* On Windows, the plugin gets mount point folder paths like so: ``C:\\Users\\vagrant\\Downloads\\test\\`` - so you have to deal with the double backslash if you want to match patterns.
+
 
 Fact Sheet
 ----------
