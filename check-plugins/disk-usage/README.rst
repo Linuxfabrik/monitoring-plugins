@@ -13,7 +13,7 @@ Measures the usage of all mounted disk *partitions* on physical disks only (e.g.
 Hints:
 
 * On Windows, if using quotes, use double quotes instead of singel quotes for parameters like ``--include-pattern`` etc.
-* On Windows, the plugin gets mount point folder paths like so: ``C:\\Users\\vagrant\\Downloads\\test\\`` - so you have to deal with the double backslash if you want to match patterns.
+* On Windows, mount point folder paths are also supported.
 
 
 Fact Sheet
