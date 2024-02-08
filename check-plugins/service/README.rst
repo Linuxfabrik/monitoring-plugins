@@ -11,6 +11,11 @@ Example:
 * Display Name: "Diagnostic Policy Service"
 * Service Name: ``DPS`` (provide this)
 
+Hint:
+
+* For use in Icinga Director: If the service name contains a ``$``, this dollar sign must be escaped with another dollar sign. Since the plugin is capable of regular expressions, this character must also be escaped with a backslash. So if you want to check ``my$service``, you have to specify ``my\$$service``.
+* On the command line: If you want to check ``my$service``, you have to specify ``my\$service``.
+
 
 Fact Sheet
 ----------
@@ -21,7 +26,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/service"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for",                         "Windows"
     "3rd Party Python modules",             "``psutil``"
 
 
