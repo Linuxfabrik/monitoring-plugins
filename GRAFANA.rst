@@ -53,3 +53,9 @@ Now deploy the dashboard for the "CPU Usage" plugin, for example:
     # needs editor role
     grr apply monitoring-plugins/check-plugins/cpu-usage/grafana/cpu-usage.yml
 
+Result
+------
+
+It should end up looking very similar to the one shown below:
+
+.. image:: https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-grafana-dashboards.png
