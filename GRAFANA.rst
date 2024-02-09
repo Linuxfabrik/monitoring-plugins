@@ -53,9 +53,16 @@ Now deploy the dashboard for the "CPU Usage" plugin, for example:
     # needs editor role
     grr apply monitoring-plugins/check-plugins/cpu-usage/grafana/cpu-usage.yml
 
+
 Result
 ------
 
 It should end up looking very similar to the one shown below:
 
 .. image:: https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-grafana-dashboards.png
+
+
+Troubleshooting
+---------------
+
+* If you get messages like "No queries applied", look for errors like ``SHOW TAG VALUES FROM "cmd-check-about-me" WITH KEY = "hostname"`` in your Grafana logfile. You probably need to create a datasource using InfluxQL (instead of Flux).
