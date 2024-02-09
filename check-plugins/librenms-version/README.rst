@@ -8,6 +8,10 @@ Displays LibreNMS instance information. This is not a "is there a new version ou
 
 You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
 
+Hint:
+
+* Don't forget to check the EOL date for Apache, MariaDB and all other components using our other ``*-version`` check plugins.
+
 
 Fact Sheet
 ----------
@@ -20,6 +24,7 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "LibreNMS API Token"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-librenms-*.db``"
 
 
 Help
