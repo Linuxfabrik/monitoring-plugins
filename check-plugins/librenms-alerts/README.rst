@@ -22,6 +22,7 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "LibreNMS API Token"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-librenms-*.db``"
 
 
 Help
