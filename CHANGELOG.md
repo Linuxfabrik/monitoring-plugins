@@ -30,6 +30,7 @@ Monitoring Plugins:
 * fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
 * infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
 * mysql-memory: Enhance output, set threshold to 95%
+* ntp-chronyd: Provide config info if an ntp server is not being used
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
 
 

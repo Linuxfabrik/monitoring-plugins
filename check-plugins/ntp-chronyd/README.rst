@@ -85,6 +85,16 @@ Output:
     Update interval : 518.9 seconds
     Leap status     : Normal
 
+Example of an alert:
+
+.. code-block:: text
+
+    NTP server not reachable. No NTP server is used.
+
+    MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+    ===============================================================================
+    ^? ntp1.hetzner.de               0   6     0     -     +0ns[   +0ns] +/-    0ns
+
 
 States
 ------
