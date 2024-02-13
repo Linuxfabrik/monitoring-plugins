@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024021301'
 
 DESCRIPTION = """Checks memory metrics for MySQL/MariaDB."""
 
@@ -271,10 +271,14 @@ def main():
         mycalc['pct_max_physical_memory'],
         lib.human.bytes2human(mycalc['max_peak_memory']),
     )
-    if physical_memory < mycalc['max_peak_memory'] + get_other_process_memory():
+    other_process_memory = get_other_process_memory()
+    if physical_memory < mycalc['max_peak_memory'] + other_process_memory:
         mem2_state = STATE_WARN
         state = lib.base.get_worst(state, mem2_state)
-        msg += 'Overall possible memory usage with other processes will exceed memory.{}'.format(
+        msg += 'Overall possible memory usage ({}) with other processes ({}) will exceed physical memory ({}).{}'.format(
+            lib.human.bytes2human(mycalc['max_peak_memory']),
+            lib.human.bytes2human(other_process_memory),
+            lib.human.bytes2human(physical_memory),
             lib.base.state2str(mem2_state, prefix=' '),
         )
 
@@ -359,7 +363,7 @@ def main():
         lib.human.bytes2human(mycalc['max_peak_memory']),
     )
     msg += '* Other Process Memory: {}\n'.format(
-        lib.human.bytes2human(get_other_process_memory()),
+        lib.human.bytes2human(other_process_memory),
     )
     msg += '* Physical Memory: pm = {}\n'.format(
         lib.human.bytes2human(physical_memory),
