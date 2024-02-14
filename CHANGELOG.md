@@ -11,6 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Icinga Director:
+
+* all-the-rest.json: Remove all predefined "Journald Query" definitions, as they were not as useful in practice as we thought. Single services are more useful.
+
+
 ### Added
 
 Monitoring Plugins:
