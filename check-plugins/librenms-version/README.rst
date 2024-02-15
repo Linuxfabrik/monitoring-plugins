@@ -8,7 +8,7 @@ Displays LibreNMS instance information. This is not a "is there a new version ou
 
 You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
 
-Hint:
+Hints:
 
 * Don't forget to check the EOL date for Apache, MariaDB and all other components using our other ``*-version`` check plugins.
 
