@@ -6,11 +6,10 @@ Overview
 
 This check prints cpu and memory statistics for all running Docker or Podman containers, using the `docker stats <https://docs.docker.com/engine/reference/commandline/stats/>`_ command. Container CPU usage is divided by the available number of CPU cores ("normalized").
 
-Hint:
+Hints:
 
-    Since ``docker stats`` only returns byte-level data in a human-readable format (e.g. *4.82GB*), claculating network I/O (``RX bps``, ``TX bps``) and block I/O (``BlockIn/s``, ``BlockOut/s``) is imprecise. Therefore, these values are not used at all.
-
-Plugin execution may take up to 10 seconds.
+* Since ``docker stats`` only returns byte-level data in a human-readable format (e.g. *4.82GB*), claculating network I/O (``RX bps``, ``TX bps``) and block I/O (``BlockIn/s``, ``BlockOut/s``) is imprecise. Therefore, these values are not used at all.
+* Plugin execution may take up to 10 seconds.
 
 
 Fact Sheet

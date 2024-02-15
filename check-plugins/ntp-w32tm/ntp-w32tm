@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024021501'
 
 DESCRIPTION = '''This monitoring plugin runs `w32tm /query /status /verbose` (Windows)
                  to help diagnose problems with the time settings.'''
@@ -95,7 +95,16 @@ def main():
     msg = []
     state = STATE_OK
     perfdata = ''
+
+    clock_rate = 0
+    leap_indicator = 0
     peer_used = False
+    phase_offset = 0
+    precision = 0
+    root_delay = 0
+    root_dispersion = 0
+    stratum = 0
+    time_since_last_good_sync_time = 0
 
     # analyze data
     for line in stdout.splitlines():

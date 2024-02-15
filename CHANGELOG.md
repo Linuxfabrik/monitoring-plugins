@@ -48,6 +48,7 @@ Monitoring Plugins:
 
 * infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
 * nextcloud-stats: KeyError: apps ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
+* ntp-w32tm: Fix `UnboundLocalError: local variable 'clock_rate' referenced before assignment`
 
 
 ## 2023112901

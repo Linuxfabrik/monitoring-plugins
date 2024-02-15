@@ -6,6 +6,10 @@ Overview
 
 This monitoring plugin runs ``w32tm /query /status /verbose`` (Windows) to help diagnose problems with the time settings.
 
+Hints:
+
+* Make sure that ``cmd.exe`` is set to English output. Otherwise this check plugin may not work.
+
 
 Fact Sheet
 ----------
