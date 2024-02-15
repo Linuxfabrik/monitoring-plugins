@@ -35,7 +35,7 @@ Monitoring Plugins:
 
 * fs-ro: Add `/dev/loop` to default ignore list
 * fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
-* infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
+* infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
 * mysql-memory: Enhance output, set threshold to 95%
 * ntp-chronyd: Provide config info if an ntp server is not being used
@@ -46,6 +46,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
 * nextcloud-stats: KeyError: apps ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
 
 
