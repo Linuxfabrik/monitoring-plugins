@@ -6,7 +6,7 @@ Overview
 
 This plugin lets you track the number of active users over time, the number of shares in various categories and some storage statistics against a Nextcloud server. Might take up to 30 seconds for the first time; after that, still takes a few seconds.
 
-To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (at https://cloud.example.com/index.php/settings/user/security) or a separate user for that purpose.
+To access the serverinfo API you will need the credentials of an admin user. It is recommended to create an app password (in "Devices & sessions" at https://cloud.example.com/index.php/settings/user/security) or a separate user for that purpose.
 
 Hints:
 
