@@ -14,7 +14,7 @@ How to use the check:
 * If no ``--priority`` is given, the check uses the range ``--priority=emerg..err``.
 * If no unit or user unit is specified, the check looks for errors in the units present on the most common Linux systems, which are thus found after a fresh installation. To get an idea of which services are handled, have a look at the source code (search for ``units = [``).
 
-Hint:
+Hints:
 
 * If the initial execution of the check takes more than 10 seconds, the journal is probably too large (which can be checked with the plugin `journal-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-usage>`_). In this case it is recommended to "vacuum" the journal first.
 
