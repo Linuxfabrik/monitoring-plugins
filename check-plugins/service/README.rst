@@ -11,7 +11,7 @@ Example:
 * Display Name: "Diagnostic Policy Service"
 * Service Name: ``DPS`` (provide this)
 
-Hint:
+Hints:
 
 * For use in Icinga Director: If the service name contains a ``$``, this dollar sign must be escaped with another dollar sign. Since the plugin is capable of regular expressions, this character must also be escaped with a backslash. So if you want to check ``my$service``, you have to specify ``my\$$service``.
 * On the command line: If you want to check ``my$service``, you have to specify ``my\$service``.
