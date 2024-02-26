@@ -56,6 +56,7 @@ States
 ------
 
 * WARN or CRIT if last activity is above a given threshold.
+* WARN if "Last-Modified" timestamp for one or more packages is not found.
 
 
 Perfdata / Metrics
