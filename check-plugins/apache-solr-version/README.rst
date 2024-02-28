@@ -1,10 +1,10 @@
-Check python-version
-====================
+Check apache-solr-version
+=========================
 
 Overview
 --------
 
-This plugin lets you track if Python is End-of-Life (EOL). To compare against the current/installed version of Python, the check has to run on the Python server itself.
+This plugin lets you track if Apache Solr is End-of-Life (EOL). To compare against the current/installed version of Apache Solr, the check has to run on the Apache Solr server itself.
 
 This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
 
@@ -15,7 +15,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
     
-    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/python-version"
+    "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-solr-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
@@ -27,10 +27,11 @@ Help
 
 .. code-block:: text
 
-    usage: python-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                          [--check-patch] [--offset-eol OFFSET_EOL] [--path PATH]
+    usage: apache-solr-version [-h] [-V] [--always-ok] [--check-major]
+                               [--check-minor] [--check-patch]
+                               [--offset-eol OFFSET_EOL] [--path PATH]
 
-    Tracks if Python is EOL.
+    Tracks if Apache Solr is EOL.
 
     options:
       -h, --help            show this help message and exit
@@ -51,8 +52,8 @@ Help
       --offset-eol OFFSET_EOL
                             Alert me n days before ("-30") or after an EOL date
                             ("30" or "+30"). Default: -30 days
-      --path PATH           Local path to your Python binary. Default:
-                            /usr/bin/python3
+      --path PATH           Local path to your Apache Solr binary. Default:
+                            /opt/solr/bin/solr
 
 
 Usage Examples
@@ -60,13 +61,13 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./python-version --offset-eol=-30
+    ./apache-solr-version --offset-eol=-30
 
 Output:
 
 .. code-block:: text
 
-    Python v3.11.4 (EOL 2027-10-24 -30d, minor 3.12.0 available, patch 3.11.6 available)
+    Apache Solr v7.7.0 (version 7.7.0 unknown)
 
 
 States
@@ -86,7 +87,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    python-version,                             Number,             Installed Python version as float. "3.11.4" becomes "3.114".
+    apache-solr-version,                        Number,             Installed Apache Solr version as float. "7.7.0" becomes "7.70".
 
 
 Credits, License
