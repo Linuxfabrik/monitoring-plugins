@@ -113,6 +113,9 @@ Unknown error while fetching http://localhost/nextcloud/ocs/v2.php/apps/serverin
 HTTP error "401 Unauthorized" while fetching http://...
     Password is correct? Maybe you enabled 2FA. Use an app password for your monitoring server.
 
+Failed to execute script 'nextcloud-stats' due to unhandled exception!
+    Use a newer version of this plugin.
+
 
 Credits, License
 ----------------
