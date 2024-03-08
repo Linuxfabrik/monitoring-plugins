@@ -45,6 +45,10 @@ Monitoring Plugins:
 
 ### Fixed ("bug")
 
+Icinga Director:
+
+* all-the-rest.json: Fix "FreeIPA Server Service Set" definition
+
 Monitoring Plugins:
 
 * infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
