@@ -26,13 +26,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031201'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
                  active incidents and lists maintenances. You need to provide the
                  URL to the Statuspal API `summary` endpoint."""
 
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 7
 DEFAULT_URL = 'https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary'
 
 
@@ -56,10 +58,26 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -132,7 +150,11 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.base.coe(lib.url.fetch_json(args.URL))
+        result = lib.base.coe(lib.url.fetch_json(
+            args.URL,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
@@ -175,7 +197,7 @@ def main():
                 result['incidents'][0]['updates'][0]['description'],
                 result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' '),
             )
-        msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else ''
+        msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else '' # pylint: disable=C0301
 
     # services - search for any incidents in services
     flattened_result = flatdict.FlatterDict(result['services'])

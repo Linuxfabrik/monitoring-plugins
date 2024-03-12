@@ -5,6 +5,12 @@
                 "--always-ok": {
                     "set_if": "$statuspal_always_ok$"
                 },
+                "--no-proxy": {
+                    "set_if": "$statuspal_no_proxy$"
+                },
+                "--timeout": {
+                    "value": "$statuspal_timeout$"
+                },
                 "--url": {
                     "value": "$statuspal_url$"
                 }
@@ -21,30 +27,7 @@
                     "datafield_id": 2,
                     "is_required": "n",
                     "var_filter": null
-                }
-            ],
-            "imports": [],
-            "is_string": null,
-            "methods_execute": "PluginCheck",
-            "object_name": "cmd-check-statuspal",
-            "object_type": "object",
-            "timeout": "10",
-            "vars": {},
-            "zone": null,
-            "uuid": "40d213c2-8deb-4c59-bafb-ae1e068acb37"
-        },
-        "cmd-check-statuspal-windows": {
-            "arguments": {
-                "--always-ok": {
-                    "set_if": "$statuspal_windows_always_ok$"
                 },
-                "--url": {
-                    "value": "$statuspal_windows_url$"
-                }
-            },
-            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\statuspal.exe",
-            "disabled": false,
-            "fields": [
                 {
                     "datafield_id": 3,
                     "is_required": "n",
@@ -59,12 +42,61 @@
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-statuspal",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "a229249a-56b6-471a-b5dc-43a38ca97c0c"
+        },
+        "cmd-check-statuspal-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$statuspal_windows_always_ok$"
+                },
+                "--no-proxy": {
+                    "set_if": "$statuspal_windows_no_proxy$"
+                },
+                "--timeout": {
+                    "value": "$statuspal_windows_timeout$"
+                },
+                "--url": {
+                    "value": "$statuspal_windows_url$"
+                }
+            },
+            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\statuspal.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
             "object_name": "cmd-check-statuspal-windows",
             "object_type": "object",
             "timeout": "10",
             "vars": {},
             "zone": null,
-            "uuid": "0475cada-b1bc-457d-a3a3-eb8f2fc6cf1f"
+            "uuid": "05afff9e-201e-4ec3-81e0-dc78dd0f1d17"
         },
         "cmd-check-statuspal-windows-python": {
             "arguments": {},
@@ -81,7 +113,7 @@
             "timeout": null,
             "vars": {},
             "zone": null,
-            "uuid": "fc9c94b8-4b94-4e2e-9f54-9cce968facd6"
+            "uuid": "8077f965-f3e2-4b2d-887f-71024d2e3380"
         }
     },
     "ServiceTemplate": {
@@ -126,11 +158,13 @@
             "vars": {
                 "criticality": "A",
                 "statuspal_always_ok": false,
+                "statuspal_no_proxy": false,
+                "statuspal_timeout": 7,
                 "statuspal_url": "https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary"
             },
             "volatile": null,
             "zone": null,
-            "uuid": "6c4c483f-1436-480a-bdbd-41e1369991a7"
+            "uuid": "44ecf008-b4ac-4df7-93eb-ead4179d0796"
         },
         "tpl-service-statuspal-windows": {
             "action_url": null,
@@ -173,11 +207,13 @@
             "vars": {
                 "criticality": "C",
                 "statuspal_windows_always_ok": false,
+                "statuspal_windows_no_proxy": false,
+                "statuspal_windows_timeout": 7,
                 "statuspal_windows_url": "https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary"
             },
             "volatile": null,
             "zone": null,
-            "uuid": "6b3270d6-9c37-43b5-8a59-060e0cfe3420"
+            "uuid": "2ecc79ab-2876-4b44-98c5-a7e7def122c6"
         }
     },
     "Datafield": {
@@ -188,9 +224,29 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "984c2c13-4e5e-40ad-83d3-685f72ddb7c2"
+            "uuid": "828c1950-96e9-49c9-8ea4-f0ab08c03198"
         },
         "2": {
+            "varname": "statuspal_no_proxy",
+            "caption": "Statuspal: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a05b85c1-aea8-4723-adcd-50200c2a0229"
+        },
+        "3": {
+            "varname": "statuspal_timeout",
+            "caption": "Statuspal: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dfab5f87-db79-43f2-97b8-9cb0c5e4f3d5"
+        },
+        "4": {
             "varname": "statuspal_url",
             "caption": "Statuspal: URL",
             "description": "Statuspal API URL.",
@@ -199,18 +255,38 @@
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "aaef9c9e-8648-49d2-8d1b-81aecba7242e"
+            "uuid": "610d0458-53e2-440a-89ab-93e8ab4a6893"
         },
-        "3": {
+        "5": {
             "varname": "statuspal_windows_always_ok",
             "caption": "Statuspal: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "f16dc7fd-92b8-4a9c-9df4-92c03729fcdb"
+            "uuid": "f09dc8c1-d2c5-4000-b370-22f81f2131d4"
         },
-        "4": {
+        "6": {
+            "varname": "statuspal_windows_no_proxy",
+            "caption": "Statuspal: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1a489d32-6e9f-4f14-a641-a126321c80ad"
+        },
+        "7": {
+            "varname": "statuspal_windows_timeout",
+            "caption": "Statuspal: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "22652789-f185-475f-b877-f9bb0abc2ef9"
+        },
+        "8": {
             "varname": "statuspal_windows_url",
             "caption": "Statuspal: URL",
             "description": "Statuspal API URL.",
@@ -219,7 +295,7 @@
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "fe05bc87-35e3-420d-ba5d-c113d44a1342"
+            "uuid": "9d62ccd2-5ebf-4b5d-8ead-c1bf2f3d4c22"
         }
     }
 }
