@@ -187,17 +187,17 @@ If a check supports ranges, they can be used as follows:
 
 Examples:
 
-| -w, -c    | OK if result is     | WARN/CRIT if |
+| -w, -c    | OK if result is     | WARN/CRIT if        |
 | --------- | ------------------- | ------------------- |
-| 10        | in (0..10)          | not in (0..10) |
-| -10       | in (-10..0)         | not in (-10..0) |
-| 10:       | in (10..inf)        | not in (10..inf) |
-| :         | in (0..inf)         | not in (0..inf) |
-| \~:10     | in (-inf..10)       | not in (-inf..10) |
-| 10:20     | in (10..20)         | not in (10..20) |
-| \@10:20   | not in (10..20)     | in 10..20 |
-| @\~:20    | not in (-inf..20)   | in (-inf..20) |
-| @         | not in (0..inf)     | in (0..inf) |
+| 10        | in (0..10)          | not in (0..10)      |
+| -10       | in (-10..0)         | not in (-10..0)     |
+| 10:       | in (10..inf)        | not in (10..inf)    |
+| :         | in (0..inf)         | not in (0..inf)     |
+| \~:10     | in (-inf..10)       | not in (-inf..10)   |
+| 10:20     | in (10..20)         | not in (10..20)     |
+| \@10:20   | not in (10..20)     | in 10..20           |
+| @\~:20    | not in (-inf..20)   | in (-inf..20)       |
+| @         | not in (0..inf)     | in (0..inf)         |
 
 
 ## Command, Parameters and Arguments
@@ -260,5 +260,34 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rs
 
 ## Tips & Tricks
 
-* Q: How can I remove the performance data after the `|` from the check output?  
-A: In Bash use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
+Q: **How can I remove the performance data after the `|` from the check output?**
+
+A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
+
+
+Q: **Do the plugins also handle proxy environment variables like `HTTP_PROXY`?**
+
+A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `http_proxy` are automatically used by the Linuxfabrik monitoring plugins if they are set.
+
+
+Q: **Icinga does not seem to pass the environment variable `http_proxy` to the plugins. What am i doing wrong?**
+
+This has nothing to do with the Linuxfabrik monitoring plugins, but the Icinga configuration needs to be adjusted here - you need to do some additional configuration to make custom environment variables generally available. According to [this Icinga community post](https://community.icinga.com/t/environments-for-all-check-commands/9092) you need to set them in `/etc/icinga2/icinga2.conf`:
+
+```
+template CheckCommand default {
+  env.http_proxy = "http://username:password@proxy.example.com:port"
+  env.https_proxy = "http://username:password@proxy.example.com:port"
+}
+```
+
+If you are also using `sudo` to call some plugins from within Icinga, you will also need to set this in your `/etc/sudoers.d/whatever.sudoers`:
+
+```
+Default env_keep += "http_proxy https_proxy"
+```
+
+Pro tips:
+
+* Note that you can't set environment variables in Icinga Director. Even if you are only using the Icinga Director, follow the steps above.
+* Environment variables with the same name in both `/etc/environment` and `/etc/icinga2/icinga2.conf` will be overwritten by `/etc/icinga2/icinga2.conf`.
