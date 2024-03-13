@@ -66,7 +66,8 @@ Help
 
 .. code-block:: text
 
-    usage: statuspal [-h] [-V] [--always-ok] [--test TEST] [--url URL]
+    usage: statuspal [-h] [-V] [--always-ok] [--no-proxy] [--test TEST]
+                     [--timeout TIMEOUT] [--url URL]
 
     Statuspal is a status page provider from Germany. This check plugin gets the
     summary of a Statuspal status page, checks its status, services, active
@@ -74,13 +75,15 @@ Help
     API `summary` endpoint.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
-      --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                     file,expected-retc".
-      --url URL      Statuspal API URL. Default: https://statuspal.eu/api/v2/statu
-                     s_pages/exoscalestatus/summary
+      -h, --help         show this help message and exit
+      -V, --version      show program's version number and exit
+      --always-ok        Always returns OK.
+      --no-proxy         Do not use a proxy. Default: False
+      --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
+                         stderr-file,expected-retc".
+      --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
+      --url URL          Statuspal API URL. Default: https://statuspal.eu/api/v2/s
+                         tatus_pages/exoscalestatus/summary
 
 
 Usage statuspals
