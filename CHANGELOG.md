@@ -46,6 +46,7 @@ Monitoring Plugins:
 * ntp-chronyd: Provide config info if an ntp server is not being used
 * statuspal: Add new parameters `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
+* xml: Add new parameter `--insecure`
 
 
 ### Fixed ("bug")

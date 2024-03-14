@@ -25,9 +25,9 @@ Help
 
 .. code-block:: text
 
-    usage: xml [-h] [-V] [--always-ok] [--expect EXPECT] [--namespace NAMESPACES]
-               [--no-proxy] [--password PASSWORD] [--timeout TIMEOUT] --url URL
-               [--username USERNAME] --xpath XPATH
+    usage: xml [-h] [-V] [--always-ok] [--expect EXPECT] [--insecure]
+               [--namespace NAMESPACES] [--no-proxy] [--password PASSWORD]
+               [--timeout TIMEOUT] --url URL [--username USERNAME] --xpath XPATH
 
     This plugin checks for a matching string in a XML document, fetched via
     http(s). Simple XPath syntax, prefix namespaces and HTTP Basic Auth are
@@ -39,6 +39,8 @@ Help
       --always-ok           Always return OK.
       --expect EXPECT       String to expect in the xpath's location. If ommitted,
                             just checks if the XPath exists.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --namespace NAMESPACES
                             If your XPath expression uses namespace prefixes, you
                             must define them in a prefix mapping. This parameter

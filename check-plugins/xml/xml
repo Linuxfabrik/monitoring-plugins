@@ -23,15 +23,16 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Simon Wunderlin,
                 adapted by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 
 DESCRIPTION = """This plugin checks for a matching string in a XML document, fetched via http(s).
                  Simple XPath syntax, prefix namespaces and HTTP Basic Auth are supported.
               """
 
-DEFAULT_TIMEOUT = 7
+DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 7
 
 
 def parse_args():
@@ -61,6 +62,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--namespace',
         help='If your XPath expression uses namespace prefixes, you must define them in a prefix '
              'mapping. This parameter expects a mapping for the namespace prefix used in the '
@@ -73,7 +83,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -87,7 +98,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -95,7 +107,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='WSDL Endpoint URL. Default: %(default)s',
+        help='WSDL Endpoint URL. '
+             'Default: %(default)s',
         dest='URL',
         required=True,
     )
@@ -144,8 +157,9 @@ def main():
     result = lib.base.coe(lib.url.fetch(
         args.URL,
         header=header,
+        insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT
+        timeout=args.TIMEOUT,
     ))
 
     # analyze data
