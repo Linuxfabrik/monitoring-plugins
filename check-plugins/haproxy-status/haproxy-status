@@ -25,17 +25,19 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """This check shows you an abundance of metrics that cover the health of your
                     HAProxy server, current request rates, response times, and more."""
 
+DEFAULT_CRIT = 95       # %
+DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost/server-status'
 DEFAULT_USERNAME = 'haproxy-stats'
 DEFAULT_WARN = 80       # %
-DEFAULT_CRIT = 95       # %
 
 
 def parse_args():
@@ -66,11 +68,29 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--lengthy',
         help='Extended reporting.',
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -143,11 +163,19 @@ def main():
             result = lib.base.coe(
                 lib.url.fetch(
                     url,
-                    timeout=args.TIMEOUT,
                     header={'Authorization': 'Basic {}'.format(encoded_auth)},
-            ))
+                    insecure=args.INSECURE,
+                    no_proxy=args.NO_PROXY,
+                    timeout=args.TIMEOUT,
+                )
+            )
         else:
-            result = lib.base.coe(lib.url.fetch(url, timeout=args.TIMEOUT))
+            result = lib.base.coe(lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)

@@ -38,20 +38,24 @@ Help
 
 .. code-block:: text
 
-    usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--lengthy]
-                          [-p PASSWORD] [--test TEST] [--timeout TIMEOUT]
-                          [-u URL] [--username USERNAME] [-w WARN]
+    usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+                          [--lengthy] [--no-proxy] [-p PASSWORD] [--test TEST]
+                          [--timeout TIMEOUT] [-u URL] [--username USERNAME]
+                          [-w WARN]
 
     This check shows you an abundance of metrics that cover the health of your
     HAProxy server, current request rates, response times, and more.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the CRIT threshold as a percentage. Default: >= 95
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --lengthy             Extended reporting.
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             HAProxy Stats Auth password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

@@ -44,6 +44,7 @@ Monitoring Plugins:
 * gitlab-health: Add new parameters `--insecure` `--no-proxy`
 * gitlab-liveness: Add new parameters `--insecure` `--no-proxy`
 * gitlab-readiness: Add new parameters `--insecure` `--no-proxy`
+* haproxy-status: Add new parameters `--insecure` `--no-proxy`
 * infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
 * mysql-memory: Enhance output, set threshold to 95%
