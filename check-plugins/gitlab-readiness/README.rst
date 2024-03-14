@@ -31,17 +31,21 @@ Help
 
 .. code-block:: text
 
-    usage: gitlab-readiness [-h] [-V] [--always-ok] [--severity {warn,crit}]
-                            [--test TEST] [--timeout TIMEOUT] [--url URL]
+    usage: gitlab-readiness [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                            [--severity {warn,crit}] [--test TEST]
+                            [--timeout TIMEOUT] [--url URL]
 
     The readiness probe checks whether the GitLab instance is ready to accept
-    traffic via Rails Controllers. The check also validates the dependent services (Database,
-    Redis, Gitaly etc.) and gives a status for each.
+    traffic via Rails Controllers. The check also validates the dependent services
+    (Database, Redis, Gitaly etc.) and gives a status for each.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerting. Default: warn
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
