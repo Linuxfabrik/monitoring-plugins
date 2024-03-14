@@ -23,10 +23,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 7
 DEFAULT_TRIGGER = 14
 
@@ -43,8 +45,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -52,7 +73,8 @@ def parse_args():
 
     parser.add_argument(
         '--trigger',
-        help='Trigger re-scan of the Nextcloud server if result on scan.nextcloud.com is older than n days. Default: %(default)s (days)',
+        help='Trigger re-scan of the Nextcloud server if result on scan.nextcloud.com is older than n days. '
+             'Default: %(default)s (days)',
         dest='TRIGGER',
         type=int,
         default=DEFAULT_TRIGGER,
@@ -68,14 +90,21 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_uuid_from_scan_nextcloud_com(nc_url, timeout):
+def get_uuid_from_scan_nextcloud_com(nc_url, args):
     url = 'https://scan.nextcloud.com/api/queue'
     data = {'url': nc_url}
     header = {
         'Content-type': 'application/x-www-form-urlencoded',
         'X-CSRF': 'true',
     }
-    success, result = lib.url.fetch(url, timeout=timeout, header=header, data=data)
+    success, result = lib.url.fetch(
+        url,
+        header=header,
+        data=data,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
     if not success:
         return (success, result)
     try:
@@ -84,14 +113,21 @@ def get_uuid_from_scan_nextcloud_com(nc_url, timeout):
         return (False, 'No JSON object could be decoded')
 
 
-def trigger_rescan_nextcloud_com(nc_url, timeout):
+def trigger_rescan_nextcloud_com(nc_url, args):
     url = 'https://scan.nextcloud.com/api/requeue'
     data = {'url': nc_url}
     header = {
         'Content-type': 'application/x-www-form-urlencoded',
         'X-CSRF': 'true',
     }
-    success, result = lib.url.fetch(url, timeout=timeout, header=header, data=data)
+    success, result = lib.url.fetch(
+        url,
+        header=header,
+        data=data,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
     if not success:
         return (success, result)
     if not result:
@@ -102,9 +138,14 @@ def trigger_rescan_nextcloud_com(nc_url, timeout):
         return (False, 'No JSON object could be decoded')
 
 
-def get_scan_result_from_scan_nextcloud_com(nc_uuid, timeout):
+def get_scan_result_from_scan_nextcloud_com(nc_uuid, args):
     url = 'https://scan.nextcloud.com/api/result/' + nc_uuid
-    success, result = lib.url.fetch(url, timeout=timeout)
+    success, result = lib.url.fetch(
+        url,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
     if not success:
         return (success, result)
     try:
@@ -129,8 +170,8 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args.TIMEOUT))
-    result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args.TIMEOUT))
+    uuid = lib.base.coe(get_uuid_from_scan_nextcloud_com(args.URL, args))
+    result = lib.base.coe(get_scan_result_from_scan_nextcloud_com(uuid, args))
 
     msg = ''
     state = STATE_OK
@@ -146,7 +187,7 @@ def main():
     today = lib.time.now(as_type='datetime')
     delta = scan_date - today
     if abs(delta.days) > args.TRIGGER:
-        tmp = lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args.TIMEOUT))
+        tmp = lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
 
     msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
 

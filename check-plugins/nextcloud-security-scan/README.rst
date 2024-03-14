@@ -30,14 +30,17 @@ Help
 
 .. code-block:: text
 
-    usage: nextcloud-security-scan [-h] [-V] [--timeout TIMEOUT]
-                                   [--trigger TRIGGER] -u URL
+    usage: nextcloud-security-scan [-h] [-V] [--insecure] [--no-proxy]
+                                   [--timeout TIMEOUT] [--trigger TRIGGER] -u URL
 
     Checks the security of your private Nextcloud server.
 
-    optional arguments:
+    options:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
       --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
       --trigger TRIGGER  Trigger re-scan of the Nextcloud server if result on
                          scan.nextcloud.com is older than n days. Default: 14
