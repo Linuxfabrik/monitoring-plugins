@@ -26,7 +26,8 @@ Help
 
 .. code-block:: text
 
-    usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [-p PASSWORD]
+    usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [--insecure]
+                                    [--no-proxy] [-p PASSWORD]
                                     [--severity {warn,crit}] [--test TEST]
                                     [--timeout TIMEOUT] [--url URL]
                                     [--username USERNAME]
@@ -37,6 +38,9 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Jitsi API password.
       --severity {warn,crit}

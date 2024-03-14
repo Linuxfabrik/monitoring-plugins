@@ -50,6 +50,7 @@ Monitoring Plugins:
 * huawei-dorado-\*: Add new parameter `--insecure`
 * infomaniak-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * infomaniak-swiss-backup-products: Improve output
+* jitsi-\*: Add new parameters `--insecure` `--no-proxy`
 * journald-query: Remove hard-coded `--boot` parameter from query
 * logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * metabase-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`

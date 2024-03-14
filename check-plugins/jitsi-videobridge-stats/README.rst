@@ -35,8 +35,9 @@ Help
 
 .. code-block:: text
 
-    usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [-c CRIT] [-p PASSWORD]
-                                   [--test TEST] [--timeout TIMEOUT] [--url URL]
+    usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+                                   [--no-proxy] [-p PASSWORD] [--test TEST]
+                                   [--timeout TIMEOUT] [--url URL]
                                    [--username USERNAME] [-w WARN]
 
     Checks the number of participants on a Jitsi Videobridge and returns a bunch
@@ -49,6 +50,9 @@ Help
       -c CRIT, --critical CRIT
                             Set the CRIT threshold for the number of participants.
                             Default: >= 100
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Jitsi API password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
