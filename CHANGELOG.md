@@ -35,6 +35,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * apache-httpd-status: Add new parameters `--no-proxy` `--timeout`
+* axenita-stats: Add new parameters `--insecure` `--no-proxy`
 * deb-lastactivity: WARN if last modified timestamp is not found for one or more packages ([#743](https://github.com/Linuxfabrik/monitoring-plugins/issues/743))
 * fs-ro: Add `/dev/loop` to default ignore list
 * fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))

@@ -24,20 +24,23 @@ Help
 
 .. code-block:: text
 
-    usage: axenita-stats [-h] [-V] [--always-ok] [--url URL] [--test TEST]
-                          [--timeout TIMEOUT]
+    usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                         [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-    With this plugin you can track some values of the Aexnita application.
+    With this plugin you can track some values of the Axenita application.
 
-    optional arguments:
+    options:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
       --always-ok        Always returns OK.
-      --url URL          Axenita API URL. Default:
-                         http://localhost:10000/achilles/ar
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
+      --url URL          Axenita API URL. Default:
+                         http://localhost:10000/achilles/ar
 
 
 Usage Examples

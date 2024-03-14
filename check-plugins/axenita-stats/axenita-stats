@@ -23,12 +23,14 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = 'With this plugin you can track some values of the Axenita application.'
 
-DEFAULT_URL = 'http://localhost:10000/achilles/ar'
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:10000/achilles/ar'
 
 
 def parse_args():
@@ -49,6 +51,24 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
@@ -57,7 +77,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -65,7 +86,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Axenita API URL. Default: %(default)s',
+        help='Axenita API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -92,17 +114,29 @@ def main():
     # fetch data, get axenita info
     if args.TEST is None:
         achilles_readmodel = lib.base.coe(lib.url.fetch_json(
-            args.URL + '/api/admin/readmodel/state', timeout=args.TIMEOUT
-            ))
+            args.URL + '/api/admin/readmodel/state',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         achilles_userinfo = lib.base.coe(lib.url.fetch_json(
-            args.URL + '/api/admin/user-info/number-of-current-sessions', timeout=args.TIMEOUT
-            ))
+            args.URL + '/api/admin/user-info/number-of-current-sessions',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         achilles_buildinfo = lib.base.coe(lib.url.fetch_json(
-            args.URL + '/api/build-info', timeout=args.TIMEOUT
-            ))
+            args.URL + '/api/build-info',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         achilles_maintenance = lib.base.coe(lib.url.fetch_json(
-            args.URL + '/api/login/maintenance-state-active', timeout=args.TIMEOUT
-            ))
+            args.URL + '/api/login/maintenance-state-active',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
