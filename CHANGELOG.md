@@ -34,6 +34,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* about-me: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * apache-httpd-status: Add new parameters `--no-proxy` `--timeout`
 * axenita-stats: Add new parameters `--insecure` `--no-proxy`
 * deb-lastactivity: WARN if last modified timestamp is not found for one or more packages ([#743](https://github.com/Linuxfabrik/monitoring-plugins/issues/743))

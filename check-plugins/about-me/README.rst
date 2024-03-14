@@ -42,13 +42,17 @@ Help
 
 .. code-block:: text
 
-    usage: about-me [-h] [-V] [--public-ip-url PUBLIC_IP_URL] [--tags]
+    usage: about-me [-h] [-V] [--insecure] [--no-proxy]
+                    [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
 
     Reports a quick overview about the host dimensions and installed software.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --public-ip-url PUBLIC_IP_URL
                             If you want this check to return the public IP
                             address, specify one ore more comma-separated URLs to
@@ -58,6 +62,7 @@ Help
                             States). Default: None
       --tags                Guess a list of tags to apply in Icinga Director
                             (Linuxfabrik Basket Config).
+      --timeout TIMEOUT     Network timeout in seconds. Default: 2 (seconds)
 
 
 Usage Examples
