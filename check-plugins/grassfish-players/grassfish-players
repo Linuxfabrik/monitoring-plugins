@@ -26,7 +26,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """This monitoring plugin shows you a list of Grassfish players whose data transfer
                  status is overdue, whose last access date is more than `--warning` hours ago
@@ -38,10 +38,13 @@ DESCRIPTION = """This monitoring plugin shows you a list of Grassfish players wh
 DEFAULT_API_VERSION = '1.12'
 DEFAULT_BOX_STATE = ['activated']
 DEFAULT_CRIT = None
+DEFAULT_INSECURE = False
 DEFAULT_IS_INSTALLED = None
 DEFAULT_IS_LICENSED = None
 DEFAULT_LENGTHY = False
+DEFAULT_NO_PROXY = False
 DEFAULT_PORT = '443'
+DEFAULT_TIMEOUT = 8
 DEFAULT_TRANSFER_STATUS = None
 DEFAULT_URL = '/gv2/webservices/API'
 DEFAULT_WARN = 8  # hours
@@ -68,7 +71,8 @@ def parse_args():
 
     parser.add_argument(
         '--api-version',
-        help='Grassfish API Version. Default: %(default)s',
+        help='Grassfish API Version. '
+             'Default: %(default)s',
         dest='API_VERSION',
         default=DEFAULT_API_VERSION,
     )
@@ -101,9 +105,19 @@ def parse_args():
 
     parser.add_argument(
         '-H', '--hostname',
-        help='Grassfish hostname. Default: %(default)s',
+        help='Grassfish hostname. '
+             'Default: %(default)s',
         dest='HOSTNAME',
         required=True,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
@@ -137,8 +151,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--port',
-        help='Grassfish port. Default: %(default)s',
+        help='Grassfish port. '
+             'Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
@@ -149,6 +173,15 @@ def parse_args():
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -181,7 +214,8 @@ def parse_args():
 
     parser.add_argument(
         '-u', '--url',
-        help='Grassfish API URL. Default: %(default)s',
+        help='Grassfish API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -229,6 +263,9 @@ def main():
             args.URL,
             args.API_VERSION,
             'Players',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
         ))
     else:
         # do not call the command, put in test data

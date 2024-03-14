@@ -33,10 +33,11 @@ Help
     usage: grassfish-players [-h] [-V] [--always-ok] [--api-version API_VERSION]
                              [--box-id BOX_ID]
                              [--box-state {activated,deleted,new,reserved,undefined}]
-                             [--custom-id CUSTOM_ID] -H HOSTNAME
+                             [--custom-id CUSTOM_ID] -H HOSTNAME [--insecure]
                              [--is-installed {yes,no}] [--is-licensed {yes,no}]
-                             [--lengthy] [--port PORT] [--test TEST] --token
-                             TOKEN [--transfer-status {complete,overdue,pending}]
+                             [--lengthy] [--no-proxy] [--port PORT] [--test TEST]
+                             [--timeout TIMEOUT] --token TOKEN
+                             [--transfer-status {complete,overdue,pending}]
                              [-w WARN] [-u URL]
 
     This monitoring plugin shows you a list of Grassfish players whose data
@@ -60,6 +61,8 @@ Help
                             Expressions (regex).
       -H HOSTNAME, --hostname HOSTNAME
                             Grassfish hostname. Default: None
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --is-installed {yes,no}
                             Filter by boxes that are installed (= "yes") or not (=
                             "no"). Repeating.
@@ -67,9 +70,11 @@ Help
                             Filter by boxes that are licensed (= "yes") or not (=
                             "no"). Repeating.
       --lengthy             Extended reporting.
+      --no-proxy            Do not use a proxy. Default: False
       --port PORT           Grassfish port. Default: 443
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --token TOKEN         Grassfish API token
       --transfer-status {complete,overdue,pending}
                             Filter by specific data transfer status. Repeating.

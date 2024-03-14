@@ -29,10 +29,11 @@ Help
 .. code-block:: text
 
     usage: grassfish-licenses [-h] [-V] [--always-ok] [--api-version API_VERSION]
-                              -H HOSTNAME [--port PORT] --token TOKEN
-                              [--test TEST] [-u URL]
+                              -H HOSTNAME [--insecure] [--no-proxy] [--port PORT]
+                              [--test TEST] [--timeout TIMEOUT] --token TOKEN
+                              [-u URL]
 
-    Warns if no more Grassfish licenses are available, using the Grassfish API.
+    Alerts if no more Grassfish licenses are available, using the Grassfish API.
     You must provide both the Grassfish hostname and a Grassfish token for this
     check to work.
 
@@ -44,9 +45,13 @@ Help
                             Grassfish API Version. Default: 1.12
       -H HOSTNAME, --hostname HOSTNAME
                             Grassfish hostname. Default: None
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --port PORT           Grassfish port. Default: 443
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --token TOKEN         Grassfish API token
       -u URL, --url URL     Grassfish API URL. Default: /gv2/webservices/API
 

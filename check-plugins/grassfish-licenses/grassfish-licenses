@@ -24,14 +24,17 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Alerts if no more Grassfish licenses are available, using the Grassfish API.
                  You must provide both the Grassfish hostname and a Grassfish token for this
                  check to work."""
 
 DEFAULT_API_VERSION = '1.12'
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_PORT = '443'
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = '/gv2/webservices/API'
 
 
@@ -56,21 +59,42 @@ def parse_args():
 
     parser.add_argument(
         '--api-version',
-        help='Grassfish API Version. Default: %(default)s',
+        help='Grassfish API Version. '
+             'Default: %(default)s',
         dest='API_VERSION',
         default=DEFAULT_API_VERSION,
     )
 
     parser.add_argument(
         '-H', '--hostname',
-        help='Grassfish hostname. Default: %(default)s',
+        help='Grassfish hostname. '
+             'Default: %(default)s',
         dest='HOSTNAME',
         required=True,
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--port',
-        help='Grassfish port. Default: %(default)s',
+        help='Grassfish port. '
+             'Default: %(default)s',
         dest='PORT',
         type=int,
         default=DEFAULT_PORT,
@@ -84,6 +108,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--token',
         help='Grassfish API token',
         dest='TOKEN',
@@ -92,7 +125,8 @@ def parse_args():
 
     parser.add_argument(
         '-u', '--url',
-        help='Grassfish API URL. Default: %(default)s',
+        help='Grassfish API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -119,6 +153,9 @@ def main():
             args.URL,
             args.API_VERSION,
             'Licenses',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
         ))
     else:
         # do not call the command, put in test data
