@@ -35,19 +35,24 @@ Help
 
 .. code-block:: text
 
-    usage: redfish-sensor [-h] [-V] [--always-ok] [--password PASSWORD]
-                         [--url URL] [--username USERNAME]
+    usage: redfish-sensor [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                          [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
+                          [--username USERNAME]
 
     Checks the state of the Chassis collection containing resources that represent
     the physical aspects of the infrastructure. A Chassis is roughly defined as a
     physical view of a computer system as seen by a human. A single Chassis
     resource can house sensors, fans, and other components.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
       --always-ok          Always returns OK.
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
       --password PASSWORD  Redfish API password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
       --url URL            Redfish API URL. Default: https://localhost:5000
       --username USERNAME  Redfish API username.
 

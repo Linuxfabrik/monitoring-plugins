@@ -23,13 +23,16 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Checks the state of the Chassis collection containing resources that represent the
                  physical aspects of the infrastructure. A Chassis is roughly defined as a physical
                  view of a computer system as seen by a human. A single Chassis resource can house
                  sensors, fans, and other components."""
 
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
 
 
@@ -53,14 +56,42 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--password',
         help='Redfish API password.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--url',
-        help='Redfish API URL. Default: %(default)s',
+        help='Redfish API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -98,7 +129,13 @@ def main():
 
     # Entry point: Get the main data
     url = '{}/redfish/v1/Chassis'.format(base_url)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+    result = lib.base.coe(lib.url.fetch_json(
+        url,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Chassis/1U"
@@ -116,7 +153,13 @@ def main():
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
         url = '{}{}'.format(base_url, member['@odata.id'])  # "/redfish/v1/Chassis/1U"
-        chassis = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+        chassis = lib.base.coe(lib.url.fetch_json(
+            url,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         chassis = lib.redfish.get_chassis(chassis)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -141,11 +184,23 @@ def main():
             continue
 
         url = '{}{}'.format(base_url, chassis['Sensors_@odata.id'])
-        sensors = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+        sensors = lib.base.coe(lib.url.fetch_json(
+            url,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         table_data = []
         for sensor in sensors.get('Members', []):
             url = '{}{}'.format(base_url, sensor['@odata.id'])
-            sensor_data = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+            sensor_data = lib.base.coe(lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ))
             sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
             if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
@@ -166,7 +221,13 @@ def main():
 
         # get thermal values for the member
         url = '{}{}/Thermal'.format(base_url, member['@odata.id'])
-        thermal = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+        thermal = lib.base.coe(lib.url.fetch_json(
+            url,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
 
         # redundancy
         table_data = []
