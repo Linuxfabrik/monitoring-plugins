@@ -22,17 +22,9 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
-DESCRIPTION = '''Checks the date and return code of the last borgbackup, according to the logfile.
-`cat /var/log/borg/borg-prune.log`
-`cat /var/log/borg/borg-create.log`
-
-Return code
-0: success (logged as INFO)
-1: warning (operation reached its normal end, but there were warnings – you should check the log, logged as WARNING)
-2: error (like a fatal error, a local or remote exception, the operation did not reach its normal end, logged as ERROR)
-128+N   killed by signal N (e.g. 137 == kill -9)'''
+DESCRIPTION = 'Checks the date and return code of the last borgbackup, according to the logfile.'
 
 DEFAULT_CRIT = None
 DEFAULT_WARN = 24
@@ -51,7 +43,9 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
+        help='Set the critical threshold for the time difference to the start of the '
+             'last backup (in hours). '
+             'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -59,7 +53,9 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold for the time difference to the start of the last backup (in hours). Default: %(default)s',
+        help='Set the warning threshold for the time difference to the start of the '
+             'last backup (in hours). '
+             'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
