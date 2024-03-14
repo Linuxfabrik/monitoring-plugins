@@ -26,15 +26,16 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031201'
+__version__ = '2024031401'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
                  active incidents and lists maintenances. You need to provide the
                  URL to the Statuspal API `summary` endpoint."""
 
+DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 7
+DEFAULT_TIMEOUT  = 8
 DEFAULT_URL = 'https://statuspal.eu/api/v2/status_pages/exoscalestatus/summary'
 
 
@@ -58,8 +59,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -74,7 +85,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -82,7 +94,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Statuspal API URL. Default: %(default)s',
+        help='Statuspal API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -152,6 +165,7 @@ def main():
     if args.TEST is None:
         result = lib.base.coe(lib.url.fetch_json(
             args.URL,
+            insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         ))
