@@ -30,8 +30,9 @@ Help
 
 .. code-block:: text
 
-    usage: gitlab-health [-h] [-V] [--always-ok] [--severity {warn,crit}]
-                         [--test TEST] [--timeout TIMEOUT] [--url URL]
+    usage: gitlab-health [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                         [--severity {warn,crit}] [--test TEST]
+                         [--timeout TIMEOUT] [--url URL]
 
     Checks whether the GitLab application server is running. It does not hit the
     database or verifies other services are running.
@@ -40,6 +41,9 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerting. Default: warn
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
