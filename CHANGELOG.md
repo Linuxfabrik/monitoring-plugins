@@ -50,6 +50,7 @@ Monitoring Plugins:
 * huawei-dorado-\*: Add new parameter `--insecure`
 * infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
+* logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * metabase-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mod-qos-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mysql-memory: Enhance output, set threshold to 95%

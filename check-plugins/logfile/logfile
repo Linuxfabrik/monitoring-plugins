@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Scans a logfile for a set of patterns or regex and alerts
                  on the number of matches."""
@@ -34,7 +34,7 @@ DESCRIPTION = """Scans a logfile for a set of patterns or regex and alerts
 DEFAULT_ALARM_DURATION = 60 # minutes (1 hour)
 DEFAULT_CRIT = 1
 DEFAULT_ICINGA_CALLBACK = False
-DEFAULT_INSECURE = False
+DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
@@ -152,11 +152,38 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--suppress-lines',
         help='Suppress the found lines in the output, only report the number of findings.',
         dest='SUPPRESS_OUTPUT',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -344,7 +371,10 @@ def main():
             args.ICINGA_USERNAME,
             args.ICINGA_PASSWORD,
             servicename=args.ICINGA_SERVICE_NAME,
-            attrs='state,acknowledgement'
+            attrs='state,acknowledgement',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
         )
         if success:
             try:

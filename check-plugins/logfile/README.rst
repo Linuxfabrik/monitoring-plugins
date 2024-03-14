@@ -56,18 +56,19 @@ Help
                    [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
                    [--icinga-service-name ICINGA_SERVICE_NAME]
                    [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-                   [--ignore-pattern IGNORE_PATTERN]
-                   [--ignore-regex IGNORE_REGEX] [--suppress-lines] [-w WARN]
-                   [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+                   [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX]
+                   [--insecure] [--no-proxy] [--suppress-lines]
+                   [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
+                   [--warning-regex WARN_REGEX]
 
-    Scans a logfile for set of pattern or regex and alarms on the number of
-    findings.
+    Scans a logfile for a set of patterns or regex and alerts on the number of
+    matches.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --alarm-duration ALARM_DURATION
-                            How long should this check return an alarm on new
+                            How long should this check return an alert on new
                             matches (in minutes)? This is overwritten by --icinga-
                             callback. Default: 60
       --always-ok           Always returns OK.
@@ -78,11 +79,11 @@ Help
                             Any line containing this pattern will count as a
                             critical.
       --critical-regex CRIT_REGEX
-                            Any line matching this python regex will count as a
+                            Any line matching this Python regex will count as a
                             critical.
-      --filename FILENAME   Set the path of the logfile.
+      --filename FILENAME   Set the path to the logfile.
       --icinga-callback     Get the service acknowledgement from Icinga. This
-                            overwrites --alarm-duration. Default: False
+                            overwrites `--alarm-duration`. Default: False
       --icinga-password ICINGA_PASSWORD
                             Icinga API password.
       --icinga-service-name ICINGA_SERVICE_NAME
@@ -97,9 +98,13 @@ Help
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern will be ignored.
       --ignore-regex IGNORE_REGEX
-                            Any line matching this python regex will be ignored.
+                            Any line matching this Python regex will be ignored.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: True
+      --no-proxy            Do not use a proxy. Default: False
       --suppress-lines      Suppress the found lines in the output, only report
                             the number of findings.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
       -w WARN, --warning WARN
                             Set the warning threshold for the number of found
                             warning matches. Default: 1
@@ -107,7 +112,7 @@ Help
                             Any line containing this pattern will count as a
                             warning.
       --warning-regex WARN_REGEX
-                            Any line matching this python regex will count as a
+                            Any line matching this Python regex will count as a
                             warning.
 
 
