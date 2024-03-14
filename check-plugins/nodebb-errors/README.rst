@@ -36,7 +36,7 @@ Help
 
 .. code-block:: text
 
-    usage: nodebb-errors [-h] [-V] [--always-ok] [--insecure]
+    usage: nodebb-errors [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                          [--severity {warn,crit}] [--test TEST]
                          [--timeout TIMEOUT] -p TOKEN [--url URL]
 
@@ -48,6 +48,7 @@ Help
       --always-ok           Always returns OK.
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerts that do not depend on thresholds.
                             One of "warn" or "crit". Default: warn

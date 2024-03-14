@@ -36,7 +36,7 @@ Help
 
 .. code-block:: text
 
-    usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+    usage: nodebb-info [-h] [-V] [--always-ok] [-c CRIT] [--insecure] [--no-proxy]
                        [--test TEST] [--timeout TIMEOUT] -p TOKEN [--url URL]
                        [-w WARN]
 
@@ -47,10 +47,10 @@ Help
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >=
-                            95
+                            Set the CRIT threshold as a percentage. Default: >= 95
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
@@ -58,8 +58,7 @@ Help
                             NodeBB API Bearer token.
       --url URL             NodeBB API URL. Default: http://localhost:4567/forum
       -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >=
-                            90
+                            Set the WARN threshold as a percentage. Default: >= 90
 
 
 Usage Examples

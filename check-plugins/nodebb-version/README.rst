@@ -34,8 +34,8 @@ Help
 
 .. code-block:: text
 
-    usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--test TEST]
-                          [--timeout TIMEOUT] [-p TOKEN] [--url URL]
+    usage: nodebb-version [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                          [--test TEST] [--timeout TIMEOUT] [-p TOKEN] [--url URL]
 
     This plugin lets you track if a NodeBB update is available.
 
@@ -45,6 +45,7 @@ Help
       --always-ok           Always returns OK.
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

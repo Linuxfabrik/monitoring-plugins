@@ -37,7 +37,7 @@ Help
 .. code-block:: text
 
     usage: nodebb-database [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                           [--severity {warn,crit}] [--test TEST]
+                           [--no-proxy] [--severity {warn,crit}] [--test TEST]
                            [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
 
     Get NodeBB database information.
@@ -50,6 +50,7 @@ Help
                             Set the CRIT threshold as a percentage. Default: >= 95
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerts that do not depend on thresholds.
                             One of "warn" or "crit". Default: warn

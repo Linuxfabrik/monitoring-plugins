@@ -59,6 +59,7 @@ Monitoring Plugins:
 * mysql-memory: Enhance output, set threshold to 95%
 * nextcloud-security-scan: Add new parameters `--insecure` `--no-proxy`
 * nextcloud-stats: Add new parameter `--timeout`
+* nodebb-\*: Add new parameter `--no-proxy`
 * nginx-status: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * ntp-chronyd: Provide config info if an ntp server is not being used
 * onlyoffice-status: Add new parameters `--insecure` `--no-proxy`

@@ -36,8 +36,8 @@ Help
 
 .. code-block:: text
 
-    usage: nodebb-groups [-h] [-V] [--insecure] [--test TEST] [--timeout TIMEOUT]
-                         -p TOKEN [--url URL]
+    usage: nodebb-groups [-h] [-V] [--insecure] [--no-proxy] [--test TEST]
+                         [--timeout TIMEOUT] -p TOKEN [--url URL]
 
     Get NodeBB post settings.
 
@@ -46,6 +46,7 @@ Help
       -V, --version         show program's version number and exit
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

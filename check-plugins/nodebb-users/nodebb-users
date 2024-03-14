@@ -25,11 +25,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Get NodeBB users."""
 
 DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_SERVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:4567/forum'
@@ -56,15 +57,26 @@ def parse_args():
 
     parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--severity',
-        help='Severity for alerts that do not depend on thresholds. One of "warn" or "crit". Default: %(default)s',
+        help='Severity for alerts that do not depend on thresholds. One of "warn" or "crit". '
+             'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
@@ -79,7 +91,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -94,7 +107,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='NodeBB API URL. Default: %(default)s',
+        help='NodeBB API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
