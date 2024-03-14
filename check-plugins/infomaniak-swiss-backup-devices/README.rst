@@ -38,8 +38,9 @@ Help
 .. code-block:: text
 
     usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
-                                           [--always-ok] [-c CRIT]
-                                           [--severity {warn,crit}] --token TOKEN
+                                           [--always-ok] [-c CRIT] [--insecure]
+                                           [--no-proxy] [--severity {warn,crit}]
+                                           [--timeout TIMEOUT] --token TOKEN
                                            [--test TEST] [-w WARN]
 
     Checks each device / slot of all your Infomaniak Swiss backup products via the
@@ -53,8 +54,12 @@ Help
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the CRIT threshold as a percentage. Default: >= 95
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerting other values. Default: warn
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --token TOKEN         Infomaniak API token
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".

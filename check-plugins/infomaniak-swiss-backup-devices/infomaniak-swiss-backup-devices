@@ -26,13 +26,16 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
 
 DEFAULT_CRIT = 95
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 90
 
 
@@ -64,18 +67,47 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold as a percentage. '
+             'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--severity',
-        help='Severity for alerting other values. Default: %(default)s',
+        help='Severity for alerting other values. '
+             'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -94,7 +126,8 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold as a percentage. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -115,7 +148,13 @@ def main():
 
     # fetch list of products
     if args.TEST is None:
-        slots = lib.base.coe(lib.infomaniak.get_swiss_backup_slots(args.ACCOUNT_ID, args.TOKEN))
+        slots = lib.base.coe(lib.infomaniak.get_swiss_backup_slots(
+            args.ACCOUNT_ID,
+            args.TOKEN,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)

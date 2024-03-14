@@ -26,12 +26,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024021501'
+__version__ = '2024031401'
 
 DESCRIPTION = """Checks your Infomaniak Swiss Backup product details via the Infomaniak API."""
 
 DEFAULT_CRIT = 3  # days
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 5 # days
 
 
@@ -63,18 +66,47 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical for the expiration date in days. Default: %(default)s',
+        help='Set the critical for the expiration date in days. '
+             'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--severity',
-        help='Severity for alerting other values. Default: %(default)s',
+        help='Severity for alerting other values. '
+             'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -93,7 +125,8 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the warning for the expiration date in days. Default: %(default)s',
+        help='Set the warning for the expiration date in days. '
+             'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -114,7 +147,13 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.base.coe(lib.infomaniak.get_swiss_backup_products(args.ACCOUNT_ID, args.TOKEN))
+        result = lib.base.coe(lib.infomaniak.get_swiss_backup_products(
+            args.ACCOUNT_ID,
+            args.TOKEN,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)

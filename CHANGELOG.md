@@ -48,6 +48,7 @@ Monitoring Plugins:
 * grassfish-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * haproxy-status: Add new parameters `--insecure` `--no-proxy`
 * huawei-dorado-\*: Add new parameter `--insecure`
+* infomaniak-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
 * logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`

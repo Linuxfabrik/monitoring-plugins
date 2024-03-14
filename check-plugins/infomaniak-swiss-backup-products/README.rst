@@ -37,9 +37,10 @@ Help
 .. code-block:: text
 
     usage: infomaniak-swiss-backup-products [-h] [-V] --account-id ACCOUNT_ID
-                                            [--always-ok] [-c CRIT]
-                                            [--severity {warn,crit}] --token
-                                            TOKEN [--test TEST] [-w WARN]
+                                            [--always-ok] [-c CRIT] [--insecure]
+                                            [--no-proxy] [--severity {warn,crit}]
+                                            [--timeout TIMEOUT] --token TOKEN
+                                            [--test TEST] [-w WARN]
 
     Checks your Infomaniak Swiss Backup product details via the Infomaniak API.
 
@@ -51,15 +52,19 @@ Help
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the critical for the expiration date in days.
-                            Default: 5
+                            Default: 3
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerting other values. Default: warn
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --token TOKEN         Infomaniak API token
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       -w WARN, --warning WARN
                             Set the warning for the expiration date in days.
-                            Default: 14
+                            Default: 5
 
 
 Usage Examples

@@ -31,18 +31,18 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE01,,0'))
         self.assertIn('There are warnings.', stdout)
-        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Used %          ! Used', stdout)
-        self.assertIn('------+--------------+-------+--------------+--------+-------+-----------------+---------------------', stdout)
-        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! 50.5%           ! 4.6TiB / 9.1TiB', stdout)
+        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ', stdout)
+        self.assertIn('------+--------------+-------+--------------+--------+-------+--------+-', stdout)
+        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --test=stdout/EXAMPLE02,,0'))
         self.assertIn('Everything is ok.', stdout)
-        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Used % ! Used', stdout)
-        self.assertIn('------+--------------+-------+--------------+--------+-------+--------+---------------------', stdout)
-        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! 50.5%  ! 4.6TiB / 9.1TiB', stdout)
+        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! ', stdout)
+        self.assertIn('------+--------------+-------+--------------+--------+-------+--------+-', stdout)
+        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! False  ! ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
@@ -55,18 +55,18 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_EXAMPLE04_severity_warn(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --severity=warn --test=stdout/EXAMPLE04,,0'))
         self.assertIn('There are warnings.', stdout)
-        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Used % ! Used', stdout)
-        self.assertIn('------+--------------+-------+--------------+--------+-------+--------+---------------------', stdout)
-        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! 50.5%  ! 4.6TiB / 9.1TiB', stdout)
+        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked         ! ', stdout)
+        self.assertIn('------+--------------+-------+--------------+--------+-------+----------------+-', stdout)
+        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [WARNING] ! ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE04_severity_crit(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --severity=crit --test=stdout/EXAMPLE04,,0'))
         self.assertIn('There are critical errors.', stdout)
-        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Used % ! Used', stdout)
-        self.assertIn('------+--------------+-------+--------------+--------+-------+--------+---------------------', stdout)
-        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! 50.5%  ! 4.6TiB / 9.1TiB', stdout)
+        self.assertIn('ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked          ! ', stdout)
+        self.assertIn('------+--------------+-------+--------------+--------+-------+-----------------+-', stdout)
+        self.assertIn('99904 ! BK-200999-1  ! tag01 ! SBI-AB123456 ! bucket ! swift ! True [CRITICAL] ! ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
