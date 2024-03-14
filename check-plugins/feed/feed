@@ -24,7 +24,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024031402'
 
 DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
     if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
@@ -157,7 +157,11 @@ def parse_args():
 
 def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     success, myfeed = lib.feedparser.parse(
-        feed_url, insecure=insecure, no_proxy=no_proxy, timeout=timeout)
+        feed_url,
+        insecure=insecure,
+        no_proxy=no_proxy,
+        timeout=timeout,
+    )
     if not success:
         return (False, myfeed)
     if len(myfeed['entries']) == 0:
@@ -169,7 +173,11 @@ def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     """Fetch the newest feed item starting from now/today, or older.
     """
     success, myfeed = lib.feedparser.parse(
-        feed_url, insecure=insecure, no_proxy=no_proxy, timeout=timeout)
+        feed_url,
+        insecure=insecure,
+        no_proxy=no_proxy,
+        timeout=timeout,
+    )
     if not success:
         return (False, myfeed)
     if len(myfeed['entries']) == 0:
@@ -209,7 +217,11 @@ def get_feed_state(feed_id, delta, args):
     if delta < args.WARN*60:
         if not args.ICINGA_CALLBACK:
             return STATE_WARN
-        cached_item = lib.cache.get('feed-{}'.format(feed_id), as_dict=True, filename='linuxfabrik-monitoring-plugins-feed.db')
+        cached_item = lib.cache.get(
+            'feed-{}'.format(feed_id),
+            as_dict=True,
+            filename='linuxfabrik-monitoring-plugins-feed.db',
+        )
         if cached_item:
             if cached_item['value'] == 'acked':
                 return STATE_OK
@@ -226,11 +238,21 @@ def get_feed_state(feed_id, delta, args):
             if not success:
                 return STATE_WARN
             if icinga['results'][0]['attrs']['acknowledgement']:
-                lib.cache.set('feed-{}'.format(feed_id), 'acked', cached_item['timestamp'], filename='linuxfabrik-monitoring-plugins-feed.db')
+                lib.cache.set(
+                    'feed-{}'.format(feed_id),
+                    'acked',
+                    cached_item['timestamp'],
+                    filename='linuxfabrik-monitoring-plugins-feed.db',
+                )
                 return STATE_OK
             return STATE_WARN
         else:
-            lib.cache.set('feed-{}'.format(feed_id), 'unacked', lib.time.now() + args.WARN*60, filename='linuxfabrik-monitoring-plugins-feed.db')
+            lib.cache.set(
+                'feed-{}'.format(feed_id),
+                'unacked',
+                lib.time.now() + args.WARN*60,
+                filename='linuxfabrik-monitoring-plugins-feed.db',
+            )
             return STATE_WARN
     else:
         return STATE_OK
@@ -243,15 +265,31 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.ICINGA_CALLBACK and (not args.ICINGA_URL or not args.ICINGA_PASSWORD or not args.ICINGA_USERNAME or not args.ICINGA_SERVICE_NAME):
+    if args.ICINGA_CALLBACK \
+    and (
+        not args.ICINGA_URL \
+        or not args.ICINGA_PASSWORD \
+        or not args.ICINGA_USERNAME \
+        or not args.ICINGA_SERVICE_NAME
+    ):
         lib.base.cu('--icinga-callback requires --icinga-url, --icinga-password, --icinga-username and --icinga-service-name')
 
     if args.LATEST:
         # get the newest/latest feed item, even if it is in the future
-        feed_item = lib.base.coe(fetch_feed_latest_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
+        feed_item = lib.base.coe(fetch_feed_latest_item(
+            args.FEED_URL,
+            args.INSECURE,
+            args.NO_PROXY,
+            args.TIMEOUT,
+        ))
     else:
         # get the latest feed item starting from today
-        feed_item = lib.base.coe(fetch_feed_todays_item(args.FEED_URL, args.INSECURE, args.NO_PROXY, args.TIMEOUT))
+        feed_item = lib.base.coe(fetch_feed_todays_item(
+            args.FEED_URL,
+            args.INSECURE,
+            args.NO_PROXY,
+            args.TIMEOUT,
+        ))
 
     # feed with 0 entries
     if not feed_item:
