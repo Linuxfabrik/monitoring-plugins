@@ -33,8 +33,8 @@ Help
 
     usage: huawei-dorado-enclosure [-h] [-V] [--always-ok]
                                    [--cache-expire CACHE_EXPIRE] --device-id
-                                   DEVICE_ID [--no-proxy] --password PASSWORD
-                                   [--scope SCOPE] [--test TEST]
+                                   DEVICE_ID [--insecure] [--no-proxy] --password
+                                   PASSWORD [--scope SCOPE] [--test TEST]
                                    [--timeout TIMEOUT] -u URL --username USERNAME
 
     Batch querying enclosure information of a Huawei OceanStor Dorado storage
@@ -49,6 +49,8 @@ Help
                             expires, in minutes. Default: 15
       --device-id DEVICE_ID
                             Huawei OceanStor Dorado API Device ID.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: True
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   Huawei OceanStor Dorado API Password.
       --scope SCOPE         Huawei OceanStor Dorado API Scope.

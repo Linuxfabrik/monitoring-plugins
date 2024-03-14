@@ -33,8 +33,8 @@ Help
 
     usage: huawei-dorado-system [-h] [-V] [--always-ok]
                                 [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                                --device-id DEVICE_ID [--no-proxy] --password
-                                PASSWORD [--scope SCOPE] [--test TEST]
+                                --device-id DEVICE_ID [--insecure] [--no-proxy]
+                                --password PASSWORD [--scope SCOPE] [--test TEST]
                                 [--timeout TIMEOUT] -u URL --username USERNAME
                                 [-w WARN]
 
@@ -52,6 +52,8 @@ Help
                             Set the CRIT threshold as a percentage. Default: >= 95
       --device-id DEVICE_ID
                             Huawei OceanStor Dorado API Device ID.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: True
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   Huawei OceanStor Dorado API Password.
       --scope SCOPE         Huawei OceanStor Dorado API Scope.

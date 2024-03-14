@@ -26,16 +26,16 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Batch query basic information about HyperMetroPairs of a Huawei OceanStor Dorado
                  storage system via the REST Interface, using the ``/hypermetropair`` endpoint."""
 
-DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT  = 3
-
-DEFAULT_SCOPE = 0
 DEFAULT_CACHE_EXPIRE = 15 # minutes; default session timeout period is 20 minutes
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = 0
+DEFAULT_TIMEOUT  = 3
 
 
 def parse_args():
@@ -59,7 +59,8 @@ def parse_args():
 
     parser.add_argument(
         '--cache-expire',
-        help='The amount of time after which the credential cache expires, in minutes. Default: %(default)s',
+        help='The amount of time after which the credential cache expires, in minutes. '
+             'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -73,8 +74,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -103,7 +114,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,

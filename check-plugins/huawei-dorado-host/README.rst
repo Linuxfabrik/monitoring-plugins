@@ -1,5 +1,5 @@
 Check huawei-dorado-host
-=============================
+========================
 
 Overview
 --------
@@ -33,9 +33,9 @@ Help
 
     usage: huawei-dorado-host [-h] [-V] [--always-ok]
                               [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
-                              [--no-proxy] --password PASSWORD [--scope SCOPE]
-                              [--test TEST] [--timeout TIMEOUT] -u URL --username
-                              USERNAME
+                              [--insecure] [--no-proxy] --password PASSWORD
+                              [--scope SCOPE] [--test TEST] [--timeout TIMEOUT] -u
+                              URL --username USERNAME
 
     Batch query basic information about hosts attached to a Huawei OceanStor
     Dorado storage system via the REST Interface, using the ``/host`` endpoint.
@@ -49,6 +49,8 @@ Help
                             expires, in minutes. Default: 15
       --device-id DEVICE_ID
                             Huawei OceanStor Dorado API Device ID.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: True
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   Huawei OceanStor Dorado API Password.
       --scope SCOPE         Huawei OceanStor Dorado API Scope.
