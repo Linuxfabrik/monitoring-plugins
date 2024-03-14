@@ -34,7 +34,7 @@ Help
     This check parses a flat json array from a file or url and simply returns the
     message, state and perfdata from the json.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

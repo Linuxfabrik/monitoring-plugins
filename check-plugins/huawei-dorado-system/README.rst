@@ -41,7 +41,7 @@ Help
     Query basic status and performance data about a Huawei OceanStor Dorado
     storage system via the REST Interface, using the ``/system/`` endpoint.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

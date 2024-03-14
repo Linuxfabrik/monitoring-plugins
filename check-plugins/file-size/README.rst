@@ -28,12 +28,12 @@ Help
 .. code-block:: text
 
     usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                     [--pattern PATTERN] [--password PASSWORD]
-                     [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
+                     [--pattern PATTERN] [--password PASSWORD] [--timeout TIMEOUT]
+                     [-u URL] [--username USERNAME] [-w WARN]
 
     Checks the size for a file or directory, in bytes.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

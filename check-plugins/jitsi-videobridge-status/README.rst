@@ -33,15 +33,14 @@ Help
 
     Checks the Jitsi Videobridge health state.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -p PASSWORD, --password PASSWORD
                             Jitsi API password.
       --severity {warn,crit}
-                            Severity for alerting. One of "warn" or "crit".
-                            Default: warn
+                            Severity for alerting. Default: warn
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)

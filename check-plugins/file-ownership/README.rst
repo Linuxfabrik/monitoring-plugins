@@ -73,7 +73,7 @@ Help
     Checks the ownership (owner and group, both have to be names) of a list of
     files.
 
-    optional arguments:
+    options:
       -h, --help        show this help message and exit
       -V, --version     show program's version number and exit
       --filename FILES  File to be checked, in the format `owner:group,path`

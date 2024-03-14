@@ -40,7 +40,7 @@ Help
     Batch query basic information about interfaces on a Huawei OceanStor Dorado
     storage system via the REST Interface, using the ``/intf_module`` endpoint.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

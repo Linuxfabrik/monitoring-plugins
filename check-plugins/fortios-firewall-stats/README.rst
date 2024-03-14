@@ -24,8 +24,8 @@ Help
 
 .. code-block:: text
 
-    usage: fortios-firewall-stats [-h] [-V] [--always-ok] -H HOSTNAME
-                                  [--insecure] [--no-proxy] --password PASSWORD
+    usage: fortios-firewall-stats [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
+                                  [--no-proxy] --password PASSWORD
                                   [--timeout TIMEOUT]
 
     Summarizes traffic statistics for all IPv4 and IPv6 firewall policies from
@@ -33,7 +33,7 @@ Help
     authentication is done via a single API token (Token-based authentication),
     not via Session-based authentication, which is stated as "legacy".
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -45,7 +45,6 @@ Help
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   FortiOS REST API Single Access Token.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-
 
 
 Usage Examples

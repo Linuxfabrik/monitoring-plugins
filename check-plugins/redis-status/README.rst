@@ -36,10 +36,10 @@ Help
                         [--ignore-thp] [-p PASSWORD] [--port PORT]
                         [--socket SOCKET] [--test TEST] [-w WARN]
 
-    Returns information and statistics about the Redis server. Alerts on memory
+    Returns information and statistics about a Redis server. Alerts on memory
     consumption, memory fragmentation, hit rates and more.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

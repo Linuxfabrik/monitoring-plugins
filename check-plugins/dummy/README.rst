@@ -25,12 +25,12 @@ Help
 
 .. code-block:: text
 
-    usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE]
-                 [--perfdata PERFDATA] [--state {ok,warn,crit,unk}]
+    usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE] [--perfdata PERFDATA]
+                 [--state {ok,warn,crit,unk}]
 
     This check just returns the given message, state and perfdata.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

@@ -35,13 +35,17 @@ Help
     Displays amount of used memory in percent, and checks against configured or
     given thresholds.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the critical threshold for memory usage (in
-                            percent). Default: 88
+                            percent). Hint: This plugin tries to check against the
+                            global configured `memory-use-threshold-green` and
+                            `memory-use-threshold-red` first; only if there is no
+                            value, the check's command line values are used.
+                            Default: 88
       -H HOSTNAME, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
                             port ("192.168.1.1:443").
@@ -52,7 +56,11 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -w WARN, --warning WARN
                             Set the warning threshold for memory usage (in
-                            percent). Default: 82
+                            percent). Hint: This plugin tries to check against the
+                            global configured `memory-use-threshold-green` and
+                            `memory-use-threshold-red` first; only if there is no
+                            value, the check's command line values are used.
+                            Default: 82
 
 
 Usage Examples

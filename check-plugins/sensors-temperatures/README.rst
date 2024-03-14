@@ -32,7 +32,7 @@ Help
     are expressed in celsius. Check is done automatically against hardware
     thresholds. If sensors are not supported by the OS OK is returned.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
       --always-ok    Always returns OK.

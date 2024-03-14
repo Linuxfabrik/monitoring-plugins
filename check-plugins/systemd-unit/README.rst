@@ -39,10 +39,10 @@ Help
 .. code-block:: text
 
     usage: systemd-unit [-h] [-V]
-                        [--activestate {active,failed,inactive,activating,deactivating}]
-                        [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
+                        [--activestate {activating,active,deactivating,failed,inactive,None}]
+                        [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,None,not-found,reloading}]
                         [--severity {warn,crit}]
-                        [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
+                        [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,None,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
                         --unit UNIT
                         [--unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}]
 
@@ -51,25 +51,27 @@ Help
     if the service "sshd" is running, use `systemd-unit --substate=running
     --unit=sshd`. Have a look at the README for more details.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      --activestate {active,failed,inactive,activating,deactivating}
+      --activestate {activating,active,deactivating,failed,inactive,None}
                             Expected systemd ActiveState (repeating). This is the
                             high-level unit activation state(s), i.e.
-                            generalization of SUB. If ommited, the unit's active
-                            state will not be checked.
-      --loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}
+                            generalization of SUB. If ommited or set to "None",
+                            the unit's active state will not be checked.
+      --loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,None,not-found,reloading}
                             Expected systemd LoadState. Reflects whether the unit
-                            definition was properly loaded. Default: loaded
+                            definition was properly loaded. If ommited or set to
+                            "None", the unit's load state will not be checked.
+                            Default: loaded
       --severity {warn,crit}
                             If something was found, the check returns WARN unless
-                            set here. One of "warn" or "crit". Default: warn
-      --substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
+                            set here. Default: warn
+      --substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,None,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
                             Expected systemd SubState (repeating). This is the
                             low-level unit activation state(s); values depend on
-                            unit type. If ommited, the unit's substate will not be
-                            checked.
+                            unit type. If ommited or set to "None", the unit's
+                            substate will not be checked.
       --unit UNIT           The unit name (service, timer, mount etc.). Required.
                             For example "sshd", "sshd.service", "my-samba-
                             mount.mount" etc.
@@ -78,7 +80,6 @@ Help
                             "None", the unit's unit-file state will not be
                             checked. If "empty", checks exactly for
                             ``UnitFileState=""``.
-
 
 
 Usage Examples

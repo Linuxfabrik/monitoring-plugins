@@ -45,7 +45,7 @@ Help
 
     Checks the IPv4 scope usage for a Windows DHCP server service.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -70,7 +70,6 @@ Help
                             WinRM transport type. Default: ntlm
       --winrm-username WINRM_USERNAME
                             WinRM Account Name. Default: None
-
 
 
 Usage Examples

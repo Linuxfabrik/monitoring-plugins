@@ -35,7 +35,7 @@ Help
     via a single API token (Token-based authentication), not via Session-based
     authentication, which is stated as "legacy".
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

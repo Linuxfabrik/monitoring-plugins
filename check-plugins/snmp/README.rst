@@ -36,23 +36,24 @@ Help
 
 .. code-block:: text
 
-    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
-                -H HOSTNAME [--mib MIB] [--mib-dir MIBDIR]
-                [--snmpversion {1,2c,3}] [-t TIMEOUT] [--v3bootstime V3BOOTSTIME]
-                [--v3context V3CONTEXT] [--v3contextengineid V3CONTEXTENGINEID]
-                [--v3securityengineid V3SECURITYENGINEID]
-                [--v3level {noAuthNoPriv,authNoPriv,authPriv}]
-                [--v3authprotpassword V3AUTHPROTPASSWORD]
-                [--v3privprotpassword V3PRIVPROTPASSWORD]
-                [--v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
-                [--v3privprot {DES,AES,AES-192,AES-256}]
-                [--v3username V3USERNAME] [--test TEST]
+    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok] -H
+                HOSTNAME [--mib MIB] [--mib-dir MIB_DIR] [--snmp-version {1,2c,3}]
+                [--test TEST] [-t TIMEOUT]
+                [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
+                [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
+                [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
+                [--v3-context-engine-id V3_CONTEXT_ENGINE_ID]
+                [--v3-level {noAuthNoPriv,authNoPriv,authPriv}]
+                [--v3-priv-prot {DES,AES,AES-192,AES-256}]
+                [--v3-priv-prot-password V3_PRIV_PROT_PASSWORD]
+                [--v3-security-engine-id V3_SECURITY_ENGINE_ID]
+                [--v3-username V3_USERNAME]
 
     This check is a SNMP application that uses the SNMP GET request to query for
     information on a network entity. The object identifiers (OIDs) of interest
     have to be defined in a CSV file, including optional WARN and CRIT parameters.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --community COMMUNITY
@@ -68,42 +69,42 @@ Help
       --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
                             MIB:BROTHER-MIB`. Behaves like the `-m` option of
                             `snmpget`.
-      --mib-dir MIBDIR       Look in given list of directories for MIBs. Behaves
+      --mib-dir MIB_DIR     Look in given list of directories for MIBs. Behaves
                             like the `-M` option of `snmpget`. Default:
                             $HOME/.snmp/mibs:/usr/share/snmp/mibs.
-      --snmpversion {1,2c,3}
+      --snmp-version {1,2c,3}
                             Specifies SNMP version to use. Default: 2c.
-      -t TIMEOUT, --timeout TIMEOUT
-                            Network timeout in seconds. Default: 7 (seconds).
-      --v3bootstime V3BOOTSTIME
-                            SNMP Version 3 specific. Set destination engine
-                            boots/time.
-      --v3context V3CONTEXT
-                            SNMP Version 3 specific. Set context name (e.g.
-                            bridge1).
-      --v3contextengineid V3CONTEXTENGINEID
-                            SNMP Version 3 specific. Set context engine ID (e.g.
-                            800000020109840301).
-      --v3securityengineid V3SECURITYENGINEID
-                            SNMP Version 3 specific. Set security engine ID (e.g.
-                            800000020109840301).
-      --v3level {noAuthNoPriv,authNoPriv,authPriv}
-                            SNMP Version 3 specific. Set security level.
-      --v3authprotpassword V3AUTHPROTPASSWORD
-                            SNMP Version 3 specific. Set authentication protocol
-                            pass phrase.
-      --v3privprotpassword V3PRIVPROTPASSWORD
-                            SNMP Version 3 specific. Set privacy protocol pass
-                            phrase.
-      --v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
-                            SNMP Version 3 specific. Set authentication protocol.
-      --v3privprot {DES,AES,AES-192,AES-256}
-                            SNMP Version 3 specific. Set privacy protocol.
-      --v3username V3USERNAME
-                            SNMP Version 3 specific. Set security name (e.g.
-                            bert).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
+      -t TIMEOUT, --timeout TIMEOUT
+                            Network timeout in seconds. Default: 7 (seconds).
+      --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
+                            SNMP Version 3 specific. Set authentication protocol.
+      --v3-auth-prot-password V3_AUTH_PROT_PASSWORD
+                            SNMP Version 3 specific. Set authentication protocol
+                            pass phrase.
+      --v3-boots-time V3_BOOTS_TIME
+                            SNMP Version 3 specific. Set destination engine
+                            boots/time.
+      --v3-context V3_CONTEXT
+                            SNMP Version 3 specific. Set context name (e.g.
+                            bridge1).
+      --v3-context-engine-id V3_CONTEXT_ENGINE_ID
+                            SNMP Version 3 specific. Set context engine ID (e.g.
+                            800000020109840301).
+      --v3-level {noAuthNoPriv,authNoPriv,authPriv}
+                            SNMP Version 3 specific. Set security level.
+      --v3-priv-prot {DES,AES,AES-192,AES-256}
+                            SNMP Version 3 specific. Set privacy protocol.
+      --v3-priv-prot-password V3_PRIV_PROT_PASSWORD
+                            SNMP Version 3 specific. Set privacy protocol pass
+                            phrase.
+      --v3-security-engine-id V3_SECURITY_ENGINE_ID
+                            SNMP Version 3 specific. Set security engine ID (e.g.
+                            800000020109840301).
+      --v3-username V3_USERNAME
+                            SNMP Version 3 specific. Set security name (e.g.
+                            bert).
 
 
 Installation

@@ -50,13 +50,24 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V]
+    usage: example [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] --token TOKEN
+                   [-w WARN]
 
-    Example Check.
+    A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
+    further development, and much more text to help admins get this check up and
+    running.
 
-    optional arguments:
-      -h, --help       show this help message and exit
-      -V, --version    show program's version number and exit
+    options:
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the CRIT threshold as a percentage. Default: >= 90
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
+      --token TOKEN         Software API token
+      -w WARN, --warning WARN
+                            Set the WARN threshold as a percentage. Default: >= 80
 
 
 Usage Examples

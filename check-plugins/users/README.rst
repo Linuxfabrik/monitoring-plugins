@@ -39,7 +39,7 @@ Help
     Console) and pts (on Linux: typically ssh, on Windows: RDP). Also counts the
     disconnected users on Windows (closed connections without logging out).
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -c CRIT, --critical CRIT

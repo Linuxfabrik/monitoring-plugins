@@ -31,9 +31,12 @@ Help
 
     usage: load [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Return the average system load per cpu over the last 1, 5 and 15 minutes.
+    Return the average system load per cpu over the last 1, 5 and 15 minutes. In
+    short, "load" is the average sum of the number of processes waiting in the
+    run-queue plus the number currently executing over 1, 5, and 15 minute time
+    periods.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

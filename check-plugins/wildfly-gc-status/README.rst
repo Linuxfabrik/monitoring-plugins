@@ -37,7 +37,7 @@ Help
 
     Prints the status of the Wildfly/JBossAS garbage collector.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --instance INSTANCE   The instance (server-config) to check if running in
@@ -49,7 +49,7 @@ Help
                             WildFly API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990
-      --username USERNAME   WildFly API username. Default: wildfly-admin
+      --username USERNAME   WildFly API username. Default: wildfly-monitoring
 
 
 Usage Examples

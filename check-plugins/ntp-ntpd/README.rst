@@ -44,7 +44,7 @@ Help
     This plugin checks the clock offset of ntpd in milliseconds compared to ntp
     servers.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -c CRIT, --critical CRIT

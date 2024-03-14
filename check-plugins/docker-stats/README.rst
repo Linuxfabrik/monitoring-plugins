@@ -33,14 +33,14 @@ Help
 
     usage: docker-stats [-h] [-V] [--always-ok] [--count COUNT]
                         [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
-                        [--full-name] [--warning-cpu WARN_CPU]
+                        [--full-name] [--test TEST] [--warning-cpu WARN_CPU]
                         [--warning-mem WARN_MEM]
 
     This check prints various statistics for all running Docker containers, in
     much the same way as the Unix application top, using the "docker stats"
     command.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -56,6 +56,8 @@ Help
                             `traefik_traefik.2.1idw12p2yqp`. If ommitted, the name
                             will be shortened after the replica number (default
                             behaviour).
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       --warning-cpu WARN_CPU
                             Set the warning threshold CPU Usage Percentage.
                             Default: 80

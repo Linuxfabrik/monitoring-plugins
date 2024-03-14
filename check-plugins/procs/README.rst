@@ -46,20 +46,19 @@ Help
 
 .. code-block:: text
 
-    usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT]
-                 [--command COMMAND] [-c CRIT] [--critical-mem CRIT_MEM]
+    usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
+                 [-c CRIT] [--critical-mem CRIT_MEM]
                  [--critical-mem-percent CRIT_MEM_PERCENT]
                  [--critical-age CRIT_AGE] [--no-kthreads]
                  [--status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}]
                  [--username USERNAME] [-w WARN] [--warning-mem WARN_MEM]
-                 [--warning-mem-percent WARN_MEM_PERCENT]
-                 [--warning-age WARN_AGE]
+                 [--warning-mem-percent WARN_MEM_PERCENT] [--warning-age WARN_AGE]
 
     Prints the number of currently running processes and warns on metrics like
     process counts or process memory usage. You may filter the process list by
     process name, arguments and/or user name.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

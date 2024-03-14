@@ -27,10 +27,10 @@ Help
 
     usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Return battery status information. If no battery is installed or metrics
-    can't be determined OK is returned.
+    Return battery status information. If no battery is installed or metrics can't
+    be determined OK is returned.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

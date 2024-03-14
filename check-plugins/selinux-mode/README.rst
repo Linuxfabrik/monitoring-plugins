@@ -30,7 +30,7 @@ Help
     Checks the current mode of SELinux against a desired mode, and returns a
     warning on a non-match.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

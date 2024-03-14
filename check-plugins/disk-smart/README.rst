@@ -53,15 +53,15 @@ Help
     Technology) data in hard disk and solid-state drives. It allows you to inspect
     the drive's SMART data to determine its health.
 
-    optional arguments:
+    options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
       --full           If set, also warn on any assumptions (in GSmartControl
                        stated as "notice" messages), otherwise just warn on "real"
-                       SMART issues. Default: check warnings and alerts only.
+                       SMART issues. Default: False
       --ignore IGNORE  A comma-separated list of disks which should be ignored, in
-                       the format 'sda,sdb'.Default: []
+                       the format 'sda,sdb'. Default: []
       --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                        file,expected-retc".
 

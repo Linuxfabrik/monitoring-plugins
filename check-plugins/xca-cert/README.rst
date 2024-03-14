@@ -38,7 +38,7 @@ Help
 
     Checks expiration date of certificates in a XCA based MySQL/MariaDB database.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       -c CRIT, --critical CRIT

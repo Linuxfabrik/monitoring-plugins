@@ -44,15 +44,18 @@ Help
     use-threshold` first; only if there is no value, the check's command line
     values (or their defaults) are used.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --count COUNT         Number of times the value has to be above the given
                             thresholds. Default: 5
       -c CRIT, --critical CRIT
-                            Set the critical threshold CPU Usage Percentage.
-                            Default: 90
+                            Set the critical threshold CPU Usage Percentage. Hint:
+                            This plugin tries to check against the global
+                            configured `cpu-use-threshold` first; only if there is
+                            no value, the check's command line values (or their
+                            defaults) are used. Default: 90
       -H HOSTNAME, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
                             port ("192.168.1.1:443").
@@ -62,8 +65,11 @@ Help
       --password PASSWORD   FortiOS REST API Single Access Token.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -w WARN, --warning WARN
-                            Set the warning threshold CPU Usage Percentage.
-                            Default: 80
+                            Set the warning threshold CPU Usage Percentage. Hint:
+                            This plugin tries to check against the global
+                            configured `cpu-use-threshold` first; only if there is
+                            no value, the check's command line values (or their
+                            defaults) are used. Default: 80
 
 
 Usage Examples

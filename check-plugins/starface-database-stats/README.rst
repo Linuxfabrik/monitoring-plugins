@@ -36,7 +36,7 @@ Help
 
     usage: starface-database-stats [-h] [-V] [--cache-expire CACHE_EXPIRE]
                                    [-H HOSTNAME] [--port PORT] [--test TEST]
-                                   [--timeout TIMEOUT] [-6]
+                                   [--timeout TIMEOUT] [--ipv6]
 
     Returns the database connection statistics of the Starface PBX. It uses the
     data output of the Starface Monitoring Module, which was originally written
@@ -44,7 +44,7 @@ Help
     data is cached up to one minute, so that other Starface plugins running in
     parallel do not query the data again and overload the PBX.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --cache-expire CACHE_EXPIRE
@@ -56,9 +56,8 @@ Help
       --port PORT           Starface PBX monitoring port. Default: 6556
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -6, --6               Use IPv6.
-
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+      --ipv6                Use IPv6.
 
 
 Usage Examples

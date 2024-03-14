@@ -41,7 +41,7 @@ Help
     data stored therein. It reports on the number of unique files and their sizes,
     according to one of the counting modes as given by the --mode flag.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --host HOST           Only consider snapshots for this host (can be

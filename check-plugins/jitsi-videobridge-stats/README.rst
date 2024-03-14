@@ -35,15 +35,14 @@ Help
 
 .. code-block:: text
 
-    usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [-c CRIT]
-                                   [-p PASSWORD] [--test TEST]
-                                   [--timeout TIMEOUT] [--url URL]
+    usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [-c CRIT] [-p PASSWORD]
+                                   [--test TEST] [--timeout TIMEOUT] [--url URL]
                                    [--username USERNAME] [-w WARN]
 
-    Checks the number of participants on a Jitsi Videobridge and reports a bunch
-    of performance data.
+    Checks the number of participants on a Jitsi Videobridge and returns a bunch
+    of performance data using the REST version of the COLIBRI protocol.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

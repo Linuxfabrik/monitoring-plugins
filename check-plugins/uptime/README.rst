@@ -29,14 +29,16 @@ Help
 
     Tell how long the system has been running.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical threshold for uptime in days. Default: 366
+                            Set the critical threshold for uptime in days.
+                            Default: 366
       -w WARN, --warning WARN
-                            Set the warning threshold for uptime in days. Default: 180
+                            Set the warning threshold for uptime in days. Default:
+                            180
 
 
 Usage Examples

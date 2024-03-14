@@ -34,12 +34,12 @@ Help
                     [-H HOSTNAME] [--interface {lan,lanplus}]
                     [--password PASSWORD] [--port PORT]
                     [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
-                    [--username USERNAME]
+                    [--test TEST] [--username USERNAME]
 
     Checks the IPMI System Event Log (SEL) and returns WARN if there are entries.
     Use "ipmitool sel clear" to clear the IPMI System Event Log (SEL).
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --authtype {NONE,PASSWORD,MD2,MD5,OEM}
@@ -48,16 +48,17 @@ Help
                             PASSWORD, MD2, MD5, or OEM.
       -H HOSTNAME, --hostname HOSTNAME
                             Remote server address, can be IP address or hostname.
-                            This option is required for lan and lanplus
-                            interfaces.
+                            This option is required forlan and lanplus interfaces.
       --interface {lan,lanplus}
                             Selects IPMI interface to use. Supported types are
                             "lan" (= IPMI v1.5) or "lanplus" (= IPMI v2.0).
       --password PASSWORD   Remote server password.
-      --port PORT           Remote server UDP port to connect to. Default is 623.
+      --port PORT           Remote server UDP port to connect to. Default: 623
       --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                             Force session privilege level. Can be CALLBACK, USER,
-                            OPERATOR, ADMINISTRATOR. Default is USER.
+                            OPERATOR, ADMINISTRATOR.Default is USER.
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       --username USERNAME   Remote server username, default is NULL user.
 
 

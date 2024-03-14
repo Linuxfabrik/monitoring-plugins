@@ -32,16 +32,19 @@ Help
 
     usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
-    Displays amount of free and used memory in the system, checks against used memory in percent.
+    Displays amount of free and used memory in the system, checks against used
+    memory in percent.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical threshold for memory usage (in percent). Default: 95
+                            Set the critical threshold for memory usage (in
+                            percent). Default: 95
       -w WARN, --warning WARN
-                            Set the warning threshold for memory usage (in percent). Default: 90
+                            Set the warning threshold for memory usage (in
+                            percent). Default: 90
 
 
 Usage Examples

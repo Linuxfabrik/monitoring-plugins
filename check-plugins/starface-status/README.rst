@@ -37,7 +37,7 @@ Help
     usage: starface-status [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                            [--critical CRIT] [-H HOSTNAME] [--port PORT]
                            [--test TEST] [--timeout TIMEOUT] [--warning WARN]
-                           [-6]
+                           [--ipv6]
 
     Checks the overall health of the Starface PBX. It uses the data output of the
     Starface Monitoring Module, which was originally written for Check_MK and
@@ -45,7 +45,7 @@ Help
     to one minute, so that other Starface plugins running in parallel do not query
     the data again and overload the PBX.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -59,9 +59,9 @@ Help
       --port PORT           Starface PBX monitoring port. Default: 6556
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --warning WARN        Set the warning threshold (percentage). Default: 80
-      -6, --6               Use IPv6.
+      --ipv6                Use IPv6.
 
 
 Usage Examples

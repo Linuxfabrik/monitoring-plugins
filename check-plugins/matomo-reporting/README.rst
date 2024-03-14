@@ -36,7 +36,7 @@ Help
     This plugin lets you check the most common analytics values from Matomo, for
     one or several websites and for any given date and period.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
       --always-ok          Always returns OK.

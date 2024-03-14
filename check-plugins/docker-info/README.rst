@@ -28,7 +28,7 @@ Help
 
     Displays system-wide docker information.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
       --always-ok    Always returns OK.

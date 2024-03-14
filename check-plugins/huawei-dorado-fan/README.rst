@@ -31,16 +31,15 @@ Help
 
 .. code-block:: text
 
-    usage: huawei-dorado-fan [-h] [-V] [--always-ok]
-                            [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
-                            [--no-proxy] --password PASSWORD [--scope SCOPE]
-                            [--test TEST] [--timeout TIMEOUT] -u URL --username
-                            USERNAME
+    usage: huawei-dorado-fan [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                             --device-id DEVICE_ID [--no-proxy] --password
+                             PASSWORD [--scope SCOPE] [--test TEST]
+                             [--timeout TIMEOUT] -u URL --username USERNAME
 
     Batch query basic information about fans on a Huawei OceanStor Dorado storage
     system via the REST Interface, using the ``/fan`` endpoint.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -57,7 +56,6 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u URL, --url URL     Huawei OceanStor Dorado API URL.
       --username USERNAME   Huawei OceanStor Dorado API Username.
-
 
 
 Usage Examples

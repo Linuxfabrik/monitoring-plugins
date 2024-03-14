@@ -39,7 +39,7 @@ Help
     time period into account: the cpu usage within a certain amount of time has to
     be equal or above given thresholds before a warning is raised.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

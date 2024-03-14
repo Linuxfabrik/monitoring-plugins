@@ -38,7 +38,7 @@ Help
     services might need a restart, and in any other case OK. Should be called once
     a day or after applying updates only.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
 

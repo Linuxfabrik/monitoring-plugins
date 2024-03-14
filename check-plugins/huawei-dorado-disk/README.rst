@@ -32,15 +32,15 @@ Help
 .. code-block:: text
 
     usage: huawei-dorado-disk [-h] [-V] [--always-ok]
-                             [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
-                             [--no-proxy] --password PASSWORD [--scope SCOPE]
-                             [--test TEST] [--timeout TIMEOUT] -u URL --username
-                             USERNAME
+                              [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
+                              [--no-proxy] --password PASSWORD [--scope SCOPE]
+                              [--test TEST] [--timeout TIMEOUT] -u URL --username
+                              USERNAME
 
     Batch query basic information about disks on a Huawei OceanStor Dorado storage
     system via the REST Interface, using the ``/disk`` endpoint.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

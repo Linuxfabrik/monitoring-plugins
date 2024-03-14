@@ -42,7 +42,7 @@ Help
 
     This plugin checks the state of systemd-timesyncd.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
       --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-

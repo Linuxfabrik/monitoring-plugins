@@ -33,17 +33,18 @@ Help
     usage: strongswan-connections [-h] [-V] [--always-ok] [--lengthy]
                                   [--socket SOCKET] [--test TEST]
 
-    Checks IPSec connection states in libcharon using the Versatile IKE Control
+    This Nagios/Icinga monitoring plugin checks IPSec connection states. It
+    connects to the vici plugin in libcharon using the Versatile IKE Control
     Interface (VICI) to monitor the IKE daemon 'charon'. The most prominent user
     of the VICI interface is strongSwan/swanctl.
 
-    optional arguments:
+    options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
       --lengthy        Extended reporting.
       --socket SOCKET  Path to Versatile IKE Control Interface (VICI) Socket.
-                       Default: /var/run/charon.vici
+                       Default: /run/strongswan/charon.vici
       --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                        file,expected-retc".
 

@@ -35,14 +35,14 @@ Help
                                           [--cache-expire CACHE_EXPIRE]
                                           --device-id DEVICE_ID [--no-proxy]
                                           --password PASSWORD [--scope SCOPE]
-                                          [--test TEST] [--timeout TIMEOUT] -u
-                                          URL --username USERNAME
+                                          [--test TEST] [--timeout TIMEOUT] -u URL
+                                          --username USERNAME
 
     Batch querying HyperMetro domain information of a Huawei OceanStor Dorado
     storage system via the REST Interface, using the ``/hypermetrodomain``
     endpoint.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

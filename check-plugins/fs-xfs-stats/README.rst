@@ -33,7 +33,7 @@ Help
     helpful on debugging/understanding IO characteristics and optimizing
     performance.
 
-    optional arguments:
+    options:
       -h, --help     show this help message and exit
       -V, --version  show program's version number and exit
 

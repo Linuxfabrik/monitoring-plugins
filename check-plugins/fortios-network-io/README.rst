@@ -32,11 +32,14 @@ Help
 
 .. code-block:: text
 
-    usage: fortios-network-io [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
-                              -H HOSTNAME [--insecure] [--no-proxy] --password
+    usage: fortios-network-io [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] -H
+                              HOSTNAME [--insecure] [--no-proxy] --password
                               PASSWORD [--timeout TIMEOUT] [-w WARN]
 
-    optional arguments:
+    This plugin checks network I/O and link states on all interfaces found on a
+    Forti Appliance like FortiGate running FortiOS, using the FortiOS REST API.
+
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

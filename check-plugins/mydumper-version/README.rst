@@ -29,7 +29,7 @@ Help
 
     This plugin lets you track if mydumper updates are available.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

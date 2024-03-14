@@ -35,9 +35,10 @@ Help
     usage: librenms-version [-h] [-V] [--insecure] [--no-proxy]
                             [--timeout TIMEOUT] --token TOKEN [--url URL]
 
-    This check displays LibreNMS instance information, using its API.
+    This check displays LibreNMS instance information, using its API. This is not
+    a "is there a new version out there" g itself (if running the Git version).
 
-    optional arguments:
+    options:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
       --insecure         This option explicitly allows to perform "insecure" SSL

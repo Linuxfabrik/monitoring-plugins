@@ -34,7 +34,7 @@ Help
     example those visible in `/etc/resolv.conf`) will be queried - you can't query
     other DNS servers. This command works with both IPv4 and IPv6.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

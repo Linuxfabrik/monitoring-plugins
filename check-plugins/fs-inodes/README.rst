@@ -28,14 +28,15 @@ Help
 
     Checks the used inode space in percent, default on "/", "/tmp" and "/boot".
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the critical threshold inode usage percentage.
                             Default: 95
-      --mount MOUNT         The mount point. Default: "/, /tmp, /boot"
+      --mount MOUNT         The mount point, in the format "mount1,mount2".
+                            Default: "/, /tmp, /boot"
       -w WARN, --warning WARN
                             Set the warning threshold inode usage percentage.
                             Default: 90

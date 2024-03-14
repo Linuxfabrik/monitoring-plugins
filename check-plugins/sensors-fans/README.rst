@@ -29,7 +29,7 @@ Help
 
     Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.

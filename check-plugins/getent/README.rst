@@ -32,10 +32,10 @@ Help
 
     usage: getent [-h] [-V] [--database DATABASE] [--key KEY]
 
-    Trys to get entries from Name Service Switch (NSS) libraries and warns on
-    errors or no match.
+    Attempts to obtain entries from Name Service Switch (NSS) libraries and warns
+    of errors or missing matches.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
       --database DATABASE  May be any of those supported by "getent", for example

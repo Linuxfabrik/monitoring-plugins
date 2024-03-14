@@ -27,43 +27,42 @@ Help
 
 .. code-block:: text
 
-    usage: file-count [-h] [--always-ok] [--filename FILENAME] [-u URL]
-                      [--timeout TIMEOUT] [--password PASSWORD]
-                      [--pattern PATTERN] [--username USERNAME] [--only-dirs]
-                      [--only-files] [-V] [-c CRIT] [-w WARN]
-                      [--timerange TIMERANGE]
+    usage: file-count [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
+                      [--only-dirs] [--only-files] [--password PASSWORD]
+                      [--pattern PATTERN] [--timeout TIMEOUT]
+                      [--timerange TIMERANGE] [-u URL] [--username USERNAME]
+                      [-w WARN]
 
     Checks the number of matching files.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      -c CRIT, --critical CRIT
+                            Set the critical number of files. Supports ranges.
       --filename FILENAME   File (or directory) name to check. Supports glob in
-                            accordance with
-                            https://docs.python.org/2.7/library/glob.html. Beware
-                            of using recursive globs. This is mutually exclusive
-                            with -u / --url.
-      -u URL, --url URL     Set the url of the file (or directory) to check,
-                            starting with "smb://". This is mutually exclusive
-                            with --filename.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+                            accordance with https://docs.python.org/3/library/path
+                            lib.html#pathlib.Path.glob. Beware of using recursive
+                            globs. This is mutually exclusive with -u / --url.
+      --only-dirs           Only consider directories.
+      --only-files          Only consider files.
       --password PASSWORD   SMB Password.
       --pattern PATTERN     The search string to match against the names of SMB
                             directories or files. This pattern can use '*' as a
                             wildcard for multiple chars and '?' as a wildcard for
                             a single char. Does not support regex patterns.
                             Default: *.
-      --username USERNAME   SMB Username.
-      --only-dirs           Only consider directories.
-      --only-files          Only consider files.
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical number of files. Supports ranges.
-      -w WARN, --warning WARN
-                            Set the warning number of files. Supports ranges.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --timerange TIMERANGE
                             Set the timerange (seconds) in which the files should
                             be considered. Supports ranges.
+      -u URL, --url URL     Set the url of the file (or directory) to check,
+                            starting with "smb://". This is mutually exclusive
+                            with --filename.
+      --username USERNAME   SMB Username.
+      -w WARN, --warning WARN
+                            Set the warning number of files. Supports ranges.
 
 
 Usage Examples

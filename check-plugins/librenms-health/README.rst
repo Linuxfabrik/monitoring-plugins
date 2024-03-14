@@ -32,15 +32,15 @@ Help
 
 .. code-block:: text
 
-    usage: librenms-health  [-h] [-V] [--device-group DEVICE_GROUP]
-                            [--device-hostname DEVICE_HOSTNAME]
-                            [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
-                            [--insecure] [--lengthy] [--no-proxy]
-                            [--timeout TIMEOUT] --token TOKEN [--url URL]
+    usage: librenms-health [-h] [-V] [--device-group DEVICE_GROUP]
+                           [--device-hostname DEVICE_HOSTNAME]
+                           [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
+                           [--insecure] [--lengthy] [--no-proxy]
+                           [--timeout TIMEOUT] --token TOKEN [--url URL]
 
     This check fetches sensor information from a LibreNMS instance, using its API.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --device-group DEVICE_GROUP

@@ -27,13 +27,13 @@ Help
 .. code-block:: text
 
     usage: rocketchat-version [-h] [-V] [--always-ok]
-                               [--cache-expire CACHE_EXPIRE] -p PASSWORD
-                               [--url URL] --username USERNAME
+                              [--cache-expire CACHE_EXPIRE] -p PASSWORD
+                              [--url URL] --username USERNAME
 
     This plugin lets you track if server updates are available. Requires a user
     with strong password and "view-statistics" permission (only).
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
