@@ -48,6 +48,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
 * metabase-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* mod-qos-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mysql-memory: Enhance output, set threshold to 95%
 * ntp-chronyd: Provide config info if an ntp server is not being used
 * statuspal: Add new parameters `--no-proxy` `--timeout`

@@ -21,12 +21,15 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """mod_qos for Apache httpd features a handler showing the current connection and
                 request status. This check fetches the machine-readable version of the status
                 information."""
 
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost/qos-status'
 
 
@@ -50,6 +53,24 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
@@ -57,8 +78,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-u', '--url',
-        help='mod_qos Status URL. Default: %(default)s',
+        help='mod_qos Status URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
         )
@@ -84,7 +115,12 @@ def main():
         url = url + '?auto'
 
         # fetch the url
-        result = lib.base.coe(lib.url.fetch(url))
+        result = lib.base.coe(lib.url.fetch(
+            url,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)

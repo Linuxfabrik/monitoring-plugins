@@ -27,18 +27,23 @@ Help
 
 .. code-block:: text
 
-    usage: mod-qos-stats [-h] [-V] [--always-ok] [--test TEST] [-u URL]
+    usage: mod-qos-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                         [--test TEST] [--timeout TIMEOUT] [-u URL]
 
     mod_qos for Apache httpd features a handler showing the current connection and
     request status. This check fetches the machine-readable version of the status
     information.
 
-    optional arguments:
+    options:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
       --always-ok        Always returns OK.
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
+      --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
       -u URL, --url URL  mod_qos Status URL. Default: http://localhost/qos-status
 
 
