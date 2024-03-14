@@ -34,17 +34,22 @@ Help
 
 .. code-block:: text
 
-    usage: redfish-sel [-h] [-V] [--always-ok] [--password PASSWORD] [--url URL]
-                      [--username USERNAME]
+    usage: redfish-sel [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                       [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
+                       [--username USERNAME]
 
     Checks the System Event Log (SEL) of the Redfish Manager collection. Returns
     an alert based on the severity of the messages.
 
-    optional arguments:
+    options:
       -h, --help           show this help message and exit
       -V, --version        show program's version number and exit
       --always-ok          Always returns OK.
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: True
+      --no-proxy           Do not use a proxy. Default: False
       --password PASSWORD  Redfish API password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
       --url URL            Redfish API URL. Default: https://localhost:5000
       --username USERNAME  Redfish API username.
 

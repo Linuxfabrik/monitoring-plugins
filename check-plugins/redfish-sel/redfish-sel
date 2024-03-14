@@ -23,11 +23,14 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an
                  alert based on the severity of the messages."""
 
+DEFAULT_INSECURE = True
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://localhost:5000'
 
 
@@ -51,14 +54,42 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--password',
         help='Redfish API password.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--url',
-        help='Redfish API URL. Default: %(default)s',
+        help='Redfish API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -96,12 +127,24 @@ def main():
 
     # get the vendor to know which entry point to use
     url = '{}/redfish/v1/'.format(base_url)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+    result = lib.base.coe(lib.url.fetch_json(
+        url,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
     vendor = lib.redfish.get_vendor(result)
 
     # Entry point: Get the main data
     url = '{}/redfish/v1/Managers'.format(base_url)
-    result = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+    result = lib.base.coe(lib.url.fetch_json(
+        url,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Managers/BMC"
@@ -135,7 +178,13 @@ def main():
         member_count += 1
         # For example {https://localhost:5000/redfish/v1/Managers/} {BMC} {/LogServices/Log/Entries}
         url = '{}{}{}'.format(base_url, member['@odata.id'], sel_path)
-        sel = lib.base.coe(lib.url.fetch_json(url, insecure=True, header=header))
+        sel = lib.base.coe(lib.url.fetch_json(
+            url,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
         member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
         if member_msg:
             msg += '{}\n{}\n\n'.format(member['@odata.id'], member_msg)

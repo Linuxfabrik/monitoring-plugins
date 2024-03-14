@@ -59,6 +59,7 @@ Monitoring Plugins:
 * php-fpm-status: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * php-status: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * redfish-drives: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* redfish-sel: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * statuspal: Add new parameters `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
 * xml: Add new parameter `--insecure`
