@@ -27,14 +27,17 @@ Help
 
 .. code-block:: text
 
-    usage: onlyoffice-stats [-h] [-V] [--test TEST] [--timeout TIMEOUT]
-                            [--url URL]
+    usage: onlyoffice-stats [-h] [-V] [--insecure] [--no-proxy] [--test TEST]
+                            [--timeout TIMEOUT] [--url URL]
 
     Checks OnlyOffice statistics and license usage via HTTP.
 
-    optional arguments:
+    options:
       -h, --help         show this help message and exit
       -V, --version      show program's version number and exit
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
