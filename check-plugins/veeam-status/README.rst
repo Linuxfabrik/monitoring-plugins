@@ -40,10 +40,11 @@ Help
     usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                         [--failed-job-runs FAILED_JOB_RUNS]
                         [--failed-vm-lastest-states FAILED_VM_LASTEST_STATES]
+                        [--insecure]
                         [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
-                        [--max-replica-job-duration MAX_REPLICA_JOB_DURATION] -p
-                        PASSWORD [--test TEST] [--timeout TIMEOUT] [--url URL]
-                        --username USERNAME [-w WARN]
+                        [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
+                        [--no-proxy] -p PASSWORD [--test TEST] [--timeout TIMEOUT]
+                        [--url URL] --username USERNAME [-w WARN]
                         [--warnings-job-runs WARNINGS_JOB_RUNS]
                         [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
 
@@ -67,12 +68,15 @@ Help
       --failed-vm-lastest-states FAILED_VM_LASTEST_STATES
                             Veeam threshold for `FailedVmLastestStates`. Default:
                             > 0
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: True
       --max-backup-job-duration MAX_BACKUP_JOB_DURATION
                             Veeam threshold for `MaxBackupJobDuration`. Default: >
                             86400
       --max-replica-job-duration MAX_REPLICA_JOB_DURATION
                             Veeam threshold for `MaxDurationReplicaJobName`.
                             Default: > 86400
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Veeam API password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

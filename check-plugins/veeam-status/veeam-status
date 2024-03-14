@@ -39,8 +39,10 @@ DESCRIPTION = """Checks Veeam for failed VM or jobs, jobs that are running too l
 DEFAULT_CRIT = 90
 DEFAULT_FAILED_JOB_RUNS = 0
 DEFAULT_FAILED_VM_LASTEST_STATES = 0
+DEFAULT_INSECURE = True
 DEFAULT_MAX_BACKUP_JOB_DURATION= 86400
 DEFAULT_MAX_REPLICA_JOB_DURATION = 86400
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'https://localhost:9398'
 DEFAULT_USERNAME = 'Administrator'
@@ -70,7 +72,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold for Backup Size as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold for Backup Size as a percentage. '
+             'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -78,7 +81,8 @@ def parse_args():
 
     parser.add_argument(
         '--failed-job-runs',
-        help='Veeam threshold for `FailedJobRuns`. Default: > %(default)s',
+        help='Veeam threshold for `FailedJobRuns`. '
+             'Default: > %(default)s',
         dest='FAILED_JOB_RUNS',
         type=int,
         default=DEFAULT_FAILED_JOB_RUNS,
@@ -86,15 +90,26 @@ def parse_args():
 
     parser.add_argument(
         '--failed-vm-lastest-states',
-        help='Veeam threshold for `FailedVmLastestStates`. Default: > %(default)s',
+        help='Veeam threshold for `FailedVmLastestStates`. '
+             'Default: > %(default)s',
         dest='FAILED_VM_LASTEST_STATES',
         type=int,
         default=DEFAULT_FAILED_VM_LASTEST_STATES,
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--max-backup-job-duration',
-        help='Veeam threshold for `MaxBackupJobDuration`. Default: > %(default)s',
+        help='Veeam threshold for `MaxBackupJobDuration`. '
+             'Default: > %(default)s',
         dest='MAX_BACKUP_JOB_DURATION',
         type=int,
         default=DEFAULT_MAX_BACKUP_JOB_DURATION,
@@ -102,10 +117,20 @@ def parse_args():
 
     parser.add_argument(
         '--max-replica-job-duration',
-        help='Veeam threshold for `MaxDurationReplicaJobName`. Default: > %(default)s',
+        help='Veeam threshold for `MaxDurationReplicaJobName`. '
+             'Default: > %(default)s',
         dest='MAX_REPLICA_JOB_DURATION',
         type=int,
         default=DEFAULT_MAX_REPLICA_JOB_DURATION,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -124,7 +149,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -132,14 +158,16 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='Veeam API URL. Default: %(default)s',
+        help='Veeam API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='Veeam API username. Default: %(default)s',
+        help='Veeam API username. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
@@ -147,7 +175,8 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold for Backup Size as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold for Backup Size as a percentage. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -155,7 +184,8 @@ def parse_args():
 
     parser.add_argument(
         '--warnings-job-runs',
-        help='Veeam threshold for `WarningsJobRuns`. Default: > %(default)s',
+        help='Veeam threshold for `WarningsJobRuns`. '
+             'Default: > %(default)s',
         dest='WARNINGS_JOB_RUNS',
         type=int,
         default=DEFAULT_WARNINGS_JOB_RUNS,
@@ -163,7 +193,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-vm-lastest-states',
-        help='Veeam threshold for `WarningVmLastestStates`. Default: > %(default)s',
+        help='Veeam threshold for `WarningVmLastestStates`. '
+             'Default: > %(default)s',
         dest='WARNING_VM_LASTEST_STATES',
         type=int,
         default=DEFAULT_WARNING_VM_LASTEST_STATES,
@@ -197,25 +228,49 @@ def main():
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_overview.html?ver=110
         url = args.URL + '/api/reports/summary/overview'
         result['overview'] = lib.base.coe(
-            lib.url.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+            lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ),
         )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_statistics.html?ver=110
         url = args.URL + '/api/reports/summary/job_statistics'
         result['job_statistics'] = lib.base.coe(
-            lib.url.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+            lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ),
         )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_vms_overview.html?ver=110
         url = args.URL + '/api/reports/summary/vms_overview'
         result['vms_overview'] = lib.base.coe(
-            lib.url.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+            lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ),
         )
 
         # https://helpcenter.veeam.com/docs/backup/em_rest/reports_summary_repository.html?ver=110
         url = args.URL + '/api/reports/summary/repository'
         result['repository'] = lib.base.coe(
-            lib.url.fetch_json(url, header=header, timeout=args.TIMEOUT, insecure=True),
+            lib.url.fetch_json(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ),
         )
     else:
         # do not call the command, put in test data
