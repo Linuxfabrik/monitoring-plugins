@@ -26,20 +26,23 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """This check collects information from the PHP-FPM status page and alerts on certain
                 overuse. In addition, a table is printed which contains each pool process in the
                 status "Running" (information relates to the current request that is being
                 served)."""
 
-DEFAULT_WARN = 80   # %
 DEFAULT_CRIT = 90   # %
-DEFAULT_WARN_MAX_CHILDREN = 1
 DEFAULT_CRIT_MAX_CHILDREN = 100
-DEFAULT_WARN_SLOW_REQUESTS = 1
 DEFAULT_CRIT_SLOW_REQUESTS = 100
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost/fpm-status' # ?json&full
+DEFAULT_WARN = 80   # %
+DEFAULT_WARN_MAX_CHILDREN = 1
+DEFAULT_WARN_SLOW_REQUESTS = 1
 
 
 def parse_args():
@@ -63,7 +66,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold for queue usage as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold for queue usage as a percentage. '
+             'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
@@ -71,7 +75,8 @@ def parse_args():
 
     parser.add_argument(
         '--critical-maxchildren',
-        help='Set the CRIT threshold for the number of times the process limit has been reached. Default: >= %(default)s',
+        help='Set the CRIT threshold for the number of times the process limit has been reached. '
+             'Default: >= %(default)s',
         dest='CRIT_MAX_CHILDREN',
         type=int,
         default=DEFAULT_CRIT_MAX_CHILDREN,
@@ -79,10 +84,29 @@ def parse_args():
 
     parser.add_argument(
         '--critical-slowreq',
-        help='Set the CRIT threshold for slow requests. Default: >= %(default)s',
+        help='Set the CRIT threshold for slow requests. '
+             'Default: >= %(default)s',
         dest='CRIT_SLOW_REQUESTS',
         type=int,
         default=DEFAULT_CRIT_SLOW_REQUESTS,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -93,15 +117,26 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-u', '--url',
-        help='PHP-FPM Status URL. Default: %(default)s',
+        help='PHP-FPM Status URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
         )
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold for queue usage as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold for queue usage as a percentage. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -109,7 +144,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-maxchildren',
-        help='Set the WARN threshold for the number of times the process limit has been reached. Default: >= %(default)s',
+        help='Set the WARN threshold for the number of times the process limit has been reached. '
+             'Default: >= %(default)s',
         dest='WARN_MAX_CHILDREN',
         type=int,
         default=DEFAULT_WARN_MAX_CHILDREN,
@@ -117,7 +153,8 @@ def parse_args():
 
     parser.add_argument(
         '--warning-slowreq',
-        help='Set the WARN threshold for slow requests. Default: >= %(default)s',
+        help='Set the WARN threshold for slow requests. '
+             'Default: >= %(default)s',
         dest='WARN_SLOW_REQUESTS',
         type=int,
         default=DEFAULT_WARN_SLOW_REQUESTS,
@@ -138,7 +175,12 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        jsonst = lib.base.coe(lib.url.fetch(args.URL + '?json&full'))
+        jsonst = lib.base.coe(lib.url.fetch(
+            args.URL + '?json&full',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)

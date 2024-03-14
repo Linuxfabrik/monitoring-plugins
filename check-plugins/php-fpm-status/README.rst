@@ -43,9 +43,9 @@ Help
 
     usage: php-fpm-status [-h] [-V] [--always-ok] [-c CRIT]
                           [--critical-maxchildren CRIT_MAX_CHILDREN]
-                          [--critical-slowreq CRIT_SLOW_REQUESTS] [--test TEST]
-                          [-u URL] [-w WARN]
-                          [--warning-maxchildren WARN_MAX_CHILDREN]
+                          [--critical-slowreq CRIT_SLOW_REQUESTS] [--insecure]
+                          [--no-proxy] [--test TEST] [--timeout TIMEOUT] [-u URL]
+                          [-w WARN] [--warning-maxchildren WARN_MAX_CHILDREN]
                           [--warning-slowreq WARN_SLOW_REQUESTS]
 
     This check collects information from the PHP-FPM status page and alerts on
@@ -53,7 +53,7 @@ Help
     process in the status "Running" (information relates to the current request
     that is being served).
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
@@ -66,8 +66,12 @@ Help
       --critical-slowreq CRIT_SLOW_REQUESTS
                             Set the CRIT threshold for slow requests. Default: >=
                             100
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       -u URL, --url URL     PHP-FPM Status URL. Default: http://localhost/fpm-
                             status
       -w WARN, --warning WARN
