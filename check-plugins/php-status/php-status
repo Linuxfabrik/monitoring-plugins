@@ -23,13 +23,14 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """This plugin checks for PHP startup errors, missing modules and misconfigured
                 php.ini directives."""
 
 DEFAULT_CONFIG = [ 'date.timezone=Europe' ]
 DEFAULT_CRIT = None
+DEFAULT_INSECURE = False
 DEFAULT_MODULES = [
     'bz2', 'calendar', 'Core', 'ctype', 'curl', 'date', 'exif',
     'fileinfo', 'filter', 'ftp', 'gettext', 'hash', 'iconv',
@@ -37,6 +38,8 @@ DEFAULT_MODULES = [
     'readline', 'Reflection', 'session',
     'sockets', 'SPL', 'standard', 'tokenizer', 'xml', 'zlib',
 ]
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 90
 
 
@@ -61,7 +64,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold for Opcache usage as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold for Opcache usage as a percentage. '
+             'Default: >= %(default)s',
         dest='CRIT',
         type=lib.args.int_or_none,
         default=DEFAULT_CRIT,
@@ -94,6 +98,33 @@ def parse_args():
         default=None,
     )
 
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     parser.add_argument('--url',
         help='URL to optional PHP `monitoring.php` script.',
         dest='URL',
@@ -101,7 +132,8 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold for Opcache usage as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold for Opcache usage as a percentage. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=lib.args.int_or_none,
         default=DEFAULT_WARN,
@@ -180,7 +212,12 @@ def main():
 
     # analyze data
     if args.URL:
-        php = lib.base.coe(lib.url.fetch_json(args.URL))
+        php = lib.base.coe(lib.url.fetch_json(
+            args.URL,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
 
     # section "php.conf" from monitoring.php
     if php.get('php.conf'):

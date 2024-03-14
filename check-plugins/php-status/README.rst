@@ -48,7 +48,8 @@ Help
 .. code-block:: text
 
     usage: php-status [-h] [-V] [--always-ok] [-c CRIT] [--config CONFIG] [--dev]
-                      [--module MODULES] [--url URL] [-w WARN]
+                      [--module MODULES] [--insecure] [--no-proxy]
+                      [--timeout TIMEOUT] [--url URL] [-w WARN]
 
     This plugin checks for PHP startup errors, missing modules and misconfigured
     php.ini directives.
@@ -66,8 +67,11 @@ Help
                             `display_errors=On` and `display_startup_errors=On`.
       --module MODULES      "modulename" to check (startswith), for example
                             `--module json --module mbstring` (repeating)
-      --url URL             URL to optional PHP `monitoring.php` script. Default:
-                            http://localhost/monitoring.php
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+      --url URL             URL to optional PHP `monitoring.php` script.
       -w WARN, --warning WARN
                             Set the WARN threshold for Opcache usage as a
                             percentage. Default: >= 90
