@@ -30,7 +30,7 @@ Help
 
 .. code-block:: text
 
-    usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL]
+    usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL] [--insecure]
                   [--login-computer COMPUTER] [--login-ip IP] --login-licence
                   LICENCE --login-name NAME [--no-proxy]
                   [--search-concept-filter CONCEPT_FILTER]
@@ -50,6 +50,8 @@ Help
       -c CRITICAL, --critical CRITICAL
                             Critical threshold for duration of
                             login+search+logout. Default: 6000 (ms)
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --login-computer COMPUTER
                             user.Login argument COMPUTER. Default: Brower_APP
       --login-ip IP         user.Login argument IP. Default: 127.0.0.1
