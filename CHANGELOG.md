@@ -61,6 +61,7 @@ Monitoring Plugins:
 * redfish-drives: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * redfish-sel: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * redfish-sensor: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* sap-open-concur: Add new parameters `--insecure`
 * statuspal: Add new parameters `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
 * xml: Add new parameter `--insecure`

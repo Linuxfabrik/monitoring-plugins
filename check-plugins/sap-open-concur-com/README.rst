@@ -29,7 +29,7 @@ Help
 .. code-block:: text
 
     usage: sap-open-concur-com [-h] [--always-ok] [-V] --datacenter
-                               {us,us2,eu,eu2,cn,pscc} [--no-proxy]
+                               {us,us2,eu,eu2,cn,pscc} [--insecure] [--no-proxy]
                                [--service SERVICE] [--test TEST]
                                [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
@@ -42,6 +42,8 @@ Help
       -V, --version         show program's version number and exit
       --datacenter {us,us2,eu,eu2,cn,pscc}
                             Datacenter to query. Default: eu
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
       --service SERVICE     Service to check. One of "Analysis/Intelligence",
                             "Compleat (TMC Services)", "Expense", "Imaging",
@@ -53,7 +55,7 @@ Help
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --utc-offset UTC_OFFSET
-                            UTC offset. Default: +0200
+                            UTC offset. Default: +0100
 
 
 Usage Examples
