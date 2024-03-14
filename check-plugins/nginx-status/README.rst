@@ -41,18 +41,23 @@ Help
 
 .. code-block:: text
 
-    usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [-u URL] [-w WARN]
+    usage: nginx-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
+                        [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
                         [--test TEST]
 
     This check provides NGINX basic status information.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the CRIT threshold for the number of active
                             connections. Default: >= 486
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       -u URL, --url URL     NGINX Server Status URL. Default:
                             http://localhost/server-status
       -w WARN, --warning WARN
