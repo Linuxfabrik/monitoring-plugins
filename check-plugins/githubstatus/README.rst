@@ -29,17 +29,22 @@ Help
 
 .. code-block:: text
 
-    usage: githubstatus [-h] [-V] [--always-ok] [--test TEST]
+    usage: githubstatus [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                        [--test TEST] [--timeout TIMEOUT]
 
     Checks the GitHub status page, including a status indicator, component
     statuses and unresolved incidents.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
-      --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                     file,expected-retc".
+      -h, --help         show this help message and exit
+      -V, --version      show program's version number and exit
+      --always-ok        Always returns OK.
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
+      --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
+                         stderr-file,expected-retc".
+      --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 
 
 Usage Examples

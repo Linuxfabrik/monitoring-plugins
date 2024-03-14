@@ -40,6 +40,7 @@ Monitoring Plugins:
 * diacos: Add new parameter `--insecure`
 * fs-ro: Add `/dev/loop` to default ignore list
 * fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
+* githubstatus: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * infomaniak-swiss-backup-products: Improve output
 * journald-query: Remove hard-coded `--boot` parameter from query
 * mysql-memory: Enhance output, set threshold to 95%
