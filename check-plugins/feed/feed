@@ -24,7 +24,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = '''Warns on new feed items of an RSS or Atom feed. Does not warn any more
     if you acknowledge the warning in Icingaweb2, and/or if a given amount of time is over.'''
@@ -58,7 +58,9 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-service-name',
-        help='Unique name of the service using this check within Icinga. Take it from the `__name` service attribute, for example `icinga-server!my-service-name`.',
+        help='Unique name of the service using this check within Icinga. '
+             'Take it from the `__name` service attribute, for example '
+             '`icinga-server!my-service-name`.',
         dest='ICINGA_SERVICE_NAME',
     )
 
@@ -81,19 +83,21 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. Default: %(default)s',
-        dest='INSECURE',
-        action='store_true',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. Default: %(default)s',
+        help='Get the service acknowledgement from Icinga. '
+             'Default: %(default)s',
         dest='ICINGA_CALLBACK',
         action='store_true',
         default=DEFAULT_ICINGA_CALLBACK,   # False
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
@@ -106,7 +110,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -114,7 +119,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-summary',
-        help='Do not show the feed item summary. Default: %(default)s',
+        help='Do not show the feed item summary. '
+             'Default: %(default)s',
         dest='NO_SUMMARY',
         action='store_true',
         default=DEFAULT_NO_SUMMARY,   # False
@@ -122,7 +128,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -130,14 +137,16 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='The Feed URL. Default: %(default)s',
+        help='The Feed URL. '
+             'Default: %(default)s',
         dest='FEED_URL',
         default=DEFAULT_FEED_URL,
     )
 
     parser.add_argument(
         '-w', '--warning',
-        help='How long should this check return a warning on new entries? Default: %(default)s (minutes)',
+        help='How long should this check return a warning on new entries? '
+             'Default: %(default)s (minutes)',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -209,8 +218,11 @@ def get_feed_state(feed_id, delta, args):
                 args.ICINGA_USERNAME,
                 args.ICINGA_PASSWORD,
                 servicename=args.ICINGA_SERVICE_NAME,
-                attrs='state,acknowledgement'
-                )
+                attrs='state,acknowledgement',
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
             if not success:
                 return STATE_WARN
             if icinga['results'][0]['attrs']['acknowledgement']:
