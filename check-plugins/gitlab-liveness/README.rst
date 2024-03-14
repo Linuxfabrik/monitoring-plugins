@@ -31,8 +31,9 @@ Help
 
 .. code-block:: text
 
-    usage: gitlab-liveness [-h] [-V] [--always-ok] [--severity {warn,crit}]
-                           [--test TEST] [--timeout TIMEOUT] [--url URL]
+    usage: gitlab-liveness [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
+                           [--severity {warn,crit}] [--test TEST]
+                           [--timeout TIMEOUT] [--url URL]
 
     Checks whether the application server is running. This probe is used to know
     if Rails Controllers are not deadlocked due to a multi-threading. Requires
@@ -42,6 +43,9 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --severity {warn,crit}
                             Severity for alerting. Default: warn
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-

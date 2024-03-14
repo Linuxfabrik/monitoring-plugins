@@ -24,12 +24,14 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """Checks whether the application server is running. This probe is used to know 
                 if Rails Controllers are not deadlocked due to a multi-threading.
                 Requires GitLab 12.4+."""
 
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost/-/liveness'
@@ -55,8 +57,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--severity',
-        help='Severity for alerting. Default: %(default)s',
+        help='Severity for alerting. '
+             'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
@@ -71,7 +92,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -79,7 +101,8 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='GitLab liveness URL endpoint. Default: %(default)s',
+        help='GitLab liveness URL endpoint. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -102,7 +125,12 @@ def main():
 
     # fetch and analyze data
     if args.TEST is None:
-        result = lib.base.coe(lib.url.fetch_json(args.URL, timeout=args.TIMEOUT))
+        result = lib.base.coe(lib.url.fetch_json(
+            args.URL,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
