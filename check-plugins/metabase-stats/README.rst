@@ -27,12 +27,14 @@ Help
 
 .. code-block:: text
 
-    usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT] -p
-                          PASSWORD [--url URL] [--username USERNAME] [-w WARN]
+    usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                          [--insecure] [--no-proxy] -p PASSWORD
+                          [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+                          [-w WARN]
 
     This check gets some recent activity from Metabase.
 
-    optional arguments:
+    options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --cache-expire CACHE_EXPIRE
@@ -40,8 +42,12 @@ Help
                             expires, in hours. Default: 335
       -c CRIT, --critical CRIT
                             Set the CRIT threshold as a percentage. Default: >= 90
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Metabase API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --url URL             Metabase API URL. Default: http://localhost:3000
       --username USERNAME   Metabase API username. Default: metabase-admin
       -w WARN, --warning WARN

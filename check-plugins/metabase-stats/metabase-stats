@@ -24,12 +24,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031401'
 
 DESCRIPTION = """This check gets some recent activity from Metabase."""
 
 DEFAULT_CACHE_EXPIRE = 13*24 + 23 # hours; in Metabase, by default, sessions are good for 14 days
 DEFAULT_CRIT = 90
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost:3000'
 DEFAULT_USERNAME = 'metabase-admin'
 DEFAULT_WARN = 80
@@ -48,7 +51,8 @@ def parse_args():
 
     parser.add_argument(
         '--cache-expire',
-        help='The amount of time after which the credential cache expires, in hours. Default: %(default)s',
+        help='The amount of time after which the credential cache expires, in hours. '
+             'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -56,10 +60,29 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        help='Set the CRIT threshold as a percentage. '
+             'Default: >= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -70,22 +93,34 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--url',
-        help='Metabase API URL. Default: %(default)s',
+        help='Metabase API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='Metabase API username. Default: %(default)s',
+        help='Metabase API username. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
     )
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        help='Set the WARN threshold as a percentage. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -116,7 +151,15 @@ def get_token(metabase_url, user, password, expire):
         'username': user,
         'password': password,
         }
-    success, result = lib.url.fetch_json(metabase_url, header=header, data=data, encoding='serialized-json')
+    success, result = lib.url.fetch_json(
+        metabase_url,
+        header=header,
+        data=data,
+        encoding='serialized-json',
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
     if not success:
         return (success, result)
     if not result:
@@ -133,7 +176,15 @@ def get_data(metabase_url, token, data={}):
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
         }
-    return lib.url.fetch(metabase_url, header=header, data=data, encoding='serialized-json')
+    return lib.url.fetch(
+        metabase_url,
+        header=header,
+        data=data,
+        encoding='serialized-json',
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
 
 def get_json(metabase_url, token, data={}):
@@ -141,7 +192,15 @@ def get_json(metabase_url, token, data={}):
         'Content-Type': 'application/json',
         'X-Metabase-Session': token,
         }
-    return lib.url.fetch_json(metabase_url, header=header, data=data, encoding='serialized-json')
+    return lib.url.fetch_json(
+        metabase_url,
+        header=header,
+        data=data,
+        encoding='serialized-json',
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
 
 def main():
