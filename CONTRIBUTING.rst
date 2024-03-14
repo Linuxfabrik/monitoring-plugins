@@ -593,6 +593,7 @@ Incomplete list of Plugins with special technical implementations and capabiliti
 * | `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
   | Reads a file line-by-line, backwards.
   | Makes heavy use of patterns versus compiled regexes, matching any() of them.
+  | Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed.
 
 * | All mysql-* plugins
   | Using application's config file for authentication.
