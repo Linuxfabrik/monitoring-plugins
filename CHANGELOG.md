@@ -51,6 +51,7 @@ Monitoring Plugins:
 * mod-qos-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mysql-memory: Enhance output, set threshold to 95%
 * nextcloud-security-scan: Add new parameters `--insecure` `--no-proxy`
+* nextcloud-stats: Add new parameter `--timeout`
 * ntp-chronyd: Provide config info if an ntp server is not being used
 * statuspal: Add new parameters `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)

@@ -34,8 +34,8 @@ Help
 
 .. code-block:: text
 
-    usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                           --password PASSWORD [--url URL] [--username USERNAME]
+    usage: nextcloud-stats [-h] [-V] [--insecure] [--no-proxy] --password PASSWORD
+                           [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
     This plugin lets you track the number of active users over time, the number of
     shares in various categories and some storage statistics against a Nextcloud
@@ -48,6 +48,7 @@ Help
                            connections. Default: False
       --no-proxy           Do not use a proxy. Default: False
       --password PASSWORD  Nextcloud API password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
       --url URL            Nextcloud API URL. Default: http://localhost/nextcloud/
                            ocs/v2.php/apps/serverinfo/api/v1/info
       --username USERNAME  Nextcloud API username. Default: admin
