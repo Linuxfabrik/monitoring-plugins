@@ -20,10 +20,12 @@ import lib.wildfly  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031501'
 
 DESCRIPTION = 'Prints the status of the Wildfly/JBossAS garbage collector.'
 
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-monitoring'
@@ -41,6 +43,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--instance',
         help='The instance (server-config) to check if running in domain mode.',
         dest='INSTANCE',
@@ -52,6 +63,15 @@ def parse_args():
         dest='MODE',
         choices=['standalone', 'domain'],
         default='standalone',
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -69,7 +89,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -77,14 +98,16 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='WildFly API URL. Default: %(default)s',
+        help='WildFly API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
 
     parser.add_argument(
         '--username',
-        help='WildFly API username. Default: %(default)s',
+        help='WildFly API username. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,

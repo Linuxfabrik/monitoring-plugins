@@ -30,10 +30,11 @@ Help
 
 .. code-block:: text
 
-    usage: wildfly-uptime [-h] [-V] [--always-ok] [--critical CRIT]
+    usage: wildfly-uptime [-h] [-V] [--always-ok] [--critical CRIT] [--insecure]
                           [--instance INSTANCE] [--mode {standalone,domain}]
-                          [--node NODE] -p PASSWORD [--timeout TIMEOUT]
-                          [--url URL] --username USERNAME [--warning WARN]
+                          [--no-proxy] [--node NODE] -p PASSWORD
+                          [--timeout TIMEOUT] [--url URL] --username USERNAME
+                          [--warning WARN]
 
     Checks the uptime of a Wildfly/JBossAS over HTTP.
 
@@ -42,10 +43,13 @@ Help
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       --critical CRIT       Set the critical threshold.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
                             The mode the server is running.
+      --no-proxy            Do not use a proxy. Default: False
       --node NODE           The node (host) if running in domain mode.
       -p PASSWORD, --password PASSWORD
                             WildFly API password.

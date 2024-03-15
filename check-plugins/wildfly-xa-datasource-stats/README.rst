@@ -38,12 +38,12 @@ Help
 .. code-block:: text
 
     usage: wildfly-xa-datasource-stats [-h] [-V] [--always-ok] [--critical CRIT]
-                                      [--datasource DATASOURCE]
-                                      [--instance INSTANCE]
-                                      [--mode {standalone,domain}] [--node NODE]
-                                      -p PASSWORD [--timeout TIMEOUT]
-                                      [--url URL] --username USERNAME
-                                      [--warning WARN]
+                                       [--datasource DATASOURCE] [--insecure]
+                                       [--instance INSTANCE]
+                                       [--mode {standalone,domain}] [--no-proxy]
+                                       [--node NODE] -p PASSWORD
+                                       [--timeout TIMEOUT] [--url URL] --username
+                                       USERNAME [--warning WARN]
 
     Returns metrics about XA Datasources of a Wildfly/JBossAS over HTTP.
 
@@ -55,10 +55,13 @@ Help
       --datasource DATASOURCE
                             The name of a specific datasource (repeating).
                             Default: None
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
                             The mode the server is running.
+      --no-proxy            Do not use a proxy. Default: False
       --node NODE           The node (host) if running in domain mode.
       -p PASSWORD, --password PASSWORD
                             WildFly API password.
@@ -66,7 +69,6 @@ Help
       --url URL             WildFly API URL. Default: http://localhost:9990
       --username USERNAME   WildFly API username. Default: wildfly-monitoring
       --warning WARN        Set the warning threshold.
-
 
 
 Usage Examples

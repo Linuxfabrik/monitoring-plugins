@@ -30,10 +30,11 @@ Help
 
 .. code-block:: text
 
-    usage: wildfly-server-status [-h] [-V] [--always-ok] [--instance INSTANCE]
-                                 [--mode {standalone,domain}] [--node NODE] -p
-                                 PASSWORD [--timeout TIMEOUT] [--url URL]
-                                 --username USERNAME
+    usage: wildfly-server-status [-h] [-V] [--always-ok] [--insecure]
+                                 [--instance INSTANCE]
+                                 [--mode {standalone,domain}] [--no-proxy]
+                                 [--node NODE] -p PASSWORD [--timeout TIMEOUT]
+                                 [--url URL] --username USERNAME
 
     Checks the health of a Wildfly/JBossAS over HTTP.
 
@@ -41,10 +42,13 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --instance INSTANCE   The instance (server-config) to check if running in
                             domain mode.
       --mode {standalone,domain}
                             The mode the server is running.
+      --no-proxy            Do not use a proxy. Default: False
       --node NODE           The node (host) if running in domain mode.
       -p PASSWORD, --password PASSWORD
                             WildFly API password.
