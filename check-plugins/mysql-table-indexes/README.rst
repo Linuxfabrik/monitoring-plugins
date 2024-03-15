@@ -59,7 +59,6 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
 
 
-
 Usage Examples
 --------------
 

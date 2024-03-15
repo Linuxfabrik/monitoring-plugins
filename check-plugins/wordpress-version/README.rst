@@ -27,17 +27,34 @@ Help
 
 .. code-block:: text
 
-    usage: wordpress-version [-h] [-V] [--always-ok] [--path PATH]
+    usage: wordpress-version [-h] [-V] [--always-ok] [--check-major]
+                             [--check-minor] [--check-patch]
+                             [--offset-eol OFFSET_EOL] [--path PATH]
 
     Tracks if WordPress is EOL.
 
     options:
-      -h, --help     show this help message and exit
-      -V, --version  show program's version number and exit
-      --always-ok    Always returns OK.
-      --path PATH    Local path to your WordPress installation, typically within
-                     your Webserver's Document Root. Default:
-                     /var/www/html/wordpress
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
+      --path PATH           Local path to your WordPress installation, typically
+                            within your Webserver's Document Root. Default:
+                            /var/www/html/wordpress
 
 
 Usage Examples

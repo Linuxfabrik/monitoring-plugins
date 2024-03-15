@@ -107,6 +107,33 @@ Help
                             bert).
 
 
+Usage Examples
+--------------
+
+A minimal command call:
+
+.. code-block:: bash
+
+    ./snmp --hostname 10.80.32.109
+
+Calling this the check...
+
+#. fetches a set of most common SNMP OIDs like *Contact* or *Uptime*, defined in ``device-oids/any-any-any.csv``,
+#. calls ``snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs 10.80.32.109 OID1 OID2 ...``,
+#. parses the output,
+#. interprets the result and calculates the return state.
+
+Other example using a more specific OID list and an additional MIB directory:
+
+.. code-block:: bash
+
+    /usr/lib64/nagios/plugins/snmp \
+        --device switch-fs-s3900.csv \
+        --mib-dir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
+        --hide-ok \
+        --hostname 10.80.32.109
+
+
 Installation
 ------------
 
@@ -140,33 +167,6 @@ Handling MIBs
 If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/share/snmp/mibs``. If you prefer other locations, provide the paths using the ``--mib-dir`` parameter (same syntax as the ``-M`` parameter of ``snmpget``). The checks comes with some predefined, device-dependend MIBs located at ``/usr/lib64/nagios/plugins/device-mibs/``.
 
 Create an OID list in ``/usr/lib64/nagios/plugins/device-oids/...`` using CSV format. For details, have a look at "Defining a Device" within this document.
-
-
-Usage Examples
---------------
-
-A minimal command call:
-
-.. code-block:: bash
-
-    ./snmp --hostname 10.80.32.109
-
-Calling this the check...
-
-#. fetches a set of most common SNMP OIDs like *Contact* or *Uptime*, defined in ``device-oids/any-any-any.csv``,
-#. calls ``snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs 10.80.32.109 OID1 OID2 ...``,
-#. parses the output,
-#. interprets the result and calculates the return state.
-
-Other example using a more specific OID list and an additional MIB directory:
-
-.. code-block:: bash
-
-    /usr/lib64/nagios/plugins/snmp \
-        --device switch-fs-s3900.csv \
-        --mib-dir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
-        --hide-ok \
-        --hostname 10.80.32.109
 
 
 Defining a Device

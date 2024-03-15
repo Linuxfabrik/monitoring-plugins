@@ -24,8 +24,8 @@ Help
 
 .. code-block:: text
 
-    usage: systemd-units-failed  [-h] [-V] [--always-ok] [--ignore IGNORE]
-                                 [--test TEST]
+    usage: systemd-units-failed [-h] [-V] [--always-ok] [--ignore IGNORE]
+                                [--test TEST]
 
     Warns on any failed systemd units.
 

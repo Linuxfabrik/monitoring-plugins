@@ -36,8 +36,8 @@ Help
 
 .. code-block:: text
 
-    usage: mysql-aria3 [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
-                       [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
+    usage: mysql-aria [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
+                      [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
     Checks some metrics of the Aria Storage Engine in MySQL/MariaDB.
 

@@ -24,6 +24,8 @@ Help
 
 .. code-block:: text
 
+    usage: tuned-profile [-h] [-V] [--always-ok] [--profile TUNED_PROFILE]
+
     Checks the current tuned profile against a desired one, and returns a warning
     on a non-match.
 

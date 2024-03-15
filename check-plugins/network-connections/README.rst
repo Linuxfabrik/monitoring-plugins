@@ -52,8 +52,8 @@ Help
 
     usage: network-connections [-h] [-V]
                                [--conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}]
-                               [--conn-type {all,tcp,tcp6,udp,udp6}]
-                               [-c CRIT] [-w WARN]
+                               [--conn-type {all,tcp,tcp6,udp,udp6}] [-c CRIT]
+                               [-w WARN]
 
     Counts system-wide socket connections like tcp, tcp6, udp or udp6. If you have
     too many connections like TCP_CLOSE and therefore get errors like "too many
@@ -66,7 +66,7 @@ Help
       --conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}
                             Filter the status of the connections (repeating).
                             Default: None
-      --conn-type {all,tcp,tcp6,udp,udp6,unix}
+      --conn-type {all,tcp,tcp6,udp,udp6}
                             Filter the family/type of the connections (repeating).
                             Default: None
       -c CRIT, --critical CRIT
@@ -75,7 +75,6 @@ Help
       -w WARN, --warning WARN
                             Threshold for the number of connections. Type: None or
                             Range. Default: None
-
 
 
 Usage Examples

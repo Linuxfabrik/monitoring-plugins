@@ -33,8 +33,7 @@ Help
 
     usage: mysql-table-cache [-h] [-V] [--always-ok]
                              [--defaults-file DEFAULTS_FILE]
-                             [--defaults-group DEFAULTS_GROUP]
-                             [--timeout TIMEOUT]
+                             [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
     Checks the hit rate for open tables cache lookups in MySQL/MariaDB.
 

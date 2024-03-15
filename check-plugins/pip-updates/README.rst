@@ -31,9 +31,9 @@ Help
 
     usage: pip-updates [-h] [-V] [--always-ok] [-c CRIT] [--exclude EXCLUDE]
                        [--extra-index-url EXTRA_INDEX_URL]
-                       [--find-links FIND_LINKS] [--index-url INDEX_URL]
-                       [--local] [--no-index] [--not-required] [--pre]
-                       [--test TEST] [--user] [--virtualenv VIRTUALENV] [-w WARN]
+                       [--find-links FIND_LINKS] [--index-url INDEX_URL] [--local]
+                       [--no-index] [--not-required] [--pre] [--test TEST]
+                       [--user] [--virtualenv VIRTUALENV] [-w WARN]
 
     Checks if there are outdated Python packages, installed via `pip`.
 
@@ -56,10 +56,10 @@ Help
                             directory, then look for archives in the directory
                             listing. Links to VCS project URLs are not supported.
       --index-url INDEX_URL
-                            Base URL of the Python Package Index (default
-                            PyPI.simple_url). This should point to a repository
-                            compliant with PEP 503 (the simple repository API) or
-                            a local directory laid out in the same format.
+                            Base URL of the Python Package Index. This should
+                            point to a repository compliant with PEP 503 (the
+                            simple repository API) or a local directory laid out
+                            in the same format.
       --local               If in a virtualenv that has global access, do not list
                             globally-installed packages.
       --no-index            Ignore package index (only looking at --find-links

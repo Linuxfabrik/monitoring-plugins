@@ -32,8 +32,7 @@ Help
 
     usage: mysql-table-locks [-h] [-V] [--always-ok]
                              [--defaults-file DEFAULTS_FILE]
-                             [--defaults-group DEFAULTS_GROUP]
-                             [--timeout TIMEOUT]
+                             [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
     Checks whether a certain percentage of table locks had to wait in
     MySQL/MariaDB.

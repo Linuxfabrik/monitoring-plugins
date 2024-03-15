@@ -27,12 +27,12 @@ Help
 
 .. code-block:: text
 
-    usage: file-age  [-h] [-V] [--always-ok] [-c CRIT]
-                     [--critical-count CRIT_COUNT] [--filename FILENAME]
-                     [--only-dirs] [--only-files] [--password PASSWORD]
-                     [--pattern PATTERN] [--perfdata-mode {mean,median,None}]
-                     [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
-                     [--warning-count WARN_COUNT]
+    usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
+                    [--critical-count CRIT_COUNT] [--filename FILENAME]
+                    [--only-dirs] [--only-files] [--password PASSWORD]
+                    [--pattern PATTERN] [--perfdata-mode {mean,median,None}]
+                    [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
+                    [--warning-count WARN_COUNT]
 
     Checks the time of last data modification for a file or directory, in seconds.
 

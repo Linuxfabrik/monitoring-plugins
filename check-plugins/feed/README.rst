@@ -41,8 +41,8 @@ Help
     usage: feed [-h] [-V] [--always-ok]
                 [--icinga-service-name ICINGA_SERVICE_NAME]
                 [--icinga-password ICINGA_PASSWORD] [--icinga-url ICINGA_URL]
-                [--icinga-username ICINGA_USERNAME] [--insecure]
-                [--icinga-callback] [--latest] [--no-proxy] [--no-summary]
+                [--icinga-username ICINGA_USERNAME] [--icinga-callback]
+                [--insecure] [--latest] [--no-proxy] [--no-summary]
                 [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
 
     Warns on new feed items of an RSS or Atom feed. Does not warn any more if you
@@ -63,10 +63,10 @@ Help
                             Icinga API URL, for example https://icinga-server:5665
       --icinga-username ICINGA_USERNAME
                             Icinga API username.
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
       --icinga-callback     Get the service acknowledgement from Icinga. Default:
                             False
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
       --latest              Return the newest/latest feed item (may be in the
                             future).
       --no-proxy            Do not use a proxy. Default: False

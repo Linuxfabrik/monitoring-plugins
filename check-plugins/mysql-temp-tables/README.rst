@@ -32,8 +32,7 @@ Help
 
     usage: mysql-temp-tables [-h] [-V] [--always-ok]
                              [--defaults-file DEFAULTS_FILE]
-                             [--defaults-group DEFAULTS_GROUP]
-                             [--timeout TIMEOUT]
+                             [--defaults-group DEFAULTS_GROUP] [--timeout TIMEOUT]
 
     Checks the number of on-disk versus in-memory temporary tables created in
     MySQL/MariaDB.

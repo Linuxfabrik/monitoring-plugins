@@ -29,8 +29,7 @@ Help
                   [--configfile CONFIGFILE] [--critical-pattern CRIT_PATTERN]
                   [--critical-regex CRIT_REGEX] [--disable-pseudo-terminal] -H
                   HOSTNAME [--identity IDENTITY] [--ipv4] [--ipv6] [-p PASSWORD]
-                  [--port PORT] [--quiet]
-                  [--severity-retc {ok,warn,crit,unknown}]
+                  [--port PORT] [--quiet] [--severity-retc {ok,warn,crit,unknown}]
                   [--severity-stderr {ok,warn,crit,unknown}]
                   [--severity-stdout {ok,warn,crit,unknown}]
                   [--severity-timeout {ok,warn,crit,unknown}]

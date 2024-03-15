@@ -24,7 +24,7 @@ Help
 
 .. code-block:: text
 
-    usage: deb-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
+    usage: deb-lastactivity [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
 
     Checks the timespan since the last package manager activity, for example due
     to an apt install/update.
@@ -34,6 +34,8 @@ Help
       -V, --version         show program's version number and exit
       -c CRIT, --critical CRIT
                             Set the critical threshold (in days). Default: 365
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       -w WARN, --warning WARN
                             Set the warning threshold (in days). Default: 90
 

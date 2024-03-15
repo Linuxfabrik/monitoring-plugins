@@ -25,8 +25,7 @@ Help
 
 .. code-block:: text
 
-    usage: updates [-h] [-V] [--always-ok] [-c CRIT] [--timeout TIMEOUT]
-                   [-w WARN]
+    usage: updates [-h] [-V] [--always-ok] [-c CRIT] [--timeout TIMEOUT] [-w WARN]
 
     Checks the number of pending Windows updates.
 

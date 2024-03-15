@@ -43,9 +43,8 @@ Help
                           [--severity {warn,crit}] [--since SINCE] [--test TEST]
                           [--unit UNIT] [--user-unit USER_UNIT]
 
-    Query the systemd journal and alert on any events found. Only logs for the
-    current boot will be shown. For help on any of the journalctl-specific
-    parameters, see `man journalctl`.
+    Query the systemd journal and alert on any events found. For help on any of
+    the journalctl-specific parameters, see `man journalctl`.
 
     options:
       -h, --help            show this help message and exit
@@ -59,9 +58,9 @@ Help
                             identifier. Default: None
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern on the MESSAGE field
-                            will be ignored (must be lowercase; repeating).', So,
-                            unlike `journalctl`, you can easily use strings to
-                            ignore certain messages.
+                            will be ignored (repeating).', So, unlike
+                            `journalctl`, you can easily use strings to ignore
+                            certain messages.
       --ignore-regex IGNORE_REGEX
                             Any line matching this Python regex on the MESSAGE
                             field will be ignored (must be lowercase; repeating).
@@ -73,7 +72,7 @@ Help
                             Severity for alerts if journalctl returns results. One
                             of "warn" or "crit". Default: warn
       --since SINCE         journalctl: Start showing entries on or newer than the
-                            specified date. Default: >= -24h
+                            specified date. Default: >= -8h
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --unit UNIT           journalctl: Show messages for the specified systemd
