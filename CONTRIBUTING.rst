@@ -48,6 +48,7 @@ Checklist:
 * Icinga Director Basket Config for the check plugin
 * Icinga Service Set in ``all-the-rest.json``
 * Optional: sudoers file (see `sudoers File <#sudoers-file>`_)
+* CHANGELOG
 
 
 Rules of Thumb
