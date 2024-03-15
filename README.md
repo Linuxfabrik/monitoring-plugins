@@ -272,7 +272,7 @@ A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `http_proxy` are automatic
 
 Q: **Icinga does not seem to pass the environment variable `http_proxy` to the plugins. What am i doing wrong?**
 
-This has nothing to do with the Linuxfabrik monitoring plugins, but the Icinga configuration needs to be adjusted here - you need to do some additional configuration to make custom environment variables generally available. According to [this Icinga community post](https://community.icinga.com/t/environments-for-all-check-commands/9092) you need to set them in `/etc/icinga2/icinga2.conf`:
+This has nothing to do with the Linuxfabrik monitoring plugins - the Icinga configuration needs to be adjusted here. You need to do some additional configuration to make custom environment variables generally available. According to [this Icinga community post](https://community.icinga.com/t/environments-for-all-check-commands/9092) you need to set them in `/etc/icinga2/icinga2.conf`:
 
 ```
 template CheckCommand default {
