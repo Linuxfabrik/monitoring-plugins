@@ -2,47 +2,71 @@
     "Command": {
         "cmd-check-fedora-version": {
             "arguments": {
-                "--notify-new-major": {
-                    "set_if": "$fedora_version_notify_new_major$"
+                "--always-ok": {
+                    "set_if": "$fedora_version_always_ok$"
                 },
-                "--notify-new-minor": {
-                    "set_if": "$fedora_version_notify_new_minor$"
+                "--check-major": {
+                    "set_if": "$fedora_version_check_major$"
                 },
-                "--notify-new-patch": {
-                    "set_if": "$fedora_version_notify_new_patch$"
+                "--check-minor": {
+                    "set_if": "$fedora_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$fedora_version_check_patch$"
+                },
+                "--insecure": {
+                    "set_if": "$fedora_version_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$fedora_version_no_proxy$"
                 },
                 "--offset-eol": {
                     "value": "$fedora_version_offset_eol$"
                 },
-                "--always-ok": {
-                    "set_if": "$fedora_version_always_ok$"
+                "--timeout": {
+                    "value": "$fedora_version_timeout$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/fedora-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 1,
+                    "datafield_id": 2059,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 2,
+                    "datafield_id": 2060,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 3,
+                    "datafield_id": 2061,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 4,
+                    "datafield_id": 2062,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 5,
+                    "datafield_id": 2063,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2064,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2065,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2066,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -99,11 +123,14 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "fedora_version_notify_new_major": false,
-                "fedora_version_notify_new_minor": false,
-                "fedora_version_notify_new_patch": false,
+                "fedora_version_always_ok": false,
+                "fedora_version_check_major": false,
+                "fedora_version_check_minor": false,
+                "fedora_version_check_patch": false,
+                "fedora_version_insecure": false,
+                "fedora_version_no_proxy": false,
                 "fedora_version_offset_eol": -30,
-                "fedora_version_always_ok": false
+                "fedora_version_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -111,34 +138,61 @@
         }
     },
     "Datafield": {
-        "1": {
-            "varname": "fedora_version_notify_new_major",
-            "caption": "Fedora Version: Notify New Major?",
+        "2059": {
+            "varname": "fedora_version_always_ok",
+            "caption": "Fedora Version: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "856279ca-fb84-439f-84c5-6f8be48f133a"
+        },
+        "2060": {
+            "varname": "fedora_version_check_major",
+            "caption": "Fedora Version: Check Major?",
             "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "a91a0add-9a18-4b78-b448-ba86e522e594"
         },
-        "2": {
-            "varname": "fedora_version_notify_new_minor",
-            "caption": "Fedora Version: Notify New Minor?",
+        "2061": {
+            "varname": "fedora_version_check_minor",
+            "caption": "Fedora Version: Check Minor?",
             "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "85c28cde-010b-4aec-9a1d-787de5f0c837"
         },
-        "3": {
-            "varname": "fedora_version_notify_new_patch",
-            "caption": "Fedora Version: Notify New Patch?",
+        "2062": {
+            "varname": "fedora_version_check_patch",
+            "caption": "Fedora Version: Check Patch?",
             "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "acb33b6b-4974-4060-85b2-1b13287b881f"
         },
-        "4": {
+        "2063": {
+            "varname": "fedora_version_insecure",
+            "caption": "Fedora Version: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4aa61658-2c92-41a2-bff2-cfe8a3217843"
+        },
+        "2064": {
+            "varname": "fedora_version_no_proxy",
+            "caption": "Fedora Version: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b779d677-603f-454c-8eef-4b2a3fc8ae60"
+        },
+        "2065": {
             "varname": "fedora_version_offset_eol",
             "caption": "Fedora Version: Offset Eol",
             "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
@@ -149,14 +203,16 @@
             },
             "uuid": "9b39d201-3344-423c-8a20-fa22f9869cea"
         },
-        "5": {
-            "varname": "fedora_version_always_ok",
-            "caption": "Fedora Version: Always OK?",
-            "description": "Always returns OK.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+        "2066": {
+            "varname": "fedora_version_timeout",
+            "caption": "Fedora Version: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
-            "settings": {},
-            "uuid": "856279ca-fb84-439f-84c5-6f8be48f133a"
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aa6e1d30-f529-475b-98ea-f266c19a3a32"
         }
     }
 }

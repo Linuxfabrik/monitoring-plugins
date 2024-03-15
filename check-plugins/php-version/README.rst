@@ -28,7 +28,8 @@ Help
 .. code-block:: text
 
     usage: php-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                       [--check-patch] [--offset-eol OFFSET_EOL] [--path PATH]
+                       [--check-patch] [--insecure] [--no-proxy]
+                       [--offset-eol OFFSET_EOL] [--path PATH] [--timeout TIMEOUT]
 
     Tracks if PHP is EOL.
 
@@ -48,10 +49,14 @@ Help
                             available, even if the current version of my product
                             is not EOL. Example: Notify when I run v26.2.7 (not
                             yet EOL) and v26.2.8 is available. Default: False
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --offset-eol OFFSET_EOL
                             Alert me n days before ("-30") or after an EOL date
                             ("30" or "+30"). Default: -30 days
       --path PATH           Local path to your PHP binary. Default: /usr/bin/php
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 
 Usage Examples

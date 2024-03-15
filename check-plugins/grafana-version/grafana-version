@@ -21,14 +21,17 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031501'
 
 DESCRIPTION = 'Tracks if Grafana is EOL.'
 
 DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
 DEFAULT_CHECK_PATCH = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -84,12 +87,39 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
         '--offset-eol',
         help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
              'Default: %(default)s days',
         dest='OFFSET_EOL',
         type=int,
         default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     return parser.parse_args()
@@ -130,6 +160,9 @@ def main():
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,
         check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
     )
 
     # over and out

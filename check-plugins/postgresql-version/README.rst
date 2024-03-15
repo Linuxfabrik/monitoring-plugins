@@ -28,8 +28,9 @@ Help
 .. code-block:: text
 
     usage: postgresql-version [-h] [-V] [--always-ok] [--check-major]
-                              [--check-minor] [--check-patch]
-                              [--offset-eol OFFSET_EOL] [--username USERNAME]
+                              [--check-minor] [--check-patch] [--insecure]
+                              [--no-proxy] [--offset-eol OFFSET_EOL]
+                              [--timeout TIMEOUT] [--username USERNAME]
 
     Tracks if PostgreSQL is EOL.
 
@@ -49,9 +50,13 @@ Help
                             available, even if the current version of my product
                             is not EOL. Example: Notify when I run v26.2.7 (not
                             yet EOL) and v26.2.8 is available. Default: False
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       --offset-eol OFFSET_EOL
                             Alert me n days before ("-30") or after an EOL date
                             ("30" or "+30"). Default: -30 days
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --username USERNAME   PostgreSQL username for running `psql`. Default:
                             postgres
 

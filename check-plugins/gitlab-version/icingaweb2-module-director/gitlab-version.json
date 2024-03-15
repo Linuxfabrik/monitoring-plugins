@@ -14,43 +14,67 @@
                 "--check-patch": {
                     "set_if": "$gitlab_version_check_patch$"
                 },
+                "--insecure": {
+                    "set_if": "$gitlab_version_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$gitlab_version_no_proxy$"
+                },
                 "--offset-eol": {
                     "value": "$gitlab_version_offset_eol$"
                 },
                 "--path": {
                     "value": "$gitlab_version_path$"
+                },
+                "--timeout": {
+                    "value": "$gitlab_version_timeout$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/gitlab-version",
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 1,
+                    "datafield_id": 119,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 2,
+                    "datafield_id": 120,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 3,
+                    "datafield_id": 121,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 4,
+                    "datafield_id": 122,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 5,
+                    "datafield_id": 123,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
-                    "datafield_id": 6,
+                    "datafield_id": 124,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 125,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 126,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 127,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -111,8 +135,11 @@
                 "gitlab_version_check_major": false,
                 "gitlab_version_check_minor": false,
                 "gitlab_version_check_patch": false,
+                "gitlab_version_insecure": false,
+                "gitlab_version_no_proxy": false,
                 "gitlab_version_offset_eol": -30,
-                "gitlab_version_path": "/opt/gitlab/version-manifest.txt"
+                "gitlab_version_path": "/opt/gitlab/version-manifest.txt",
+                "gitlab_version_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -120,7 +147,7 @@
         }
     },
     "Datafield": {
-        "1": {
+        "119": {
             "varname": "gitlab_version_always_ok",
             "caption": "Gitlab Version: Always OK?",
             "description": "Always returns OK.",
@@ -129,7 +156,7 @@
             "settings": {},
             "uuid": "8b566477-7527-4dad-a3e0-3cef431c7eed"
         },
-        "2": {
+        "120": {
             "varname": "gitlab_version_check_major",
             "caption": "Gitlab Version: Check Major?",
             "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
@@ -138,7 +165,7 @@
             "settings": {},
             "uuid": "514e34b0-f397-4b5e-adfa-2b0948c212b4"
         },
-        "3": {
+        "121": {
             "varname": "gitlab_version_check_minor",
             "caption": "Gitlab Version: Check Minor?",
             "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
@@ -147,7 +174,7 @@
             "settings": {},
             "uuid": "0aeadf52-b02d-4b45-a370-2f9d77656a47"
         },
-        "4": {
+        "122": {
             "varname": "gitlab_version_check_patch",
             "caption": "Gitlab Version: Check Patch?",
             "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
@@ -156,7 +183,25 @@
             "settings": {},
             "uuid": "cd5e1aa7-4e09-4ae5-9f9a-1a4dc1d6eb0c"
         },
-        "5": {
+        "123": {
+            "varname": "gitlab_version_insecure",
+            "caption": "Gitlab Version: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1a5a4a38-ca73-465a-a359-8d6bf34d2840"
+        },
+        "124": {
+            "varname": "gitlab_version_no_proxy",
+            "caption": "Gitlab Version: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3d7e4261-dd1f-426e-97eb-0a1e88ecd460"
+        },
+        "125": {
             "varname": "gitlab_version_offset_eol",
             "caption": "Gitlab Version: Offset Eol",
             "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
@@ -167,7 +212,7 @@
             },
             "uuid": "53491bb4-bb0d-4449-b76f-d9db8888475a"
         },
-        "6": {
+        "126": {
             "varname": "gitlab_version_path",
             "caption": "Gitlab Version: Path",
             "description": "Full path to GitLab's `version-manifest.txt`.",
@@ -177,6 +222,17 @@
                 "visibility": "visible"
             },
             "uuid": "e1439f84-269a-4b81-af64-4775c386aa3b"
+        },
+        "127": {
+            "varname": "gitlab_version_timeout",
+            "caption": "Gitlab Version: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "238e1a73-b79f-4814-81a3-81e5ab168e37"
         }
     }
 }
