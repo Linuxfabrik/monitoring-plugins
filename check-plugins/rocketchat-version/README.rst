@@ -27,7 +27,8 @@ Help
 .. code-block:: text
 
     usage: rocketchat-version [-h] [-V] [--always-ok]
-                              [--cache-expire CACHE_EXPIRE] -p PASSWORD
+                              [--cache-expire CACHE_EXPIRE] [--insecure]
+                              [--no-proxy] -p PASSWORD [--timeout TIMEOUT]
                               [--url URL] --username USERNAME
 
     This plugin lets you track if server updates are available. Requires a user
@@ -40,8 +41,12 @@ Help
       --cache-expire CACHE_EXPIRE
                             The amount of time after which the update check cache
                             expires, in hours. Default: 24
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Rocket.Chat API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             Rocket.Chat API URL. Default:
                             http://localhost:3000/api/v1
       --username USERNAME   Rocket.Chat API username. Default: rocket-stats
@@ -58,7 +63,7 @@ Output:
 
 .. code-block:: text
 
-    Rocket.Chat v3.15.0 is up to date
+    Rocket.Chat v6.6.2 installed, Rocket.Chat v6.6.3 available
 
 
 States

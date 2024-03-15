@@ -41,7 +41,7 @@ Monitoring Plugins:
 * diacos: Add new parameter `--insecure`
 * feed: Make use of `--insecure` `--no-proxy` `--timeout`
 * fs-ro: Add `/dev/loop` to default ignore list
-* fs-ro: make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
+* fs-ro: Make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
 * githubstatus: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * gitlab-health: Add new parameters `--insecure` `--no-proxy`
 * gitlab-liveness: Add new parameters `--insecure` `--no-proxy`
@@ -69,7 +69,8 @@ Monitoring Plugins:
 * redfish-drives: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * redfish-sel: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * redfish-sensor: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* sap-open-concur: Add new parameters `--insecure`
+* rocket-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* sap-open-concur: Add new parameter `--insecure`
 * statuspal: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
 * veeam-status: Add new parameters `--insecure` `--no-proxy`

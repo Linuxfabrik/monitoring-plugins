@@ -25,7 +25,8 @@ Help
 
 .. code-block:: text
 
-    usage: rocketchat-stats [-h] [-V] -p PASSWORD [--url URL] --username USERNAME
+    usage: rocketchat-stats [-h] [-V] [--insecure] [--no-proxy] -p PASSWORD
+                            [--timeout TIMEOUT] [--url URL] --username USERNAME
 
     This plugin allows you to track statistics about a Rocket.Chat server,
     structured in the same way as on the https://rocket.chat/admin/info page.
@@ -35,12 +36,15 @@ Help
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
       -p PASSWORD, --password PASSWORD
                             Rocket.Chat API password.
+      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             Rocket.Chat API URL. Default:
                             http://localhost:3000/api/v1
       --username USERNAME   Rocket.Chat API username. Default: rocket-stats
-
 
 
 Usage Examples

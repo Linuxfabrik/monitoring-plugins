@@ -24,14 +24,17 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031501'
 
 DESCRIPTION = """This plugin lets you track if server updates are available. Requires a user with
                  strong password and "view-statistics" permission (only)."""
 
-DEFAULT_URL             = 'http://localhost:3000/api/v1'
-DEFAULT_USERNAME        = 'rocket-stats'
-DEFAULT_CACHE_EXPIRE    = 24 # hours
+DEFAULT_CACHE_EXPIRE = 24 # hours
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 3
+DEFAULT_URL = 'http://localhost:3000/api/v1'
+DEFAULT_USERNAME = 'rocket-stats'
 
 
 def parse_args():
@@ -55,11 +58,30 @@ def parse_args():
 
     parser.add_argument(
         '--cache-expire',
-        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        help='The amount of time after which the update check cache expires, in hours. '
+             'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
         )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
 
     parser.add_argument(
         '-p', '--password',
@@ -69,15 +91,26 @@ def parse_args():
         )
 
     parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--url',
-        help='Rocket.Chat API URL. Default: %(default)s',
+        help='Rocket.Chat API URL. '
+             'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
         )
 
     parser.add_argument(
         '--username',
-        help='Rocket.Chat API username. Default: %(default)s',
+        help='Rocket.Chat API username. '
+             'Default: %(default)s',
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
@@ -112,9 +145,23 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    credentials = lib.base.coe(lib.rocket.get_token(args.URL, args.USERNAME, args.PASSWORD))
+    credentials = lib.base.coe(lib.rocket.get_token(
+        args.URL,
+        args.USERNAME,
+        args.PASSWORD,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
     authToken, userId = credentials.split(':')
-    result = lib.base.coe(lib.rocket.get_stats(args.URL, authToken, userId))
+    result = lib.base.coe(lib.rocket.get_stats(
+        args.URL,
+        authToken,
+        userId,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
 
     if result.get('statistics', None):
         # version < 3.0.0
