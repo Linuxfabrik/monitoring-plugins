@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024031501'
 
 DESCRIPTION = 'A tool to generate Icinga Director baskets from a check plugin.'
 
@@ -111,7 +111,7 @@ regex_replace_words = {
 }
 
 
-command_field_id = 1
+#command_field_id = 1
 
 
 def parse_args():
@@ -524,8 +524,7 @@ def sanitize_default_value(value):
     return value
 
 
-def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix='', service_object_parent_key='ServiceTemplate', explicitly_set_fields_in_service_object=False):
-    global command_field_id # this prevents command_field_id collisions
+def parse_plugin_args(data, plugin_args, check_name, command_object_name, service_object_name, varname_suffix='', service_object_parent_key='ServiceTemplate', explicitly_set_fields_in_service_object=False, command_field_id=1):
 
     # argparse action classes
     # class BooleanOptionalAction(Action):
@@ -676,7 +675,7 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
             continue
 
         warn_print('Unhandled action class: "{}".'.format(action.__class__.__name__))
-    return data
+    return data, command_field_id
 
 
 def generate_basket(plugin_file, config=None, old_data=None):
@@ -692,6 +691,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
     check_name = os.path.basename(plugin_file)
 
     data = get_data_template()
+    command_field_id = 1
 
     if 'linux' in config['variants']:
         print('Generating "linux" variant.')
@@ -714,13 +714,14 @@ def generate_basket(plugin_file, config=None, old_data=None):
             plugin_args.description
         )
 
-        data = parse_plugin_args(
+        data, command_field_id = parse_plugin_args(
             data,
             plugin_args,
             check_name,
             command_object_name,
             service_object_name,
-            varname_suffix
+            varname_suffix,
+            command_field_id=command_field_id,
         )
 
     if 'sudo' in config['variants']:
@@ -779,13 +780,14 @@ def generate_basket(plugin_file, config=None, old_data=None):
             plugin_args.description
         )
 
-        data = parse_plugin_args(
+        data, command_field_id = parse_plugin_args(
             data,
             plugin_args,
             check_name,
             command_object_name,
             service_object_name,
-            varname_suffix
+            varname_suffix,
+            command_field_id=command_field_id,
         )
 
         data = get_command_template(
@@ -817,7 +819,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
             command_object_name,
         )
 
-        data = parse_plugin_args(
+        data, command_field_id = parse_plugin_args(
             data,
             plugin_args,
             check_name,
@@ -826,6 +828,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
             varname_suffix,
             service_object_parent_key='Notification',
             explicitly_set_fields_in_service_object=True,
+            command_field_id=command_field_id,
         )
 
     if 'overwrites' in config:
