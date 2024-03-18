@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024031801'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -350,6 +350,15 @@ def find_software(): # pylint: disable=R0915
         'guessed': os.path.isdir('/opt/collaboraoffice6.4'),
         'installed': False,
         'version': None,
+    }
+
+    output = run_cmd('composer --version --no-interaction')
+    s['composer'] = {
+        'display-name': 'Composer (PHP)',
+        'tag-name': 'composer',
+        'guessed': False,
+        'installed': output is not False,
+        'version': run_regex(output, r'n (\d+\.\d+\.?\d*)') if output is not False else None,
     }
 
     output = run_cmd('containerd --version')

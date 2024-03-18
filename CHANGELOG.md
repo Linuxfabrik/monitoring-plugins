@@ -36,6 +36,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * \*-version: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* about-me: Add detection of PHP Composer
 * about-me: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * apache-httpd-status: Add new parameters `--no-proxy` `--timeout`
 * axenita-stats: Add new parameters `--insecure` `--no-proxy`
