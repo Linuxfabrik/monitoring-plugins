@@ -284,7 +284,7 @@ template CheckCommand default {
 If you are also using `sudo` to call some plugins from within Icinga, you will also need to set this in your `/etc/sudoers.d/whatever.sudoers`:
 
 ```
-Default env_keep += "http_proxy https_proxy"
+Defaults env_keep += "http_proxy https_proxy"
 ```
 
 Pro tips:
