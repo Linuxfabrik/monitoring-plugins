@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031801'
+__version__ = '2024032501'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -989,6 +989,9 @@ def find_software(): # pylint: disable=R0915
     }
 
     output = run_cmd('openvas version')
+    if not output or (type(output) == str and not output.startswith('OpenVAS')):
+        # starting with OpenVAS 22.7.9:
+        output = run_cmd('openvas --version')
     s['openvas'] = {
         'display-name': 'OpenVAS',
         'tag-name': 'openvas',
