@@ -56,6 +56,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-products: Improve output
 * jitsi-\*: Add new parameters `--insecure` `--no-proxy`
 * journald-query: Remove hard-coded `--boot` parameter from query
+* librenms-version: Fetches info from local SQLite using new librenms library
 * logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * metabase-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mod-qos-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`

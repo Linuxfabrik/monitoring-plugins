@@ -20,10 +20,11 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024032601'
 
-DESCRIPTION = '''This check displays LibreNMS instance information, using its API. This is not a
-                 "is there a new version out there" g itself (if running the Git version).'''
+DESCRIPTION = '''Displays LibreNMS instance information. This is not a "is
+                 there a new version out there" check as LibreNMS is capable
+                 of updating itself (if running the Git version).'''
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -96,19 +97,26 @@ def main():
 
     # init some vars
     msg = ''
-    state = STATE_OK
     perfdata = ''
 
-    # return LibreNMS instance information
-    result = lib.librenms.get_data(args, '/api/v0/system')
-    result = result['system'][0]
+    # connect to DB
+    filename = lib.librenms.get_filename(args)
+    if not lib.librenms.update_cache(args, filename=filename):
+        lib.base.cu('Unable to update local cache {}'.format(filename))
+    conn = lib.base.coe(lib.db_sqlite.connect(filename=filename))
 
-    # since 22.7.0-33:
-    # {'local_ver': '22.7.0-33-g3d65e722a', 'local_sha': '3d65e722a621776eb7ff592455bd63fa5637b98b',
-    # 'local_date': '1659276599', 'local_branch': 'master', 'github': None, 
-    # 'db_schema': '2022_07_03_1947_add_app_data (244)', 'php_ver': '8.1.8', 'python_ver': '3.6.8',
-    # 'database_ver': 'MariaDB 10.6.8-MariaDB', 'rrdtool_ver': '1.7.0', 'netsnmp_ver': '5.8'}
+    # fetch data
+    result = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        SELECT *
+        FROM system
+        ''',
+        fetchone=True,
+    ))
+    lib.db_sqlite.close(conn)
 
+    # build the message
     msg += 'LibreNMS {}'.format(result['local_ver'])
     if 'local_branch' in result:
         msg += ' (Git: {})'.format(result['local_branch'])
@@ -123,18 +131,18 @@ def main():
     msg += 'Python {}, '.format(result['python_ver'])
     msg += 'RRD-Tool {}'.format(result['rrdtool_ver'])
 
-    perfdata += lib.base.get_perfdata('librenms-version', lib.version.version2float(result['local_ver']), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('librenms-version', lib.version.version2float(result['local_ver']), None, None, None, 0, None) # pylint: disable=C0301
     try:
-        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['database_ver']), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['database_ver']), None, None, None, 0, None) # pylint: disable=C0301
     except:
-        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['mysql_ver']), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('netsnmp-version', lib.version.version2float(result['netsnmp_ver']), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('php-version', lib.version.version2float(result['php_ver']), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('python-version', lib.version.version2float(result['python_ver']), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rrdtool-version', lib.version.version2float(result['rrdtool_ver']), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('db-version', lib.version.version2float(result['mysql_ver']), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('netsnmp-version', lib.version.version2float(result['netsnmp_ver']), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('php-version', lib.version.version2float(result['php_ver']), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('python-version', lib.version.version2float(result['python_ver']), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rrdtool-version', lib.version.version2float(result['rrdtool_ver']), None, None, None, 0, None) # pylint: disable=C0301
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, STATE_OK, perfdata)
 
 
 if __name__ == '__main__':
