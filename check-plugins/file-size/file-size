@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024011101'
 
 DESCRIPTION = 'Checks the size for a file or directory, in bytes.'
 
@@ -66,8 +66,8 @@ def parse_args():
         '-c', '--critical',
         help='Set the critical size threshold in bytes. Default: >= %(default)s (1G)',
         dest='CRIT',
-        type=lib.args.float_or_none,
-        default=DEFAULT_CRIT,
+        type=lib.args.str_or_none,
+        default=str(DEFAULT_CRIT),
     )
 
     parser.add_argument(
@@ -114,12 +114,46 @@ def parse_args():
         '-w', '--warning',
         help='Set the warning size threshold in bytes. Default: >= %(default)s (100M)',
         dest='WARN',
-        type=lib.args.float_or_none,
-        default=DEFAULT_WARN,
+        type=lib.args.str_or_none,
+        default=str(DEFAULT_WARN),
     )
 
     return parser.parse_args()
-
+nodigit = 0
+def range2human(value):
+    if value.startswith(":"):
+        if (value[1:]).isdigit():
+            end = (value[1:])
+            end = lib.human.bytes2human(float(end))
+            return str('< ' + end)
+        else:
+            lib.base.cu ('Error, threshold values and ranges (-w, -c arguments) must be composed of only digits')
+            sys.exit(STATE_UNKNOWN)
+    elif value.endswith(":"):
+        if (value[:-1]).isdigit():
+            start = (value[:-1])
+            start = lib.human.bytes2human(float(start))
+            return str('> ' + start)
+        else:
+            lib.base.cu ('Error, threshold values and ranges (-w, -c arguments) must be composed of only digits')
+            sys.exit(STATE_UNKNOWN)
+    elif ":" in value:
+            start, end = map(str, value.split(":"))
+            if (start).isdigit() and (end).isdigit():
+                start = lib.human.bytes2human(float(start))
+                end = lib.human.bytes2human(float(end))
+                return start + ' - ' + end
+            else:
+                lib.base.cu ('Error, threshold values and ranges (-w, -c arguments) must be composed of only digits')
+                sys.exit(STATE_UNKNOWN)
+    else:
+        if value.isdigit():
+            value = float(value)
+            value = lib.human.bytes2human(value)
+            return str('< ' + value)
+        else:
+            lib.base.cu ('Error, threshold values and ranges (-w, -c arguments) must be composed of only digits')
+            sys.exit(STATE_UNKNOWN)
 
 def main():
     """The main function. Hier spielt die Musik.
@@ -137,6 +171,13 @@ def main():
     state = STATE_OK
     msg = ''
     file_count = 0
+    error_count = 0
+
+    try:
+        value_string_warn = range2human(args.WARN)
+        value_string_crit = range2human(args.CRIT)
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
 
     if args.FILENAME:
         for item in sorted(glob.iglob(args.FILENAME)):
@@ -145,7 +186,9 @@ def main():
                 continue
 
             size = os.stat(item).st_size
-            item_state = lib.base.get_state(size, args.WARN, args.CRIT)
+            item_state = lib.base.get_state(size, args.WARN, args.CRIT, 'range')
+            if item_state == STATE_WARN or item_state == STATE_CRIT:
+                error_count += 1
             state = lib.base.get_worst(state, item_state)
             file_count += 1
             msg += '* {}: {}{}\n'.format(item, lib.human.bytes2human(size), lib.base.state2str(item_state, prefix=" "))
@@ -165,7 +208,9 @@ def main():
                     continue
 
                 size = item.stat().st_size
-                item_state = lib.base.get_state(size, args.WARN, args.CRIT)
+                item_state = lib.base.get_state(size, args.WARN, args.CRIT, 'range')
+                if item_state == STATE_WARN or item_state == STATE_CRIT:
+                    error_count += 1
                 state = lib.base.get_worst(state, item_state)
                 file_count += 1
                 msg += '* {}: {}{}\n'.format(item, lib.human.bytes2human(size), lib.base.state2str(item_state, prefix=" "))
@@ -175,22 +220,25 @@ def main():
     if file_count == 0:
         msg = 'No files found.'
         lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
-
-    if state == STATE_OK:
-        msg = '{} {} {} below the given size thresholds ({}/{}).\n\n'.format(
-            file_count,
-            lib.txt.pluralize("file", file_count),
-            lib.txt.pluralize('', file_count, 'is,are'),
-            lib.human.bytes2human(args.WARN),
-            lib.human.bytes2human(args.CRIT),
+    if ':' in args.WARN or ':' in args.CRIT:
+        msg = 'Critical  (Accepted Range): {}.\n\n'.format(
+        value_string_crit,
+        ) + msg
+        msg = 'Warning   (Accepted Range): {}.\n'.format(
+        value_string_warn,
+        ) + msg
+        msg = '{} {} {} outside the given threshold ranges of:\n'.format(
+        error_count,
+        lib.txt.pluralize("file", error_count),
+        lib.txt.pluralize('', error_count, 'is,are'),
         ) + msg
     else:
-        msg = '{} {} {} bigger than the given size thresholds ({}/{}).\n\n'.format(
-            file_count,
-            lib.txt.pluralize("file", file_count),
-            lib.txt.pluralize('', file_count, 'is,are'),
-            lib.human.bytes2human(args.WARN),
-            lib.human.bytes2human(args.CRIT),
+        msg = '{} {} {} above the given size thresholds ({}/ {}).\n'.format(
+        error_count,
+        lib.txt.pluralize("file", error_count),
+        lib.txt.pluralize('', error_count, 'is,are'),
+        lib.human.bytes2human(float(args.WARN)),
+        lib.human.bytes2human(float(args.CRIT)),
         ) + msg
 
     # over and out
