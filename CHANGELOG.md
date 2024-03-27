@@ -32,6 +32,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * all-the-rest.json: Rename "Starface Java Status" to "Starface Java Memory Usage"
+* all-the-rest: Ignore session-c*.scope in systemd-units-failed by default
 
 Monitoring Plugins:
 
