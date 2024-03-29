@@ -35,8 +35,9 @@ Help
     usage: librenms-version [-h] [-V] [--insecure] [--no-proxy]
                             [--timeout TIMEOUT] --token TOKEN [--url URL]
 
-    This check displays LibreNMS instance information, using its API. This is not
-    a "is there a new version out there" g itself (if running the Git version).
+    Displays LibreNMS instance information. This is not a "is there a new version
+    out there" check as LibreNMS is capable of updating itself (if running the Git
+    version).
 
     options:
       -h, --help         show this help message and exit
