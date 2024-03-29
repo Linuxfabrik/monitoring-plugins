@@ -4,11 +4,14 @@ Check librenms-alerts
 Overview
 --------
 
-LibreNMS includes a highly customizable alerting system. The system requires a set of user-defined rules to evaluate the situation of each device, port, service or any other entity. This check warns about unacknowledged alerts in LibreNMS and reports the latest of the most critical alerts of each device (only for those who do not have "Disabled alerting" in their LibreNMS device settings). When alerts have triggered in LibreNMS, you will see these in the *Alerts > Notifications* page within the Web UI. If you acknowledge an alert in LibreNMS, this check will change its state to OK.
+LibreNMS includes a highly customizable alerting system. The system requires a set of user-defined rules to evaluate the situation of each device, port, service, or other entity. This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have "Disabled alerting" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts > Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK.
 
-You need to create an API token for a user with "Global Read" level (login with an admin account, then go to LibreNMS > Gear Icon > API > API Settings, choose this user and create the API token).
+This check requires direct access to the LibreNMS MySQL/MariaDB database. The API is simply too resource intensive for use in a large scale environment.
 
-Note: When defining device groups in LibreNMS for the use with ``--device--group``, refrain from using slashes in the name, as that will not work. See `this issue for example <https://github.com/laravel/framework/issues/22125>`_.
+Notes:
+
+* See `additional notes for all monitoring plugins accessing MySQL/MariaDB <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_ on how to configure access to the database.
+* When defining device groups in LibreNMS for use with ``--device--group``, do not use slashes in the name, as this will not work. See `this topic for example <https://github.com/laravel/framework/issues/22125>`_.
 
 
 Fact Sheet
@@ -21,8 +24,8 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
-    "Requirements",                         "LibreNMS API Token"
-    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-librenms-*.db``"
+    "Requirements",                         "Access to LibreNMS' MySQL/MariaDB database. User with no privileges, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
+    "3rd Party Python modules",             "``pymysql``"
 
 
 Help
@@ -30,32 +33,48 @@ Help
 
 .. code-block:: text
 
-    usage: librenms-alerts [-h] [-V] [--always-ok] [--device-group DEVICE_GROUP]
+    usage: librenms-alerts [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
+                           [--defaults-group DEFAULTS_GROUP]
+                           [--device-group DEVICE_GROUP]
                            [--device-hostname DEVICE_HOSTNAME]
                            [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
-                           [--insecure] [--lengthy] [--no-proxy]
-                           [--timeout TIMEOUT] --token TOKEN [--url URL]
+                           [--lengthy] [--severity {warn,crit}]
+                           [--timeout TIMEOUT]
 
-    This check fetches unacknowledged alerts from a LibreNMS instance, using its
-    API.
+    This check warns of unacknowledged alerts in LibreNMS and reports the most
+    recent alert for each device (only for those that do not have "Disabled
+    alerting" in their LibreNMS device settings). If alerts have been triggered in
+    LibreNMS, you will see them on the *Alerts > Notifications* page within the
+    Web UI. When you acknowledge an alert in LibreNMS, this check will change the
+    status for the corresponding device to OK. This check requires direct access
+    to the LibreNMS MySQL/MariaDB database. The API is simply too resource
+    intensive for use in a large scale environment.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
+      --defaults-file DEFAULTS_FILE
+                            Specifies a cnf file to read parameters like user,
+                            host and password from (instead of specifying them on
+                            the command line), for example
+                            `/var/spool/icinga2/.my.cnf`. Default:
+                            /var/spool/icinga2/.my.cnf
+      --defaults-group DEFAULTS_GROUP
+                            Group/section to read from in the cnf file. Default:
+                            client
       --device-group DEVICE_GROUP
-                            Filter by LibreNMS Device Group.
+                            Filter by LibreNMS Device Group. Supports SQL
+                            Wildcards.
       --device-hostname DEVICE_HOSTNAME
                             Filter by LibreNMS Hostname (repeating).
       --device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}
                             Filter by LibreNMS Device Type (repeating).
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
       --lengthy             Extended reporting.
-      --no-proxy            Do not use a proxy. Default: False
+      --severity {warn,crit}
+                            Severity for alerts. One of "warn" or "crit". Default:
+                            crit
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      --token TOKEN         LibreNMS API token
-      --url URL             LibreNMS API URL. Default: http://localhost
 
 
 Usage Examples
@@ -63,30 +82,30 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./librenms-alerts --url http://librenms --token 03xyza61e711234229d
+    /librenms-alerts '--timeout' '3' --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%network%" --severity=warn
 
 Output:
 
 .. code-block:: text
 
-    There are one or more criticals.
+    Checked 5 devices. There are 2 alerts.
 
-    Hostname     SysName         Alerts Worst State Latest & Worst Msg
-    --------     -------         ------ ----------- ------------------
-    10.80.32.109 S3900-48T4S     1      [CRITICAL]  Device Down! Due to no ICMP response.
-    10.80.32.141 switch99        3      [CRITICAL]  Port status up/down
-    10.80.32.12  brw38b1db3b30f4 0      [OK]
-    10.80.32.1   router01        0      [OK]
-    10.80.32.50                  0      [OK]
-    10.80.32.58                  0      [OK]
+    Hostname   ! SysName                 ! Alert        ! State      
+    -----------+-------------------------+--------------+------------
+    192.0.2.10 ! synology                ! None         ! [OK]       
+    192.0.2.33 ! rack03-usw              ! Ping Latency ! [WARNING] 
+    192.0.2.51 ! uap-ac-001              ! None         ! [OK]       
+    192.0.2.57 ! uap-ac-002              ! None         ! [OK]       
+    192.0.2.50 ! uap-ac-003              ! None         ! [OK]       
+    192.0.2.32 ! rack03-usw-pro-48server ! Ping Latency ! [WARNING] 
+    ...
 
 
 States
 ------
 
-* CRIT on criticals in LibreNMS
-* WARN on warnings in LibreNMS
-* OK on OK in LibreNMS
+* Alerts according to the given severity (default: CRIT) on any alert in LibreNMS
+* OK on OK or ACK in LibreNMS
 
 
 Perfdata / Metrics
