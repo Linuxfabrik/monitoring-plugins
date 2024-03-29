@@ -13,25 +13,37 @@
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
-import urllib.parse  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
+import lib.db_mysql  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
 import lib.librenms  # pylint: disable=C0413
-from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024032902'
 
-DESCRIPTION = 'This check fetches sensor information from a LibreNMS instance, using its API.'
+DESCRIPTION = """This check plugin retrieves sensor information for each device
+                 from a LibreNMS instance.
 
+                 This check requires direct access to the LibreNMS MySQL/MariaDB
+                 database, because the API is simply too resource intensive for
+                 use in a large scale environment."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_INSECURE = False
-DEFAULT_LENGTHY = True
+DEFAULT_LENGTHY = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost'
 
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
@@ -41,8 +53,34 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and '
+             'password from (instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. '
+             'Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. '
+             'Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
         '--device-group',
-        help='Filter by LibreNMS Device Group.',
+        help='Filter by LibreNMS Device Group. Supports SQL Wildcards.',
         dest='DEVICE_GROUP',
     )
 
@@ -58,7 +96,7 @@ def parse_args():
         help='Filter by LibreNMS Device Type (repeating).',
         dest='DEVICE_TYPE',
         action='append',
-        choices=[ # taken from the librenms source file: misc/config_definitions.json
+        choices=[ # taken from the librenms source file misc/config_definitions.json
             'appliance',
             'collaboration',
             'environment',
@@ -75,15 +113,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL '
-             'connections. Default: %(default)s',
-        dest='INSECURE',
-        action='store_true',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--lengthy',
         help='Extended reporting.',
         dest='LENGTHY',
@@ -92,33 +121,12 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
-        dest='NO_PROXY',
-        action='store_true',
-        default=DEFAULT_NO_PROXY,
-    )
-
-    parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-    )
-
-    parser.add_argument(
-        '--token',
-        help='LibreNMS API token',
-        dest='TOKEN',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--url',
-        help='LibreNMS API URL. Default: %(default)s',
-        dest='URL',
-        default=DEFAULT_URL,
     )
 
     return parser.parse_args()
@@ -134,109 +142,162 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    mysql_connection = {
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    lib.base.coe(lib.db_mysql.check_select_privileges(conn))
+
     # init some vars
     state = STATE_OK
     perfdata = ''
+    alert_count = 0
 
-    devices = {}
-
-    # return a list of devices from LibreNMS
-    result = lib.librenms.get_data(args, '/api/v0/devices?type=active')
-
+    # fetch data
+    sql = '''
+        SELECT 
+            d.hostname,
+            d.sysName,
+            d.sysDescr,
+            d.type,
+            l.location,
+            s.sensor_descr,
+            s.sensor_current,
+            s.sensor_limit,
+            s.sensor_limit_low,
+            s.lastupdate,
+            s.sensor_class,
+            st.state_descr,
+            st.state_generic_value
+        FROM
+            devices AS d
+                LEFT JOIN
+            locations AS l ON d.location_id = l.id
+                LEFT JOIN
+            device_group_device AS dgd ON d.device_id = dgd.device_id
+                LEFT JOIN
+            device_groups AS dg ON dgd.device_group_id = dg.id
+                LEFT JOIN
+            sensors AS s ON d.device_id = s.device_id
+                LEFT JOIN
+            sensors_to_state_indexes AS stsi ON s.sensor_id = stsi.sensor_id
+                LEFT JOIN
+            state_translations AS st ON stsi.state_index_id = st.state_index_id
+                AND st.state_value = s.sensor_current
+        WHERE
+            disable_notify = 0
+            AND s.sensor_alert = 1
+    '''
+    data = []
     if args.DEVICE_GROUP:
-        device_group = lib.librenms.get_data(args, '/api/v0/devicegroups/' + urllib.parse.quote(args.DEVICE_GROUP))
-        device_group_device_ids = [device['device_id'] for device in device_group['devices']]
+        sql += ' AND dg.name LIKE %s '
+        data.append(args.DEVICE_GROUP)
+    if args.DEVICE_HOSTNAME:
+        sql += ' AND d.hostname IN ({}) '.format(
+            ', '.join('%s' for d in args.DEVICE_HOSTNAME), # print "%s" for each argument
+        )
+        data += args.DEVICE_HOSTNAME
+    if args.DEVICE_TYPE:
+        sql += ' AND d.type IN ({}) '.format(
+            ', '.join('%s' for d in args.DEVICE_TYPE), # print "%s" for each argument
+        )
+        data += args.DEVICE_TYPE
+    sql += ' ORDER BY d.hostname, s.sensor_class'
+    sensors = lib.base.coe(lib.db_mysql.select(conn, sql, data))
+    lib.db_mysql.close(conn)
 
-    # build an internal device list with some valuable properties
-    for device in result['devices']:
-        if device['disable_notify']:
-            continue
+    # enrich and analyse data
+    for i, sensor in enumerate(sensors):
+        if not sensor['sysName']:
+            sensors[i]['sysName'] = sensor['sysDescr']
+        if sensor['sensor_class'] == 'state':
+            sensors[i]['sensor_current'] = sensor['state_descr']
+        if all([sensor['sensor_limit_low'], sensor['sensor_limit']]):
+            sensor['sensor_current'] = '{} ({}..{})'.format(
+                sensor['sensor_current'],
+                sensor['sensor_limit_low'],
+                sensor['sensor_limit'],
+            )
+        if sensor['lastupdate']:
+            delta = lib.time.now(as_type='datetime') - sensor['lastupdate']
+            sensor['lastupdate'] = lib.human.seconds2human(delta.total_seconds())
+        local_state = sensor['state_generic_value'] # 0 = ok, 1 = warn, 2 = crit, 3 = unknown
+        if not local_state: # including "None"
+            local_state = STATE_OK
+        if local_state != STATE_OK:
+            alert_count += 1
+        sensors[i]['state'] = lib.base.state2str(
+            local_state,
+            empty_ok=False,
+        )
+        state = lib.base.get_worst(local_state, state)
 
-        hostname = lib.librenms.get_prop(device, 'hostname')
-        if args.DEVICE_HOSTNAME and hostname not in args.DEVICE_HOSTNAME:
-            continue
+    # build the message
+    msg = 'Checked {} {}.'.format(
+        len(sensors),
+        lib.txt.pluralize('sensor', len(sensors)),
+    )
+    if state != STATE_OK:
+        msg += ' There {} {} {}.'.format(
+            lib.txt.pluralize('', alert_count, 'is,are'),
+            alert_count,
+            lib.txt.pluralize('alert', alert_count),
+        )
+    msg += '\n\n'
 
-        devtype = lib.librenms.get_prop(device, 'type')
-        if args.DEVICE_TYPE and devtype not in args.DEVICE_TYPE:
-            continue
+    perfdata += lib.base.get_perfdata('sensor_count', len(sensors), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None) # pylint: disable=C0301
 
-        device_id = lib.librenms.get_prop(device, 'device_id', 'int')
-        if args.DEVICE_GROUP and device_id not in device_group_device_ids:
-            continue
-
-        hardware = lib.librenms.get_prop(device, 'hardware')
-        location = lib.librenms.get_prop(device, 'location')
-        sysos = lib.librenms.get_prop(device, 'os')
-        sysname = lib.librenms.get_prop(device, 'sysName')
-        if not sysname:
-            sysname = lib.librenms.get_prop(device, 'sysDescr')
-
-        devices[device_id] = {}
-        devices[device_id]['device_id'] = device_id
-        devices[device_id]['devtype'] = devtype
-        devices[device_id]['hardware'] = hardware
-        devices[device_id]['hostname'] = hostname
-        devices[device_id]['location'] = location
-        devices[device_id]['os'] = sysos
-        devices[device_id]['sys'] = sysname
-
-        devices[device_id]['sensors'] = []
-
-    # return a list of sensors from LibreNMS
-    result = lib.librenms.get_data(args, '/api/v0/resources/sensors')
-
-    # enrich devices by sensor data
-    for sensor in result['sensors']:
-        device_id = lib.librenms.get_prop(sensor, 'device_id', 'int')
-        if device_id not in devices:
-            continue
-
-        devices[device_id]['sensors'].append({
-            'sensor_current': sensor['sensor_current'],
-            'sensor_descr': sensor['sensor_descr'],
-            'sensor_lastupdate': sensor['lastupdate'],
-            'sensor_limit': sensor['sensor_limit'],
-            'sensor_limit_low': sensor['sensor_limit_low'],
-            'sensor_prev': sensor['sensor_prev'],
-            })
-
-    # create output
-    table_values = []
-    for device in devices.values():
-        for sensor in device['sensors']:
-            table_values.append({
-                'devtype': device['devtype'],
-                'hardware': device['hardware'],
-                'hostname': device['hostname'],
-                'location': device['location'],
-                'os': device['os'],
-                'sensor_descr': sensor['sensor_descr'],
-                'sensor_lastupdate': sensor['sensor_lastupdate'],
-                'sensor_limit': '{}/{}'.format(sensor['sensor_limit_low'], sensor['sensor_limit']),
-                'sensor_value': '{} ({})'.format(sensor['sensor_current'], sensor['sensor_prev']),
-                'sys': device['sys'],
-            })
-
-    if len(table_values) > 0:
-        msg = 'Everything is ok.\n\n'
+    if len(sensors) > 0:
         if not args.LENGTHY:
             msg += lib.base.get_table(
-                table_values,
-                ['hostname', 'sys', 'sensor_descr', 'sensor_value', 'sensor_limit'],
-                header=['Hostname', 'SysName', 'Sensor', 'Val (prev)', 'Limit low/high'],
+                sensors,
+                [
+                    'hostname',
+                    'sysName',
+                    'sensor_descr',
+                    'sensor_current',
+                    'state',
+                ],
+                header=[
+                    'Hostname',
+                    'SysName',
+                    'Sensor',
+                    'Val (Range)',
+                    'State',
+                ],
             )
         else:
             msg += lib.base.get_table(
-                table_values,
-                ['hostname', 'sys', 'hardware', 'devtype', 'os', 'location', 'sensor_descr', 'sensor_value', 'sensor_limit', 'sensor_lastupdate'],
-                header=['Hostname', 'SysName', 'Hardware', 'Type', 'OS', 'Location', 'Sensor', 'Val (prev)', 'Limit low/high', 'Last Update'],
+                sensors,
+                [
+                    'hostname',
+                    'sysName',
+                    'type',
+                    'location',
+                    'sensor_descr',
+                    'sensor_class',
+                    'lastupdate',
+                    'sensor_current',
+                    'state',
+                ],
+                header=[
+                    'Hostname',
+                    'SysName',
+                    'Type',
+                    'Location',
+                    'Sensor',
+                    'Class',
+                    'Changed',
+                    'Val (Range)',
+                    'State',
+                ],
             )
-    else:
-        msg = 'Everything is ok (although no health data returned).'
-    perfdata += lib.base.get_perfdata('device_count', len(devices), None, None, None, 0, None)
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

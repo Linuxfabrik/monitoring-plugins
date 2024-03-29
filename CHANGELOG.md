@@ -20,6 +20,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
+* librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 
 
 ### Added

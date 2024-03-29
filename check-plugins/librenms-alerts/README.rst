@@ -6,12 +6,13 @@ Overview
 
 LibreNMS includes a highly customizable alerting system. The system requires a set of user-defined rules to evaluate the situation of each device, port, service, or other entity. This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have "Disabled alerting" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts > Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK.
 
-This check requires direct access to the LibreNMS MySQL/MariaDB database. The API is simply too resource intensive for use in a large scale environment.
+This check requires direct access to the LibreNMS MySQL/MariaDB database, because the API is simply too resource intensive for use in a large scale environment.
 
 Notes:
 
 * See `additional notes for all monitoring plugins accessing MySQL/MariaDB <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst>`_ on how to configure access to the database.
 * When defining device groups in LibreNMS for use with ``--device--group``, do not use slashes in the name, as this will not work. See `this topic for example <https://github.com/laravel/framework/issues/22125>`_.
+* This check could, but does not, return performance data for each device as LibreNMS provides direct integration with several time series databases such as Graphite, InfluxDB, OpenTSDB, Prometheus and RRDTool. The configuration options can be found in LibreNMS under Settings > Global Settings > Poller > Datastore.
 
 
 Fact Sheet
@@ -47,7 +48,7 @@ Help
     LibreNMS, you will see them on the *Alerts > Notifications* page within the
     Web UI. When you acknowledge an alert in LibreNMS, this check will change the
     status for the corresponding device to OK. This check requires direct access
-    to the LibreNMS MySQL/MariaDB database. The API is simply too resource
+    to the LibreNMS MySQL/MariaDB database, because the API is simply too resource
     intensive for use in a large scale environment.
 
     options:
@@ -82,7 +83,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    /librenms-alerts '--timeout' '3' --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%network%" --severity=warn
+    ./librenms-alerts '--timeout' '3' --defaults-file=/var/spool/icinga2/.my.cnf --device-group="%network%" --severity=warn
 
 Output:
 
@@ -99,6 +100,8 @@ Output:
     192.0.2.50 ! uap-ac-003              ! None         ! [OK]       
     192.0.2.32 ! rack03-usw-pro-48server ! Ping Latency ! [WARNING] 
     ...
+
+The ``--lengthy`` switch reports Hostname, SysName, Hardware, Type, OS, Location, Uptime, Alert and State.
 
 
 States
@@ -117,7 +120,7 @@ Perfdata / Metrics
 
     Name,                                       Type,               Description
     device_count,                               Number,             Number of devices found
-    alert_count,                                Number,             Number of alerts
+    alert_count,                                Number,             Number of device alerts
 
 
 Credits, License
