@@ -5,6 +5,12 @@
                 "--always-ok": {
                     "set_if": "$librenms_alerts_always_ok$"
                 },
+                "--defaults-file": {
+                    "value": "$librenms_alerts_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$librenms_alerts_defaults_group$"
+                },
                 "--device-group": {
                     "value": "$librenms_alerts_device_group$"
                 },
@@ -16,23 +22,14 @@
                     "value": "$librenms_alerts_device_type$",
                     "repeat_key": true
                 },
-                "--insecure": {
-                    "set_if": "$librenms_alerts_insecure$"
-                },
                 "--lengthy": {
                     "set_if": "$librenms_alerts_lengthy$"
                 },
-                "--no-proxy": {
-                    "set_if": "$librenms_alerts_no_proxy$"
+                "--severity": {
+                    "value": "$librenms_alerts_severity$"
                 },
                 "--timeout": {
                     "value": "$librenms_alerts_timeout$"
-                },
-                "--token": {
-                    "value": "$librenms_alerts_token$"
-                },
-                "--url": {
-                    "value": "$librenms_alerts_url$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/librenms-alerts",
@@ -80,11 +77,6 @@
                 },
                 {
                     "datafield_id": 9,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -104,6 +96,12 @@
                 "--always-ok": {
                     "set_if": "$librenms_alerts_windows_always_ok$"
                 },
+                "--defaults-file": {
+                    "value": "$librenms_alerts_windows_defaults_file$"
+                },
+                "--defaults-group": {
+                    "value": "$librenms_alerts_windows_defaults_group$"
+                },
                 "--device-group": {
                     "value": "$librenms_alerts_windows_device_group$"
                 },
@@ -115,28 +113,24 @@
                     "value": "$librenms_alerts_windows_device_type$",
                     "repeat_key": true
                 },
-                "--insecure": {
-                    "set_if": "$librenms_alerts_windows_insecure$"
-                },
                 "--lengthy": {
                     "set_if": "$librenms_alerts_windows_lengthy$"
                 },
-                "--no-proxy": {
-                    "set_if": "$librenms_alerts_windows_no_proxy$"
+                "--severity": {
+                    "value": "$librenms_alerts_windows_severity$"
                 },
                 "--timeout": {
                     "value": "$librenms_alerts_windows_timeout$"
-                },
-                "--token": {
-                    "value": "$librenms_alerts_windows_token$"
-                },
-                "--url": {
-                    "value": "$librenms_alerts_windows_url$"
                 }
             },
             "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\librenms-alerts.exe",
             "disabled": false,
             "fields": [
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
                 {
                     "datafield_id": 11,
                     "is_required": "n",
@@ -174,16 +168,6 @@
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 19,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -246,7 +230,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check fetches unacknowledged alerts from a LibreNMS instance, using its API.",
+            "notes": "This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have \"Disabled alerting\" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts > Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK. This check requires direct access to the LibreNMS MySQL/MariaDB database. The API is simply too resource intensive for use in a large scale environment.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts",
             "object_name": "tpl-service-librenms-alerts",
             "object_type": "template",
@@ -258,11 +242,11 @@
             "vars": {
                 "criticality": "A",
                 "librenms_alerts_always_ok": false,
-                "librenms_alerts_insecure": false,
+                "librenms_alerts_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "librenms_alerts_defaults_group": "client",
                 "librenms_alerts_lengthy": false,
-                "librenms_alerts_no_proxy": false,
-                "librenms_alerts_timeout": 3,
-                "librenms_alerts_url": "http://localhost"
+                "librenms_alerts_severity": "crit",
+                "librenms_alerts_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -297,7 +281,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This check fetches unacknowledged alerts from a LibreNMS instance, using its API.",
+            "notes": "This check warns of unacknowledged alerts in LibreNMS and reports the most recent alert for each device (only for those that do not have \"Disabled alerting\" in their LibreNMS device settings). If alerts have been triggered in LibreNMS, you will see them on the *Alerts > Notifications* page within the Web UI. When you acknowledge an alert in LibreNMS, this check will change the status for the corresponding device to OK. This check requires direct access to the LibreNMS MySQL/MariaDB database. The API is simply too resource intensive for use in a large scale environment.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts",
             "object_name": "tpl-service-librenms-alerts-windows",
             "object_type": "template",
@@ -309,11 +293,11 @@
             "vars": {
                 "criticality": "C",
                 "librenms_alerts_windows_always_ok": false,
-                "librenms_alerts_windows_insecure": false,
+                "librenms_alerts_windows_defaults_file": "/var/spool/icinga2/.my.cnf",
+                "librenms_alerts_windows_defaults_group": "client",
                 "librenms_alerts_windows_lengthy": false,
-                "librenms_alerts_windows_no_proxy": false,
-                "librenms_alerts_windows_timeout": 3,
-                "librenms_alerts_windows_url": "http://localhost"
+                "librenms_alerts_windows_severity": "crit",
+                "librenms_alerts_windows_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -400,6 +384,25 @@
             ],
             "uuid": "8c1c3855-3f08-42b3-8fc9-bc112e0f7f50"
         },
+        "librenms_alerts_severity_list": {
+            "list_name": "librenms_alerts_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "424f245b-fe71-4605-8b73-9634c7b67ff7"
+        },
         "librenms_alerts_windows_device_type_list": {
             "list_name": "librenms_alerts_windows_device_type_list",
             "owner": "icinga-admin",
@@ -478,6 +481,25 @@
                 }
             ],
             "uuid": "59ab65ce-9967-439d-9ad0-4a8610ea93fd"
+        },
+        "librenms_alerts_windows_severity_list": {
+            "list_name": "librenms_alerts_windows_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a3aa0954-2f93-4b63-b569-c3863f5c0f6b"
         }
     },
     "Datafield": {
@@ -491,9 +513,31 @@
             "uuid": "af09f178-0143-469d-bfe3-f49ce16383c9"
         },
         "2": {
+            "varname": "librenms_alerts_defaults_file",
+            "caption": "LibreNMS Alerts: Defaults File",
+            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "02b97d40-27ee-47e0-836a-24223307055c"
+        },
+        "3": {
+            "varname": "librenms_alerts_defaults_group",
+            "caption": "LibreNMS Alerts: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "11819a07-2103-47ca-8344-96fdc716b842"
+        },
+        "4": {
             "varname": "librenms_alerts_device_group",
             "caption": "LibreNMS Alerts: Device Group",
-            "description": "Filter by LibreNMS Device Group.",
+            "description": "Filter by LibreNMS Device Group. Supports SQL Wildcards.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -501,7 +545,7 @@
             },
             "uuid": "13868b56-f5d6-4e65-908d-34b310b0b84b"
         },
-        "3": {
+        "5": {
             "varname": "librenms_alerts_device_hostname",
             "caption": "LibreNMS Alerts: Device Hostname",
             "description": "Filter by LibreNMS Hostname (repeating).",
@@ -512,7 +556,7 @@
             },
             "uuid": "a76eb7b8-4bf2-442f-bad1-ae8f170cd46c"
         },
-        "4": {
+        "6": {
             "varname": "librenms_alerts_device_type",
             "caption": "LibreNMS Alerts: Device Type",
             "description": "Filter by LibreNMS Device Type (repeating).",
@@ -525,16 +569,7 @@
             },
             "uuid": "261dd4be-3d18-47e2-b504-bef0c7f4f4d8"
         },
-        "5": {
-            "varname": "librenms_alerts_insecure",
-            "caption": "LibreNMS Alerts: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "a577b465-d69c-4e50-8ce3-7e70fb41b89e"
-        },
-        "6": {
+        "7": {
             "varname": "librenms_alerts_lengthy",
             "caption": "LibreNMS Alerts: Lengthy?",
             "description": "Extended reporting.",
@@ -543,16 +578,20 @@
             "settings": {},
             "uuid": "1c8f82e0-58a3-40db-b754-9e25b8fe89a1"
         },
-        "7": {
-            "varname": "librenms_alerts_no_proxy",
-            "caption": "LibreNMS Alerts: No Proxy?",
-            "description": "Do not use a proxy.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "e474927a-606a-45c0-a14a-55b3044c532b"
-        },
         "8": {
+            "varname": "librenms_alerts_severity",
+            "caption": "LibreNMS Alerts: Severity",
+            "description": "Severity for alerts. One of \"warn\" or \"crit\".",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "librenms_alerts_severity_list"
+            },
+            "uuid": "18281465-6c0c-43c3-8210-b796df578121"
+        },
+        "9": {
             "varname": "librenms_alerts_timeout",
             "caption": "LibreNMS Alerts: Timeout",
             "description": "Network timeout in seconds.",
@@ -563,29 +602,7 @@
             },
             "uuid": "eecf9134-35fb-49b1-8466-9cc41e69e826"
         },
-        "9": {
-            "varname": "librenms_alerts_token",
-            "caption": "LibreNMS Alerts: Token",
-            "description": "LibreNMS API token",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "hidden"
-            },
-            "uuid": "0d592fa9-fc39-4554-9f88-bb8f6488d37e"
-        },
         "10": {
-            "varname": "librenms_alerts_url",
-            "caption": "LibreNMS Alerts: URL",
-            "description": "LibreNMS API URL.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "245d4565-6abd-4423-b3a9-39623f551044"
-        },
-        "11": {
             "varname": "librenms_alerts_windows_always_ok",
             "caption": "LibreNMS Alerts: Always OK?",
             "description": "Always returns OK.",
@@ -594,10 +611,32 @@
             "settings": {},
             "uuid": "0c31ddd2-9079-4a20-9135-4e170a7ee320"
         },
+        "11": {
+            "varname": "librenms_alerts_windows_defaults_file",
+            "caption": "LibreNMS Alerts: Defaults File",
+            "description": "Specifies a cnf file to read parameters like user, host and password from (instead of specifying them on the command line), for example `/var/spool/icinga2/.my.cnf`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3210e126-4438-4ae6-9fed-cadb81d73798"
+        },
         "12": {
+            "varname": "librenms_alerts_windows_defaults_group",
+            "caption": "LibreNMS Alerts: Defaults Group",
+            "description": "Group/section to read from in the cnf file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7f569b3e-d273-4688-b787-7b8358aeb11e"
+        },
+        "13": {
             "varname": "librenms_alerts_windows_device_group",
             "caption": "LibreNMS Alerts: Device Group",
-            "description": "Filter by LibreNMS Device Group.",
+            "description": "Filter by LibreNMS Device Group. Supports SQL Wildcards.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -605,7 +644,7 @@
             },
             "uuid": "b59fb83f-f012-446f-a791-10775d225abe"
         },
-        "13": {
+        "14": {
             "varname": "librenms_alerts_windows_device_hostname",
             "caption": "LibreNMS Alerts: Device Hostname",
             "description": "Filter by LibreNMS Hostname (repeating).",
@@ -616,7 +655,7 @@
             },
             "uuid": "e8ca7ba5-78e9-4334-b4d4-8193073c8d03"
         },
-        "14": {
+        "15": {
             "varname": "librenms_alerts_windows_device_type",
             "caption": "LibreNMS Alerts: Device Type",
             "description": "Filter by LibreNMS Device Type (repeating).",
@@ -629,15 +668,6 @@
             },
             "uuid": "1c4fcb26-450f-4eae-b653-57d909502e37"
         },
-        "15": {
-            "varname": "librenms_alerts_windows_insecure",
-            "caption": "LibreNMS Alerts: Insecure?",
-            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "a311ee36-5f42-40c5-aff0-28c26b16d768"
-        },
         "16": {
             "varname": "librenms_alerts_windows_lengthy",
             "caption": "LibreNMS Alerts: Lengthy?",
@@ -648,13 +678,17 @@
             "uuid": "896c3eaf-2394-4699-b857-fe8b351e3a7d"
         },
         "17": {
-            "varname": "librenms_alerts_windows_no_proxy",
-            "caption": "LibreNMS Alerts: No Proxy?",
-            "description": "Do not use a proxy.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "varname": "librenms_alerts_windows_severity",
+            "caption": "LibreNMS Alerts: Severity",
+            "description": "Severity for alerts. One of \"warn\" or \"crit\".",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
-            "settings": {},
-            "uuid": "55ad858b-bd69-48cd-8874-c566b2a80735"
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "librenms_alerts_windows_severity_list"
+            },
+            "uuid": "1e17302f-636b-4765-8df4-62e56e1a5790"
         },
         "18": {
             "varname": "librenms_alerts_windows_timeout",
@@ -666,28 +700,6 @@
                 "visibility": "visible"
             },
             "uuid": "9ef0700c-f158-4f0c-885f-b37f37917261"
-        },
-        "19": {
-            "varname": "librenms_alerts_windows_token",
-            "caption": "LibreNMS Alerts: Token",
-            "description": "LibreNMS API token",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "hidden"
-            },
-            "uuid": "d0af34c3-e4bd-4dab-9970-122ddfe0ac9a"
-        },
-        "20": {
-            "varname": "librenms_alerts_windows_url",
-            "caption": "LibreNMS Alerts: URL",
-            "description": "LibreNMS API URL.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "e7ffee38-fe2e-4ccf-9a94-bfb4e8973cea"
         }
     }
 }

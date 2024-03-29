@@ -13,24 +13,35 @@
 
 import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
-import urllib.parse  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
+import lib.db_mysql  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.librenms  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024032902'
 
-DESCRIPTION = 'This check fetches unacknowledged alerts from a LibreNMS instance, using its API.'
+DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
+                 reports the most recent alert for each device (only for those
+                 that do not have "Disabled alerting" in their LibreNMS device
+                 settings). If alerts have been triggered in LibreNMS, you will
+                 see them on the *Alerts > Notifications* page within the
+                 Web UI. When you acknowledge an alert in LibreNMS, this check
+                 will change the status for the corresponding device to OK.
 
-DEFAULT_INSECURE = False
+                 This check requires direct access to the LibreNMS MySQL/MariaDB
+                 database. The API is simply too resource intensive for use
+                 in a large scale environment."""
+
+DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
+DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_LENGTHY = False
-DEFAULT_NO_PROXY = False
+DEFAULT_SERVERITY = 'crit'
 DEFAULT_TIMEOUT = 3
-DEFAULT_URL = 'http://localhost'
 
 
 def parse_args():
@@ -41,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
     )
 
     parser.add_argument(
@@ -53,8 +64,26 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--defaults-file',
+        help='Specifies a cnf file to read parameters like user, host and '
+             'password from (instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.my.cnf`. '
+             'Default: %(default)s',
+        dest='DEFAULTS_FILE',
+        default=DEFAULT_DEFAULTS_FILE,
+    )
+
+    parser.add_argument(
+        '--defaults-group',
+        help='Group/section to read from in the cnf file. '
+             'Default: %(default)s',
+        dest='DEFAULTS_GROUP',
+        default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
         '--device-group',
-        help='Filter by LibreNMS Device Group.',
+        help='Filter by LibreNMS Device Group. Supports SQL Wildcards.',
         dest='DEVICE_GROUP',
     )
 
@@ -70,7 +99,7 @@ def parse_args():
         help='Filter by LibreNMS Device Type (repeating).',
         dest='DEVICE_TYPE',
         action='append',
-        choices=[ # taken from the librenms source file: misc/config_definitions.json
+        choices=[ # taken from the librenms source file misc/config_definitions.json
             'appliance',
             'collaboration',
             'environment',
@@ -87,15 +116,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL '
-             'connections. Default: %(default)s',
-        dest='INSECURE',
-        action='store_true',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--lengthy',
         help='Extended reporting.',
         dest='LENGTHY',
@@ -104,33 +124,21 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
-        dest='NO_PROXY',
-        action='store_true',
-        default=DEFAULT_NO_PROXY,
+        '--severity',
+        help='Severity for alerts. One of "warn" or "crit". '
+             'Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SERVERITY,
+        choices=['warn', 'crit'],
     )
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
-    )
-
-    parser.add_argument(
-        '--token',
-        help='LibreNMS API token',
-        dest='TOKEN',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--url',
-        help='LibreNMS API URL. Default: %(default)s',
-        dest='URL',
-        default=DEFAULT_URL,
     )
 
     return parser.parse_args()
@@ -146,128 +154,113 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    mysql_connection = {
+        'defaults_file':  args.DEFAULTS_FILE,
+        'defaults_group': args.DEFAULTS_GROUP,
+        'timeout':        args.TIMEOUT,
+    }
+    conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    lib.base.coe(lib.db_mysql.check_select_privileges(conn))
+
     # init some vars
-    state = STATE_OK
+    msg = ''
     perfdata = ''
-    devices = {}
-    alerts = {}
-
-    # return a list of devices from LibreNMS
-    result = lib.librenms.get_data(args, '/api/v0/devices?type=active')
-
-    if args.DEVICE_GROUP:
-        device_group = lib.librenms.get_data(args, '/api/v0/devicegroups/' + urllib.parse.quote(args.DEVICE_GROUP))
-        device_group_device_ids = [device['device_id'] for device in device_group['devices']]
-
-    # build an internal device list with some valuable properties
-    for device in result['devices']:
-        if device['disable_notify']:
-            continue
-
-        hostname = lib.librenms.get_prop(device, 'hostname')
-        if args.DEVICE_HOSTNAME and hostname not in args.DEVICE_HOSTNAME:
-            continue
-
-        devtype = lib.librenms.get_prop(device, 'type')
-        if args.DEVICE_TYPE and devtype not in args.DEVICE_TYPE:
-            continue
-
-        device_id = lib.librenms.get_prop(device, 'device_id', 'int')
-        if args.DEVICE_GROUP and device_id not in device_group_device_ids:
-            continue
-
-        hardware = lib.librenms.get_prop(device, 'hardware')
-        location = lib.librenms.get_prop(device, 'location')
-        sysos = lib.librenms.get_prop(device, 'os')
-        sysname = lib.librenms.get_prop(device, 'sysName')
-        if not sysname:
-            sysname = lib.librenms.get_prop(device, 'sysDescr')
-        uptime = lib.librenms.get_prop(device, 'uptime', 'int')
-        uptime = lib.human.seconds2human(uptime) if uptime is not None else ''
-
-        devices[device_id] = {}
-        devices[device_id]['device_id'] = device_id
-        devices[device_id]['devtype'] = devtype
-        devices[device_id]['hardware'] = hardware
-        devices[device_id]['hostname'] = hostname
-        devices[device_id]['location'] = location
-        devices[device_id]['os'] = sysos
-        devices[device_id]['sys'] = sysname
-        devices[device_id]['timestamp'] = ''
-        devices[device_id]['uptime'] = uptime
-
-        devices[device_id]['state'] = STATE_OK
-        devices[device_id]['alert_count'] = 0
-        devices[device_id]['alert_rule'] = ''
-
-    # return a list of alert rules
-    alert_rules = lib.librenms.get_data(args, '/api/v0/rules')
-
-    # build a alert rule dictionary
-    for alert_rule in alert_rules['rules']:
-        alert_id = alert_rule['id']
-        alert_name = alert_rule['name']
-        alerts[alert_id] = alert_name
-
-    # return a list of current alerts, but no "ok" or "acked"
-    alert_list = lib.librenms.get_data(args, '/api/v0/alerts?state=1')
-
-    # check the state of each device and compute the overall state
+    state = STATE_OK
     alert_count = 0
-    for alert in alert_list['alerts']:
-        device_id = lib.librenms.get_prop(alert, 'device_id', 'int')
-        if device_id in devices:
+
+    # fetch data
+    sql = '''
+        SELECT 
+            d.device_id,
+            d.hardware,
+            d.hostname,
+            d.os,
+            d.sysName,
+            d.sysDescr,
+            d.type,
+            d.uptime,
+            l.location,
+            dg.name AS dg_name,
+            a.state,
+            a.rule_id,
+            ar.name AS ar_name
+        FROM
+            devices AS d
+                LEFT JOIN
+            locations AS l ON d.location_id = l.id
+                LEFT JOIN
+            device_group_device AS dgd ON d.device_id = dgd.device_id
+                LEFT JOIN
+            device_groups AS dg ON dgd.device_group_id = dg.id
+                LEFT JOIN
+            alerts AS a ON d.device_id = a.device_id
+                AND a.state = 1
+                LEFT JOIN
+            alert_rules AS ar ON ar.id = a.rule_id
+        WHERE
+            disable_notify = 0
+    '''
+    data = []
+    if args.DEVICE_GROUP:
+        sql += ' AND dg.name LIKE %s '
+        data.append(args.DEVICE_GROUP)
+    if args.DEVICE_HOSTNAME:
+        sql += ' AND d.hostname IN ({}) '.format(
+            ', '.join('%s' for d in args.DEVICE_HOSTNAME), # print "%s" for each argument
+        )
+        data += args.DEVICE_HOSTNAME
+    if args.DEVICE_TYPE:
+        sql += ' AND d.type IN ({}) '.format(
+            ', '.join('%s' for d in args.DEVICE_TYPE), # print "%s" for each argument
+        )
+        data += args.DEVICE_TYPE
+    devices = lib.base.coe(lib.db_mysql.select(conn, sql, data))
+    lib.db_mysql.close(conn)
+
+    # enrich and analyse data
+    for i, device in enumerate(devices):
+        if device['uptime']:
+            devices[i]['uptime'] = lib.human.seconds2human(device['uptime'])
+        if not device['sysName']:
+            devices[i]['sysName'] = device['sysDescr']
+        local_state = lib.librenms.get_state(device['state'], args.SEVERITY)
+        if local_state != STATE_OK:
             alert_count += 1
-            old_device_state = devices[device_id]['state']
-            new_device_state = lib.librenms.get_state(alert['severity'])
-            devices[device_id]['state'] = lib.base.get_worst(old_device_state, new_device_state)
-            state = lib.base.get_worst(devices[device_id]['state'], state)
-            devices[device_id]['alert_count'] += 1
-            if old_device_state != devices[device_id]['state']:
-                # report the newest/latest worst message only
-                devices[device_id]['alert_rule'] = alerts[alert['rule_id']]
-                devices[device_id]['timestamp'] = alert['timestamp']
+        devices[i]['state'] = lib.base.state2str(
+            local_state,
+            empty_ok=False,
+        )
+        state = lib.base.get_worst(local_state, state)
 
-    # create output
-    table_values = []
-    for device in devices.values():
-        table_values.append({
-            'devtype': device['devtype'],
-            'hardware': device['hardware'],
-            'hostname': device['hostname'],
-            'location': device['location'],
-            'os': device['os'],
-            'sys': device['sys'],
-            'timestamp': device['timestamp'],
-            'uptime': device['uptime'],
-            'state': lib.base.state2str(device['state'], empty_ok=False),
-            'alert_count': device['alert_count'],
-            'alert_rule': device['alert_rule'],
-            })
+    # build the message
+    msg = 'Checked {} {}.'.format(
+        len(devices),
+        lib.txt.pluralize('device', len(devices)),
+    )
+    if state != STATE_OK:
+        msg += ' There {} {} {}.'.format(
+            lib.txt.pluralize('', alert_count, 'is,are'),
+            alert_count,
+            lib.txt.pluralize('alert', alert_count),
+        )
+    msg += '\n\n'
 
-    if state == STATE_CRIT:
-        msg = 'There are one or more criticals.\n\n'
-    elif state == STATE_WARN:
-        msg = 'There are one or more warnings.\n\n'
-    else:
-        msg = 'Everything is ok.\n\n'
+    perfdata += lib.base.get_perfdata('device_count', len(devices), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None) # pylint: disable=C0301
 
-    if len(table_values) > 0:
+    if len(devices) > 0:
         if not args.LENGTHY:
             msg += lib.base.get_table(
-                table_values,
-                ['hostname', 'sys', 'alert_count', 'state', 'alert_rule'],
-                header=['Hostname', 'SysName', 'Alerts', 'Worst State', 'Latest & Worst Msg'],
-                )
+                devices,
+                ['hostname', 'sysName', 'ar_name', 'state'],
+                header=['Hostname', 'SysName', 'Alert', 'State'],
+            )
         else:
             msg += lib.base.get_table(
-                table_values,
-                ['hostname', 'sys', 'alert_count', 'state', 'hardware', 'devtype', 'os', 'location', 'uptime', 'timestamp', 'alert_rule'],
-                header=['Hostname', 'SysName', 'Alerts', 'Worst State', 'Hardware', 'Type', 'OS', 'Location', 'Uptime', 'Alert Timestamp', 'Latest & Worst Msg'],
-                )
-
-    perfdata += lib.base.get_perfdata('device_count', len(devices), None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None)
+                devices,
+                ['hostname', 'sysName', 'hardware', 'type', 'os', 'location', 'uptime', 'ar_name', 'state'], # pylint: disable=C0301
+                header=['Hostname', 'SysName', 'Hardware', 'Type', 'OS', 'Location', 'Uptime', 'Alert', 'State'], # pylint: disable=C0301
+            )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
