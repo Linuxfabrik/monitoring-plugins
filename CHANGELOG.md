@@ -17,6 +17,10 @@ Icinga Director:
 
 * all-the-rest.json: Remove all predefined "Journald Query" definitions, as they were not as useful in practice as we thought. Single services are more useful.
 
+Monitoring Plugins:
+
+* librenms-alerts: Rewritten from scratch to fetch the LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
+
 
 ### Added
 
