@@ -64,12 +64,20 @@ Usage Examples
 .. code-block:: bash
 
     ./kvm-vm
-    
+
 Output:
 
 .. code-block:: text
 
-    VMs: 1 running, 15 shut_off
+    VMs: 5 running, 1 shutoff
+
+    ID ! VM Name     ! State   
+    ---+-------------+---------
+    2  ! nextcloud   ! running 
+    9  ! mon02       ! running 
+    10 ! infra02     ! running 
+    11 ! mon01       ! shutoff 
+    13 ! mailstore01 ! running
 
 
 States

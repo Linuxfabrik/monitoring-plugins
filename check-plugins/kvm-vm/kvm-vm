@@ -20,7 +20,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024032901'
 
 DESCRIPTION = 'Check VMs on a KVM host using "virsh list".'
 
@@ -58,7 +58,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('virsh list --all'))
+    stdout, stderr, retc = lib.base.coe(
+        lib.shell.shell_exec('virsh list --all'),
+    )
     if stderr or retc != 0:
         lib.base.oao('{}'.format(stderr), STATE_WARN)
     # we got a VM list and their states - strip first two header and last two empty rows
@@ -67,13 +69,19 @@ def main():
     # init some vars
     perfdata = ''
     state = STATE_OK
+    table_data = []
 
     # count the VM states
-    running, idle, paused, in_shutdown, shut_off, crashed, pmsuspended = 0, 0, 0, 0, 0, 0, 0
+    running, idle, paused, in_shutdown, shut_off, crashed, pmsuspended = 0, 0, 0, 0, 0, 0, 0 # pylint: disable=C0301
     if vm_list:
         for vm in vm_list:
-            vm = ' '.join(vm.replace('shut off', 'shut_off').replace('in shutdown', 'in_shutdown').split())
+            vm = ' '.join(vm.replace('shut off', 'shut_off').replace('in shutdown', 'in_shutdown').split()) # pylint: disable=C0301
             vm_id, vm_name, vm_state = vm.split(' ')
+            table_data.append({
+                'vm_id': vm_id,
+                'vm_name': vm_name,
+                'vm_state': vm_state,
+            })
 
             running     += 1 if vm_state == 'running' else 0
             idle        += 1 if vm_state == 'idle' else 0
@@ -107,14 +115,30 @@ def main():
         msg = msg[:-2]
     else:
         msg = 'No VMs running.'
+    msg += '\n\n'
 
-    perfdata += lib.base.get_perfdata('vm_running', running, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_idle', idle, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_paused', paused, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_in_shutdown', in_shutdown, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_shut_off', shut_off, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_crashed', crashed, None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None)
+    if table_data:
+        msg += lib.base.get_table(
+            table_data,
+            [
+              'vm_id',
+              'vm_name',
+              'vm_state',
+            ],
+            header=[
+              'ID',
+              'VM Name',
+              'State',
+            ]
+        )
+
+    perfdata += lib.base.get_perfdata('vm_running', running, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_idle', idle, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_paused', paused, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_in_shutdown', in_shutdown, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_shut_off', shut_off, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_crashed', crashed, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('vm_pmsuspended', pmsuspended, None, None, None, 0, None) # pylint: disable=C0301
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
