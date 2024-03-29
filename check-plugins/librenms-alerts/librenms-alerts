@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024032902'
+__version__ = '2024032904'
 
 DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
                  reports the most recent alert for each device (only for those
@@ -34,8 +34,8 @@ DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
                  will change the status for the corresponding device to OK.
 
                  This check requires direct access to the LibreNMS MySQL/MariaDB
-                 database. The API is simply too resource intensive for use
-                 in a large scale environment."""
+                 database, because the API is simply too resource intensive for
+                 use in a large scale environment."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -171,7 +171,6 @@ def main():
     # fetch data
     sql = '''
         SELECT 
-            d.device_id,
             d.hardware,
             d.hostname,
             d.os,
@@ -180,9 +179,7 @@ def main():
             d.type,
             d.uptime,
             l.location,
-            dg.name AS dg_name,
             a.state,
-            a.rule_id,
             ar.name AS ar_name
         FROM
             devices AS d
@@ -252,14 +249,44 @@ def main():
         if not args.LENGTHY:
             msg += lib.base.get_table(
                 devices,
-                ['hostname', 'sysName', 'ar_name', 'state'],
-                header=['Hostname', 'SysName', 'Alert', 'State'],
+                [
+                    'hostname',
+                    'sysName',
+                    'ar_name',
+                    'state',
+                ],
+                header=[
+                    'Hostname',
+                    'SysName',
+                    'Alert',
+                    'State',
+                ],
             )
         else:
             msg += lib.base.get_table(
                 devices,
-                ['hostname', 'sysName', 'hardware', 'type', 'os', 'location', 'uptime', 'ar_name', 'state'], # pylint: disable=C0301
-                header=['Hostname', 'SysName', 'Hardware', 'Type', 'OS', 'Location', 'Uptime', 'Alert', 'State'], # pylint: disable=C0301
+                [
+                    'hostname',
+                    'sysName',
+                    'hardware',
+                    'type',
+                    'os',
+                    'location',
+                    'uptime',
+                    'ar_name',
+                    'state',
+                ],
+                header=[
+                    'Hostname',
+                    'SysName',
+                    'Hardware',
+                    'Type',
+                    'OS',
+                    'Location',
+                    'Uptime',
+                    'Alert',
+                    'State',
+                ],
             )
 
     # over and out
