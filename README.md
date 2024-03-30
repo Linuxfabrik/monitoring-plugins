@@ -404,3 +404,14 @@ Pro tips:
 
 * Note that you can't set environment variables in Icinga Director. Even if you are only using the Icinga Director, follow the steps above.
 * Environment variables with the same name in both `/etc/environment` and `/etc/icinga2/icinga2.conf` will be overwritten by `/etc/icinga2/icinga2.conf`.
+
+
+Q: **All pipe characters `|` in the output of any plugin are replaced with `!`. Why?**
+
+A: We have to. The output syntax of Nagios plugins is fixed and not very flexible:
+
+```
+Output lines | Performance data
+```
+
+So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
