@@ -27,7 +27,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033001'
+__version__ = '2024033002'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -149,7 +149,10 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = lib.base.get_perfdata('event', 0, None, None, None, 0, None)
-    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    try:
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    except:
+        lib.base.cu('Unable to compile regex.')
 
     table_data = []
 
