@@ -90,6 +90,7 @@ Monitoring Plugins:
 * sap-open-concur: Add new parameter `--insecure`
 * statuspal: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
+* uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722))
 * veeam-status: Add new parameters `--insecure` `--no-proxy`
 * wildfly-\*: Add new parameters `--insecure` `--no-proxy`
 * xml: Add new parameter `--insecure`
