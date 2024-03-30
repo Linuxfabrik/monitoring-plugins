@@ -290,7 +290,7 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 
 ## Threshold and Ranges
 
-If a check supports ranges, they can be used as follows:
+If a check supports Nagios ranges, they can be used as follows:
 
 * Simple value: A range from 0 up to and including the value
 * A "Range" is the same as on [nagios-plugins.org](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT): *... defined as a start and end point (inclusive) on a numeric scale (possibly negative or positive infinity).*, in the format `start:end`
