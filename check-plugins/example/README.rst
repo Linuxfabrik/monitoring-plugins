@@ -50,8 +50,8 @@ Help
 
 .. code-block:: text
 
-    usage: example [-h] [-V] [--always-ok] [-c CRIT] [--test TEST] --token TOKEN
-                   [-w WARN]
+    usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
+                   [--test TEST] --token TOKEN [-w WARN]
 
     A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
     further development, and much more text to help admins get this check up and
@@ -63,6 +63,10 @@ Help
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Set the CRIT threshold as a percentage. Default: >= 90
+      --ignore-regex IGNORE_REGEX
+                            Any english title matching this python regex will be
+                            ignored (repeating). Example: '(?i)linuxfabrik' for a
+                            case-insensitive search for "linuxfabrik".
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --token TOKEN         Software API token
