@@ -32,15 +32,15 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033002'
+__version__ = '2024033003'
 
 DESCRIPTION = 'Checks the size for a file (in bytes).'
 
 
-DEFAULT_CRIT = str(1024*1024*1024) # 1G (Gibibyte)
+DEFAULT_CRIT = '1G'
 DEFAULT_PATTERN = '*'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = str(25*1024*1024) # 25M (Mebibyte)
+DEFAULT_WARN = '25M'
 
 
 def parse_args():
@@ -64,7 +64,11 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Threshold for the file size in Bytes. Supports Nagios ranges. '
+        help='Threshold for the file size in a human readable format '
+             '(base is always 1024; valid qualifiers are '
+             'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+             'Supports Nagios ranges. '
+             'Example: `:1G` alerts if size is greater than 1 GiB.'
              'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
@@ -120,7 +124,11 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Threshold for the file size in Bytes. Supports Nagios ranges. '
+        help='Threshold for the file size in a human readable format '
+             '(base is always 1024; valid qualifiers are '
+             'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+             'Supports Nagios ranges. '
+             'Example: `:1G` alerts if size is greater than 1 GiB.'
              'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
@@ -147,6 +155,11 @@ def main():
     msg = ''
     table_data = []
     alert_count = 0
+
+    # convert human readable nagios ranges to something that the Linuxfabrik libraries
+    # can understand
+    CRIT = lib.human.humanrange2bytes(args.CRIT)
+    WARN = lib.human.humanrange2bytes(args.WARN)
 
     # fetch data from local
     if args.FILENAME:
@@ -190,8 +203,8 @@ def main():
         table_data[i]['size_hr'] = lib.human.bytes2human(table_data[i]['size'])
         table_data[i]['state'] = lib.base.get_state(
             item['size'],
-            args.WARN,
-            args.CRIT,
+            WARN,
+            CRIT,
             _operator='range',
         )
         table_data[i]['state_hr'] = lib.base.state2str(table_data[i]['state'], empty_ok=False)
@@ -205,13 +218,13 @@ def main():
         lib.txt.pluralize('file', len(table_data)),
     )
     if state == STATE_OK:
-        msg += '{} within the given size thresholds ({}/{} Bytes).'.format(
+        msg += '{} within the given size thresholds ({}/{}).'.format(
             lib.txt.pluralize('', len(table_data), 'It is,All are'),
             args.WARN,
             args.CRIT,
         )
     else:
-        msg += '{} {} outside the given size thresholds ({}/{} Bytes).'.format(
+        msg += '{} {} outside the given size thresholds ({}/{}).'.format(
             alert_count,
             lib.txt.pluralize('', alert_count, 'is,are'),
             args.WARN,

@@ -6,7 +6,7 @@ Overview
 
 Checks the size of files in bytes, ignoring directories as the size of a directory is not defined consistently across file systems and is never the size of the contents. This check supports both Nagios ranges and Samba shares.
 
-The plugin can follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) may be required. It supports globs according to `Python 3 <https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob>`_. Note that using recursive globs can cause high memory usage.
+The plugin can follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) may be required. It supports globs according to `Python 3 <https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob>`_. Note that using recursive globs can cause high memory usage. Also note that the plugin requires a valid qualifier when specifying parameters, e.g. ``--warning=10K`` for 10 KiB (instead of ``--warning=10000`` as in previous versions).
 
 
 Fact Sheet
@@ -38,8 +38,11 @@ Help
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Threshold for the file size in Bytes. Supports Nagios
-                            ranges. Default: 1073741824
+                            Threshold for the file size in a human readable format
+                            (base is always 1024; valid qualifiers are b,
+                            k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                            ranges. Example: `:1G` alerts if size is greater than
+                            1 GiB.Default: 1G
       --filename FILENAME   File (or directory) name to check. Supports glob in
                             accordance with
                             https://docs.python.org/2.7/library/glob.html. Note
@@ -57,26 +60,39 @@ Help
                             with `--filename`.
       --username USERNAME   SMB Username.
       -w WARN, --warning WARN
-                            Threshold for the file size in Bytes. Supports Nagios
-                            ranges. Default: 26214400
+                            Threshold for the file size in a human readable format
+                            (base is always 1024; valid qualifiers are b,
+                            k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                            ranges. Example: `:1G` alerts if size is greater than
+                            1 GiB.Default: 25M
 
 
 Usage Examples
 --------------
 
+Warn if file is greater than 25M, crit if it is greater than 1G:
+
 .. code-block:: bash
 
-    # warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB
-    ./file-size --filename '/path/to/m*.png*' --warning 6000:10000 --critical :14000
-
-    # the same as above, but recursive (might use a lot of memory)
-    ./file-size --filename '/path/to/**/m*.png*' --warning 6000:10000 --critical :14000
+    ./file-size --filename=/var/log/coolwsd.log --warning=25M --critical=1G
 
 Output:
 
 .. code-block:: text
 
-    28 files checked. 22 are outside the given size thresholds (6000:10000/:14000).
+    1 file checked. It is within the given size thresholds (25M/1G). Checked /var/log/coolwsd.log: 119.9KiB
+
+Warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB (plus showing the various formats):
+
+.. code-block:: bash
+
+    ./file-size --filename '/path/to/m*.png*' --warning '6 KiB:10k' --critical ':14 KB'
+
+Output:
+
+.. code-block:: text
+
+    28 files checked. 21 are outside the given size thresholds (6 KiB:10k/:14 KB).
 
     File                                   ! Size    ! State      
     ---------------------------------------+---------+------------
@@ -108,6 +124,12 @@ Output:
     mysql-traffic.png                      ! 10.8KiB ! [WARNING]  
     mysql-user-security.png                ! 16.3KiB ! [CRITICAL] 
     mysql-version.png                      ! 10.3KiB ! [WARNING]
+
+The same as above, but recursive (might use a lot of memory):
+
+.. code-block:: bash
+
+    ./file-size --filename '/path/to/**/m*.png*' --warning 6000B:10K --critical :14KB
 
 
 States
