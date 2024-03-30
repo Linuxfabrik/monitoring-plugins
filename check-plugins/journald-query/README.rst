@@ -58,14 +58,14 @@ Help
                             identifier. Default: None
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern on the MESSAGE field
-                            will be ignored (repeating).', So, unlike
-                            `journalctl`, you can easily use strings to ignore
-                            certain messages.
+                            will be ignored (repeating). So, unlike `journalctl`,
+                            you can easily use strings to ignore certain messages.
       --ignore-regex IGNORE_REGEX
                             Any line matching this Python regex on the MESSAGE
-                            field will be ignored (must be lowercase; repeating).
-                            So, unlike `journalctl`, you can easily use regular
-                            expressions to ignore certain messages.
+                            field will be ignored (repeating). So, unlike
+                            `journalctl`, you can easily use a regex to ignore
+                            certain messages. Example: '(?i)linuxfabrik' for a
+                            case-insensitive search for "linuxfabrik".
       --priority PRIORITY   journalctl: Filter output by message priorities or
                             priority ranges. Default: emerg..err
       --severity {warn,crit}
@@ -81,7 +81,7 @@ Help
       --user-unit USER_UNIT
                             journalctl: Show messages for the specified user
                             session unit. This parameter can be specified multiple
-                            times.
+                            times. Default: None
 
 
 Usage Examples

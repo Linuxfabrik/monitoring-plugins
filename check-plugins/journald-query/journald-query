@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024030501'
+__version__ = '2024033001'
 
 DESCRIPTION = """Query the systemd journal and alert on any events found.
                  For help on any of the journalctl-specific parameters, see `man journalctl`."""
@@ -73,25 +73,26 @@ def parse_args():
 
     parser.add_argument(
         '--facility',
-        help='''journalctl: Filter output by syslog facility. Takes a comma-separated list of
-                numbers or facility names. Default: %(default)s''',
+        help='journalctl: Filter output by syslog facility. Takes a '
+             'comma-separated list of numbers or facility names. '
+             'Default: %(default)s',
         dest='FACILITY',
         default=DEFAULT_FACILITY,
     )
 
     parser.add_argument(
         '--identifier',
-        help='journalctl: Show messages for the specified syslog identifier. Default: %(default)s',
+        help='journalctl: Show messages for the specified syslog identifier. '
+             'Default: %(default)s',
         dest='IDENTIFIER',
         default=DEFAULT_IDENTIFIER,
     )
 
     parser.add_argument(
         '--ignore-pattern',
-        help='''Any line containing this pattern on the MESSAGE field will be ignored
-                (repeating).',
-                So, unlike `journalctl`, you can easily use strings to ignore certain
-                messages.''',
+        help='Any line containing this pattern on the MESSAGE field will be '
+             'ignored (repeating). So, unlike `journalctl`, you can easily use '
+             'strings to ignore certain messages.',
         action='append',
         default=[],
         dest='IGNORE_PATTERN',
@@ -99,10 +100,11 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help='''Any line matching this Python regex on the MESSAGE field will be ignored
-                (must be lowercase; repeating).
-                So, unlike `journalctl`, you can easily use regular expressions to ignore certain
-                messages.''',
+        help='Any line matching this Python regex on the MESSAGE field will be '
+             'ignored (repeating). So, unlike `journalctl`, you can easily use '
+             'a regex to ignore certain messages. '
+             'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
+             '"linuxfabrik".',
         action='append',
         default=[],
         dest='IGNORE_REGEX',
@@ -110,16 +112,18 @@ def parse_args():
 
     parser.add_argument(
         '--priority',
-        help='''journalctl: Filter output by message priorities or priority ranges.
-                Default: %(default)s''',
+        help='journalctl: Filter output by message priorities or priority '
+             'ranges. '
+             'Default: %(default)s',
         dest='PRIORITY',
         default=DEFAULT_PRIORITY,
     )
 
     parser.add_argument(
         '--severity',
-        help='''Severity for alerts if journalctl returns results. One of "warn" or "crit".
-                Default: %(default)s''',
+        help='Severity for alerts if journalctl returns results. One of '
+             '"warn" or "crit". '
+             'Default: %(default)s',
         dest='SEVERITY',
         default=DEFAULT_SERVERITY,
         choices=['warn', 'crit'],
@@ -127,23 +131,26 @@ def parse_args():
 
     parser.add_argument(
         '--since',
-        help='''journalctl: Start showing entries on or newer than the specified date.
-                Default: >= %(default)s''',
+        help='journalctl: Start showing entries on or newer than the '
+             'specified date. '
+             'Default: >= %(default)s',
         dest='SINCE',
         default=DEFAULT_SINCE,
     )
 
     parser.add_argument(
         '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        help='For unit tests. '
+             'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
     )
 
     parser.add_argument(
         '--unit',
-        help='''journalctl: Show messages for the specified systemd unit UNIT|PATTERN. This
-                parameter can be specified multiple times. Default: %(default)s''',
+        help='journalctl: Show messages for the specified systemd unit '
+             'UNIT|PATTERN. This parameter can be specified multiple times. '
+             'Default: %(default)s',
         dest='UNIT',
         default=DEFAULT_UNIT,
         action='append',
@@ -151,8 +158,9 @@ def parse_args():
 
     parser.add_argument(
         '--user-unit',
-        help='''journalctl: Show messages for the specified user session unit. This
-                parameter can be specified multiple times.''',
+        help='journalctl: Show messages for the specified user session unit. '
+             'This parameter can be specified multiple times. '
+             'Default: %(default)s',
         dest='USER_UNIT',
         default=DEFAULT_USER_UNIT,
         action='append',
@@ -307,19 +315,21 @@ def main():
         if shortened:
             msg += '\nAttention: Table below is truncated, showing the 5 newest and ' \
                    'the 5 oldest messages.'
-        keys = [
-          'timestamp',
-          'unit',
-          'priority',
-          'MESSAGE',
-        ]
-        headers = [
-          'Timestamp',
-          'Unit',
-          'Prio',
-          'Message',
-        ]
-        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            [
+              'timestamp',
+              'unit',
+              'priority',
+              'MESSAGE',
+            ],
+            header=[
+              'Timestamp',
+              'Unit',
+              'Prio',
+              'Message',
+            ],
+        )
         if args.UNIT is None:
             msg += '\nUse `journalctl --reverse --priority={} --since={}` as a starting point ' \
                    'for debugging. Be aware of the fact that you may see even more messages ' \
