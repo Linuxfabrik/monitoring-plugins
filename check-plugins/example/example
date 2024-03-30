@@ -68,6 +68,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-regex',
+        help='Any english title matching this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
+             '"linuxfabrik".',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
         '--test',
         help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
@@ -117,8 +128,17 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    try:
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    except:
+        lib.base.cu('Unable to compile regex.')
+
+    table_data = []
 
     # analyze data
+    title = 'Lorem ipsum'
+    if any(item.search(title) for item in compiled_ignore_regex):
+        pass # in loops: continue
     value = str(lib.time.now())[-2:]
 
     # build the message
