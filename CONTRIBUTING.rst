@@ -48,6 +48,7 @@ Checklist:
 * Icinga Director Basket Config for the check plugin
 * Icinga Service Set in ``all-the-rest.json``
 * Optional: sudoers file (see `sudoers File <#sudoers-file>`_)
+* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color ``#f5f9fa``, hosted on `download.linuxfabrik.ch <https://download.linuxfabrik.ch/monitoring-plugins/screenshots/>`_, and listed alphabetically in the projects `README <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md>`_.
 * CHANGELOG
 
 
