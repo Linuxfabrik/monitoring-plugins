@@ -613,5 +613,8 @@ Incomplete list of Plugins with special technical implementations and capabiliti
 * | All wildfly-* checks
   | They all work without the ``jolokia.war`` plugin and use the native API.
 
+* | `uptime <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime>`_
+  | Uses human-readable Nagios ranges.
+
 * | `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
   | Differentiates between Windows and Linux.
