@@ -4,9 +4,9 @@ Check file-size
 Overview
 --------
 
-Checks the size for a file in bytes, ignoring directories as the size of a directory is not consistently defined across filesystems, and never is the size of the contents.
+Checks the size of files in bytes, ignoring directories as the size of a directory is not defined consistently across file systems and is never the size of the contents. This check supports both Nagios ranges and Samba shares.
 
-The plugin is able to follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with `Python 3 <https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob>`_ or `Python 2 <https://docs.python.org/2.7/library/glob.html>`_. Beware that using recursive globs might cause high memory usage. Also note that there are small differences in recursive file matching between Python 2 and Python 3.
+The plugin can follow symbolic links. Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) may be required. It supports globs according to `Python 3 <https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob>`_. Note that using recursive globs can cause high memory usage.
 
 
 Fact Sheet
@@ -19,7 +19,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
-    "3rd Party Python modules",             "``PySmbClient``, ``smbprotocol``"
+    "3rd Party Python modules",             "optional: ``PySmbClient``, ``smbprotocol``"
 
 
 Help
@@ -31,34 +31,34 @@ Help
                      [--pattern PATTERN] [--password PASSWORD] [--timeout TIMEOUT]
                      [-u URL] [--username USERNAME] [-w WARN]
 
-    Checks the size for a file or directory, in bytes.
+    Checks the size for a file (in bytes).
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
-                            Set the critical size threshold in bytes. Default: >=
-                            1073741824 (1G)
+                            Threshold for the file size in Bytes. Supports Nagios
+                            ranges. Default: :1073741824
       --filename FILENAME   File (or directory) name to check. Supports glob in
                             accordance with
-                            https://docs.python.org/2.7/library/glob.html. Beware
-                            of using recursive globs. This is mutually exclusive
-                            with -u / --url.
+                            https://docs.python.org/2.7/library/glob.html. Note
+                            that using recursive globs can cause high memory
+                            usage. This is mutually exclusive with `-u` / `--url`.
       --pattern PATTERN     The search string to match against the names of SMB
-                            directories or files. This pattern can use '*' as a
-                            wildcard for multiple chars and '?' as a wildcard for
+                            directories or files. This pattern can use "*"" as a
+                            wildcard for multiple chars and "?"" as a wildcard for
                             a single char. Does not support regex patterns.
                             Default: *.
       --password PASSWORD   SMB Password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       -u URL, --url URL     Set the url of the file (or directory) to check,
                             starting with "smb://". This is mutually exclusive
-                            with --filename.
+                            with `--filename`.
       --username USERNAME   SMB Username.
       -w WARN, --warning WARN
-                            Set the warning size threshold in bytes. Default: >=
-                            26214400 (100M)
+                            Threshold for the file size in Bytes. Supports Nagios
+                            ranges. Default: :26214400
 
 
 Usage Examples
@@ -66,23 +66,48 @@ Usage Examples
 
 .. code-block:: bash
 
-    # file is more than 5 bytes big -> warning
-    # file is more than 10 bytes big -> critical
-    ./file-size --filename '/path/to/file' --warning 5 --critical 10
+    # warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB
+    ./file-size --filename '/path/to/m*.png*' --warning 6000:10000 --critical :14000
 
-    # same thresholds, but checking multiple files
-    ./file-size --filename '/path/to/files/*' --warning 5 --critical 10
-
-    # same thresholds, but recursive (might use a lot of memory)
-    ./file-size --filename '/path/to/files/**/*' --warning 5 --critical 10
+    # the same as above, but recursive (might use a lot of memory)
+    ./file-size --filename '/path/to/**/m*.png*' --warning 6000:10000 --critical :14000
 
 Output:
 
 .. code-block:: text
 
-    1 file is below the given size thresholds (3.8MiB/1.0GiB).
+    28 files checked. 22 are outside the given size thresholds (6000:10000/:14000).
 
-    * /var/log/firewalld: 28.1KiB
+    File                                   ! Size    ! State      
+    ---------------------------------------+---------+------------
+    mailq.png                              ! 5.2KiB  ! [WARNING]  
+    matomo-version.png                     ! 7.2KiB  ! [OK]       
+    memory-usage.png                       ! 12.4KiB ! [WARNING]  
+    mydumper-version.png                   ! 8.3KiB  ! [OK]       
+    mysql-aria.png                         ! 12.2KiB ! [WARNING]  
+    mysql-connections.png                  ! 15.3KiB ! [CRITICAL] 
+    mysql-database-metrics.png             ! 15.2KiB ! [CRITICAL] 
+    mysql-innodb-buffer-pool-instances.png ! 12.7KiB ! [WARNING]  
+    mysql-innodb-buffer-pool-size.png      ! 15.5KiB ! [CRITICAL] 
+    mysql-innodb-log-waits.png             ! 9.2KiB  ! [OK]       
+    mysql-joins.png                        ! 11.7KiB ! [WARNING]  
+    mysql-logfile.png                      ! 15.5KiB ! [CRITICAL] 
+    mysql-memory.png                       ! 16.5KiB ! [CRITICAL] 
+    mysql-open-files.png                   ! 8.8KiB  ! [OK]       
+    mysql-perf-metrics.png                 ! 6.9KiB  ! [OK]       
+    mysql-slow-queries.png                 ! 9.2KiB  ! [OK]       
+    mysql-sorts.png                        ! 10.9KiB ! [WARNING]  
+    mysql-storage-engines.png              ! 16.9KiB ! [CRITICAL] 
+    mysql-system.png                       ! 19.6KiB ! [CRITICAL] 
+    mysql-table-cache.png                  ! 26.3KiB ! [CRITICAL] 
+    mysql-table-definition-cache.png       ! 14.0KiB ! [CRITICAL] 
+    mysql-table-indexes.png                ! 9.9KiB  ! [WARNING]  
+    mysql-table-locks.png                  ! 10.3KiB ! [WARNING]  
+    mysql-temp-tables.png                  ! 12.3KiB ! [WARNING]  
+    mysql-thread-cache.png                 ! 10.2KiB ! [WARNING]  
+    mysql-traffic.png                      ! 10.8KiB ! [WARNING]  
+    mysql-user-security.png                ! 16.3KiB ! [CRITICAL] 
+    mysql-version.png                      ! 10.3KiB ! [WARNING]
 
 
 States
@@ -90,8 +115,6 @@ States
 
 * OK if all the found files are below the given size thresholds.
 * Otherwise CRIT or WARN.
-
-
 
 
 Perfdata / Metrics
