@@ -39,7 +39,7 @@ Help
       --always-ok           Always returns OK.
       -c CRIT, --critical CRIT
                             Threshold for the file size in Bytes. Supports Nagios
-                            ranges. Default: :1073741824
+                            ranges. Default: 1073741824
       --filename FILENAME   File (or directory) name to check. Supports glob in
                             accordance with
                             https://docs.python.org/2.7/library/glob.html. Note
@@ -58,7 +58,7 @@ Help
       --username USERNAME   SMB Username.
       -w WARN, --warning WARN
                             Threshold for the file size in Bytes. Supports Nagios
-                            ranges. Default: :26214400
+                            ranges. Default: 26214400
 
 
 Usage Examples

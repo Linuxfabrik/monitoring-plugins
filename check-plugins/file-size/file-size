@@ -37,10 +37,10 @@ __version__ = '2024033002'
 DESCRIPTION = 'Checks the size for a file (in bytes).'
 
 
-DEFAULT_CRIT = ':{}'.format(str(1024*1024*1024)) # 1G (Gibibyte)
+DEFAULT_CRIT = str(1024*1024*1024) # 1G (Gibibyte)
 DEFAULT_PATTERN = '*'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = ':{}'.format(str(25*1024*1024))# 25M (Mebibyte)
+DEFAULT_WARN = str(25*1024*1024) # 25M (Mebibyte)
 
 
 def parse_args():
@@ -219,10 +219,10 @@ def main():
         )
     if len(table_data) == 1:
         # show info on first line when there is only one hit
-        msg += 'Checked {}, {}{}'.format(
+        msg += ' Checked {}: {} {}'.format(
             table_data[0]['filename'],
             table_data[0]['size_hr'],
-            table_data[0]['state_hr'],
+            lib.base.state2str(table_data[0]['state'], prefix=' '),
         )
     else:
         msg += '\n\n' + lib.base.get_table(
