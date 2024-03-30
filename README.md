@@ -2,7 +2,7 @@
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
 
-This Enterprise Class Check Plugin Collection offers a package of 200+ Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of 200+ Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
@@ -16,11 +16,10 @@ The plugins are fast, reliable and use as few system resources as possible. They
 
 ## Support & Sponsoring
 
-The source code is published here without support.
-
-If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/offer/service-and-support/).
+The source code is published here without support. If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
 
 If you simply like to support our work, please consider donating and become a sponsor:
+
 * [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
 * [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
@@ -38,7 +37,7 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 For now, there are two ways:
 
 1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
-2.  [Contact us](https://www.linuxfabrik.ch/en/about-us/contact/) by email or web form and describe your problem.
+2.  [Contact us](https://www.linuxfabrik.ch/en/contact) by email or web form and describe your problem.
 
 
 ## Check Plugin Poster
@@ -113,7 +112,7 @@ Some comments from the community about our monitoring plugins:
 
 ## Merchandise! ;-)
 
-The "Linuxfabrik Monitoring Plugins" on a card of our popular Open Source Quartet from 2023 🙂. Sold out, but there's still more to discover in the [Linuxfabrik Spreadshop](https://www.linuxfabrik.ch/de/ueber-uns/merch).
+The "Linuxfabrik Monitoring Plugins" on a card of our popular Open Source Quartet from 2023 🙂. Sold out, but there's still more to discover in the [Linuxfabrik Spreadshop](https://www.linuxfabrik.ch/en/about-us/merch).
 
 [![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-quartets-card-2023.png)](https://ws.linuxfabrik.io/index.php/store/diverses/linuxfabrik-open-source-quartett-2023)
 
