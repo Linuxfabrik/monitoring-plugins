@@ -23,7 +23,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023121201'
+__version__ = '2024033001'
 
 DESCRIPTION = """This plugin checks for read-only mount points, such as `/` mounted read-only due
                  to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores ramfs
@@ -86,11 +86,11 @@ def main():
         mounts = lib.base.coe(lib.disk.read_file('/proc/mounts'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, _, _ = lib.test.test(args.TEST)
         mounts = stdout
 
     cnt = 0
-    ros = []        # read-only mount points
+    ros = [] # read-only mount points
     for mount in mounts.splitlines():
         mnt = mount.split()
         if len(mnt) != 6:
@@ -104,7 +104,6 @@ def main():
 
         if mount_type in ['ramfs', 'squashfs']:
             continue
-
         mount_options = mnt[3]
         if any(mount_point.startswith(item) for item in args.IGNORE):
             continue
@@ -115,13 +114,16 @@ def main():
 
     # build the message
     if len(ros) > 0:
+        msg = '{} read-only mount {} found: '.format(
+            len(ros),
+            lib.txt.pluralize('point', len(ros)),
+        )
         if len(ros) == 1:
-            msg = 'read-only mount point found: ' + ros[0]
+            # show mount point info on first line when there is only one hit
+            msg += ros[0]
         else:
-            msg = '{} read-only mount points found:\n'.format(len(ros))
             for item in ros:
-                msg += '* {}\n'.format(item)
-
+                msg += '\n* {}'.format(item)
         state = STATE_WARN
     else:
         msg = 'Everything is ok. {} mount {} checked.'.format(cnt, lib.txt.pluralize('point', cnt))

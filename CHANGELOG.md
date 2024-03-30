@@ -51,6 +51,7 @@ Monitoring Plugins:
 * feed: Make use of `--insecure` `--no-proxy` `--timeout`
 * fs-ro: Add `/dev/loop` to default ignore list
 * fs-ro: Make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
+* fs-ro: Show mount point info on first line when there is only one hit ([PR #730](https://github.com/Linuxfabrik/monitoring-plugins/issues/730), thanks to [Konrad Bucheli](https://github.com/kbucheli))
 * githubstatus: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * gitlab-health: Add new parameters `--insecure` `--no-proxy`
 * gitlab-liveness: Add new parameters `--insecure` `--no-proxy`
