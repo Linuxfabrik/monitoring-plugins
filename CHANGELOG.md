@@ -21,6 +21,7 @@ Monitoring Plugins:
 
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
+* uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722)). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
 
 
 ### Added
@@ -90,7 +91,6 @@ Monitoring Plugins:
 * sap-open-concur: Add new parameter `--insecure`
 * statuspal: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * swap-usage: Report the top 3 processes causing the usage (Linux only)
-* uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722))
 * veeam-status: Add new parameters `--insecure` `--no-proxy`
 * wildfly-\*: Add new parameters `--insecure` `--no-proxy`
 * xml: Add new parameter `--insecure`
