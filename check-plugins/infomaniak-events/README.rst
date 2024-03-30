@@ -4,12 +4,14 @@ Check infomaniak-events
 Overview
 --------
 
-Informs you about open events at Infomaniak via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "event" at Infomaniak first.
+Informs you about open events at Infomaniak via the Infomaniak API. To use this check, you have to create a Bearer Token with scope "event" at Infomaniak first. A filter for ``--service`` is applied before the ``--ignore-regex`` parameter.
 
 "Services" (service categories) that we know about and that can be filtered:
 
+* administration_console
 * certificate
 * cloud
+* drive
 * email_hosting
 * hosting
 * housing
@@ -44,26 +46,30 @@ Help
 
 .. code-block:: text
 
-    usage: infomaniak-events [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                             [--service SERVICE] [--timeout TIMEOUT] --token TOKEN
-                             [--test TEST]
+    usage: infomaniak-events [-h] [-V] [--always-ok] [--ignore-regex IGNORE_REGEX]
+                             [--insecure] [--no-proxy] [--service SERVICE]
+                             [--timeout TIMEOUT] --token TOKEN [--test TEST]
 
     Informs you about open events at Infomaniak.
 
     options:
-      -h, --help         show this help message and exit
-      -V, --version      show program's version number and exit
-      --always-ok        Always returns OK.
-      --insecure         This option explicitly allows to perform "insecure" SSL
-                         connections. Default: False
-      --no-proxy         Do not use a proxy. Default: False
-      --service SERVICE  Only report this service category (repeating). Example:
-                         `--service=swiss_backup --service=public_cloud`. Default:
-                         none (so report all)
-      --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-      --token TOKEN      Infomaniak API token
-      --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
-                         stderr-file,expected-retc".
+      -h, --help            show this help message and exit
+      -V, --version         show program's version number and exit
+      --always-ok           Always returns OK.
+      --ignore-regex IGNORE_REGEX
+                            Any english title matching this python regex will be
+                            ignored (repeating). Example: '(?i)linuxfabrik' for a
+                            case-insensitive search for "linuxfabrik".
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --service SERVICE     Only report this service category (repeating).
+                            Example: `--service=swiss_backup
+                            --service=public_cloud`. Default: none (so report all)
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+      --token TOKEN         Infomaniak API token
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
 
 
 Usage Examples
@@ -71,7 +77,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./infomaniak-events --token=TOKEN --service=public_cloud --service=swiss_backup
+    ./infomaniak-events --token=TOKEN --service=public_cloud --service=swiss_backup --ignore-regex='(?i)acronis'
 
 Output:
 
@@ -79,10 +85,9 @@ Output:
 
     information: Wave of fraudulent e-mails () - see https://infomaniakstatus.com/en/
 
-    Type        ! Title                                ! Services      ! Start               ! End                             ! Duration 
-    ------------+--------------------------------------+---------------+---------------------+---------------------------------+----------
-    impacting   ! Swiss Backup: planned Acronis update ! swiss_backup  ! 2023-05-22 20:30:55 ! 2023-05-23 00:31:10 (1M 2W ago) ! 4h 15s   
-    impacting   ! Public Cloud: service disruption     ! public_cloud  ! 2023-05-10 19:30:15 ! 2023-05-10 20:12:02 (1M 3W ago) ! 41m 47s  
+    Type        ! Title                            ! Services     ! Start               ! End                             ! Duration 
+    ------------+----------------------------------+--------------+---------------------+---------------------------------+----------
+    impacting   ! Public Cloud: service disruption ! public_cloud ! 2023-05-10 19:30:15 ! 2023-05-10 20:12:02 (1M 3W ago) ! 41m 47s  
 
 
 States

@@ -13,6 +13,7 @@
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
@@ -26,7 +27,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024033001'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -55,8 +56,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-regex',
+        help='Any english title matching this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
+             '"linuxfabrik".',
+        action='append',
+        default=[],
+        dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
         '--insecure',
-        help='This option explicitly allows to perform "insecure" SSL connections. '
+        help='This option explicitly allows to perform "insecure" SSL '
+             'connections. '
              'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
@@ -100,7 +113,8 @@ def parse_args():
 
     parser.add_argument(
         '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        help='For unit tests. '
+             'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
         dest='TEST',
         type=lib.args.csv,
     )
@@ -128,27 +142,34 @@ def main():
         ))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, _, _ = lib.test.test(args.TEST)
         result = json.loads(stdout)
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = lib.base.get_perfdata('event', 0, None, None, None, 0, None)
+    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+
     table_data = []
 
     # analyze data
-    # use english translation only
     for event in result.get('data', {}):
         services = [tr['name'] for tr in event.get('services')]
+        # just get the english title of the event message
+        title = next((tr['title'] for tr in event.get('description').get('translations') if tr['language'] == 'en'), event.get('description').get('title')) # pylint: disable=C0301
+
+        # a filter for ``--service`` is applied before the ``--ignore-regex`` parameter
         if args.SERVICE and not services:
             # we got a filter for a service category, but an uncategorized event message - skip
             continue
         if args.SERVICE and not set(services).intersection(args.SERVICE):
             # is there any intersection (services wanted)? if not, continue
             continue
+        if any(item.search(title) for item in compiled_ignore_regex):
+            continue
+
         services = ', '.join(services)
-        title = next((tr['title'] for tr in event.get('description').get('translations') if tr['language'] == 'en'), event.get('description').get('title'))
         if event.get('status') != 'terminated':
             msg += '{}: {} ({}), '.format(
                 event.get('type'),
@@ -166,10 +187,10 @@ def main():
             'started_at': '{}'.format(
                 lib.time.epoch2iso(int(event.get('started_at'))),
             ),
-            # in case of an ongoing event, ended_at is "None" 
+            # in case of an ongoing event, `ended_at` is "None"
             'ended_at': '{} ({} ago)'.format(
                 lib.time.epoch2iso(int(event.get('ended_at'))),
-                lib.human.seconds2human(lib.time.now(as_type='epoch') - int(event.get('ended_at'))),
+                lib.human.seconds2human(lib.time.now(as_type='epoch') - int(event.get('ended_at'))), # pylint: disable=C0301
             ) if event.get('ended_at') is not None else 'in progress',
             'duration': lib.human.seconds2human(
                 event.get('ended_at') - event.get('started_at')

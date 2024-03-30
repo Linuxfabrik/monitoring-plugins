@@ -59,6 +59,7 @@ Monitoring Plugins:
 * haproxy-status: Add new parameters `--insecure` `--no-proxy`
 * huawei-dorado-\*: Add new parameter `--insecure`
 * infomaniak-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* infomaniak-events: Add new parameter `--ignore-regex`
 * infomaniak-swiss-backup-products: Improve output
 * jitsi-\*: Add new parameters `--insecure` `--no-proxy`
 * journald-query: Remove hard-coded `--boot` parameter from query
