@@ -4,7 +4,7 @@ Check uptime
 Overview
 --------
 
-Checks and tells how long the system has been running (in days).
+Checks and tells how long the system has been running (in days). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
 
 
 Fact Sheet
@@ -55,7 +55,7 @@ Warn if more than 180 days, crit if more than 365 days up:
 
 .. code-block:: bash
 
-    ./uptime --warning 180D --critical 1Y
+    ./uptime --warning=180D --critical=1Y
 
 Output:
 
@@ -67,7 +67,7 @@ Warn if less than 5 minutes up:
 
 .. code-block:: bash
 
-    ./uptime --warning 5m:
+    ./uptime --warning=5m:
 
 Output:
 
@@ -79,8 +79,8 @@ Warn if not in 5 minutes to 6 months and 5 days uptime. If more than 2 years up,
 
 .. code-block:: bash
 
-    ./uptime --warning 5m:6M5D --critical 2Y
-    # alternatively: ./uptime --warning '5m:6M 5D' --critical 2Y
+    ./uptime --warning=5m:6M5D --critical=2Y
+    # alternatively: ./uptime --warning='5m:6M 5D' --critical=2Y
 
 Output over time:
 
