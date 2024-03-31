@@ -25,7 +25,8 @@ Help
 
 .. code-block:: text
 
-    usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: file-descriptors [-h] [-V] [--always-ok] [-c CRIT] [--top TOP]
+                            [-w WARN]
 
     Checks the number of allocated file handles in percent.
 
@@ -36,6 +37,8 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold for file descriptor usage
                             (in percent). Default: 95
+      --top TOP             List x "Top processes opening file descriptors".
+                            Default: 5
       -w WARN, --warning WARN
                             Set the warning threshold for file descriptor usage
                             (in percent). Default: 90

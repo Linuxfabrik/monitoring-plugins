@@ -28,12 +28,13 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024033101'
 
 DESCRIPTION = 'Checks the number of allocated file handles in percent.'
 
-DEFAULT_WARN  = 90      # %
 DEFAULT_CRIT  = 95      # %
+DEFAULT_TOP = 5
+DEFAULT_WARN  = 90      # %
 
 
 def parse_args():
@@ -64,6 +65,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--top',
+        help='List x "Top processes opening file descriptors". '
+             'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
         help='Set the warning threshold for file descriptor usage (in percent). Default: %(default)s',
         dest='WARN',
@@ -72,6 +82,31 @@ def parse_args():
     )
 
     return parser.parse_args()
+
+
+def top(count):
+    """Get top X processes opening file descriptors.
+    """
+    cnt = Counter()
+    msg = '\nTop {} processes opening file descriptors:\n'.format(count)
+    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
+        try:
+            for p in psutil.process_iter(attrs=['name', 'num_fds']):
+                if p.info['num_fds']:
+                    cnt[p.info['name']] += p.info['num_fds']
+        except psutil.NoSuchProcess:
+            pass
+    else:
+        try:
+            for p in [x.as_dict(attrs=['name', 'num_fds']) for x in psutil.process_iter()]:
+                if p['num_fds']:
+                    cnt[p['name']] += p['num_fds']
+        except psutil.NoSuchProcess:
+            pass
+
+    for i, p in enumerate(cnt.most_common(count)):
+        msg += '{}. {}: {} FD\n'.format(i + 1, p[0], p[1])
+    return msg
 
 
 def main():
@@ -104,26 +139,8 @@ def main():
     perfdata += lib.base.get_perfdata('fd', files_percent, '%', args.WARN, args.CRIT, 0, 100)
     state = lib.base.get_state(files_percent, args.WARN, args.CRIT, 'ge')
 
-    # list top3 processes opening more file descriptors
-    cnt = Counter()
-    msg += '\nTop3 processes opening file descriptors:\n'
-    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
-        try:
-            for p in psutil.process_iter(attrs=['name', 'num_fds']):
-                if p.info['num_fds']:
-                    cnt[p.info['name']] += p.info['num_fds']
-        except psutil.NoSuchProcess:
-            pass
-    else:
-        try:
-            for p in [x.as_dict(attrs=['name', 'num_fds']) for x in psutil.process_iter()]:
-                if p['num_fds']:
-                    cnt[p['name']] += p['num_fds']
-        except psutil.NoSuchProcess:
-            pass
-
-    for i, p in enumerate(cnt.most_common(3)):
-        msg += '{}. {}: {} FD\n'.format(i + 1, p[0], p[1])
+    # Top X processes opening file descriptors
+    msg += top(args.TOP)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
