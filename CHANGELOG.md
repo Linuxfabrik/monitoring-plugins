@@ -75,6 +75,7 @@ Monitoring Plugins:
 * kvm-vm: Improve output
 * librenms-version: Fetches info from local SQLite using new librenms library
 * logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`
+* memory-usage: Add `--top` parameter, showing 5 top processes by default
 * metabase-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mod-qos-stats: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * mysql-memory: Enhance output, set threshold to 95%

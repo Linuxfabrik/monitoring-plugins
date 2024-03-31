@@ -30,7 +30,7 @@ Help
 
 .. code-block:: text
 
-    usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
 
     Displays amount of free and used memory in the system, checks against used
     memory in percent.
@@ -42,6 +42,8 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold for memory usage (in
                             percent). Default: 95
+      --top TOP             List x "Top most memory consuming processes". Default:
+                            5
       -w WARN, --warning WARN
                             Set the warning threshold for memory usage (in
                             percent). Default: 90

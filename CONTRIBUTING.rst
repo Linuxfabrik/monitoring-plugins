@@ -567,63 +567,101 @@ Grafana Dashboards
 The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with ``-``, ``/`` will be ignored. eg ``Network I/O`` will become ``network-io``). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
 
 
-Special Plugins
----------------
+Plugins and Capabilities
+------------------------
 
-Incomplete list of Plugins with special technical implementations and capabilities:
+Incomplete list of special features in some check-plugins.
 
-* | `by-ssh <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh>`_
-  | README explains Python regular expression negative lookaheads to exclude matches.
+README explains Python regular expression negative lookaheads to exclude matches:
 
-* | `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
-  | Alerts only after a certain amount of calls (default: last 5 values over threshold).
-  | Cuts (truncates) its SQLite database table.
+* `by-ssh <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh>`_
 
-* | `dhcp-relayed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed>`_
-  | Pure/raw network communication using byte-structs and sockets.
+Lists "Top X" values (search for ``--top`` parameter):
 
-* | `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
-  | "Learns" disk thresholds on its own (implementing some kind of "threshold warm-up").
+* `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
+* `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
+* `file-descriptors <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-descriptors>`_
+* `memory-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/memory-usage>`_
+* `swap-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/swap-usage>`_
 
-* | `disk-smart <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart>`_
-  | More or less our port of `GSmartControl <https://github.com/ashaduri/gsmartcontrol>`_ to Python.
+Alerts only after a certain amount of calls (search for ``--count`` parameter):
 
-* | `disk-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage>`_
-  | ``--perfdata-regex`` parameter lets you filter for a subset of performance data.
-  | Makes use of ``FREE`` and ``USED`` wording in parameters.
+* `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
 
-* | `feed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed>`_
-  | Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed.
+Cuts (truncates) its SQLite database table:
 
-* | `file-age <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age>`_
-  | Calculates mean and median perfdata over a set of individual items.
+* `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
 
-* | `file-size <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size>`_
-  | Supports human-readable Nagios ranges for bytes.
+Pure/raw network communication using byte-structs and sockets:
 
-* | `librenms-alerts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts>`_
-  | Sanitizes complex data before querying MySQL/MariaDB.
+* `dhcp-relayed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed>`_
 
-* | `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
-  | Reads a file line-by-line, backwards.
-  | Makes heavy use of patterns versus compiled regexes, matching any() of them.
-  | Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed.
+Checks for a minimum required 3rd party library version:
 
-* | All mysql-* plugins
-  | Using application's config file for authentication.
-  | More or less our port of `MySQLTuner <https://github.com/major/MySQLTuner-perl>`_ to Python.
+* `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
 
-* | `php-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status>`_
-  | Optionally relies on a ``monitoring.php`` that can provide more PHP insight in the context of the web server.
+"Learns" thresholds on its own (implementing some kind of "threshold warm-up"):
 
-* | `redis-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status>`_
-  | Provides useful feedback from Redis' Memory Doctor.
+* `disk-io <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io>`_
 
-* | All wildfly-* checks
-  | They all work without the ``jolokia.war`` plugin and use the native API.
+Ports of applications:
+  
+* `disk-smart <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart>`_: port of `GSmartControl <https://github.com/ashaduri/gsmartcontrol>`_ to Python.
+* All mysql-* plugins: Port of `MySQLTuner <https://github.com/major/MySQLTuner-perl>`_ to Python.
 
-* | `uptime <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime>`_
-  | Supports human-readable Nagios ranges for durations.
+Makes use of ``FREE`` and ``USED`` wording in parameters:
 
-* | `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
-  | Differentiates between Windows and Linux.
+* `disk-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage>`_
+
+``--perfdata-regex`` parameter lets you filter for a subset of performance data:
+
+* `disk-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage>`_
+
+Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed:
+
+* `feed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed>`_
+* `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
+
+Calculates mean and median perfdata over a set of individual items:
+
+* `file-age <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age>`_
+
+Supports human-readable Nagios ranges for bytes:
+
+* `file-size <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size>`_
+
+Sanitizes complex data before querying MySQL/MariaDB:
+
+* `librenms-alerts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts>`_
+
+Reads a file line-by-line, but backwards:
+
+* `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
+
+Makes heavy use of patterns versus compiled regexes, matching any() of them:
+
+* `logfile <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile>`_
+
+Using application's config file for authentication:
+
+* All mysql-* plugins
+
+Optionally uses an asset:
+
+* `php-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status>`_: relies on ``monitoring.php`` that can provide more PHP insight in the context of the web server
+
+Provides useful feedback from Redis' Memory Doctor:
+
+* `redis-status <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status>`_
+
+Work without the ``jolokia.war`` plugin and use the native API:
+
+* All wildfly-* checks
+
+Supports human-readable Nagios ranges for durations:
+
+* `uptime <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime>`_
+
+Differentiates between Windows and Linux (search for ``lib.base.LINUX`` or ``lib.base.WINDOWS``):
+
+* `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_

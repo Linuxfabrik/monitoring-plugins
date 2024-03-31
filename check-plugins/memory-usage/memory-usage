@@ -27,13 +27,14 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024033101'
 
 DESCRIPTION = """Displays amount of free and used memory in the system, checks against used memory
                 in percent."""
 
-DEFAULT_WARN = 90 # %
 DEFAULT_CRIT = 95 # %
+DEFAULT_TOP = 5
+DEFAULT_WARN = 90 # %
 
 
 def parse_args():
@@ -57,21 +58,77 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold for memory usage (in percent). Default: %(default)s',
+        help='Set the critical threshold for memory usage (in percent). '
+             'Default: %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
+        '--top',
+        help='List x "Top most memory consuming processes". '
+             'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold for memory usage (in percent). Default: %(default)s',
+        help='Set the warning threshold for memory usage (in percent). '
+             'Default: %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
     )
 
     return parser.parse_args()
+
+
+def top(count):
+    """Get top X most memory consuming processes.
+    """
+    procs = {}
+    msg = '\nTop {} most memory consuming processes:\n'.format(count)
+    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
+        try:
+            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info']):
+                try:
+                    procs[p.info['name']]
+                except:
+                    procs[p.info['name']] = {
+                        '%': 0,
+                        'rss': 0,
+                    }
+                procs[p.info['name']]['%'] += p.info['memory_percent']
+                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
+        except psutil.NoSuchProcess:
+            pass
+    else:
+        try:
+            for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
+                try:
+                    procs[p.info['name']]
+                except:
+                    procs[p.info['name']] = {
+                        '%': 0,
+                        'rss': 0,
+                    }
+                procs[p.info['name']]['%'] += p.info['memory_percent']
+                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
+        except psutil.NoSuchProcess:
+            pass
+    for i, p in enumerate(sorted(procs.items(), key=lambda d: d[1]['%'], reverse=True)):
+        if i >= count:
+            break
+        msg += '{}. {}: {} ({:.1f}%)\n'.format(
+            i + 1,
+            p[0],
+            lib.human.bytes2human(p[1]['rss']),
+            p[1]['%'],
+        )
+    return msg
 
 
 def main():
@@ -120,46 +177,8 @@ def main():
     perfdata += lib.base.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
 
-    # list top 3 most memory consuming processes
-    procs = {}
-    msg_body += '\n\nTop5 most memory consuming processes:\n'
-    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
-        try:
-            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info']):
-                try:
-                    procs[p.info['name']]
-                except:
-                    procs[p.info['name']] = {
-                        '%': 0,
-                        'rss': 0,
-                    }
-                procs[p.info['name']]['%'] += p.info['memory_percent']
-                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
-        except psutil.NoSuchProcess:
-            pass
-    else:
-        try:
-            for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
-                try:
-                    procs[p.info['name']]
-                except:
-                    procs[p.info['name']] = {
-                        '%': 0,
-                        'rss': 0,
-                    }
-                procs[p.info['name']]['%'] += p.info['memory_percent']
-                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
-        except psutil.NoSuchProcess:
-            pass
-    for i, p in enumerate(sorted(procs.items(), key=lambda d: d[1]['%'], reverse=True)):
-        if i >= 5:
-            break
-        msg_body += '{}. {}: {} ({:.1f}%)\n'.format(
-            i + 1,
-            p[0],
-            lib.human.bytes2human(p[1]['rss']),
-            p[1]['%'],
-        )
+    # Top X most memory consuming processes
+    msg_body += '\n' + top(args.TOP)
 
     # over and out
     lib.base.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
