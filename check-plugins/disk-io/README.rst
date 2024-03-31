@@ -68,8 +68,8 @@ Help
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
       --always-ok      Always returns OK.
-      --count COUNT    Number of times the value has to be above the given
-                       thresholds. Default: 5
+      --count COUNT    Number of times the value must exceed specified thresholds
+                       before alerting. Default: 5
       --critical CRIT  Set the CRIT threshold for disk I/O read/write rate over
                        the entire period as a percentage of the maximum disk I/O
                        rate. Default: >= 90

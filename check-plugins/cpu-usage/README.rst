@@ -43,8 +43,8 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --count COUNT         Number of times the value has to be above the given
-                            thresholds. Default: 5
+      --count COUNT         Number of times the value must exceed specified
+                            thresholds before alerting. Default: 5
       -c CRIT, --critical CRIT
                             Set the critical threshold CPU Usage Percentage.
                             Default: 90
