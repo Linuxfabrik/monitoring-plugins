@@ -4,7 +4,7 @@ Check cpu-usage
 Overview
 --------
 
-Returns a bunch of numbers representing the current system-wide CPU utilization as a percentage. Outputs the cpu times having > 0% in the first line, sorted by value. In addition, the top 3 processes which consumed the most CPU time are listed. Warns only if any of ``user``, ``system``, ``iowait`` or overall ``cpu-usage`` is above a certain threshold within the last n checks (default: 5).
+Returns a bunch of numbers representing the current system-wide CPU utilization as a percentage. Outputs the cpu times having > 0% in the first line, sorted by value. In addition, the top 5 processes which consumed the most CPU time are listed. Warns only if any of ``user``, ``system``, ``iowait`` or overall ``cpu-usage`` is above a certain threshold within the last n checks (default: 5).
 
 Hints and Recommendations:
 
