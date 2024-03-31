@@ -25,7 +25,7 @@ Help
 
 .. code-block:: text
 
-    usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
+    usage: swap-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
 
     Displays amount of free and used swap space in the system, checks against used
     swap in percent.
@@ -37,6 +37,8 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold for swap usage (in
                             percent). Default: 90
+      --top TOP             List x "Top processes that use the most swap space"
+                            (except on Windows). Default: 5
       -w WARN, --warning WARN
                             Set the warning threshold for swap usage (in percent).
                             Default: 70
@@ -47,7 +49,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./swap-usage --warning 70 --critical 90
+    ./swap-usage --warning 70 --critical 90 --top 3
 
 Output:
 
@@ -56,7 +58,7 @@ Output:
     77.7% - total: 2.0GiB, used: 1.6GiB, free: 456.1MiB
     swapped in: 997.6MiB, swapped out: 2.6GiB (both cumulative)
 
-    Top3 processes that use the most swap space:
+    Top 3 processes that use the most swap space:
     1. php-fpm: 1.6GiB
     2. icinga2: 7.7MiB
     3. tuned: 3.9MiB

@@ -27,13 +27,14 @@ except ImportError:
     lib.base.cu('Python module "psutil" is not installed.')
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023122101'
+__version__ = '2024033101'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
 
-DEFAULT_WARN  = 70  # %
 DEFAULT_CRIT  = 90  # %
+DEFAULT_TOP = 5
+DEFAULT_WARN  = 70  # %
 
 
 def parse_args():
@@ -59,15 +60,26 @@ def parse_args():
         '-c', '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
-        help='Set the critical threshold for swap usage (in percent). Default: %(default)s',
+        help='Set the critical threshold for swap usage (in percent). '
+             'Default: %(default)s',
         type=int,
+    )
+
+    parser.add_argument(
+        '--top',
+        help='List x "Top processes that use the most swap space" (except on Windows). '
+             'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
     )
 
     parser.add_argument(
         '-w', '--warning',
         default=DEFAULT_WARN,
         dest='WARN',
-        help='Set the warning threshold for swap usage (in percent). Default: %(default)s',
+        help='Set the warning threshold for swap usage (in percent). '
+             'Default: %(default)s',
         type=int,
     )
 
@@ -87,6 +99,24 @@ def get_swap_and_name(pid):
             return name.strip(), int(size.replace(' kB', '').strip())
     except FileNotFoundError:
         return None, 0
+
+
+def top(count):
+    """Get top X processes causing swap usage.
+    """
+    process_info = {}
+    for pid in os.listdir('/proc'):
+        if pid.isdigit():
+            name, usage = get_swap_and_name(pid) # usage is in kB
+            try:
+                process_info[name] += usage * 1024
+            except:
+                process_info[name] = usage * 1024
+    msg = '\nTop {} processes that use the most swap space:\n'.format(count)
+    process_info = lib.base.sort(process_info)
+    for i, p in enumerate(process_info[:count]):
+        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.human.bytes2human(p[1]))
+    return msg
 
 
 def main():
@@ -129,20 +159,9 @@ def main():
         perfdata += lib.base.get_perfdata('sin', getattr(swap, 'sin', 0), 'B', None, None, 0, None)
         perfdata += lib.base.get_perfdata('sout', getattr(swap, 'sout', 0), 'B', None, None, 0, None) # pylint: disable=C0301
 
-    # On Linux only, get the top 3 processes causing the usage
-    if lib.base.LINUX and swap_usage_percent > 0:
-        process_info = {}
-        for pid in os.listdir('/proc'):
-            if pid.isdigit():
-                name, usage = get_swap_and_name(pid) # usage is in kB
-                try:
-                    process_info[name] += usage * 1024
-                except:
-                    process_info[name] = usage * 1024
-        msg_body += '\n\nTop3 processes that use the most swap space:\n'
-        process_info = lib.base.sort(process_info)
-        for i, p in enumerate(process_info[:3]):
-            msg_body += '{}. {}: {}\n'.format(i + 1, p[0], lib.human.bytes2human(p[1]))
+    # On Linux only, get the top processes causing swap usage
+    if not lib.base.WINDOWS and swap_usage_percent > 0:
+        msg_body += '\n' + top(args.TOP)
 
     # calculating the final check state
     state = lib.base.get_state(swap_usage_percent, args.WARN, args.CRIT)
