@@ -572,6 +572,9 @@ Special Plugins
 
 Incomplete list of Plugins with special technical implementations and capabilities:
 
+* | `by-ssh <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh>`_
+  | README explains Python regular expression negative lookaheads to exclude matches.
+
 * | `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
   | Alerts only after a certain amount of calls (default: last 5 values over threshold).
   | Cuts (truncates) its SQLite database table.
@@ -591,6 +594,12 @@ Incomplete list of Plugins with special technical implementations and capabiliti
 
 * | `feed <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed>`_
   | Is aware of its acknowledgement status in Icinga, and will suppress further warnings if it has been ACKed.
+
+* | `file-age <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-age>`_
+  | Calculates mean and median perfdata over a set of individual items.
+
+* | `file-size <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size>`_
+  | Supports human-readable Nagios ranges for bytes.
 
 * | `librenms-alerts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts>`_
   | Sanitizes complex data before querying MySQL/MariaDB.
@@ -614,7 +623,7 @@ Incomplete list of Plugins with special technical implementations and capabiliti
   | They all work without the ``jolokia.war`` plugin and use the native API.
 
 * | `uptime <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime>`_
-  | Uses human-readable Nagios ranges.
+  | Supports human-readable Nagios ranges for durations.
 
 * | `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
   | Differentiates between Windows and Linux.
