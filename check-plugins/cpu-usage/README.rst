@@ -33,7 +33,8 @@ Help
 
 .. code-block:: text
 
-    usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [-w WARN]
+    usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [--top TOP]
+                     [-w WARN]
 
     Mainly provides utilization percentages for each specific CPU time. Takes a
     time period into account: the cpu usage within a certain amount of time has to
@@ -48,6 +49,8 @@ Help
       -c CRIT, --critical CRIT
                             Set the critical threshold CPU Usage Percentage.
                             Default: 90
+      --top TOP             List x "Top processes using the most cpu time".
+                            Default: 5
       -w WARN, --warning WARN
                             Set the warning threshold CPU Usage Percentage.
                             Default: 80

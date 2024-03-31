@@ -49,6 +49,7 @@ Monitoring Plugins:
 * about-me: Pipes ("|") within the plugin output lead to broken perfdata ([#741](https://github.com/Linuxfabrik/monitoring-plugins/issues/741))
 * apache-httpd-status: Add new parameters `--no-proxy` `--timeout`
 * axenita-stats: Add new parameters `--insecure` `--no-proxy`
+* cpu-usage: Add `--top` parameter, showing 5 top processes by default
 * csv-values: Pipes in data are seen as delimiter between check output and performance data ([#727](https://github.com/Linuxfabrik/monitoring-plugins/issues/727))
 * deb-lastactivity: WARN if last modified timestamp is not found for one or more packages ([#743](https://github.com/Linuxfabrik/monitoring-plugins/issues/743))
 * diacos: Add new parameter `--insecure`
