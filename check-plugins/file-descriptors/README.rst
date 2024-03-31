@@ -4,7 +4,7 @@ Check file-descriptors
 Overview
 --------
 
-Checks the number of assigned file handles in percent. Also shows the top 3 processes that currently have the highest number of open file descriptors (not cumulative). Depending on the user (e.g. running as *icinga*), sudo (sudoers) is needed.
+Checks the number of assigned file handles in percent. Also shows the top 5 processes that currently have the highest number of open file descriptors (not cumulative). Depending on the user (e.g. running as *icinga*), sudo (sudoers) is needed.
 
 
 Fact Sheet
