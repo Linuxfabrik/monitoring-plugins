@@ -12,6 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
 import platform  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
@@ -34,7 +35,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033101'
+__version__ = '2024040101'
 
 DESCRIPTION = """Checks disk I/O. If the bandwidth usage of a disk is above the specified threshold
                  (as a percentage of the maximum bandwidth measured) for a certain period of time,
@@ -44,7 +45,7 @@ DEFAULT_CACHE_EXPIRE = 90
 DEFAULT_COUNT = 5 # measurements; if check runs once per minute, this is a 5 minute interval
 DEFAULT_WARN = 80 # %
 DEFAULT_CRIT = 90 # %
-DEFAULT_MATCH = r'^(?:(?!sr|loop|zram).)*$' if lib.base.LINUX else r'.*'
+DEFAULT_MATCH = ''
 DEFAULT_TOP = 5
 
 
@@ -57,15 +58,6 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
-    )
-
-    parser.add_argument(
-        '--all-disks',
-        help='By default, the check attempts to return only mounted devices (Linux only). '
-             'This switch disables this behavior.',
-        dest='ALL_DISKS',
-        action='store_true',
-        default=False,
     )
 
     parser.add_argument(
@@ -110,15 +102,6 @@ def parse_args():
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
-    )
-
-    parser.add_argument(
-        '--translate-dm',
-        help='Get the names of the device mapper devices from sysfs, replacing `dm-0` etc. '
-             '(Linux only). Just for the output, ``--match`` has no effect on device mapper names.',
-        dest='TRANSLATE_DM',
-        action='store_true',
-        default=False,
     )
 
     parser.add_argument(
@@ -228,7 +211,9 @@ def main():
         lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-disk-io.db')
     )
     definition = '''
-            name                TEXT NOT NULL,
+            bd                  TEXT NOT NULL,
+            dmd                 TEXT,
+            mp                  TEXT,
             busy_time           INT DEFAULT 0,
             read_bytes          INT DEFAULT 0,
             read_merged_count   INT DEFAULT 0,
@@ -239,10 +224,10 @@ def main():
             timestamp           INT DEFAULT 0
         '''
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
-    lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
 
     # init some vars
-    msg = 'No I/O on `{}`.'.format(args.MATCH)
+    msg = 'No I/O on `{}`.'.format(args.MATCH) if args.MATCH else 'No I/O.'
     perfdata = ''
     state = STATE_OK
     table_values = []
@@ -259,25 +244,32 @@ def main():
 
     # analyze and enrich data, store it to database
     real_disks = lib.disk.get_real_disks()
-    for disk, values in disk_io_counters.items():
-        # do not check disks which are not really mounted
-        if real_disks and not args.ALL_DISKS:
-            if '/dev/{}'.format(disk) not in real_disks:
-                continue
-        # disks we have to ignore by name
-        if not lib.base.coe(lib.txt.match_regex(compiled_regex, disk)):
+    for disk in real_disks:
+        # disks we have to match
+        if args.MATCH \
+        and all((
+            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
+            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
+            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
+        )):
             continue
 
-        # read_count and write_count are the same value over all disks, so simply ignore them
+        psutil_name = os.path.basename(disk['bd'])
+        if psutil_name not in disk_io_counters:
+            continue
+
         data = {}
-        data['name'] = disk
-        data['busy_time'] = getattr(values, 'busy_time', 0)
-        data['read_bytes'] = getattr(values, 'read_bytes', 0)
-        data['read_merged_count'] = getattr(values, 'read_merged_count', 0)
-        data['read_time'] = getattr(values, 'read_time', 0)
-        data['write_bytes'] = getattr(values, 'write_bytes', 0)
-        data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
-        data['write_time'] = getattr(values, 'write_time', 0)
+        data['bd'] = disk['bd']
+        data['dmd'] = disk['dmd']
+        data['mp'] = disk['mp']
+        # read_count and write_count are the same value over all disks, so simply ignore them
+        data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
+        data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
+        data['read_merged_count'] = getattr(disk_io_counters[psutil_name], 'read_merged_count', 0)
+        data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
+        data['write_bytes'] = getattr(disk_io_counters[psutil_name], 'write_bytes', 0)
+        data['write_merged_count'] = getattr(disk_io_counters[psutil_name], 'write_merged_count', 0)
+        data['write_time'] = getattr(disk_io_counters[psutil_name], 'write_time', 0)
         data['timestamp'] = now
         disks.append(disk)
         # store it to database
@@ -291,17 +283,17 @@ def main():
 
     # warn about a "count" period/amount of time, not about the current situation above
     # (what might be a peak only)
-    for disk in sorted(disks):
-        # get all historical data rows for a specific disk, newest item first
+    for disk in disks:
+       # get all historical data rows for a specific disk, newest item first
         data = lib.base.coe(lib.db_sqlite.select(
             conn,
             '''
             SELECT *
             FROM perfdata
-            WHERE name = :name
+            WHERE bd = :name
             ORDER BY timestamp DESC
             ''',
-            {'name': disk},
+            {'name': disk['bd']},
         ))
         if len(data) < 2:
             lib.db_sqlite.close(conn)
@@ -322,18 +314,19 @@ def main():
             lib.base.oao('Waiting for more data.', state)
 
         # get the maximum disk bandwidth in disks' history
-        bandwidth_max = get_max_bandwidth(disk, bandwidth1)
+        bandwidth_max = get_max_bandwidth(disk['bd'], bandwidth1)
 
         if bandwidth1 > busiest_disk:
             # get the current busiest disk for the first line of the message
-            msg = '{}: {}/s read1, {}/s write1, {}/s total, {}/s max (disks matching `{}`).'.format(
-                disk,
+            msg = '{}: {}/s read1, {}/s write1, {}/s total, {}/s max'.format(
+                disk['bd'],
                 lib.human.bytes2human(read_bytes_per_second1),
                 lib.human.bytes2human(write_bytes_per_second1),
                 lib.human.bytes2human(bandwidth1),
                 lib.human.bytes2human(bandwidth_max),
-                args.MATCH,
             )
+            if args.MATCH:
+                msg += ' (disks matching `{}`).'.format(args.MATCH)
             busiest_disk = bandwidth1
 
         # calculate read/write rate over the entire period (like "load15")
@@ -361,82 +354,64 @@ def main():
         )
         state = lib.base.get_worst(local_state, state)
 
+        bd = disk['bd'].replace('/dev/', '')
         table_values.append({
-            'name': disk,
+            'bd': bd,
+            'dmd': disk['dmd'].replace('/dev/mapper/', ''),
+            'mp': disk['mp'],
             'max': lib.human.bytes2human(bandwidth_max),
             'r1': lib.human.bytes2human(read_bytes_per_second1),
             'w1': lib.human.bytes2human(write_bytes_per_second1),
             'r15': lib.human.bytes2human(read_bytes_per_second15),
             'w15': lib.human.bytes2human(write_bytes_per_second15),
             't15': lib.human.bytes2human(bandwidth15) + lib.base.state2str(local_state, prefix=' '),
-            'dmname': lib.disk.get_dm_name(disk) if args.TRANSLATE_DM else '',
         })
+
+        # perfdata
+        try:
+            perfdata += lib.base.get_perfdata('{}_busy_time'.format(bd), data[0]['busy_time'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_read_bytes'.format(bd), data[0]['read_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+            #perfdata += lib.base.get_perfdata('{}_read_merged_count'.format(bd), data[0]['read_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_read_time'.format(bd), data[0]['read_time'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_write_bytes'.format(bd), data[0]['write_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+            #perfdata += lib.base.get_perfdata('{}_write_merged_count'.format(bd), data[0]['write_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_write_time'.format(bd), data[0]['write_time'], 'c', None, None, 0, None) # pylint: disable=C0301
+        except:
+            pass
 
     lib.db_sqlite.close(conn)
 
     # build the message
     msg = msg + '\n\n'
     if len(table_values) > 0:
-        if not args.TRANSLATE_DM:
-            keys = [
-                'name',
-                'max',
-                'r1',
-                'w1',
-                'r15',
-                'w15',
-                't15',
-            ]
-            headers = [
-                'Name',
-                'RWmax/s',
-                'R1/s',
-                'W1/s',
-                'R{}/s'.format(args.COUNT),
-                'W{}/s'.format(args.COUNT),
-                'RW{}/s'.format(args.COUNT)
-            ]
-        else:
-            keys = [
-                'name',
-                'dmname',
-                'max',
-                'r1',
-                'w1',
-                'r15',
-                'w15',
-                't15',
-            ]
-            headers = [
-                'Name',
-                'DevMapper',
-                'RWmax/s',
-                'R1/s',
-                'W1/s',
-                'R{}/s'.format(args.COUNT),
-                'W{}/s'.format(args.COUNT),
-                'RW{}/s'.format(args.COUNT)
-            ]
         msg += lib.base.get_table(
             table_values,
-            keys,
-            headers,
+            [
+                'bd',
+                'mp',
+                'dmd',
+                'max',
+                'r1',
+                'w1',
+                'r15',
+                'w15',
+                't15',
+            ],
+            header=[
+                'Name',
+                'MntPnts',
+                'DvMppr',
+                'RWmax/s',
+                'R1/s',
+                'W1/s',
+                'R{}/s'.format(args.COUNT),
+                'W{}/s'.format(args.COUNT),
+                'RW{}/s'.format(args.COUNT)
+            ],
         )
 
     # Top X processes that generated the most I/O traffic
     msg += top(args.TOP)
-
-    # perfdata
-    try:
-        perfdata += lib.base.get_perfdata('{}_busy_time'.format(disk), data[0]['busy_time'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_read_bytes'.format(disk), data[0]['read_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_read_merged_count'.format(disk), data[0]['read_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_read_time'.format(disk), data[0]['read_time'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_write_bytes'.format(disk), data[0]['write_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_write_merged_count'.format(disk), data[0]['write_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('{}_write_time'.format(disk), data[0]['write_time'], 'c', None, None, 0, None) # pylint: disable=C0301
-    except:
-        pass
 
     # over and out
     lib.base.oao(msg.replace('\n\n\n', '\n\n'), state, perfdata, always_ok=args.ALWAYS_OK)

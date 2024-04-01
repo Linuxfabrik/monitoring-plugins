@@ -6,21 +6,21 @@ Overview
 
 Checks disk bandwidth over a period of time. The check tracks the maximum bandwidth and alerts if the bandwidth over the last n reads is above a certain percentage (by default 80/90% over the last 5 reads). This works similar to Load5, but at the disk I/O level.
 
-On Linux, the check plugin tries to find "important" disks automatically by default, so as not to waste disk space in a time series database with unnecessary disk information. To do this, it looks for disks that are mounted to a folder.
+On Linux, the check plugin by default tries to find "important" disks automatically and returns only useful perfdata information, so as not to waste disk space in a time series database with unnecessary disk information (as in earlier versions). To do this, it looks for disks that are mounted to a folder.
 
 Disk I/O always starts at 10 MiB/sec, but stores the highest measured bandwidth, so it adjusts the ``RWmax/s`` value accordingly. For this reason, this check takes some time to warm up its (cached) readings: The check will throw some warnings and criticals during the first major disk activities above 10Mib/sec until the maximum bandwidth of the disk has been determined.
 
-Example: The result of ``./disk-io --count 5 --warning 80 --critical 90`` could look like this:
+Example: The (shortened) result of ``./disk-io --count 5 --warning 80 --critical 90`` could look like this:
 
 .. code-block:: text
 
-    dm-0: 23.6MiB/s read, 17.2MiB/s write (current)
+    /dev/dm-4: 0.0B/s read1, 48.7KiB/s write1, 48.7KiB/s total, 227.9MiB/s max
 
     Name ! RWmax/s ! R1/s     ! W1/s     ! R5/s     ! W5/s     ! RW5/s              
     -----+---------+----------+----------+----------+----------+--------------------
     dm-0 ! 44.9MiB ! 42.8MiB  ! 17.2MiB  ! 23.1MiB  ! 18.6MiB  ! 36.3MiB [CRITICAL] 
     dm-1 ! 10.0MiB ! 4.7KiB   ! 4.0KiB   ! 2.0KiB   ! 6.8KiB   ! 8.7KiB             
-    sda  ! 10.0MiB ! 729.6KiB ! 154.2KiB ! 732.0KiB ! 152.4KiB ! 884.4KiB           
+    ...
 
 The first line always shows the disk with the currently highest bandwidth (here ``dm-0``).
 
@@ -34,8 +34,7 @@ The table columns mean:
 Hints:
 
 * ``--count=5`` (the default) while checking every minute means that the check will report an alert if any of your disks have been above a threshold in the last 5 minutes.
-* The check uses the SQLite databases ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` to store its historical data.
-* If you're wondering about ``dm-0``, ``dm-1`` etc.: It's part of the "device mapper" in the Linux kernel, e.g. used by LVM. The plugin can translate this using the ``--translate-dm`` switch.
+* The check uses the SQLite database ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` to store its historical data.
 
 
 Fact Sheet
@@ -58,9 +57,8 @@ Help
 
 .. code-block:: text
 
-    usage: disk-io [-h] [-V] [--all-disks] [--always-ok] [--count COUNT]
-                   [--critical CRIT] [--match MATCH] [--top TOP] [--translate-dm]
-                   [--warning WARN]
+    usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
+                   [--match MATCH] [--top TOP] [--warning WARN]
 
     Checks disk I/O. If the bandwidth usage of a disk is above the specified
     threshold (as a percentage of the maximum bandwidth measured) for a certain
@@ -69,8 +67,6 @@ Help
     options:
       -h, --help       show this help message and exit
       -V, --version    show program's version number and exit
-      --all-disks      By default, the check attempts to return only mounted
-                       devices (Linux only). This switch disables this behavior.
       --always-ok      Always returns OK.
       --count COUNT    Number of times the value must exceed specified thresholds
                        before alerting. Default: 5
@@ -85,12 +81,9 @@ Help
                        string except "example" (negative lookahead). `(?: ... )*`
                        is a non-capturing group that matches any sequence of
                        characters that satisfy the condition inside it, zero or
-                       more times. Default: ^(?:(?!sr|loop|zram).)*$
+                       more times. Default:
       --top TOP        List x "Top processes that generated the most I/O traffic".
                        Default: 5
-      --translate-dm   Get the names of the device mapper devices from sysfs,
-                       replacing `dm-0` etc. (Linux only). Just for the output,
-                       ``--match`` has no effect on device mapper names.
       --warning WARN   Threshold for disk bandwidth saturation (over the last
                        `--count` measurements) as a percentage of the maximum
                        bandwidth the disk can support. Default: >= 80
@@ -99,42 +92,43 @@ Help
 Usage Examples
 --------------
 
-Just check disk ``dm-0``:
+Just check disk ``dm-0`` (if listed as ``/dev/dm-0``):
 
 .. code-block:: bash
 
-    ./disk-io --match=dm-0
+    ./disk-io --match='.*dm-0$'
 
-Check all disks (mounted or not), but filter ``vda``, not ``vda1``, ``vda2`` etc.::
-
-.. code-block:: bash
-
-    ./disk-io --all-disks --match='vda$'
-
-Translate device mapper names:
+Match all disks except ``vdc``, ``vdh`` and ``vdz``:
 
 .. code-block:: bash
 
-    ./disk-io --translate-dm --top 5
+    ./disk-io --match='^(?:(?!.*vdc|.*vdh|.*vdz).)*$'
 
-Output:
+Example Output:
 
 .. code-block:: text
 
-    dm-0: 0.0B/s read1, 306.4KiB/s write1, 306.4KiB/s total, 632.5MiB/s max (disks matching `^(?:(?!sr!loop!zram).)*$`).
+    /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
 
-    Name      ! DevMapper                                 ! RWmax/s  ! R1/s ! W1/s     ! R5/s ! W5/s     ! RW5/s    
-    ----------+-------------------------------------------+----------+------+----------+------+----------+----------
-    dm-0      ! luks-a453077c-0a79-4494-96f0-6ce71303bf66 ! 632.5MiB ! 0.0B ! 306.4KiB ! 0.0B ! 197.6KiB ! 197.6KiB 
-    nvme0n1p1 ! nvme0n1p1                                 ! 10.0MiB  ! 0.0B ! 0.0B     ! 0.0B ! 0.0B     ! 0.0B     
-    nvme0n1p2 ! nvme0n1p2                                 ! 10.0MiB  ! 0.0B ! 0.0B     ! 0.0B ! 0.0B     ! 0.0B     
+    Name ! MntPnts        ! DvMppr           ! RWmax/s ! R1/s   ! W1/s    ! R5/s   ! W5/s    ! RW5/s   
+    -----+----------------+------------------+---------+--------+---------+--------+---------+---------
+    dm-0 ! /              ! rl-root          ! 10.0MiB ! 0.0B   ! 426.0B  ! 0.0B   ! 343.0B  ! 343.0B  
+    vda2 ! /boot          !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
+    vda1 ! /boot/efi      !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
+    dm-5 ! /var           ! rl-var           ! 10.0MiB ! 0.0B   ! 586.0B  ! 0.0B   ! 1.1KiB  ! 1.1KiB  
+    dm-8 ! /data          ! rl-lv_data       ! 10.0MiB ! 5.6KiB ! 2.2MiB  ! 8.3KiB ! 2.3MiB  ! 2.3MiB  
+    dm-6 ! /tmp           ! rl-tmp           ! 10.0MiB ! 0.0B   ! 4.8KiB  ! 0.0B   ! 7.1KiB  ! 7.1KiB  
+    dm-7 ! /home          ! rl-home          ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
+    dm-2 ! /var/tmp       ! rl-var_tmp       ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
+    dm-4 ! /var/log       ! rl-var_log       ! 10.0MiB ! 0.0B   ! 51.8KiB ! 0.0B   ! 51.2KiB ! 51.2KiB 
+    dm-3 ! /var/log/audit ! rl-var_log_audit ! 10.0MiB ! 0.0B   ! 918.0B  ! 0.0B   ! 876.0B  ! 876.0B  
 
     Top 5 processes that generate the most I/O traffic:
-    1. firefox: 92.1MiB/8.5GiB (r/w)
-    2. gnome-shell: 830.9MiB/6.1GiB (r/w)
-    3. morgen: 243.2MiB/2.5GiB (r/w)
-    4. sublime_text: 10.3MiB/646.4MiB (r/w)
-    5. nextcloud: 125.8MiB/426.9MiB (r/w)
+    1. nfsd: 149.2GiB/5.7TiB (r/w)
+    2. systemd: 695.7GiB/169.9GiB (r/w)
+    3. systemd-journald: 33.9MiB/124.4GiB (r/w)
+    4. icinga2: 7.9GiB/4.9GiB (r/w)
+    5. rsyslogd: 114.8MiB/4.1GiB (r/w)
 
 
 States
@@ -146,7 +140,7 @@ States
 Perfdata / Metrics
 ------------------
 
-Per disk:
+Per (matched) disk, where <disk> is the block device name:
 
 .. csv-table::
     :widths: 25, 15, 60
@@ -155,20 +149,15 @@ Per disk:
     Name,                               Type,                   Description                                           
     <disk>_busy_time,                   Continous Counter,      Time spent doing actual I/Os (in milliseconds).
     <disk>_read_bytes,                  Continous Counter,      Number of bytes read.
-    <disk>_read_bytes_per_second1,      Bytes,                  Current number of bytes read.
-    <disk>_read_merged_count,           Continous Counter,      Number of merged reads. See https://www.kernel.org/doc/Documentation/iostats.txt.
     <disk>_read_time,                   Continous Counter,      Time spent reading from disk (in milliseconds).
     <disk>_write_bytes,                 Continous Counter,      Number of bytes written.
-    <disk>_write_bytes_per_second1,     Bytes,                  Current number of bytes written.
-    <disk>_write_merged_count,          Continous Counter,      Number of merged writes. See https://www.kernel.org/doc/Documentation/iostats.txt.
     <disk>_write_time,                  Continous Counter,      Time spent writing to disk (in milliseconds).
-    <disk>_bandwidth1,                  None,                   Bytes per second. read_bytes_per_second1 + write_bytes_per_second1.
 
 
 Troubleshooting
 ---------------
 
-``Query failed: INSERT INTO "perfdata" ...``
+``Query failed: ...``
     Delete ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and try again.
 
 ``psutil raised error "not sure how to interpret line '...'"`` or ``Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+``

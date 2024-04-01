@@ -2,9 +2,6 @@
     "Command": {
         "cmd-check-disk-io": {
             "arguments": {
-                "--all-disks": {
-                    "set_if": "$disk_io_all_disks$"
-                },
                 "--always-ok": {
                     "set_if": "$disk_io_always_ok$"
                 },
@@ -19,9 +16,6 @@
                 },
                 "--top": {
                     "value": "$disk_io_top$"
-                },
-                "--translate-dm": {
-                    "set_if": "$disk_io_translate_dm$"
                 },
                 "--warning": {
                     "value": "$disk_io_warning$"
@@ -59,16 +53,6 @@
                     "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 8,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -83,9 +67,6 @@
         },
         "cmd-check-disk-io-windows": {
             "arguments": {
-                "--all-disks": {
-                    "set_if": "$disk_io_windows_all_disks$"
-                },
                 "--always-ok": {
                     "set_if": "$disk_io_windows_always_ok$"
                 },
@@ -101,9 +82,6 @@
                 "--top": {
                     "value": "$disk_io_windows_top$"
                 },
-                "--translate-dm": {
-                    "set_if": "$disk_io_windows_translate_dm$"
-                },
                 "--warning": {
                     "value": "$disk_io_windows_warning$"
                 }
@@ -111,6 +89,16 @@
             "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\disk-io.exe",
             "disabled": false,
             "fields": [
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
                 {
                     "datafield_id": 9,
                     "is_required": "n",
@@ -128,26 +116,6 @@
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 13,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 14,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 15,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -221,13 +189,11 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "disk_io_all_disks": false,
                 "disk_io_always_ok": false,
                 "disk_io_count": 5,
                 "disk_io_critical": 90,
-                "disk_io_match": "^(?:(?!sr|loop|zram).)*$$",
+                "disk_io_match": "",
                 "disk_io_top": 5,
-                "disk_io_translate_dm": false,
                 "disk_io_warning": 80
             },
             "volatile": null,
@@ -274,13 +240,11 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "disk_io_windows_all_disks": false,
                 "disk_io_windows_always_ok": false,
                 "disk_io_windows_count": 5,
                 "disk_io_windows_critical": 90,
-                "disk_io_windows_match": "^(?:(?!sr|loop|zram).)*$$",
+                "disk_io_windows_match": "",
                 "disk_io_windows_top": 5,
-                "disk_io_windows_translate_dm": false,
                 "disk_io_windows_warning": 80
             },
             "volatile": null,
@@ -290,15 +254,6 @@
     },
     "Datafield": {
         "1": {
-            "varname": "disk_io_all_disks",
-            "caption": "Disk I/O: All Disks?",
-            "description": "By default, the check attempts to return only mounted devices (Linux only). This switch disables this behavior.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "e25b453c-a004-42f1-b634-dbf5a2b2ba7b"
-        },
-        "2": {
             "varname": "disk_io_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -307,7 +262,7 @@
             "settings": {},
             "uuid": "475194d4-97a8-4e17-9c8f-0896c7cb73fd"
         },
-        "3": {
+        "2": {
             "varname": "disk_io_count",
             "caption": "Disk I/O: Count",
             "description": "Number of times the value must exceed specified thresholds before alerting.",
@@ -318,7 +273,7 @@
             },
             "uuid": "ff445a6d-8ea2-4ddb-9e4b-f3f3fbe248ac"
         },
-        "4": {
+        "3": {
             "varname": "disk_io_critical",
             "caption": "Disk I/O: Critical",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
@@ -329,7 +284,7 @@
             },
             "uuid": "0505cbe8-a414-4c7c-b74e-c3cce3a0f0f8"
         },
-        "5": {
+        "4": {
             "varname": "disk_io_match",
             "caption": "Disk I/O: Match",
             "description": "Match on disk names. Uses Python regular expressions without any external flags like `re.IGNORECASE`. The regular expression is applied to each line of the output. Examples: `(?i)example` to match the word \"example\" in a case-insensitive manner. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). `(?: ... )*` is a non-capturing group that matches any sequence of characters  that satisfy the condition inside it, zero or more times.",
@@ -340,7 +295,7 @@
             },
             "uuid": "799caa91-3402-4421-99d8-b24bdf6dce23"
         },
-        "6": {
+        "5": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
             "description": "List x \"Top processes that generated the most I/O traffic\".",
@@ -351,16 +306,7 @@
             },
             "uuid": "11d2ba4f-ae3b-4bda-9ab1-2d16790673c9"
         },
-        "7": {
-            "varname": "disk_io_translate_dm",
-            "caption": "Disk I/O: Translate Dm?",
-            "description": "Get the names of the device mapper devices from sysfs, replacing `dm-0` etc. (Linux only). Just for the output, ``--match`` has no effect on device mapper names.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "df12bf78-0be1-48f4-a1b1-0434eb058e15"
-        },
-        "8": {
+        "6": {
             "varname": "disk_io_warning",
             "caption": "Disk I/O: Warning",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
@@ -371,16 +317,7 @@
             },
             "uuid": "648f2e2a-bd9f-45f1-9324-c31819472838"
         },
-        "9": {
-            "varname": "disk_io_windows_all_disks",
-            "caption": "Disk I/O: All Disks?",
-            "description": "By default, the check attempts to return only mounted devices (Linux only). This switch disables this behavior.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "039aeec4-43a0-4b5c-860f-b6eeaa4c712c"
-        },
-        "10": {
+        "7": {
             "varname": "disk_io_windows_always_ok",
             "caption": "Disk I/O: Always OK?",
             "description": "Always returns OK.",
@@ -389,7 +326,7 @@
             "settings": {},
             "uuid": "0aeaffd3-218b-4d59-8338-10a5b21b0849"
         },
-        "11": {
+        "8": {
             "varname": "disk_io_windows_count",
             "caption": "Disk I/O: Count",
             "description": "Number of times the value must exceed specified thresholds before alerting.",
@@ -400,7 +337,7 @@
             },
             "uuid": "6a0f4753-34bc-4d85-a66d-2be17f4b218e"
         },
-        "12": {
+        "9": {
             "varname": "disk_io_windows_critical",
             "caption": "Disk I/O: Critical",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
@@ -411,7 +348,7 @@
             },
             "uuid": "6feda2a2-3432-4543-937f-f7677d00c604"
         },
-        "13": {
+        "10": {
             "varname": "disk_io_windows_match",
             "caption": "Disk I/O: Match",
             "description": "Match on disk names. Uses Python regular expressions without any external flags like `re.IGNORECASE`. The regular expression is applied to each line of the output. Examples: `(?i)example` to match the word \"example\" in a case-insensitive manner. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). `(?: ... )*` is a non-capturing group that matches any sequence of characters  that satisfy the condition inside it, zero or more times.",
@@ -422,7 +359,7 @@
             },
             "uuid": "3889d94e-e928-43d8-994a-fc6bd1dd5716"
         },
-        "14": {
+        "11": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
             "description": "List x \"Top processes that generated the most I/O traffic\".",
@@ -433,16 +370,7 @@
             },
             "uuid": "09d50d40-cf5b-4252-9870-f951faf6a90b"
         },
-        "15": {
-            "varname": "disk_io_windows_translate_dm",
-            "caption": "Disk I/O: Translate Dm?",
-            "description": "Get the names of the device mapper devices from sysfs, replacing `dm-0` etc. (Linux only). Just for the output, ``--match`` has no effect on device mapper names.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "5d6e8885-5bf4-4f6b-8dea-5484ff44d550"
-        },
-        "16": {
+        "12": {
             "varname": "disk_io_windows_warning",
             "caption": "Disk I/O: Warning",
             "description": "Threshold for disk bandwidth saturation (over the last `--count` measurements) as a percentage of the maximum bandwidth the disk can support.",
