@@ -23,6 +23,7 @@ Monitoring Plugins:
 * file-size: Note that the plugin now requires a size qualifier when specifying parameters, e.g. ``--warning=10K`` for 10 KiB (instead of ``--warning=10000`` as in previous versions).
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
+* snmp: Improve Performance Data Handling ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481)) - update your CSV definition files and add two more columns according to the check's README
 * uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722)). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
 
 

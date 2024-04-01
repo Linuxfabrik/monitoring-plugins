@@ -62,7 +62,8 @@ Help
       --device DEVICE       The name of a device file containing the SNMP-OIDs,
                             located under `./device-oids`, for example `switch-
                             fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`.
-                            Default: any-any-any.csv.
+                            `any-any-any.csv` is a good starting point showing
+                            some features.Default: any-any-any.csv.
       --hide-ok             Don't print OIDs with OK state. Default: False.
       -H HOSTNAME, --hostname HOSTNAME
                             SNMP Appliance address.
@@ -174,24 +175,24 @@ Defining a Device
 
 If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
 
-========================= ============= ================== ============ ======================= ======================= ================== ==================
-OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as
-========================= ============= ================== ============ ======================= ======================= ================== ==================
+========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
+OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as   Ignore in Perfdata Perfdata Alert Thresholds
+========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
 SNMPv2-MIB::sysName.0     Name                                                                                                 
 SNMPv2-MIB::sysLocation.0 Location                                                                                                         WARN
-SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True             
-========================= ============= ================== ============ ======================= ======================= ================== ==================
+SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True                                                     3*30*24*3600,None
+========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
 
 The columns in detail:
 
-* | OID
+* | OID (String)
   | The Object-Identifier from any of your MIB files.
-* | Name
+* | Name (String)
   | If provided, the check prints this instead of the OID.
-* | Re-Calc
+* | Re-Calc (Python code, or empty)
   | Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result of the SNMPGET operation on the given OID.
-* | Unit
-  | This is the "Unit of Measurement", case-insensitiv.
+* | Unit (String, or empty)
+  | This is the "Unit of Measurement", case-insensitiv. One of:
 
      * s - seconds (also us, ms)
      * % - percentage
@@ -206,14 +207,18 @@ The columns in detail:
     * b - bytes
     * bps - bits per second
 
-* | WARN
+* | WARN (Python condition, or empty)
   | The warning threshold for the re-calculated or raw ``value``.
-* | CRIT
+* | CRIT (Python condition, or empty)
   | The critical threshold for the re-calculated or raw ``value``.
-* | Show in first line
+* | Show in first line (Bool, either "False", "True", or empty)
   | Should ``value`` be printed in the first line of the check output?
-* | Report Change as
+* | Report Change as (String, either "WARN", "CRIT", or empty)
   | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``.
+* | Ignore in Perfdata (Bool, either "False", "True", or empty)
+  | By default, all numeric values are automatically returned as perfdata objects. Set to ``True`` to exclude this item from the perfdata list.
+* | Perfdata Alert Thresholds (Python tuple)
+  | Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical.
 
 The output would be something like this
 
@@ -225,9 +230,11 @@ The output would be something like this
     ---         -----           ----- 
     Name        BRW38B1DB3B30F4 [OK]  
     Location    Office          [OK]  
-    Contact     The Printer Man [OK]  
+    Contact     The Printer Guy [OK]  
     Description Brother NC-350w [OK]  
-    Uptime      5M 1W           [OK]
+    Uptime      5M 1W           [WARNING]
+
+If you get a ``Traceback (most recent call last)`` when running the check plugin with your CSV file, there is something wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the correct amount of commas, quotes, etc.
 
 The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
@@ -298,17 +305,21 @@ Example:
 Q & A
 -----
 
-I get ``Too many object identifiers specified. Only 128 allowed in one request.``
-    Probably your SNMP v3 parameters are incomplete or incorrect.
+Q: **I get ``Too many object identifiers specified. Only 128 allowed in one request.``**
 
-I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``
-    There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
+A: Probably your SNMP v3 parameters are incomplete or incorrect.
 
-I get ``Error in packet. Reason: (tooBig) Response message would have been too large.``
-    A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
+Q: **I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``**
 
-Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
-    If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``. On the next run of the plugin, it will recreate the inventory.
+A: There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
+
+Q: **I get ``Error in packet. Reason: (tooBig) Response message would have been too large.``**
+
+A: A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
+
+Q: **Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?**
+
+A: If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``. On the next run of the plugin, it will recreate the inventory.
 
 
 States
@@ -325,7 +336,7 @@ Depending on the OID definitions the check returns
 Perfdata / Metrics
 ------------------
 
-All numeric values are automatically returned as perfdata objects.
+By default, all numeric values are automatically returned as perfdata objects.
 
 
 Credits, License

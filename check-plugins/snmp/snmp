@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024040101'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -41,7 +41,8 @@ CSV_COL_WARN = 4
 CSV_COL_CRIT = 5
 CSV_COL_SIFL = 6
 CSV_COL_RCA = 7
-CSV_COL_VALUE = 8
+CSV_COL_IGNPERF = 8
+CSV_COL_PERFTHRSHLD = 9
 
 MAX_OIDS_PER_REQUEST = 25
 
@@ -58,21 +59,26 @@ def parse_args():
 
     parser.add_argument(
         '--community',
-        help='SNMP Version 1 or 2c specific. Set the community string. Default: %(default)s.',
+        help='SNMP Version 1 or 2c specific. Set the community string. '
+             'Default: %(default)s.',
         default='public',
         dest='COMMUNITY',
     )
 
     parser.add_argument(
         '--device',
-        help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. Default: %(default)s.',
+        help='The name of a device file containing the SNMP-OIDs, located under `./device-oids`, '
+             'for example `switch-fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`. '
+             '`any-any-any.csv` is a good starting point showing some features.'
+             'Default: %(default)s.',
         dest='DEVICE',
         default='any-any-any.csv',
     )
 
     parser.add_argument(
         '--hide-ok',
-        help="Don't print OIDs with OK state. Default: %(default)s.",
+        help='Don\'t print OIDs with OK state. '
+             'Default: %(default)s.',
         dest='HIDEOK',
         action='store_true',
         default=False,
@@ -87,20 +93,24 @@ def parse_args():
 
     parser.add_argument(
         '--mib',
-        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves like the `-m` option of `snmpget`.',
+        help='Load given list of MIBs, for example `+FS-MIB` or `FS-MIB:BROTHER-MIB`. Behaves '
+             'like the `-m` option of `snmpget`.',
         dest='MIB',
     )
 
     parser.add_argument(
         '--mib-dir',
-        help='Look in given list of directories for MIBs. Behaves like the `-M` option of `snmpget`. Default: %(default)s.',
+        help='Look in given list of directories for MIBs. Behaves like the `-M` option '
+             'of `snmpget`. '
+             'Default: %(default)s.',
         dest='MIB_DIR',
         default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
     )
 
     parser.add_argument(
         '--snmp-version',
-        help='Specifies SNMP version to use. Default: %(default)s.',
+        help='Specifies SNMP version to use. '
+             'Default: %(default)s.',
         dest='SNMP_VERSION',
         choices=['1', '2c', '3'],
         default='2c',
@@ -115,7 +125,8 @@ def parse_args():
 
     parser.add_argument(
         '-t','--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds).',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds).',
         dest='TIMEOUT',
         type=int,
         default=7,
@@ -200,7 +211,11 @@ def main():
     # read oid list for our device from the CSV file
     plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
     snmp_objects = lib.base.coe(
-        lib.disk.read_csv(os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)), as_dict=False, skip_empty_rows=True)
+        lib.disk.read_csv(
+            os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)),
+            as_dict=False,
+            skip_empty_rows=True,
+        )
     )
 
     # build parameters for snmpget
@@ -274,6 +289,8 @@ def main():
     value = ''
     oid_index = 0
     for row in stdout.splitlines():
+        if not row:
+            continue
         space_index = row.find(' ') # find first space char (the delimiter used by snmpget)
         oid = row[0:space_index]
         oid_index = index_of_oid(snmp_objects, oid, oid_index + 1)
@@ -285,12 +302,14 @@ def main():
             snmp_objects[oid_index].append(value)
 
     # init some vars
-    msg, msg_header = '', ''
+    msg, msg_header = '', '{}: '.format(args.DEVICE)
     state = STATE_OK
     perfdata = ''
-    values = {}     # all values in a single dict, for re-calc column
+    values = {} # all values in a single dict, for re-calc column
     table_values = []
 
+    # the last (non-existent) column should contain the result
+    CSV_COL_VALUE = len(snmp_objects[0])
     # evaluate results
     for snmp_object in snmp_objects[1:]:
         try:
@@ -310,7 +329,7 @@ def main():
                 'name': oid,
                 'value': value,
                 'state': lib.base.state2str(STATE_UNKNOWN),
-                })
+            })
             state = lib.base.get_worst(state, STATE_UNKNOWN)
             continue
 
@@ -319,8 +338,17 @@ def main():
         warn = snmp_object[CSV_COL_WARN]
         crit = snmp_object[CSV_COL_CRIT]
 
-        show_in_first_line = snmp_object[CSV_COL_SIFL]
+        show_in_first_line = lib.base.str2bool(snmp_object[CSV_COL_SIFL])
         report_change = snmp_object[CSV_COL_RCA]
+
+        # column was added later
+        if CSV_COL_VALUE > CSV_COL_RCA:
+            ignore_perfdata = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
+            perf_thresholds = snmp_object[CSV_COL_PERFTHRSHLD]
+        else:
+            # previous behaviour
+            ignore_perfdata = False
+            perf_thresholds = False
 
         if recalc:
             # we got a formula
@@ -329,9 +357,13 @@ def main():
             except Exception as e:
                 table_values.append({
                     'name': name,
-                    'value': "The recalc in {} failed with {}: '{}'.".format(args.DEVICE, type(e).__name__, e),
+                    'value': "The recalc in {} failed with {}: '{}'.".format(
+                        args.DEVICE,
+                        type(e).__name__,
+                        e,
+                    ),
                     'state': lib.base.state2str(STATE_UNKNOWN),
-                    })
+                })
                 state = lib.base.get_worst(state, STATE_UNKNOWN)
                 continue
         values[name] = value
@@ -351,74 +383,143 @@ def main():
                 check_state = False
         if check_state and report_change:
             cache_key = '{}::{}'.format(args.DEVICE, oid)
-            cache_value = lib.cache.get(cache_key, filename='linuxfabrik-monitoring-plugins-snmp.db')
-            if cache_value:                 # there is a previous value
-                if cache_value != value:    # that is different from the current one
+            cache_value = lib.cache.get(
+                cache_key,
+                filename='linuxfabrik-monitoring-plugins-snmp.db',
+            )
+            if cache_value: # there is a previous value
+                if cache_value != value: # that is different from the current one
                     if report_change.lower().startswith('crit'):
                         value_state = STATE_CRIT
-                        msg_header += '{}: {}{} (CRIT, changed from "{}"), '.format(name, value, unit, cache_value)
+                        msg_header += '{}: {}{} (CRIT, changed from "{}"), '.format(
+                            name,
+                            value,
+                            unit,
+                            cache_value,
+                        )
                     else:
                         value_state = STATE_WARN
-                        msg_header += '{}: {}{} (WARN, changed from "{}"), '.format(name, value, unit, cache_value)
+                        msg_header += '{}: {}{} (WARN, changed from "{}"), '.format(
+                            name,
+                            value,
+                            unit,
+                            cache_value,
+                        )
             else:
                 lib.cache.set(cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db')
         state = lib.base.get_worst(state, value_state)
 
         # create message body (the table)
         if ',' in unit:
-            # example: "b,c" - convert the first part to human readable bytes, but suffix the perfdata as a continous counter
+            # example: "b,c" - convert the first part to human readable bytes,
+            # but suffix the perfdata as a continous counter
             unit, perfdata_unit = unit.split(',')
         else:
             perfdata_unit = unit
         if unit == 's':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.human.seconds2human(value), lib.base.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(
+                    name,
+                    lib.human.seconds2human(value),
+                    lib.base.state2str(value_state),
+                )
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.human.seconds2human(value), ''),
                     'state': lib.base.state2str(value_state, empty_ok=False),
-                    })
+                })
         elif unit.lower() == 'b':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.human.bytes2human(value), lib.base.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(
+                    name,
+                    lib.human.bytes2human(value),
+                    lib.base.state2str(value_state),
+                )
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.human.bytes2human(value), ''),
                     'state': lib.base.state2str(value_state, empty_ok=False),
-                    })
+                })
         elif unit.lower() == 'bps':
             if show_in_first_line:
-                msg_header += '{}: {}{}, '.format(name, lib.human.bps2human(value), lib.base.state2str(value_state))
+                msg_header += '{}: {}{}, '.format(
+                    name,
+                    lib.human.bps2human(value),
+                    lib.base.state2str(value_state),
+                )
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(lib.human.bps2human(value), ''),
                     'state': lib.base.state2str(value_state, empty_ok=False),
-                    })
+                })
         else:
             if show_in_first_line:
-                msg_header += '{}: {}{}{}, '.format(name, value, unit, lib.base.state2str(value_state))
+                msg_header += '{}: {}{}{}, '.format(
+                    name,
+                    value,
+                    unit,
+                    lib.base.state2str(value_state),
+                )
             if not args.HIDEOK or value_state:
                 table_values.append({
                     'name': name,
                     'value': '{}{}'.format(value, unit),
                     'state': lib.base.state2str(value_state, empty_ok=False),
-                    })
+                })
 
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)
-        if isinstance(value_type, (int, float)):
+        w, c = None, None
+        try:
+            # performance thresholds should return a tuple
+            w, c = eval(perf_thresholds, {}) # pylint: disable=W0123
+        except:
+            pass
+        if not ignore_perfdata and isinstance(value_type, (int, float)):
             if perfdata_unit == '%':
-                perfdata += lib.base.get_perfdata(name, value, '%', None, None, 0, 100)
+                perfdata += lib.base.get_perfdata(
+                    name,
+                    value,
+                    uom='%',
+                    warn=w,
+                    crit=c,
+                    _min=0,
+                    _max=100,
+                )
             elif perfdata_unit.upper() in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
-                perfdata += lib.base.get_perfdata(name, value, perfdata_unit.upper(), None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    name,
+                    value,
+                    uom=perfdata_unit.upper(),
+                    warn=w,
+                    crit=c,
+                    _min=0,
+                    _max=None,
+                )
             elif perfdata_unit.lower() in ['c', 's', 'ms', 'us',]:
-                perfdata += lib.base.get_perfdata(name, value, perfdata_unit.lower(), None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    name,
+                    value,
+                    uom=perfdata_unit.lower(),
+                    warn=w,
+                    crit=c,
+                    _min=0,
+                    _max=None,
+                )
             else:
                 # unknown perfdata suffixes, so do not use them
-                perfdata += lib.base.get_perfdata(name, value, None, None, None, 0, None)
+                perfdata += lib.base.get_perfdata(
+                    name,
+                    value,
+                    uom=None,
+                    warn=w,
+                    crit=c,
+                    _min=0,
+                    _max=None,
+                )
 
     # create output
     if msg_header:
@@ -428,7 +529,7 @@ def main():
             table_values,
             ['name', 'value', 'state'],
             header=['Key', 'Value', 'State'],
-            )
+        )
 
     # over and out
     lib.base.oao(msg, state, perfdata)
