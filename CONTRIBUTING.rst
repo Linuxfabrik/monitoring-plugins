@@ -372,7 +372,6 @@ Sample:
 
 ``label``  doesn't need to be machine friendly, so ``Pages scanned=100;;;;;`` is as valuable as ``pages-scanned=100;;;;;``.
 
-
 Suffixes:
 
 .. code-block:: text
@@ -384,6 +383,10 @@ Suffixes:
     c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
+
+Be aware of already-aggregated values returned by systems and applications. Apache for example returns a value "137.5 kB/request". Sounds good, but this is not a value at the current time of measurement. Instead, it is the average of all requests during the lifetime of the Apache worker process. If you use this in some sort of Grafana panel, you just get a boring line which converges towards a constant value very fast. Not useful at all.
+
+A monitoring plugin has to calculate such values always on its own. If this is not possible because of missing data, discard them.
 
 
 PEP8 Style Guide for Python Code
