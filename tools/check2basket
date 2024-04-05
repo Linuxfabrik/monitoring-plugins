@@ -772,12 +772,34 @@ def generate_basket(plugin_file, config=None, old_data=None):
             command
         )
 
+        # we noticed that importing the corresponding linux template (if it exists) would make the variables and settings more consistent and easier to set via the yml file.
+        # after testing this, we realised that this only works if the variables have the same name in the linux and windows template.
+        # this means that it works for the check execution settings and for example the criticality,
+        # but not for the check-specific custom properties because we added `_windows_` into the windows variables,
+        # for example `cpu_usage_warning` vs `cpu_usage_windows_warning`.
+        # in retrospect, this was a mistake. if all the different template variants would use the same variables names, inheritance would work beautifully and as the user expects
+        # so we will not implement this for now, as having some inherited and some non-inherited variables makes the handling very confusing.
+        # at least now the windows and linux templates are strictly seperated.
+        # in the future, we plan to move the default values of the variables from the service template to the command,
+        # and reduce the number of different template variants.
+        # perhaps we can make the variable names consistent during these changes and then use the imports.
+        # when re-implementing this, make sure to remove any defaults from the windows template in get_service_template(),
+        # such as the criticality - these variables should then be inherited.
+
+        # if 'linux' in config['variants']:
+        #     imports=[
+        #         'tpl-service-{}'.format(check_name),
+        #     ],
+        # else:
+        #     imports = None
+
         data = get_service_template(
             data,
             service_object_name,
             command_object_name,
             check_name,
-            plugin_args.description
+            plugin_args.description,
+            # imports=imports,
         )
 
         data, command_field_id = parse_plugin_args(
