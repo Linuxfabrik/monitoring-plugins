@@ -85,9 +85,9 @@ Output:
 States
 ------
 
-Triggers an alarm on usage in percent.
+Triggers an alarm if the last backup is too long ago.
 
-* WARN or CRIT if memory usage (used heap or non-heap) is above certain thresholds (default 80/90%)
+* Returns WARN or CRIT for the time difference to the start of the last backup
 
 
 Perfdata / Metrics
