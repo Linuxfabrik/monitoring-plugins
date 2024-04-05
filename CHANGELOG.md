@@ -21,6 +21,7 @@ Monitoring Plugins:
 
 * disk-io: Nearly rewritten from scratch, old parameters have been replaced by new, better ones. Perfdata "throughput" has been renamed to "bandwidth". Filter disks which are really mounted, translate dm-* device names, wildcard support for ignore disks ([#709](https://github.com/Linuxfabrik/monitoring-plugins/issues/709), [#708](https://github.com/Linuxfabrik/monitoring-plugins/issues/708), [#676](https://github.com/Linuxfabrik/monitoring-plugins/issues/676))
 * file-size: Note that the plugin now requires a size qualifier when specifying parameters, e.g. ``--warning=10K`` for 10 KiB (instead of ``--warning=10000`` as in previous versions).
+* journald-query: Patterns and regexes are now case-sensitive (fix #745)
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * snmp: Improve Performance Data Handling ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481)) - update your CSV definition files and add two more columns according to the check's README
@@ -73,7 +74,6 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-products: Improve output
 * jitsi-\*: Add new parameters `--insecure` `--no-proxy`
 * journald-query: Remove hard-coded `--boot` parameter from query
-* journald-query: Improve help text (fix #745)
 * kvm-vm: Improve output
 * librenms-version: Fetches info from local SQLite using new librenms library
 * logfile: Add new parameters `--insecure` `--no-proxy` `--timeout`

@@ -57,9 +57,10 @@ Help
                             journalctl: Show messages for the specified syslog
                             identifier. Default: None
       --ignore-pattern IGNORE_PATTERN
-                            Any line containing this pattern on the MESSAGE field
-                            will be ignored (repeating). So, unlike `journalctl`,
-                            you can easily use strings to ignore certain messages.
+                            Any line containing this case-sensitive pattern on the
+                            MESSAGE field will be ignored (repeating). So, unlike
+                            `journalctl`, you can easily use strings to ignore
+                            certain messages.
       --ignore-regex IGNORE_REGEX
                             Any line matching this Python regex on the MESSAGE
                             field will be ignored (repeating). So, unlike
@@ -121,8 +122,7 @@ Explicitly search for error messages in the Apache httpd unit only:
 
 .. code-block:: bash
 
-    # --ignore parameter value must be lowercase
-    ./journald-query --unit=httpd --priority=emerg..err --severity=crit --ignore-regex='mod_qos.*: access denied, invalid request line'
+    ./journald-query --unit=httpd --priority=emerg..err --severity=crit --ignore-regex='mod_qos.*: Access denied, invalid request line'
 
 Output:
 

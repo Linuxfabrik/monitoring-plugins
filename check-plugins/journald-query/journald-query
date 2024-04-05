@@ -90,7 +90,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-pattern',
-        help='Any line containing this pattern on the MESSAGE field will be '
+        help='Any line containing this case-sensitive pattern on the MESSAGE field will be '
              'ignored (repeating). So, unlike `journalctl`, you can easily use '
              'strings to ignore certain messages.',
         action='append',
@@ -271,9 +271,8 @@ def main():
 
             if event['MESSAGE'] is None:
                 continue
-            haystack = event['MESSAGE'].lower()
-            if any(ignore_pattern.lower() in haystack for ignore_pattern in args.IGNORE_PATTERN) \
-            or any(item.search(haystack) for item in compiled_ignore_regex):
+            if any(ignore_pattern in event['MESSAGE'] for ignore_pattern in args.IGNORE_PATTERN) \
+            or any(item.search(event['MESSAGE']) for item in compiled_ignore_regex):
                 continue
             # shorten message if necessary
             if len(event['MESSAGE']) > 80:
