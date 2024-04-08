@@ -16,6 +16,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Icinga Director:
 
 * all-the-rest.json: Remove all predefined "Journald Query" definitions, as they were not as useful in practice as we thought. Single services are more useful.
+* Lowered the criticality of many service templates and service set services to make the monitoring less noisy by default. Make sure to double check and increase the criticality for important services.
 
 Monitoring Plugins:
 
