@@ -9,7 +9,7 @@ Reports an overview about the host dimensions, its network interfaces, deployed 
 * System information (OS, CPUs, disks, ram, UEFI y/n etc.)
 * Python modules: Reports version of installed Python modules some of our checks depend on
 * Interfaces: All IPv4 network interfaces with their IP address
-* Listening TCP ports
+* Listening TCP and UDP ports
 * Software installed: Lists well-known packages installed by your package manager
 * Software found/guessed: Manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
 * Tools: Admin-preferred tools like dig, vim, wget etc. - normally not installed on a minimal server system
@@ -78,18 +78,24 @@ Full output example:
 
     myhostname: Fedora Linux 36 (Thirty Six) Kernel 6.2.10-100.fc36.x86_64 virtualized on kvm, OpenStack Foundation OpenStack Nova, Firmware: n/a, SerNo: 8259353c-789d-4c63-be49-e246ae23b31c, Proc: pc-i440fx-5.2, #Cores: 2, #Threads: 2, Current Speed: 2000 MHz, 4.0GiB RAM, Disk vda 20G, BIOS boot, born 2022-05-25. Features: iptables, lvm, nftables, selinux. Missing: firewalld. About-me v2023042301
 
-    Listening TCP Ports:
-    * 0.0.0.0:22/tcp4
+    Listening TCP/UDP Ports:
     * [::]:22/tcp6
+    * 0.0.0.0:22/tcp4
     * 127.0.0.1:25/tcp4
-    * 127.0.0.54:53/tcp4
-    * 127.0.0.53:53/tcp4
-    * 0.0.0.0:80/tcp4
-    * 0.0.0.0:443/tcp4
+    * [::]:80/tcp6
+    * [::]:111/tcp6
+    * 0.0.0.0:111/tcp4
+    * 0.0.0.0:111/udp4
+    * [::]:111/udp6
+    * 127.0.0.1:323/udp4
+    * [::1]:323/udp6
+    * [::]:443/tcp6
+    * 0.0.0.0:3306/tcp4
     * [::]:3306/tcp6
-    * [::]:5355/tcp6
-    * 0.0.0.0:5355/tcp4
     * [::]:5665/tcp6
+    * 127.0.0.1:6379/tcp4
+    * [::1]:6379/tcp6
+    * [::]:9980/tcp6
 
     SW installed:
     * Apache httpd 2.4.56

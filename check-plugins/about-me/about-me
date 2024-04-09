@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024032502'
+__version__ = '2024040901'
 
 DESCRIPTION = 'Reports a quick overview about the host dimensions and installed software.'
 
@@ -1843,11 +1843,10 @@ def get_listening_ports():
         nc = psutil.net_connections('inet')
         for c in nc:
             ip, port = c.laddr
-            if c.type == socket.SOCK_DGRAM:
-                # ignore udp
-                continue
             if c.type == socket.SOCK_STREAM and c.status == psutil.CONN_LISTEN:
                 proto = 'tcp'
+            elif c.type == socket.SOCK_DGRAM and c.status == psutil.CONN_NONE:
+                proto = 'udp'
             else:
                 continue
             if c.family == socket.AF_INET:
@@ -1856,7 +1855,7 @@ def get_listening_ports():
                 proto += '6'
             result.append({
                 'proto': proto,
-                'ip': ip if ip != '::' else '[::]',
+                'ip': '[{}]'.format(ip) if ':' in ip and not ip.startswith('[') and not ip.endswith(']') else ip, # pylint: disable=C0301
                 'port': port,
             })
         return sorted(result, key=lambda d: d['port'])
@@ -2245,7 +2244,7 @@ def main():
         msg += 'Interfaces (IPv4):\n{}\n'.format(interfaces)
 
     if ports:
-        msg += 'Listening TCP Ports:\n'
+        msg += 'Listening TCP/UDP Ports (sorted by port):\n'
         for p in ports:
             msg += '* {}:{}/{}\n'.format(p['ip'], p['port'], p['proto'])
         msg += '\n'
