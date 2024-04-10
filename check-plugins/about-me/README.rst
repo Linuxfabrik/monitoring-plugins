@@ -6,20 +6,17 @@ Overview
 
 Reports an overview about the host dimensions, its network interfaces, deployed software and recurring jobs:
 
-* System information (OS, CPUs, disks, ram, UEFI y/n etc.)
-* Python modules: Reports version of installed Python modules some of our checks depend on
-* Interfaces: All IPv4 network interfaces with their IP address
+* System and hardware information (OS, CPUs, disks, ram, UEFI y/n etc.)
+* Interfaces: All network interfaces with their IP address
 * Listening TCP and UDP ports
-* Software installed: Lists well-known packages installed by your package manager
-* Software found/guessed: Manually installed software that resides in ``/home``, ``/opt`` and ``/var/www/html``
-* Tools: Admin-preferred tools like dig, vim, wget etc. - normally not installed on a minimal server system
+* Non-default software (software that was added later)
 * Non-default system users
 * systemctl get-default: Default systemd target that will be booted into
-* systemctl List-unit-files: List of all systemd system units (excluding user units)
-* systemctl List-timers: List of all system systemd timers (excluding user timers)
-* crontab: List of crontabs that are found in the usual locations. note that this list is not complete
+* systemctl list-unit-files: List of all systemd services, mounts and automounts (excluding user units)
+* systemctl list-timers: List of all system systemd timers (excluding user timers)
+* crontab: List of crontabs that are found in the usual locations. Note that this might not be complete.
 
-Have a look at the output examples below.
+Have a look at the output example below.
 
 Plugin execution may take up to 30 seconds, depending on the amount or type of installed software.
 
@@ -72,168 +69,79 @@ Usage Examples
 
     ./about-me
 
-Full output example:
+Shortened output example:
 
 .. code-block:: text
 
-    myhostname: Fedora Linux 36 (Thirty Six) Kernel 6.2.10-100.fc36.x86_64 virtualized on kvm, OpenStack Foundation OpenStack Nova, Firmware: n/a, SerNo: 8259353c-789d-4c63-be49-e246ae23b31c, Proc: pc-i440fx-5.2, #Cores: 2, #Threads: 2, Current Speed: 2000 MHz, 4.0GiB RAM, Disk vda 20G, BIOS boot, born 2022-05-25. Features: iptables, lvm, nftables, selinux. Missing: firewalld. About-me v2023042301
+    Plugin Output
+    server.example.com: Rocky Linux 8.9 (Green Obsidian) Kernel 4.18.0-513.24.1.el8_9.x86_64 virtualized on kvm, Hetzner vServer, Firmware: n/a, SerNo: 53d68114, Proc: n/a, #Cores: 2, #Threads: 1, Current Speed: 2000 MHz, 3.9GiB RAM, Disk sda 38.2G, BIOS boot, tuned profile "virtual-guest kernel_settings", born 2022-08-29. About-me v2024041001
 
-    Listening TCP/UDP Ports:
-    * [::]:22/tcp6
-    * 0.0.0.0:22/tcp4
+    Hardware Info:
+    * BIOS: Hetzner, Ver 20171111 (released 11/11/2017), ROM 64 kB
+    * SysInfo: Hetzner vServer, SerNo 53d68114, SKU N/A, Wake-up Type "Power Switch",
+      UUID 9f1b2152-78bc-4b49-9c7b-ea441e9edd41
+    * Base Board: Type Motherboard KVM Standard PC (i440FX + PIIX, 1996), SerNo Not Specified, Ver pc-i440fx-4.2
+    * Chassis: QEMU, Type Other, SKU N/A, SerNo Not Specified
+      States: boot-up=Safe, pwr-supply=Safe, thermal=Safe, security=Unknown
+    * Proc: QEMU, Ver NotSpecified,
+      Speed 2000 MHz/2000 MHz max., 2/2 Cores enabled, 1 Thread, Voltage Unknown
+    * System Boot: No errors detected
+
+    Interfaces (IPv4):
+    * ens10 192.0.2.6/32
+
+    Listening TCP/UDP Ports (ordered by port, proto, ip):
     * 127.0.0.1:25/tcp4
     * [::]:80/tcp6
-    * [::]:111/tcp6
     * 0.0.0.0:111/tcp4
+    * [::]:111/tcp6
     * 0.0.0.0:111/udp4
     * [::]:111/udp6
-    * 127.0.0.1:323/udp4
-    * [::1]:323/udp6
-    * [::]:443/tcp6
-    * 0.0.0.0:3306/tcp4
-    * [::]:3306/tcp6
-    * [::]:5665/tcp6
-    * 127.0.0.1:6379/tcp4
-    * [::1]:6379/tcp6
-    * [::]:9980/tcp6
 
-    SW installed:
-    * Apache httpd 2.4.56
-    * chronyd 4.3
-    * duplicity 0.8.23
-    * FreeIPA 4.9.11
-    * gcc 12.2.1
-    * Git 2.39.2
-    * Glances 3.3.1
-    * gpg (GnuPG) 2.3.7
-    * Icinga2 r2.13.6-1
-    * Linux Kernel 6.2.10-100.fc36.x86_64
-    * MariaDB 10.5.18-MariaDB
-    * Node 16.17.1
-    * npm 8.15.0
-    * OpenSSL 3.0.8
-    * Perl 5.34.1
-    * PHP 7.4.33
-    * PHP-FPM 7.4.33
-    * pip 21.3.1
-    * Postfix 3.6.4
-    * Python 3.10.10
-    * `python` cmd mapped to 3.10.10
-    * `python3` cmd mapped to 3.10.10
-    * QEMU Guest Agent 6.2.0
-    * ssh 8.8p1
-    * sudo 1.9.13p2
-    * systemd 250
-
-    SW found/guessed:
-    * Firewall Builder
-    * mod_security
-
-    Tools:
-    * dig
-    * hdparm
-    * iftop
-    * lsof
-    * nano
-    * rsync
-    * tmux
-    * vim
-    * wget
+    Non-default Software (ordered by name):
+    name               ! version    ! from_repo                              ! installtime      
+    -------------------+------------+----------------------------------------+------------------
+    at                 ! 3.1.20     ! baseos                                 ! 2022-12-07 07:18 
+    bash-completion    ! 2.7        ! baseos                                 ! 2022-10-04 09:59 
+    bzip2              ! 1.0.6      ! baseos                                 ! 2022-10-04 11:40 
+    chrony             ! 4.2        ! baseos                                 ! 2022-12-07 07:17 
+    yum-utils          ! 4.0.21     ! baseos                                 ! 2023-11-28 03:21 
+    zstd               ! 1.4.4      ! appstream                              ! 2023-08-29 08:02 
 
     Non-default Users:
-    user        ! pw ! uid  ! gid  ! comment           ! home_dir           ! user_shell    
-    ------------+----+------+------+-------------------+--------------------+---------------
-    apache      ! x  ! 48   ! 48   ! Apache            ! /usr/share/httpd   ! /sbin/nologin 
-    icinga      ! x  ! 993  ! 991  ! icinga            ! /var/spool/icinga2 ! /sbin/nologin 
-    linuxfabrik ! x  ! 1000 ! 1000 ! fedora Cloud User ! /home/linuxfabrik  ! /bin/bash     
-    mysql       ! x  ! 27   ! 27   ! MySQL Server      ! /var/lib/mysql     ! /sbin/nologin 
-    nginx       ! x  ! 992  ! 988  ! Nginx web server  ! /var/lib/nginx     ! /sbin/nologin 
-    postfix     ! x  ! 89   ! 89   !                   ! /var/spool/postfix ! /sbin/nologin 
+    user        ! pw ! uid  ! gid  ! comment                   ! home_dir           ! user_shell    
+    ------------+----+------+------+---------------------------+--------------------+---------------
+    apache      ! x  ! 48   ! 48   ! Apache                    ! /usr/share/httpd   ! /sbin/nologin 
+    postfix     ! x  ! 89   ! 89   !                           ! /var/spool/postfix ! /sbin/nologin 
+    redis       ! x  ! 991  ! 986  ! Redis Database Server     ! /var/lib/redis     ! /sbin/nologin 
 
     systemctl get-default:
     * multi-user.target
 
-    systemctl list-unit-files --type service --state enabled:
+    systemctl list-unit-files --type=service --state=enabled:
     * atd.service
     * auditd.service
-    * bluetooth.service
+    * autovt@.service
     * chronyd.service
-    * dbus-broker.service
-    * fwb.service
-    * getty@.service
-    * httpd.service
-    * icinga2.service
-    * import-state.service
-    * lvm2-monitor.service
-    * mariadb.service
-    * mdmonitor.service
-    * NetworkManager-dispatcher.service
-    * NetworkManager-wait-online.service
-    * NetworkManager.service
-    * nfs-convert.service
-    * nis-domainname.service
-    * oddjobd.service
-    * php-fpm.service
-    * postfix.service
-    * qemu-guest-agent.service
-    * rngd.service
-    * rpmdb-rebuild.service
-    * selinux-autorelabel-mark.service
-    * sshd.service
-    * sssd.service
-    * supervisord.service
-    * systemd-homed-activate.service
-    * systemd-homed.service
-    * systemd-oomd.service
-    * systemd-resolved.service
-    * udisks2.service
 
-    systemctl list-unit-files --type mount --state static --state generated:
+    systemctl list-unit-files --type=mount --state=static --state=generated:
     * -.mount
-    * boot.mount
-    * data.mount
+    * boot-efi.mount
     * dev-hugepages.mount
-    * dev-mqueue.mount
-    * home.mount
-    * proc-fs-nfsd.mount
-    * sys-fs-fuse-connections.mount
-    * sys-kernel-config.mount
-    * sys-kernel-debug.mount
-    * sys-kernel-tracing.mount
-    * tmp.mount
-    * var-lib-nfs-rpc_pipefs.mount
-    * var-log-audit.mount
-    * var-log.mount
-    * var-tmp.mount
-    * var.mount
 
-    systemctl list-unit-files --type automount --state enabled --state static:
+    systemctl list-unit-files --type=automount --state=enabled --state=static:
     * proc-sys-fs-binfmt_misc.automount
 
     systemctl list-timers:
-    unit                         ! activates                      ! next                         
-    -----------------------------+--------------------------------+------------------------------
-    systemd-tmpfiles-clean.timer ! systemd-tmpfiles-clean.service ! Sat 2023-09-02 05:22:46 CEST 
-    unbound-anchor.timer         ! unbound-anchor.service         ! Sat 2023-09-02 00:00:00 CEST 
-    wordpress-cron.timer         ! wordpress-cron.service         ! Fri 2023-09-01 10:15:00 CEST 
+    unit                               ! activates                      ! next                         
+    -----------------------------------+--------------------------------+------------------------------
+    fstrim.timer                       ! fstrim.service                 ! Mon 2024-04-15 01:07:55 CEST 
+    systemd-tmpfiles-clean.timer       ! systemd-tmpfiles-clean.service ! Thu 2024-04-11 04:35:37 CEST 
+    unbound-anchor.timer               ! unbound-anchor.service         ! Thu 2024-04-11 00:00:00 CEST 
 
-    3rd-party Python libs required by any of the plugins when running in source code variant:
-    * Installed: psutil 5.8.0, pymysql.cursors 0.10.1
-    * Missing: bs4, pysmbclient, smbprotocol.exceptions, vici
-
-    Guessed Tags:
-    * apache-httpd
-    * chronyd
-    * duplicity
-    * fwbuilder
-    * OS: Fedora Linux 36 (Thirty Six), family "RedHat"
-    * mariadb* / mysql*
-    * mod_qos
-    * php
-    * php-fpm
-    * pip
-    * postfix-mta
-    * system-update
+    crontab:
+    01 * * * * root run-parts /etc/cron.hourly
+    0 1 * * Sun root /usr/sbin/raid-check
 
 
 States

@@ -48,8 +48,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * \*-version: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* about-me: Add detection of PHP Composer
-* about-me: Add detection of UDP ports
+* about-me: Add detection of non-default software, udp ports, hardware and much more
 * about-me: Add new parameters `--insecure` `--no-proxy` `--timeout`
 * about-me: Pipes ("|") within the plugin output lead to broken perfdata ([#741](https://github.com/Linuxfabrik/monitoring-plugins/issues/741))
 * apache-httpd-status: Add new parameters `--no-proxy` `--timeout`
