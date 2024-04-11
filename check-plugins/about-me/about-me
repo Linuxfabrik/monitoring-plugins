@@ -40,9 +40,9 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024041001'
+__version__ = '2024041101'
 
-DESCRIPTION = 'Reports a quick overview about the host dimensions and § software.'
+DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -115,10 +115,14 @@ def get_birthday():
     """Using various methods to determine install date.
     """
     # Using stat
-    cmd = 'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11'
-    success, result = lib.shell.shell_exec(cmd)
+    success, result = lib.shell.shell_exec(
+        'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
+        shell=True,
+    )
     birthday, _, _ = result
-    if not success or birthday == '-':
+    birthday = birthday.strip()
+    if birthday == '-':
+        birthday = ''
         # nothing found so far, try more - but not all of those are very accurate
         if os.path.isfile('/usr/bin/pacman'):
             # Arch Linux, and Arch based distros using pacman
@@ -132,8 +136,9 @@ def get_birthday():
         success, result = lib.shell.shell_exec(cmd)
         if success:
             birthday, _, _ = result
-    if birthday and birthday != '-':
-        return 'born {}. '.format(birthday.strip())
+            birthday = birthday.strip()
+    if birthday:
+        return 'born {}. '.format(birthday)
     return ''
 
 
@@ -187,60 +192,60 @@ def get_hw_info():
     for _, value in result.items():
         if value['dminame'] == 'Base Board Information':
             output += '* Base Board: Type {} {} {}, SerNo {}, Ver {}\n'.format(
-                value.get('Type', 'N/A'),
-                value.get('Manufacturer', 'N/A'),
-                value.get('Product Name', 'N/A'),
-                value.get('Serial Number', 'N/A'),
-                value.get('Version', 'N/A'),
+                value.get('Type', 'n/a').replace('Default string', 'n/a'),
+                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
+                value.get('Product Name', 'n/a').replace('Default string', 'n/a'),
+                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
+                value.get('Version', 'n/a').replace('Default string', 'n/a'),
             )
         if value['dminame'] == 'BIOS Information':
             output += '* BIOS: {}, Ver {} (released {}), ROM {}\n'.format(
-                value.get('Vendor', 'N/A'),
-                value.get('Version', 'N/A'),
-                value.get('Release Date', 'N/A'),
-                value.get('ROM Size', 'N/A'),
+                value.get('Vendor', 'n/a').replace('Default string', 'n/a'),
+                value.get('Version', 'n/a').replace('Default string', 'n/a'),
+                value.get('Release Date', 'n/a').replace('Default string', 'n/a'),
+                value.get('ROM Size', 'n/a').replace('Default string', 'n/a'),
             )
         if value['dminame'] == 'Chassis Information':
             output += '* Chassis: {}, Type {}, SKU {}, SerNo {}\n'.format(
-                value.get('Manufacturer', 'N/A'),
-                value.get('Type', 'N/A'),
-                value.get('SKU', 'N/A'),
-                value.get('Serial Number', 'N/A'),
+                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
+                value.get('Type', 'n/a').replace('Default string', 'n/a'),
+                value.get('SKU', 'n/a').replace('Default string', 'n/a'),
+                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
             )
             output += '  States: boot-up={}, pwr-supply={}, thermal={}, security={}\n'.format(
-                value.get('Boot-up State', 'N/A'),
-                value.get('Power Supply State', 'N/A'),
-                value.get('Thermal State', 'N/A'),
-                value.get('Security Status', 'N/A'),
+                value.get('Boot-up State', 'n/a').replace('Default string', 'n/a'),
+                value.get('Power Supply State', 'n/a').replace('Default string', 'n/a'),
+                value.get('Thermal State', 'n/a').replace('Default string', 'n/a'),
+                value.get('Security Status', 'n/a').replace('Default string', 'n/a'),
             )
         if value['dminame'] == 'Processor Information':
             output += '* Proc: {}, Ver {},\n'.format(
-                value.get('Manufacturer', 'N/A'),
-                value.get('Version', 'N/A'),
+                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
+                value.get('Version', 'n/a').replace('Default string', 'n/a'),
             )
             output += '  Speed {}/{} max., {}/{} Cores enabled, {} {}, Voltage {}\n'.format(
-                value.get('Current Speed', 'N/A'),
-                value.get('Max Speed', 'N/A'),
-                value.get('Core Enabled', 'N/A'),
-                value.get('Core Count', 'N/A'),
-                value.get('Thread Count', 'N/A'),
+                value.get('Current Speed', 'n/a').replace('Default string', 'n/a'),
+                value.get('Max Speed', 'n/a').replace('Default string', 'n/a'),
+                value.get('Core Enabled', 'n/a').replace('Default string', 'n/a'),
+                value.get('Core Count', 'n/a').replace('Default string', 'n/a'),
+                value.get('Thread Count', 'n/a').replace('Default string', 'n/a'),
                 lib.txt.pluralize('Thread', value.get('Thread Count', 0)),
-                value.get('Voltage', 'N/A'),
+                value.get('Voltage', 'n/a').replace('Default string', 'n/a'),
             )
         if value['dminame'] == 'System Boot Information':
             output += '* System Boot: {}\n'.format(
-                value.get('Status', 'N/A'),
+                value.get('Status', 'n/a').replace('Default string', 'n/a'),
             )
         if value['dminame'] == 'System Information':
             output += '* SysInfo: {} {}, SerNo {}, SKU {}, Wake-up Type "{}",\n'.format(
-                value.get('Manufacturer', 'N/A'),
-                value.get('Product Name', 'N/A'),
-                value.get('Serial Number', 'N/A'),
-                value.get('SKU', 'N/A'),
-                value.get('Wake-up Type', 'N/A'),
+                value.get('Manufacturer', 'n/a').replace('Default string', 'n/a'),
+                value.get('Product Name', 'n/a').replace('Default string', 'n/a'),
+                value.get('Serial Number', 'n/a').replace('Default string', 'n/a'),
+                value.get('SKU', 'n/a').replace('Default string', 'n/a'),
+                value.get('Wake-up Type', 'n/a').replace('Default string', 'n/a'),
             )
             output += '  UUID {}\n'.format(
-                value.get('UUID', 'N/A'),
+                value.get('UUID', 'n/a').replace('Default string', 'n/a'),
             )
     if output:
         return 'Hardware Info:\n{}\n'.format(output)
@@ -310,7 +315,7 @@ def get_nondefault_software():
         'dnf repoquery --userinstalled --queryformat "%{name};%{version};%{from_repo};%{installtime}"' # pylint: disable=C0301
     )
     if not success:
-        return []
+        return ''
     stdout, _, _ = result
     table_data = []
     header = ['name', 'version', 'from_repo', 'installtime']
@@ -495,6 +500,141 @@ def get_systemd_units(cmd):
     return output + '\n'
 
 
+def get_lftags():
+    lftags = [
+        # {'sw': 'LF Tag Name', 'package': ['pname1', 'pname2'], 'expr': [stmnt1, stmnt2, ...]}, # pylint: disable=C0301
+        {'sw': 'acme.sh', 'package': ['acme-tiny'], 'expr': [None]}, # pylint: disable=C0301
+        {'sw': 'AIDE', 'package': ['aide'], 'expr': [os.path.isfile('/sbin/aide')]}, # pylint: disable=C0301
+        {'sw': 'Apache httpd', 'package': ['httpd', 'apache2'], 'expr': [os.path.isfile('/usr/sbin/httpd')]}, # pylint: disable=C0301
+        # {'sw': 'Apache Solr', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Axenita', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'BIND', 'package': ['bind'], 'expr': [os.path.isdir('/var/named')]}, # pylint: disable=C0301
+        # {'sw': 'Bonding', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'BorgBackup', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Chronyd', 'package': ['chrony'], 'expr': [os.path.isfile('/etc/chrony.conf')]}, # pylint: disable=C0301
+        {'sw': 'ClamAV', 'package': ['clamav'], 'expr': [None]}, # pylint: disable=C0301
+        # {'sw': 'Collabora Online', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Composer', 'package': ['composer'], 'expr': [None]}, # pylint: disable=C0301
+        # {'sw': 'coturn', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'DHCP Client', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Docker', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Duplicity', 'package': ['duplicity'], 'expr': [os.path.isfile('/usr/local/bin/duplicity')]}, # pylint: disable=C0301
+        # {'sw': 'Elasticsearch', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Exim4', 'package': ['exim'], 'expr': [None]}, # pylint: disable=C0301
+        {'sw': 'Fail2Ban', 'package': ['fail2ban'], 'expr': [os.path.isfile('/usr/bin/fail2ban-server')]}, # pylint: disable=C0301
+        {'sw': 'FirewallD', 'package': ['firewalld'], 'expr': [None]}, # pylint: disable=C0301
+        # {'sw': 'FortiOS 6', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'FreeIPA Server', 'package': ['ipa-server'], 'expr': [os.path.isfile('/usr/sbin/ipa-server-upgrade')]}, # pylint: disable=C0301
+        {'sw': 'Fwbuilder', 'package': [], 'expr': [os.path.isfile('/etc/fwb.sh')]}, # pylint: disable=C0301
+        {'sw': 'GitLab', 'package': ['gitlab-ce', 'gitlab-ee'], 'expr': [os.path.isdir('/opt/gitlab')]}, # pylint: disable=C0301
+        # {'sw': 'Gluster Host', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Grafana', 'package': ['grafana'], 'expr': [os.path.isfile('/etc/grafana/grafana.ini')]}, # pylint: disable=C0301
+        {'sw': 'Grav', 'package': [], 'expr': [os.path.isdir('/var/www/html/grav')]}, # pylint: disable=C0301
+        {'sw': 'Graylog Server', 'package': ['graylog-server'], 'expr': [os.path.isfile('/etc/graylog/server/server.conf')]}, # pylint: disable=C0301
+        # {'sw': 'H-Net eFaktura', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'HAProxy', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Huawei Dorado', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'InfluxDB', 'package': ['influxdb'], 'expr': [os.path.isfile('/etc/influxdb/influxdb.conf')]}, # pylint: disable=C0301
+        # {'sw': 'Infomaniak Swiss Backup', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'IPMI', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'iSCSI', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Jitsi', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'JumpCloud Agent', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'KEMP', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Keycloak', 'package': ['todo'], 'expr': [os.path.isdir('/opt/keycloak'), os.path.isdir('/var/log/keycloak')]}, # pylint: disable=C0301
+        # {'sw': 'KVM Host', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'LibreNMS', 'package': [], 'expr': [os.path.isdir('/opt/librenms')]}, # pylint: disable=C0301
+        # {'sw': 'Logstash Client', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Logstash Server', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Dump', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB InnoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Metrics', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Replication', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Schemas', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Security', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MariaDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Matomo', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MediaWiki', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Metabase', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'mod_qos', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MongoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'mydumper', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL InnoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL Metrics', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL Replication', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL Schemas', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL Security', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'MySQL', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Nextcloud', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'NFS Server', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Nginx', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'NodeBB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'NTPd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OnlyOffice', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'OpenVPN Server', 'package': ['openvpn'], 'expr': [os.path.isdir('/etc/openvpn')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Debian 8', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Debian 9', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Debian 10', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Debian 11', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Debian 12', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Fedora', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - RHEL 7', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - RHEL 8', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - RHEL 9', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Ubuntu 16', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Ubuntu 18', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Ubuntu 20', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'OS - Ubuntu 22', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'PHP', 'package': ['php'], 'expr': [None]}, # pylint: disable=C0301
+        {'sw': 'PHP-FPM', 'package': ['php-fpm'], 'expr': [None]}, # pylint: disable=C0301
+        {'sw': 'pip', 'package': ['python3-pip', 'python2-pip'], 'expr': [None]}, # pylint: disable=C0301
+        {'sw': 'Postfix MTA', 'package': ['postfix'], 'expr': [os.path.isdir('/etc/postfix')]}, # pylint: disable=C0301
+        # {'sw': 'PostgreSQL', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Proxmox', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'Python', 'package': ['python3', 'python2'], 'expr': [None]}, # pylint: disable=C0301
+        # {'sw': 'QNAP QTS', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'RabbitMQ Server', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Redfish', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Redis', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'restic', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Rocket.Chat', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        {'sw': 'rsyncd', 'package': ['rsync'], 'expr': [None]}, # pylint: disable=C0301
+        # {'sw': 'SafeNet HSM', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Samba', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'snmpd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Splunk', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Starface PBX', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Statuspal', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'strongSwan IPSec', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'syslog-ng', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'system update', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Systemd Timesyncd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Tarifpool v2', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'UPS (Network UPS Tools, nut)', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'vsftpd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Wildfly', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'Wordpress', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+        # {'sw': 'XFS', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
+    ]
+    success, result = lib.shell.shell_exec('dnf repoquery --userinstalled --queryformat "%{name}"')
+    if success:
+        # for the moment focusing on rhel-compatible package managers
+        userinstalled_software, _, _ = result
+        userinstalled_software = userinstalled_software.splitlines()
+    else:
+        userinstalled_software = []
+
+    output = ''
+    for item in lftags:
+        # if any of the listed software packages is installed, we have a match
+        if any(i in item['package'] for i in userinstalled_software) \
+        or any(item['expr']):
+            output += '* {}\n'.format(item['sw'])
+    if output:
+        return 'Linuxfabrik\'s Icinga Director Tags:\n{}\n'.format(output)
+    return ''
+
+
 def get_tuned_active_profile():
     """ Return current active tuned profile (if any).
     """
@@ -635,6 +775,7 @@ def main():
     )
     msg += get_systemd_timers()
     msg += get_crontab()
+    msg += get_lftags()
 
     # perfdata
     if os_info:
@@ -642,9 +783,9 @@ def main():
         if re_search:
             perfdata += lib.base.get_perfdata('osversion', re_search.group(0).replace('.', ''), None, None, None, None, None) # pylint: disable=C0301
     if dmi:
-        perfdata += lib.base.get_perfdata('cpu_cores_enabled', lib.dmidecode.cpu_cores_enabled(dmi), None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('cpu_threads', lib.dmidecode.cpu_threads(dmi), None, None, None, 0, None)
-        perfdata += lib.base.get_perfdata('cpu_speed', lib.dmidecode.cpu_speed(dmi), None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('cpu_cores_enabled', lib.dmidecode.cpu_cores_enabled(dmi), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata('cpu_threads', lib.dmidecode.cpu_threads(dmi), None, None, None, 0, None) # pylint: disable=C0301
+        perfdata += lib.base.get_perfdata('cpu_speed', lib.dmidecode.cpu_speed(dmi), None, None, None, 0, None) # pylint: disable=C0301
         perfdata += lib.base.get_perfdata('ram', lib.dmidecode.ram(dmi), 'B', None, None, 0, None)
     elif sys_dimensions:
         perfdata += lib.base.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)

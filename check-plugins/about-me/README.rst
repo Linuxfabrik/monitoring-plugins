@@ -74,17 +74,17 @@ Shortened output example:
 .. code-block:: text
 
     Plugin Output
-    server.example.com: Rocky Linux 8.9 (Green Obsidian) Kernel 4.18.0-513.24.1.el8_9.x86_64 virtualized on kvm, Hetzner vServer, Firmware: n/a, SerNo: 53d68114, Proc: n/a, #Cores: 2, #Threads: 1, Current Speed: 2000 MHz, 3.9GiB RAM, Disk sda 38.2G, BIOS boot, tuned profile "virtual-guest kernel_settings", born 2022-08-29. About-me v2024041001
+    server.example.com: Fedora Linux 39 (Workstation Edition) Kernel 6.8.4-200.fc39.x86_64 on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: 39d3e1cd, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16.0GiB RAM, Disk nvme0n1 1.8T, UEFI boot, born 2024-03-20. About-me v2024041001
 
     Hardware Info:
-    * BIOS: Hetzner, Ver 20171111 (released 11/11/2017), ROM 64 kB
-    * SysInfo: Hetzner vServer, SerNo 53d68114, SKU N/A, Wake-up Type "Power Switch",
-      UUID 9f1b2152-78bc-4b49-9c7b-ea441e9edd41
-    * Base Board: Type Motherboard KVM Standard PC (i440FX + PIIX, 1996), SerNo Not Specified, Ver pc-i440fx-4.2
-    * Chassis: QEMU, Type Other, SKU N/A, SerNo Not Specified
-      States: boot-up=Safe, pwr-supply=Safe, thermal=Safe, security=Unknown
-    * Proc: QEMU, Ver NotSpecified,
-      Speed 2000 MHz/2000 MHz max., 2/2 Cores enabled, 1 Thread, Voltage Unknown
+    * BIOS: Dell Inc., Ver 3.21.0 (released 02/01/2024), ROM 32 MB
+    * SysInfo: Dell Inc. XPS 13 9310, SerNo 39d3e1cd, SKU N/A, Wake-up Type "Other",
+      UUID 4c4c4544-0044-5a10-8052-c4c04f334a33
+    * Base Board: Type Motherboard Dell Inc. 07P9Y7, SerNo /2cc8a595/20ca3e48/, Ver A00
+    * Chassis: Dell Inc., Type Notebook, SKU N/A, SerNo 875b42b9
+      States: boot-up=Safe, pwr-supply=Safe, thermal=Safe, security=None
+    * Proc: Intel(R) Corporation, Ver 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz,
+      Speed 3000 MHz/3000 MHz max., 4/4 Cores enabled, 8 Threads, Voltage 0.8 V
     * System Boot: No errors detected
 
     Interfaces (IPv4):
