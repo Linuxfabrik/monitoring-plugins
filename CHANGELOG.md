@@ -25,6 +25,7 @@ Monitoring Plugins:
 * journald-query: Pattern-matching is now always case-sensitive (fix #745)
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
+* php-fpm: Remove parameters `--*-max-children` because php-fpm `max children reached` is either 0 or 1
 * snmp: Improve Performance Data Handling ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481)) - update your CSV definition files and add two more columns according to the check's README
 * uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722)). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
 
