@@ -42,7 +42,7 @@ Help
     usage: about-me [-h] [-V] [--insecure] [--no-proxy]
                     [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
 
-    Reports a quick overview about the host dimensions and installed software.
+    Provides a quick overview of host dimensions and software.
 
     options:
       -h, --help            show this help message and exit
