@@ -23,7 +23,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024041601'
 
 DESCRIPTION = """This plugin lets you track the number of active
                 users over time, the number of shares in various categories and some storage
@@ -197,14 +197,19 @@ def main():
         lib.txt.pluralize('update', nc_system_apps_num_updates_available),
         nc_system_version,
     )
-    msg += '* Shares: {} ({} groups, {} links [{} w/o password], {} mails, {} rooms, {} users, {} federated sent)\n'.format( # pylint: disable=C0301
+    msg += '* Shares: {} ({} {}, {} {} [{} w/o password], {} {}, {} {}, {} {}, {} federated sent)\n'.format( # pylint: disable=C0301
         nc_shares_num_shares,
         nc_shares_num_shares_groups,
+        lib.txt.pluralize('group', nc_shares_num_shares_groups),
         nc_shares_num_shares_link,
+        lib.txt.pluralize('link', nc_shares_num_shares_link),
         nc_shares_num_shares_link_no_password,
         nc_shares_num_shares_mail,
+        lib.txt.pluralize('mail', nc_shares_num_shares_mail),
         nc_shares_num_shares_room,
+        lib.txt.pluralize('room', nc_shares_num_shares_room),
         nc_shares_num_shares_user,
+        lib.txt.pluralize('user', nc_shares_num_shares_user),
         nc_shares_num_fed_shares_sent,
     )
     msg += '* Federated Shares: {} received\n'.format(nc_shares_num_fed_shares_received)
