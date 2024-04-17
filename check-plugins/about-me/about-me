@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024041101'
+__version__ = '2024041701'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -272,13 +272,167 @@ def get_interfaces():
     return output
 
 
+def get_lftags():
+    """Try to automatically detect as many Linuxfabrik tags for Icinga Director as possible.
+    Tags that are disabled here can't be detected on the system running this plugin, but are present
+    in all-the-rest.json. So keep this function in sync with all-the-rest.json.
+    Also, if you need to add software here that isn't installed by a package manager and therefore
+    can only be guessed, put it in get_software_found() as well.
+    """
+    lftags = [
+        # {'sw': 'LF Tag Name', 'package': ['pname1', 'pname2'], 'expr': [stmnt1, stmnt2, ...]}, # pylint: disable=C0301
+        {'sw': 'acme.sh', 'package': ['acme-tiny'], 'expr': [os.path.isfile('/opt/acme.sh/acme.sh')]}, # pylint: disable=C0301
+        {'sw': 'AIDE', 'package': ['aide'], 'expr': [os.path.isfile('/sbin/aide')]}, # pylint: disable=C0301
+        {'sw': 'Apache httpd', 'package': ['httpd', 'apache2'], 'expr': [os.path.isfile('/usr/sbin/httpd')]}, # pylint: disable=C0301
+        {'sw': 'Apache Solr', 'package': [], 'expr': [os.path.isdir('/opt/apache-solr'), os.path.isdir('/opt/solr')]}, # pylint: disable=C0301
+        # {'sw': 'Axenita', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'BIND', 'package': ['bind'], 'expr': [os.path.isdir('/var/named')]}, # pylint: disable=C0301
+        {'sw': 'Bonding', 'package': [], 'expr': [os.path.isdir('/proc/net/bonding')]}, # pylint: disable=C0301
+        {'sw': 'BorgBackup', 'package': ['borgbackup'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Chronyd', 'package': ['chrony'], 'expr': [os.path.isfile('/etc/chrony.conf')]}, # pylint: disable=C0301
+        {'sw': 'ClamAV', 'package': ['clamav'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Collabora Online', 'package': ['collabora-online-brand', 'collaboraoffice', 'coolwsd'], 'expr': [os.path.isdir('/opt/collaboraoffice'), os.path.isdir('/opt/cool')]}, # pylint: disable=C0301
+        {'sw': 'Composer', 'package': ['composer'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'coturn', 'package': ['coturn'], 'expr': [run_cmd('systemctl is-active coturn.service')]}, # pylint: disable=C0301
+        # {'sw': 'DHCP Client', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Docker', 'package': ['docker-ce'], 'expr': [os.path.isfile('/etc/docker/daemon.json')]}, # pylint: disable=C0301
+        {'sw': 'Duplicity', 'package': ['duplicity'], 'expr': [os.path.isfile('/usr/local/bin/duplicity')]}, # pylint: disable=C0301
+        {'sw': 'Elasticsearch', 'package': [], 'expr': [os.path.isfile('/usr/share/elasticsearch/bin/elasticsearch')]}, # pylint: disable=C0301
+        {'sw': 'Exim4', 'package': ['exim'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Fail2Ban', 'package': ['fail2ban'], 'expr': [os.path.isfile('/usr/bin/fail2ban-server')]}, # pylint: disable=C0301
+        {'sw': 'FirewallD', 'package': ['firewalld'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'FortiOS 6', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'FreeIPA Server', 'package': ['ipa-server'], 'expr': [os.path.isfile('/usr/sbin/ipa-server-upgrade')]}, # pylint: disable=C0301
+        {'sw': 'Fwbuilder', 'package': [], 'expr': [os.path.isfile('/etc/fwb.sh')]}, # pylint: disable=C0301
+        {'sw': 'GitLab', 'package': ['gitlab-ce', 'gitlab-ee'], 'expr': [os.path.isdir('/opt/gitlab')]}, # pylint: disable=C0301
+        # {'sw': 'Gluster Host', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Grafana', 'package': ['grafana'], 'expr': [os.path.isfile('/etc/grafana/grafana.ini')]}, # pylint: disable=C0301
+        {'sw': 'Grav', 'package': [], 'expr': [os.path.isdir('/var/www/html/grav'), os.path.isdir('/var/www/grav')]}, # pylint: disable=C0301
+        {
+            'sw': 'Graylog Server',
+            'package': ['graylog-server'],
+            'expr': [
+                os.path.isfile('/etc/graylog/server/server.conf'),
+                os.path.isfile('/usr/share/graylog-server/bin/graylog-server'),
+            ]
+        },
+        {'sw': 'H-Net eFaktura', 'package': [], 'expr': [os.path.isdir('/home/hnet/HnetSecureService')]}, # pylint: disable=C0301
+        {'sw': 'HAProxy', 'package': ['haproxy'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'Huawei Dorado', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'InfluxDB', 'package': ['influxdb'], 'expr': [os.path.isfile('/etc/influxdb/influxdb.conf')]}, # pylint: disable=C0301
+        # {'sw': 'Infomaniak Swiss Backup', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'IPMI', 'package': ['ipmitool'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'iSCSI', 'package': [], 'expr': [run_cmd('systemctl is-active iscsi.service', ignore_output=True)]}, # pylint: disable=C0301
+        # {'sw': 'Jitsi', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'JumpCloud Agent', 'package': [], 'expr': [os.path.isdir('/opt/jc')]}, # pylint: disable=C0301
+        # {'sw': 'KEMP', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Keycloak', 'package': [], 'expr': [os.path.isdir('/opt/keycloak'), os.path.isdir('/var/log/keycloak')]}, # pylint: disable=C0301
+        {'sw': 'KVM Host', 'package': [], 'expr': [run_cmd('virsh --version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'LibreNMS', 'package': [], 'expr': [os.path.isdir('/opt/librenms')]}, # pylint: disable=C0301
+        # {'sw': 'Logstash Client', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'Logstash Server', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'MariaDB', 'package': ['mariadb-server'], 'expr': [os.path.isfile('/etc/my.cnf'), os.path.isdir('/etc/my.cnf.d')]}, # pylint: disable=C0301
+        {'sw': 'MariaDB Dump', 'package': ['mariadb'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MariaDB InnoDB', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Metrics', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Replication', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Schemas', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MariaDB Security', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Matomo', 'package': [], 'expr': [os.path.isdir('/var/www/matomo'), os.path.isdir('/var/www/html/matomo'), os.path.isdir('/var/www/html/piwik')]}, # pylint: disable=C0301
+        {'sw': 'MediaWiki', 'package': [], 'expr': [os.path.isdir('/var/www/mediawiki'), os.path.isdir('/var/www/html/mediawiki')]}, # pylint: disable=C0301
+        {'sw': 'Metabase', 'package': [], 'expr': [os.path.isdir('/opt/metabase')]}, # pylint: disable=C0301
+        {
+            'sw': 'mod_qos',
+            'package': ['mod_qos'],
+            'expr': [
+                os.path.isfile('/usr/lib64/httpd/modules/mod_qos.so'),
+                os.path.isdir('/var/lib/mod_security'),
+                run_cmd('httpd -t -D DUMP_MODULES | grep mod_qos', shell=True, ignore_output=True),
+                run_cmd('apache2 -t -D DUMP_MODULES | grep mod_qos', shell=True, ignore_output=True),
+            ]
+        },
+        {'sw': 'MongoDB', 'package': ['mongodb-org-server'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'mydumper', 'package': ['mydumper'], 'expr': [os.path.isfile('/etc/mydumper.cnf'), os.path.isfile('/usr/bin/mydumper')]}, # pylint: disable=C0301
+        {'sw': 'MySQL', 'package': ['mysql-server'], 'expr': [os.path.isfile('/etc/my.cnf'), os.path.isdir('/etc/my.cnf.d')]}, # pylint: disable=C0301
+        {'sw': 'MySQL Dump', 'package': ['mysql'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MySQL InnoDB', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MySQL Metrics', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MySQL Replication', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MySQL Schemas', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'MySQL Security', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Nextcloud', 'package': [], 'expr': [os.path.isdir('/var/www/html/nextcloud'), os.path.isdir('/var/www/nextcloud'), os.path.isfile('/var/www/html/nextcloud/occ')]}, # pylint: disable=C0301
+        {'sw': 'NFS Server', 'package': [], 'expr': [run_cmd('systemctl is-active nfs-server.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Nginx', 'package': ['nginx'], 'expr': [os.path.isdir('/etc/nginx')]}, # pylint: disable=C0301
+        {'sw': 'NodeBB', 'package': [], 'expr': [os.path.isdir('/opt/nodebb')]}, # pylint: disable=C0301
+        {'sw': 'NTPd', 'package': [], 'expr': [run_cmd('ntpq -c version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'OnlyOffice', 'package': [], 'expr': [os.path.isdir('/var/log/onlyoffice')]}, # pylint: disable=C0301
+        {'sw': 'OpenVAS', 'package': [], 'expr': [run_cmd('openvas version', ignore_output=True), run_cmd('openvas --version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'OpenVPN Server', 'package': ['openvpn'], 'expr': [os.path.isdir('/etc/openvpn')]}, # pylint: disable=C0301
+        {
+            'sw': 'OS - {}, family "{}"'.format(
+                lib.version.get_os_info(),
+                lib.distro.get_distribution_facts()['os_family'],
+            ),
+            'package': [],
+            'expr': [True], # always check this
+        },
+        {'sw': 'PHP', 'package': ['php'], 'expr': [os.path.isfile('/etc/php.ini')]}, # pylint: disable=C0301
+        {'sw': 'PHP-FPM', 'package': ['php-fpm'], 'expr': [os.path.isfile('/etc/php-fpm.conf')]}, # pylint: disable=C0301
+        {'sw': 'pip', 'package': ['pip3', 'pip2', 'python3-pip', 'python2-pip'], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Postfix MTA', 'package': ['postfix'], 'expr': [os.path.isdir('/etc/postfix')]}, # pylint: disable=C0301
+        {'sw': 'PostgreSQL', 'package': ['postgresql'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'Proxmox', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Python', 'package': ['python3', 'python2'], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'QNAP QTS', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'RabbitMQ Server', 'package': [], 'expr': [run_cmd('rabbitmqctl version', ignore_output=True)]}, # pylint: disable=C0301
+        # {'sw': 'Redfish', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Redis', 'package': ['redis'], 'expr': [os.path.isfile('/usr/bin/redis-cli'), run_cmd('redis-server --version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'restic', 'package': ['restic'], 'expr': [run_cmd('restic version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Rocket.Chat', 'package': [], 'expr': [os.path.isdir('/opt/Rocket.Chat'), os.path.isdir('/opt/rocket.chat')]}, # pylint: disable=C0301
+        {'sw': 'rsyncd', 'package': ['rsync'], 'expr': [run_cmd('systemctl is-active rsyncd.service', ignore_output=True)]}, # pylint: disable=C0301
+        # {'sw': 'SafeNet HSM', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'Samba', 'package': ['samba'], 'expr': [os.path.isfile('/etc/samba/smb.conf'), run_cmd('smbd --version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'snmpd', 'package': ['net-snmp'], 'expr': [os.path.isfile('/etc/snmp/snmpd.conf'),run_cmd('systemctl is-active snmpd.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Splunk', 'package': [], 'expr': [run_cmd('systemctl is-active splunk.service', ignore_output=True)]}, # pylint: disable=C0301
+        # {'sw': 'Starface PBX', 'package': [], 'expr': []}, # pylint: disable=C0301
+        # {'sw': 'Statuspal', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'strongSwan IPSec', 'package': ['strongswan'], 'expr': [run_cmd('swanctl --version', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'syslog-ng', 'package': [], 'expr': [run_cmd('systemctl is-active syslog-ng.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'system update', 'package': [], 'expr': [run_cmd('systemctl is-active notify-and-schedule.timer', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Systemd Timesyncd', 'package': [], 'expr': [run_cmd('systemctl is-active systemd-timesyncd.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Tarifpool v2', 'package': [], 'expr': [os.path.isdir('/opt/tarifpool')]}, # pylint: disable=C0301
+        # {'sw': 'UPS (Network UPS Tools, nut)', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'vsftpd', 'package': ['vsftpd'], 'expr': [os.path.isdir('/etc/vsftpd'), run_cmd('systemctl is-active vsftpd.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]}, # pylint: disable=C0301
+        {'sw': 'Wordpress', 'package': [], 'expr': [os.path.isdir('/var/www/html/wordpress'), os.path.isdir('/var/www/html/wp-config.php'), os.path.isdir('/var/www/wordpress')]}, # pylint: disable=C0301
+        # {'sw': 'XFS', 'package': [], 'expr': []}, # pylint: disable=C0301
+    ]
+    success, result = lib.shell.shell_exec('dnf repoquery --userinstalled --queryformat "%{name}"')
+    if success:
+        # for the moment focusing on rhel-compatible package managers
+        userinstalled_software, _, _ = result
+        userinstalled_software = userinstalled_software.splitlines()
+    else:
+        userinstalled_software = []
+
+    output = ''
+    for item in lftags:
+        # if any of the listed software packages is installed, we have a match
+        if any(i in item['package'] for i in userinstalled_software) \
+        or any(item['expr']):
+            output += '* {}\n'.format(item['sw'])
+    if output:
+        return 'Linuxfabrik\'s Icinga Director Tags:\n{}\n'.format(output)
+    return ''
+
+
 def get_listening_ports():
     ports = {}
     output = []
     try:
         nc = psutil.net_connections('inet')
         for c in nc:
-            if c.status != psutil.CONN_LISTEN and c.status != psutil.CONN_NONE:
+            if c.status not in (psutil.CONN_LISTEN, psutil.CONN_NONE):
                 continue
             if c.type == socket.SOCK_STREAM:
                 proto = 'tcp'
@@ -413,6 +567,59 @@ def get_public_ip(args):
     return ''
 
 
+def get_software_found():
+    """Manually installed software, found on the system
+    """
+    guessed = [
+        {'sw': 'Apache Solr', 'expr': [os.path.isdir('/opt/apache-solr'), os.path.isdir('/opt/solr')]}, # pylint: disable=C0301
+        {'sw': 'Apache Tomcat', 'expr': [os.path.isdir('/opt/apache-tomcat'), os.path.isdir('/opt/tomcat')]}, # pylint: disable=C0301
+        {'sw': 'Atlassian Bitbucket', 'expr': [os.path.isdir('/opt/atlassian/bitbucket')]}, # pylint: disable=C0301
+        {'sw': 'Atlassian Confluence', 'expr': [os.path.isdir('/opt/atlassian/confluence')]}, # pylint: disable=C0301
+        {'sw': 'Atlassian Jira', 'expr': [os.path.isdir('/opt/atlassian/jira')]}, # pylint: disable=C0301
+        {'sw': 'Atomicorp', 'expr': [os.path.isdir('/opt/atomicorp')]}, # pylint: disable=C0301
+        {'sw': 'Bacchus', 'expr': [os.path.isdir('/opt/bacchus')]}, # pylint: disable=C0301
+        {'sw': 'Contao', 'expr': [os.path.isdir('/var/www/html/contao')]}, # pylint: disable=C0301
+        {'sw': 'DCM4CHEE', 'expr': [os.path.isdir('/opt/dcm4chee')]}, # pylint: disable=C0301
+        {'sw': 'Django', 'expr': [os.path.isdir('/opt/django')]}, # pylint: disable=C0301
+        {'sw': 'Grav', 'expr': [os.path.isdir('/var/www/html/grav'), os.path.isdir('/var/www/grav')]}, # pylint: disable=C0301
+        {'sw': 'H-Net eFaktura', 'expr': [os.path.isdir('/home/hnet/HnetSecureService')]}, # pylint: disable=C0301
+        {'sw': 'Hostbill', 'expr': [os.path.isdir('/home/hostbill')]}, # pylint: disable=C0301
+        {'sw': 'HTMLy', 'expr': [os.path.isdir('/var/www/html/htmly')]}, # pylint: disable=C0301
+        {'sw': 'JBoss', 'expr': [os.path.isdir('/opt/jboss')]}, # pylint: disable=C0301
+        {'sw': 'JumpCloud Agent', 'expr': [os.path.isdir('/opt/jc')]}, # pylint: disable=C0301
+        {'sw': 'KeeWeb', 'expr': [os.path.isdir('/opt/KeeWeb')]}, # pylint: disable=C0301
+        {'sw': 'Keycloak', 'expr': [os.path.isdir('/opt/keycloak'), os.path.isdir('/var/log/keycloak')]}, # pylint: disable=C0301
+        {'sw': 'LibreNMS', 'expr': [os.path.isdir('/opt/librenms')]}, # pylint: disable=C0301
+        {'sw': 'MariaDB ColumnStore', 'expr': [os.path.isdir('/usr/local/mariadb/columnstore')]}, # pylint: disable=C0301
+        {'sw': 'Matomo', 'expr': [os.path.isdir('/var/www/matomo'), os.path.isdir('/var/www/html/matomo'), os.path.isdir('/var/www/html/piwik')]}, # pylint: disable=C0301
+        {'sw': 'MediaWiki', 'expr': [os.path.isdir('/var/www/mediawiki'), os.path.isdir('/var/www/html/mediawiki')]}, # pylint: disable=C0301
+        {'sw': 'Medidata (eFaktura)', 'expr': [os.path.isdir('/opt/MPCommunicator')]}, # pylint: disable=C0301
+        {'sw': 'Metabase', 'expr': [os.path.isdir('/opt/metabase')]}, # pylint: disable=C0301
+        {'sw': 'Nextcloud', 'expr': [os.path.isdir('/var/www/html/nextcloud'), os.path.isdir('/var/www/nextcloud'), os.path.isfile('/var/www/html/nextcloud/occ')]}, # pylint: disable=C0301
+        {'sw': 'NodeBB', 'expr': [os.path.isdir('/opt/nodebb')]}, # pylint: disable=C0301
+        {'sw': 'OnlyOffice', 'expr': [os.path.isdir('/var/log/onlyoffice')]}, # pylint: disable=C0301
+        {'sw': 'ownCloud', 'expr': [os.path.isdir('/var/www/owncloud'), os.path.isdir('/var/www/html/owncloud')]}, # pylint: disable=C0301
+        {'sw': 'Rambox', 'expr': [os.path.isdir('/opt/Rambox')]}, # pylint: disable=C0301
+        {'sw': 'Rocket.Chat', 'expr': [os.path.isdir('/opt/Rocket.Chat'), os.path.isdir('/opt/rocket.chat')]}, # pylint: disable=C0301
+        {'sw': 'Roundcube', 'expr': [os.path.isdir('/var/www/html/roundcubemail')]}, # pylint: disable=C0301
+        {'sw': 'Tarifpool v2', 'expr': [os.path.isdir('/opt/tarifpool')]}, # pylint: disable=C0301
+        {'sw': 'VMware Tools', 'expr': [os.path.isdir('/etc/vmware-tools')]}, # pylint: disable=C0301
+        {'sw': 'Vtiger', 'expr': [os.path.isdir('/var/www/html/vtigercrm')]}, # pylint: disable=C0301
+        {'sw': 'Wildfly', 'expr': [os.path.isdir('/opt/wildfly')]}, # pylint: disable=C0301
+        {'sw': 'Wordpress', 'expr': [os.path.isdir('/var/www/html/wordpress'), os.path.isdir('/var/www/html/wp-config.php'), os.path.isdir('/var/www/wordpress')]}, # pylint: disable=C0301
+        {'sw': 'Yii2', 'expr': [os.path.isdir('/var/www/html/yii2'), os.path.isdir('/var/www/html/yii2-advanced'), os.path.isdir('/var/www/html/yii2-basic'), os.path.isdir('/var/www/html/yii')]}, # pylint: disable=C0301
+        {'sw': 'Zimbra', 'expr': [os.path.isdir('/opt/zimbra')]}, # pylint: disable=C0301
+    ]
+    output = ''
+    for item in guessed:
+        # if any of the listed software packages is installed, we have a match
+        if any(item['expr']):
+            output += '* {}\n'.format(item['sw'])
+    if output:
+        return 'Software found elsewhere (just guessed):\n{}\n'.format(output)
+    return ''
+
+
 def get_sys_dimensions():
     """get some very basic system statistics
     """
@@ -500,142 +707,6 @@ def get_systemd_units(cmd):
     return output + '\n'
 
 
-def get_lftags():
-    lftags = [
-        # {'sw': 'LF Tag Name', 'package': ['pname1', 'pname2'], 'expr': [stmnt1, stmnt2, ...]}, # pylint: disable=C0301
-        {'sw': 'acme.sh', 'package': ['acme-tiny'], 'expr': [os.path.isfile('/opt/acme.sh/acme.sh')]}, # pylint: disable=C0301
-        {'sw': 'AIDE', 'package': ['aide'], 'expr': [os.path.isfile('/sbin/aide')]}, # pylint: disable=C0301
-        {'sw': 'Apache httpd', 'package': ['httpd', 'apache2'], 'expr': [os.path.isfile('/usr/sbin/httpd')]}, # pylint: disable=C0301
-        # {'sw': 'Apache Solr', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Axenita', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'BIND', 'package': ['bind'], 'expr': [os.path.isdir('/var/named')]}, # pylint: disable=C0301
-        # {'sw': 'Bonding', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'BorgBackup', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Chronyd', 'package': ['chrony'], 'expr': [os.path.isfile('/etc/chrony.conf')]}, # pylint: disable=C0301
-        {'sw': 'ClamAV', 'package': ['clamav'], 'expr': [None]}, # pylint: disable=C0301
-        # {'sw': 'Collabora Online', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Composer', 'package': ['composer'], 'expr': [None]}, # pylint: disable=C0301
-        # {'sw': 'coturn', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'DHCP Client', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Docker', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Duplicity', 'package': ['duplicity'], 'expr': [os.path.isfile('/usr/local/bin/duplicity')]}, # pylint: disable=C0301
-        # {'sw': 'Elasticsearch', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Exim4', 'package': ['exim'], 'expr': [None]}, # pylint: disable=C0301
-        {'sw': 'Fail2Ban', 'package': ['fail2ban'], 'expr': [os.path.isfile('/usr/bin/fail2ban-server')]}, # pylint: disable=C0301
-        {'sw': 'FirewallD', 'package': ['firewalld'], 'expr': [None]}, # pylint: disable=C0301
-        # {'sw': 'FortiOS 6', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'FreeIPA Server', 'package': ['ipa-server'], 'expr': [os.path.isfile('/usr/sbin/ipa-server-upgrade')]}, # pylint: disable=C0301
-        {'sw': 'Fwbuilder', 'package': [], 'expr': [os.path.isfile('/etc/fwb.sh')]}, # pylint: disable=C0301
-        {'sw': 'GitLab', 'package': ['gitlab-ce', 'gitlab-ee'], 'expr': [os.path.isdir('/opt/gitlab')]}, # pylint: disable=C0301
-        # {'sw': 'Gluster Host', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Grafana', 'package': ['grafana'], 'expr': [os.path.isfile('/etc/grafana/grafana.ini')]}, # pylint: disable=C0301
-        {'sw': 'Grav', 'package': [], 'expr': [os.path.isdir('/var/www/html/grav'), os.path.isdir('/var/www/grav')]}, # pylint: disable=C0301
-        {'sw': 'Graylog Server', 'package': ['graylog-server'], 'expr': [os.path.isfile('/etc/graylog/server/server.conf')]}, # pylint: disable=C0301
-        {'sw': 'H-Net eFaktura', 'package': [], 'expr': [os.path.isdir('/home/hnet/HnetSecureService')]}, # pylint: disable=C0301
-        # {'sw': 'HAProxy', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Huawei Dorado', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'InfluxDB', 'package': ['influxdb'], 'expr': [os.path.isfile('/etc/influxdb/influxdb.conf')]}, # pylint: disable=C0301
-        # {'sw': 'Infomaniak Swiss Backup', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'IPMI', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'iSCSI', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Jitsi', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'JumpCloud Agent', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'KEMP', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Keycloak', 'package': ['todo'], 'expr': [os.path.isdir('/opt/keycloak'), os.path.isdir('/var/log/keycloak')]}, # pylint: disable=C0301
-        # {'sw': 'KVM Host', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'LibreNMS', 'package': [], 'expr': [os.path.isdir('/opt/librenms')]}, # pylint: disable=C0301
-        # {'sw': 'Logstash Client', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Logstash Server', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB Dump', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB InnoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB Metrics', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB Replication', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB Schemas', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MariaDB Security', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'MariaDB', 'package': ['mariadb', 'mariadb-server'], 'expr': [os.path.isfile('/etc/my.cnf'), os.path.isdir('/etc/my.cnf.d')]}, # pylint: disable=C0301
-        # {'sw': 'Matomo', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MediaWiki', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Metabase', 'package': [], 'expr': [os.path.isdir('/opt/metabase')]}, # pylint: disable=C0301
-        # {'sw': 'mod_qos', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MongoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'MySQL', 'package': ['mysql', 'mysql-server'], 'expr': [os.path.isfile('/etc/my.cnf'), os.path.isdir('/etc/my.cnf.d')]}, # pylint: disable=C0301
-        {'sw': 'mydumper', 'package': ['mydumper'], 'expr': [os.path.isfile('/etc/mydumper.cnf'), os.path.isfile('/usr/bin/mydumper')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL InnoDB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL Metrics', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL Replication', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL Schemas', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL Security', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'MySQL', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Nextcloud', 'package': [], 'expr': [os.path.isdir('/var/www/html/nextcloud'), os.path.isdir('/var/www/nextcloud'), os.path.isfile('/var/www/html/nextcloud/occ')]}, # pylint: disable=C0301
-        {'sw': 'NFS Server', 'package': [], 'expr': [run_cmd('systemctl is-active nfs-server.service', ignore_output=True)]}, # pylint: disable=C0301
-        {'sw': 'Nginx', 'package': ['nginx'], 'expr': [os.path.isdir('/etc/nginx')]}, # pylint: disable=C0301
-        # {'sw': 'NodeBB', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'NTPd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OnlyOffice', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'OpenVPN Server', 'package': ['openvpn'], 'expr': [os.path.isdir('/etc/openvpn')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Debian 8', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Debian 9', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Debian 10', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Debian 11', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Debian 12', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Fedora', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - RHEL 7', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - RHEL 8', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - RHEL 9', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Ubuntu 16', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Ubuntu 18', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Ubuntu 20', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'OS - Ubuntu 22', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'PHP', 'package': ['php'], 'expr': [os.path.isfile('/etc/php.ini')]}, # pylint: disable=C0301
-        {'sw': 'PHP-FPM', 'package': ['php-fpm'], 'expr': [os.path.isfile('/etc/php-fpm.conf')]}, # pylint: disable=C0301
-        {'sw': 'pip', 'package': ['python3-pip', 'python2-pip'], 'expr': [None]}, # pylint: disable=C0301
-        {'sw': 'Postfix MTA', 'package': ['postfix'], 'expr': [os.path.isdir('/etc/postfix')]}, # pylint: disable=C0301
-        # {'sw': 'PostgreSQL', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Proxmox', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Python', 'package': ['python3', 'python2'], 'expr': [None]}, # pylint: disable=C0301
-        # {'sw': 'QNAP QTS', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'RabbitMQ Server', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Redfish', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Redis', 'package': ['redis'], 'expr': [os.path.isfile('/usr/bin/redis-cli')]}, # pylint: disable=C0301
-        {'sw': 'restic', 'package': ['restic'], 'expr': []}, # pylint: disable=C0301
-        {'sw': 'Rocket.Chat', 'package': [], 'expr': [os.path.isdir('/opt/Rocket.Chat'), os.path.isdir('/opt/rocket.chat')]}, # pylint: disable=C0301
-        {'sw': 'rsyncd', 'package': ['rsync'], 'expr': [None]}, # pylint: disable=C0301
-        # {'sw': 'SafeNet HSM', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Samba', 'package': ['samba'], 'expr': [os.path.isfile('/etc/samba/smb.conf')]}, # pylint: disable=C0301
-        {'sw': 'snmpd', 'package': ['net-snmp'], 'expr': [os.path.isfile('/etc/snmp/snmpd.conf')]}, # pylint: disable=C0301
-        # {'sw': 'Splunk', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Starface PBX', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Statuspal', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'strongSwan IPSec', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'syslog-ng', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'system update', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        # {'sw': 'Systemd Timesyncd', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'Tarifpool v2', 'package': [], 'expr': [os.path.isdir('/opt/tarifpool')]}, # pylint: disable=C0301
-        # {'sw': 'UPS (Network UPS Tools, nut)', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-        {'sw': 'vsftpd', 'package': ['vsftpd'], 'expr': [os.path.isdir('/etc/vsftpd')]}, # pylint: disable=C0301
-        {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]}, # pylint: disable=C0301
-        {'sw': 'Wordpress', 'package': [], 'expr': [os.path.isdir('/var/www/html/wordpress'), os.path.isdir('/var/www/wordpress')]}, # pylint: disable=C0301
-        # {'sw': 'XFS', 'package': ['todo'], 'expr': [os.path.isdir('todo')]}, # pylint: disable=C0301
-    ]
-    success, result = lib.shell.shell_exec('dnf repoquery --userinstalled --queryformat "%{name}"')
-    if success:
-        # for the moment focusing on rhel-compatible package managers
-        userinstalled_software, _, _ = result
-        userinstalled_software = userinstalled_software.splitlines()
-    else:
-        userinstalled_software = []
-
-    output = ''
-    for item in lftags:
-        # if any of the listed software packages is installed, we have a match
-        if any(i in item['package'] for i in userinstalled_software) \
-        or any(item['expr']):
-            output += '* {}\n'.format(item['sw'])
-    if output:
-        return 'Linuxfabrik\'s Icinga Director Tags:\n{}\n'.format(output)
-    return ''
-
-
 def get_tuned_active_profile():
     """ Return current active tuned profile (if any).
     """
@@ -654,14 +725,14 @@ def get_virt_info():
     return 'Unknown'
 
 
-def run_cmd(cmd, ignore_output=False):
+def run_cmd(cmd, shell=False, ignore_output=False):
     """Run a command and return its output. Returns stderr if cmd prints its standard output there.
     If ignore_output is set to True, returns True. Returns False if cmd is not found.
     """
     env = os.environ.copy()
     env['LC_ALL'] = 'C'
     env['PATH'] += ':/usr/local/bin:/usr/local/sbin'
-    success, result = lib.shell.shell_exec(cmd, env=env)
+    success, result = lib.shell.shell_exec(cmd, shell=shell, env=env)
     if not success:
         return False
     stdout, stderr, retc = result
@@ -701,7 +772,7 @@ def main():
 
     # init some vars
     perfdata = ''
-    tags = ''
+    tags = get_lftags()
 
     # only tags wanted, so it's ok to stop here
     if args.TAGS:
@@ -763,6 +834,7 @@ def main():
     msg += get_interfaces()
     msg += get_listening_ports()
     msg += get_nondefault_software()
+    msg += get_software_found()
     msg += get_nondefault_users()
     msg += get_systemd_default_target()
     msg += get_systemd_units(
@@ -776,7 +848,7 @@ def main():
     )
     msg += get_systemd_timers()
     msg += get_crontab()
-    msg += get_lftags()
+    msg += tags
 
     # perfdata
     if os_info:
