@@ -246,6 +246,21 @@ Hints:
 * If you combine ``csv`` type and ``append`` action, you get a two-dimensional list: ``--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'`` results in ``[['1', '2', '3'], ['a', 'b', 'c']]``
 * If you want to provide default values together with ``append``, in ``parser.add_argument()``, leave the ``default`` as ``None``. If after ``main:parse_args()`` the value is still ``None``, put the desired default list (or any other object) there. The primary purpose of the parser is to parse the commandline - to figure out what the user wants to tell you. There's nothing wrong with tweaking (and checking) the ``args`` Namespace after parsing. (According to https://bugs.python.org/issue16399)
 
+Lessons learned: When it comes to parameters, stay backwards compatible. If you have to rename or drop parameters, keep the old ones, but silently ignore them. This helps admins deploy the monitoring plugins to thousands of servers, while the monitoring server is updated later for various reasons. To be as tolerant as possible, replace the parameter's help text with ``help=argparse.SUPPRESS``:
+
+.. code-block:: python
+
+    def parse_args():
+        """Parse command line arguments using argparse.
+        """
+        parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+        parser.add_argument(
+            '--my-old-and-deprecated-parameter',
+            help=argparse.SUPPRESS,
+            dest='MY_OLD_VAR',
+        )
+
 
 Git Commits
 -----------
