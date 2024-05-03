@@ -102,9 +102,14 @@ def main():
             peer_used = True
             try:
                 # line of peer in the form [tally]remote refid st t when pool reach delay offset jitter
-                peer, refid, stratum, _type, when, poll, reach, delay, offset, jitter = line[1:].split()  # remove '*' and split
-                offset = float(offset)
-                stratum = int(stratum)
+                split_line = line[1:].split()
+
+                # Get numeric values via negativ index as there might be multiple whitespaces in remote
+                peer = split_line[0]
+                stratum = int(split_line[-8])
+                delay = split_line[-3]
+                offset = float(split_line[-2])
+                jitter = split_line[-1]
             except:
                 pass
 
