@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024050301'
 
 DESCRIPTION = '''This plugin checks the clock offset of ntpd in milliseconds
                  compared to ntp servers.'''
@@ -102,9 +102,9 @@ def main():
             peer_used = True
             try:
                 # line of peer in the form [tally]remote refid st t when pool reach delay offset jitter
-                split_line = line[1:].split()
+                split_line = line[1:].split() # remove '*' and split
 
-                # Get numeric values via negativ index as there might be multiple whitespaces in remote
+                # get numeric values via negative index as there might be multiple whitespaces in remote
                 peer = split_line[0]
                 stratum = int(split_line[-8])
                 delay = split_line[-3]
@@ -113,6 +113,10 @@ def main():
             except:
                 pass
 
+    try:
+        offset
+    except:
+        lib.base.oao('No NTP server used.', STATE_WARN)
     if not peer_used:
         lib.base.oao('No NTP server used.', STATE_WARN)
     if peer == '':

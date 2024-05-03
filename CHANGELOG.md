@@ -116,6 +116,7 @@ Monitoring Plugins:
 * about-me: Throws exception for openvas ([#749](https://github.com/Linuxfabrik/monitoring-plugins/issues/749))
 * infomaniak-events: Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
 * nextcloud-stats: KeyError: apps ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
+* ntp-ntpd: Fixed unpacking of ntpq -p values ([PR #758](https://github.com/Linuxfabrik/monitoring-plugins/pull/758), thanks to [Leo Pempera](https://github.com/leo-pempera))
 * ntp-w32tm: Fix `UnboundLocalError: local variable 'clock_rate' referenced before assignment`
 
 

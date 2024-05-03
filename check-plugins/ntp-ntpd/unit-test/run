@@ -45,7 +45,7 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE03(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03,,0'))
-        self.assertIn('No NTP server found.', stdout)
+        self.assertIn('No NTP server used.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
@@ -54,6 +54,15 @@ class TestCheck(unittest.TestCase):
         self.assertIn('No NTP server used.', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('NTP offset is -0.182ms, Stratum is 2', stdout)
+        self.assertIn('remote           refid      st t when poll reach   delay   offset  jitter', stdout)
+        self.assertIn('==============================================================================', stdout)
+        self.assertIn('*185.232.69.65 ( 79.133.44.146    2 u  232  256  377    0.398   -0.182   0.170', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
 
 if __name__ == '__main__':
