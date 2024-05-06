@@ -73,7 +73,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./haproxy-status --username haproxy-status --password password --url http://webserver/server-status
+    ./haproxy-status --username haproxy-stats --password password --url http://webserver/server-status
 
 Output:
 
@@ -99,7 +99,7 @@ Output:
 
 .. code-block:: bash
 
-    ./haproxy-status --username haproxy-status --password password --url http://webserver/server-status --lengthy
+    ./haproxy-status --username haproxy-stats --password password --url http://webserver/server-status --lengthy
 
 Output:
 
