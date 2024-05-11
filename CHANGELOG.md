@@ -32,6 +32,10 @@ Monitoring Plugins:
 
 ### Added
 
+Icinga Director:
+
+* all-the-rest.json: New TuneD Service Set
+
 Monitoring Plugins:
 
 * dhcp-relayed (a port of [check_dhcp_relayed](https://exchange.nagios.org/directory/Plugins/Network-Protocols/DHCP-and-BOOTP/check_dhcp_relayed/details))
