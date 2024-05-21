@@ -34,7 +34,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* all-the-rest.json: New TuneD Service Set
+* all-the-rest.json: New TuneD Service Set (therefore removed from all "OS - RHEL" service sets)
 
 Monitoring Plugins:
 
