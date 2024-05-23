@@ -59,7 +59,8 @@ Help
                             Controller not enabled!', ' tsc: Fast TSC calibration
                             failed', ' unhandled rdmsr: ', ' unhandled wrmsr: ', '
                             vcpu0 disabled perfctr wrmsr', ' Warning: Deprecated
-                            Driver is detected']
+                            Driver is detected', ' Warning: Unmaintained driver is
+                            detected']
       --severity {warn,crit}
                             Severity for alerting. Default: crit
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
