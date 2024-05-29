@@ -22,12 +22,16 @@ Monitoring Plugins:
 
 * disk-io: Nearly rewritten from scratch, old parameters have been replaced by new, better ones. Perfdata "throughput" has been renamed to "bandwidth". Filter disks which are really mounted, translate dm-* device names, wildcard support for ignore disks ([#709](https://github.com/Linuxfabrik/monitoring-plugins/issues/709), [#708](https://github.com/Linuxfabrik/monitoring-plugins/issues/708), [#676](https://github.com/Linuxfabrik/monitoring-plugins/issues/676))
 * file-size: Note that the plugin now requires a size qualifier when specifying parameters, e.g. ``--warning=10K`` for 10 KiB (instead of ``--warning=10000`` as in previous versions).
-* journald-query: Pattern-matching is now always case-sensitive (fix #745)
+* journald-query: Pattern-matching is now always case-sensitive ([#745](https://github.com/Linuxfabrik/monitoring-plugins/issues/745))
 * librenms-alerts: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * librenms-health: Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
 * php-fpm: Remove parameters `--*-max-children` because php-fpm `max children reached` is either 0 or 1
 * snmp: Improve Performance Data Handling ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481)) - update your CSV definition files and add two more columns according to the check's README
 * uptime: Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722)). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
+
+Notification Plugins:
+
+* All notification plugins are now installed in `/usr/lib64/nagios/plugins/notifications/` by default, because otherwise installing the notification and monitoring plugins package at the same time fails ([#726](https://github.com/Linuxfabrik/monitoring-plugins/issues/726))
 
 
 ### Added
@@ -48,7 +52,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * all-the-rest.json: Rename "Starface Java Status" to "Starface Java Memory Usage"
-* all-the-rest: Ignore session-c*.scope in systemd-units-failed by default
+* all-the-rest.json: Ignore session-c*.scope in systemd-units-failed by default
 
 Monitoring Plugins:
 
@@ -693,10 +697,10 @@ Monitoring Plugins:
 * all-the-rest.json: add service set for acme.sh ([#447](https://github.com/Linuxfabrik/monitoring-plugins/issues/447))
 * all-the-rest.json: Delete SysMain from Windows Service Set ([#446](https://github.com/Linuxfabrik/monitoring-plugins/issues/446))
 * all-the-rest.json: fixed guids
-* all-the-rest: added acme.sh tag
-* all-the-rest: added duplicati service set
-* all-the-rest: adjusted loolwsd to coolwsd
-* all-the-rest: removed getent from the basic service sets
+* all-the-rest.json: added acme.sh tag
+* all-the-rest.json: added duplicati service set
+* all-the-rest.json: adjusted loolwsd to coolwsd
+* all-the-rest.json: removed getent from the basic service sets
 * apache-httpd-status: Traceback on Ubuntu Xenial (16.04) ([#436](https://github.com/Linuxfabrik/monitoring-plugins/issues/436))
 * basket-join: allowed missing Datafield key
 * basket-join: error on duplicate entries in json
