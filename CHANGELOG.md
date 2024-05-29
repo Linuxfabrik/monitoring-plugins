@@ -9,7 +9,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 [Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2024052901...HEAD
 
 
-## [2024052901]
+## 2024052901
 
 ### Breaking Changes
 
