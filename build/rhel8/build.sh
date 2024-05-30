@@ -20,7 +20,17 @@ alias python3=python3.9
 yum -y install ruby-devel gcc make rpm-build libffi-devel
 
 # install fpm using gem
-gem install fpm
+#gem install fpm
+
+# because fpm install fails on Ruby 2.5.0 due to dotenv, you basically just explicitly
+# install the version-pinned dependencies of pleaserun and fpm and then install those without
+# any deps (https://github.com/jordansissel/fpm/issues/2048):
+gem install dotenv --version 2.8.1 --no-document
+gem install clamp --version 1.0.1 --no-document
+gem install mustache --version 0.99.8 --no-document
+gem install cabin insist stud arr-pm backports rexml --no-document
+gem install pleaserun --ignore-dependencies --no-document
+gem install fpm --ignore-dependencies --no-document
 
 # prepare venv
 . /repos/monitoring-plugins/build/shared/venv.sh
