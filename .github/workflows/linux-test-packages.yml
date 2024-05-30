@@ -233,6 +233,27 @@ jobs:
           docker.io/library/ubuntu:22.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
 
 
+  test-ubuntu2404:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2404'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu2404'
+
+      - name: 'Test on Ubuntu 24.04'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2404,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2404,destination=/packages,relabel=shared,ro=true \
+          docker.io/library/ubuntu:24.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
+
+
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:

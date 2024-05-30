@@ -239,6 +239,26 @@ jobs:
           docker.io/library/ubuntu:22.04 /bin/bash -x /repos/monitoring-plugins/build/ubuntu2204/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
 
 
+  build-ubuntu2404:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    needs:
+      - 'prepare'
+
+    steps:
+
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/ubuntu2404'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/ubuntu2404'
+
+      - name: 'Build for Ubuntu 24.04'
+        run: |-
+          podman run --interactive --rm \
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/ubuntu2404,destination=/build,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
+          docker.io/library/ubuntu:24.04 /bin/bash -x /repos/monitoring-plugins/build/ubuntu2404/build.sh ${{ inputs.package-version || github.ref_name }} ${{ inputs.package-iteration || '1' }}
+
+
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
