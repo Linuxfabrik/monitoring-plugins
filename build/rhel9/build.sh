@@ -38,8 +38,8 @@ make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
 # create packages using fpm
 cd /tmp/fpm/check-plugins
 fpm --output-type rpm
-cp *.rpm /build/
+cp -- *.rpm /build/
 
 cd /tmp/fpm/notification-plugins
 fpm --output-type rpm
-cp *.rpm /build/
+cp -- *.rpm /build/

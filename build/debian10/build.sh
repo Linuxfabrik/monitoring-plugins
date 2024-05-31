@@ -38,8 +38,8 @@ gem install fpm --ignore-dependencies --no-document
 # create packages using fpm
 cd /tmp/fpm/check-plugins
 fpm --output-type deb
-cp *.deb /build/
+cp -- *.deb /build/
 
 cd /tmp/fpm/notification-plugins
 fpm --output-type deb
-cp *.deb /build/
+cp -- *.deb /build/
