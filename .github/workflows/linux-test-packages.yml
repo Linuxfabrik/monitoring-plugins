@@ -31,11 +31,11 @@ jobs:
       # using this instead of the official `download-artifact` action since this allows cross-workflow
       - name: 'download the monitoring-plugins-linux-packages artifact'
         id: 'download-artifact'
-        uses: 'dawidd6/action-download-artifact@v2'
+        uses: actions/download-artifact@v4
         with:
-          workflow: 'linux-build.yml'
-          workflow_conclusion: 'success'
           path: '${{ env.BASE_DIR }}/'
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: 'mkdir ${{ env.BASE_DIR }}/output'
         run: 'mkdir ${{ env.BASE_DIR }}/output'
