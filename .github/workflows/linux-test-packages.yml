@@ -8,6 +8,13 @@ on:
     types:
       - 'completed'
 
+  workflow_dispatch:
+    inputs:
+      artifact-workflow-run-id:
+        description: 'Run ID of the workflow whose packages are to be tested. Can be found in the URL in the browser.'
+        required: false
+        default: ''
+
 env:
   # we use `${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}` so we get a (mostly) unique directory, to avoid folder collisions when multiple workflows are running
   BASE_DIR: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
@@ -36,7 +43,10 @@ jobs:
           name: 'monitoring-plugins-linux-packages'
           path: '${{ env.BASE_DIR }}/'
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ inputs.artifact-workflow-run-id || github.event.workflow_run.id }}
+          # required, even for public repos
+          # the token is automatically provided by github actions, see https://docs.github.com/en/actions/security-guides/automatic-token-authentication
+          github-token: ${{ github.token }}
 
       - name: 'mkdir ${{ env.BASE_DIR }}/output'
         run: 'mkdir ${{ env.BASE_DIR }}/output'
