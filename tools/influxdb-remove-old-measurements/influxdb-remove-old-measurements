@@ -20,7 +20,7 @@ import lib.human
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024041701'
 
 DESCRIPTION = """This tool removes old measurements in InfluxDB, therefore to reducing InfluxDB disk usage.
 
@@ -120,22 +120,23 @@ def main():
     for measurement in client.get_list_measurements():
         measurement = measurement["name"]
 
+        print('Analysing measurement "{}"...'.format(measurement), end='')
         hosts = client.query('SELECT * FROM "{}" GROUP BY "hostname" ORDER BY time DESC LIMIT 1'.format(measurement))
+        print(' done')
 
         for key, generator in hosts.items():
             hostname = key[1]['hostname']
-            # remove trailing Z and floating points if present
             timestamp = next(generator)['time'][:-1].split('.')[0]
             time = datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S')
 
             delta = datetime.datetime.now() - time
 
             if delta > threshold:
-                print('Deleting "{}" for host "{}" (last entry {} ago)'.format(
+                print('\t\tDeleting "{}" for host "{}" (last entry {} ago)...'.format(
                     measurement,
                     hostname,
                     lib.human.seconds2human(delta.total_seconds()),
-                ))
+                ), end='')
 
                 if not args.DRY_RUN:
                     client.delete_series(
@@ -144,6 +145,7 @@ def main():
                             "hostname": hostname,
                         },
                     )
+                print(' done')
 
 if __name__ == '__main__':
     main()
