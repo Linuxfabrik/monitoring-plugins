@@ -70,7 +70,7 @@ jobs:
           path: 'lib'
 
       - name: 'install python3.11'
-        uses: 'actions/setup-python@v3'
+        uses: 'actions/setup-python@v4'
         with:
           python-version: '3.11' # update as soon as nuitka supports latest python
 
@@ -88,7 +88,7 @@ jobs:
       - run: 'python -m nuitka --assume-yes-for-downloads --mingw64 --follow-imports --include-plugin-directory="${{ github.workspace }}\lib" --output-dir=C:\nuitka-compile-temp --remove-output --standalone ${{ github.workspace }}\monitoring-plugins\check-plugins\${{ matrix.check }}\${{ matrix.check}}'
 
       - name: 'Upload build output as artifact for later zipping'
-        uses: 'actions/upload-artifact@v3'
+        uses: 'actions/upload-artifact@v4'
         with:
           name: 'nuitka-build-output-${{ matrix.check }}'
           path: 'C:\nuitka-compile-temp\${{ matrix.check }}*'
@@ -104,7 +104,7 @@ jobs:
     steps:
 
       - name: 'download all artifacts'
-        uses: 'actions/download-artifact@v3'
+        uses: 'actions/download-artifact@v4'
         with:
           path: 'C:\artifacts'
 
@@ -120,7 +120,7 @@ jobs:
           done
 
       - name: 'upload the output as monitoring-plugins'
-        uses: 'actions/upload-artifact@v3'
+        uses: 'actions/upload-artifact@v4'
         with:
           name: 'monitoring-plugins'
           path: 'C:\output\'
