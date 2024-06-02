@@ -120,13 +120,11 @@ Help
                             statement. Example: `"col1 INTEGER PRIMARY KEY, col2
                             TEXT NOT NULL, col3 TEXT NOT NULL UNIQUE"`
       -c CRIT, --critical CRIT
-                            Set the CRIT threshold. Supports ranges. Default:
-                            "None"
+                            Set the CRIT threshold. Supports ranges.
       --critical-query CRITICAL_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against
                             `--critical`, otherwise the single value is used.
-                            Default: "None"
       --delimiter DELIMITER
                             CSV delimiter. Default: `","`
       --filename FILENAME   Path to CSV file. This is mutually exclusive with -u /
@@ -155,13 +153,11 @@ Help
                             exclusive with --filename.
       --username USERNAME   SMB or HTTP Basic Auth Username.
       -w WARN, --warning WARN
-                            Set the WARN threshold. Supports ranges. Default:
-                            "None"
+                            Set the WARN threshold. Supports ranges.
       --warning-query WARNING_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against
                             `--warning`, otherwise the single value is used.
-                            Default: "None"
 
 
 Usage Examples

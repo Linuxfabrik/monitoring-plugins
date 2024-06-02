@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024053101'
+__version__ = '2024060201'
 
 DESCRIPTION = """This check imports a CSV file into an SQLite database and can then run a separate
                  warning query and/or a critical query against it. The result - the number of
@@ -71,7 +71,8 @@ def parse_args():
     parser.add_argument(
         '--chunksize',
         help='Breaks up the transfer of data from the csv to the SQLite database in chunks as '
-             'to not run out of memory. Default: %(default)s',
+             'to not run out of memory. '
+             'Default: %(default)s',
         dest='CHUNKSIZE',
         type=int,
         default=DEFAULT_CHUNKSIZE,
@@ -87,21 +88,21 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold. Supports ranges. Default: "%(default)s"',
+        help='Set the CRIT threshold. Supports ranges.',
         dest='CRIT',
     )
 
     parser.add_argument(
         '--critical-query',
         help='`SELECT` statement. If its result contains more than one column, the number of rows '
-             'is checked against `--critical`, otherwise the single value is used. '
-             'Default: "%(default)s"',
+             'is checked against `--critical`, otherwise the single value is used.',
         dest='CRITICAL_QUERY',
     )
 
     parser.add_argument(
         '--delimiter',
-        help='CSV delimiter. Default: `"%(default)s"`',
+        help='CSV delimiter. '
+             'Default: `"%(default)s"`',
         dest='DELIMITER',
         default=DEFAULT_DELIMITER,
     )
@@ -116,7 +117,8 @@ def parse_args():
     parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" '
-             'SSL connections. Default: %(default)s',
+             'SSL connections. '
+             'Default: %(default)s',
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -130,14 +132,16 @@ def parse_args():
              '`""`, universal newlines mode is enabled, but line endings are returned to this '
              'plugin untranslated. If it has any of the other legal values, input lines are only '
              'terminated by the given string, and the line ending is returned to this plugin '
-             'untranslated. Default: %(default)s',
+             'untranslated. '
+             'Default: %(default)s',
         dest='NEWLINE',
         default=DEFAULT_NEWLINE,
     )
 
     parser.add_argument(
         '--no-proxy',
-        help='Do not use a proxy. Default: %(default)s',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -151,14 +155,16 @@ def parse_args():
 
     parser.add_argument(
         '--quotechar',
-        help='CSV quotechar. Default: `%(default)s`',
+        help='CSV quotechar. '
+             'Default: `%(default)s`',
         dest='QUOTECHAR',
         default=DEFAULT_QUOTECHAR,
     )
 
     parser.add_argument(
         '--skip-header',
-        help='Treat the first row as header names, and skip this row. Default: %(default)s',
+        help='Treat the first row as header names, and skip this row. '
+             'Default: %(default)s',
         dest='SKIP_HEADER',
         action='store_true',
         default=DEFAULT_SKIP_HEADER,
@@ -166,7 +172,8 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -188,15 +195,14 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold. Supports ranges. Default: "%(default)s"',
+        help='Set the WARN threshold. Supports ranges.',
         dest='WARN',
     )
 
     parser.add_argument(
         '--warning-query',
         help='`SELECT` statement. If its result contains more than one column, the number of rows '
-             'is checked against `--warning`, otherwise the single value is used. '
-             'Default: "%(default)s"',
+             'is checked against `--warning`, otherwise the single value is used.',
         dest='WARNING_QUERY',
     )
 
@@ -248,10 +254,6 @@ def main():
 
     if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
         lib.base.cu('Nothing to check, no queries provided.')
-    if args.WARNING_QUERY is None:
-        args.WARNING_QUERY = ''
-    if args.CRITICAL_QUERY is None:
-        args.CRITICAL_QUERY = ''
 
     # fetch data in various ways (file, url, smb)
     if args.FILENAME and args.URL:
