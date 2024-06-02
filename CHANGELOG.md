@@ -9,6 +9,15 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 [Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2024052901...HEAD
 
 
+## [Unreleased]
+
+### Added
+
+Monitoring Plugins:
+
+* mysql-query
+
+
 ## 2024052901
 
 ### Breaking Changes
