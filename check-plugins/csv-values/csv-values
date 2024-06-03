@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024060201'
+__version__ = '2024060301'
 
 DESCRIPTION = """This check imports a CSV file into an SQLite database and can then run a separate
                  warning query and/or a critical query against it. The result - the number of
@@ -224,21 +224,20 @@ def get_state_and_value(conn, query, threshold, _type):
             if len(result) == 1 and len(result[0]) == 1:
                 # one row, one column: could be a "select count(*) from ..." result
                 value = list(result[0].values())[0]
-                if _type == 'warn':
-                    state = lib.base.get_state(value, threshold, None, _operator='range')
-                else:
-                    state = lib.base.get_state(value, None, threshold, _operator='range')
             else:
                 # a bunch of rows (at least one) with multiple columns, so count them
                 value = len(result)
-                if _type == 'warn':
-                    state = lib.base.get_state(value, threshold, None, _operator='range')
-                else:
-                    state = lib.base.get_state(value, None, threshold, _operator='range')
+                # shorten the result if there are too many rows
                 if len(result) > 10:
                     # shorten the result
                     result = result[0:5] + result[-5:]
                     shortened = True
+
+            if _type == 'warn':
+                state = lib.base.get_state(value, threshold, None, _operator='range')
+            else:
+                state = lib.base.get_state(value, None, threshold, _operator='range')
+
     return state, value, result, shortened
 
 
