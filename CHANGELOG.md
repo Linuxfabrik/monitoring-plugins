@@ -17,6 +17,10 @@ Monitoring Plugins:
 
 * mysql-query
 
+CI/CD:
+
+* Added Ubuntu 24.04
+
 
 ## 2024052901
 
