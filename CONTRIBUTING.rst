@@ -413,7 +413,7 @@ We use `PEP 8 -- Style Guide for Python Code <https://www.python.org/dev/peps/pe
 docstring, pydoc
 ----------------
 
-We document our `Libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ using docstrings, so that calling ``pydoc lib/base.py`` works, for example.
+We document our `Libraries <https://git.linuxfabrik.ch/linuxfabrik/lib>`_ using `numpydoc docstrings <https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard>`_, so that calling ``pydoc lib/base.py`` works, for example.
 
 
 PyLint
