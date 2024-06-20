@@ -16,10 +16,10 @@ If you already have a license, log in to Avelon and click on Settings in the use
 
 Links:
 
-* Avelon: https://avelon.com
-* Avelon Cloud Platform: https://avelon.cloud
-* Avelon Documentation: https://avelon.cloud/docs
-* API Documentation: https://avelon.cloud/swagger/swagger-ui/index.html?urls.primaryName=Public%20API#
+* `Avelon <https://avelon.com>`_
+* `Avelon Cloud Platform <https://avelon.cloud>`_
+* `Avelon Documentation <https://avelon.cloud/docs>`_
+* `API Documentation <https://avelon.cloud/swagger/swagger-ui/index.html?urls.primaryName=Public%20API#>`_
 
 
 Fact Sheet
