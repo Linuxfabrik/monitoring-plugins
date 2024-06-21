@@ -12,6 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
+import datetime # pylint: disable=C0413
 import json  # pylint: disable=C0413
 import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
@@ -33,18 +34,19 @@ DESCRIPTION = """The current tickets (alerts) of your Avelon Cloud are being rev
                  and depending on their status, critical alerts or warnings can be triggered. 
                  You need a license to access the public API of the Avelon Cloud."""
 
-DEFAULT_NO_CLOSED_TICKET = True
-DEFAULT_VERIFY  = True
-DEFAULT_PROXIES = {}
+DEFAULT_CLOSED_TICKET = False
+DEFAULT_CRIT = []
+DEFAULT_INSECURE  = False
+DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
-
-
+DEFAULT_WARN = ['ACKNOWLEDGED', 'OPEN']
 
 def parse_args():
     """Parse command line arguments using argparse.
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
+# parameter alphabetisch
     parser.add_argument(
         '-V', '--version',
         action='version',
@@ -72,12 +74,42 @@ def parse_args():
         dest='CLIENT_SECRET',
         required=True,
     )
+    
+    parser.add_argument(
+        '--closed-ticket',
+        help='The option allows viewing the closed alarms as well. '
+             'Default: %(default)s',
+        dest='CLOSED_TICKET',
+        action='store_true',
+        default=DEFAULT_CLOSED_TICKET,
+    )
 
     parser.add_argument(
-        '--username',
-        help='Avelon Cloud username. ',
-        dest='USERNAME',
-        required=True,
+        '-c', '--critical',
+        help='Set the CRIT threshold as a status of the ticket (alarm). '
+             'Default: >= %(default)s',
+        nargs='*',
+        choices=['ACKNOWLEDGED', 'OPEN'],
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
     )
 
     parser.add_argument(
@@ -88,30 +120,18 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-closed-ticket',
-        help='The option allows viewing the closed alarms as well. '
-             'Default: %(default)s',
-        dest='NO_CLOSED_TICKET',
-        default=DEFAULT_NO_CLOSED_TICKET,
+        '--username',
+        help='Avelon Cloud username. ',
+        dest='USERNAME',
+        required=True,
     )
 
     parser.add_argument(
-        '--verify',
-        help='This option explicitly allows to perform "insecure" SSL '
-             'connections. '
-             'Default: %(default)s',
-        dest='VERIFY',
-        default=DEFAULT_VERIFY,
-    )
-
-    parser.add_argument(
-        '--proxies',
-        help='This option allows you to set specific proxies. '
-             'For no proxy: {"http": None, "https": None}. '
-             'Default: %(default)s (System Proxy)',
-        dest='PROXIES',
-        action='store_true',
-        default=DEFAULT_PROXIES,
+        '--test',
+        help='For unit tests. '
+             'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
     )
 
     parser.add_argument(
@@ -124,11 +144,13 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--test',
-        help='For unit tests. '
-             'Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
-        dest='TEST',
-        type=lib.args.csv,
+        '-w', '--warning',
+        help='Set the WARN threshold as a status of the ticket (alarm). '
+             'Default: >= %(default)s',
+        nargs='*',
+        choices=['ACKNOWLEDGED', 'OPEN'],
+        dest='WARN',
+        default=DEFAULT_WARN,
     )
 
     return parser.parse_args()
@@ -137,7 +159,6 @@ def parse_args():
 def main():
     """The main function.
     """
-
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -156,16 +177,16 @@ def main():
             client_secret=args.CLIENT_SECRET,
             username=args.USERNAME,
             password=args.PASSWORD,
-            verify=args.VERIFY,
-            proxies=args.PROXIES,
+            #insecure=args.INSECURE,
+            #no-proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         )
 
         # get tickets
         tickets = lib.avelon.get_tickets(
             access_token=token['access_token'],
-            verify=args.VERIFY,
-            proxies=args.PROXIES,
+            #insecure=args.INSECURE,
+            #no-proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         )
     else:
@@ -174,28 +195,27 @@ def main():
         tickets = json.loads(stdout)
 
     # analyze tickets
-    used_state = STATE_OK
-    locked_state = STATE_OK
-
-
     for ticket in tickets:
-        state = lib.base.get_worst(state, used_state)
-
-        if ticket['type'] == 'ALARM' and ticket['status'] == 'CLOSED':
+        if ticket['type'] == 'ALARM':
             locked_state = STATE_OK
-        if ticket['type'] == 'ALARM' and ticket['status'] == 'ACKNOWLEDGED':
-            locked_state = STATE_WARN
-        elif ticket['type'] == 'ALARM' and ticket['status'] == 'OPEN':
-            locked_state = STATE_CRIT
+            if ticket['status'] in args.CRIT:
+                locked_state = STATE_CRIT
+            elif ticket['status'] in args.WARN:
+                locked_state = STATE_WARN
+            state = lib.base.get_worst(state, locked_state)
         
-        state = lib.base.get_worst(state, locked_state)
-        ticket['state'] = lib.base.state2str(locked_state, prefix='')
-        
-        # Ticket filter
-        if args.NO_CLOSED_TICKET == 'True' and ticket['status'] != 'CLOSED':
-            ticket_data.append(ticket)
-        elif args.NO_CLOSED_TICKET == 'False':
-            ticket_data.append(ticket)
+            # Format timestamp
+            timestamp = datetime.datetime.strptime(ticket['created'], "%Y-%m-%dT%H:%M:%S.%f%z").strftime("%Y-%m-%d %H:%M:%S")
+
+            # Ticket filter for CLOSED tickets
+            if ticket['status'] != 'CLOSED' or args.CLOSED_TICKET:
+                # build ticket_data
+                ticket_data.append({
+                    'id': ticket['id'],
+                    'timestamp': timestamp + ' (' + lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type='iso'), timestamp)) + ' ago)',
+                    'msg': re.sub(r'^ALARM: ', '', ticket['message']),
+                    'state': ticket['status'] + lib.base.state2str(locked_state, prefix=' '),
+                })
 
     if state == STATE_CRIT:
         msg = 'There are open alarm ticket(s).\n\n' + msg
@@ -204,34 +224,30 @@ def main():
     else:
         msg = 'Everything is ok.\n\n' + msg
 
- # build the message
+    # build the message
     if ticket_data:
         keys = [
             'id',
-            'created',
-            'type',
-            'message',
-            'status',
+            'timestamp',
+            'msg',
             'state',
         ]
         headers = [
             'ID',
             'Timestamp',
-            'Type',
             'Message',
-            'Status',
             'State',
         ]
-    
     if ticket_data:
         msg += lib.base.get_table(
                 sorted(ticket_data, key=lambda d: d['id']),
                 keys,
                 header=headers,
             )
-    
+
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
 
 if __name__ == '__main__':
     try:

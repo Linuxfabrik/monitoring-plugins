@@ -31,7 +31,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/avelon-tickets"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux"
+    "Compiled for",                         "Linux, Windows"
 
 
 Help
@@ -39,63 +39,82 @@ Help
 
 .. code-block:: text
 
-    usage: avelon-tickets   [-h] [-V] [--always-ok] [--client-id] [--client-secret]
-                            [--username] [--password] [--no-closed-ticket]
-                            [--verify] [--proxies] [--timeout] [--test]
+    usage: avelon-tickets [-h] [-V] [--always-ok] --client-id CLIENT_ID --client-secret CLIENT_SECRET [--closed-ticket]
+                          [-c [{ACKNOWLEDGED,OPEN} ...]] [--insecure] [--no-proxy] --password PASSWORD --username USERNAME
+                          [--test TEST] [--timeout TIMEOUT] [-w [{ACKNOWLEDGED,OPEN} ...]]
 
-    The current tickets (alerts) of your Avelon Cloud are being reviewed, and depending on their status, critical alerts or warnings can be triggered. You    
-    need a license to access the public API of the Avelon Cloud.
+	The current tickets (alerts) of your Avelon Cloud are being reviewed, and depending on their status, critical alerts
+  or warnings can be triggered. You need a license to access the public API of the Avelon Cloud.
 
-    options:
-  		-h, --help            show this help message and exit
-  		-V, --version         show program's version number and exit
-  		--always-ok           Always returns OK.
-  		--client-id 					Avelon API client_id.
-  		--client-secret				Avelon API client_secret.
-  		--username    				Avelon Cloud username.
-  		--password    				Avelon Cloud password.
-  		--no-closed-ticket 		The option allows viewing the closed alarms as well. Default: True
-  		--verify        			This option explicitly allows to perform "insecure" SSL connections. Default: True
-  		--proxies             This option allows you to set specific proxies. For no proxy: {"http": None, "https": None}. Default: {} (System Proxy)
-  		--timeout      				Network timeout in seconds. Default: 8 (seconds)
-  		--test            		For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".
+	options:
+	  -h, --help            show this help message and exit
+    -V, --version         show program's version number and exit
+    --always-ok           Always returns OK.
+    --client-id CLIENT_ID
+                         Avelon API client_id.
+    --client-secret CLIENT_SECRET
+                          Avelon API client_secret.
+    --closed-ticket       The option allows viewing the closed alarms as well. Default: False
+    -c [{ACKNOWLEDGED,OPEN} ...], --critical [{ACKNOWLEDGED,OPEN} ...]
+                          Set the CRIT threshold as a status of the ticket (alarm). Default: >= []
+    --insecure            This option explicitly allows to perform "insecure" SSL connections. Default: False
+    --no-proxy            Do not use a proxy. Default: False
+    --password PASSWORD   Avelon Cloud password.
+    --username USERNAME   Avelon Cloud username.
+    --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".
+    --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+    -w [{ACKNOWLEDGED,OPEN} ...], --warning [{ACKNOWLEDGED,OPEN} ...]
+                        Set the WARN threshold as a status of the ticket (alarm). Default: >= ['ACKNOWLEDGED', 'OPEN']
 
 
 Usage Examples
 --------------
 
 .. code-block:: bash
-		./avelon-tickets --client-id "CLIENT_ID" --client-secret "CLIENT_SECRET" --username "USER" --password "PASSWORD" --no-closed-ticket "False"
+		./avelon-tickets --client-id CLIENT_ID --client-secret CLIENT_SECRET --username USER --password PASSWORD --critical ACKNOWLEDGED OPEN
 
 Output:
 
 .. code-block:: text
-
     There are open alarm ticket(s).
 
-		ID       ! Timestamp                     ! Type  ! Message                                                                 ! Status       ! State      
-		---------+-------------------------------+-------+-------------------------------------------------------------------------+--------------+------------
-		13910313 ! 2024-06-13T07:43:53.000+02:00 ! ALARM ! ALARM: Abschaltend: 6102/5/33: Differenzdruck DP101 zu tief             ! CLOSED       !
-		13910314 ! 2024-06-13T07:43:54.000+02:00 ! ALARM ! ALARM: Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED       !
-		13911337 ! 2024-06-13T13:40:39.000+02:00 ! ALARM ! ALARM: Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED       !
-		13912010 ! 2024-06-13T17:37:13.000+02:00 ! ALARM ! ALARM: Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED       !
-		13915922 ! 2024-06-14T23:58:36.000+02:00 ! ALARM ! ALARM: Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED       !
-		13915923 ! 2024-06-14T23:58:36.000+02:00 ! ALARM ! ALARM: Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED       !
-		13916766 ! 2024-06-15T07:19:26.000+02:00 ! ALARM ! ALARM: Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED       !
-		13927572 ! 2024-06-18T19:46:56.000+02:00 ! ALARM ! ALARM: Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung      ! OPEN         ! [CRITICAL]    
-		13927573 ! 2024-06-18T19:46:56.000+02:00 ! ALARM ! ALARM: Störung: 6102/5/0: Anlage Zustand Störung                        ! ACKNOWLEDGED ! [WARNING]  
+    ID       ! Timestamp                        ! Message                                                     ! State
+    ---------+----------------------------------+-------------------------------------------------------------+-------------------------
+    13927572 ! 2024-06-18 19:46:56 (2D 13h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [CRITICAL]
+    13927573 ! 2024-06-18 19:46:56 (2D 13h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                   ! ACKNOWLEDGED [CRITICAL]
+
+
+
+.. code-block:: bash
+		./avelon-tickets --client-id CLIENT_ID --client-secret CLIENT_SECRET --username USER --password PASSWORD --closed-ticket --warning ACKNOWLEDGED --critical OPEN
+
+Output:
+
+.. code-block:: text
+		There are open alarm ticket(s).
+
+    ID       ! Timestamp                        ! Message                                                          ! State
+    ---------+----------------------------------+------------------------------------------------------------------+------------------------
+    13910314 ! 2024-06-13 07:43:54 (1W 1D ago)  ! Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED
+    13911337 ! 2024-06-13 13:40:39 (1W 19h ago) ! Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED
+    13912010 ! 2024-06-13 17:37:13 (1W 15h ago) ! Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED
+    13915922 ! 2024-06-14 23:58:36 (6D 9h ago)  ! Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED
+    13915923 ! 2024-06-14 23:58:36 (6D 9h ago)  ! Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED
+    13916766 ! 2024-06-15 07:19:26 (6D 1h ago)  ! Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED
+    13927572 ! 2024-06-18 19:46:56 (2D 13h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung      ! OPEN [CRITICAL]
+    13927573 ! 2024-06-18 19:46:56 (2D 13h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                        ! ACKNOWLEDGED [WARNING]
 
 
 States
 ------
 
-Needs to be added.
+* WARN or CRIT if a ticket (alarm) status matches the defined values (ACKNOWLEDGED / OPEN).
 
 
 Perfdata / Metrics
 ------------------
 
-Needs to be added.
+There is no perfdata.
 
 
 Credits, License
