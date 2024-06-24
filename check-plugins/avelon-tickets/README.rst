@@ -76,12 +76,12 @@ Usage Examples
 Output:
 
 .. code-block:: text
-    There are open alarm ticket(s).
+    There are CRITICAL alarm ticket(s).
 
     ID       ! Timestamp                        ! Message                                                     ! State
     ---------+----------------------------------+-------------------------------------------------------------+-------------------------
-    13927572 ! 2024-06-18 19:46:56 (2D 13h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [CRITICAL]
-    13927573 ! 2024-06-18 19:46:56 (2D 13h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                   ! ACKNOWLEDGED [CRITICAL]
+    13927572 ! 2024-06-18 19:46:56 (5D 14h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [CRITICAL]
+    13927573 ! 2024-06-18 19:46:56 (5D 14h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                   ! ACKNOWLEDGED [CRITICAL]
 
 
 
@@ -91,18 +91,12 @@ Output:
 Output:
 
 .. code-block:: text
-		There are open alarm ticket(s).
-
-    ID       ! Timestamp                        ! Message                                                          ! State
-    ---------+----------------------------------+------------------------------------------------------------------+------------------------
-    13910314 ! 2024-06-13 07:43:54 (1W 1D ago)  ! Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED
-    13911337 ! 2024-06-13 13:40:39 (1W 19h ago) ! Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED
-    13912010 ! 2024-06-13 17:37:13 (1W 15h ago) ! Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED
-    13915922 ! 2024-06-14 23:58:36 (6D 9h ago)  ! Störung: 6102/5/5: Vorlauftemperatur TT201 zu tief -> Notkühlung ! CLOSED
-    13915923 ! 2024-06-14 23:58:36 (6D 9h ago)  ! Störung: 6102/5/0: Anlage Zustand Störung                        ! CLOSED
-    13916766 ! 2024-06-15 07:19:26 (6D 1h ago)  ! Störung: 6102/0/6: Vorlauftemperatur TT201                       ! CLOSED
-    13927572 ! 2024-06-18 19:46:56 (2D 13h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung      ! OPEN [CRITICAL]
-    13927573 ! 2024-06-18 19:46:56 (2D 13h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                        ! ACKNOWLEDGED [WARNING]
+    There are CRITICAL alarm ticket(s).
+    
+    ID       ! Timestamp                        ! Message                                                     ! State
+    ---------+----------------------------------+-------------------------------------------------------------+-----------------
+    13927572 ! 2024-06-18 19:46:56 (5D 14h ago) ! Abschaltend: 6102/5/22: Durchfluss Notkühlung FQ201 Störung ! OPEN [CRITICAL]
+    13927573 ! 2024-06-18 19:46:56 (5D 14h ago) ! Störung: 6102/5/0: Anlage Zustand Störung                   ! CLOSED
 
 
 States
