@@ -44,7 +44,7 @@ Help
                           [--test TEST] [--timeout TIMEOUT] [-w [{ACKNOWLEDGED,OPEN} ...]]
 
 	The current tickets (alerts) of your Avelon Cloud are being reviewed, and depending on their status, critical alerts
-  or warnings can be triggered. You need a license to access the public API of the Avelon Cloud.
+    or warnings can be triggered. You need a license to access the public API of the Avelon Cloud.
 
 	options:
 	  -h, --help            show this help message and exit
