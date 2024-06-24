@@ -172,21 +172,20 @@ def main():
 
     if args.TEST is None:
         # get token
-        token = lib.avelon.get_token(
+        success, token = lib.avelon.get_token(
             client_id=args.CLIENT_ID,
             client_secret=args.CLIENT_SECRET,
             username=args.USERNAME,
             password=args.PASSWORD,
-            #insecure=args.INSECURE,
-            #no-proxy=args.NO_PROXY,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         )
-
         # get tickets
-        tickets = lib.avelon.get_tickets(
+        success, tickets = lib.avelon.get_tickets(
             access_token=token['access_token'],
-            #insecure=args.INSECURE,
-            #no-proxy=args.NO_PROXY,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
             timeout=args.TIMEOUT,
         )
     else:
@@ -218,9 +217,9 @@ def main():
                 })
 
     if state == STATE_CRIT:
-        msg = 'There are open alarm ticket(s).\n\n' + msg
+        msg = 'There are CRITICAL alarm ticket(s).\n\n' + msg
     elif state == STATE_WARN:
-        msg = 'There are acknowledged alarm ticket(s).\n\n' + msg
+        msg = 'There are WARNING alarm ticket(s).\n\n' + msg
     else:
         msg = 'Everything is ok.\n\n' + msg
 
