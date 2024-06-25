@@ -36,7 +36,7 @@
                     "value": "$avelon_tickets_warning$"
                 }
             },
-            "command": "/usr/lib64/nagios/plugins/avelon-tickets",
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/avelon-tickets",
             "disabled": false,
             "fields": [
                 {
@@ -100,10 +100,10 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-avelon-tickets",
             "object_type": "object",
-            "timeout": "10",
+            "timeout": 30,
             "vars": {},
             "zone": null,
-            "uuid": "27c38f6e-7794-4779-bb22-06427b81c69b"
+            "uuid": "f7d99c91-6923-4361-b5c7-ffd10a25bef0"
         }
     },
     "ServiceTemplate": {
@@ -123,7 +123,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": null,
+            "enable_perfdata": false,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -135,7 +135,7 @@
             "imports": [
                 "tpl-service-generic"
             ],
-            "max_check_attempts": 5,
+            "max_check_attempts": 4,
             "notes": "The current tickets (alerts) of your Avelon Cloud are being reviewed,  and depending on their status, critical alerts or warnings can be triggered.  You need a license to access the public API of the Avelon Cloud.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/avelon-tickets",
             "object_name": "tpl-service-avelon-tickets",
@@ -160,7 +160,7 @@
             },
             "volatile": null,
             "zone": null,
-            "uuid": "72ebd251-a7e1-46c9-96ec-e2e9171a1c95"
+            "uuid": "f4647c7f-2c0c-468f-a377-3ff12ce7d767"
         }
     },
     "DataList": {
@@ -181,7 +181,7 @@
                     "allowed_roles": null
                 }
             ],
-            "uuid": "114fcb86-4900-453b-9e64-303fa2f638f6"
+            "uuid": "5ae39edc-f13f-4506-b262-a560ed8e14ab"
         },
         "avelon_tickets_warning_list": {
             "list_name": "avelon_tickets_warning_list",
@@ -200,7 +200,7 @@
                     "allowed_roles": null
                 }
             ],
-            "uuid": "64821afe-7c6c-4e23-8873-1aa50f3f7f69"
+            "uuid": "718d6db3-506b-4fcd-82e8-e81627a2d7fa"
         }
     },
     "Datafield": {
@@ -211,29 +211,29 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "bde331e1-c00f-43f5-b5b7-f25a7e72afc4"
+            "uuid": "e88f77d4-7b9e-4b67-a9af-0d33b0ffdff4"
         },
         "2": {
             "varname": "avelon_tickets_client_id",
             "caption": "Avelon Tickets: Client ID",
-            "description": "Avelon API client_id. ",
+            "description": "Avelon API client_id.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "2fd5a224-5502-4a9d-8b84-bb5db08f456f"
+            "uuid": "45134e33-0512-4ccb-847e-de0680b11329"
         },
         "3": {
             "varname": "avelon_tickets_client_secret",
             "caption": "Avelon Tickets: Client Secret",
-            "description": "Avelon API client_secret. ",
+            "description": "Avelon API client_secret.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "fdfba414-1eb5-4af5-a3ef-297d7fd4d9fb"
+            "uuid": "99b06461-8a91-4758-bad3-be14260bb266"
         },
         "4": {
             "varname": "avelon_tickets_closed_ticket",
@@ -242,7 +242,7 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "e17071ed-4cbf-4ae0-9ff5-4ce3600fb16c"
+            "uuid": "4c442f02-d8fd-4974-becb-a70df0a3fc91"
         },
         "5": {
             "varname": "avelon_tickets_critical",
@@ -255,7 +255,7 @@
                 "data_type": "string",
                 "datalist": "avelon_tickets_critical_list"
             },
-            "uuid": "4463b65e-4f30-4cfe-bd60-9bc5e313adfb"
+            "uuid": "4c74e768-a59a-4528-8dde-51dca4e35179"
         },
         "6": {
             "varname": "avelon_tickets_insecure",
@@ -264,16 +264,16 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "a9bc9f1a-fa18-4f01-b985-b59b675ae886"
+            "uuid": "15de73ca-d519-4405-8668-b71c53ed7261"
         },
         "7": {
             "varname": "avelon_tickets_no_proxy",
             "caption": "Avelon Tickets: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy.Default: %(default)s",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
-            "uuid": "7d0508e4-5254-4deb-b7c9-7b24779c55b6"
+            "uuid": "91657baf-a22d-451d-80ff-ff64b1534946"
         },
         "8": {
             "varname": "avelon_tickets_password",
@@ -284,18 +284,18 @@
             "settings": {
                 "visibility": "hidden"
             },
-            "uuid": "da50db44-2085-4294-93a2-443718777168"
+            "uuid": "4bf89922-97e9-475a-8bf4-a05ff731a982"
         },
         "9": {
             "varname": "avelon_tickets_username",
             "caption": "Avelon Tickets: Username",
-            "description": "Avelon Cloud username. ",
+            "description": "Avelon Cloud username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "fececbee-e624-400f-bb61-98782f2d5154"
+            "uuid": "e72417d9-80b1-4321-ae82-658baf79f1a7"
         },
         "10": {
             "varname": "avelon_tickets_timeout",
@@ -306,7 +306,7 @@
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "9915e597-72c0-4bc4-9256-05a42dd9a503"
+            "uuid": "03fcd395-5940-41fc-8702-0f82537c5601"
         },
         "11": {
             "varname": "avelon_tickets_warning",
@@ -319,7 +319,7 @@
                 "data_type": "string",
                 "datalist": "avelon_tickets_warning_list"
             },
-            "uuid": "ea3a37f0-5ecc-4731-9d6d-aa40df8ce441"
+            "uuid": "51378d3f-b08e-4371-90cf-7d2f9a70b13b"
         }
     }
 }
