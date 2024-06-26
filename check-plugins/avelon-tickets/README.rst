@@ -40,11 +40,11 @@ Help
 .. code-block:: text
 
     usage: avelon-tickets [-h] [-V] [--always-ok] --client-id CLIENT_ID --client-secret CLIENT_SECRET [--closed-ticket]
-                          [-c [{ACKNOWLEDGED,OPEN} ...]] [--insecure] [--no-proxy] --password PASSWORD --username USERNAME
-                          [--test TEST] [--timeout TIMEOUT] [-w [{ACKNOWLEDGED,OPEN} ...]]
+                          [-c [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...]] [--insecure] [--no-proxy] --password PASSWORD --username
+                          USERNAME [--test TEST] [--timeout TIMEOUT] [-w [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...]]
 
-    The current tickets (alerts) of your Avelon Cloud are being reviewed, and depending on their status, critical alerts
-    or warnings can be triggered. You need a license to access the public API of the Avelon Cloud.
+    The current tickets (alerts) of your Avelon Cloud are being reviewed, and depending on their status, critical alerts or warnings can be        
+    triggered. You need a license to access the public API of the Avelon Cloud.
 
     options:
       -h, --help            show this help message and exit
@@ -55,16 +55,17 @@ Help
       --client-secret CLIENT_SECRET
                             Avelon API client_secret.
       --closed-ticket       The option allows viewing the closed alarms as well. Default: False
-      -c [{ACKNOWLEDGED,OPEN} ...], --critical [{ACKNOWLEDGED,OPEN} ...]
+      -c [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...], --critical [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...]
                             Set the CRIT threshold as a status of the ticket (alarm). Default: >= []
       --insecure            This option explicitly allows to perform "insecure" SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
+      --no-proxy            Do not use a proxy.Default: False
       --password PASSWORD   Avelon Cloud password.
       --username USERNAME   Avelon Cloud username.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -w [{ACKNOWLEDGED,OPEN} ...], --warning [{ACKNOWLEDGED,OPEN} ...]
-                            Set the WARN threshold as a status of the ticket (alarm). Default: >= ['ACKNOWLEDGED', 'OPEN']
+      -w [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...], --warning [{ACKNOWLEDGED,ACKNOWLEDGED_AND_GONE,GONE,OPEN} ...]
+                            Set the WARN threshold as a status of the ticket (alarm). Default: >= ['ACKNOWLEDGED', 'ACKNOWLEDGED_AND_GONE',        
+                            'GONE', 'OPEN']
 
 
 Usage Examples
@@ -89,7 +90,7 @@ Output:
 States
 ------
 
-* WARN or CRIT if a ticket (alarm) status matches the defined values (ACKNOWLEDGED / OPEN).
+* WARN or CRIT if a ticket (alarm) status matches the defined values (ACKNOWLEDGED, ACKNOWLEDGED_AND_GONE, GONE and OPEN).
 
 
 Perfdata / Metrics
