@@ -15,6 +15,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Icinga Director:
 
+* crypto-policy: New defaults according to LFOps crypto_policy role
 * mysql-query: fix director basket
 
 
