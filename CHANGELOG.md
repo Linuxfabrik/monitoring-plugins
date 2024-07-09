@@ -18,6 +18,9 @@ Icinga Director:
 * crypto-policy: New defaults according to LFOps crypto_policy role
 * mysql-query: fix director basket
 
+Monitoring Plugins:
+
+* service: Implement `--starttype` as code was missing; implement unit-tests
 
 
 ## 2024060401
