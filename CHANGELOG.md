@@ -11,16 +11,19 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
+
+
 ### Fixed ("bug")
 
 Icinga Director:
 
 * crypto-policy: New defaults according to LFOps crypto_policy role
-* mysql-query: fix director basket
-
-Monitoring Plugins:
-
-* service: Implement `--starttype` as code was missing; implement unit-tests
+* mysql-query: Fix director basket
 
 
 ## 2024060401

@@ -16,7 +16,8 @@ Example:
 Hints:
 
 * For use in Icinga Director: If the service name contains a ``$``, this dollar sign must be escaped with another dollar sign. Since the plugin is capable of regular expressions, this character must also be escaped with a backslash. So if you want to check ``my$service``, you have to specify ``my\$$service``.
-* On the command line: If you want to check ``my$service``, you have to specify ``my\$service``.
+* On the Windows command line: If you want to check ``my$service``, you have to specify ``my\$service``.
+* On the Windows command line: Only use double quotes to provide regexes to ``--service``; if running unit tests on Linux, use single quotes instead.
 
 
 Fact Sheet
@@ -74,7 +75,7 @@ Check that exactly one service named "BFE" (exact match) is running, otherwise W
 
 .. code-block:: bash
 
-    service --service='^bfe$' --status=running --warning=1:1
+    service --service="^bfe$" --status=running --warning=1:1
 
 Output:
 
@@ -90,7 +91,7 @@ Check that there are at least 10 but not more than 20 Windows Services named "my
 
 .. code-block:: bash
 
-    service --service='^myapp[0-9]{4}$' --starttype=automatic --status=running --warning=10:19
+    service --service="^myapp[0-9]{4}$" --starttype=automatic --status=running --warning=10:19
 
 Output:
 
@@ -107,7 +108,7 @@ Check that ALL services with startup type "automatic" are running, except for a 
 
 .. code-block:: bash
 
-    service --service='^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$' --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning 0
+    service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning 0
 
 Output (shortened):
 

@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024070901'
+__version__ = '2024070902'
 
 DESCRIPTION = '''Checks the state of one or more Windows services. You have to provide the
                  case-insensitive "Service Name", not the "Display Name". Supports Python regular
@@ -192,8 +192,10 @@ def main():
     except re.error as rerr:
         lib.base.cu('Invalid regex "{}": {}'.format(args.SERVICE, rerr))
     except psutil.NoSuchProcess:
-        lib.base.cu('Service `{}` not found'.format(args.SERVICE))
+        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
 
+    if not table_data:
+        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
     svc_cnt = len(table_data)
 
     # build the message
