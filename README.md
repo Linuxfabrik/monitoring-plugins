@@ -373,6 +373,11 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rs
 
 ## Tips & Tricks
 
+Q: **I get `Query failed: ...` and/or `Error: no such column` after updating a plugin.**
+
+A: This happens to plugins that define an updated database structure for their local SQLite database(s). We do not implement db migration instructions when tinkering with the check's sqlite structure, as the contents of the db files are only temporary (which is why they are in `$TEMP`). After an update, it is always a good idea to delete `$TEMP/linuxfabrik-*.db` and try again.
+
+
 Q: **How can I remove the performance data after the `|` from the check output?**
 
 A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
