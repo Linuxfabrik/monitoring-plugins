@@ -157,9 +157,6 @@ Per (matched) disk, where <disk> is the block device name:
 Troubleshooting
 ---------------
 
-``Query failed: ...``
-    Delete ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and try again.
-
 ``psutil raised error "not sure how to interpret line '...'"`` or ``Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+``
     Update the ``psutil`` library. On RHEL 8+, use at least ``python38`` and ``python38-psutil`` if using ``dnf``.
 
