@@ -41,7 +41,7 @@ spec:
       name: metric
       query: SHOW TAG VALUES FROM "cmd-check-disk-io"  WITH KEY = "metric"
       refresh: 2
-      regex: /^(.*)_.*_.*_.*_.*$/
+      regex: /^(.*)_.*_.*$/
       sort: 1
       type: query
 
@@ -270,6 +270,142 @@ spec:
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes_per_second15/
+
+  - title: Disk I/O - $metric - IOPs per Second
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 1
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        mappings: []
+        min: 0
+        unit: number
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+
+    targets:
+
+    - alias: read_count_per_second1
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: disk-io-read_count_per_second1
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Disk I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_read_count_per_second1/
+
+    - alias: read_count_per_second5
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: disk-io-read_count_per_second5
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Disk I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_read_count_per_second5/
+
+    - alias: write_count_per_second1
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: disk-io-write_count_per_second1
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Disk I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_write_count_per_second1/
+
+    - alias: write_count_per_second5
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      refId: disk-io-write_count_per_second5
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: =~
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Disk I/O
+      - key: metric
+        operator: =~
+        value: /^${metric}_write_count_per_second5/
 
 
   - title: Disk I/O - $metric - Bytes

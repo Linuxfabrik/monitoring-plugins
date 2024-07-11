@@ -138,16 +138,19 @@ def get_max_bandwidth(disk, current_bandwidth):
     return max_bandwidth
 
 
-def get_rate(ts1, ts2, r1, r2, w1, w2):
+def get_rate(ts1, ts2, rr1, rr2, wr1, wr2, r1, r2, w1, w2):
     """Given two read-, write- and timestamp-values, return the read- and write-rate
-    plus bandwidth.
+    plus bandwidth and iops.
     """
     timediff = abs(ts1 - ts2) # in seconds
     if timediff == 0:
-        return 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, 0
+    rr = abs(int(float(rr1 - rr2) / timediff))
+    wr = abs(int(float(wr1 - wr2) / timediff))
     r = abs(int(float(r1 - r2) / timediff))
     w = abs(int(float(w1 - w2) / timediff))
-    return timediff, r, w, r + w
+
+    return timediff, rr, wr, rr + wr, r, w
 
 
 def top(count):
@@ -214,6 +217,8 @@ def main():
             bd                  TEXT NOT NULL,
             dmd                 TEXT,
             mp                  TEXT,
+            read_count          INT DEFAULT 0,
+            write_count         INT DEFAULT 0,
             busy_time           INT DEFAULT 0,
             read_bytes          INT DEFAULT 0,
             read_merged_count   INT DEFAULT 0,
@@ -244,17 +249,26 @@ def main():
 
     # analyze and enrich data, store it to database
     real_disks = lib.disk.get_real_disks()
+
+    # if match argument is supplied, try the match on all interfaces from pustil disk_io_counters
+    # do not try the match if the interface is already included in real_disks 
+    if args.MATCH:
+        for disk in disk_io_counters.keys():
+            if lib.base.coe(lib.txt.match_regex(compiled_regex, disk)) and not any(disk in x['bd'] for x in real_disks):
+                real_disks.append({'bd': disk, 'dmd': '', 'mp': ''})
+
     for disk in real_disks:
+        psutil_name = os.path.basename(disk['bd'])
+
         # disks we have to match
         if args.MATCH \
         and all((
-            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
+            not lib.base.coe(lib.txt.match_regex(compiled_regex, psutil_name)),
             not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
             not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
         )):
             continue
 
-        psutil_name = os.path.basename(disk['bd'])
         if psutil_name not in disk_io_counters:
             continue
 
@@ -262,7 +276,8 @@ def main():
         data['bd'] = disk['bd']
         data['dmd'] = disk['dmd']
         data['mp'] = disk['mp']
-        # read_count and write_count are the same value over all disks, so simply ignore them
+        data['read_count'] = getattr(disk_io_counters[psutil_name], 'read_count', 0)
+        data['write_count'] = getattr(disk_io_counters[psutil_name], 'write_count', 0)
         data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
         data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
         data['read_merged_count'] = getattr(disk_io_counters[psutil_name], 'read_merged_count', 0)
@@ -300,13 +315,17 @@ def main():
             lib.base.oao('Waiting for more data.', state)
 
         # calculate current rates (like "load1")
-        timediff, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = get_rate(
+        timediff, read_bytes_per_second1, write_bytes_per_second1, bandwidth1, read_per_second1, write_per_second1 = get_rate(
             data[0]['timestamp'],
             data[1]['timestamp'],
             data[0]['read_bytes'],
             data[1]['read_bytes'],
             data[0]['write_bytes'],
             data[1]['write_bytes'],
+            data[0]['read_count'],
+            data[1]['read_count'],
+            data[0]['write_count'],
+            data[1]['write_count']
         )
         if timediff <= 0:
             # often happens after a reboot
@@ -318,28 +337,34 @@ def main():
 
         if bandwidth1 > busiest_disk:
             # get the current busiest disk for the first line of the message
-            msg = '{}: {}/s read1, {}/s write1, {}/s total, {}/s max'.format(
+            msg = '{}: {}/s read1, {}/s write1, {}/s total, {}/s max, {}/s readops, {}/s writeops'.format(
                 disk['bd'],
                 lib.human.bytes2human(read_bytes_per_second1),
                 lib.human.bytes2human(write_bytes_per_second1),
                 lib.human.bytes2human(bandwidth1),
                 lib.human.bytes2human(bandwidth_max),
+                read_per_second1,
+                write_per_second1
             )
             if args.MATCH:
                 msg += ' (disks matching `{}`).'.format(args.MATCH)
             busiest_disk = bandwidth1
 
-        # calculate read/write rate over the entire period (like "load15")
+        # calculate read/write rate over the entire period (like "load5")
         if len(data) != args.COUNT:
             # not enough data yet
             continue
-        timediff, read_bytes_per_second15, write_bytes_per_second15, bandwidth15 = get_rate(
+        timediff, read_bytes_per_second5, write_bytes_per_second5, bandwidth5, read_per_second5, write_per_second5 = get_rate(
             data[0]['timestamp'],
             data[args.COUNT - 1]['timestamp'],
             data[0]['read_bytes'],
             data[args.COUNT - 1]['read_bytes'],
             data[0]['write_bytes'],
             data[args.COUNT - 1]['write_bytes'],
+            data[0]['read_count'],
+            data[args.COUNT - 1]['read_count'],
+            data[0]['write_count'],
+            data[args.COUNT - 1]['write_count'],
         )
         if timediff <= 0:
             # often happens after a reboot
@@ -348,7 +373,7 @@ def main():
 
         # get state based on max measured I/O values
         local_state = lib.base.get_state(
-            bandwidth15,
+            bandwidth5,
             bandwidth_max * args.WARN / 100,
             bandwidth_max * args.CRIT / 100,
         )
@@ -360,21 +385,25 @@ def main():
             'dmd': disk['dmd'].replace('/dev/mapper/', ''),
             'mp': disk['mp'],
             'max': lib.human.bytes2human(bandwidth_max),
-            'r1': lib.human.bytes2human(read_bytes_per_second1),
-            'w1': lib.human.bytes2human(write_bytes_per_second1),
-            'r15': lib.human.bytes2human(read_bytes_per_second15),
-            'w15': lib.human.bytes2human(write_bytes_per_second15),
-            't15': lib.human.bytes2human(bandwidth15) + lib.base.state2str(local_state, prefix=' '),
+            'rr1': lib.human.bytes2human(read_bytes_per_second1),
+            'wr1': lib.human.bytes2human(write_bytes_per_second1),
+            'rr5': lib.human.bytes2human(read_bytes_per_second5),
+            'wr5': lib.human.bytes2human(write_bytes_per_second5),
+            'tr5': lib.human.bytes2human(bandwidth5) + lib.base.state2str(local_state, prefix=' '),
+            'r1': read_per_second1,
+            'w1': write_per_second1,
+            'r5': read_per_second5,
+            'w5': write_per_second5,
         })
 
         # perfdata
         try:
             perfdata += lib.base.get_perfdata('{}_busy_time'.format(bd), data[0]['busy_time'], 'c', None, None, 0, None) # pylint: disable=C0301
             perfdata += lib.base.get_perfdata('{}_read_bytes'.format(bd), data[0]['read_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
-            #perfdata += lib.base.get_perfdata('{}_read_merged_count'.format(bd), data[0]['read_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_read_count'.format(bd), data[0]['read_count'], 'c', None, None, 0, None) # pylint: disable=C0301
             perfdata += lib.base.get_perfdata('{}_read_time'.format(bd), data[0]['read_time'], 'c', None, None, 0, None) # pylint: disable=C0301
             perfdata += lib.base.get_perfdata('{}_write_bytes'.format(bd), data[0]['write_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
-            #perfdata += lib.base.get_perfdata('{}_write_merged_count'.format(bd), data[0]['write_merged_count'], 'c', None, None, 0, None) # pylint: disable=C0301
+            perfdata += lib.base.get_perfdata('{}_write_count'.format(bd), data[0]['write_count'], 'c', None, None, 0, None) # pylint: disable=C0301
             perfdata += lib.base.get_perfdata('{}_write_time'.format(bd), data[0]['write_time'], 'c', None, None, 0, None) # pylint: disable=C0301
         except:
             pass
@@ -391,11 +420,15 @@ def main():
                 'mp',
                 'dmd',
                 'max',
+                'rr1',
+                'wr1',
+                'rr5',
+                'wr5',
+                'tr5',
                 'r1',
                 'w1',
-                'r15',
-                'w15',
-                't15',
+                'r5',
+                'w5'
             ],
             header=[
                 'Name',
@@ -406,7 +439,11 @@ def main():
                 'W1/s',
                 'R{}/s'.format(args.COUNT),
                 'W{}/s'.format(args.COUNT),
-                'RW{}/s'.format(args.COUNT)
+                'RW{}/s'.format(args.COUNT),
+                'R1/s',
+                'W1/s',
+                'R{}/s'.format(args.COUNT),
+                'W{}/s'.format(args.COUNT)
             ],
         )
 
