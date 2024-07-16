@@ -23,7 +23,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * about-me: Determines date of birth of cloud VMs more accurately
-
+* nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 
 ### Fixed ("bug")
 
