@@ -18,6 +18,13 @@ Monitoring Plugins:
 * graylog-version
 
 
+### Changed ("enhancement")
+
+Monitoring Plugins:
+
+* about-me: Determines date of birth of cloud VMs more accurately
+
+
 ### Fixed ("bug")
 
 Icinga Director:
