@@ -218,7 +218,7 @@ The columns in detail:
 * | Ignore in Perfdata (Bool, either "False", "True", or empty)
   | By default, all numeric values are automatically returned as perfdata objects. Set to ``True`` to exclude this item from the perfdata list.
 * | Perfdata Alert Thresholds (Python tuple)
-  | Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple, as comma is the separator between fields. Normally, the values of WARN and CRIT should be repeated here to have the really used thresholds written into the performance data.
+  | Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
 
 The output would be something like this
 
