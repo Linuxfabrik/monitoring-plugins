@@ -373,9 +373,9 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rs
 
 ## Tips & Tricks
 
-Q: **I get `Query failed: ...` and/or `Error: no such column` after updating a plugin.**
+Q: After an update, I get **Operational Error: no such column: ...**, state UNKNOWN. On the next run, this disappears. What happened?
 
-A: This happens to plugins that define an updated database structure for their local SQLite database(s). We do not implement db migration instructions when tinkering with the check's sqlite structure, as the contents of the db files are only temporary (which is why they are in `$TEMP`). After an update, it is always a good idea to delete `$TEMP/linuxfabrik-*.db` and try again.
+A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
 
 
 Q: **How can I remove the performance data after the `|` from the check output?**
@@ -420,3 +420,5 @@ Output lines | Performance data
 ```
 
 So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
+
+
