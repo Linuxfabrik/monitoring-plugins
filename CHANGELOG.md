@@ -11,12 +11,30 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* graylog-version
+
+
+### Changed ("enhancement")
+
+Monitoring Plugins:
+
+* about-me: Determines date of birth of cloud VMs more accurately
+* disk-io: Re-add support for Windows after last rewrite
+* nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
+
+
 ### Fixed ("bug")
 
 Icinga Director:
 
-* mysql-query: fix director basket
-
+* crypto-policy: New defaults according to LFOps crypto_policy role
+* mysql-query: Fix director basket
+* service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
+* swap-usage: Fix ProcessLookupError
 
 
 ## 2024060401

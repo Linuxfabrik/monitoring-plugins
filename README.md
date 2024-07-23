@@ -373,6 +373,11 @@ See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rs
 
 ## Tips & Tricks
 
+Q: After an update, I get **Operational Error: no such column: ...**, state UNKNOWN. On the next run, this disappears. What happened?
+
+A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
+
+
 Q: **How can I remove the performance data after the `|` from the check output?**
 
 A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
@@ -415,3 +420,5 @@ Output lines | Performance data
 ```
 
 So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
+
+

@@ -25,8 +25,7 @@ import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
 
 try:
     import psutil
@@ -35,7 +34,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024040101'
+__version__ = '2024071701'
 
 DESCRIPTION = """Checks disk I/O. If the bandwidth usage of a disk is above the specified threshold
                  (as a percentage of the maximum bandwidth measured) for a certain period of time,
@@ -170,11 +169,11 @@ def top(count):
         return ''
     cnt = sorted(cnt.items(), key=lambda x: x[1]['r']+x[1]['w'], reverse=True)
     if cnt[0][1]['r'] + cnt[0][1]['w'] > 0: # don't print "1. any-proc: 0.0B/0.0B (r/w)"
-        msg = '\nTop {} processes that generate the most I/O traffic:\n'.format(count)
+        msg = '\nTop {} processes that generate the most I/O traffic (r/w):\n'.format(count)
         for i, (key, value) in enumerate(cnt):
             if i > count - 1:
                 break
-            msg += '{}. {}: {}/{} (r/w)\n'.format(
+            msg += '{}. {}: {}/{}\n'.format(
                 i + 1,
                 key,
                 lib.human.bytes2human(value['r']),
@@ -193,6 +192,10 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # On Windows we can work with what psutil returns, but on Linux psutil returns too much noise
+    # from devices of all kinds. There we use a different approach, but therefore we have
+    # to handle both platforms separately. :-(
+
     # Kernel 5.5 added 2 more fields to /proc/diskstats, requiring another
     # change after the one for 4.18, which recently added 4 fields.
     # To prevent "ValueError: not sure how to interpret line",
@@ -206,23 +209,26 @@ def main():
             'https://github.com/giampaolo/psutil/pull/1665 '
             'for details).'.format(psutil.__version__), STATE_OK, always_ok=args.ALWAYS_OK)
 
+    # bd: block device; dmd: device mapper device, mp: mountpoint
+
     # create the perfdata table
     conn = lib.base.coe(
         lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-disk-io.db')
     )
+    # same structure for Linux and Windows, makes life easier
     definition = '''
-            bd                  TEXT NOT NULL,
-            dmd                 TEXT,
-            mp                  TEXT,
-            busy_time           INT DEFAULT 0,
-            read_bytes          INT DEFAULT 0,
-            read_merged_count   INT DEFAULT 0,
-            read_time           INT DEFAULT 0,
-            write_bytes         INT DEFAULT 0,
-            write_merged_count  INT DEFAULT 0,
-            write_time          INT DEFAULT 0,
-            timestamp           INT DEFAULT 0
-        '''
+        bd                  TEXT NOT NULL,
+        dmd                 TEXT,
+        mp                  TEXT,
+        busy_time           INT DEFAULT 0,
+        read_bytes          INT DEFAULT 0,
+        read_merged_count   INT DEFAULT 0,
+        read_time           INT DEFAULT 0,
+        write_bytes         INT DEFAULT 0,
+        write_merged_count  INT DEFAULT 0,
+        write_time          INT DEFAULT 0,
+        timestamp           INT DEFAULT 0
+    '''
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
 
@@ -243,37 +249,61 @@ def main():
         lib.base.cu('psutil raised an error')
 
     # analyze and enrich data, store it to database
-    real_disks = lib.disk.get_real_disks()
-    for disk in real_disks:
-        # disks we have to match
-        if args.MATCH \
-        and all((
-            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
-            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
-            not lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
-        )):
-            continue
+    if lib.base.WINDOWS:
+        for disk, values in disk_io_counters.items():
+            # filter devices that do not match
+            if args.MATCH and not lib.base.coe(lib.txt.match_regex(compiled_regex, disk)):
+                continue
+            # read_count and write_count are the same value for all disks, so simply ignore them
+            data = {}
+            data['bd'] = disk
+            data['dmd'] = ''
+            data['mp'] = ''
+            data['busy_time'] = getattr(values, 'busy_time', 0)
+            data['read_bytes'] = getattr(values, 'read_bytes', 0)
+            # data['read_count'] = getattr(values, 'read_count', 0)
+            data['read_merged_count'] = getattr(values, 'read_merged_count', 0)
+            data['read_time'] = getattr(values, 'read_time', 0)
+            data['write_bytes'] = getattr(values, 'write_bytes', 0)
+            # data['write_count'] = getattr(values, 'write_count', 0)
+            data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
+            data['write_time'] = getattr(values, 'write_time', 0)
+            data['timestamp'] = now
+            disks.append({'bd': disk, 'dmd': '', 'mp': ''})
+            # store it to database
+            lib.base.coe(lib.db_sqlite.insert(conn, data))
+    else:
+        real_disks = lib.disk.get_real_disks()
+        for disk in real_disks:
+            # filter devices that do not match
+            if args.MATCH \
+            and not any((
+                lib.base.coe(lib.txt.match_regex(compiled_regex, disk['bd'])),
+                lib.base.coe(lib.txt.match_regex(compiled_regex, disk['dmd'])),
+                lib.base.coe(lib.txt.match_regex(compiled_regex, disk['mp'])),
+            )):
+                continue
 
-        psutil_name = os.path.basename(disk['bd'])
-        if psutil_name not in disk_io_counters:
-            continue
+            psutil_name = os.path.basename(disk['bd'])
+            if psutil_name not in disk_io_counters:
+                continue
 
-        data = {}
-        data['bd'] = disk['bd']
-        data['dmd'] = disk['dmd']
-        data['mp'] = disk['mp']
-        # read_count and write_count are the same value over all disks, so simply ignore them
-        data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
-        data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
-        data['read_merged_count'] = getattr(disk_io_counters[psutil_name], 'read_merged_count', 0)
-        data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
-        data['write_bytes'] = getattr(disk_io_counters[psutil_name], 'write_bytes', 0)
-        data['write_merged_count'] = getattr(disk_io_counters[psutil_name], 'write_merged_count', 0)
-        data['write_time'] = getattr(disk_io_counters[psutil_name], 'write_time', 0)
-        data['timestamp'] = now
-        disks.append(disk)
-        # store it to database
-        lib.base.coe(lib.db_sqlite.insert(conn, data))
+            data = {}
+            data['bd'] = disk['bd']
+            data['dmd'] = disk['dmd']
+            data['mp'] = disk['mp']
+            # read_count and write_count are the same value over all disks, so simply ignore them
+            data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
+            data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
+            data['read_merged_count'] = getattr(disk_io_counters[psutil_name], 'read_merged_count', 0)  # pylint: disable=C0301
+            data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
+            data['write_bytes'] = getattr(disk_io_counters[psutil_name], 'write_bytes', 0)
+            data['write_merged_count'] = getattr(disk_io_counters[psutil_name], 'write_merged_count', 0)  # pylint: disable=C0301
+            data['write_time'] = getattr(disk_io_counters[psutil_name], 'write_time', 0)
+            data['timestamp'] = now
+            disks.append(disk)
+            # store it to database
+            lib.base.coe(lib.db_sqlite.insert(conn, data))
 
     # truncate old data (just keep args.COUNT for each disk) and commit
     lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT*len(disks)))
@@ -284,7 +314,7 @@ def main():
     # warn about a "count" period/amount of time, not about the current situation above
     # (what might be a peak only)
     for disk in disks:
-       # get all historical data rows for a specific disk, newest item first
+        # get all historical data rows for a specific disk, newest item first
         data = lib.base.coe(lib.db_sqlite.select(
             conn,
             '''

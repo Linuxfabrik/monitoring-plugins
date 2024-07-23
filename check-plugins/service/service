@@ -17,9 +17,9 @@ import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
+import lib.test  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
 
 try:
     import psutil  # pylint: disable=C0413
@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024070902'
 
 DESCRIPTION = '''Checks the state of one or more Windows services. You have to provide the
                  case-insensitive "Service Name", not the "Display Name". Supports Python regular
@@ -38,7 +38,7 @@ DESCRIPTION = '''Checks the state of one or more Windows services. You have to p
 DEFAULT_CRIT = None
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_STATUS = ['running']
-DEFAULT_STARTTYPE = 'automatic'
+DEFAULT_STARTTYPE = ['automatic']
 DEFAULT_WARN = '1:'
 
 
@@ -70,16 +70,16 @@ def parse_args():
 
     parser.add_argument(
         '--service',
-        help='Name of the service. Supports Python Regular Expressions (regex).',
+        help='Name of the service(s). Supports Python Regular Expressions (regex).',
         dest='SERVICE',
         required=True,
     )
 
     parser.add_argument(
         '--starttype',
-        help='Expected service start type. Default: %(default)s',
+        help='Filter for service start type. Default: automatic',
         dest='STARTTYPE',
-        default=DEFAULT_STARTTYPE,
+        action='append',
         choices=[
             'automatic',
             'disabled',
@@ -105,6 +105,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
         help='Set the WARN threshold. Accepts ranges. Default: "%(default)s"',
         dest='WARN',
@@ -124,10 +131,12 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if not lib.base.WINDOWS:
-        lib.base.cu('This check runs only on Windows.')
+    if args.TEST is None and not lib.base.WINDOWS:
+        lib.base.cu('This check runs on Windows only.')
 
     # due to https://bugs.python.org/issue16399, set the default value here
+    if args.STARTTYPE is None:
+        args.STARTTYPE = DEFAULT_STARTTYPE
     if args.STATUS is None:
         args.STATUS = DEFAULT_STATUS
 
@@ -135,7 +144,7 @@ def main():
     msg = ''
     state = STATE_OK
     table_data = []
-    services = {
+    svcstates = {
         'continue_pending': 0,
         'pause_pending': 0,
         'paused': 0,
@@ -144,48 +153,81 @@ def main():
         'stop_pending': 0,
         'stopped': 0,
     }
+    svcstate_cnt = 0  # this is the overall count of matching service states
 
-    # fetch data
+    # fetch and analyze data
     try:
         compiled_service_regex = re.compile(args.SERVICE, re.IGNORECASE)
-        for s in psutil.win_service_iter():
-            matches = re.search(compiled_service_regex, s.name())
-            if matches:
-                if s.status() in services.keys():
-                    services[s.status()] += 1
-                table_data.append(s.as_dict())
+        if args.TEST is None:
+            for s in psutil.win_service_iter():
+                # print('{}, {}, {}, {}'.format(s.name(), s.display_name(), s.status(), s.start_type()))  # pylint: disable=C0301
+                if s.start_type() not in args.STARTTYPE:
+                    continue
+                matches = re.search(compiled_service_regex, s.name())
+                if matches:
+                    # count the service states of interest
+                    if s.status() in args.STATUS:
+                        svcstates[s.status()] += 1
+                        svcstate_cnt += 1
+                    table_data.append(s.as_dict())
+        else:
+            # do not call the command, put in test data
+            stdout, _, _ = lib.test.test(args.TEST)
+            for s in stdout.splitlines():
+                name, display_name, status, start_type = s.split(', ')
+                if start_type not in args.STARTTYPE:
+                    continue
+                matches = re.search(compiled_service_regex, name)
+                if matches:
+                    # count the service states of interest
+                    if status in args.STATUS:
+                        svcstates[status] += 1
+                        svcstate_cnt += 1
+                    table_data.append({
+                        'name' : name,
+                        'display_name': display_name,
+                        'status': status,
+                        'start_type': start_type,
+                    })
     except re.error as rerr:
         lib.base.cu('Invalid regex "{}": {}'.format(args.SERVICE, rerr))
     except psutil.NoSuchProcess:
-        lib.base.cu('Service "{}" not found'.format(args.SERVICE))
+        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
 
     if not table_data:
-        lib.base.cu('Service "{} not found'.format(args.SERVICE))
+        lib.base.cu('r`{}` does not match any service name.'.format(args.SERVICE))
+    svc_cnt = len(table_data)
 
-    # alert: e.g. at least 10 but not more than 20 Windows-Services must meet --status
-    if not lib.base.coe(lib.base.match_range(services[args.STATUS[0]], args.CRIT)):
-        state = STATE_CRIT
-    elif not lib.base.coe(lib.base.match_range(services[args.STATUS[0]], args.WARN)):
-        state = STATE_WARN
-    else:
-        state = STATE_OK
-
-    keys = ['name', 'display_name', 'status', 'start_type']
-    headers = ['Service Name', 'Display Name', 'Status', 'Startup']
-    # sort table by user tags
-    msg += lib.base.get_table(table_data, keys, header=headers)
-
-    if state == STATE_OK:
-        msg = 'Everything is ok.\n\n' + msg
-    else:
-        msg = '{} {} named "{}" with status "{}" found, but expected "{}" {}.\n\n'.format(
-            services[args.STATUS[0]],
-            lib.txt.pluralize('service', services[args.STATUS[0]]),
-            args.SERVICE,
-            ''.join(args.STATUS),
-            args.CRIT if state == STATE_CRIT else args.WARN,
-            lib.base.state2str(state),
-        ) + msg
+    # build the message
+    # alert: e.g. at least 10 but not more than 20 Windows-Services must meet any given --status
+    state = lib.base.get_state(svcstate_cnt, args.WARN, args.CRIT, _operator='range')
+    msg += lib.base.get_table(
+        table_data,
+        [
+            'display_name',
+            'name',
+            'status',
+            'start_type',
+        ],
+        header=[
+            'Display Name',
+            'Service Name',
+            'Status',
+            'Startup',
+        ],
+    )
+    msg = '{}{} {} named r`{}` and start type {} found, {} in status {} (thresholds {}/{}){}.\n\n'.format(  # pylint: disable=C0301
+        'Everything is ok. ' if state == STATE_OK else '',
+        svc_cnt,
+        lib.txt.pluralize('service', svc_cnt),
+        args.SERVICE,
+        args.STARTTYPE,
+        svcstate_cnt,
+        args.STATUS,
+        args.WARN,
+        args.CRIT,
+        lib.base.state2str(state, prefix=' '),
+    ) + msg
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)

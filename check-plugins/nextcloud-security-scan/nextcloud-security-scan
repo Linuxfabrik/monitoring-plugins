@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024071601'
 
 DESCRIPTION = 'Checks the security of your private Nextcloud server.'
 
@@ -73,7 +73,8 @@ def parse_args():
 
     parser.add_argument(
         '--trigger',
-        help='Trigger re-scan of the Nextcloud server if result on scan.nextcloud.com is older than n days. '
+        help='Trigger re-scan of the Nextcloud server if result on scan.nextcloud.com is older '
+             'than n days. '
              'Default: %(default)s (days)',
         dest='TRIGGER',
         type=int,
@@ -107,6 +108,8 @@ def get_uuid_from_scan_nextcloud_com(nc_url, args):
     )
     if not success:
         return (success, result)
+    if result == '':
+        return (False, 'The scan for {} failed. Either no Nextcloud or ownCloud can be found there or you tried to scan too many servers.'.format(nc_url))  # pylint: disable=C0301
     try:
         return (True, json.loads(result)['uuid'])
     except Exception:
@@ -131,7 +134,7 @@ def trigger_rescan_nextcloud_com(nc_url, args):
     if not success:
         return (success, result)
     if not result:
-        return (True, 'Result was outdated. Re-scan triggered. Check again in ~5 minutes to get the newest scan result.')
+        return (True, 'Result was outdated. Re-scan triggered. Check again in ~5 minutes to get the newest scan result.')  # pylint: disable=C0301
     try:
         return (True, json.loads(result))
     except Exception:
@@ -187,9 +190,13 @@ def main():
     today = lib.time.now(as_type='datetime')
     delta = scan_date - today
     if abs(delta.days) > args.TRIGGER:
-        tmp = lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
+        lib.base.coe(trigger_rescan_nextcloud_com(args.URL, args))
 
-    msg += '"{}" rating for {}, checked at {}, on '.format(get_rating_string(result['rating']), result['domain'], result['scannedAt']['date'][:10])
+    msg += '"{}" rating for {}, checked at {}, on '.format(
+        get_rating_string(result['rating']),
+        result['domain'],
+        result['scannedAt']['date'][:10],
+    )
 
     # Version
     msg += '{} v{} '.format(result['product'], result['version'])

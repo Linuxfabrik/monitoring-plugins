@@ -123,12 +123,12 @@ Example Output:
     dm-4 ! /var/log       ! rl-var_log       ! 10.0MiB ! 0.0B   ! 51.8KiB ! 0.0B   ! 51.2KiB ! 51.2KiB 
     dm-3 ! /var/log/audit ! rl-var_log_audit ! 10.0MiB ! 0.0B   ! 918.0B  ! 0.0B   ! 876.0B  ! 876.0B  
 
-    Top 5 processes that generate the most I/O traffic:
-    1. nfsd: 149.2GiB/5.7TiB (r/w)
-    2. systemd: 695.7GiB/169.9GiB (r/w)
-    3. systemd-journald: 33.9MiB/124.4GiB (r/w)
-    4. icinga2: 7.9GiB/4.9GiB (r/w)
-    5. rsyslogd: 114.8MiB/4.1GiB (r/w)
+    Top 5 processes that generate the most I/O traffic (r/w):
+    1. nfsd: 149.2GiB/5.7TiB
+    2. systemd: 695.7GiB/169.9GiB
+    3. systemd-journald: 33.9MiB/124.4GiB
+    4. icinga2: 7.9GiB/4.9GiB
+    5. rsyslogd: 114.8MiB/4.1GiB
 
 
 States
@@ -156,9 +156,6 @@ Per (matched) disk, where <disk> is the block device name:
 
 Troubleshooting
 ---------------
-
-``Query failed: ...``
-    Delete ``$TEMP/linuxfabrik-monitoring-plugins-disk-io.db`` and try again.
 
 ``psutil raised error "not sure how to interpret line '...'"`` or ``Nothing checked. Running Kernel >= 4.18, this check needs the Python module psutil v5.7.0+``
     Update the ``psutil`` library. On RHEL 8+, use at least ``python38`` and ``python38-psutil`` if using ``dnf``.

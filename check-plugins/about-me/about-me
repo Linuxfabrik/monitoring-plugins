@@ -28,6 +28,7 @@ import lib.dmidecode  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.net  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024061901'
+__version__ = '2024071601'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -114,35 +115,21 @@ def parse_args():
 def get_birthday():
     """Using various methods to determine install date.
     """
-    # Using stat
+    # the age of a machine is usually determined by the birthday of the root file system `/`.
+    # however, this does not work for cloud systems that are installed from pre-built images.
+    # in this case, the age of the cloud-init data must be used.
+    if os.path.exists('/var/lib/cloud/data/instance-id'):
+        # cloud-init based VM
+        birthday = os.stat('/var/lib/cloud/data/instance-id')
+        return 'born {}. '.format(lib.time.epoch2iso(birthday.st_ctime))
+    # no way to do this in python - getting the birthday of a folder
     success, result = lib.shell.shell_exec(
         'stat / | grep "Birth" | sed "s/Birth: //g" | cut -b 2-11',
         shell=True,
     )
     birthday, _, _ = result
     birthday = birthday.strip()
-    if birthday == '-':
-        birthday = ''
-        cmd = False
-        # nothing found so far, try more - but not all of those are very accurate
-        if os.path.isfile('/usr/bin/pacman'):
-            # Arch Linux, and Arch based distros using pacman
-            cmd = 'head -n 1 $PACMAN_LOG | cut -b 2-11'
-        elif os.path.isfile('/usr/bin/emerge'):
-            # Gentoo Linux and Gentoo based distros using portage
-            cmd = 'head -n 1 $PORTAGE_LOG | cut -b 31-43'
-        elif os.path.isfile('/usr/bin/rpm'):
-            # Fedora, RedHat, and RPM based distros
-            cmd = 'rpm -qi basesystem | grep "Install Date" | sed "s/Install Date: //g"'
-        if not cmd:
-            return ''
-        success, result = lib.shell.shell_exec(cmd)
-        if success:
-            birthday, _, _ = result
-            birthday = birthday.strip()
-    if birthday:
-        return 'born {}. '.format(birthday)
-    return ''
+    return 'born {}. '.format(birthday)
 
 
 def get_boot_mode():

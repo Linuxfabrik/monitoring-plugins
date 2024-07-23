@@ -27,7 +27,7 @@ except ImportError:
     lib.base.cu('Python module "psutil" is not installed.')
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033101'
+__version__ = '2024071901'
 
 DESCRIPTION = """Displays amount of free and used swap space in the system, checks against used swap
                  in percent."""
@@ -98,6 +98,8 @@ def get_swap_and_name(pid):
                 size = '0 kB'
             return name.strip(), int(size.replace(' kB', '').strip())
     except FileNotFoundError:
+        return None, 0
+    except ProcessLookupError:
         return None, 0
 
 
