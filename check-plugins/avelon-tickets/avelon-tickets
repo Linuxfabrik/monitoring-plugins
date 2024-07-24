@@ -28,7 +28,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN, STATE_CRIT)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024062401'
+__version__ = '2024072401'
 
 DESCRIPTION = """The current tickets (alerts) of your Avelon Cloud are being reviewed, 
                  and depending on their status, critical alerts or warnings can be triggered. 
@@ -168,7 +168,7 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
-    ticket_data = []
+    ticket_table = []
 
     if args.TEST is None:
         # get token
@@ -213,8 +213,8 @@ def main():
 
             # Ticket filter for CLOSED tickets
             if ticket['status'] != 'CLOSED' or args.CLOSED_TICKET:
-                # build ticket_data
-                ticket_data.append({
+                # build ticket_table
+                ticket_table.append({
                     'id': ticket['id'],
                     'timestamp': timestamp + ' (' + lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type='iso'), timestamp)) + ' ago)',
                     'msg': re.sub(r'^ALARM: ', '', ticket['message']),
@@ -229,7 +229,7 @@ def main():
         msg = 'Everything is ok.\n\n' + msg
 
     # build the message
-    if ticket_data:
+    if ticket_table:
         keys = [
             'id',
             'timestamp',
@@ -244,7 +244,7 @@ def main():
         ]
 
         msg += lib.base.get_table(
-                sorted(ticket_data, key=lambda d: d['id']),
+                sorted(ticket_table, key=lambda d: d['id']),
                 keys,
                 header=headers,
             )
