@@ -23,6 +23,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * about-me: Determines date of birth of cloud VMs more accurately
+* about-me: Add Moodle detection
 * disk-io: Re-add support for Windows after last rewrite
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 
