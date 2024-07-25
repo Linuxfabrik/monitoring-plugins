@@ -16,6 +16,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Monitoring Plugins:
 
 * graylog-version
+* moodle-version
 
 
 ### Changed ("enhancement")
