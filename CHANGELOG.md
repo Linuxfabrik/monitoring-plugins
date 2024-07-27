@@ -13,6 +13,11 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Added
 
+Icinga Director:
+
+* all-the-rest.json: New Mastodon Service Set
+* all-the-rest.json: New Moodle Service Set
+
 Monitoring Plugins:
 
 * graylog-version
