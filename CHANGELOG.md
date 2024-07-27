@@ -16,6 +16,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Monitoring Plugins:
 
 * graylog-version
+* mastodon-version
 * moodle-version
 
 
@@ -24,6 +25,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * about-me: Determines date of birth of cloud VMs more accurately
+* about-me: Add Mastodon detection
 * about-me: Add Moodle detection
 * disk-io: Re-add support for Windows after last rewrite
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
