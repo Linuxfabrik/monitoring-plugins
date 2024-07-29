@@ -31,6 +31,9 @@ Rootkit YAML file structure, example taken from ``assets/scanrootkit-kbeast.yml`
       - 'h4x_rmdir'
       - 'h4x_tcp4_seq_show'
       - 'h4x_write'
+    # optional "confidence level". if omitted, cl is 100. 100 means 100%. anything below 100%
+    # confidence level currently just raises a warning.
+    cl: 100
 
 Feel free to add more rootkit definitions by submitting a pull request.
 
