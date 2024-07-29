@@ -131,6 +131,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="rocketchat-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rocketchat-stats.png" width="30%"/> &nbsp;
 <img alt="rocketchat-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rocketchat-version.png" width="30%"/> &nbsp;
 <img alt="rpm-lastactivity" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rpm-lastactivity.png" width="30%"/> &nbsp;
+<img alt="scanrootkit" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/scanrootkit.png" width="30%"/> &nbsp;
 <img alt="selinux-mode" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/selinux-mode.png" width="30%"/> &nbsp;
 <img alt="service" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/service.png" width="30%"/> &nbsp;
 <img alt="starface-account-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-account-stats.png" width="30%"/> &nbsp;
