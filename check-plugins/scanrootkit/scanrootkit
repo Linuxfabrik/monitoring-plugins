@@ -118,9 +118,9 @@ def main():
                 if item in ksyms_file:
                     rkfound.append('* {}: {} (Kernel Symbol)'.format(rk['name'], item))
 
-        except AttributeError as e:
+        except KeyError as e:
             # missing an yaml attribute like 'files' or 'dirs'
-            errors.append('* {}: {}'.format(os.path.basename(rootkit), e))
+            errors.append('* {}: Key Error {}'.format(os.path.basename(rootkit), e))
         except yaml.parser.ParserError:
             # got yaml file that is syntactically wrong
             errors.append('* {}: YAML syntax error'.format(os.path.basename(rootkit)))
@@ -141,7 +141,7 @@ def main():
             lib.base.state2str(state),
         )
         msg += '\n'.join(rkfound)
-    msg += '\n'.join(errors)
+    msg += '\n' + '\n'.join(errors)
     perfdata += lib.base.get_perfdata('rootkit_items', len(rkfound), None, None, None, 0, None)
 
     # over and out
