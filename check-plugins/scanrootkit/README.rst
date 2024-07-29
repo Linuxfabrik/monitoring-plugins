@@ -85,14 +85,20 @@ Output:
 
 .. code-block:: text
 
-    1 rootkit item found. [CRITICAL]
-    * CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)
+    Found 1 rootkit item and 0 extra items. 3 possible rootkit items found. 
+    Rootkits:
+    * ENYE LKM v1.1, v1.2: /etc/.enyelkmHIDE^IT.ko (File)
+    Possible Rootkits:
+    * Components for Backdoors: /usr/info/.clib (File)
+    * Components for BillGates botnet: /etc/ksapd (File)
+    * Components for BillGates botnet: /etc/kysapd (File)
 
 
 States
 ------
 
 * WARN or CRIT if rootkit items are found, depending on the severity (default: CRIT)
+* WARN if only possible rootkit items are found, regardless of the selected severity.
 
 
 Perfdata / Metrics
@@ -104,6 +110,8 @@ Perfdata / Metrics
 
     Name,                                       Type,               Description                                           
     rootkit_items,                              Number,             The number of rootkit items found on the system.
+    rootkit_extra,                              Number,             Number of rootkit items found by a specific deep scan.
+    rootkit_possible,                           Number,             Number of possible rootkit items found on the system.
 
 
 Credits, License
