@@ -51,15 +51,18 @@ spec:
           mode: palette-classic
         custom:
           lineInterpolation: smooth
-          showPoints: always
           spanNulls: true
-        decimals: 3
-        unit: none
+        decimals: 0
+        min: 0
+        unit: short
     options:
       legend:
         calcs:
+        - first
         - min
+        - mean
         - max
+        - last
         displayMode: table
         placement: bottom
         showLegend: true
@@ -69,8 +72,8 @@ spec:
 
     targets:
 
-    - alias: scanrootkit
-      refId: scanrootkit
+    - alias: rootkit_items
+      refId: rootkit_items
       groupBy:
       - params:
         - $interval
@@ -94,4 +97,59 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: scanrootkit
+        value: rootkit_items
+
+    - alias: rootkit_extra
+      refId: rootkit_extra
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Scanrootkit
+      - condition: AND
+        key: metric
+        operator: '='
+        value: rootkit_extra
+
+    - alias: rootkit_possible
+      refId: rootkit_possible
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: /^$command$/
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '=~'
+        value: /^$hostname$/
+      - condition: AND
+        key: service
+        operator: '='
+        value: Scanrootkit
+      - condition: AND
+        key: metric
+        operator: '='
+        value: rootkit_possible
+
