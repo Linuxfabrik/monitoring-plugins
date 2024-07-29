@@ -23,6 +23,7 @@ Monitoring Plugins:
 * graylog-version
 * mastodon-version
 * moodle-version
+* scanrootkit
 
 
 ### Changed ("enhancement")
