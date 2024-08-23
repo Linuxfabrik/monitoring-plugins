@@ -35,6 +35,7 @@ Monitoring Plugins:
 * about-me: Add Moodle detection
 * disk-io: Re-add support for Windows after last rewrite
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
+* openstack-nova-list: No more need for keystoneauth and keystoneclient
 
 
 ### Fixed ("bug")

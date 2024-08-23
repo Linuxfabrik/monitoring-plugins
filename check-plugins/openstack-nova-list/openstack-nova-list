@@ -24,19 +24,13 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 try:
-    from keystoneauth1.identity import v3
-    from keystoneauth1 import session
-    from keystoneclient.v3 import client
-except ImportError:
-    lib.base.cu('Python module "python-keystoneclient" is not installed.')
-try:
     from novaclient import client
 except ImportError:
     lib.base.cu('Python module "python-novaclient" is not installed.')
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024082301'
 
 DESCRIPTION = """Nova is the OpenStack project that provides a way to provision compute
                  instances (aka virtual servers).
@@ -194,25 +188,27 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    # https://github.com/openstack/keystoneauth
-    # https://github.com/openstack/python-novaclient
-    # set a bunch of possible OpenStack credentials
     env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
-    auth = v3.Password(
-        auth_url=env.get('OS_AUTH_URL', None),
-        password=env.get('OS_PASSWORD', None),
-        project_domain_id=env.get('OS_PROJECT_DOMAIN_ID', None),
-        project_domain_name=env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
-        project_id=env.get('OS_PROJECT_ID', None),
-        project_name=env.get('OS_PROJECT_NAME', None),
-        user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
-        username=env.get('OS_USERNAME', None),
-    )
     try:
-        nova = client.Client(2, session=session.Session(auth=auth))  # NOVA_API_VERSION=2
+        # https://github.com/openstack/python-novaclient
+        # https://docs.openstack.org/python-novaclient/latest/reference/api/novaclient.v2.client.html
+        # set a bunch of possible OpenStack credentials
+        nova = client.Client(
+            '2.1',
+            auth_url=env.get('OS_AUTH_URL', None),
+            password=env.get('OS_PASSWORD', None),
+            project_domain_id=env.get('OS_PROJECT_DOMAIN_ID', 'default'),
+            project_domain_name=env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
+            project_id=env.get('OS_PROJECT_ID', None),
+            project_name=env.get('OS_PROJECT_NAME', None),
+            region_name=env.get('OS_REGION_NAME', None),
+            user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
+            username=env.get('OS_USERNAME', None),
+        )
     except Exception as e:
         lib.base.cu('An error occurred while connecting to Nova')
     try:
+        # https://docs.openstack.org/python-novaclient/latest/reference/api/novaclient.v2.servers.html#novaclient.v2.servers.ServerManager.list
         servers = nova.servers.list()
     except Exception as e:
         lib.base.cu('An error occurred while getting the server list from Nova')
@@ -244,7 +240,7 @@ def main():
         'UNKNOWN': 0,
         'VERIFY_RESIZE': 0,
     }
-    max_last_update = '0000000000'
+    max_last_update = '2016-01-01 00:00:00'
 
     # analyze data
     for server in servers:
