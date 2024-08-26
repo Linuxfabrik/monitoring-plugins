@@ -65,7 +65,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./json-values --url=http://example.com/example.json --message-key=output --state-key=state --perfdata-key=perfdata
+    ./json-values --url=http://example.com/example.json --message-key=message --state-key=state --perfdata-key=perfdata
 
     cat > /tmp/example.json2 << 'EOF'
     {
