@@ -15,8 +15,8 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Icinga Director:
 
-* all-the-rest.json: New Mastodon Service Set
-* all-the-rest.json: New Moodle Service Set
+* all-the-rest.json: Add Mastodon Service Set
+* all-the-rest.json: Add Moodle Service Set
 * all-the-rest.json: Add Ubuntu 24 Service Set
 
 
@@ -32,7 +32,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* all-the-rest.json: Make dmesg Service Sets use sudo
+* all-the-rest.json: Make all dmesg Service Sets use sudo
 
 
 Monitoring Plugins:
