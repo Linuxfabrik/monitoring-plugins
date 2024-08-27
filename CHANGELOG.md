@@ -55,6 +55,11 @@ Icinga Director:
 * swap-usage: Fix ProcessLookupError
 
 
+Monitoring Plugins:
+
+* docker-stats: ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
+
+
 ## 2024060401
 
 ### Added

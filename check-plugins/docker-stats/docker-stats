@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024082701'
 
 DESCRIPTION = """This check prints various statistics for all running Docker containers, in much the
                 same way as the Unix application top, using the "docker stats" command."""
@@ -192,6 +192,9 @@ def main():
     containers = lib.txt.mltext2array(stdout, skip_header=True, sort_key=1)
     for container in containers:
         try:
+            if container[0] == '--':
+                # container without ID and name == '--'
+                continue
             name = container[1]
             # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
             if not args.FULL_NAME:
