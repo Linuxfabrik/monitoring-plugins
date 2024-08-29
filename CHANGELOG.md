@@ -33,6 +33,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * all-the-rest.json: Make all dmesg Service Sets use sudo
+* all-the-rest.json: Check /var/log/syslog file size instead /var/log/messages in all Debian Service Sets
 
 
 Monitoring Plugins:
