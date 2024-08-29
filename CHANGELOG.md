@@ -15,11 +15,12 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 Icinga Director:
 
+* all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
 * all-the-rest.json: Add Mastodon Service Set
 * all-the-rest.json: Add Moodle Service Set
-* all-the-rest.json: Add Ubuntu 24 Service Set
 * all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
 * all-the-rest.json: Add rsyslog Service Set
+* all-the-rest.json: Add Ubuntu 24 Service Set
 
 
 Monitoring Plugins:
