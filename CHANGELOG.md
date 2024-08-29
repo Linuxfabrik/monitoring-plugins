@@ -18,6 +18,8 @@ Icinga Director:
 * all-the-rest.json: Add Mastodon Service Set
 * all-the-rest.json: Add Moodle Service Set
 * all-the-rest.json: Add Ubuntu 24 Service Set
+* all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
+* all-the-rest.json: Add rsyslog Service Set
 
 
 Monitoring Plugins:
@@ -51,6 +53,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * crypto-policy: New defaults according to LFOps crypto_policy role
+* disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
 * mysql-query: Fix director basket
 * service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
 * swap-usage: Fix ProcessLookupError
