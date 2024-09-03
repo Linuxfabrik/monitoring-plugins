@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024021501'
+__version__ = '2024090201'
 
 DESCRIPTION = '''This monitoring plugin runs `w32tm /query /status /verbose` (Windows)
                  to help diagnose problems with the time settings.'''
@@ -115,6 +115,7 @@ def main():
             peer_used = stratum != 0
             if not peer_used:
                 msg.append('No NTP server used {}'.format(lib.base.state2str(STATE_WARN)))
+                state = STATE_WARN
             if stratum > 4:
                 msg.append('{} {}'.format(line, lib.base.state2str(STATE_WARN)))
                 state = STATE_WARN
