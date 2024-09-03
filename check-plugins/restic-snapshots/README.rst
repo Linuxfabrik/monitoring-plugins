@@ -74,7 +74,14 @@ Just show the latest three snapshots for host www.example.com, grouped by hosts,
 
 .. code-block:: bash
 
-    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='hosts,tags,paths' --warn=8 --lengthy
+    ./restic-snapshots \
+        --repo=/path/to/restic-repo \
+        --password-file=/path/to/restic-pwd \
+        --host=www.example.com \
+        --latest=3 \
+        --group-by='hosts,tags,paths' \
+        --warning=8 \
+        --lengthy
 
 Output:
 
@@ -101,7 +108,13 @@ The same check on the same restic repo, but without grouping - here the result i
 
 .. code-block:: bash
 
-    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='' --warn=8
+    ./restic-snapshots \
+        --repo=/path/to/restic-repo \
+        --password-file=/path/to/restic-pwd \
+        --host=www.example.com \
+        --latest=3 \
+        --group-by='' \
+        --warning=8
 
 Output:
 
@@ -116,6 +129,17 @@ Output:
     a5cae06b ! 2022-12-05 09:45:00 ! 17m 38s ! www.example.com       ! /home ! tagA 
     34751e52 ! 2022-12-04 16:10:05 ! 17h 52m ! www.example.com       ! /home !      
     f958e789 ! 2022-12-04 16:08:51 ! 17h 53m ! www.example.com       ! /home !      
+
+A restic snapshot check via SFTP:
+
+.. code-block:: bash
+
+    ./restic-snapshots \
+        --repo=sftp://user123@linuxfabrik.your-storagebox.de:23//home/user123/myserver \
+        --password-file=/home/user123/restic_passwords/myserver.txt \
+        --latest=3 \
+        --warning=30 \
+        --critical=60
 
 
 States
