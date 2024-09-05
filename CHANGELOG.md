@@ -56,6 +56,7 @@ Icinga Director:
 
 * crypto-policy: New defaults according to LFOps crypto_policy role
 * disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
+* fortios-network-io: Fix reading from local SQLite database
 * mysql-query: Fix director basket
 * service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
 * swap-usage: Fix ProcessLookupError
