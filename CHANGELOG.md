@@ -44,6 +44,7 @@ Monitoring Plugins:
 * about-me: Determines date of birth of cloud VMs more accurately
 * about-me: Add Mastodon detection
 * about-me: Add Moodle detection
+* dhcp-scope-usage: Ignore PercentageInUse fractions
 * disk-io: Re-add support for Windows after last rewrite
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/

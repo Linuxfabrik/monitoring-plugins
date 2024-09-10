@@ -85,7 +85,13 @@ Remote usage, for example on a Linux server:
 
 .. code-block:: bash
 
-    ./dhcp-scope-usage3 --hostname=dhcp01.example.com --winrm-hostname=10.80.32.246 --winrm-username=Administrator --winrm-password=password --winrm-domain=EXAMPLE.COM --winrm-transport=ntlm
+    ./dhcp-scope-usage3 \
+        --hostname=dhcp01.example.com \
+        --winrm-hostname=10.80.32.246 \
+        --winrm-username=Administrator \
+        --winrm-password=linuxfabrik \
+        --winrm-domain=EXAMPLE.COM \
+        --winrm-transport=ntlm
 
 Output:
 

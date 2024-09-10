@@ -12,7 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
-import locale  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024091001'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
@@ -172,14 +172,11 @@ def main():
 
         scope = line.split()
         scope_id = scope[0]
-        
+
         # "PercentageInUse" is a floating point number and uses the user's preferred locale
-        # number format, so this needs to be parsed locale-aware
-        
-        # use user's preferred locale
-        locale.setlocale(locale.LC_ALL, '')
-        # convert the string to a floating point number, following the LC_NUMERIC settings
-        scope_used = locale.atof(scope[3])
+        # number format. we don't care about the fraction part, separated depending on
+        # the user's locale by `.`, `,` or whatever - we simply cut it off.
+        scope_used = re.split(r'\D+', scope[3])[0]
 
         scope_state = lib.base.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base.get_worst(scope_state, state)
