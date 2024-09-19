@@ -66,6 +66,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * docker-stats: ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
+* redfish-sel: UnboundLocalError: local variable 'sel_path' referenced before assignment ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
 
 
 ## 2024060401
