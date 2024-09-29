@@ -11,6 +11,14 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* jitsi-videobridge-stats: Remove deprecated values ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
+* jitsi-videobridge-stats: Remove deprecated warning and critical parameters, always returns OK
+
+
 ### Added
 
 Icinga Director:

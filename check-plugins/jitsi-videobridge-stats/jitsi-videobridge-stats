@@ -21,21 +21,18 @@ import lib.jitsi  # pylint: disable=C0413
 import lib.test  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2024092902'
 
-DESCRIPTION = """Checks the number of participants on a Jitsi Videobridge and returns 
-                a bunch of performance data using the REST version of the COLIBRI protocol."""
+DESCRIPTION = """Returns a bunch of performance data on a Jitsi Videobridge
+                 using the REST version of the COLIBRI protocol."""
 
-DEFAULT_CRIT = 100  # number of participants
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost:8080'
-DEFAULT_WARN = 25   # number of participants
 
 
 def parse_args():
@@ -59,11 +56,9 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the CRIT threshold for the number of participants. '
-             'Default: >= %(default)s',
+        help=argparse.SUPPRESS,  # removed / deprecated parameter
         dest='CRIT',
         type=int,
-        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -125,11 +120,9 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold for the number of participants. '
-             'Default: >= %(default)s',
+        help=argparse.SUPPRESS,  # removed / deprecated parameter
         dest='WARN',
         type=int,
-        default=DEFAULT_WARN,
     )
 
     return parser.parse_args()
@@ -152,7 +145,7 @@ def main():
         result = lib.base.coe(lib.jitsi.get_data(args))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, _, _ = lib.test.test(args.TEST)
         import json  # pylint: disable=C0413
         result = {}
         result['response_json'] = json.loads(stdout)
@@ -162,66 +155,77 @@ def main():
     state = STATE_OK
     perfdata = ''
 
-    # analyze data
-    state = lib.base.get_state(result['response_json']['participants'], args.WARN, args.CRIT)
-
     # build the message
-    perfdata += lib.base.get_perfdata('bit_rate_download', result['response_json']['bit_rate_download'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('bit_rate_upload', result['response_json']['bit_rate_upload'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('conferences', result['response_json']['conferences'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('dtls_failed_endpoints', result['response_json']['dtls_failed_endpoints'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('endpoints_sending_audio', result['response_json']['endpoints_sending_audio'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('endpoints_sending_video', result['response_json']['endpoints_sending_video'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('endpoints_with_high_outgoing_loss', result['response_json']['endpoints_with_high_outgoing_loss'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('inactive_conferences', result['response_json']['inactive_conferences'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('inactive_endpoints', result['response_json']['inactive_endpoints'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('incoming_loss', result['response_json']['incoming_loss'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('largest_conference', result['response_json']['largest_conference'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('local_active_endpoints', result['response_json']['local_active_endpoints'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('muc_clients_configured', result['response_json']['muc_clients_configured'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('muc_clients_connected', result['response_json']['muc_clients_connected'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mucs_configured', result['response_json']['mucs_configured'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('mucs_joined', result['response_json']['mucs_joined'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('outgoing_loss', result['response_json']['outgoing_loss'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('overall_loss', result['response_json']['overall_loss'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('p2p_conferences', result['response_json']['p2p_conferences'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('participants', result['response_json']['participants'], None, args.WARN, args.CRIT, 0, None)
-    perfdata += lib.base.get_perfdata('receive_only_endpoints', result['response_json']['receive_only_endpoints'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('rtt_aggregate', result['response_json']['rtt_aggregate'], 'ms', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('stress_level', result['response_json']['stress_level'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('threads', result['response_json']['threads'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('version', lib.version.version2float(result['response_json']['version']), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('bit_rate_download', result['response_json'].get('bit_rate_download', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('bit_rate_upload', result['response_json'].get('bit_rate_upload', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('conferences', result['response_json'].get('conferences', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('current_timestamp', result['response_json'].get('current_timestamp', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('dtls_failed_endpoints', result['response_json'].get('dtls_failed_endpoints', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('endpoints', result['response_json'].get('endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('endpoints_sending_audio', result['response_json'].get('endpoints_sending_audio', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('endpoints_sending_video', result['response_json'].get('endpoints_sending_video', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('endpoints_with_spurious_remb', result['response_json'].get('endpoints_with_spurious_remb', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('graceful_shutdown', result['response_json'].get('graceful_shutdown', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('inactive_conferences', result['response_json'].get('inactive_conferences', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('inactive_endpoints', result['response_json'].get('inactive_endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('largest_conference', result['response_json'].get('largest_conference', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('local_active_endpoints', result['response_json'].get('local_active_endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('local_endpoints', result['response_json'].get('local_endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('num_eps_oversending', result['response_json'].get('num_eps_oversending', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_conferences', result['response_json'].get('octo_conferences', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_endpoints', result['response_json'].get('octo_endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_receive_bitrate', result['response_json'].get('octo_receive_bitrate', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_receive_packet_rate', result['response_json'].get('octo_receive_packet_rate', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_send_bitrate', result['response_json'].get('octo_send_bitrate', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('octo_send_packet_rate', result['response_json'].get('octo_send_packet_rate', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('p2p_conferences', result['response_json'].get('p2p_conferences', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('packet_rate_download', result['response_json'].get('packet_rate_download', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('packet_rate_upload', result['response_json'].get('packet_rate_upload', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('preemptive_kfr_sent', result['response_json'].get('preemptive_kfr_sent', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('receive_only_endpoints', result['response_json'].get('receive_only_endpoints', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('region', result['response_json'].get('region', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('rtt_aggregate', result['response_json'].get('rtt_aggregate', 0), 'ms', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stress_level', result['response_json'].get('stress_level', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('threads', result['response_json'].get('threads', 0), None, None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_bytes_received', result['response_json'].get('total_bytes_received', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_bytes_received_octo', result['response_json'].get('total_bytes_received_octo', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_bytes_sent', result['response_json'].get('total_bytes_sent', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_bytes_sent_octo', result['response_json'].get('total_bytes_sent_octo', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_received', result['response_json'].get('total_colibri_web_socket_messages_received', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_sent', result['response_json'].get('total_colibri_web_socket_messages_sent', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_conference_seconds', result['response_json'].get('total_conference_seconds', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_conferences_completed', result['response_json'].get('total_conferences_completed', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_conferences_created', result['response_json'].get('total_conferences_created', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_data_channel_messages_received', result['response_json'].get('total_data_channel_messages_received', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_data_channel_messages_sent', result['response_json'].get('total_data_channel_messages_sent', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_dominant_speaker_changes', result['response_json'].get('total_dominant_speaker_changes', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_failed_conferences', result['response_json'].get('total_failed_conferences', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_ice_failed', result['response_json'].get('total_ice_failed', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_ice_succeeded', result['response_json'].get('total_ice_succeeded', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_ice_succeeded_relayed', result['response_json'].get('total_ice_succeeded_relayed', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_packets_dropped_octo', result['response_json'].get('total_packets_dropped_octo', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_packets_received', result['response_json'].get('total_packets_received', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_packets_received_octo', result['response_json'].get('total_packets_received_octo', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_packets_sent', result['response_json'].get('total_packets_sent', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_packets_sent_octo', result['response_json'].get('total_packets_sent_octo', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_partially_failed_conferences', result['response_json'].get('total_partially_failed_conferences', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('total_participants', result['response_json'].get('total_participants', 0), 'c', None, None, 0, None)  # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('version', lib.version.version2float(result['response_json']['version']), None, None, None, 0, None)  # pylint: disable=C0301
 
-    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_received', result['response_json']['total_colibri_web_socket_messages_received'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_colibri_web_socket_messages_sent', result['response_json']['total_colibri_web_socket_messages_sent'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_conference_seconds', result['response_json']['total_conference_seconds'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_conferences_created', result['response_json']['total_conferences_created'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_data_channel_messages_received', result['response_json']['total_data_channel_messages_received'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_data_channel_messages_sent', result['response_json']['total_data_channel_messages_sent'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_dominant_speaker_changes', result['response_json']['total_dominant_speaker_changes'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_ice_failed', result['response_json']['total_ice_failed'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_ice_succeeded', result['response_json']['total_ice_succeeded'], 'c', None, None, 0, None)
-    perfdata += lib.base.get_perfdata('total_ice_succeeded_relayed', result['response_json']['total_ice_succeeded_relayed'], 'c', None, None, 0, None)
-
-    msg += '{} {}{} in {} {}'.format(
-        result['response_json']['participants'],
-        lib.txt.pluralize('participant',result['response_json']['participants']),
-        lib.base.state2str(state, prefix=' '),
+    msg += '{} total {}, {} {}'.format(
+        result['response_json']['total_participants'],
+        lib.txt.pluralize('participant',result['response_json']['total_participants']),
         result['response_json']['conferences'],
         lib.txt.pluralize('conference',result['response_json']['conferences']),
     )
-    if result['response_json']['participants'] > 0:
-        msg += ' ({} {} in the largest conference), '.format(
-            result['response_json']['largest_conference'],
-            lib.txt.pluralize('participant',result['response_json']['participants']),
-        )
-        msg += 'Stress Level {}, '.format(
+    if result['response_json']['total_participants'] > 0:
+        msg += ', Stress Level {}'.format(
             result['response_json']['stress_level'],
         )
-        msg += '{} JVM threads, '.format(
+        msg += ', {} JVM threads'.format(
             result['response_json']['threads'],
         )
-        msg += '{} download, {} upload'.format(
+        msg += ', {} download, {} upload'.format(
             lib.human.bps2human(result['response_json']['bit_rate_download']*1000),
             lib.human.bps2human(result['response_json']['bit_rate_upload']*1000),
         )
