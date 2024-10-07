@@ -68,6 +68,7 @@ Icinga Director:
 * fortios-network-io: Fix reading from local SQLite database
 * mysql-query: Fix director basket
 * service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
+* snmp: With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
 * swap-usage: Fix ProcessLookupError
 
 

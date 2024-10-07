@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024040101'
+__version__ = '2024100702'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -41,8 +41,8 @@ CSV_COL_WARN = 4
 CSV_COL_CRIT = 5
 CSV_COL_SIFL = 6
 CSV_COL_RCA = 7
-CSV_COL_IGNPERF = 8
-CSV_COL_PERFTHRSHLD = 9
+CSV_COL_IGNPERF = 8       # added 2024052901
+CSV_COL_PERFTHRSHLD = 9   # added 2024052901
 
 MAX_OIDS_PER_REQUEST = 25
 
@@ -198,33 +198,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    """The main function. Hier spielt die Musik.
+def build_snmpget_call(args):
+    """Build parameters for snmpget:
+        -r 0: set the number of retries to zero
+        -O: Toggle various defaults controlling output display:
+            q:  quick print for easier parsing
+            S:  print MIB module-id plus last element
+            t:  print timeticks unparsed as numeric integers
+            U:  don't print units
     """
-
-    # parse the command line, exit with UNKNOWN if it fails
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
-
-    # read oid list for our device from the CSV file
-    plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
-    snmp_objects = lib.base.coe(
-        lib.disk.read_csv(
-            os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)),
-            as_dict=False,
-            skip_empty_rows=True,
-        )
-    )
-
-    # build parameters for snmpget
-    # -r 0: set the number of retries to zero
-    # -O: Toggle various defaults controlling output display:
-    #     q:  quick print for easier parsing
-    #     S:  print MIB module-id plus last element
-    #     t:  print timeticks unparsed as numeric integers
-    #     U:  don't print units
     if args.SNMP_VERSION in ['1', '2c']:
         cmd = 'snmpget -v {} '.format(args.SNMP_VERSION)
         cmd += '-c {} '.format(args.COMMUNITY) if args.COMMUNITY else ''
@@ -247,6 +229,55 @@ def main():
     cmd += '{} '.format(args.HOSTNAME) if args.HOSTNAME else ''
     cmd += '_OIDS_'
 
+    return cmd
+
+
+def index_of_oid(snmp_objects, oid, start=0):
+    """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
+    idx = start
+    for snmp_object in snmp_objects[start:]:
+        if snmp_object[0] == oid:
+            return idx
+        idx += 1
+    return None
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # read oid list for our device from the CSV file
+    plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+    snmp_objects = lib.base.coe(
+        lib.disk.read_csv(
+            os.path.join(plugin_path, 'device-oids/{}'.format(args.DEVICE)),
+            as_dict=False,
+            skip_empty_rows=True,
+        )
+    )
+    if args.TEST:
+        # in test mode, override with CSV from unit-test directory (if any), which
+        # has to be in unit-test directory
+        test_csvfile = os.path.join(
+            plugin_path,
+            'unit-test',
+            os.path.basename(args.TEST[0]) + '.csv',
+        )
+        if lib.disk.file_exists(test_csvfile):
+            snmp_objects = lib.base.coe(
+                lib.disk.read_csv(
+                    test_csvfile,
+                    as_dict=False,
+                    skip_empty_rows=True,
+                )
+            )
+
     # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
     # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
     # only ask for 25 OIDs per request.
@@ -266,6 +297,7 @@ def main():
     # fetch the data: execute the shell command and return its result and exit code
     stdout = ''
     if args.TEST is None:
+        cmd = build_snmpget_call(args)
         for oid in oids:
             tmp, stderr, retc = lib.base.coe(
                 lib.shell.shell_exec(cmd.replace('_OIDS_', oid), shell=True))
@@ -275,15 +307,7 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.test.test(args.TEST)
-
-    def index_of_oid(snmp_objects, oid, start=0):
-        """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
-        idx = start
-        for snmp_object in snmp_objects[start:]:
-            if snmp_object[0] == oid:
-                return idx
-            idx += 1
-        return None
+        args.DEVICE = args.TEST[0]
 
     # enrich snmp_objects with results from snmpget run
     value = ''
@@ -312,6 +336,9 @@ def main():
     CSV_COL_VALUE = len(snmp_objects[0])
     # evaluate results
     for snmp_object in snmp_objects[1:]:
+        if len(snmp_object) <= 1:
+            # definitely an invalid csv line, ignore
+            continue
         try:
             value = snmp_object[CSV_COL_VALUE]
         except:
@@ -333,18 +360,27 @@ def main():
             state = lib.base.get_worst(state, STATE_UNKNOWN)
             continue
 
-        recalc = snmp_object[CSV_COL_RECALC]
-        unit = snmp_object[CSV_COL_UNIT]
-        warn = snmp_object[CSV_COL_WARN]
-        crit = snmp_object[CSV_COL_CRIT]
+        recalc, unit, warn, crit = '', '', '', ''
+        show_in_first_line, report_change = False, False
+        try:
+            recalc = snmp_object[CSV_COL_RECALC]
+            unit = snmp_object[CSV_COL_UNIT]
+            warn = snmp_object[CSV_COL_WARN]
+            crit = snmp_object[CSV_COL_CRIT]
+            show_in_first_line = lib.base.str2bool(snmp_object[CSV_COL_SIFL])
+            report_change = snmp_object[CSV_COL_RCA]
+        except:
+            pass
 
-        show_in_first_line = lib.base.str2bool(snmp_object[CSV_COL_SIFL])
-        report_change = snmp_object[CSV_COL_RCA]
-
-        # column was added later
         if CSV_COL_VALUE > CSV_COL_RCA:
-            ignore_perfdata = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
-            perf_thresholds = snmp_object[CSV_COL_PERFTHRSHLD]
+            # these two columns were added 2024052901
+            try:
+                ignore_perfdata = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
+                perf_thresholds = snmp_object[CSV_COL_PERFTHRSHLD]
+            except IndexError:
+                # invalid csv definition, so ignore perfdata
+                ignore_perfdata = False
+                perf_thresholds = False
         else:
             # previous behaviour
             ignore_perfdata = False
