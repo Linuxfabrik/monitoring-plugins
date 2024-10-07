@@ -234,8 +234,6 @@ The output would be something like this
     Description Brother NC-350w [OK]  
     Uptime      5M 1W           [WARNING]
 
-If you get a ``Traceback (most recent call last)`` when running the check plugin with your CSV file, there is something wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the correct amount of commas, quotes, etc.
-
 The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
 
@@ -337,6 +335,13 @@ Perfdata / Metrics
 ------------------
 
 By default, all numeric values are automatically returned as perfdata objects.
+
+
+Troubleshooting
+---------------
+
+`IndexError: list index out of range`
+    Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
 
 
 Credits, License
