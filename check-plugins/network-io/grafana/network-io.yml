@@ -31,19 +31,25 @@ spec:
     - label: Hostname
       name: hostname
       query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "hostname"
-      refresh: 2
+      refresh: 1
       sort: 1
       type: query
-    - hide: 2
-      includeAll: true
-      label: Metric
-      multi: true
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Metric
       name: metric
-      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "metric" WHERE hostname =~ /$hostname/
-      refresh: 2
-      regex: /^([^_]+)/
+      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "metric" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
+      hide: 2
+      includeAll: true
+      multi: true
+      regex: /^([^_]+)/
 
   panels:
 
@@ -126,7 +132,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv_per_second1/
@@ -154,7 +160,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv_per_second15/
@@ -182,7 +188,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent_per_second1/
@@ -210,7 +216,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent_per_second15/
@@ -238,7 +244,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput1/
@@ -266,7 +272,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput15/
@@ -327,7 +333,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv/
@@ -355,7 +361,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent/
@@ -416,7 +422,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_packets_recv/
@@ -444,7 +450,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_packets_sent/
@@ -467,20 +473,6 @@ spec:
         decimals: 2
         mappings: []
         unit: short
-      overrides:
-      - __systemRef: hideSeriesFrom
-        matcher:
-          id: byNames
-          options:
-            mode: exclude
-            names:
-            - read_time
-            - write_time
-            prefix: 'All except:'
-        properties:
-        - id: custom.hideFrom
-          value:
-            viz: true
     options:
       legend:
         calcs:
@@ -521,7 +513,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_dropin/
@@ -552,7 +544,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_dropout/
@@ -583,18 +575,18 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_errin/
 
-    - alias: errin
+    - alias: errout
       groupBy:
       - params:
         - $interval
         type: time
       measurement: /^$command$/
-      refId: network-io-errin
+      refId: network-io-errout
       resultFormat: time_series
       select:
       - - params:
@@ -614,8 +606,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_errin/
-
+        value: /^${metric}_errout/

@@ -31,19 +31,25 @@ spec:
     - label: Hostname
       name: hostname
       query: SHOW TAG VALUES FROM "cmd-check-disk-io" WITH KEY = "hostname"
-      refresh: 2
+      refresh: 1
       sort: 1
       type: query
-    - hide: 2
-      includeAll: true
-      label: Metric
-      multi: true
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "cmd-check-disk-io" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Metric
       name: metric
-      query: SHOW TAG VALUES FROM "cmd-check-disk-io" WITH KEY = "metric" WHERE hostname =~ /$hostname/
-      refresh: 2
-      regex: /^([^_]+)/
+      query: SHOW TAG VALUES FROM "cmd-check-disk-io" WITH KEY = "metric" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
+      hide: 2
+      includeAll: true
+      multi: true
+      regex: /^([^_]+)/
 
   panels:
 
@@ -126,7 +132,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes_per_second1/
@@ -154,7 +160,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes_per_second15/
@@ -182,7 +188,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput1/
@@ -210,7 +216,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput15/
@@ -238,7 +244,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes_per_second1/
@@ -266,7 +272,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes_per_second15/
@@ -327,7 +333,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes/
@@ -355,7 +361,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes/
@@ -432,7 +438,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_busy_time/
@@ -463,7 +469,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_time/
@@ -494,7 +500,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_time/

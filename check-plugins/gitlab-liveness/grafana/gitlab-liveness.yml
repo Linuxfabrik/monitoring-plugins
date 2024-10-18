@@ -32,7 +32,13 @@ spec:
     - label: Hostname
       name: hostname
       query: SHOW TAG VALUES FROM "cmd-check-gitlab-liveness" WITH KEY = "hostname"
-      refresh: 2
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "cmd-check-gitlab-liveness" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
 
@@ -108,7 +114,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: GitLab Liveness
+        value: $service
       - condition: AND
         key: metric
         operator: '='
