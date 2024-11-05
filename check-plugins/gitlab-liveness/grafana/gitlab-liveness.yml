@@ -24,20 +24,24 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-gitlab-liveness
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*gitlab-liveness.*/
+      current:
+        text: cmd-check-gitlab-liveness
+        value: cmd-check-gitlab-liveness
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-gitlab-liveness" WITH KEY = "hostname"
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
       refresh: 1
       sort: 1
       type: query
     - label: Service
       name: service
-      query: SHOW TAG VALUES FROM "cmd-check-gitlab-liveness" WITH KEY = "service" WHERE hostname = '$hostname'
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
       refresh: 1
       sort: 1
       type: query

@@ -24,20 +24,24 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-grafana-version
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*grafana-version.*/
+      current:
+        text: cmd-check-grafana-version
+        value: cmd-check-grafana-version
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-grafana-version" WITH KEY = "hostname"
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
       refresh: 1
       sort: 1
       type: query
     - label: Service
       name: service
-      query: SHOW TAG VALUES FROM "cmd-check-grafana-version" WITH KEY = "service" WHERE hostname = '$hostname'
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
       refresh: 1
       sort: 1
       type: query
