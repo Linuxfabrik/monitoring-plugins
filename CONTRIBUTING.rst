@@ -265,8 +265,9 @@ Lessons learned: When it comes to parameters, stay backwards compatible. If you 
 Git Commits
 -----------
 
-* Commit messages must start with "plugin-name: " and clearly and precisely state what has changed. Example: ``about-me: Should be able to run even if psutil is or cannot be installed``.
-* If there is an issue, the commit message must consist of the issue title followed by "(fix #issueno)", for example: ``about-me: Add OpenVPN (fix #341)``.
+* | Since 2024-11-13, commit messages follow the `Conventional Commits specification <https://www.conventionalcommits.org/en/v1.0.0/>`_
+  | Example: ``fix(about-me): cryptography deprecation warning``.
+* If there is an issue, the commit message must consist of the issue title followed by "(fix #issueno)", for example: ``fix(about-me): cryptography deprecation warning (fix #341)``.
 * For the first commit, use the message ``Add <plugin-name>``.
 
 
