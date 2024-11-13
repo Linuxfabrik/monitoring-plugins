@@ -6,6 +6,8 @@ Overview
 
 Checks the used inode space in percent, default on ``/``, ``/tmp`` and ``/boot``.
 
+If you get an alert, use `find $MOUNT -xdev -printf '%h\n\' | sort | uniq -c | sort -k 1 -n | tail -n 10` to find where inodes are being used. This prints a top 10 list of directories prefixed with the number of files (and subdirectories).
+
 
 Fact Sheet
 ----------
