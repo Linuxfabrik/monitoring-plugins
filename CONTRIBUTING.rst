@@ -55,6 +55,7 @@ Checklist:
 Rules of Thumb
 --------------
 
+* Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a ``--lengthy`` parameter.
 * The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
 * Develop with a minimal Linux in mind.
 * Develop with Icinga2 in mind.
@@ -88,7 +89,7 @@ Short:
 The theory:
 
 * Data coming into your plugins must be bytes, encoded with ``UTF-8``.
-* Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
+* Decode incoming bytes as soon as possible (best by using the ``txt`` library), producing unicode.
 * **Use unicode throughout your plugin.**
 * When outputting data, use library functions, they should do output conversions for you. Library functions like ``base.oao`` or ``url.fetch_json`` will take care of the conversion to and from bytes.
 
@@ -119,7 +120,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-For all other options, use long parameters only. Separate words using a ``-``. We recommend using some of those:
+For all other options, use long parameters only. Separate words using a ``-``. We recommend using some out of those:
 
 .. code-block:: text
 
