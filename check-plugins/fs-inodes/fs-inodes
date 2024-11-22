@@ -16,13 +16,16 @@ import os  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024111301'
+__version__ = '2024112201'
 
-DESCRIPTION = 'Checks the used inode space in percent, default on "/", "/tmp" and "/boot".'
+DESCRIPTION = '''Checks the percentage of inode space used. To do this, this plugin fetches a list
+                 of local devices that are in use and have a filesystem on them. Filesystems that do
+                 not report inode usage are skipped.'''
 
 DEFAULT_WARN  = 90
 DEFAULT_CRIT  = 95
@@ -58,7 +61,8 @@ def parse_args():
 
     parser.add_argument(
         '--mount',
-        help='The mount point, in the format "mount1,mount2". Default: "%(default)s"',
+        #help='The mount point, in the format "mount1,mount2". Default: "%(default)s"',
+        help=argparse.SUPPRESS,  # deprecated parameter
         dest='MOUNT',
         type=lambda s: [str(item).strip() for item in s.split(',')],
         default=DEFAULT_MOUNT,
@@ -89,10 +93,14 @@ def main():
     perfdata = ''
     state = STATE_OK
 
-    for mount in args.MOUNT:
+    real_disks = lib.disk.get_real_disks()
+    for disk in real_disks:
+        mount = disk['mp'].split(' ')[0]
         try:
             st = os.statvfs(mount)
             inodes_total = float(st.f_files)
+            if not inodes_total:
+                continue
             inodes_free = float(st.f_ffree)
             inodes_used = round((inodes_total - inodes_free) / inodes_total * 100, 1)
 
@@ -107,6 +115,8 @@ def main():
                 msg = msg[:-2] + ' (WARN), '
         except Exception:
             lib.base.cu('Something seems to be wrong with the input parameter')
+    if not msg:
+        lib.base.oao('Everything is ok (although nothing checked).', state)
     msg = msg[:-2]
     if state != STATE_OK:
         msg += '. Have a look at the README on how to find where inodes are being used.'
