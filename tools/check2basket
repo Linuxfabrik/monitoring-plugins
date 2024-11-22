@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024052901'
+__version__ = '2024112201'
 
 DESCRIPTION = 'A tool to generate Icinga Director baskets from a check plugin.'
 
@@ -540,6 +540,9 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
     for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
+        if action.help == argparse.SUPPRESS:
+            print(f'Skipping the "{long_param}" parameter as it is suppressed')
+            continue
         if not long_param:
             warn_print('Could not find a long parameter for:\n{}'.format(action))
             continue
