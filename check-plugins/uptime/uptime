@@ -16,6 +16,7 @@ import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
+import lib.cache  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
@@ -28,9 +29,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033001'
+__version__ = '2024112201'
 
-DESCRIPTION = 'Check how long the system has been running.'
+DESCRIPTION = '''Check how long the system has been running. The plugin can also display the last
+                 downtime timestamp and duration - the shorter the intervals at which it is run,
+                 the more accurate the downtime info will be.'''
 
 DEFAULT_WARN = '3m:180D' # warn if uptime is not in 3 minutes to 180 days
 DEFAULT_CRIT = ':1Y' # crit if uptime is greater than 365 days
@@ -61,7 +64,7 @@ def parse_args():
              '(10m = 10 minutes; s = seconds, m = minutes, h = hours, '
              'D = days, W = weeks, M = months, Y = years). '
              'Supports Nagios ranges. '
-             'Example: `:1Y` alerts if uptime is greater than 1 year.'
+             'Example: `:1Y` alerts if uptime is greater than 1 year. '
              'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
@@ -73,7 +76,7 @@ def parse_args():
              '(10m = 10 minutes; s = seconds, m = minutes, h = hours, '
              'D = days, W = weeks, M = months, Y = years). '
              'Supports Nagios ranges. '
-             'Example: `5m:180D` warns if uptime is not between 5 minutes and 180 days.'
+             'Example: `5m:180D` warns if uptime is not between 5 minutes and 180 days. '
              'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
@@ -98,18 +101,42 @@ def main():
     WARN = lib.human.humanrange2seconds(args.WARN)
 
     # fetch data
-    delta = lib.time.now() - psutil.boot_time()
+    now = lib.time.now()
+
+    # analyze data
+    uptime = lib.time.now() - psutil.boot_time()
+
+    last_ts = lib.cache.get('last_ts', filename='linuxfabrik-monitoring-plugins-uptime.db')
+    if not last_ts:
+        last_ts = now
+    if psutil.boot_time() > float(last_ts):
+        # there was a reboot
+        downtime = psutil.boot_time() - float(last_ts)
+        down_ts = last_ts
+        lib.cache.set('last_downtime', downtime, filename='linuxfabrik-monitoring-plugins-uptime.db')
+        lib.cache.set('last_down_ts', down_ts, filename='linuxfabrik-monitoring-plugins-uptime.db')
+    else:
+        downtime = lib.cache.get('last_downtime', filename='linuxfabrik-monitoring-plugins-uptime.db')
+        down_ts = lib.cache.get('last_down_ts', filename='linuxfabrik-monitoring-plugins-uptime.db')
+        if not downtime:
+            downtime, down_ts = 0, 0
+    lib.cache.set('last_ts', now, filename='linuxfabrik-monitoring-plugins-uptime.db')
 
     # build the message
-    state = lib.base.get_state(delta, WARN, CRIT, _operator='range')
+    state = lib.base.get_state(uptime, WARN, CRIT, _operator='range')
     msg = 'Up {} since {} (thresholds {}/{}){}'.format(
-        lib.human.seconds2human(delta),
+        lib.human.seconds2human(uptime),
         lib.time.epoch2iso(psutil.boot_time()),
         args.WARN,
         args.CRIT,
         lib.base.state2str(state, prefix=' '),
     )
-    perfdata = lib.base.get_perfdata('uptime', delta, 's', None, None, 0, None)
+    if downtime:
+        msg += '.\nLast power event at ~{} and down for ~{}.'.format(
+            lib.time.epoch2iso(down_ts),
+            lib.human.seconds2human(downtime),
+        )
+    perfdata = lib.base.get_perfdata('uptime', uptime, 's', None, None, 0, None)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

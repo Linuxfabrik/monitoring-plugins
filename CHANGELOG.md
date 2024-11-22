@@ -59,6 +59,7 @@ Monitoring Plugins:
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 * openstack-nova-list: No more need for keystoneauth and keystoneclient
+* uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
 
 
 ### Fixed ("bug")
