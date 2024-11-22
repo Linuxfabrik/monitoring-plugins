@@ -55,6 +55,7 @@ Monitoring Plugins:
 * dhcp-scope-usage: Ignore PercentageInUse fractions
 * disk-io: Re-add support for Windows after last rewrite
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
+* mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 * openstack-nova-list: No more need for keystoneauth and keystoneclient
 
