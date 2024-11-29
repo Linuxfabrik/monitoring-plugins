@@ -13,6 +13,10 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Breaking Changes
 
+Icinga Director:
+
+* all-the-rest.json: Remove Tarifpool-v2 Service Set
+
 Monitoring Plugins:
 
 * jitsi-videobridge-stats: Remove deprecated values ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
