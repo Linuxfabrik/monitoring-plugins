@@ -58,6 +58,7 @@ Monitoring Plugins:
 * about-me: Add Moodle detection
 * dhcp-scope-usage: Ignore PercentageInUse fractions
 * disk-io: Re-add support for Windows after last rewrite
+* fail2ban: More compact output (closes #141)
 * fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.

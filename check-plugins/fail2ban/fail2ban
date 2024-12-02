@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024120201'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses per jail.'
 
@@ -106,7 +106,7 @@ def main():
         lib.base.cu('Problem while testing the status of the fail2ban server.')
 
     # extract the jail list
-    jail_list = lib.txt.extract_str(stdout, 'Jail list:\t', '\n')
+    jail_list = lib.txt.extract_str(stdout, 'Jail list:', '\n').strip()
     if not jail_list:
         lib.base.cu('No jails found.')
     jail_list = jail_list.split(', ')
@@ -115,6 +115,7 @@ def main():
     msg = ''
     perfdata = ''
     state = STATE_OK
+    count = 0
 
     # analyze data
     #     for each jail_name:
@@ -143,21 +144,29 @@ def main():
         # important to convert the result to an integer for the comparison later on
         if f2b_currently_banned:
             f2b_currently_banned = int(f2b_currently_banned)
+            count += f2b_currently_banned
         else:
             f2b_currently_banned = 0
         jail_state = lib.base.get_state(f2b_currently_banned, args.WARN, args.CRIT)
         state = lib.base.get_worst(state, jail_state)
 
-        msg += '{}: {}{}, '.format(
-            jail,
+        msg += '* {} in jail "{}"{}\n'.format(
             f2b_currently_banned,
+            jail,
             lib.base.state2str(state, prefix=' '),
         )
         perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
 
     # over and out
-    if msg:
-        lib.base.oao('IPs banned - ' + msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    if not count:
+        msg = 'Everything is ok.'
+    else:
+        msg = '{} {} banned\n{}'.format(
+            count,
+            lib.txt.pluralize('IP', count),
+            msg,
+        )
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
