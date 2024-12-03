@@ -34,7 +34,7 @@ Help
                         [--ignore-maxmemory0] [--ignore-overcommit]
                         [--ignore-somaxconn] [--ignore-sync-partial-err]
                         [--ignore-thp] [-p PASSWORD] [--port PORT]
-                        [--socket SOCKET] [--test TEST] [-w WARN]
+                        [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
 
     Returns information and statistics about a Redis server. Alerts on memory
     consumption, memory fragmentation, hit rates and more.
@@ -66,6 +66,7 @@ Help
       --socket SOCKET       Redis server socket (overrides hostname and port).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
+      --tls                 Establish a secure TLS connection to Redis.
       -w WARN, --warning WARN
                             Set the WARN threshold as a percentage. Default: >= 90
 
