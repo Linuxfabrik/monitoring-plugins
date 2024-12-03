@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024120301'
 
 DESCRIPTION = """Returns information and statistics about a Redis server. Alerts on memory
                  consumption, memory fragmentation, hit rates and more."""
@@ -146,6 +146,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--tls',
+        help='Establish a secure TLS connection to Redis.',
+        dest='TLS',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
         help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
@@ -166,16 +174,19 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if not args.SOCKET:
+        base_cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
+    else:
+        base_cmd = 'redis-cli -s {} '.format(args.SOCKET)
+    if args.PASSWORD:
+        base_cmd += '-a {} '.format(args.PASSWORD)
+        base_cmd += '--no-auth-warning '
+    if args.TLS:
+        base_cmd += '--tls --cacert /etc/pki/tls/certs/rootCA.pem '
+
     # fetch data using `redis-cli info default`
     if args.TEST is None:
-        if not args.SOCKET:
-            cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
-        else:
-            cmd = 'redis-cli -s {} '.format(args.SOCKET)
-        if args.PASSWORD:
-            cmd += '-a {} '.format(args.PASSWORD)
-            cmd += '--no-auth-warning '
-        cmd += 'info default'
+        cmd = '{} info default'.format(base_cmd)
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
@@ -204,14 +215,7 @@ def main():
     # fetch data using `redis-cli memory doctor`
     result['memory_doctor'] = 'Hi Sam'
     if args.TEST is None:
-        if not args.SOCKET:
-            cmd = 'redis-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
-        else:
-            cmd = 'redis-cli -s {} '.format(args.SOCKET)
-        if args.PASSWORD:
-            cmd += '-a {} '.format(args.PASSWORD)
-            cmd += '--no-auth-warning '
-        cmd += 'memory doctor'
+        cmd = '{} memory doctor'.format(base_cmd)
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
