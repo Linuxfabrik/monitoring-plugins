@@ -20,7 +20,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024120601'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -229,7 +229,14 @@ def main():
     problem_msg = ''
     if args.LOADSTATE is not None and loadstate == 'not-found':
         problem = True
-        problem_msg += 'Unit {} not found.  '.format(args.UNIT)
+        problem_msg += (
+            'Unit {} not found, so check with `systemctl cat {}` if service file is missing, '
+            'and/or try re-installing the {} application; '.format(
+                args.UNIT,
+                args.UNIT,
+                args.UNIT,
+            )
+        )
     else:
         if args.LOADSTATE is not None and args.LOADSTATE != loadstate:
             problem = True
