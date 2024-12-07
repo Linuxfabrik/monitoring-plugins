@@ -149,6 +149,17 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--include-fstype',
+        help='Add the filesystem type you want to check'
+             'Implies psutil.disk_partitions(all=True)'
+             'If no type is supplied psutil.disk_partitions(all=False) is used'
+             'Includes are matched before excludes.',
+        dest='INCLUDE_FSTYPE',
+        action='append',
+        default=[],
+    )
+
     return parser.parse_args()
 
 
@@ -198,7 +209,10 @@ def main():
 
     # analyze data
     try:
-        parts = psutil.disk_partitions(all=False)
+        if args.INCLUDE_FSTYPE:
+            parts = psutil.disk_partitions(all=True)
+        else:
+            parts = psutil.disk_partitions(all=False)
     except AttributeError:
         lib.base.oao(
             'Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).',
@@ -214,8 +228,11 @@ def main():
         #   opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500'
         # )
         # ignore `/snap`, iso mountpoints and cdroms (UDF = universal disk format)
-        if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
+        if args.INCLUDE_FSTYPE and part.fstype not in args.INCLUDE_FSTYPE:
             continue
+        else:
+            if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
+                continue
 
         # include (first) and exclude (second) specific partitions
         # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is
