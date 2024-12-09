@@ -58,6 +58,7 @@ Monitoring Plugins:
 * about-me: Add Moodle detection
 * dhcp-scope-usage: Ignore PercentageInUse fractions
 * disk-io: Re-add support for Windows after last rewrite
+* disk-usage: Add `--list-fstypes` and `--fstype` for specifying the file system type
 * fail2ban: More compact output (closes #141)
 * fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only

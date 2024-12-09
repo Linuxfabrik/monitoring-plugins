@@ -4,11 +4,15 @@ Check disk-usage
 Overview
 --------
 
-Measures the usage of all mounted disk *partitions* on physical disks only (e.g. hard disks, CD-ROM drives, USB keys) found. It does not check the usage on the raw disks, because for example in LVM more than one disk can be a member of a logical volume, and some of the disks might be full - which is ok as long as the LVM has some space available. The check also ignores all other partition types (e.g. memory partitions such as ``/dev/shm``).
+Measures the usage of all mounted disk *partitions*. It does not check the usage on the raw disks, because in LVM for example, more than one disk can be a member of a logical volume, and some of the disks might be full - which is fine as long as LVM has some space available.
+
+By default, this plugin only checks physical devices (e.g. hard disks, CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, inaccessible file systems). You can override this behaviour by using the ``--fstype`` parameter and specifying which file system types should be checked explicitly.
+
+To get a list of file system types you can specify, run ``disk-usage --list-fstype`` first (as file system types are machine dependent).
 
 .. note::
 
-    UNIX usually reserves 5% of the total disk space for the root user. ``total`` and ``used`` fields on UNIX refer to the overall total and used space, whereas ``free`` represents the space available for the user and ``percent`` represents the user utilization. That is why percent value may look 5% bigger than what you would expect it to be (starting with psutil v4.3.0; quote from the `psutil documentation <https://psutil.readthedocs.io/en/latest/>`_).
+    UNIX usually reserves 5% of the total disk space for the root user. ``total`` and ``used`` fields on UNIX refer to the overall total and used space, whereas ``free`` represents the space available for the user and ``percent`` represents the user utilization. That is why ``percent`` value may look 5% bigger than what you would expect it to be (starting with psutil v4.3.0; quote from the `psutil documentation <https://psutil.readthedocs.io/en/latest/>`_).
 
 Hints:
 
@@ -36,9 +40,9 @@ Help
 
     usage: disk-usage [-h] [-V] [--always-ok] [-c CRIT]
                       [--exclude-pattern EXCLUDE_PATTERN]
-                      [--exclude-regex EXCLUDE_REGEX]
+                      [--exclude-regex EXCLUDE_REGEX] [--fstype FSTYPE]
                       [--include-pattern INCLUDE_PATTERN]
-                      [--include-regex INCLUDE_REGEX]
+                      [--include-regex INCLUDE_REGEX] [--list-fstypes]
                       [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
     Checks the used disk space, for each partition.
@@ -59,31 +63,44 @@ Help
                             Other self-explanatory examples are `95%USED`,
                             `5%FREE`, `9.5GFREE`, `1400GUSED`. Default: 95%USED
       --exclude-pattern EXCLUDE_PATTERN
-                            Any line matching this pattern (case-insensitive) will
-                            count as a exclude. The mountpoint is excluded if it
-                            contains the specified value. Example: "boot" excludes
-                            "/boot" as well as "/boot/efi". Can be specified
-                            multiple times. On Windows, use drive letters without
-                            backslash ("Y:" or "Y"). Includes are matched before
-                            excludes.
+                            Any mountpoint matching this pattern (case-
+                            insensitive) will count as an exclude. The mountpoint
+                            is excluded if it contains the specified value.
+                            Example: "boot" excludes "/boot" as well as
+                            "/boot/efi". Can be specified multiple times. On
+                            Windows, use drive letters without backslash ("Y:" or
+                            "Y"). Includes are matched before excludes.
       --exclude-regex EXCLUDE_REGEX
-                            Any line matching this python regex (case-insensitive)
-                            will count as a exclude. Can be specified multiple
-                            times. On Windows, use drive letters without backslash
-                            ("Y:" or "Y"). Includes are matched before excludes.
+                            Any mountpoint matching this python regex (case-
+                            insensitive) will count as an exclude. Can be
+                            specified multiple times. On Windows, use drive
+                            letters without backslash ("Y:" or "Y"). Includes are
+                            matched before excludes.
+      --fstype FSTYPE       By default, this plugin only checks physical devices
+                            (e.g. hard disks, CD-ROM drives, USB keys) and ignores
+                            all others (e.g. pseudo, memory, duplicate,
+                            inaccessible file systems). You can override this
+                            behaviour with this parameter by specifying which file
+                            system types should be checked explicitly. Can be
+                            specified multiple times. To get a list of file system
+                            types you can specify, run `disk-usage --list-fstype`
+                            first (as file system types are machine dependent).
       --include-pattern INCLUDE_PATTERN
-                            Any line matching this pattern (case-insensitive) will
-                            count as a include. The mountpoint is included if it
-                            contains the specified value. Example: "boot" includes
-                            "/boot" as well as "/boot/efi". Can be specified
-                            multiple times. On Windows, use drive letters without
-                            backslash ("Y:" or "Y"). Includes are matched before
-                            excludes.
+                            Any mountpoint matching this pattern (case-
+                            insensitive) will count as an include. The mountpoint
+                            is included if it contains the specified value.
+                            Example: "boot" includes "/boot" as well as
+                            "/boot/efi". Can be specified multiple times. On
+                            Windows, use drive letters without backslash ("Y:" or
+                            "Y"). Includes are matched before excludes.
       --include-regex INCLUDE_REGEX
-                            Any line matching this python regex (case-insensitive)
-                            will count as a include. Can be specified multiple
-                            times. On Windows, use drive letters without backslash
-                            ("Y:" or "Y"). Includes are matched before excludes.
+                            Any mountpoint matching this python regex (case-
+                            insensitive) will count as an include. Can be
+                            specified multiple times. On Windows, use drive
+                            letters without backslash ("Y:" or "Y"). Includes are
+                            matched before excludes.
+      --list-fstypes        Show which file system types are available and which
+                            are checked by default.
       --perfdata-regex PERFDATA_REGEX
                             Only print perfdata keys matching this python regex.
                             For a list of perfdata keys, have a look at the README
@@ -164,6 +181,8 @@ Some other examples:
     ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80 --critical=90
     ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=90%USED
     ./disk-usage --exclude-pattern=/var/log --exclude-pattern=/tmp --warning=80%USED --critical=3GFREE
+
+    ./disk-usage --fstype=btrfs --fstype=vfat
 
     ./disk-usage --perfdata-pattern='/-usage'
     ./disk-usage --perfdata-pattern='var.*-usage'
