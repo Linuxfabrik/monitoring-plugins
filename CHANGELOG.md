@@ -66,6 +66,7 @@ Monitoring Plugins:
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 * openstack-nova-list: No more need for keystoneauth and keystoneclient
 * redis-status: Add `--tls` parameter
+* rhel-version: `--extended-support` checks for "Extended Life Cycle Support" EOL ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
 * systemd-unit: Improve output
 * uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
 
