@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024120901'
 
 DESCRIPTION = 'Warns before an expiration date is scheduled to occur.'
 
@@ -87,22 +87,19 @@ def main():
             delta = expiration_date - today
             delta = int(delta.days) + 1
 
-            if delta > 0:
-                line = '{} expires in {} {} (thresholds {}/{})\n'.format(item, delta, lib.txt.pluralize('day', delta), warn, crit)
-            elif delta == 0:
-                line = '{} expires today.\n'.format(item)
-            else:
-                line = '{} already expired {} {} ago.\n'.format(item, abs(delta), lib.txt.pluralize('day', abs(delta)))
-
             if crit.lower() != 'none' and delta < int(crit):
-                msg += '* CRIT ' + line
                 line_state = STATE_CRIT
-            elif delta < int(warn):
-                msg += '* WARN ' + line
+            elif warn.lower() != 'none' and delta < int(warn):
                 line_state = STATE_WARN
             else:
-                msg += '* ' + line
                 line_state = STATE_OK
+
+            if delta > 0:
+                msg += '* {} expires in {} {} (thresholds {}/{}){}\n'.format(item, delta, lib.txt.pluralize('day', delta), warn, crit, lib.base.state2str(line_state, prefix=' '))
+            elif delta == 0:
+                msg += '* {} expires today{}\n'.format(item, lib.base.state2str(line_state, prefix=' '))
+            else:
+                msg += '* {} expired {} {} ago{}\n'.format(item, abs(delta), lib.txt.pluralize('day', abs(delta)), lib.base.state2str(line_state, prefix=' '))
 
             state = lib.base.get_worst(line_state, state)
 

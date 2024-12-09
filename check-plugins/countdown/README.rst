@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/countdown"
     "Check Interval Recommendation",        "Twice a day"
     "Can be called without parameters",     "No"
@@ -41,15 +41,14 @@ Usage Examples
 .. code-block:: bash
 
     ./countdown --input='Supermicro X11 (SerNo ABCD), 2023-12-31, 60, None' --input 'Allianz Insurance, 2024-12-31, 120, 30'
-    
+
 Output:
 
 .. code-block:: text
 
-    Everything is ok.
-
-    * Supermicro X11 (SerNo ABCD) expires in 229 days (thresholds 60/None)
-    * Allianz Insurance expires in 549 days (thresholds 120/30)
+    There are one or more criticals.
+    * Supermicro X11 (SerNo ABCD) expired 344 days ago [WARNING]
+    * Allianz Insurance expires in 22 days (thresholds 120/30) [CRITICAL]
 
 
 States
