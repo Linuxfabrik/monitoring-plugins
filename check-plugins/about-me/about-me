@@ -41,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024112901'
+__version__ = '2024120901'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -798,7 +798,23 @@ def main():
 
     dmi = lib.dmidecode.get_data()
     sys_dimensions = get_sys_dimensions()
-    if dmi:
+    if dmi and sys_dimensions:
+        # combine the best from both worlds
+        msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
+        msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
+        msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
+        msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
+        msg += '#Cores: {}, '.format(lib.dmidecode.cpu_cores_enabled(dmi))
+        msg += '#Threads: {}, '.format(lib.dmidecode.cpu_threads(dmi))
+        msg += 'Current Speed: {} MHz, '.format(lib.dmidecode.cpu_speed(dmi))
+        msg += '{}/{} RAM (virtmem/max'.format(
+            lib.human.bytes2human(sys_dimensions['ram']),
+            lib.human.bytes2human(lib.dmidecode.ram(dmi)),
+        )
+        if sys_dimensions['ram'] > lib.dmidecode.ram(dmi):
+            msg += '; reboot recommended'
+        msg += '), '
+    elif dmi:
         msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
         msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
         msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
@@ -814,7 +830,7 @@ def main():
             lib.human.bytes2human(sys_dimensions['ram'])
         )
     else:
-        msg += 'sys dimensions n/a (consider installing psutil), '
+        msg += 'sys dimensions n/a (consider installing dmidecode/psutil), '
 
     disk_msg, disk_count = get_disks()
     msg += disk_msg
