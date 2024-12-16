@@ -64,6 +64,7 @@ Monitoring Plugins:
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
+* nodebb-stats: In "Last user", don't report the user you login with ([#536](https://github.com/Linuxfabrik/monitoring-plugins/issues/536))
 * openstack-nova-list: No more need for keystoneauth and keystoneclient
 * redis-status: Add `--tls` parameter
 * rhel-version: `--extended-support` checks for "Extended Life Cycle Support" EOL ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
