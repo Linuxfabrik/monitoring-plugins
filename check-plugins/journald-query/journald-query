@@ -38,6 +38,7 @@ DEFAULT_SERVERITY = 'warn'
 DEFAULT_SINCE = '-8h'
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
+DEFAULT_COUNT = 1
 
 # don't sort JOURNALD_PRIOS alphabetically, we need the indexes (0 = emerg etc.)
 JOURNALD_PRIOS = [
@@ -166,6 +167,14 @@ def parse_args():
         action='append',
     )
 
+    parser.add_argument(
+        '--count',
+        help='Number of events to trigger the state. Default: %(default)d',
+        dest='COUNT',
+        default=DEFAULT_COUNT,
+        type=lib.args.int_or_none,
+    )
+
     return parser.parse_args()
 
 
@@ -259,8 +268,8 @@ def main():
     # analyze data
     if stdout:
         # found something, so nothing good
-        state = lib.base.str2state(args.SEVERITY)
         result = stdout.splitlines()
+        threshold = args.COUNT or 1
 
         compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
         for item in result:
@@ -302,6 +311,7 @@ def main():
 
     # build the message
     if table_data:
+        state = lib.base.str2state(args.SEVERITY) if cnt >= threshold else STATE_OK
         msg = '{} {}. Latest event at {} from {}, level {}: `{}`{}'.format(
             cnt,
             lib.txt.pluralize('event', cnt),
@@ -309,7 +319,7 @@ def main():
             table_data[0]['unit'],
             table_data[0]['priority'],
             table_data[0]['MESSAGE'],
-            lib.base.state2str(lib.base.str2state(args.SEVERITY), prefix=' '),
+            lib.base.state2str(state, prefix=' '),
         )
         if shortened:
             msg += '\nAttention: Table below is truncated, showing the 5 newest and ' \
