@@ -39,6 +39,7 @@ DEFAULT_SINCE = '-8h'
 DEFAULT_UNIT = None
 DEFAULT_USER_UNIT = None
 DEFAULT_COUNT = 1
+DEFAULT_GREP = None
 
 # don't sort JOURNALD_PRIOS alphabetically, we need the indexes (0 = emerg etc.)
 JOURNALD_PRIOS = [
@@ -109,6 +110,15 @@ def parse_args():
         action='append',
         default=[],
         dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--grep',
+        help='journalctl: Filter output to entries where the MESSAGE= field '
+             'matches the specified regular expression. PERL-compatible '
+             'regular expressions are used',
+        default=DEFAULT_GREP,
+        dest='GREP',
     )
 
     parser.add_argument(
@@ -252,6 +262,8 @@ def main():
         if args.USER_UNIT is not None:
             for unit in args.USER_UNIT:
                 cmd += '--user-unit="{}" '.format(unit)
+        if args.GREP is not None:
+            cmd += ' --grep="{}" '.format(args.GREP)
         cmd = cmd.strip()
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:

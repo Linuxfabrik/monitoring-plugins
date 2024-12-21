@@ -39,9 +39,10 @@ Help
     usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                           [--identifier IDENTIFIER]
                           [--ignore-pattern IGNORE_PATTERN]
-                          [--ignore-regex IGNORE_REGEX] [--priority PRIORITY]
-                          [--severity {warn,crit}] [--since SINCE] [--test TEST]
-                          [--unit UNIT] [--user-unit USER_UNIT] [--count COUNT]
+                          [--ignore-regex IGNORE_REGEX] [--grep GREP]
+                          [--priority PRIORITY] [--severity {warn,crit}]
+                          [--since SINCE] [--test TEST] [--unit UNIT]
+                          [--user-unit USER_UNIT] [--count COUNT]
 
     Query the systemd journal and alert on any events found. For help on any of
     the journalctl-specific parameters, see `man journalctl`.
@@ -67,6 +68,10 @@ Help
                             `journalctl`, you can easily use a regex to ignore
                             certain messages. Example: '(?i)linuxfabrik' for a
                             case-insensitive search for "linuxfabrik".
+      --grep GREP           journalctl: Filter output to entries where the
+                            MESSAGE= field matches the specified regular
+                            expression. PERL-compatible regular expressions are
+                            used
       --priority PRIORITY   journalctl: Filter output by message priorities or
                             priority ranges. Default: emerg..err
       --severity {warn,crit}
