@@ -43,6 +43,7 @@ Help
                           [--priority PRIORITY] [--severity {warn,crit}]
                           [--since SINCE] [--test TEST] [--unit UNIT]
                           [--user-unit USER_UNIT] [--count COUNT]
+                          [--match MATCH]
 
     Query the systemd journal and alert on any events found. For help on any of
     the journalctl-specific parameters, see `man journalctl`.
@@ -89,6 +90,9 @@ Help
                             session unit. This parameter can be specified multiple
                             times. Default: None
       --count COUNT         Number of events to trigger the state. Default: 1
+      --match MATCH         journalctl: Filter journal entries by specific fields'
+                            values. Should be in the format "FIELD=VALUE", see
+                            `man journalctl` for details.
 
 
 Usage Examples

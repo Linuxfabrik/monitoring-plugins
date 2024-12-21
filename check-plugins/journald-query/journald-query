@@ -185,6 +185,16 @@ def parse_args():
         type=lib.args.int_or_none,
     )
 
+    parser.add_argument(
+        '--match',
+        help='journalctl: Filter journal entries by specific fields\' values.'
+        ' Should be in the format "FIELD=VALUE", see `man journalctl` for '
+        'details.',
+        action='append',
+        default=[],
+        dest='MATCH',
+    )
+
     return parser.parse_args()
 
 
@@ -264,6 +274,11 @@ def main():
                 cmd += '--user-unit="{}" '.format(unit)
         if args.GREP is not None:
             cmd += ' --grep="{}" '.format(args.GREP)
+        if args.MATCH is not None:
+            for match in args.MATCH:
+                if match.find('=') == -1:
+                    lib.base.cu('Invalid match specification: {}'.format(match))
+                cmd += ' "{}" '.format(match)
         cmd = cmd.strip()
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
