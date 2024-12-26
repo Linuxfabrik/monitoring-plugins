@@ -457,16 +457,18 @@ To help sort the ``import``-statements we use ``isort``:
 Unit Tests
 ----------
 
-Implementing tests:
+Unit tests are implemented using the ``unittest`` framework (`https://docs.python.org/3/library/unittest.html <https://docs.python.org/3/library/unittest.html>`_). Have a look at the ``fs-ro`` plugin on how to implement unit tests. Rules of thumb:
 
-* | Use the ``unittest`` framework (`https://docs.python.org/3/library/unittest.html <https://docs.python.org/3/library/unittest.html>`_).
-  | Within your ``unit-test/run`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
-   against stdout, stderr and retc.
+* Within your ``unit-test/run`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
 * To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``unit-test/stdout``, ``unit-test/stderr`` and/or ``unit-test/retc`` and a ``--test`` parameter to feed ``stdout/stdout-file,stderr/stderr-file,expected-retc`` into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
-For example, have a look at the ``fs-ro`` plugin on how to do this.
+If you want to implement unit tests based on containers, the following rules apply:
 
-Running a complete unit test:
+* Each container file does everything necessary to set up a running environment for the check plugin (e.g. install Python if you want to run the plugin inside the container).
+* The ``./run`` unit test simply calls podman and, for each containerfile found, builds the container, injects the libs and the check plugin, and runs the tests - but does not modify the container in any other way.
+* See the ``keycloak-version`` plugin for how to do this.
+
+Running a unit test:
 
 .. code:: bash
 
@@ -696,3 +698,7 @@ Supports human-readable Nagios ranges for durations:
 Differentiates between Windows and Linux (search for ``lib.base.LINUX`` or ``lib.base.WINDOWS``):
 
 * `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
+
+Unit tests use Docker/Podman to test against a range of version:
+
+* `keycloak-version <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version>`_
