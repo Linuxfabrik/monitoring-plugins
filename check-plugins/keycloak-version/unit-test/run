@@ -61,54 +61,81 @@ class TestCheck(unittest.TestCase):
 
             try:
                 # Build the container image
-                print(f"Build the container image '{image_name}'")
+                podman_cmd = ["podman", "build", "--file", containerfile, "--tag", image_name]
+                print(f"Build the container image: {' '.join(podman_cmd)}")
                 subprocess.run(
-                    ["podman", "build", "--file", containerfile, "--tag", image_name],
+                    podman_cmd,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
 
-                print(f"Run the container '{container_name}' in detached mode so we can copy files, exec, etc.")
-                subprocess.run(
-                    [
+                podman_cmd = [
                         "podman", "run",
                         "--name", container_name,
                         "--replace",
                         "--detach",  # run in detached mode
                         image_name
-                    ],
+                    ]
+                print(f"Run the container: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
 
                 print(f"Give the container a few seconds to start up")
-                time.sleep(10)
+                time.sleep(5)
 
-                print(f"Copy local files into the container")
+                podman_cmd = ["podman", "cp", "../lib", f"{container_name}:{WORK_DIR}/"]
+                print(f"Copy local files into container: {' '.join(podman_cmd)}")
                 subprocess.run(
-                    ["podman", "cp", "../lib", f"{container_name}:{WORK_DIR}/"],
+                    podman_cmd,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
+                podman_cmd = ["podman", "cp", f"../{CHECK_PLUGIN}", f"{container_name}:{WORK_DIR}/{CHECK_PLUGIN}"]
+                print(f"Copy local files into container: {' '.join(podman_cmd)}")
                 subprocess.run(
-                    ["podman", "cp", f"../{CHECK_PLUGIN}", f"{container_name}:{WORK_DIR}/{CHECK_PLUGIN}"],
+                    podman_cmd,
                     check=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
+
+                # Check if /tmp/venv exists in the container
+                podman_cmd = [
+                    "podman", "exec", container_name,
+                    "sh", "-c", "test -d /tmp/venv && echo 'venv exists'"
+                ]
+                print(f"Check if /tmp/venv exists in the container: {' '.join(podman_cmd)}")
+                venv_exists = subprocess.run(
+                    podman_cmd,
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                ).stdout.strip() == "venv exists"
+                print(f"Check if /tmp/venv exists in the container: {venv_exists}")
 
                 print(f"Now run the test cases inside the container...")
                 for cmdline, expected_output in TESTS[container_name].items():
-                    command = [
-                        "podman", "exec", "--workdir", WORK_DIR, container_name,
-                        "python3",
-                    ] + cmdline.split()
-                    print(f"Run test: {command}")
+                    if venv_exists:
+                        podman_cmd = [
+                            "podman", "exec", "--workdir", WORK_DIR, container_name,
+                            "sh", "-c", f". /tmp/venv/bin/activate && python3 {cmdline}"
+                        ]
+                        print(f"Run test in venv: {' '.join(podman_cmd)}")
+                    else:
+                        podman_cmd = [
+                            "podman", "exec", "--workdir", WORK_DIR, container_name,
+                            "python3",
+                        ] + cmdline.split()
+                        print(f"Run test: {' '.join(podman_cmd)}")
                     result = subprocess.run(
-                        command,
+                        podman_cmd,
                         check=False,  # We'll handle checking the output ourselves
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -120,9 +147,10 @@ class TestCheck(unittest.TestCase):
 
             finally:
                 # Stop and remove the container no matter what
-                print(f"Stopping and removing {containerfile}...")
+                podman_cmd = ["podman", "rm", "--force", container_name]
+                print(f"Stop and remove container: {' '.join(podman_cmd)}")
                 subprocess.run(
-                    ["podman", "rm", "--force", containerfile],
+                    podman_cmd,
                     check=False,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
