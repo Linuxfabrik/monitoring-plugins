@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import os
+import subprocess
+import sys
+import time
+import unittest
+
+CHECK_PLUGIN = 'cpu-usage'
+WORK_DIR = '/tmp'  # work dir in container
+TESTS = {
+    # container_name: { "path-to-check-plugin --param1=value1": "regex-for-expected-output", ... }
+    "lfmp-debian-v11": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-debian-v12": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-fedora-v41": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-rhel-v8": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-rhel-v9": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-sles-v15": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-ubuntu-v2004": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-ubuntu-v2204": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+    "lfmp-ubuntu-v2404": {
+        f"{CHECK_PLUGIN}": r"\d+\.\d+% - .*user:",
+    },
+}
+
+class TestCheck(unittest.TestCase):
+
+    def test(self):
+        """
+        Test all Dockerfiles in the 'unit-test/containerfiles' directory.
+        Builds, runs, and tests each container and validates the output, using podman.
+        """
+        containerfiles_dir = os.path.abspath("containerfiles")
+
+        # Ensure the containerfiles directory exists
+        if not os.path.isdir(containerfiles_dir):
+            self.fail(f"Containerfiles directory '{containerfiles_dir}' not found.")
+
+        # Find all Dockerfiles
+        containerfiles = [
+            os.path.join(containerfiles_dir, f)
+            for f in os.listdir(containerfiles_dir)
+        ]
+        if not containerfiles:
+            self.fail(f"No containerfiles found in '{containerfiles_dir}'.")
+
+        for containerfile in containerfiles:
+            print(f"=== Testing {os.path.basename(containerfile)} ===")
+            version = os.path.basename(containerfile).split("-v")[1]  # Extract version from filename
+            image_name = f"lfmp-{os.path.basename(containerfile).replace('-v', ':')}"
+            container_name = f"lfmp-{os.path.basename(containerfile)}"
+
+            try:
+                # Build the container image
+                podman_cmd = ["podman", "build", "--file", containerfile, "--tag", image_name]
+                print(f"Build the container image: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                podman_cmd = [
+                        "podman", "run",
+                        "--name", container_name,
+                        "--replace",
+                        "--detach",  # run in detached mode
+                        image_name
+                    ]
+                print(f"Run the container: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                print(f"Give the container a few seconds to start up")
+                time.sleep(5)
+
+                podman_cmd = ["podman", "cp", "../lib", f"{container_name}:{WORK_DIR}/"]
+                print(f"Copy local files into container: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                podman_cmd = ["podman", "cp", f"../{CHECK_PLUGIN}", f"{container_name}:{WORK_DIR}/{CHECK_PLUGIN}"]
+                print(f"Copy local files into container: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                # Check if /tmp/venv exists in the container
+                podman_cmd = [
+                    "podman", "exec", container_name,
+                    "sh", "-c", "test -d /tmp/venv && echo 'venv exists'"
+                ]
+                print(f"Check if /tmp/venv exists in the container: {' '.join(podman_cmd)}")
+                venv_exists = subprocess.run(
+                    podman_cmd,
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                ).stdout.strip() == "venv exists"
+                print(f"Check if /tmp/venv exists in the container: {venv_exists}")
+
+                print(f"Now run the test cases inside the container...")
+                for cmdline, expected_output in TESTS[container_name].items():
+                    if venv_exists:
+                        podman_cmd = [
+                            "podman", "exec", "--workdir", WORK_DIR, container_name,
+                            "sh", "-c", f". /tmp/venv/bin/activate && python3 {cmdline}"
+                        ]
+                        print(f"Run test in venv: {' '.join(podman_cmd)}")
+                    else:
+                        podman_cmd = [
+                            "podman", "exec", "--workdir", WORK_DIR, container_name,
+                            "python3",
+                        ] + cmdline.split()
+                        print(f"Run test: {' '.join(podman_cmd)}")
+                    result = subprocess.run(
+                        podman_cmd,
+                        check=False,  # We'll handle checking the output ourselves
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+
+                    # Check the output
+                    self.assertRegex(result.stdout + result.stderr, expected_output)
+
+            finally:
+                # Stop and remove the container no matter what
+                podman_cmd = ["podman", "rm", "--force", container_name]
+                print(f"Stop and remove container: {' '.join(podman_cmd)}")
+                subprocess.run(
+                    podman_cmd,
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+ 
+            output = result.stdout + "\n" + result.stderr
+            print(f"Script output:\n{output}")
+
+
+
+if __name__ == '__main__':
+    unittest.main()

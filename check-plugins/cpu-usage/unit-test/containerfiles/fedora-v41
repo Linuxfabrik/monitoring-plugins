@@ -1,0 +1,22 @@
+# Base image: Official Fedora 41
+FROM fedora:41
+
+# Install Python 3 and pip
+RUN dnf -y install python3 python3-pip python3-devel gcc && \
+    dnf clean all
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip
+RUN pip3 install --upgrade pip wheel setuptools && \
+    pip3 install --no-cache-dir --requirement requirements.txt
+
+# Verify Python installation
+RUN python3 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

@@ -699,6 +699,7 @@ Differentiates between Windows and Linux (search for ``lib.base.LINUX`` or ``lib
 
 * `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
 
-Unit tests use Docker/Podman to test against a range of version:
+Unit tests use Docker/Podman to test against a range of versions or a reange of operating systems / OS's:
 
+* `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
 * `keycloak-version <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version>`_
