@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import os
+import subprocess
+import sys
+import time
+import unittest
+
+CHECK_PLUGIN = 'keycloak-version'
+WORK_DIR = '/tmp'  # work dir in container
+TESTS = {
+    # container_name: { "path-to-check-plugin --param1=value1": "regex-for-expected-output", ... }
+    "lfmp-keycloak-v18.0": {
+        f"{CHECK_PLUGIN}": r"Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)",
+    },
+    "lfmp-keycloak-v20.0": {
+        f"{CHECK_PLUGIN}": r"Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)",
+    },
+    "lfmp-keycloak-v25.0": {
+        f"{CHECK_PLUGIN}": r"Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)",
+    },
+    "lfmp-keycloak-v26.0": {
+        f"{CHECK_PLUGIN}": r"Keycloak v26.* \(EOL ",
+    },
+}
+
+class TestCheck(unittest.TestCase):
+
+    def test(self):
+        """
+        Test all Dockerfiles in the 'unit-test/containerfiles' directory.
+        Builds, runs, and tests each container and validates the output, using podman.
+        """
+        containerfiles_dir = os.path.abspath("containerfiles")
+
+        # Ensure the containerfiles directory exists
+        if not os.path.isdir(containerfiles_dir):
+            self.fail(f"Containerfiles directory '{containerfiles_dir}' not found.")
+
+        # Find all Dockerfiles
+        containerfiles = [
+            os.path.join(containerfiles_dir, f)
+            for f in os.listdir(containerfiles_dir)
+        ]
+        if not containerfiles:
+            self.fail(f"No containerfiles found in '{containerfiles_dir}'.")
+
+        for containerfile in containerfiles:
+            print(f"=== Testing {os.path.basename(containerfile)} ===")
+            version = os.path.basename(containerfile).split("-v")[1]  # Extract version from filename
+            image_name = f"lfmp-{os.path.basename(containerfile).replace('-v', ':')}"
+            container_name = f"lfmp-{os.path.basename(containerfile)}"
+
+            try:
+                # Build the container image
+                print(f"Build the container image '{image_name}'")
+                subprocess.run(
+                    ["podman", "build", "--file", containerfile, "--tag", image_name],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                print(f"Run the container '{container_name}' in detached mode so we can copy files, exec, etc.")
+                subprocess.run(
+                    [
+                        "podman", "run",
+                        "--name", container_name,
+                        "--replace",
+                        "--detach",  # run in detached mode
+                        image_name
+                    ],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                print(f"Give the container a few seconds to start up")
+                time.sleep(10)
+
+                print(f"Copy local files into the container")
+                subprocess.run(
+                    ["podman", "cp", "../lib", f"{container_name}:{WORK_DIR}/"],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                subprocess.run(
+                    ["podman", "cp", f"../{CHECK_PLUGIN}", f"{container_name}:{WORK_DIR}/{CHECK_PLUGIN}"],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                print(f"Now run the test cases inside the container...")
+                for cmdline, expected_output in TESTS[container_name].items():
+                    command = [
+                        "podman", "exec", "--workdir", WORK_DIR, container_name,
+                        "python3",
+                    ] + cmdline.split()
+                    print(f"Run test: {command}")
+                    result = subprocess.run(
+                        command,
+                        check=False,  # We'll handle checking the output ourselves
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+
+                    # Check the output
+                    self.assertRegex(result.stdout + result.stderr, expected_output)
+
+            finally:
+                # Stop and remove the container no matter what
+                print(f"Stopping and removing {containerfile}...")
+                subprocess.run(
+                    ["podman", "rm", "--force", containerfile],
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+ 
+            output = result.stdout + "\n" + result.stderr
+            print(f"Script output:\n{output}")
+
+
+
+if __name__ == '__main__':
+    unittest.main()
