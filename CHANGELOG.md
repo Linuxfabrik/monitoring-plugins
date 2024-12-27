@@ -61,6 +61,7 @@ Monitoring Plugins:
 * disk-usage: Add `--list-fstypes` and `--fstype` for specifying the file system type
 * fail2ban: More compact output (closes #141)
 * fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
+* keycloak-version: Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/

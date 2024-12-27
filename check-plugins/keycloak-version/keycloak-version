@@ -16,22 +16,28 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.disk  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031501'
+__version__ = '2024122701'
 
 DESCRIPTION = 'Tracks if Keycloak is EOL.'
 
 DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
 DEFAULT_CHECK_PATCH = False
+DEFAULT_CLIENT_ID = 'admin-cli'
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_PASSWORD = 'admin'
 DEFAULT_PATH = '/opt/keycloak'
+DEFAULT_REALM = 'master'
 DEFAULT_TIMEOUT = 8
+DEFAULT_URL = 'http://localhost:8080'
+DEFAULT_USERNAME = 'admin'
 
 
 def parse_args():
@@ -87,6 +93,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--client-id',
+        help='Keycloak API Client-ID. '
+             'Default: %(default)s',
+        dest='CLIENT_ID',
+        default=DEFAULT_CLIENT_ID,
+    )
+
+    parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
              'Default: %(default)s',
@@ -114,10 +128,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-p', '--password',
+        help='Keycloak API password. '
+             'Default: %(default)s',
+        dest='PASSWORD',
+        default=DEFAULT_PASSWORD,
+    )
+
+    parser.add_argument(
         '--path',
-        help='Local path to your Keycloak installation. Default: %(default)s',
+        help='Local path to your Keycloak installation. '
+             'Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--realm',
+        help='Keycloak API Realm. '
+             'Default: %(default)s',
+        dest='REALM',
+        default=DEFAULT_REALM,
     )
 
     parser.add_argument(
@@ -129,14 +160,72 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '--url',
+        help='Keycloak API URL. '
+             'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Keycloak API username. '
+             'Default: %(default)s',
+        dest='USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+
     return parser.parse_args()
 
 
-def get_installed_version(path):
-    success, version = lib.disk.grep_file(path + '/version.txt', r'n (.*)')
-    if not success:
+def get_installed_version(args):
+    """Fetch the Keycloak version. First, try to access the file system,
+    then try to fetch the API.
+    """
+    success, version = lib.disk.grep_file(args.PATH + '/version.txt', r'n (.*)')
+    if success:
+        return version
+
+    # Discover the OIDC endpoints for the realm (no authentication needed)
+    oidc_config = lib.base.coe(lib.url.fetch_json(
+        '{}/realms/{}/.well-known/openid-configuration'.format(
+            args.URL,
+            args.REALM,
+        ),
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
+
+    # Obtain an admin access token
+    token_data = lib.base.coe(lib.url.fetch_json(
+        oidc_config['token_endpoint'],
+        data={
+            'grant_type': 'password',
+            'client_id': args.CLIENT_ID,
+            'username': args.USERNAME,
+            'password': args.PASSWORD,
+        },
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
+    if not token_data.get('access_token', ''):
         return ''
-    return version
+
+    # Call the Admin REST API (fetch the realm's details)
+    server_info = lib.base.coe(lib.url.fetch_json(
+        '{}/admin/serverinfo'.format(
+            args.URL,
+        ),
+        header={'Authorization': 'Bearer {}'.format(token_data.get('access_token'))},
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    ))
+    return server_info.get('systemInfo', '').get('version', '')
 
 
 def main():
@@ -150,7 +239,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.PATH)
+    installed_version = get_installed_version(args)
     if not installed_version:
         lib.base.cu('Keycloak not found.')
     state, msg = lib.version.check_eol(
