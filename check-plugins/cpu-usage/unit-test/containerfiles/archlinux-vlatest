@@ -1,0 +1,25 @@
+# Base image: Official Arch Linux
+FROM archlinux:latest
+
+# Update and install Python 3, pip, and required build tools
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm python python-pip gcc && \
+    pacman -Scc --noconfirm
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Set up a Python virtual environment and install dependencies
+RUN python -m venv /tmp/venv && \
+    . /tmp/venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir --requirement requirements.txt
+
+# Verify Python installation
+RUN /tmp/venv/bin/python --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]
