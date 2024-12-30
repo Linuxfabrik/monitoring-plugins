@@ -17,6 +17,7 @@ import unittest
 CHECK_PLUGIN = 'keycloak-version'
 REMOTE_DIR = '/tmp'  # work dir in container (where to find the CHECK_PLUGIN in the container)
 LOCAL_DIR = '..'  # local work dir (where to find the CHECK_PLUGIN locally)
+TIMEOUT = 30
 TESTS = {
     # "lfmp-containername": {
     #     'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
@@ -178,9 +179,9 @@ class TestCheck(unittest.TestCase):
                 print(f"Check if /tmp/venv exists in the container: {venv_exists}")
 
                 print(f"Give server daemons a few seconds to start up")
-                time.sleep(30)
+                time.sleep(TIMEOUT)
 
-                print(f"Run the test cases in 5 seconds to give servers some time...")
+                print(f"Run the test cases...")
                 for cmdline, expected_output in TESTS[container_name]['tests'].items():
                     if cmdline.startswith('REMOTE'):
                         cmdline = cmdline.replace('REMOTE', CHECK_PLUGIN).strip()
