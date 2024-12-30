@@ -16,12 +16,13 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.disk  # pylint: disable=C0413
+import lib.keycloak  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024122701'
+__version__ = '2024123001'
 
 DESCRIPTION = 'Tracks if Keycloak is EOL.'
 
@@ -176,7 +177,6 @@ def parse_args():
         default=DEFAULT_USERNAME,
     )
 
-
     return parser.parse_args()
 
 
@@ -188,43 +188,11 @@ def get_installed_version(args):
     if success:
         return version
 
-    # Discover the OIDC endpoints for the realm (no authentication needed)
-    oidc_config = lib.base.coe(lib.url.fetch_json(
-        '{}/realms/{}/.well-known/openid-configuration'.format(
-            args.URL,
-            args.REALM,
-        ),
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
-
-    # Obtain an admin access token
-    token_data = lib.base.coe(lib.url.fetch_json(
-        oidc_config['token_endpoint'],
-        data={
-            'grant_type': 'password',
-            'client_id': args.CLIENT_ID,
-            'username': args.USERNAME,
-            'password': args.PASSWORD,
-        },
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
-    if not token_data.get('access_token', ''):
-        return ''
-
-    # Call the Admin REST API (fetch the realm's details)
-    server_info = lib.base.coe(lib.url.fetch_json(
-        '{}/admin/serverinfo'.format(
-            args.URL,
-        ),
-        header={'Authorization': 'Bearer {}'.format(token_data.get('access_token'))},
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
+    # Discover the OIDC endpoints for the realm (no authentication needed),
+    # obtain an admin access token and call the Admin REST API (fetch the realm's details).
+    oidc_config = lib.base.coe(lib.keycloak.discover_oidc_endpoints(args))
+    admin_token = lib.base.coe(lib.keycloak.obtain_admin_token(args, oidc_config))
+    server_info = lib.base.coe(lib.keycloak.get_data(args, admin_token, '/admin/serverinfo'))
     return server_info.get('systemInfo', '').get('version', '')
 
 

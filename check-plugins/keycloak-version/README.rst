@@ -11,7 +11,9 @@ To compare with the current/installed version of Keycloak, the check
 * Either needs to run on the Keycloak server itself and needs access to the Keycloak installation directory,
 * or needs access to the Keycloak API.
 
-To check against the API, create a new user in your "master" realm, assign a password, remove the default role(s) and assign ONE of the "master" realm roles except "impersonation". We recommend the "query-groups" role.
+Hints:
+
+* See `Creating an API user account to monitor Keycloak <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.rst>`_.
 
 
 Fact Sheet
@@ -19,7 +21,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
