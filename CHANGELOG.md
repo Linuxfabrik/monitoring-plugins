@@ -38,6 +38,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * graylog-version
+* keycloak-memory-usage
 * mastodon-version
 * moodle-version
 * scanrootkit

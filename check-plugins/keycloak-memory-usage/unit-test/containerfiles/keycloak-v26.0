@@ -1,0 +1,29 @@
+# https://www.keycloak.org/server/containers
+# container comes without python
+
+# Stage 1: Build Python environment in a feature-rich base image (rhel9)
+FROM registry.access.redhat.com/ubi9 AS ubi-micro-build
+
+# Install Python 3 in the ubi-micro-build stage
+RUN mkdir -p /mnt/rootfs
+RUN dnf -y install --installroot /mnt/rootfs python --releasever 9 --setopt install_weak_deps=false --nodocs && \
+    dnf --installroot /mnt/rootfs clean all && \
+    rpm --root /mnt/rootfs --erase --nodeps setup
+
+# Stage 2: Use the minimal Keycloak base image
+FROM quay.io/keycloak/keycloak:26.0
+
+# Switch to root to make modifications
+USER root
+
+# Copy from the builder stage into the minimal image
+COPY --from=ubi-micro-build /mnt/rootfs /
+
+# Verify Python installation
+RUN python3 --version
+
+# Switch back to the Keycloak default user
+USER keycloak
+
+# Set the default command to start Keycloak in dev-mode
+CMD ["start-dev"]
