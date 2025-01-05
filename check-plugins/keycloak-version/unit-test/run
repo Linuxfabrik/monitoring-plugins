@@ -10,7 +10,6 @@
 
 import os
 import subprocess
-import sys
 import time
 import unittest
 
@@ -18,78 +17,170 @@ CHECK_PLUGIN = 'keycloak-version'
 REMOTE_DIR = '/tmp'  # work dir in container (where to find the CHECK_PLUGIN in the container)
 LOCAL_DIR = '..'  # local work dir (where to find the CHECK_PLUGIN locally)
 TIMEOUT = 30
-TESTS = {
-    # "lfmp-containername": {
-    #     'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-    #     'tests': {
-    #         f"REMOTE --param1=value1": r"Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)",
-    #         f"LOCAL --param1=value1": r"Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)",
-    #     },
-    # },
-    "lfmp-keycloak-v18.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)",  # check automatically uses the Keycloak API
-        },
+TESTS = [
+    {
+        'containerfile': 'containerfiles/keycloak-v18.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v18.* \(EOL 2022-07-27 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v19.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v19.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v19.* \(EOL 2022-11-01 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v20.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v20.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v20.* \(EOL 2023-02-23 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v21.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available, minor 21.* available\)",
-            f"LOCAL": r"Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available, minor 21.* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v21.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available, minor 21.* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v21.* \(EOL 2023-04-19 -30d \[WARNING\], major .* available, minor 21.* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v22.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v22.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v22.* \(EOL 2023-11-23 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v23.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=linuxfabrik',
-        'tests': {
-            f"REMOTE": r"Keycloak v23.* \(EOL 2024-03-04 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"HTTP error \"401 Unauthorized\" while fetching http://localhost:8080/realms/master/protocol/openid-connect/token",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v23.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=linuxfabrik',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v23.* \(EOL 2024-03-04 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'HTTP error \"4.. .*\" while fetching http://',
+                'assert-retc': 3,
+            },
+        ],
     },
-    "lfmp-keycloak-v24.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v24.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v24.* \(EOL 2024-06-10 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v25.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)",
-            f"LOCAL": r"Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v25.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v25.* \(EOL 2024-10-04 -30d \[WARNING\], major .* available\)',
+                'assert-retc': 1,
+            },
+        ],
     },
-    "lfmp-keycloak-v26.0": {
-        'podman_run_params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
-        'tests': {
-            f"REMOTE": r"Keycloak v26.* \(EOL ",
-            f"LOCAL": r"Keycloak v26.* \(EOL ",
-        },
+    {
+        'containerfile': 'containerfiles/keycloak-v26.0',
+        'podman-run-params': '--publish=8080:8080 --env=KEYCLOAK_ADMIN=admin --env=KEYCLOAK_ADMIN_PASSWORD=admin',
+        'tests': [
+            {
+                'run-where': 'container',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v26.* \(EOL ',
+                'assert-retc': 0,
+            },
+            {
+                'run-where': 'localhost',
+                'plugin-params': '',
+                'assert-regex': r'Keycloak v26.* \(EOL ',
+                'assert-retc': 0,
+            },
+        ],
     },
-}
+]
 
 class TestCheck(unittest.TestCase):
 
@@ -98,29 +189,24 @@ class TestCheck(unittest.TestCase):
         Test all Dockerfiles in the 'unit-test/containerfiles' directory.
         Builds, runs, and tests each container and validates the output, using podman.
         """
-        containerfiles_dir = os.path.abspath("containerfiles")
+        for testcase in TESTS:
+            if not os.path.isfile(testcase['containerfile']):
+                self.fail(f"Containerfile {testcase['containerfile']} not found.")
 
-        # Ensure the containerfiles directory exists
-        if not os.path.isdir(containerfiles_dir):
-            self.fail(f"Containerfiles directory '{containerfiles_dir}' not found.")
-
-        # Find all Dockerfiles
-        containerfiles = [
-            os.path.join(containerfiles_dir, f)
-            for f in os.listdir(containerfiles_dir)
-        ]
-        if not containerfiles:
-            self.fail(f"No containerfiles found in '{containerfiles_dir}'.")
-
-        for containerfile in containerfiles:
-            print(f"\n=== Testing {os.path.basename(containerfile)} ===")
-            version = os.path.basename(containerfile).split("-v")[1]  # Extract version from filename
-            image_name = f"lfmp-{os.path.basename(containerfile).replace('-v', ':')}"
-            container_name = f"lfmp-{os.path.basename(containerfile)}"
+            print(f"\n=== Testing {os.path.basename(testcase['containerfile'])} ===")
+            image_name = f"lfmp-{os.path.basename(testcase['containerfile']).replace('-v', ':')}"
+            container_name = f"lfmp-{os.path.basename(testcase['containerfile'])}"
 
             try:
                 # Build the container image
-                podman_cmd = ["podman", "build", "--file", containerfile, "--tag", image_name]
+                podman_cmd = [
+                    "podman",
+                    "build",
+                    "--file",
+                    testcase['containerfile'],
+                    "--tag",
+                    image_name,
+                ]
                 print(f"Build the container image: {' '.join(podman_cmd)}")
                 subprocess.run(
                     podman_cmd,
@@ -134,7 +220,7 @@ class TestCheck(unittest.TestCase):
                     "--name", container_name,
                     "--replace",
                     "--detach",  # run in detached mode
-                ] + TESTS[container_name]['podman_run_params'].split() + image_name.split()
+                ] + testcase['podman-run-params'].split() + image_name.split()
                 print(f"Run the container: {' '.join(podman_cmd)}")
                 subprocess.run(
                     podman_cmd,
@@ -143,10 +229,15 @@ class TestCheck(unittest.TestCase):
                     stderr=subprocess.PIPE,
                 )
 
-                print(f"Give the container a few seconds to start up")
+                print("Give the container a few seconds to start up")
                 time.sleep(3)
 
-                podman_cmd = ["podman", "cp", "../lib", f"{container_name}:{REMOTE_DIR}/"]
+                podman_cmd = [
+                    "podman",
+                    "cp",
+                    "../lib",
+                    f"{container_name}:{REMOTE_DIR}/",
+                ]
                 print(f"Copy local files into container: {' '.join(podman_cmd)}")
                 subprocess.run(
                     podman_cmd,
@@ -154,7 +245,12 @@ class TestCheck(unittest.TestCase):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
-                podman_cmd = ["podman", "cp", f"../{CHECK_PLUGIN}", f"{container_name}:{REMOTE_DIR}/{CHECK_PLUGIN}"]
+                podman_cmd = [
+                    "podman",
+                    "cp",
+                    f"../{CHECK_PLUGIN}",
+                    f"{container_name}:{REMOTE_DIR}/{CHECK_PLUGIN}",
+                ]
                 print(f"Copy local files into container: {' '.join(podman_cmd)}")
                 subprocess.run(
                     podman_cmd,
@@ -178,25 +274,24 @@ class TestCheck(unittest.TestCase):
                 ).stdout.strip() == "venv exists"
                 print(f"Check if /tmp/venv exists in the container: {venv_exists}")
 
-                print(f"Give server daemons a few seconds to start up")
+                print("Give server daemons a few seconds to start up")
                 time.sleep(TIMEOUT)
 
-                print(f"Run the test cases...")
-                for cmdline, expected_output in TESTS[container_name]['tests'].items():
-                    if cmdline.startswith('REMOTE'):
-                        cmdline = cmdline.replace('REMOTE', CHECK_PLUGIN).strip()
+                print("Run the test cases...")
+                for test in testcase['tests']:
+                    if test['run-where'] == 'container':
+                        cmdline = f"python3 {CHECK_PLUGIN} {test['plugin-params']}".strip()
                         if venv_exists:
                             podman_cmd = [
                                 "podman", "exec", "--workdir", REMOTE_DIR, container_name,
-                                "sh", "-c", f". /tmp/venv/bin/activate && python3 {cmdline}"
+                                "sh", "-c", f". /tmp/venv/bin/activate && {cmdline}"
                             ]
-                            print(f"Run test in container in venv: {' '.join(podman_cmd)}")
+                            print(f"Run test in container in venv: `{' '.join(podman_cmd)}`")
                         else:
                             podman_cmd = [
                                 "podman", "exec", "--workdir", REMOTE_DIR, container_name,
-                                "python3",
                             ] + cmdline.split()
-                            print(f"Run test in container: {' '.join(podman_cmd)}")
+                            print(f"Run test in container: `{' '.join(podman_cmd)}`")
                         result = subprocess.run(
                             podman_cmd,
                             check=False,  # We'll handle checking the output ourselves
@@ -205,9 +300,11 @@ class TestCheck(unittest.TestCase):
                             text=True,
                         )
                     else:
-                        cmdline = cmdline.replace('LOCAL', os.path.join(LOCAL_DIR, CHECK_PLUGIN)).strip()
-                        local_cmd = ['python3'] + cmdline.split()
-                        print(f"Run test locally: {' '.join(local_cmd)}")
+                        local_cmd = [
+                            "python3",
+                            os.path.join(LOCAL_DIR, CHECK_PLUGIN),
+                        ] + test['plugin-params'].strip().split()
+                        print(f"Run test locally: `{' '.join(local_cmd)}`")
                         result = subprocess.run(
                             local_cmd,
                             check=False,  # We'll handle checking the output ourselves
@@ -219,7 +316,10 @@ class TestCheck(unittest.TestCase):
                     # Check the output
                     output = result.stdout + "\n" + result.stderr
                     print(f"Script output:\n{output.strip()}")
-                    self.assertRegex(result.stdout + result.stderr, expected_output)
+
+                    # the unit test result
+                    self.assertRegex(result.stdout + result.stderr, test['assert-regex'])
+                    self.assertEqual(result.returncode, test['assert-retc'])
 
             finally:
                 # Stop and remove the container no matter what
