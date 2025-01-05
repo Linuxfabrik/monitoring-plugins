@@ -25,7 +25,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/haproxy-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -50,22 +50,20 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 95
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 95
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --lengthy             Extended reporting.
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             HAProxy Stats Auth password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL     HAProxy Stats URI. Default: http://localhost/server-
+      -u, --url URL         HAProxy Stats URI. Default: http://localhost/server-
                             status
       --username USERNAME   HAProxy Stats Auth username. Default: haproxy-stats
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 
 
 Usage Examples

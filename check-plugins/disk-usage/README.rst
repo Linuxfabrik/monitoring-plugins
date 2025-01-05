@@ -51,8 +51,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Critical threshold, of the form
+      -c, --critical CRIT   Critical threshold, of the form
                             "<number>[unit][method]", where unit is one of
                             `%|K|M|G|T|P` and method is one of `USED|FREE`. If
                             "unit" is omitted, `%` is assumed. `K` means
@@ -105,8 +104,7 @@ Help
                             Only print perfdata keys matching this python regex.
                             For a list of perfdata keys, have a look at the README
                             and run this plugin. Can be specified multiple times.
-      -w WARN, --warning WARN
-                            Warning threshold, of the form
+      -w, --warning WARN    Warning threshold, of the form
                             "<number>[unit][method]", where unit is one of
                             `%|K|M|G|T|P` and method is one of `USED|FREE`. If
                             "unit" is omitted, `%` is assumed. `K` means

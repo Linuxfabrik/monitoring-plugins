@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -28,9 +28,9 @@ Help
 
 .. code-block:: text
 
-    usage: sap-open-concur-com [-h] [--always-ok] [-V] --datacenter
-                               {us,us2,eu,eu2,cn,pscc} [--insecure] [--no-proxy]
-                               [--service SERVICE] [--test TEST]
+    usage: sap-open-concur-com [-h] [--always-ok] [-V]
+                               --datacenter {us,us2,eu,eu2,cn,pscc} [--insecure]
+                               [--no-proxy] [--service SERVICE] [--test TEST]
                                [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
     This plugin checks for incidents mentioned at the SAP Concur Open

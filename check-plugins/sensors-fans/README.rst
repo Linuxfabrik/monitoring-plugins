@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sensors-fans"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -30,15 +30,13 @@ Help
     Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute).
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for fan speed in RPM.
-                            Default: 20000
-      -w WARN, --warning WARN
-                            Set the warning threshold for fan speed in RPM.
-                            Default: 10000
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold for fan speed in RPM.
+                           Default: 20000
+      -w, --warning WARN   Set the warning threshold for fan speed in RPM.
+                           Default: 10000
 
 
 Usage Examples

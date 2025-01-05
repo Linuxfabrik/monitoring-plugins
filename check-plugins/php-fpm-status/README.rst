@@ -28,7 +28,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-fpm-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -56,8 +56,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold for queue usage as a
+      -c, --critical CRIT   Set the CRIT threshold for queue usage as a
                             percentage. Default: >= 90
       --critical-slowreq CRIT_SLOW_REQUESTS
                             Set the CRIT threshold for slow requests. Default: >=
@@ -69,10 +68,9 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -u URL, --url URL     PHP-FPM Status URL. Default: http://localhost/fpm-
+      -u, --url URL         PHP-FPM Status URL. Default: http://localhost/fpm-
                             status
-      -w WARN, --warning WARN
-                            Set the WARN threshold for queue usage as a
+      -w, --warning WARN    Set the WARN threshold for queue usage as a
                             percentage. Default: >= 80
       --warning-slowreq WARN_SLOW_REQUESTS
                             Set the WARN threshold for slow requests. Default: >=

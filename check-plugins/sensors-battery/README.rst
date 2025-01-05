@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sensors-battery"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -31,15 +31,13 @@ Help
     be determined OK is returned.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for battery power left as a
-                            percentage. Default: 5
-      -w WARN, --warning WARN
-                            Set the warning threshold for battery power left as a
-                            percentage. Default: 20
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold for battery power left as a
+                           percentage. Default: 5
+      -w, --warning WARN   Set the warning threshold for battery power left as a
+                           percentage. Default: 20
 
 
 Usage Examples

@@ -17,7 +17,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/safenet-hsm-state"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -30,8 +30,8 @@ Help
 
 .. code-block:: text
 
-    usage: safenet-hsm-state [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME -p
-                             PASSWORD [--severity {warn,crit}] [--test TEST]
+    usage: safenet-hsm-state [-h] [-V] [--always-ok] [-c CRIT] -H HOSTNAME
+                             -p PASSWORD [--severity {warn,crit}] [--test TEST]
                              [--timeout TIMEOUT] [-u {admin,pseoperator}]
                              [-w WARN]
 
@@ -43,22 +43,20 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 90
-      -H HOSTNAME, --hostname HOSTNAME
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
+      -H, --hostname HOSTNAME
                             SafeNet HSM hostname
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             SafeNet HSM password
       --severity {warn,crit}
                             Severity for alerting. Default: crit
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u {admin,pseoperator}, --username {admin,pseoperator}
+      -u, --username {admin,pseoperator}
                             SafeNet HSM Username, for example "admin" or
                             "pseoperator". Default: pseoperator
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 
 
 Usage Examples

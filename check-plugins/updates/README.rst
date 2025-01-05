@@ -30,16 +30,14 @@ Help
     Checks the number of pending Windows updates.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of pending
-                            updates. Default: 50
-      --timeout TIMEOUT     Network timeout in seconds. Default: 300 (seconds)
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of pending
-                            updates. Default: 2
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold for the number of pending
+                           updates. Default: 50
+      --timeout TIMEOUT    Network timeout in seconds. Default: 300 (seconds)
+      -w, --warning WARN   Set the warning threshold for the number of pending
+                           updates. Default: 2
 
 
 Usage Examples

@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/diacos"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -31,8 +31,8 @@ Help
 .. code-block:: text
 
     usage: diacos [-h] [-V] [--always-ok] [-c CRITICAL] [--insecure]
-                  [--login-computer COMPUTER] [--login-ip IP] --login-licence
-                  LICENCE --login-name NAME [--no-proxy]
+                  [--login-computer COMPUTER] [--login-ip IP]
+                  --login-licence LICENCE --login-name NAME [--no-proxy]
                   [--search-concept-filter CONCEPT_FILTER]
                   [--search-country COUNTRY] [--search-format FORMAT]
                   [--search-searchtext SEARCHTEXT] [--search-sort-mode SORT_MODE]
@@ -47,7 +47,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always return OK.
-      -c CRITICAL, --critical CRITICAL
+      -c, --critical CRITICAL
                             Critical threshold for duration of
                             login+search+logout. Default: 6000 (ms)
       --insecure            This option explicitly allows to perform "insecure"
@@ -80,7 +80,7 @@ Help
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
       --url URL             ID DIACOS URL. Default: http://localhost:9999
-      -w WARNING, --warning WARNING
+      -w, --warning WARNING
                             Warning threshold for duration of login+search+logout.
                             Default: 3000 (ms)
 

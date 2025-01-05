@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-thread-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -51,7 +51,7 @@ Help
                             The mode the server is running.
       --no-proxy            Do not use a proxy. Default: False
       --node NODE           The node (host) if running in domain mode.
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             WildFly API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             WildFly API URL. Default: http://localhost:9990

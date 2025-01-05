@@ -41,8 +41,7 @@ Help
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical for the expiration date in days.
+      -c, --critical CRIT   Set the critical for the expiration date in days.
                             Default: 5
       --defaults-file DEFAULTS_FILE
                             Specifies a cnf file to read parameters like user,
@@ -55,8 +54,7 @@ Help
                             client
       --prefix PREFIX       Set the table prefix of the XCA database.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -w WARN, --warning WARN
-                            Set the warning for the expiration date in days.
+      -w, --warning WARN    Set the warning for the expiration date in days.
                             Default: 14
 
 

@@ -31,9 +31,9 @@ Help
 
 .. code-block:: text
 
-    usage: fortios-cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] -H
-                             HOSTNAME [--insecure] [--no-proxy] --password
-                             PASSWORD [--timeout TIMEOUT] [-w WARN]
+    usage: fortios-cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
+                             -H HOSTNAME [--insecure] [--no-proxy]
+                             --password PASSWORD [--timeout TIMEOUT] [-w WARN]
 
     Returns the current system-wide CPU utilization as a percentage from Forti
     Appliances like FortiGate running FortiOS via FortiOS REST API. Warns only if
@@ -50,13 +50,12 @@ Help
       --always-ok           Always returns OK.
       --count COUNT         Number of times the value must exceed specified
                             thresholds before alerting. Default: 5
-      -c CRIT, --critical CRIT
-                            Set the critical threshold CPU Usage Percentage. Hint:
+      -c, --critical CRIT   Set the critical threshold CPU Usage Percentage. Hint:
                             This plugin tries to check against the global
                             configured `cpu-use-threshold` first; only if there is
                             no value, the check's command line values (or their
                             defaults) are used. Default: 90
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
                             port ("192.168.1.1:443").
       --insecure            This option explicitly allows to perform "insecure"
@@ -64,8 +63,7 @@ Help
       --no-proxy            Do not use a proxy. Default: False
       --password PASSWORD   FortiOS REST API Single Access Token.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -w WARN, --warning WARN
-                            Set the warning threshold CPU Usage Percentage. Hint:
+      -w, --warning WARN    Set the warning threshold CPU Usage Percentage. Hint:
                             This plugin tries to check against the global
                             configured `cpu-use-threshold` first; only if there is
                             no value, the check's command line values (or their

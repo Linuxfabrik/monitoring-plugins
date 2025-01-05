@@ -52,8 +52,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold. Accepts ranges. Default:
+      -c, --critical CRIT   Set the CRIT threshold. Accepts ranges. Default:
                             "None"
       --service SERVICE     Name of the service(s). Supports Python Regular
                             Expressions (regex).
@@ -64,8 +63,7 @@ Help
                             Default: running
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the WARN threshold. Accepts ranges. Default: "1:"
+      -w, --warning WARN    Set the WARN threshold. Accepts ranges. Default: "1:"
 
 
 Usage Examples

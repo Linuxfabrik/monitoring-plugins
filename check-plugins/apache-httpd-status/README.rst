@@ -74,7 +74,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-httpd-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -95,23 +95,21 @@ Help
     Checks how well an Apache httpd server is performing.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold for the number of workers
-                            processing requests in percent. Default: >= 95
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -u URL, --url URL     Apache Server Status URL. Default:
-                            http://localhost/server-status
-      -w WARN, --warning WARN
-                            Set the WARN threshold for the number of workers
-                            processing requests in percent. Default: >= 80
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the CRIT threshold for the number of workers
+                           processing requests in percent. Default: >= 95
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
+      -u, --url URL        Apache Server Status URL. Default:
+                           http://localhost/server-status
+      -w, --warning WARN   Set the WARN threshold for the number of workers
+                           processing requests in percent. Default: >= 80
 
 
 Usage Examples

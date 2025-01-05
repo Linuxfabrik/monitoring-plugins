@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-players"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
@@ -59,7 +59,7 @@ Help
       --custom-id CUSTOM_ID
                             Filter by specific custom IDs. Supports Python Regular
                             Expressions (regex).
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Grassfish hostname. Default: None
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
@@ -78,10 +78,9 @@ Help
       --token TOKEN         Grassfish API token
       --transfer-status {complete,overdue,pending}
                             Filter by specific data transfer status. Repeating.
-      -w WARN, --warning WARN
-                            Set the WARN threshold for Last Access in hours
+      -w, --warning WARN    Set the WARN threshold for Last Access in hours
                             (considers player is offline). Default: > 8 h
-      -u URL, --url URL     Grassfish API URL. Default: /gv2/webservices/API
+      -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 
 
 Usage Examples

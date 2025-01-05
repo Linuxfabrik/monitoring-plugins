@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mailq"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
@@ -34,17 +34,15 @@ Help
     Checks the mail queue.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for mails in the queue.
-                            Default: 250
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold for mails in the queue.
-                            Default: 2
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold for mails in the queue.
+                           Default: 250
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      -w, --warning WARN   Set the warning threshold for mails in the queue.
+                           Default: 2
 
 
 Usage Examples

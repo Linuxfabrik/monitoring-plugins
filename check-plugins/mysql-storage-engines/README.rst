@@ -23,7 +23,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-storage-engines"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"

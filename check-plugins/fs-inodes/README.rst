@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fs-inodes"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -33,15 +33,13 @@ Help
     Filesystems that do not report inode usage are skipped.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold inode usage percentage.
-                            Default: 95
-      -w WARN, --warning WARN
-                            Set the warning threshold inode usage percentage.
-                            Default: 90
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold inode usage percentage.
+                           Default: 95
+      -w, --warning WARN   Set the warning threshold inode usage percentage.
+                           Default: 90
 
 
 Usage Examples

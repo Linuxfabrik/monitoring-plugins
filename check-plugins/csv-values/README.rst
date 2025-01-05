@@ -119,8 +119,7 @@ Help
                             Describe the columns and their datatypes using an sql
                             statement. Example: `"col1 INTEGER PRIMARY KEY, col2
                             TEXT NOT NULL, col3 TEXT NOT NULL UNIQUE"`
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold. Supports ranges.
+      -c, --critical CRIT   Set the CRIT threshold. Supports ranges.
       --critical-query CRITICAL_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against
@@ -148,12 +147,11 @@ Help
       --skip-header         Treat the first row as header names, and skip this
                             row. Default: False
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL     Set the url of the CSV file, either starting with
+      -u, --url URL         Set the url of the CSV file, either starting with
                             "http://", "https://" or "smb://". This is mutually
                             exclusive with --filename.
       --username USERNAME   SMB or HTTP Basic Auth Username.
-      -w WARN, --warning WARN
-                            Set the WARN threshold. Supports ranges.
+      -w, --warning WARN    Set the WARN threshold. Supports ranges.
       --warning-query WARNING_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against

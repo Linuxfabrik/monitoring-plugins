@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -41,7 +41,7 @@ Help
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Jitsi API password.
       --severity {warn,crit}
                             Severity for alerting. Default: warn

@@ -22,7 +22,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
@@ -36,9 +36,9 @@ Help
 
 .. code-block:: text
 
-    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok] -H
-                HOSTNAME [--mib MIB] [--mib-dir MIB_DIR] [--snmp-version {1,2c,3}]
-                [--test TEST] [-t TIMEOUT]
+    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
+                -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
+                [--snmp-version {1,2c,3}] [--test TEST] [-t TIMEOUT]
                 [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
                 [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
                 [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -65,7 +65,7 @@ Help
                             `any-any-any.csv` is a good starting point showing
                             some features.Default: any-any-any.csv.
       --hide-ok             Don't print OIDs with OK state. Default: False.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             SNMP Appliance address.
       --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
                             MIB:BROTHER-MIB`. Behaves like the `-m` option of
@@ -77,7 +77,7 @@ Help
                             Specifies SNMP version to use. Default: 2c.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -t TIMEOUT, --timeout TIMEOUT
+      -t, --timeout TIMEOUT
                             Network timeout in seconds. Default: 7 (seconds).
       --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
                             SNMP Version 3 specific. Set authentication protocol.

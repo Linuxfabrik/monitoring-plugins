@@ -40,8 +40,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical age threshold in seconds. Supports
+      -c, --critical CRIT   Set the critical age threshold in seconds. Supports
                             ranges. Default: >= 31536000s (365d)
       --critical-count CRIT_COUNT
                             Set the critical threshold for the number of critical
@@ -63,12 +62,11 @@ Help
                             Set the performance data aggregation mode. Default:
                             None.
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL     SMB: Set the url of the file (or directory) to check,
+      -u, --url URL         SMB: Set the url of the file (or directory) to check,
                             starting with "smb://". This is mutually exclusive
                             with --filename.
       --username USERNAME   SMB: Username.
-      -w WARN, --warning WARN
-                            Set the warning age threshold in seconds. Supports
+      -w, --warning WARN    Set the warning age threshold in seconds. Supports
                             ranges. Default: >= 2592000s (30d)
       --warning-count WARN_COUNT
                             Set the warning threshold for the number of critical

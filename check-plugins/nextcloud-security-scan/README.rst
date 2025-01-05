@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-security-scan"
     "Check Interval Recommendation",        "Once a day or week"
     "Can be called without parameters",     "No"
@@ -45,7 +45,7 @@ Help
       --trigger TRIGGER  Trigger re-scan of the Nextcloud server if result on
                          scan.nextcloud.com is older than n days. Default: 14
                          (days)
-      -u URL, --url URL  Nextcloud API URL, for example "cloud.linuxfabrik.io".
+      -u, --url URL      Nextcloud API URL, for example "cloud.linuxfabrik.io".
 
 
 Usage Examples

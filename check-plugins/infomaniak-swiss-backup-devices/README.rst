@@ -25,7 +25,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-swiss-backup-devices"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
@@ -52,8 +52,7 @@ Help
       --account-id ACCOUNT_ID
                             Infomaniak Account-ID
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 95
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 95
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
@@ -63,8 +62,7 @@ Help
       --token TOKEN         Infomaniak API token
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 90
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
 
 
 Usage Examples

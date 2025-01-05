@@ -34,7 +34,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-swift-stat"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -56,22 +56,20 @@ Help
     depending containers.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            CRIT when only so many GiB are available. Default: <=
-                            10
-      --rc-file RC_FILE     Specifies a rc file to read connection parameters like
-                            OS_USERNAME from (instead of specifying them on the
-                            command line), for example
-                            `/var/spool/icinga2/.openstack.cnf`. Default:
-                            /var/spool/icinga2/.openstack.cnf
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            WARN when only so many GiB are available. Default: <=
-                            50
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  CRIT when only so many GiB are available. Default: <=
+                           10
+      --rc-file RC_FILE    Specifies a rc file to read connection parameters like
+                           OS_USERNAME from (instead of specifying them on the
+                           command line), for example
+                           `/var/spool/icinga2/.openstack.cnf`. Default:
+                           /var/spool/icinga2/.openstack.cnf
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      -w, --warning WARN   WARN when only so many GiB are available. Default: <=
+                           50
 
 
 Usage Examples

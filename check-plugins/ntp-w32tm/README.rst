@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-w32tm"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -34,16 +34,14 @@ Help
     diagnose problems with the time settings.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the time since "Last
-                            Good Sync", in s. Default: 129600s
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold for the time since "Last
-                            Good Sync", in s. Default: 28800s
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      -c, --critical CRIT  Set the critical threshold for the time since "Last
+                           Good Sync", in s. Default: 129600s
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      -w, --warning WARN   Set the warning threshold for the time since "Last Good
+                           Sync", in s. Default: 28800s
 
 
 Usage Examples

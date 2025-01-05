@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/matomo-reporting"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -55,7 +55,7 @@ Help
       --period PERIOD      REST API period, for example "period=range" or
                            "period=day". Default: day
       --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL    Matomo URL. Default: https://demo.matomo.org
+      -u, --url URL        Matomo URL. Default: https://demo.matomo.org
 
 
 Usage Examples

@@ -85,8 +85,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold. Supports ranges.
+      -c, --critical CRIT   Set the CRIT threshold. Supports ranges.
       --critical-query CRITICAL_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against
@@ -101,8 +100,7 @@ Help
                             Group/section to read from in the cnf file. Default:
                             client
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -w WARN, --warning WARN
-                            Set the WARN threshold. Supports ranges.
+      -w, --warning WARN    Set the WARN threshold. Supports ranges.
       --warning-query WARNING_QUERY
                             `SELECT` statement. If its result contains more than
                             one column, the number of rows is checked against

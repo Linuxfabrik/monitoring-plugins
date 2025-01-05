@@ -26,7 +26,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/systemd-unit"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"

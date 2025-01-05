@@ -54,7 +54,7 @@ Help
                             Name of the json array key containing the state.
                             Default: state
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL     Set the url of the json file, either starting with
+      -u, --url URL         Set the url of the json file, either starting with
                             "http://", "https://" or "smb://". This is mutually
                             exclusive with --filename.
       --username USERNAME   SMB Username.

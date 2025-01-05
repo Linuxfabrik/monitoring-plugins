@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/pip-updates"
     "Check Interval Recommendation",        "Once a week"
     "Can be called without parameters",     "No"
@@ -41,8 +41,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of pending
+      -c, --critical CRIT   Set the critical threshold for the number of pending
                             updates. Default: 100
       --exclude EXCLUDE     Exclude specified package from the output.
       --extra-index-url EXTRA_INDEX_URL
@@ -75,8 +74,7 @@ Help
                             Path to the virtualenv that will be activated before
                             checking for updates. Example: `/opt/sphinx-
                             venv/bin/activate`
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of pending
+      -w, --warning WARN    Set the warning threshold for the number of pending
                             updates. Default: 10
 
 

@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-port-tcp"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -35,13 +35,13 @@ Help
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             The host or ip address to check. Default: localhost
-      -p PORT, --port PORT  The port number. Default: 22
+      -p, --port PORT       The port number. Default: 22
       --portname PORTNAME   The display name of the port.
       --severity {warn,crit}
                             Severity for alerting. Default: warn
-      -t TIMEOUT, --timeout TIMEOUT
+      -t, --timeout TIMEOUT
                             Network timeout. Default: 2
       --type {tcp,tcp6}     Connection type. Default: tcp
 

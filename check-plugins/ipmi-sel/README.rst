@@ -17,7 +17,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sel"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -46,7 +46,7 @@ Help
                             Specify an authentication type to use during IPMIv1.5
                             lan session activation. Supported types are NONE,
                             PASSWORD, MD2, MD5, or OEM.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Remote server address, can be IP address or hostname.
                             This option is required forlan and lanplus interfaces.
       --interface {lan,lanplus}

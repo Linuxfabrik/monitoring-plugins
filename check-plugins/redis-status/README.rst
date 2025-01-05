@@ -17,7 +17,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redis-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -43,10 +43,9 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >=
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >=
                             None
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Redis server hostname. Default: 127.0.0.1
       --ignore-maxmemory0   Don't warn about redis' maxmemory=0. Default: False
       --ignore-overcommit   Don't warn about vm.overcommit_memory<>1. Default:
@@ -60,15 +59,14 @@ Help
                             Default: False
       --ignore-thp          Don't warn about transparent huge page setting.
                             Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Password to use when connecting to the redis server.
       --port PORT           Redis server port. Default: 6379
       --socket SOCKET       Redis server socket (overrides hostname and port).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --tls                 Establish a secure TLS connection to Redis.
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 90
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
 
 
 Usage Examples

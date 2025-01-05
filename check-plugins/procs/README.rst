@@ -33,7 +33,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/procs"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -67,8 +67,7 @@ Help
       --command COMMAND     Filter: Search only for processes starting with
                             COMMAND, for example `bash` (without path, case-
                             insensitive).
-      -c CRIT, --critical CRIT
-                            Threshold for the number of processes. Type: None or
+      -c, --critical CRIT   Threshold for the number of processes. Type: None or
                             Range. Default: None
       --critical-mem CRIT_MEM
                             Threshold for memory usage, in bytes. Type: None or
@@ -86,8 +85,7 @@ Help
                             status. Default: None,
       --username USERNAME   Filter: Search only for processes with specific user
                             name, e.g. `apache` (case-insensitive).
-      -w WARN, --warning WARN
-                            Threshold for the number of processes. Type: None or
+      -w, --warning WARN    Threshold for the number of processes. Type: None or
                             Range. Default: None
       --warning-mem WARN_MEM
                             Threshold for memory usage, in bytes. Type: None or

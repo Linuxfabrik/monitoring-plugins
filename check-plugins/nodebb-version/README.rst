@@ -21,7 +21,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
@@ -40,18 +40,17 @@ Help
     This plugin lets you track if a NodeBB update is available.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -p TOKEN, --token TOKEN
-                            NodeBB API Bearer token.
-      --url URL             NodeBB API URL. Default: http://localhost:4567/forum
+      -h, --help         show this help message and exit
+      -V, --version      show program's version number and exit
+      --always-ok        Always returns OK.
+      --insecure         This option explicitly allows to perform "insecure" SSL
+                         connections. Default: False
+      --no-proxy         Do not use a proxy. Default: False
+      --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
+                         stderr-file,expected-retc".
+      --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
+      -p, --token TOKEN  NodeBB API Bearer token.
+      --url URL          NodeBB API URL. Default: http://localhost:4567/forum
 
 
 Usage Examples

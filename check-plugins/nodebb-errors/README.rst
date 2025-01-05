@@ -23,7 +23,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-errors"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -55,8 +55,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -p TOKEN, --token TOKEN
-                            NodeBB API Bearer token.
+      -p, --token TOKEN     NodeBB API Bearer token.
       --url URL             NodeBB API URL. Default: http://localhost:4567/forum
 
 

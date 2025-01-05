@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/metabase-stats"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
@@ -40,18 +40,16 @@ Help
       --cache-expire CACHE_EXPIRE
                             The amount of time after which the credential cache
                             expires, in hours. Default: 335
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 90
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Metabase API password.
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --url URL             Metabase API URL. Default: http://localhost:3000
       --username USERNAME   Metabase API username. Default: metabase-admin
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 
 
 Usage Examples

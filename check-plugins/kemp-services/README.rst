@@ -17,7 +17,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kemp-services"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -42,7 +42,7 @@ Help
       --always-ok           Always returns OK.
       --filter FILTER       Only check services that contain this string in their
                             NickName.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             KEMP Appliance address.
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
@@ -54,7 +54,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u USERNAME, --username USERNAME
+      -u, --username USERNAME
                             API Username.
 
 

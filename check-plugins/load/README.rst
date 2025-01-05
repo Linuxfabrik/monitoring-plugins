@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/load"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -37,15 +37,13 @@ Help
     periods.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for load15 per cpu.
-                            Default: 5.0
-      -w WARN, --warning WARN
-                            Set the warning threshold for load15 per cpu. Default:
-                            1.15
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold for load15 per cpu. Default:
+                           5.0
+      -w, --warning WARN   Set the warning threshold for load15 per cpu. Default:
+                           1.15
 
 
 Usage Examples

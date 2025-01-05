@@ -27,7 +27,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -48,23 +48,21 @@ Help
     This check provides NGINX basic status information.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold for the number of active
-                            connections. Default: >= 486
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -u URL, --url URL     NGINX Server Status URL. Default:
-                            http://localhost/server-status
-      -w WARN, --warning WARN
-                            Set the WARN threshold for the number of active
-                            connections. Default: >= 460
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the CRIT threshold for the number of active
+                           connections. Default: >= 486
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
+      -u, --url URL        NGINX Server Status URL. Default:
+                           http://localhost/server-status
+      -w, --warning WARN   Set the WARN threshold for the number of active
+                           connections. Default: >= 460
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
 
 
 Usage Examples

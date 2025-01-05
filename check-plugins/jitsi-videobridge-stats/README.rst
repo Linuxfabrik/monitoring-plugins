@@ -50,7 +50,7 @@ Help
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Jitsi API password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".

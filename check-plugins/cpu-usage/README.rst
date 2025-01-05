@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -41,19 +41,17 @@ Help
     be equal or above given thresholds before a warning is raised.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --count COUNT         Number of times the value must exceed specified
-                            thresholds before alerting. Default: 5
-      -c CRIT, --critical CRIT
-                            Set the critical threshold CPU Usage Percentage.
-                            Default: 90
-      --top TOP             List x "Top processes using the most cpu time".
-                            Default: 5
-      -w WARN, --warning WARN
-                            Set the warning threshold CPU Usage Percentage.
-                            Default: 80
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      --count COUNT        Number of times the value must exceed specified
+                           thresholds before alerting. Default: 5
+      -c, --critical CRIT  Set the critical threshold CPU Usage Percentage.
+                           Default: 90
+      --top TOP            List x "Top processes using the most cpu time".
+                           Default: 5
+      -w, --warning WARN   Set the warning threshold CPU Usage Percentage.
+                           Default: 80
 
 
 Usage Examples

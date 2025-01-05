@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/deb-lastactivity"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
@@ -30,14 +30,12 @@ Help
     to an apt install/update.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold (in days). Default: 365
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold (in days). Default: 90
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      -c, --critical CRIT  Set the critical threshold (in days). Default: 365
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      -w, --warning WARN   Set the warning threshold (in days). Default: 90
 
 
 Usage Examples

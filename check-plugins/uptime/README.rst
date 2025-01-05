@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/uptime"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -35,22 +35,19 @@ Help
     is run, the more accurate the downtime info will be.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Threshold for the uptime in a human readable format
-                            (10m = 10 minutes; s = seconds, m = minutes, h =
-                            hours, D = days, W = weeks, M = months, Y = years).
-                            Supports Nagios ranges. Example: `:1Y` alerts if
-                            uptime is greater than 1 year. Default: :1Y
-      -w WARN, --warning WARN
-                            Threshold for the uptime in a human readable format
-                            (10m = 10 minutes; s = seconds, m = minutes, h =
-                            hours, D = days, W = weeks, M = months, Y = years).
-                            Supports Nagios ranges. Example: `5m:180D` warns if
-                            uptime is not between 5 minutes and 180 days. Default:
-                            3m:180D
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Threshold for the uptime in a human readable format
+                           (10m = 10 minutes; s = seconds, m = minutes, h = hours,
+                           D = days, W = weeks, M = months, Y = years). Supports
+                           Nagios ranges. Example: `:1Y` alerts if uptime is
+                           greater than 1 year. Default: :1Y
+      -w, --warning WARN   Threshold for the uptime in a human readable format
+                           (10m = 10 minutes; s = seconds, m = minutes, h = hours,
+                           D = days, W = weeks, M = months, Y = years). Supports
+                           Nagios ranges. Example: `5m:180D` warns if uptime is
+                           not between 5 minutes and 180 days. Default: 3m:180D
 
 
 Usage Examples

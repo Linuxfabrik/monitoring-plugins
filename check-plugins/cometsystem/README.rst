@@ -41,8 +41,8 @@ Help
 .. code-block:: text
 
     usage: cometsystem [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                       [--severity SEVERITY] [--test TEST] [--timeout TIMEOUT] -u
-                       URL
+                       [--severity SEVERITY] [--test TEST] [--timeout TIMEOUT]
+                       -u URL
 
     This check targets the JSON endpoint of https://www.cometsystem.com/ Web
     Sensors.
@@ -62,7 +62,7 @@ Help
       --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                            stderr-file,expected-retc".
       --timeout TIMEOUT    Network timeout in seconds. Default: 5 (seconds)
-      -u URL, --url URL    Comet system URL pointing to the JSON file
+      -u, --url URL        Comet system URL pointing to the JSON file
                            (http://example.com/values.json).
 
 

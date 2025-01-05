@@ -47,7 +47,7 @@ Help
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Keycloak API password. Default: admin
       --realm REALM         Keycloak API Realm. Default: master
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

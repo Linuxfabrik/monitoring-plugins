@@ -37,7 +37,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -55,13 +55,12 @@ Help
     fact the sum of the disk usage of all archived and active journal files).
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the WARN threshold in GiB. Default: >= 6
+      -h, --help          show this help message and exit
+      -V, --version       show program's version number and exit
+      --always-ok         Always returns OK.
+      --test TEST         For unit tests. Needs "path-to-stdout-file,path-to-
+                          stderr-file,expected-retc".
+      -w, --warning WARN  Set the WARN threshold in GiB. Default: >= 6
 
 
 Usage Examples

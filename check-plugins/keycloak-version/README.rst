@@ -67,13 +67,13 @@ Help
       --offset-eol OFFSET_EOL
                             Alert me n days before ("-30") or after an EOL date
                             ("30" or "+30"). Default: -30 days
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Keycloak API password. Default: admin
       --path PATH           Local path to your Keycloak installation. Default:
                             /opt/keycloak
       --realm REALM         Keycloak API Realm. Default: master
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      --url URL             Keycloak API URL. Default: http://localhost:8080
+      --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
       --username USERNAME   Keycloak API username. Default: admin
 
 

@@ -24,7 +24,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/veeam-status"
     "Check Interval Recommendation",        "Every 8 hours"
     "Can be called without parameters",     "No"
@@ -60,8 +60,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold for Backup Size as a
+      -c, --critical CRIT   Set the CRIT threshold for Backup Size as a
                             percentage. Default: >= 90
       --failed-job-runs FAILED_JOB_RUNS
                             Veeam threshold for `FailedJobRuns`. Default: > 0
@@ -77,15 +76,14 @@ Help
                             Veeam threshold for `MaxDurationReplicaJobName`.
                             Default: > 86400
       --no-proxy            Do not use a proxy. Default: False
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             Veeam API password.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --url URL             Veeam API URL. Default: https://localhost:9398
       --username USERNAME   Veeam API username. Default: Administrator
-      -w WARN, --warning WARN
-                            Set the WARN threshold for Backup Size as a
+      -w, --warning WARN    Set the WARN threshold for Backup Size as a
                             percentage. Default: >= 80
       --warnings-job-runs WARNINGS_JOB_RUNS
                             Veeam threshold for `WarningsJobRuns`. Default: > 0

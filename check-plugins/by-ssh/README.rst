@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/by-ssh"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -27,9 +27,10 @@ Help
 
     usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
                   [--configfile CONFIGFILE] [--critical-pattern CRIT_PATTERN]
-                  [--critical-regex CRIT_REGEX] [--disable-pseudo-terminal] -H
-                  HOSTNAME [--identity IDENTITY] [--ipv4] [--ipv6] [-p PASSWORD]
-                  [--port PORT] [--quiet] [--severity-retc {ok,warn,crit,unknown}]
+                  [--critical-regex CRIT_REGEX] [--disable-pseudo-terminal]
+                  -H HOSTNAME [--identity IDENTITY] [--ipv4] [--ipv6]
+                  [-p PASSWORD] [--port PORT] [--quiet]
+                  [--severity-retc {ok,warn,crit,unknown}]
                   [--severity-stderr {ok,warn,crit,unknown}]
                   [--severity-stdout {ok,warn,crit,unknown}]
                   [--severity-timeout {ok,warn,crit,unknown}]
@@ -64,7 +65,7 @@ Help
                             times.
       --disable-pseudo-terminal
                             SSH: Disable pseudo-terminal allocation.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             SSH: Hostname
       --identity IDENTITY   SSH: Selects a file from which the identity (private
                             key) for public key authentication is read. You can
@@ -85,7 +86,7 @@ Help
                             filenames.
       --ipv4                SSH: Forces ssh to use IPv4 addresses only.
       --ipv6                SSH: Forces ssh to use IPv6 addresses only.
-      -p PASSWORD, --password PASSWORD
+      -p, --password PASSWORD
                             SSH: Password authentication. NOT RECOMMENDED.
                             Requires `sshpass`. If you need to use password-based
                             SSH login, run this plugin only on trusted hosts. `ps`
@@ -126,7 +127,7 @@ Help
                             globs, pipes etc.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -u USERNAME, --username USERNAME
+      -u, --username USERNAME
                             SSH: Username. Default: root
       --warning-pattern WARN_PATTERN
                             Any line matching this pattern (case-insensitive) will

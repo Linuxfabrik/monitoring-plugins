@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-snapshots"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
@@ -32,16 +32,15 @@ Help
 
     usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
                             [--host HOST] [--latest LATEST] [--lengthy]
-                            [--password-file PASSWORD_FILE] [--path PATH] --repo
-                            REPO [--tag TAG] [--test TEST] [-w WARN]
+                            [--password-file PASSWORD_FILE] [--path PATH]
+                            --repo REPO [--tag TAG] [--test TEST] [-w WARN]
 
     Check the age of the newest restic repository snapshot.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the time difference to
+      -c, --critical CRIT   Set the critical threshold for the time difference to
                             the start of the last backup (in each group) (in
                             hours). Default: None
       --group-by GROUP_BY   String for grouping snapshots by host,paths,tags.
@@ -61,8 +60,7 @@ Help
                             times).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold for the time difference to
+      -w, --warning WARN    Set the warning threshold for the time difference to
                             the start of the last backup (in each group) (in
                             hours). Default: 24
 
