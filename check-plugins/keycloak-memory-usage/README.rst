@@ -51,7 +51,7 @@ Help
                             Keycloak API password. Default: admin
       --realm REALM         Keycloak API Realm. Default: master
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      --url URL             Keycloak API URL. Default: http://localhost:8080
+      --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
       --username USERNAME   Keycloak API username. Default: admin
       --warning WARN        Set the warning threshold.
 
