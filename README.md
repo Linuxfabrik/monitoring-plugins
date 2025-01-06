@@ -13,17 +13,18 @@ All plugins are written in Python and licensed under the [UNLICENSE](https://unl
 
 The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
+
 
 ## Support & Sponsoring
 
 The source code is published here without support. If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
 
-If you simply like to support our work, please consider donating and become a sponsor:
-
-* [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
-* [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
-
 Do you think more people should know about it? Sharing is caring, so feel free to spread the word. We would really appreciate if you share this on any social media, or link this site on any blog or forum. Or more specifically: [It would be great if you could tell on GitHub discussions how you use the plugins](https://github.com/Linuxfabrik/monitoring-plugins/discussions/categories/show-and-tell?discussions_q=is%3Aopen+category%3A%22Show+and+tell%22).
+
+If you simply like to support our work, please consider donating and become a sponsor.
+
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Installation
