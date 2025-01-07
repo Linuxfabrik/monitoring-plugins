@@ -132,12 +132,12 @@ Troubleshooting
 Python module "BeautifulSoup4" is not installed.
     .. code-block:: bash
 
-        sudo -u icinga pip3 install --user BeautifulSoup4
+        sudo -u icinga python3 -m pip install --user BeautifulSoup4
 
 Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?
     .. code-block:: bash
 
-        sudo -u icinga pip3 install --user lxml
+        sudo -u icinga python3 -m pip install --user lxml
 
 
 Credits, License

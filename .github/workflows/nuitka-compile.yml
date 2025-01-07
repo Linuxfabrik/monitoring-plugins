@@ -77,15 +77,15 @@ jobs:
       - run: 'python.exe -m pip install --upgrade pip wheel setuptools'
 
       # ordered-set is for nuitka: "Nuitka:WARNING: Using very slow fallback for ordered sets, please install 'ordered-set' or 'orderedset' PyPI packages for best Python compile time performance."
-      - run: 'pip install --upgrade ordered-set Nuitka Nuitka'
+      - run: 'python.exe -m pip install --upgrade ordered-set Nuitka Nuitka'
 
       # install 3rd party libraries for all check plugins
-      - run: 'pip install --requirement ${{ github.workspace }}\monitoring-plugins\requirements.txt'
+      - run: 'python.exe -m pip install --requirement ${{ github.workspace }}\monitoring-plugins\requirements.txt'
 
       # info in case of errors
-      - run: 'pip list'
+      - run: 'python.exe -m pip list'
 
-      - run: 'python -m nuitka --assume-yes-for-downloads --mingw64 --follow-imports --include-plugin-directory="${{ github.workspace }}\lib" --output-dir=C:\nuitka-compile-temp --remove-output --standalone ${{ github.workspace }}\monitoring-plugins\check-plugins\${{ matrix.check }}\${{ matrix.check}}'
+      - run: 'python.exe -m nuitka --assume-yes-for-downloads --mingw64 --follow-imports --include-plugin-directory="${{ github.workspace }}\lib" --output-dir=C:\nuitka-compile-temp --remove-output --standalone ${{ github.workspace }}\monitoring-plugins\check-plugins\${{ matrix.check }}\${{ matrix.check}}'
 
       - name: 'Upload build output as artifact for later zipping'
         uses: 'actions/upload-artifact@v4'

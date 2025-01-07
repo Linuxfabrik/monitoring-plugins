@@ -4,7 +4,7 @@ Notes on all mysql Plugins
 PyMySQL
 -------
 
-If you are running the mysql-\* plugins in the source variant on RHEL 7+, you can install the Python MySQL Connector with ``pip install pymysql``.
+If you are running the mysql-\* plugins in the source variant on RHEL 7+, you can install the Python MySQL Connector with ``python3 -m pip install pymysql``.
 
 
 Authentication

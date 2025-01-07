@@ -126,12 +126,12 @@ Compile using PyInstaller:
     python3.9 -m venv --system-site-packages /opt/venvs/pyinstaller
     source /opt/venvs/pyinstaller/bin/activate
 
-    pip install --upgrade pip
-    pip install pyinstaller
+    python3.9 -m pip install --upgrade pip
+    python3.9 -m pip install pyinstaller
 
     cd
     cd monitoring-plugins
-    pip3.9 install --requirement requirements.txt
+    python3.9 -m pip install --requirement requirements.txt
 
     # compile with pyinstaller
     cd check-plugins/disk-usage
@@ -173,12 +173,12 @@ Compile using Nuitka:
     python3.9 -m venv --system-site-packages /opt/venvs/nuitka
     source /opt/venvs/nuitka/bin/activate
 
-    pip install --upgrade pip
-    pip install nuitka
+    python3.9 -m pip install --upgrade pip
+    python3.9 -m pip install nuitka
 
     cd
     cd monitoring-plugins
-    pip3.9 install --requirement requirements.txt
+    python3.9 -m pip install --requirement requirements.txt
 
     # compile with nuitka
     cd check-plugins/disk-usage
@@ -270,8 +270,8 @@ Setup Python on Windows:
 .. code-block:: text
 
     python.exe -m pip install --upgrade pip wheel setuptools
-    pip install --upgrade ordered-set Nuitka pyinstaller
-    pip install --requirement requirements.txt
+    python.exe -m pip install --upgrade ordered-set Nuitka pyinstaller
+    python.exe -m pip install --requirement=requirements.txt
 
 Compile using Nuitka+MSVC:
 

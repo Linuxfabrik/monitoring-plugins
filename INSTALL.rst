@@ -177,8 +177,8 @@ We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possi
 
 .. code-block:: bash
 
-    pip3 install --upgrade pip
-    pip3 install --requirement requirements.txt
+    python3 -m pip install --upgrade pip
+    python3 -m pip install --requirement requirements.txt
 
 To make SELinux happy, after installing from source, run:
 

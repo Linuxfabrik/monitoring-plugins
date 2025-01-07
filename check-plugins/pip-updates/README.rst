@@ -89,7 +89,7 @@ Output:
 
 .. code-block:: text
 
-    venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && pip list --outdated --format=json --exclude=boto3 --exclude=pip --local`
+    venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && python3 -m pip list --outdated --format=json --exclude=boto3 --exclude=pip --local`
 
     Package  ! Version ! Latest  ! Type  
     ---------+---------+---------+-------
@@ -133,7 +133,7 @@ This indicates that your version of ``pip`` is below 20.3:
         if dist.latest_version > dist.parsed_version
     TypeError: '>' not supported between instances of 'Version' and 'Version'
 
-So simply upgrade by using ``pip3 install --upgrade pip``.
+So simply upgrade by using ``python3 -m pip install --upgrade pip``.
 
 
 Credits, License
