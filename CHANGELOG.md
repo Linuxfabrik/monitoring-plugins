@@ -19,6 +19,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* Since some libraries such as pymysql or openssl have security vulnerabilities for Python 3.6, the project now requires Python 3.9+ to use the plugins in the source code variant.
 * jitsi-videobridge-stats: Remove deprecated values ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
 * jitsi-videobridge-stats: Remove deprecated warning and critical parameters, always returns OK
 

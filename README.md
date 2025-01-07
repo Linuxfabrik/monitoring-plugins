@@ -351,7 +351,7 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 
 ## Python
 
-When running from source, almost all check plugins are happy with at least Python 3.6. All plugins define the `#!/usr/bin/env python3` shebang.
+When running from source, almost all check plugins are happy with Python 3.9+. All plugins define the `#!/usr/bin/env python3` shebang.
 
 
 ## Icons

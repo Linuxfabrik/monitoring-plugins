@@ -131,7 +131,7 @@ Compile using PyInstaller:
 
     cd
     cd monitoring-plugins
-    python3.9 -m pip install --requirement requirements.txt
+    python3.9 -m pip install --requirement requirements.txt --require-hashes
 
     # compile with pyinstaller
     cd check-plugins/disk-usage
@@ -178,7 +178,7 @@ Compile using Nuitka:
 
     cd
     cd monitoring-plugins
-    python3.9 -m pip install --requirement requirements.txt
+    python3.9 -m pip install --requirement requirements.txt --require-hashes
 
     # compile with nuitka
     cd check-plugins/disk-usage
@@ -271,7 +271,7 @@ Setup Python on Windows:
 
     python.exe -m pip install --upgrade pip wheel setuptools
     python.exe -m pip install --upgrade ordered-set Nuitka pyinstaller
-    python.exe -m pip install --requirement=requirements.txt
+    python.exe -m pip install --requirement requirements.txt --require-hashes
 
 Compile using Nuitka+MSVC:
 

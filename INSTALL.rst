@@ -15,10 +15,10 @@ In general, you have two options:
 
     OS, Motivation, Install
     Linux,  "Want to use my OS's package manager and have distro that uses rpm/deb package formats","Package from `Linuxfabrik's Repo Server <https://repo.linuxfabrik.ch>`_"
-    Linux,  "Don't want to use my OS's package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.6+",Binaries from .tar or .zip file on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_
-    Linux,  "Want to use the latest development version and Python 3.6+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
+    Linux,  "Don't want to use my OS's package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.9+",Binaries from .tar or .zip file on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_
+    Linux,  "Want to use the latest development version and Python 3.9+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
     Windows,"Want to use EXE files",Binaries in ``/windows`` on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/windows/>`_
-    Windows,"Want to use the latest development version and Python 3.6+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
+    Windows,"Want to use the latest development version and Python 3.9+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
 
 FAQ:
 
@@ -115,7 +115,7 @@ Python: Run from Source Code
 
 You may use this if nothing from the above fits your needs.
 
-If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3 on the remote host. The plugins work with at least Python 3.6, but some of them (currently ``disk-io``) will only run if Python 3.8+ is available.
+If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3.9+ on the remote host.
 
 
 Installation
@@ -178,7 +178,7 @@ We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possi
 .. code-block:: bash
 
     python3 -m pip install --upgrade pip
-    python3 -m pip install --requirement requirements.txt
+    python3 -m pip install --requirement requirements.txt --require-hashes
 
 To make SELinux happy, after installing from source, run:
 
