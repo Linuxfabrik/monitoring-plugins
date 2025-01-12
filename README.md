@@ -75,6 +75,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="journald-query" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/journald-query.png" width="30%"/> &nbsp;
 <img alt="journald-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/journald-usage.png" width="30%"/> &nbsp;
 <img alt="keycloak-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/keycloak-memory-usage.png" width="30%"/> &nbsp;
+<img alt="keycloak-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/keycloak-stats.png" width="30%"/> &nbsp;
 <img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/keycloak-version.png" width="30%"/> &nbsp;
 <img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/kvm-vm.png" width="30%"/> &nbsp;
 <img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/librenms-alerts.png" width="30%"/> &nbsp;

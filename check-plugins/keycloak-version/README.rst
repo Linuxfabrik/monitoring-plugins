@@ -25,7 +25,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for",                         "Linux, Windows"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-version.db``"
 
 

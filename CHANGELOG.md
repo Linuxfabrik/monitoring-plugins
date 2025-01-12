@@ -40,6 +40,7 @@ Monitoring Plugins:
 
 * graylog-version
 * keycloak-memory-usage
+* keycloak-stats
 * mastodon-version
 * moodle-version
 * scanrootkit
