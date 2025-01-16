@@ -88,6 +88,7 @@ Icinga Director:
 * needs-restarting: UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
 * service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
 * snmp: With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
+* strongswan-connections: check fails if using AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * swap-usage: Fix ProcessLookupError
 
 
