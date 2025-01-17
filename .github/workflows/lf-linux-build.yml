@@ -103,14 +103,14 @@ jobs:
         run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
 
       - name: 'Build the container for ${{ matrix.distros.name }}'
-        run: 'podman build --file "build/${{ matrix.distro.directory }}/Containerfile" --tag "lfmp-build-{{ matrix.distro.directory }}"'
+        run: 'podman build --file "build/${{ matrix.distros.directory }}/Containerfile" --tag "lfmp-build-${{ matrix.distros.directory }}"'
 
       - name: 'Build the packages for ${{ matrix.distros.name }}'
         run: >
           podman run --rm
           --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }},destination=/build,relabel=private
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true
-          "lfmp-build-{{ matrix.distro.directory }}"
+          "lfmp-build-${{ matrix.distros.directory }}"
           /bin/bash -x
           /repos/monitoring-plugins/build/${{ matrix.distros.directory }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
