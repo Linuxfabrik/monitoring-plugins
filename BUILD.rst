@@ -9,33 +9,35 @@ Compiling on Linux
 
 .. note::
 
-    * Pre-built OS installation packages can be found at https://repo.linuxfabrik.ch/monitoring-plugins/
+    * OS installation packages can be found at https://repo.linuxfabrik.ch/monitoring-plugins/
     * Tar and zip files containing the compiled binaries can be found at https://download.linuxfabrik.ch/monitoring-plugins/
 
 The Linuxfabrik Monitoring Plugins are compiled with Nuitka. This allows us to completely avoid Python on the target systems.
 
-We want to make sure that the plugins run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
+* .rpm: The plugins are compiled on RHEL 8 and RHEL 9.
+* .deb: The plugins are compiled on Debian 11 and Debian 12.
+* .tar.gz/.zip: We want to make sure that the compiled plugins run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
 
-.. code-block:: text
+    .. code-block:: text
 
-    OS                     | libc.so.6 --version | openssl version | Compiling platform
-    -----------------------+---------------------+---------------- +-------------------
-    CentOS 7 (EOL)         | 2.17                | 1.0.2k-fips     | until 2024-06-30
-    Ubuntu 18.04 LTS (EOL) | 2.27                | 1.1.1           |
-    Rocky 8                | 2.28                | 1.1.1k          | <<< current
-    Debian 10 (EOL)        | 2.28                | 1.1.1n          |
-    Ubuntu 20.04 LTS       | 2.31                | 1.1.1f          |
-    Debian 11              | 2.31                | 1.1.1w          |
-    Rocky 9                | 2.34                | 3.0.7           |
-    Ubuntu 22.04 LTS       | 2.35                | 3.0.2           |
-    Debian 12              | 2.36                | 3.0.11          |
-    Ubuntu 24.04 LTS       | 2.39                | 3.0.13          |
+        OS               ! EOL ! libc.so.6 --version ! openssl version ! Compiling platform
+        -----------------+-----+---------------------+---------------- +--------------------
+        CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips     ! used til 2024-06-30
+        Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1           !
+        Rocky 8          !     ! 2.28                ! 1.1.1k          ! <<< current choice
+        Debian 10        ! EOL ! 2.28                ! 1.1.1n          !
+        Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f          !
+        Debian 11        !     ! 2.31                ! 1.1.1w          !
+        Rocky 9          !     ! 2.34                ! 3.0.7           !
+        Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2           !
+        Debian 12        !     ! 2.36                ! 3.0.11          !
+        Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13          !
 
 Installation packages are built afterwards with `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_:
 
 * rpm for RHEL 8+
 * deb for Debian 11+, Ubuntu 20+
-* tar and zip
+* tar.gz and zip
 
 Currently not implemented:
 
@@ -65,22 +67,22 @@ Windows
 pyinstaller vs. Nuitka
 ----------------------
 
-We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, but the results led us to set Nuitka as the standard compiler. With the OS installation packages, we prefer speed over file size, while for the tar and zip files, we offer both. The results, sorted by runtime as of 2024-12-23:
+We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, **but the results led us to set Nuitka as the standard compiler**. With the OS installation packages, we prefer speed over file size, while for Windows, the tar.gz and zip files, we offer both. The results, sorted by runtime as of 2024-12-23:
 
 .. code-block:: text
 
-    | Platform    | Py   | Compiler    | Type    | Option1       | Option2       | Size in MB | 500 runs (sec) | VirusTotal |
-    | ----------- | ---- | ----------- | ------- | ------------- | ------------- | ---------- | -------------- | ---------- |
-    | Rocky 8     |  3.9 | nuitka      | mfiles  | --standalone  |               | 19.7       |  15.706        |            |
-    | Rocky 8     |  3.9 | pyinstaller | mfiles  | --onedir      | --noupx       | 13.7       |  19.392        |            |
-    | WinSrv 2022 | 3.12 | nuitka+gcc  | mfiles  | --standalone  |               | 23.4       |  29.570        |  4/72      |
-    | WinSrv 2022 | 3.12 | nuitka+msvc | mfiles  | --standalone  |               | 22.3       |  31.560        |  2/71      |
-    | Rocky 8     |  3.9 | nuitka      | onefile | --onefile     | --standalone  |  7.9       |  33.339        |            |
-    | Rocky 8     |  3.9 | pyinstaller | onefile | --onefile     | --noupx       |  6.4       |  45.838        |            |
-    | WinSrv 2022 | 3.12 | pyinstaller | mfiles  | --onedir      |               | 16.7       |  51.476        | 13/71      |
-    | WinSrv 2022 | 3.12 | nuitka+gcc  | onefile | --onefile     | --standalone  |  6.83      | 243.167        | 24/71      |
-    | WinSrv 2022 | 3.12 | nuitka+msvc | onefile | --onefile     | --standalone  |  6.67      | 253.006        | 15/72      |
-    | WinSrv 2022 | 3.12 | pyinstaller | onefile | --onefile     |               | 17.1       | 462.180        |  7/72      |
+    ! Platform    ! Py   ! Compiler    ! Type    ! Option1       ! Option2       ! Size in MB ! 500 runs (sec) ! VirusTotal !
+    ! ----------- ! ---- ! ----------- ! ------- ! ------------- ! ------------- ! ---------- ! -------------- ! ---------- !
+    ! Rocky 8     !  3.9 ! nuitka      ! mfiles  ! --standalone  !               ! 19.7       !  15.706        !            !
+    ! Rocky 8     !  3.9 ! pyinstaller ! mfiles  ! --onedir      ! --noupx       ! 13.7       !  19.392        !            !
+    ! WinSrv 2022 ! 3.12 ! nuitka+gcc  ! mfiles  ! --standalone  !               ! 23.4       !  29.570        !  4/72      !
+    ! WinSrv 2022 ! 3.12 ! nuitka+msvc ! mfiles  ! --standalone  !               ! 22.3       !  31.560        !  2/71      !
+    ! Rocky 8     !  3.9 ! nuitka      ! onefile ! --onefile     ! --standalone  !  7.9       !  33.339        !            !
+    ! Rocky 8     !  3.9 ! pyinstaller ! onefile ! --onefile     ! --noupx       !  6.4       !  45.838        !            !
+    ! WinSrv 2022 ! 3.12 ! pyinstaller ! mfiles  ! --onedir      !               ! 16.7       !  51.476        ! 13/71      !
+    ! WinSrv 2022 ! 3.12 ! nuitka+gcc  ! onefile ! --onefile     ! --standalone  !  6.83      ! 243.167        ! 24/71      !
+    ! WinSrv 2022 ! 3.12 ! nuitka+msvc ! onefile ! --onefile     ! --standalone  !  6.67      ! 253.006        ! 15/72      !
+    ! WinSrv 2022 ! 3.12 ! pyinstaller ! onefile ! --onefile     !               ! 17.1       ! 462.180        !  7/72      !
 
 One-file compilation:
 
