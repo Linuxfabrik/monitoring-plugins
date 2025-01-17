@@ -72,33 +72,34 @@ jobs:
       - 'preparations'
     strategy:
       matrix:
-        # Debian
-        - name: 'Debian 11'
-          container: 'docker.io/library/debian:11'
-          directory: 'debian11'
-        - name: 'Debian 12'
-          container: 'docker.io/library/debian:12'
-          directory: 'debian12'
-        # RHEL
-        - name: 'RHEL8'
-          container: 'registry.access.redhat.com/ubi8/ubi'
-          directory: 'rhel8'
-        - name: 'RHEL9'
-          container: 'registry.access.redhat.com/ubi9/ubi'
-          directory: 'rhel9'
-        # Ubuntu
-        - name: 'Ubuntu 20.04'
-          container: 'docker.io/library/ubuntu:20.04'
-          directory: 'ubuntu2004'
-        - name: 'Ubuntu 22.04'
-          container: 'docker.io/library/ubuntu:22.04'
-          directory: 'ubuntu2204'
-        - name: 'Ubuntu 24.04'
-          container: 'docker.io/library/ubuntu:24.04'
-          directory: 'ubuntu2404'
-        - name: 'Ubuntu 24.10'
-          container: 'docker.io/library/ubuntu:24.10'
-          directory: 'ubuntu2410'
+        distros:
+          # Debian
+          - name: 'Debian 11'
+            container: 'docker.io/library/debian:11'
+            directory: 'debian11'
+          - name: 'Debian 12'
+            container: 'docker.io/library/debian:12'
+            directory: 'debian12'
+          # RHEL
+          - name: 'RHEL8'
+            container: 'registry.access.redhat.com/ubi8/ubi'
+            directory: 'rhel8'
+          - name: 'RHEL9'
+            container: 'registry.access.redhat.com/ubi9/ubi'
+            directory: 'rhel9'
+          # Ubuntu
+          - name: 'Ubuntu 20.04'
+            container: 'docker.io/library/ubuntu:20.04'
+            directory: 'ubuntu2004'
+          - name: 'Ubuntu 22.04'
+            container: 'docker.io/library/ubuntu:22.04'
+            directory: 'ubuntu2204'
+          - name: 'Ubuntu 24.04'
+            container: 'docker.io/library/ubuntu:24.04'
+            directory: 'ubuntu2404'
+          - name: 'Ubuntu 24.10'
+            container: 'docker.io/library/ubuntu:24.10'
+            directory: 'ubuntu2410'
     steps:
 
       - name: 'Harden Runner'
@@ -106,17 +107,17 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.directory }}'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.directory }}'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
 
-      - name: 'Build for ${{ matrix.name }}'
+      - name: 'Build for ${{ matrix.distros.name }}'
         run: >
           podman run --rm
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.directory }},destination=/build,relabel=private
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }},destination=/build,relabel=private
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true
-          ${{ matrix.container }}
+          ${{ matrix.distros.container }}
           /bin/bash -x
-          /repos/monitoring-plugins/build/${{ matrix.directory }}/build.sh
+          /repos/monitoring-plugins/build/${{ matrix.distros.directory }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
           ${{ inputs.package-iteration || '1' }}
 
