@@ -2,28 +2,38 @@
 
 set -e
 
-PACKAGE_VERSION="$1" # version number has to start with a digit, for example 2023123101; "main" for the latest development version
-PACKAGE_ITERATION="$2" # 2, if there is a bugfix for this package (not for the mp)
+PACKAGE_VERSION="$1"
+PACKAGE_ITERATION="$2"
 
+if [[ -z "$PACKAGE_VERSION" || -z "$PACKAGE_ITERATION" ]]; then
+    echo "Usage: $(basename "$0") <PACKAGE_VERSION> <PACKAGE_ITERATION>"
+    echo "  PACKAGE_VERSION: Version number starting with a digit (e.g. 2023123101) or 'main' for the latest development version."
+    echo "  PACKAGE_ITERATION: Iteration number (e.g. 2) to specify the bugfix level for this package."
+    exit 1
+fi
 
-apt-get -y update
-apt-get -y install git
-apt-get -y install python3-dev python3-venv
+CURRENT_DIR="$(dirname "$(realpath "$BASH_SOURCE")")"
+BUILD_SHARED_DIR="$CURRENT_DIR/../shared"
+LIB_DIR="$CURRENT_DIR/../../lib"
+MONITORING_PLUGINS_DIR="$CURRENT_DIR/../../"
 
-# dependencies for gem / fpm
-apt-get install -y ruby ruby-dev rubygems build-essential
+if [[ ! -d "$LIB_DIR" ]]; then
+    echo "The Python libraries (https://github.com/Linuxfabrik/lib) could not be found at $LIB_DIR."
+    echo "They should be in a directory called 'lib' on the same level as the monitoring-plugins directory."
+    exit 2
+fi
 
-# install fpm using gem
-gem install fpm
+# include shared functions
+. "$BUILD_SHARED_DIR/shared.sh"
 
-# prepare venv
-. /repos/monitoring-plugins/build/shared/venv.sh
+source /opt/venv/bin/activate
+python3 --version
+python3 -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
 
-# compile using pyinstaller
-. /repos/monitoring-plugins/build/shared/compile.sh
+compile_plugins "$MONITORING_PLUGINS_DIR"
 
 # prepare files for fpm
-. /repos/monitoring-plugins/build/shared/prepare-fpm.sh
+prepare_fpm "$PACKAGE_VERSION" "$PACKAGE_ITERATION" "$MONITORING_PLUGINS_DIR"
 
 # create packages using fpm
 cd /tmp/fpm/check-plugins
