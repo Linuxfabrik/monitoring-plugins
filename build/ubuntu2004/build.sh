@@ -28,7 +28,7 @@ fi
 
 source /opt/venv/bin/activate
 python3.9 --version
-python3.9 -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt"
+python3.9 -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
 
 # compile using pyinstaller
 compile_plugins "$MONITORING_PLUGINS_DIR"
