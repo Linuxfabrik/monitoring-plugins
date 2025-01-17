@@ -22,7 +22,6 @@ compile_plugins() {
                 "$dir/$check"
             # remove ".bin" suffix
             mv "/tmp/output/check-plugins/$check.dist/$check.bin" "/tmp/output/check-plugins/$check.dist/$check"
-            break # TODO REMOVE
         fi
     done
     \cp -a --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
@@ -40,7 +39,6 @@ compile_plugins() {
                 "$dir/$notification"
             # remove ".bin" suffix
             mv "/tmp/output/notification-plugins/$notification.dist/$notification.bin" "/tmp/output/notification-plugins/$notification.dist/$notification"
-            break # TODO REMOVE
         fi
     done
     \cp -a --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
