@@ -4,6 +4,12 @@ FROM registry.access.redhat.com/ubi8/ubi
 
 RUN dnf -y update && dnf clean all
 RUN dnf -y install git zip binutils && dnf clean all
+
+# for nuitka
+RUN subscription-manager repos --enable codeready-builder-for-rhel-8-$(arch)-rpms && dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && dnf clean all
+# RUN dnf install -y epel-release dnf-plugins-core && dnf config-manager --set-enabled powertools && dnf clean all
+RUN dnf -y install patchelf ccache && dnf clean all
+
 # for compiling selinux policies
 RUN dnf -y install make selinux-policy-devel && dnf clean all
 
@@ -27,4 +33,4 @@ RUN gem install dotenv --version 2.8.1 --no-document && \
 
 RUN python3.9 -m venv --system-site-packages /opt/venv && \
     /opt/venv/bin/python -m pip install pip==24.3.1 wheel==0.45.1 setuptools==50.3.2 && \
-    /opt/venv/bin/python -m pip install pyinstaller==6.11.1
+    /opt/venv/bin/python -m pip install nuitka==2.5.9

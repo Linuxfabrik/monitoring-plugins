@@ -30,7 +30,6 @@ source /opt/venv/bin/activate
 python3 --version
 python3 -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
 
-# compile using pyinstaller
 compile_plugins "$MONITORING_PLUGINS_DIR"
 
 # RHEL only - compile .te file to .pp for SELinux
@@ -38,7 +37,7 @@ mkdir /tmp/selinux
 cp /repos/monitoring-plugins/selinux/linuxfabrik-monitoring-plugins.te /tmp/selinux/
 cd /tmp/selinux/
 make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
-\cp -a linuxfabrik-monitoring-plugins.pp /tmp/dist/summary/check-plugins
+\cp -a linuxfabrik-monitoring-plugins.pp /tmp/output/summary/check-plugins
 
 # prepare files for fpm
 prepare_fpm "$PACKAGE_VERSION" "$PACKAGE_ITERATION" "$MONITORING_PLUGINS_DIR"

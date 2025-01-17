@@ -1,5 +1,51 @@
 #!/usr/bin/env bash
 
+compile_plugins() {
+    MONITORING_PLUGINS_DIR="$1"
+    if [[ -z "$MONITORING_PLUGINS_DIR" ]]; then
+        echo "Usage: ${FUNCNAME[0]} <MONITORING_PLUGINS_DIR>"
+        return 1
+    fi
+
+    mkdir -p /tmp/output/summary/{check,notification}-plugins
+
+    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/*; do
+        check="$(basename "$dir")"
+        if [ "$check" != "example" ]; then
+            echo -e "\ncompiling $check..."
+            nuitka \
+                --company-name='https://www.linuxfabrik.ch' \
+                --assume-yes-for-downloads \
+                --output-dir=/tmp/output/check-plugins/ \
+                --remove-output \
+                --standalone \
+                "$dir/$check"
+            # remove ".bin" suffix
+            mv "/tmp/output/check-plugins/$check.dist/$check.bin" "/tmp/output/check-plugins/$check.dist/$check"
+            break # TODO REMOVE
+        fi
+    done
+    \cp -a --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
+
+    for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
+        notification="$(basename "$dir")"
+        if [ "$notification" != "example" ]; then
+            echo -e "\ncompiling $notification..."
+            nuitka \
+                --company-name='https://www.linuxfabrik.ch' \
+                --assume-yes-for-downloads \
+                --output-dir=/tmp/output/notification-plugins/ \
+                --remove-output \
+                --standalone \
+                "$dir/$notification"
+            # remove ".bin" suffix
+            mv "/tmp/output/notification-plugins/$notification.dist/$notification.bin" "/tmp/output/notification-plugins/$notification.dist/$notification"
+            break # TODO REMOVE
+        fi
+    done
+    \cp -a --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
+}
+
 prepare_fpm() {
     PACKAGE_VERSION="$1"
     PACKAGE_ITERATION="$2"
@@ -19,7 +65,7 @@ prepare_fpm() {
     cat > .fpm << EOF
 --after-install "$MONITORING_PLUGINS_DIR/build/shared/rpm-post-install"
 --architecture all
---chdir /tmp/dist/summary/check-plugins
+--chdir /tmp/output/summary/check-plugins
 --description "This Enterprise Class Check Plugin Collection offers a bunch of Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network."
 --input-type dir
 --iteration "$PACKAGE_ITERATION"
@@ -32,7 +78,7 @@ prepare_fpm() {
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/dist/summary/check-plugins; find . -type f | sort); do
+    for file in $(cd /tmp/output/summary/check-plugins; find . -type f | sort); do
         # strip leading './'
         file="${file#./}"
         echo "$file=/usr/lib64/nagios/plugins/$file" >> .fpm
@@ -44,7 +90,7 @@ EOF
 
     cat > .fpm << EOF
 --architecture all
---chdir /tmp/dist/summary/notification-plugins
+--chdir /tmp/output/summary/notification-plugins
 --description "Notification scripts for Icinga."
 --input-type dir
 --iteration "$PACKAGE_ITERATION"
@@ -57,59 +103,9 @@ EOF
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/dist/summary/notification-plugins; find . -type f | sort); do
+    for file in $(cd /tmp/output/summary/notification-plugins; find . -type f | sort); do
         # strip leading './'
         file="${file#./}"
         echo "$file=/usr/lib64/nagios/plugins/notifications/$file" >> .fpm
     done
-}
-
-compile_plugins() {
-    MONITORING_PLUGINS_DIR="$1"
-    if [[ -z "$MONITORING_PLUGINS_DIR" ]]; then
-        echo "Usage: ${FUNCNAME[0]} <MONITORING_PLUGINS_DIR>"
-        return 1
-    fi
-
-    mkdir -p /tmp/dist/summary/{check,notification}-plugins
-
-    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/*; do
-        check="$(basename "$dir")"
-        if [ "$check" != "example" ]; then
-            echo -e "\ncompiling $check..."
-            pyinstaller_extra_cmdline=''
-            if [ -f "$dir/.build_options" ]; then
-                echo "Found .build_options, sourcing them"
-                . "$dir/.build_options"
-            fi
-            pyinstaller \
-                --clean \
-                --distpath /tmp/dist/check-plugins \
-                --workpath /tmp/build/check-plugins \
-                --specpath /tmp/spec/check-plugins \
-                --noconfirm \
-                --noupx \
-                --onedir \
-                $pyinstaller_extra_cmdline \
-                "$dir/${check}"
-        fi
-    done
-    \cp -a --no-clobber /tmp/dist/check-plugins/*/* /tmp/dist/summary/check-plugins
-
-    for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
-        notification="$(basename "$dir")"
-        if [ "$notification" != "example" ]; then
-            echo -e "\ncompiling $notification..."
-            pyinstaller \
-                --clean \
-                --distpath /tmp/dist/notification-plugins \
-                --workpath /tmp/build/notification-plugins \
-                --specpath /tmp/spec/notification-plugins \
-                --noconfirm \
-                --noupx \
-                --onedir \
-                "$dir/${notification}"
-        fi
-    done
-    \cp -a --no-clobber /tmp/dist/notification-plugins/*/* /tmp/dist/summary/notification-plugins
 }
