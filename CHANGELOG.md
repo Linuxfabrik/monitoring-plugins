@@ -34,6 +34,7 @@ Icinga Director:
 * all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
 * all-the-rest.json: Add rsyslog Service Set
 * all-the-rest.json: Add Ubuntu 24 Service Set
+* all-the-rest.json: Add WHMCS Service Set
 
 
 Monitoring Plugins:
@@ -44,6 +45,7 @@ Monitoring Plugins:
 * mastodon-version
 * moodle-version
 * scanrootkit
+* whmcs-status
 
 
 ### Changed ("enhancement")
@@ -59,6 +61,7 @@ Monitoring Plugins:
 * about-me: Determines date of birth of cloud VMs more accurately
 * about-me: Add Mastodon detection
 * about-me: Add Moodle detection
+* about-me: Add WHMCS detection
 * dhcp-scope-usage: Ignore PercentageInUse fractions
 * disk-io: Re-add support for Windows after last rewrite
 * disk-usage: Add `--list-fstypes` and `--fstype` for specifying the file system type

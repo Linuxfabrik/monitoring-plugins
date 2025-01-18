@@ -152,6 +152,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="updates" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/updates.png" width="30%"/> &nbsp;
 <img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/uptime.png" width="30%"/> &nbsp;
 <img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/users.png" width="30%"/> &nbsp;
+<img alt="whmcs-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/whmcs-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-gc-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-gc-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-memory-pool-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-memory-pool-usage.png" width="30%"/> &nbsp;
