@@ -12,6 +12,7 @@
 """
 
 import argparse  # pylint: disable=C0413
+import base64  # pylint: disable=C0413
 import json  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
@@ -23,7 +24,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025011801'
+__version__ = '2025011802'
 
 DESCRIPTION = '''Returns the health status of a WHMCS server using its
                  HTTP-based API.'''
@@ -121,6 +122,11 @@ def parse_args():
 def get_data(args):
     """Login to WHCMS, call the API and return JSON data.
     """
+    header = {}
+    if args.USERNAME and args.PASSWORD:
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
+        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+        header['Authorization'] = f'Basic {encoded_auth}'
     return lib.url.fetch_json(
         f'{args.URL}/includes/api.php',
         data={
@@ -130,9 +136,8 @@ def get_data(args):
             'fetchStatus': 'true',
             'responsetype': 'json',
         },
-        digest_auth_password=args.PASSWORD,
-        digest_auth_user=args.USERNAME,
         encoding='urlencode',
+        header=header,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
         timeout=args.TIMEOUT,
@@ -204,7 +209,7 @@ def main():
     if msg:
         msg_header = (
             f'There '
-            f'{lib.txt.pluralize('', len(result), 'is,are')} '
+            f'{lib.txt.pluralize("", len(result), "is,are")} '
             f'{len(result)} {lib.txt.pluralize("message", len(result))}'
         )
         if len(result) > 1:
