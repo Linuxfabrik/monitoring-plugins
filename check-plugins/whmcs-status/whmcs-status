@@ -24,7 +24,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025011802'
+__version__ = '2025011901'
 
 DESCRIPTION = '''Returns the health status of a WHMCS server using its
                  HTTP-based API.'''
@@ -156,7 +156,12 @@ def get_failed_checks(checks):
                 'type': item.get('type'),
                 'severityLevel': item.get('severityLevel'),
                 'body': lib.url.strip_tags(
-                    item.get('body').replace('<br>', ' '),
+                    item.get('body')
+                        .replace('<strong>', '*')
+                        .replace('</strong>', '*')
+                        .replace('<li>', ' ')
+                        .replace('</li>', '. ')
+                        .replace('<br>', ' '),
                 ),
             })
 
@@ -199,9 +204,8 @@ def main():
     # build the message
     for item in result:
         msg += f'* {item["type"]}: {item["body"]}'
-        if item['severityLevel'] == 'info':
-            msg += ' (info)'
-        else:
+        msg += f' ({item["severityLevel"]})'
+        if item['severityLevel'] != 'info':
             state = STATE_WARN
             msg += lib.base.state2str(STATE_WARN, prefix=' ')
         msg += '\n'
