@@ -61,7 +61,7 @@ Help
 .. code-block:: text
 
     usage: whmcs-status [-h] [-V] --identifier IDENTIFIER [--insecure]
-                        [--no-proxy] [-p PASSWORD] --secret SECRET
+                        [--no-proxy] [-p PASSWORD] --secret SECRET [--test TEST]
                         [--timeout TIMEOUT] [--url URL] [--username USERNAME]
 
     Returns the health status of a WHMCS server using its HTTP-based API.
@@ -77,6 +77,8 @@ Help
       -p, --password PASSWORD
                             HTTP basic auth password.
       --secret SECRET       WHMCS API secret. Default: None
+      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
+                            stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
       --username USERNAME   HTTP basic auth username.
@@ -95,10 +97,10 @@ Output:
 
     There are 4 messages, ordered by severity.
 
-    * WHMCS: Please upgrade to the latest version: 8.12.0 You can learn about performing an upgrade in our documentation. [WARNING]
-    * WHMCS: Module debugging is currently enabled. We recommend that you disable this when you finish debugging. Continuous use may degrade performance. For more information, see our documentation. [WARNING]
-    * WHMCS: We have detected that your WHMCS installation is currently using the default template names for one or more of the active templates. If you have made any customisations, we strongly recommend creating a custom template directory to avoid losing your customisations the next time you upgrade.You are currently using a default template in the following locations:CartPlease review our documentation on making a custom theme for help doing this. [WARNING]
-    * PHP: Your PHP version 8.1.31 is supported by WHMCS. Your PHP version does not receive regular updates but is the latest supported by WHMCS. (info)
+    * WHMCS: Please upgrade to the latest version: 8.12.0 You can learn about performing an upgrade in our documentation. (error) [WARNING]
+    * WHMCS: Module debugging is currently enabled. We recommend that you disable this when you finish debugging. Continuous use may degrade performance. For more information, see our documentation. (warning) [WARNING]
+    * WHMCS: We have detected that your WHMCS installation is currently using the default template names for one or more of the active templates. If you have made any customisations, we strongly recommend creating a custom template directory to avoid losing your customisations the next time you upgrade.You are currently using a default template in the following locations: *Cart*. Please review our documentation on making a custom theme for help doing this. (warning) [WARNING]
+    * PHP: Your PHP version *8.1.31* is supported by WHMCS. Your PHP version does not receive regular updates but is the latest supported by WHMCS. (info)
 
 
 States
