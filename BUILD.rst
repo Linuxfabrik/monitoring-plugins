@@ -64,8 +64,6 @@ Currently the compilation and build process is done automatically using GitHub A
 Linux
     Have a look at the `Linux Build CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-build.yml>`_ and the `build scripts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`_.
 
-    Note that we are not building new containers, because we always want the latest package versions. If we wanted to speed up the workflow, we could try to build a container with all the tools we need, and then just update the container every time the workflow is triggered. However, since the workflow currently only runs for git tags (and maybe nightly builds in the future), the duration of the workflow is not very important to us.
-
 Windows
     Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/nuitka-compile.yml>`_.
 
@@ -345,7 +343,3 @@ Compile using pyinstaller:
         --noconfirm \
         --onefile \
         m:\check-plugins\disk-usage\disk-usage
-
-
-
-
