@@ -18,26 +18,31 @@ The Linuxfabrik Monitoring Plugins are compiled with Nuitka. This allows us to c
 * .deb: The plugins are compiled on Debian 11 and Debian 12.
 * .tar.gz/.zip: We want to make sure that the compiled plugins run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
 
-    .. code-block:: text
+.. code-block:: text
 
-        OS               ! EOL ! libc.so.6 --version ! openssl version ! Compiling platform
-        -----------------+-----+---------------------+---------------- +--------------------
-        CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips     ! used til 2024-06-30
-        Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1           !
-        Rocky 8          !     ! 2.28                ! 1.1.1k          ! <<< current choice
-        Debian 10        ! EOL ! 2.28                ! 1.1.1n          !
-        Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f          !
-        Debian 11        !     ! 2.31                ! 1.1.1w          !
-        Rocky 9          !     ! 2.34                ! 3.0.7           !
-        Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2           !
-        Debian 12        !     ! 2.36                ! 3.0.11          !
-        Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13          !
+    OS               ! EOL ! libc.so.6 --version ! openssl version ! Compiling platform for
+    -----------------+-----+---------------------+---------------- +-------------------------------------
+    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips     !
+    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips     !
+    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1           !
+    Rocky 8          !     ! 2.28                ! 1.1.1k          !
+    RHEL 8           !     ! 2.28                ! 1.1.1k          !
+    registry/ubi8    !     ! 2.28                ! 1.1.1k          ! tar.gz
+    Debian 10        ! EOL ! 2.28                ! 1.1.1n          !
+    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f          !
+    Debian 11        !     ! 2.31                ! 1.1.1w          !
+    RHEL 9           !     ! 2.34                ! 3.0.7           !
+    Rocky 9          !     ! 2.34                ! 3.0.7           !
+    registry/ubi9    !     ! 2.34                ! 3.0.7           !
+    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2           !
+    Debian 12        !     ! 2.36                ! 3.0.11          !
+    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13          !
 
-Installation packages are built afterwards with `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_:
+Packages contain the compiled plugins and are built using the `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_:
 
-* rpm for RHEL 8+
-* deb for Debian 11+, Ubuntu 20+
-* tar.gz and zip
+* rpm for RHEL 8+ and compatible
+* deb for Debian 11+, Ubuntu 20+ and compatible
+* tar.gz and zip for all other systems
 
 Currently not implemented:
 
