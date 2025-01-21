@@ -12,47 +12,44 @@ Compiling on Linux
     * OS installation packages can be found at https://repo.linuxfabrik.ch/monitoring-plugins/
     * Tar and zip files containing the compiled binaries can be found at https://download.linuxfabrik.ch/monitoring-plugins/
 
-The Linuxfabrik Monitoring Plugins are compiled with Nuitka. This allows us to completely avoid Python on the target systems.
+The Linuxfabrik monitoring plugins are compiled using Nuitka. This allows us to completely avoid Python on the target systems.
 
-* .rpm: The plugins are compiled on RHEL 8 and RHEL 9.
-* .deb: The plugins are compiled on Debian 11 and Debian 12.
-* .tar.gz/.zip: We want to make sure that the compiled plugins run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
+OS packages (.rpm, .deb) contain the compiled plugins and are built using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_.
+
+For non-RHEL or Debian-compatible platforms, we want to make sure that the compiled plugins will run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running `SELinux <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`_ and - if there is more than one candidate - has the latest OpenSSL version due to security fixes. The binaries are distributed as .tar.gz and .zip files.
+
+Versions of glibc and OpenSSL:
 
 .. code-block:: text
 
-    OS               ! EOL ! libc.so.6 --version ! openssl version ! Compiling platform for
-    -----------------+-----+---------------------+---------------- +-------------------------------------
-    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips     !
-    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips     !
-    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1           !
-    Rocky 8          !     ! 2.28                ! 1.1.1k          !
-    RHEL 8           !     ! 2.28                ! 1.1.1k          !
-    registry/ubi8    !     ! 2.28                ! 1.1.1k          ! tar.gz
-    Debian 10        ! EOL ! 2.28                ! 1.1.1n          !
-    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f          !
-    Debian 11        !     ! 2.31                ! 1.1.1w          !
-    RHEL 9           !     ! 2.34                ! 3.0.7           !
-    Rocky 9          !     ! 2.34                ! 3.0.7           !
-    registry/ubi9    !     ! 2.34                ! 3.0.7           !
-    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2           !
-    Debian 12        !     ! 2.36                ! 3.0.11          !
-    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13          !
+    OS               ! EOL ! libc.so.6 --version ! openssl version
+    -----------------+-----+---------------------+----------------
+    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips    
+    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips    
+    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1          
+    RHEL 8           !     ! 2.28                ! 1.1.1k         
+    Debian 10        ! EOL ! 2.28                ! 1.1.1n         
+    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f         
+    Debian 11        !     ! 2.31                ! 1.1.1w         
+    RHEL 9           !     ! 2.34                ! 3.0.7          
+    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2          
+    Debian 12        !     ! 2.36                ! 3.0.11         
+    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13         
 
-Packages contain the compiled plugins and are built using the `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_:
+Compiling platform:
 
-* rpm for RHEL 8+ and compatible
-* deb for Debian 11+, Ubuntu 20+ and compatible
-* tar.gz and zip for all other systems
+.. code-block:: text
 
-Currently not implemented:
-
-* apk (= Alpine; because of errors while running ``fpm -s deb -t apk linuxfabrik-monitoring-plugins.deb`` and ``fpm -s rpm -t apk linuxfabrik-monitoring-plugins.rpm``)
-* FreeBSD (because of errors while running ``fpm -s deb -t freebsd linuxfabrik-monitoring-plugins.deb`` and ``fpm -s rpm -t freebsd linuxfabrik-monitoring-plugins.rpm``)
-* pacman (= Arch Linux; because of errors while running ``fpm -s deb -t pacman linuxfabrik-monitoring-plugins.deb``, ``fpm -s rpm -t pacman linuxfabrik-monitoring-plugins.rpm`` and ``fpm -t pacman -p linuxfabrik-monitoring-plugins.pkg.tar.zst``)
-
-Not tested:
-
-* rpm on OpenSUSE
+    Target OS     ! Compiled on
+    --------------+-------------------------------------
+    Debian 11     ! docker.io/library/debian:11
+    Debian 12     ! docker.io/library/debian:12
+    RHEL 8        ! registry.access.redhat.com/ubi8/ubi
+    RHEL 9        ! registry.access.redhat.com/ubi9/ubi
+    Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
+    Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
+    Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
+    Other         ! docker.io/library/ubuntu:20.04
 
 
 CI/CD
