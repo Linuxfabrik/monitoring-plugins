@@ -2,22 +2,22 @@ FROM registry.access.redhat.com/ubi8/ubi
 # use rockylinux for testing without a subscription
 # FROM docker.io/library/rockylinux:8
 
-RUN dnf -y update && dnf clean all
-RUN dnf -y install git zip binutils && dnf clean all
+RUN dnf --assumeyes update && dnf clean all
+RUN dnf --assumeyes install git zip binutils && dnf clean all
 
 # for nuitka
 # codeready is already enabled inside ubi
-RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && dnf clean all
-# RUN dnf install -y epel-release dnf-plugins-core && dnf config-manager --set-enabled powertools && dnf clean all
-RUN dnf -y install patchelf ccache && dnf clean all
+RUN dnf --assumeyes install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && dnf clean all
+# RUN dnf install --assumeyes epel-release dnf-plugins-core && dnf config-manager --set-enabled powertools && dnf clean all
+RUN dnf --assumeyes install patchelf ccache && dnf clean all
 
 # for compiling selinux policies
-RUN dnf -y install make selinux-policy-devel && dnf clean all
+RUN dnf --assumeyes install make selinux-policy-devel && dnf clean all
 
-RUN dnf -y install python39 python39-devel && dnf clean all
+RUN dnf --assumeyes install python39 python39-devel && dnf clean all
 
 # dependencies for gem / fpm
-RUN dnf -y install ruby-devel gcc make rpm-build libffi-devel && dnf clean all
+RUN dnf --assumeyes install ruby-devel gcc make rpm-build libffi-devel && dnf clean all
 
 # install fpm using gem
 # RUN gem install fpm
