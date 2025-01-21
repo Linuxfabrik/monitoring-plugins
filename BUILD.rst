@@ -51,6 +51,10 @@ Compiling platform:
     Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
     Other         ! docker.io/library/ubuntu:20.04
 
+.. note::
+
+    According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`_, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a subscription or run the container on a subscribed host.
+
 
 CI/CD
 -----
