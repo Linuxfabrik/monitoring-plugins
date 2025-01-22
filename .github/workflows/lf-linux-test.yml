@@ -4,7 +4,7 @@ name: 'Linuxfabrik: Linux - Test'
 on:
   workflow_run:
     workflows:
-      - '01a - Compile and build the packages for Linux'
+      - 'Run all plugins on every supported Linux platform'
     types:
       - 'completed'
 
@@ -140,7 +140,7 @@ jobs:
 
 
   # RHEL
-  test-rhel7:
+  test-rocky8:
     runs-on:
       - 'rhel8'
       - 'self-hosted'
@@ -154,45 +154,19 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel7'
-        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel7'
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/rocky8'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/rocky8'
 
       - name: 'Test on RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel7,destination=/output,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel7,destination=/packages,relabel=shared,ro=true \
-          registry.access.redhat.com/ubi7/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
-
-
-  test-rhel8:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: Harden Runner
-        uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e # v2.10.4
-        with:
-          egress-policy: audit
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel8'
-        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel8'
-
-      - name: 'Test on RHEL8'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel8,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/rocky8,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
           --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel8,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
 
 
-  test-rhel9:
+  test-rocky9:
     runs-on:
       - 'rhel8'
       - 'self-hosted'
@@ -206,13 +180,13 @@ jobs:
         with:
           egress-policy: audit
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/output/rhel9'
-        run: 'mkdir ${{ env.BASE_DIR }}/output/rhel9'
+      - name: 'mkdir ${{ env.BASE_DIR }}/output/rocky9'
+        run: 'mkdir ${{ env.BASE_DIR }}/output/rocky9'
 
       - name: 'Test on RHEL8'
         run: |-
           podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/output/rhel9,destination=/output,relabel=private \
+          --mount type=bind,source=${{ env.BASE_DIR }}/output/rocky9,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
           --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rhel9,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
@@ -333,9 +307,8 @@ jobs:
       - 'test-debian10'
       - 'test-debian11'
       - 'test-debian12'
-      - 'test-rhel7'
-      - 'test-rhel8'
-      - 'test-rhel9'
+      - 'test-rocky8'
+      - 'test-rocky9'
       - 'test-ubuntu1804'
       - 'test-ubuntu2004'
       - 'test-ubuntu2204'
