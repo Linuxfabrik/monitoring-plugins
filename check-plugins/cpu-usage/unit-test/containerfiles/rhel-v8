@@ -2,11 +2,13 @@
 FROM registry.access.redhat.com/ubi8
 
 # Install Python 3.9
-RUN dnf -y install python3.9
+RUN dnf --assumeyes install --nodocs python3.9 && \
+    dnf clean all
 
 # Install tools
-RUN dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
-    dnf -y install stress
+RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+    dnf --assumeyes install --nodocs stress && \
+    dnf clean all
 
 # Set the working directory in the container
 WORKDIR /tmp
