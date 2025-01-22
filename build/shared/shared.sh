@@ -14,7 +14,6 @@ compile_plugins() {
         if [ "$check" != "example" ]; then
             echo -e "\ncompiling $check..."
             nuitka \
-                --company-name='https://www.linuxfabrik.ch' \
                 --assume-yes-for-downloads \
                 --output-dir=/tmp/output/check-plugins/ \
                 --remove-output \
@@ -31,7 +30,6 @@ compile_plugins() {
         if [ "$notification" != "example" ]; then
             echo -e "\ncompiling $notification..."
             nuitka \
-                --company-name='https://www.linuxfabrik.ch' \
                 --assume-yes-for-downloads \
                 --output-dir=/tmp/output/notification-plugins/ \
                 --remove-output \
