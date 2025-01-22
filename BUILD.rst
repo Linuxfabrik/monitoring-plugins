@@ -44,8 +44,8 @@ Compiling platform:
     --------------+-------------------------------------
     Debian 11     ! docker.io/library/debian:11
     Debian 12     ! docker.io/library/debian:12
-    RHEL 8        ! registry.access.redhat.com/ubi8/ubi
-    RHEL 9        ! registry.access.redhat.com/ubi9/ubi
+    RHEL 8        ! docker.io/library/rockylinux:8
+    RHEL 9        ! docker.io/library/rockylinux:9
     Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
     Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
     Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
@@ -59,13 +59,7 @@ Compiling platform:
 CI/CD
 -----
 
-Currently the compilation and build process is done automatically using GitHub Actions.
-
-Linux
-    Have a look at the `Linux Build CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/linux-build.yml>`_ and the `build scripts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`_.
-
-Windows
-    Done automatically per `Nuitka CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/nuitka-compile.yml>`_.
+Currently the compilation and build process is done automatically using GitHub Actions. See the `CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`_ folder for details.
 
 
 pyinstaller vs. Nuitka
@@ -74,6 +68,7 @@ pyinstaller vs. Nuitka
 We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, **but the results led us to set Nuitka as the standard compiler**. With the OS installation packages, we prefer speed over file size, while for Windows, the tar.gz and zip files, we offer both. The results, sorted by runtime as of 2024-12-23:
 
 .. code-block:: text
+    :caption: disk-usage in action
 
     ! Platform    ! Py   ! Compiler    ! Type    ! Option1       ! Option2       ! Size in MB ! 500 runs (sec) ! VirusTotal !
     ! ----------- ! ---- ! ----------- ! ------- ! ------------- ! ------------- ! ---------- ! -------------- ! ---------- !
