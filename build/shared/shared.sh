@@ -22,7 +22,7 @@ compile_plugins() {
             mv "/tmp/output/check-plugins/$check.dist/$check.bin" "/tmp/output/check-plugins/$check.dist/$check"
         fi
     done
-    \cp -a --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
+    \cp --archive --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
 
     for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
         notification="$(basename "$dir")"
@@ -37,7 +37,7 @@ compile_plugins() {
             mv "/tmp/output/notification-plugins/$notification.dist/$notification.bin" "/tmp/output/notification-plugins/$notification.dist/$notification"
         fi
     done
-    \cp -a --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
+    \cp --archive --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
 }
 
 prepare_fpm() {
@@ -54,7 +54,7 @@ prepare_fpm() {
     fi
 
     mkdir -p /tmp/fpm/check-plugins
-    cd /tmp/fpm/check-plugins
+    cd /tmp/fpm/check-plugins || exit 1
 
     cat > .fpm << EOF
 --after-install "$MONITORING_PLUGINS_DIR/build/shared/rpm-post-install"
@@ -72,7 +72,7 @@ prepare_fpm() {
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/output/summary/check-plugins; find . -type f | sort); do
+    for file in $(cd /tmp/output/summary/check-plugins || exit 1; find . -type f | sort); do
         # strip leading './'
         file="${file#./}"
         echo "$file=/usr/lib64/nagios/plugins/$file" >> .fpm
@@ -80,7 +80,7 @@ EOF
 
 
     mkdir -p /tmp/fpm/notification-plugins
-    cd /tmp/fpm/notification-plugins
+    cd /tmp/fpm/notification-plugins || exit 1
 
     cat > .fpm << EOF
 --architecture all
@@ -97,7 +97,7 @@ EOF
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/output/summary/notification-plugins; find . -type f | sort); do
+    for file in $(cd /tmp/output/summary/notification-plugins || exit 1; find . -type f | sort); do
         # strip leading './'
         file="${file#./}"
         echo "$file=/usr/lib64/nagios/plugins/notifications/$file" >> .fpm

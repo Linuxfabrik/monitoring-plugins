@@ -65,7 +65,7 @@ Currently the compilation and build process is done automatically using GitHub A
 pyinstaller vs. Nuitka
 ----------------------
 
-We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, **but the results led us to set Nuitka as the standard compiler**. With the OS installation packages, we prefer speed over file size, while for Windows, the tar.gz and zip files, we offer both. The results, sorted by runtime as of 2024-12-23:
+We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, **but the results led us to set Nuitka as the standard compiler**. The results, sorted by runtime as of 2024-12-23:
 
 .. code-block:: text
     :caption: disk-usage in action
@@ -94,7 +94,7 @@ Multiple-files compilation:
 * Plugin will be fast (3x compared to one file), but big.
 * You can't update just one plugin, you have to update all of them at once.
 
-On Windows, gcc vs msvc really makes no difference, but gcc is far more easy to automate and saves tons of resources.
+On Windows, using Nuitka in onedir mode, a typical plugin will be 30MB plus 34MB of shared global libs, while in onefile mode it will be 16MB. 100 plugins result in 3.0 GB (onedir) versus 1.6 GB (onefile). We prefer speed over file size, especially on Windows, where plugins compiled with Nuitka in onedir mode are likely to be killed by Windows Defender with a false positive Trojan:Win32 report. On Windows, gcc vs. msvc really makes no difference, but gcc is much easier to automate and saves tons of resources.
 
 
 Build on Rocky 8
