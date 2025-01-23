@@ -16,6 +16,7 @@ compile_plugins() {
             nuitka \
                 --assume-yes-for-downloads \
                 --output-dir=/tmp/output/check-plugins/ \
+                --remove-output \
                 --standalone \
                 "$dir/$check"
             # remove ".bin" suffix
@@ -31,6 +32,7 @@ compile_plugins() {
             nuitka \
                 --assume-yes-for-downloads \
                 --output-dir=/tmp/output/notification-plugins/ \
+                --remove-output \
                 --standalone \
                 "$dir/$notification"
             # remove ".bin" suffix
