@@ -3,11 +3,11 @@ name: 'Linuxfabrik: Windows - Build'
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches:
-      - 'main'
-    tags:
-      - '*'
+  # push:
+  #   branches:
+  #     - 'main'
+  #   tags:
+  #     - '*'
 
   # Allows running this workflow manually from the Actions tab
   workflow_dispatch: # yamllint disable-line rule:empty-values
@@ -78,7 +78,7 @@ jobs:
           repository: 'Linuxfabrik/lib'
           path: 'lib'
 
-      - name: 'install python3.13'
+      - name: 'install python3.12'
         uses: 'actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b' # v5.3.0
         with:
           python-version: '3.12'
@@ -100,8 +100,8 @@ jobs:
           --mingw64
           --include-plugin-directory="${{ github.workspace }}\lib"
           --output-dir=C:\nuitka-compile-temp
-          --remove-output
           --standalone
+          --onefile
           ${{ github.workspace }}\monitoring-plugins\check-plugins\${{ matrix.check }}\${{ matrix.check}}
 
       - name: 'Upload build output as artifact for zipping later on'
