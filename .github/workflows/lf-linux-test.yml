@@ -61,32 +61,6 @@ jobs:
 
 
   # Debian
-  test-debian10:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: Harden Runner
-        uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e # v2.10.4
-        with:
-          egress-policy: audit
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
-        run: 'mkdir ${{ env.BASE_DIR }}/output/debian10'
-
-      - name: 'Test on Debian 10'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/output/debian10,destination=/output,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian10,destination=/packages,relabel=shared,ro=true \
-          docker.io/library/debian:buster /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
-
-
   test-debian11:
     runs-on:
       - 'rhel8'
@@ -193,32 +167,6 @@ jobs:
 
 
   # Ubuntu
-  test-ubuntu1804:
-    runs-on:
-      - 'rhel8'
-      - 'self-hosted'
-    needs:
-      - 'prepare'
-
-    steps:
-
-      - name: Harden Runner
-        uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e # v2.10.4
-        with:
-          egress-policy: audit
-
-      - name: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu1804'
-        run: 'mkdir ${{ env.BASE_DIR }}/output/ubuntu1804'
-
-      - name: 'Test on Ubuntu 18.04'
-        run: |-
-          podman run --interactive --rm \
-          --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu1804,destination=/output,relabel=private \
-          --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu1804,destination=/packages,relabel=shared,ro=true \
-          docker.io/library/ubuntu:18.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
-
-
   test-ubuntu2004:
     runs-on:
       - 'rhel8'
@@ -304,12 +252,10 @@ jobs:
       - 'rhel8'
       - 'self-hosted'
     needs:  # we want this to run after the above jobs
-      - 'test-debian10'
       - 'test-debian11'
       - 'test-debian12'
       - 'test-rocky8'
       - 'test-rocky9'
-      - 'test-ubuntu1804'
       - 'test-ubuntu2004'
       - 'test-ubuntu2204'
       - 'test-ubuntu2404'
