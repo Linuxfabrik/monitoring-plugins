@@ -26,10 +26,10 @@ on:
         required: false
         default: '1'
 
-      distro:
-        description: 'Distro to build on. Use one of debian11, debian12, rocky8, rocky9, ubuntu2004, ubuntu2204 or ubuntu2404. If empty, the workflow will run for all of these distros.'
+      distros:
+        description: 'Comma-separated list of distros to build on. Supported: "debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404".'
         required: false
-        default: '1'
+        default: 'debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404'
 
 env:
   # we use this to get a (mostly) unique directory, therefore avoiding folder collisions when multiple workflows are running
@@ -41,13 +41,25 @@ permissions:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  set-matrix:
+    runs-on:
+      - 'rhel8'
+      - 'self-hosted'
+    outputs:
+      matrix: '${{ steps.generate-matrix.outputs.matrix }}'
+    steps:
+      - name: 'Generate Matrix'
+        id: 'generate-matrix'
+        run: |
+          distros="${{ inputs.distros }}"
+          matrix=$(echo "$distros" | jq -R 'split(",") | map({distros: .})')
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   preparations:
     runs-on:
       - 'rhel8'
       - 'self-hosted'
     steps:
-
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
         with:
@@ -68,50 +80,40 @@ jobs:
       - name: 'mkdir ${{ env.BASE_DIR }}/build'
         run: 'mkdir ${{ env.BASE_DIR }}/build'
 
-
   build-packages:
     runs-on:
       - 'rhel8'
       - 'self-hosted'
     needs:
+      - 'set-matrix'
       - 'preparations'
     strategy:
       matrix:
-        distros: '${{ fromJson(env.MATRIX_DISTROS) }}'
-    env:
-      # The environment variable dynamically defines the distros matrix.
-      # If inputs.distro is set, it creates a matrix with a single distro, converting the distro input into the required JSON format.
-      # If inputs.distro is not set, it falls back to the default matrix.
-      MATRIX_DISTROS: >
-        ${{ inputs.distro && toJSON([{ "directory": toLower(replace(inputs.distro, " ", "")) }]) || toJSON([
-          { "directory": "debian11" },
-          { "directory": "debian12" },
-          { "directory": "rocky8" },
-          { "directory": "rocky9" },
-          { "directory": "ubuntu2004" },
-          { "directory": "ubuntu2204" },
-          { "directory": "ubuntu2404" }
-        ]) }}
+        distro: '${{ fromJson(needs.set-matrix.outputs.matrix) }}'
     steps:
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
         with:
           egress-policy: 'audit'
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
 
-      - name: 'Build the container for ${{ matrix.distros.directory }}'
-        run: 'podman build --file "${{ env.BASE_DIR }}/repos/monitoring-plugins/build/${{ matrix.distros.directory }}/Containerfile" --tag "lfmp-build-${{ matrix.distros.directory }}"'
-
-      - name: 'Build the packages for ${{ matrix.distros.directory }}'
+      - name: 'Build the container for ${{ matrix.distro }}'
         run: >
-          podman run --rm
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }},destination=/build,relabel=private
+          podman build
+          --file "${{ env.BASE_DIR }}/repos/monitoring-plugins/build/${{ matrix.distro }}/Containerfile"
+          --tag "lfmp-build-${{ matrix.distro }}"
+
+      - name: 'Build the packages for ${{ matrix.distro }}'
+        run: >
+          podman run
+          --rm
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distro }},destination=/build,relabel=private
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true
-          "lfmp-build-${{ matrix.distros.directory }}"
+          "lfmp-build-${{ matrix.distro }}"
           /bin/bash -x
-          /repos/monitoring-plugins/build/${{ matrix.distros.directory }}/build.sh
+          /repos/monitoring-plugins/build/${{ matrix.distro }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
           ${{ inputs.package-iteration || '1' }}
 
