@@ -59,11 +59,3 @@ cp -- *.zip /build/
 cd /tmp/fpm/notification-plugins
 fpm --output-type rpm
 cp -- *.rpm /build/
-# build tar & zip
-fpm --output-type tar
-cp -- *.tar /build/
-if [ "$CHECK_PLUGIN" == "*" ]; then
-    # otherwise we get "Process failed: zip failed (exit code 12)"
-    fpm --output-type zip
-    cp -- *.zip /build/
-fi
