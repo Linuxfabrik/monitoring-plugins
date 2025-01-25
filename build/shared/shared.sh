@@ -6,10 +6,11 @@ compile_plugins() {
         echo "Usage: ${FUNCNAME[0]} <MONITORING_PLUGINS_DIR>"
         return 1
     fi
+    CHECK_PLUGIN="$2"
 
     mkdir -p /tmp/output/summary/{check,notification}-plugins
 
-    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/*; do
+    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/"$CHECK_PLUGIN"; do
         check="$(basename "$dir")"
         if [ "$check" != "example" ]; then
             echo -e "\ncompiling $check..."
@@ -25,21 +26,23 @@ compile_plugins() {
     done
     \cp --archive --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
 
-    for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
-        notification="$(basename "$dir")"
-        if [ "$notification" != "example" ]; then
-            echo -e "\ncompiling $notification..."
-            nuitka \
-                --assume-yes-for-downloads \
-                --output-dir=/tmp/output/notification-plugins/ \
-                --remove-output \
-                --standalone \
-                "$dir/$notification"
-            # remove ".bin" suffix
-            mv "/tmp/output/notification-plugins/$notification.dist/$notification.bin" "/tmp/output/notification-plugins/$notification.dist/$notification"
-        fi
-    done
-    \cp --archive --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
+    if [ "$CHECK_PLUGIN" == "*" ]; then
+        for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
+            notification="$(basename "$dir")"
+            if [ "$notification" != "example" ]; then
+                echo -e "\ncompiling $notification..."
+                nuitka \
+                    --assume-yes-for-downloads \
+                    --output-dir=/tmp/output/notification-plugins/ \
+                    --remove-output \
+                    --standalone \
+                    "$dir/$notification"
+                # remove ".bin" suffix
+                mv "/tmp/output/notification-plugins/$notification.dist/$notification.bin" "/tmp/output/notification-plugins/$notification.dist/$notification"
+            fi
+        done
+        \cp --archive --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
+    fi
 }
 
 prepare_fpm() {

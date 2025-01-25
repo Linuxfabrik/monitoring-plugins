@@ -31,6 +31,11 @@ on:
         required: false
         default: 'debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404'
 
+      check-plugin:
+        description: 'If you only want to compile a specific check plugin, specify its name, for example "xml".'
+        required: false
+        default: '*'
+
 env:
   # we use this to get a (mostly) unique directory, therefore avoiding folder collisions when multiple workflows are running
   BASE_DIR: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
@@ -116,6 +121,7 @@ jobs:
           /repos/monitoring-plugins/build/${{ matrix.distro }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
           ${{ inputs.package-iteration || '1' }}
+          ${{ inputs.check-plugin || '*' }}
 
 
   # this would not work on the GitHub-hosted runners, as each job is isolated there,
