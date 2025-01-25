@@ -14,6 +14,7 @@ fi
 CHECK_PLUGIN="$3"
 if [[ -z "$CHECK_PLUGIN" ]]; then
     CHECK_PLUGIN='*'
+fi
 
 CURRENT_DIR="$(dirname "$(realpath "$BASH_SOURCE")")"
 BUILD_SHARED_DIR="$CURRENT_DIR/../shared"
