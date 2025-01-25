@@ -52,8 +52,7 @@ jobs:
         id: 'generate-matrix'
         run: |
           distros="${{ inputs.distros }}"
-          matrix=$(echo "$distros" | jq -R 'split(",") | map({distros: .})')
-          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+          echo "$distros" | jq --raw-input '{"distros": split(",")}' >> $GITHUB_OUTPUT
 
   preparations:
     runs-on:
@@ -89,31 +88,31 @@ jobs:
       - 'preparations'
     strategy:
       matrix:
-        distro: '${{ fromJson(needs.set-matrix.outputs.matrix) }}'
+        distros: '${{ fromJson(needs.set-matrix.outputs.matrix) }}'
     steps:
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
         with:
           egress-policy: 'audit'
 
-      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
-        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
+      - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros }}'
+        run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros }}'
 
-      - name: 'Build the container for ${{ matrix.distro }}'
+      - name: 'Build the container for ${{ matrix.distros }}'
         run: >
           podman build
-          --file "${{ env.BASE_DIR }}/repos/monitoring-plugins/build/${{ matrix.distro }}/Containerfile"
-          --tag "lfmp-build-${{ matrix.distro }}"
+          --file "${{ env.BASE_DIR }}/repos/monitoring-plugins/build/${{ matrix.distros }}/Containerfile"
+          --tag "lfmp-build-${{ matrix.distros }}"
 
-      - name: 'Build the packages for ${{ matrix.distro }}'
+      - name: 'Build the packages for ${{ matrix.distros }}'
         run: >
           podman run
           --rm
-          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distro }},destination=/build,relabel=private
+          --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distros }},destination=/build,relabel=private
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true
-          "lfmp-build-${{ matrix.distro }}"
+          "lfmp-build-${{ matrix.distros }}"
           /bin/bash -x
-          /repos/monitoring-plugins/build/${{ matrix.distro }}/build.sh
+          /repos/monitoring-plugins/build/${{ matrix.distros }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
           ${{ inputs.package-iteration || '1' }}
 
