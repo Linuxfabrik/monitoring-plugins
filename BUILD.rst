@@ -14,29 +14,9 @@ Compiling on Linux
 
 The Linuxfabrik monitoring plugins are compiled using Nuitka. This allows us to completely avoid Python on the target systems.
 
-OS packages (.rpm, .deb) contain the compiled plugins and are built using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_.
+For Red Hat Package Manager (RPM) and Debian-based package files, we compile the plugins on specific platforms and build the packages using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_ there.
 
-For non-RHEL or Debian-compatible platforms, we want to make sure that the compiled plugins will run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running `SELinux <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`_ and - if there is more than one candidate - has the latest OpenSSL version due to security fixes. The binaries are distributed as .tar.gz and .zip files.
-
-Versions of glibc and OpenSSL:
-
-.. code-block:: text
-
-    OS               ! EOL ! libc.so.6 --version ! openssl version
-    -----------------+-----+---------------------+----------------
-    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips    
-    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips    
-    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1          
-    RHEL 8           !     ! 2.28                ! 1.1.1k         
-    Debian 10        ! EOL ! 2.28                ! 1.1.1n         
-    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f         
-    Debian 11        !     ! 2.31                ! 1.1.1w         
-    RHEL 9           !     ! 2.34                ! 3.0.7          
-    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2          
-    Debian 12        !     ! 2.36                ! 3.0.11         
-    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13         
-
-Compiling platform:
+Compiling platform for .rpm and .deb files:
 
 .. code-block:: text
 
@@ -49,17 +29,38 @@ Compiling platform:
     Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
     Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
     Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
-    Other         ! docker.io/library/ubuntu:20.04 (.tar.gz and .zip)
 
 .. note::
 
-    According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`_, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a subscription or run the container on a subscribed host.
+    Why Rocky instead of RHEL's "ubi" container images? According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`_, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
 
+If you only need the compiled plugins, we want to make sure that they will run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running SELinux (`#732 <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`_), and - if there is more than one candidate - has the latest OpenSSL version due to security fixes. The binaries are distributed as .tar.gz and .zip files.
 
-CI/CD
------
+Versions of glibc and OpenSSL (2025-01-25):
 
-Currently the compilation and build process is done automatically using GitHub Actions. See the `CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`_ folder for details.
+.. code-block:: text
+
+    OS               ! EOL ! libc.so.6 --version ! openssl version
+    -----------------+-----+---------------------+----------------
+    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips    
+    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips    
+    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1          
+    RHEL 8           !     ! 2.28                ! 1.1.1k         
+    Debian 10        ! EOL ! 2.28                ! 1.1.1n         
+    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f         current choice
+    Debian 11        !     ! 2.31                ! 1.1.1w         
+    RHEL 9           !     ! 2.34                ! 3.0.7          
+    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2          
+    Debian 12        !     ! 2.36                ! 3.0.11         
+    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13         
+
+Compiling platform for the plugins distributed in the .tar.gz and .zip files:
+
+.. code-block:: text
+
+    Target OS     ! Compiled on
+    --------------+-------------------------------------
+    Linux-general ! docker.io/library/ubuntu:20.04
 
 
 pyinstaller vs. Nuitka
@@ -338,3 +339,9 @@ Compile using pyinstaller:
         --noconfirm \
         --onefile \
         m:\check-plugins\disk-usage\disk-usage
+
+
+CI/CD
+-----
+
+Currently the compilation and build process is done automatically using GitHub Actions. See the `CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`_ folder for details.
