@@ -36,6 +36,11 @@ on:
         required: false
         default: '*'
 
+      arch:
+        description: 'Architecture. `X64` or `ARM64`.'
+        required: false
+        default: 'X64'
+
 env:
   # we use this to get a (mostly) unique directory, therefore avoiding folder collisions when multiple workflows are running
   BASE_DIR: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
@@ -49,6 +54,7 @@ jobs:
   set-matrix:
     runs-on:
       - 'self-hosted'
+      - '${{ inputs.arch || "X64" }}'
     outputs:
       matrix: '${{ steps.generate-matrix.outputs.matrix }}'
     steps:
@@ -62,6 +68,7 @@ jobs:
   preparations:
     runs-on:
       - 'self-hosted'
+      - '${{ inputs.arch || "X64" }}'
     steps:
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
@@ -86,6 +93,7 @@ jobs:
   build-packages:
     runs-on:
       - 'self-hosted'
+      - '${{ inputs.arch || "X64" }}'
     needs:
       - 'set-matrix'
       - 'preparations'
@@ -126,6 +134,7 @@ jobs:
   upload-outputs:
     runs-on:
       - 'self-hosted'
+      - '${{ inputs.arch || "X64" }}'
     needs: # we want this to run after the build jobs
       - 'build-packages'
     if: '${{ always() }}' # however, we want to upload the artifacts even if one of the job fails
@@ -147,6 +156,7 @@ jobs:
   cleanup:
     runs-on:
       - 'self-hosted'
+      - '${{ inputs.arch || "X64" }}'
     needs:  # we want this to run after the above jobs
       - 'upload-outputs'
 
