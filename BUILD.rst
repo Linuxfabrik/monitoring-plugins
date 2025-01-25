@@ -49,7 +49,7 @@ Compiling platform:
     Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
     Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
     Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
-    Other         ! docker.io/library/ubuntu:20.04
+    Other         ! docker.io/library/ubuntu:20.04 (.tar.gz and .zip)
 
 .. note::
 
