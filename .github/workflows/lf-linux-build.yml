@@ -26,6 +26,11 @@ on:
         required: false
         default: '1'
 
+      distro:
+        description: 'Distro to build on. Use one of debian11, debian12, rocky8, rocky9, ubuntu2004, ubuntu2204 or ubuntu2404. If empty, the workflow will run for all of these distros.'
+        required: false
+        default: '1'
+
 env:
   # we use this to get a (mostly) unique directory, therefore avoiding folder collisions when multiple workflows are running
   BASE_DIR: '${{ github.sha }}-${{ github.run_id }}_${{ github.run_attempt }}'
@@ -72,26 +77,22 @@ jobs:
       - 'preparations'
     strategy:
       matrix:
-        distros:
-          # Debian (non-EOL only)
-          - name: 'Debian 11'     # Human readable name
-            directory: 'debian11' # respective directory inside of monitoring-plugins/build
-          - name: 'Debian 12'
-            directory: 'debian12'
-          # RHEL (non-EOL only)
-          - name: 'Rocky8'
-            directory: 'rocky8'
-          - name: 'Rocky9'
-            directory: 'rocky9'
-          # Ubuntu (non-EOL LTS only)
-          - name: 'Ubuntu 20.04'
-            directory: 'ubuntu2004'
-          - name: 'Ubuntu 22.04'
-            directory: 'ubuntu2204'
-          - name: 'Ubuntu 24.04'
-            directory: 'ubuntu2404'
+        distros: '${{ fromJson(env.MATRIX_DISTROS) }}'
+    env:
+      # The environment variable dynamically defines the distros matrix.
+      # If inputs.distro is set, it creates a matrix with a single distro, converting the distro input into the required JSON format.
+      # If inputs.distro is not set, it falls back to the default matrix.
+      MATRIX_DISTROS: >
+        ${{ inputs.distro && toJSON([{ "directory": toLower(replace(inputs.distro, " ", "")) }]) || toJSON([
+          { "directory": "debian11" },
+          { "directory": "debian12" },
+          { "directory": "rocky8" },
+          { "directory": "rocky9" },
+          { "directory": "ubuntu2004" },
+          { "directory": "ubuntu2204" },
+          { "directory": "ubuntu2404" }
+        ]) }}
     steps:
-
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
         with:
@@ -100,10 +101,10 @@ jobs:
       - name: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
         run: 'mkdir ${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }}'
 
-      - name: 'Build the container for ${{ matrix.distros.name }}'
+      - name: 'Build the container for ${{ matrix.distros.directory }}'
         run: 'podman build --file "${{ env.BASE_DIR }}/repos/monitoring-plugins/build/${{ matrix.distros.directory }}/Containerfile" --tag "lfmp-build-${{ matrix.distros.directory }}"'
 
-      - name: 'Build the packages for ${{ matrix.distros.name }}'
+      - name: 'Build the packages for ${{ matrix.distros.directory }}'
         run: >
           podman run --rm
           --mount type=bind,source=${{ env.BASE_DIR }}/build/${{ matrix.distros.directory }},destination=/build,relabel=private
