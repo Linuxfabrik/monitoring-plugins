@@ -26,10 +26,11 @@ fi
 # include shared functions
 . "$BUILD_SHARED_DIR/shared.sh"
 
-/opt/venv/bin/python --version
-/opt/venv/bin/python -m pip list
+source /opt/venv/bin/activate
 
-/opt/venv/bin/python -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
+python3 --version
+python3 -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
+python3 -m pip list
 
 compile_plugins "$MONITORING_PLUGINS_DIR"
 
