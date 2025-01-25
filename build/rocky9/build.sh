@@ -27,6 +27,8 @@ fi
 . "$BUILD_SHARED_DIR/shared.sh"
 
 /opt/venv/bin/python --version
+/opt/venv/bin/python -m pip list
+
 /opt/venv/bin/python -m pip install --requirement="$MONITORING_PLUGINS_DIR/requirements.txt" --require-hashes
 
 compile_plugins "$MONITORING_PLUGINS_DIR"
