@@ -27,12 +27,12 @@ on:
         default: '1'
 
       distros:
-        description: 'Comma-separated list of distros to build on. Supported: "debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404".'
+        description: 'Comma-separated list of distros to build on. Supported: `debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404`.'
         required: false
         default: 'debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404'
 
       check-plugin:
-        description: 'If you only want to compile a specific check plugin, specify its name, for example "xml".'
+        description: 'If you only want to compile a specific check plugin, specify its name, for example `xml`.'
         required: false
         default: '*'
 
@@ -48,7 +48,6 @@ permissions:
 jobs:
   set-matrix:
     runs-on:
-      - 'rhel8'
       - 'self-hosted'
     outputs:
       matrix: '${{ steps.generate-matrix.outputs.matrix }}'
@@ -62,7 +61,6 @@ jobs:
 
   preparations:
     runs-on:
-      - 'rhel8'
       - 'self-hosted'
     steps:
       - name: 'Harden Runner'
@@ -87,7 +85,6 @@ jobs:
 
   build-packages:
     runs-on:
-      - 'rhel8'
       - 'self-hosted'
     needs:
       - 'set-matrix'
@@ -128,7 +125,6 @@ jobs:
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
     runs-on:
-      - 'rhel8'
       - 'self-hosted'
     needs: # we want this to run after the build jobs
       - 'build-packages'
@@ -150,7 +146,6 @@ jobs:
 
   cleanup:
     runs-on:
-      - 'rhel8'
       - 'self-hosted'
     needs:  # we want this to run after the above jobs
       - 'upload-outputs'
