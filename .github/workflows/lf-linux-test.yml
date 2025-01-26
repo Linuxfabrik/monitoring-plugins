@@ -44,12 +44,12 @@ jobs:
           ref: '${{ github.event.workflow_run.head_sha }}'
 
       # using this instead of the official `download-artifact` action since this allows cross-workflow
-      - name: 'download the monitoring-plugins-linux-packages artifact'
+      - name: 'download the monitoring-plugins-linux-X64 artifact'
         id: 'download-artifact'
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
-          name: 'monitoring-plugins-linux-packages'
-          path: '${{ env.BASE_DIR }}/monitoring-plugins-linux-packages'
+          name: 'monitoring-plugins-linux-X64'
+          path: '${{ env.BASE_DIR }}/monitoring-plugins-linux-X64'
           repository: ${{ github.repository }}
           run-id: ${{ inputs.artifact-workflow-run-id || github.event.workflow_run.id }}
           # required, even for public repos
@@ -78,7 +78,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian11" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/debian11" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -93,7 +93,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/debian11,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian11,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/debian11,destination=/packages,relabel=shared,ro=true \
           docker.io/library/debian:bullseye /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
 
 
@@ -114,7 +114,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian12" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/debian12" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -129,7 +129,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/debian12,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/debian12,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/debian12,destination=/packages,relabel=shared,ro=true \
           docker.io/library/debian:bookworm /bin/bash -x /repos/monitoring-plugins/testing/debian/run-all
 
 
@@ -151,7 +151,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rocky8" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/rocky8" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -166,7 +166,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/rocky8,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rocky8,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/rocky8,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi8/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
 
 
@@ -187,7 +187,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rocky9" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/rocky9" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -202,7 +202,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/rocky9,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/rocky9,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/rocky9,destination=/packages,relabel=shared,ro=true \
           registry.access.redhat.com/ubi9/ubi /bin/bash -x /repos/monitoring-plugins/testing/rhel/run-all
 
 
@@ -224,7 +224,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2004" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2004" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -239,7 +239,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2004,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2004,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2004,destination=/packages,relabel=shared,ro=true \
           docker.io/library/ubuntu:20.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
 
 
@@ -260,7 +260,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2204" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2204" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -275,7 +275,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2204,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2204,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2204,destination=/packages,relabel=shared,ro=true \
           docker.io/library/ubuntu:22.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
 
 
@@ -296,7 +296,7 @@ jobs:
       - name: 'Check directory existence'
         id: 'check_dir'
         run: |
-          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2404" ]; then
+          if [ -d "${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2404" ]; then
             echo "exists=true" >> $GITHUB_ENV
           else
             echo "exists=false" >> $GITHUB_ENV
@@ -311,7 +311,7 @@ jobs:
           podman run --interactive --rm \
           --mount type=bind,source=${{ env.BASE_DIR }}/output/ubuntu2404,destination=/output,relabel=private \
           --mount type=bind,source=${{ env.BASE_DIR }}/repos,destination=/repos,relabel=shared,ro=true \
-          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-packages/ubuntu2404,destination=/packages,relabel=shared,ro=true \
+          --mount type=bind,source=${{ env.BASE_DIR }}/monitoring-plugins-linux-X64/ubuntu2404,destination=/packages,relabel=shared,ro=true \
           docker.io/library/ubuntu:24.04 /bin/bash -x /repos/monitoring-plugins/testing/ubuntu/run-all
 
 

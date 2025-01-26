@@ -3,12 +3,12 @@
 compile_plugins() {
     MONITORING_PLUGINS_DIR="$1"
     if [[ -z "$MONITORING_PLUGINS_DIR" ]]; then
-        echo "Usage: ${FUNCNAME[0]} <MONITORING_PLUGINS_DIR>"
+        echo "Usage: ${FUNCNAME[0]} <MONITORING_PLUGINS_DIR> [<CHECK_PLUGIN>]"
         return 1
     fi
     CHECK_PLUGIN="$2"
-    if [ "$CHECK_PLUGIN" == "all" ]; then
-        CHECK_PLUGIN="*"
+    if [[ -z "$CHECK_PLUGIN" ]]; then
+        CHECK_PLUGIN='*'
     fi
 
     mkdir -p /tmp/output/summary/{check,notification}-plugins

@@ -32,9 +32,9 @@ on:
         default: 'debian11,debian12,rocky8,rocky9,ubuntu2004,ubuntu2204,ubuntu2404'
 
       check-plugin:
-        description: 'If you only want to compile a specific check plugin, specify its name, for example `xml`, otherwise use `all`.'
+        description: 'If you only want to compile a specific check plugin, specify its name, for example `xml`, otherwise leave empty to build all plugins.'
         required: false
-        default: 'all'
+        default: ''
 
       arch:
         description: 'Architecture. `X64` or `ARM64`.'
@@ -126,10 +126,10 @@ jobs:
           /repos/monitoring-plugins/build/${{ matrix.distro }}/build.sh
           ${{ inputs.package-version || github.ref_name }}
           ${{ inputs.package-iteration || '1' }}
-          ${{ inputs.check-plugin || 'all' }}
+          ${{ inputs.check-plugin || '' }}
 
 
-  # this would not work on the GitHub-hosted runners, as each job is isolated there,
+  # this would not work on the Github-hosted runners, as each job is isolated there,
   # but works when self-hosted (since there are no parallel jobs)
   upload-outputs:
     runs-on:
@@ -146,10 +146,10 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: 'Upload the output as monitoring-plugins-linux-packages'
+      - name: 'Upload build output as artifact for packaging later on'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          name: 'monitoring-plugins-linux-packages'
+          name: "monitoring-plugins-linux-${{ inputs.arch || 'X64' }}"
           path: '${{ env.BASE_DIR }}/build/'
 
 
