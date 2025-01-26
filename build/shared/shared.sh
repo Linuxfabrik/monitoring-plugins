@@ -1,5 +1,28 @@
 #!/usr/bin/env bash
 
+get_vendor() {
+    local vendor
+
+    # Check if /etc/os-release exists
+    if [[ -f /etc/os-release ]]; then
+        vendor=$(source /etc/os-release && echo "$ID")
+    fi
+
+    # Map the vendor to standardized names
+    case "$vendor" in
+    rhel|centos|fedora|rocky|almalinux|suse|opensuse)
+        vendor="RedHat"
+        ;;
+    debian|ubuntu|mint)
+        vendor="Debian"
+        ;;
+    *)
+        vendor="other"
+        ;;
+    esac
+    echo "$vendor"
+}
+
 compile_plugins() {
     MONITORING_PLUGINS_DIR="$1"
     if [[ -z "$MONITORING_PLUGINS_DIR" ]]; then
@@ -47,6 +70,7 @@ compile_plugins() {
         done
         \cp --archive --no-clobber /tmp/output/notification-plugins/*.dist/* /tmp/output/summary/notification-plugins
     fi
+
 }
 
 prepare_fpm() {
@@ -60,6 +84,11 @@ prepare_fpm() {
         echo "  PACKAGE_ITERATION: Iteration number (e.g. 2) to specify the bugfix level for this package."
         echo "  MONITORING_PLUGINS_DIR: Path to the monitoring-plugins directory."
         exit 1
+    fi
+
+    if [[ "$PACKAGE_VERSION" == "main" ]]; then
+      # Replace PACKAGE_VERSION with the current day in format YYYYMMDD01 (Debian packages don't like "main")
+      PACKAGE_VERSION=$(date +"%Y%m%d01")
     fi
 
     mkdir -p /tmp/fpm/check-plugins
@@ -87,6 +116,15 @@ EOF
         echo "$file=/usr/lib64/nagios/plugins/$file" >> .fpm
     done
 
+    # prepare and ship the sudoers file
+    vendor=$(get_vendor)
+    if [ "$vendor" != "other" ]; then
+        \cp --archive "$MONITORING_PLUGINS_DIR"/assets/sudoers/"$vendor".sudoers /tmp/output/summary/check-plugins/_sudoers
+    else
+        true > /tmp/output/summary/check-plugins/_sudoers
+    fi
+    echo "_sudoers=/etc/sudoers.d/monitoring-plugins" >> .fpm
+
 
     mkdir -p /tmp/fpm/notification-plugins
     cd /tmp/fpm/notification-plugins || exit 1
@@ -111,4 +149,5 @@ EOF
         file="${file#./}"
         echo "$file=/usr/lib64/nagios/plugins/notifications/$file" >> .fpm
     done
+
 }
