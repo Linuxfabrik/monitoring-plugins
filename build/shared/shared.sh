@@ -7,6 +7,9 @@ compile_plugins() {
         return 1
     fi
     CHECK_PLUGIN="$2"
+    if [ "$CHECK_PLUGIN" == "all" ]; then
+        CHECK_PLUGIN="*"
+    fi
 
     mkdir -p /tmp/output/summary/{check,notification}-plugins
 
@@ -27,6 +30,7 @@ compile_plugins() {
     \cp --archive --no-clobber /tmp/output/check-plugins/*.dist/* /tmp/output/summary/check-plugins
 
     if [ "$CHECK_PLUGIN" == "*" ]; then
+        # only build notification plugins if all check plugins should be built
         for dir in "$MONITORING_PLUGINS_DIR"/notification-plugins/*; do
             notification="$(basename "$dir")"
             if [ "$notification" != "example" ]; then
