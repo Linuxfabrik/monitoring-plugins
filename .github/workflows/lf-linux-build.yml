@@ -109,6 +109,10 @@ jobs:
       - name: 'mkdir -p ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
         run: 'mkdir -p ${{ env.BASE_DIR }}/build/${{ matrix.distro }}'
 
+      # On ARM, the above directory creation is successful, but is often not physically created
+      - name: 'Synchronize cached writes to persistent storage'
+        run: 'sync'
+
       - name: 'Build the container for ${{ matrix.distro }}'
         run: >
           podman build
