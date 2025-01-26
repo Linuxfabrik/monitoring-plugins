@@ -13,7 +13,7 @@ compile_plugins() {
 
     mkdir -p /tmp/output/summary/{check,notification}-plugins
 
-    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/"$CHECK_PLUGIN"; do
+    for dir in "$MONITORING_PLUGINS_DIR"/check-plugins/$CHECK_PLUGIN; do
         check="$(basename "$dir")"
         if [ "$check" != "example" ]; then
             echo -e "\ncompiling $check..."
