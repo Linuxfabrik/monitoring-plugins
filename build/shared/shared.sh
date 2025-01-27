@@ -111,8 +111,8 @@ prepare_fpm() {
 EOF
 
     for file in $(cd /tmp/output/summary/check-plugins || exit 1; find . -type f | sort); do
-        # strip leading './'
-        file="'${file#./}'"
+        file=${file#./}      # Remove leading './'
+        file=${file// /\\ }  # Escape all spaces
         echo "$file=/usr/lib64/nagios/plugins/$file" >> .fpm
     done
 
@@ -145,8 +145,8 @@ EOF
 EOF
 
     for file in $(cd /tmp/output/summary/notification-plugins || exit 1; find . -type f | sort); do
-        # strip leading './'
-        file="'${file#./}'"
+        file=${file#./}      # Remove leading './'
+        file=${file// /\\ }  # Escape all spaces
         echo "$file=/usr/lib64/nagios/plugins/notifications/$file" >> .fpm
     done
 
