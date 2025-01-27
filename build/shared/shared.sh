@@ -110,10 +110,11 @@ prepare_fpm() {
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/output/summary/check-plugins || exit 1; find . -type f | sort); do
-        file=${file#./}      # Remove leading './'
-        file=${file// /\\ }  # Escape all spaces
-        echo "$file=/usr/lib64/nagios/plugins/$file" >> .fpm
+    cd /tmp/output/summary/check-plugins || exit 1
+    find . -type f -print0 | while IFS= read -r -d '' file; do
+        file=${file#./}      # remove leading './'
+        file=${file// /\\ }  # handle file names with spaces correctly, escape all spaces
+        echo "$file=/usr/lib64/nagios/plugins/$file" >> /tmp/fpm/check-plugins/.fpm
     done
 
     # prepare and ship the sudoers file
@@ -144,10 +145,10 @@ EOF
 --version "$PACKAGE_VERSION"
 EOF
 
-    for file in $(cd /tmp/output/summary/notification-plugins || exit 1; find . -type f | sort); do
-        file=${file#./}      # Remove leading './'
-        file=${file// /\\ }  # Escape all spaces
-        echo "$file=/usr/lib64/nagios/plugins/notifications/$file" >> .fpm
+    cd /tmp/output/summary/notification-plugins || exit 1
+    find . -type f -print0 | while IFS= read -r -d '' file; do
+        file=${file#./}
+        file=${file// /\\ }
+        echo "$file=/usr/lib64/nagios/plugins/$file" >> /tmp/fpm/notification-plugins/.fpm
     done
-
 }
