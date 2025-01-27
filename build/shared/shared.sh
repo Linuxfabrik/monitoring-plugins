@@ -124,7 +124,7 @@ EOF
     else
         true > /tmp/output/summary/check-plugins/_sudoers
     fi
-    echo "_sudoers=/etc/sudoers.d/monitoring-plugins" >> .fpm
+    echo "_sudoers=/etc/sudoers.d/monitoring-plugins" >> /tmp/fpm/check-plugins/.fpm
 
 
     mkdir -p /tmp/fpm/notification-plugins
