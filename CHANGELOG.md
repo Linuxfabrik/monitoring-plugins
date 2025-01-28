@@ -50,6 +50,10 @@ Monitoring Plugins:
 
 ### Changed ("enhancement")
 
+CI/CD:
+
+* Build: Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+
 Icinga Director:
 
 * all-the-rest.json: Make all dmesg Service Sets use sudo
