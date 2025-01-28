@@ -110,6 +110,7 @@ prepare_fpm() {
 --version "$PACKAGE_VERSION"
 EOF
 
+    # build the check-plugins file list
     cd /tmp/output/summary/check-plugins || exit 1
     find . -type f -print0 | while IFS= read -r -d '' file; do
         file=${file#./}      # remove leading './'
@@ -125,6 +126,15 @@ EOF
         true > /tmp/output/summary/check-plugins/_sudoers
     fi
     echo "_sudoers=/etc/sudoers.d/monitoring-plugins" >> /tmp/fpm/check-plugins/.fpm
+
+    # prepare and ship the asset files for all check-plugins
+    mkdir -p /tmp/output/summary/check-plugins/assets/
+    cd /tmp/output/summary/check-plugins || exit 1
+    find "$MONITORING_PLUGINS_DIR"/check-plugins -type d -name 'assets' -exec find {} -type f -print0 \; | while IFS= read -r -d '' file; do
+        \cp --archive "$file" /tmp/output/summary/check-plugins/assets/
+        file=$(basename "$file")
+        echo "assets/$file=/usr/lib64/nagios/plugins/assets/$file" >> /tmp/fpm/check-plugins/.fpm
+    done
 
 
     mkdir -p /tmp/fpm/notification-plugins
@@ -145,6 +155,7 @@ EOF
 --version "$PACKAGE_VERSION"
 EOF
 
+    # build the notification-plugins file list
     cd /tmp/output/summary/notification-plugins || exit 1
     find . -type f -print0 | while IFS= read -r -d '' file; do
         file=${file#./}
