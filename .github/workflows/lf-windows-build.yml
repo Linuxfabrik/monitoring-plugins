@@ -158,11 +158,14 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      - name: 'Add msbuild to PATH'
+      - name: 'Configuring MSBuild in the workflow PATH for building .NET Framework applications'
         uses: 'microsoft/setup-msbuild@v2'
 
       - name: 'Install WiX toolset'
         run: 'dotnet tool install --global wix'
+
+      - name: 'wix --version'
+        run: 'wix --version'
 
       - name: 'Download all artifacts'
         uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16' # v4.1.8
@@ -180,19 +183,11 @@ jobs:
               cp -rv $dir* /c/output-msi/
           done
 
-      # -dr INSTALLFOLDER: Specifies the directory reference for the installation folder.
-      # -cg LFMP: Groups all harvested components under the LFMP ComponentGroup.
-      # -gg: Automatically generates GUIDs for the components.
-      # -srd: Suppresses the root directory from being included as a directory structure.
-      - name: 'Harvest files with Heat'
-        run: |
-          heat.exe dir C:\output-msi -dr INSTALLFOLDER -cg LFMP -gg -srd -out linuxfabrik-monitoring-plugins.wxs
-        shell: cmd
-
-      - name: 'Build MSI (compile .wxs into .wixobj, link .wixobj into an .msi)'
-        run: |
-          candle.exe linuxfabrik-monitoring-plugins.wxs -out linuxfabrik-monitoring-plugins.wixobj
-          light.exe linuxfabrik-monitoring-plugins.wixobj -out C:\output-msi\linuxfabrik-monitoring-plugins.msi
+      - name: 'Compile .wxs into .msi using WiX v5+'
+        run: >
+          wix.exe build 
+          -out C:\output-msi\linuxfabrik-monitoring-plugins.msi
+          ${{ github.workspace }}\monitoring-plugins\check-plugins\linuxfabrik-monitoring-plugins.wxs
         working-directory: .
 
       - name: 'Upload build output-msi'

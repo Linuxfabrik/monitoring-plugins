@@ -1,0 +1,31 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+    <!--
+        WIX1148: Invalid MSI package version: '2025022901'. The Windows Installer SDK says that MSI
+        package versions must have a major version less than 256, a minor version less than 256,
+        and a build version less than 65536. The revision value is ignored but version labels and
+        metadata are not allowed. Violating the MSI rules sometimes works as expected but the
+        behavior is unpredictable and undefined. Future versions of WiX might treat invalid package
+        versions as an error.
+    -->
+    <Package
+        Name="Linuxfabrik Monitoring Plugins"
+        Version="25.02.29.01"
+        Manufacturer="Linuxfabrik GmbH, Zurich, Switzerland"
+        UpgradeCode="bb340ae1-12a5-41d3-a27f-8677df3bdb2b"
+    >
+        <StandardDirectory Id="CommonAppDataFolder">
+            <Directory Id="Icinga2Dir" Name="icinga2">
+                <Directory Id="UsrDir" Name="usr">
+                    <Directory Id="Lib64Dir" Name="lib64">
+                        <Directory Id="NagiosDir" Name="nagios">
+                            <Directory Id="PluginDir" Name="plugins">
+                                <!-- Automatically includes all files from the specified directory -->
+                                <Files Include="C:\output-msi\**" />
+                            </Directory>
+                        </Directory>
+                    </Directory>
+                </Directory>
+            </Directory>
+        </StandardDirectory>
+    </Package>
+</Wix>
