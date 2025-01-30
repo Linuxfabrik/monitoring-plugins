@@ -106,7 +106,7 @@ jobs:
       - name: 'Upload build output as artifact for zipping'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          name: 'nuitka-build-output-${{ matrix.check }}'
+          name: 'nuitka-build-output-${{ matrix.check }}.zip'
           path: 'C:\nuitka-compile-temp\${{ matrix.check }}*'
 
   package-windows:
@@ -120,6 +120,12 @@ jobs:
         uses: 'step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e' # v2.10.4
         with:
           egress-policy: 'audit'
+
+      - name: 'Checkout the monitoring-plugins repo'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
+        with:
+          # Relative path under $GITHUB_WORKSPACE to place the repository
+          path: 'monitoring-plugins'
 
       - name: 'Configuring MSBuild in the workflow PATH for building .NET Framework applications'
         uses: 'microsoft/setup-msbuild@v2'
@@ -154,13 +160,13 @@ jobs:
 
       - name: 'Compile .wxs into .msi using WiX v5+'
         run: >
-          wix.exe build 
+          wix.exe build
           -out C:\output\linuxfabrik-monitoring-plugins.msi
-          ${{ github.workspace }}\monitoring-plugins\linuxfabrik-monitoring-plugins.wxs
-        working-directory: .
+          ${{ github.workspace }}\monitoring-plugins\build\windows\linuxfabrik-monitoring-plugins.wxs
+        working-directory: '.'
 
       - name: 'Upload build output (msi)'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          name: 'linuxfabrik-monitoring-plugins.msi'
-          path: 'C:\output\'
+          name: 'linuxfabrik-monitoring-plugins.msi.zip'
+          path: 'C:\output\linuxfabrik-monitoring-plugins.msi'
