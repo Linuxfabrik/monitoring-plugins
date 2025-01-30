@@ -18,7 +18,6 @@ permissions:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-
   build-windows-get-list:
     runs-on: 'ubuntu-latest'
     outputs:
@@ -51,7 +50,6 @@ jobs:
           echo "monitoring_plugin_list_json<<$EOF" >> "$GITHUB_OUTPUT"
           cat /tmp/windows-checks | jq -R -s -c 'split("\n")[:-1]' >> "$GITHUB_OUTPUT"
           echo "$EOF" >> "$GITHUB_OUTPUT"
-
 
   build-windows:
     runs-on: 'windows-latest'
@@ -111,7 +109,6 @@ jobs:
           name: 'nuitka-build-output-${{ matrix.check }}'
           path: 'C:\nuitka-compile-temp\${{ matrix.check }}*'
 
-
   zip-windows:
     # we need to use windows here too, to be able to restore the cache (see https://github.com/marketplace/actions/cache#cache-version)
     runs-on: 'windows-latest'
@@ -145,7 +142,6 @@ jobs:
         with:
           name: 'linuxfabrik-monitoring-plugins.zip'
           path: 'C:\output-zip\'
-
 
   msi-windows:
     runs-on: 'windows-latest'
@@ -187,7 +183,7 @@ jobs:
         run: >
           wix.exe build 
           -out C:\output-msi\linuxfabrik-monitoring-plugins.msi
-          ${{ github.workspace }}\monitoring-plugins\check-plugins\linuxfabrik-monitoring-plugins.wxs
+          ${{ github.workspace }}\monitoring-plugins\linuxfabrik-monitoring-plugins.wxs
         working-directory: .
 
       - name: 'Upload build output-msi'
