@@ -24,7 +24,7 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025011901'
+__version__ = '2025013101'
 
 DESCRIPTION = '''Returns the health status of a WHMCS server using its
                  HTTP-based API.'''
@@ -149,6 +149,8 @@ def get_failed_checks(checks):
     """
     failed_checks = []
     for _, items in checks.get('checks', {}).items():
+        if items is None:
+            continue
         for item in items:
             if item.get('severityLevel') == 'notice':
                 continue
