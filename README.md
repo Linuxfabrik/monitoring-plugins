@@ -2,7 +2,7 @@
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
 
-This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of 200+ Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
@@ -56,6 +56,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="dmesg" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/dmesg.png" width="30%"/> &nbsp;
 <img alt="dns" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/dns.png" width="30%"/> &nbsp;
 <img alt="fail2ban" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/fail2ban.png" width="30%"/> &nbsp;
+<img alt="feed" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/feed.png" width="30%"/> &nbsp;
 <img alt="file-age" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-age.png" width="30%"/> &nbsp;
 <img alt="file-count" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-count.png" width="30%"/> &nbsp;
 <img alt="file-descriptors" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-descriptors.png" width="30%"/> &nbsp;
