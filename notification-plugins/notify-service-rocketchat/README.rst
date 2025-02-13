@@ -1,5 +1,5 @@
-Notification notify-service-rocketchat-telegram
-===============================================
+Notification notify-service-rocketchat
+======================================
 
 
 Overview
@@ -14,7 +14,7 @@ Fact Sheet
 .. csv-table::
     :widths: 30, 70
 
-    "Notification Plugin Download",         "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-rocketchat-telegram"
+    "Notification Plugin Download",         "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-rocketchat"
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux"
 
@@ -24,23 +24,18 @@ Help
 
 .. code-block:: text
 
-    usage: notify-service-rocketchat-telegram  [-h] --datetime DATETIME
-                                               --host-displayname HOST_DISPLAYNAME
-                                               [--hostname HOSTNAME]
-                                               [--icingaweb2-url ICINGAWEB2_URL]
-                                               [--notification-author NOTIFICATION_AUTHOR]
-                                               [--notification-comment NOTIFICATION_COMMENT]
-                                               [--rocketchat-mentions ROCKETCHAT_MENTIONS]
-                                               --rocketchat-url ROCKETCHAT_URL
-                                               [--service-output SERVICE_OUTPUT]
-                                               --service-state SERVICE_STATE
-                                               [--servicename SERVICENAME]
-                                               --telegram-bot-id TELEGRAM_BOT_ID
-                                               --telegram-chat-id TELEGRAM_CHAT_ID
-                                               [-V]
+    usage: notify-service-rocketchat [-h] --datetime DATETIME --host-displayname
+                                     HOST_DISPLAYNAME [--hostname HOSTNAME]
+                                     [--icingaweb2-url ICINGAWEB2_URL]
+                                     [--notification-author NOTIFICATION_AUTHOR]
+                                     [--notification-comment NOTIFICATION_COMMENT]
+                                     [--rocketchat-mentions ROCKETCHAT_MENTIONS]
+                                     --rocketchat-url ROCKETCHAT_URL
+                                     [--service-output SERVICE_OUTPUT]
+                                     --service-state SERVICE_STATE
+                                     [--servicename SERVICENAME] [-V]
 
-    Sends service notifications using the RocketChat API, falling back to
-    Telegram.
+    Sends service notifications using the RocketChat API.
 
     options:
       -h, --help            show this help message and exit
@@ -65,10 +60,6 @@ Help
                             Set the service state.
       --servicename SERVICENAME
                             Set the servicename.
-      --telegram-bot-id TELEGRAM_BOT_ID
-                            Set the ID of the Telegram Bot.
-      --telegram-chat-id TELEGRAM_CHAT_ID
-                            Set the ID of the Telegram Chat.
       -V, --version         show program's version number and exit
 
 
