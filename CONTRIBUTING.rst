@@ -354,6 +354,25 @@ Error Handling
 * In ``main()`` you can use ``lib.base.coe()`` to simplify error handling.
 * Have a look at ``nextcloud-version`` for details.
 
+By the way, when running the compiled variants, this gives the nice and intended error if the module is missing:
+
+.. code-block:: python
+
+    try:
+        import psutil  # pylint: disable=C0413
+    except ImportError:
+        print('Python module "psutil" is not installed.')
+        sys.exit(STATE_UNKNOWN)
+
+while this leads to an ugly multi-exception stacktrace:
+
+.. code-block:: python
+
+    try:
+        import psutil  # pylint: disable=C0413
+    except ImportError:
+        lib.base.cu('Python module "psutil" is not installed.')
+
 
 Plugin Output
 -------------
