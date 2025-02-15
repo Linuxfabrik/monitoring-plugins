@@ -1,147 +1,46 @@
 How to install the Linuxfabrik Monitoring Plugins Collection
 ============================================================
 
-What to choose when
--------------------
-
-In general, you have two options:
-
-* Using the compiled plugins (available as OS packages, EXE files or simple archives).
-* Using the plugins from the source code (requires Python runtime).
-
 .. csv-table::
     :header-rows: 1
-    :widths: 10, 60, 30
 
-    OS, Motivation, Install
-    Linux,  "Want to use my OS's package manager and have distro that uses rpm/deb package formats","Package from `Linuxfabrik's Repo Server <https://repo.linuxfabrik.ch>`_"
-    Linux,  "Don't want to use my OS's package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.9+",Binaries from .tar or .zip file on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_
-    Linux,  "Want to use the latest development version and Python 3.9+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
-    Windows,"Want to use EXE files",Binaries in ``/windows`` on `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/windows/>`_
-    Windows,"Want to use the latest development version and Python 3.9+ available", `Source code variant from GitHub <https://github.com/Linuxfabrik/monitoring-plugins/tree/main>`_
-
-FAQ:
-
-* | Q: What is your recommendation?
-  | A: Use the OS's package manager to install the packages from the Linuxfabrik's Repo Server.
-
-* | Q: Do the OS packages have external dependencies?
-  | A: No.
-
-* | Q: Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?
-  | A: Of course. Just don't forget to install the libs either.
+    Platform, Install, When, Installation Instructions
+    Linux, "rpm/deb package (**recommended**)", "Want to use OS package manager and have distro that uses rpm/deb package formats", See `<https://repo.linuxfabrik.ch>`_
+    Linux, "Binaries from tar/zip", "Don't want to use OS package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.9+", "See *Installation on Linux* in this document"
+    Linux, "Source Code", "Want to use the latest development version and Python 3.9+ available", "See *Run from Source* in this document"
+    Windows,"Binaries from msi (**recommended**)","Want to use OS package manager", "Get the msi file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/windows>`_ and run it."
+    Windows,"Binaries from zip","Don't want to use OS package manager", "Get the zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/linux>`_ and unpack it to a folder of your choice, usually ``C:\ProgramData\icinga2\usr\lib64\nagios\plugins``"
+    Windows, "Source Code", "Want to use the latest development version and Python 3.9+ available", "See *Run from Source* in this document"
+    Any, "Using Ansible", "Want to automate the installation process", "See the `LFOps Ansible Role linuxfabrik.lfops.monitoring_plugins <https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins>`_"
 
 
-Linux
------
+.. _installation_on_linux:
 
-Path
-~~~~
+Installation on Linux
+---------------------
 
-Wondering about ``/usr/lib64/nagios/plugins/`` on Debian/Ubuntu?
+* Get the tar or zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/linux>`_ and unpack it to a folder of your choice, usually ``/usr/lib64/nagios/plugins``
 
-**Note**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if the original Nagios-package installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+* On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide ``sudoers`` files for various operating system families in ``monitoring-plugins/assets/sudoers``, for example ``RedHat.sudoers``. The file name is compatible to `ansible_facts['os_family'] <https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267>`_. You need to place this file in ``/etc/sudoers.d/`` on the target host.
 
+    Currently available:
 
-Installing using OS Package Manager (recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-We provide repositories for RPM and DEB packages. Have a look at `repo.linuxfabrik.ch <https://repo.linuxfabrik.ch/monitoring-plugins>`_ for the installation instructions for your distro.
-
-We currently just provide packages for released versions of Linuxfabrik's Monitoring Plugins, not for the current main (development) branch.
+    * ``Debian.sudoers``: for Debian, Raspbian, Ubuntu
+    * ``RedHat.sudoers``: for Alma, Amazon, Ascendos, CentOS, CloudLinux, Fedora, OEL, OracleLinux, OVS, PSBM, RedHat, Rocky Linux, Scientific, SLC, XenServer
+    * ``Suse.sudoers``: for openSUSE, SLED, SLES, SLES_SAP, SuSE
 
 
-Installing using Binaries from an Archive
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Run from Source
+---------------
 
-For other distros, or if you don't want to use your package manager, you can unpack the compiled binaries to a folder of your choice (normally ``/usr/lib64/nagios/plugins``) by using one of these files:
-
-* `tar <https://download.linuxfabrik.ch/monitoring-plugins/tar>`_
-* `zip <https://download.linuxfabrik.ch/monitoring-plugins/zip>`_
-
-
-sudoers
-~~~~~~~
-
-On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide ``sudoers`` files for various operating system families in ``monitoring-plugins/assets/sudoers``, for example ``RedHat.sudoers``. You need to place this file in ``/etc/sudoers.d/`` on the target host. The file name is compatible to `ansible_facts['os_family'] <https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267>`_.
-
-Currently available:
-
-* ``Debian.sudoers``: for Debian, Raspbian, Ubuntu
-* ``RedHat.sudoers``: for Alma, Amazon, Ascendos, CentOS, CloudLinux, Fedora, OEL, OracleLinux, OVS, PSBM, RedHat, Rocky Linux, Scientific, SLC, XenServer
-* ``Suse.sudoers``: for openSUSE, SLED, SLES, SLES_SAP, SuSE
-
-Currently not implemented:
-
-* ``AIX.sudoers``: for AIX
-* ``Alpine.sudoers``: for Alpine
-* ``Archlinux.sudoers``: for Archlinux, Manjaro
-* ``Darwin.sudoers``: for MacOSX
-* ``FreeBSD.sudoers``: for FreeBSD
-* ``Gentoo.sudoers``: for Funtoo, Gentoo
-* ``HPUX.sudoers``: for HPUX
-* ``Mandrake.sudoers``: for Mandrake, Mandriva
-* ``Slackware.sudoers``: for Slackware
-* ``Solaris.sudoers``: for Nexenta, OmniOS, OpenIndiana, SmartOS, Solaris
-
-
-Windows
--------
-
-Installation
-~~~~~~~~~~~~
-
-Simply download the latest zip file containing all plugins from https://download.linuxfabrik.ch/monitoring-plugins/windows/latest.zip and unzip it to ``c:/programdata/icinga2/usr/lib64/nagios/plugins/``. If you want to upgrade, simply overwrite your installation directory.
-
-.. note::
-
-    `According to Microsoft <https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default>`_, program files belong under %programfiles% instead of %programdata%, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). Nevertheless, the Icinga agent puts its files in ``c:\programdata\icinga2``. This is why we also recommend to use this directory.
-
-When using the plugins in Icinga: `According to the Icinga documentation <https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard>`_ the Icinga Agent runs as the *Network Service* user by default. This may result in *0x80070005 (E_ACCESSDENIED)* messages for some plugins. In this case, we recommend running the Icinga Agent under the *Local System* account, as plugins such as `updates <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates>`_ require additional permissions to perform certain lookups. Have a look at `#695 <https://github.com/Linuxfabrik/monitoring-plugins/issues/695#>`_ for details.
-
-
-Microsoft Windows Defender
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our ``service.exe``). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
-
-1. Open command prompt as administrator and change directory to ``c:\program files\windows defender``
-2. Run ``MpCmdRun.exe -removedefinitions -dynamicsignatures``
-3. Run ``MpCmdRun.exe -SignatureUpdate``
-
-
-Python: Run from Source Code
-----------------------------
-
-You may use this if nothing from the above fits your needs.
-
-If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3.9+ on the remote host.
-
-
-Installation
-~~~~~~~~~~~~
-
-Goal: After installing/copying, the directory on the remote host should look like this:
-
-.. code-block:: text
-
-    /path/to/plugins (normally /usr/lib64/nagios/plugins)
-    |-- about-me
-    |-- disk-smart
-    |-- ...
-    |-- lib
-    |   |-- base.py
-    |   |-- ...
-    |-- ...
-
-We describe one way to do so. Do whatever you have to do to get to this.
+If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3.9+ on the remote host. We describe one way to do so. Do whatever you have to do to get to this.
 
 Get the monitoring check plugins from our Git repository to your local machine or deployment host:
 
 .. code-block:: bash
 
     # https://github.com/Linuxfabrik/monitoring-plugins/releases
-    RELEASE=2022072001
+    RELEASE=1.2.3.4
 
 .. code-block:: bash
 
@@ -150,7 +49,7 @@ Get the monitoring check plugins from our Git repository to your local machine o
     git checkout tags/$RELEASE
     cd ..
 
-The check plugins require the `Linuxfabrik Python libraries <https://github.com/linuxfabrik/lib>`_, in the same version. The libraries are in a separate Git repository, as we also use them in other projects.
+The check plugins require the `Linuxfabrik Python libraries <https://github.com/linuxfabrik/lib>`_. The libraries are in a separate Git repository, as we also use them in other projects.
 
 .. code-block:: bash
 
@@ -173,6 +72,19 @@ Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, an
     scp $SOURCE_LIBS/* $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/lib/
     for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
 
+After installing/copying, the directory on the remote host should look like this:
+
+.. code-block:: text
+
+    /path/to/plugins (normally /usr/lib64/nagios/plugins)
+    |-- about-me
+    |-- disk-smart
+    |-- ...
+    |-- lib
+    |   |-- base.py
+    |   |-- ...
+    |-- ...
+
 We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well, using your package manager, pip or whatever (depends on your environment):
 
 .. code-block:: bash
@@ -188,8 +100,27 @@ To make SELinux happy, after installing from source, run:
     setsebool -P nagios_run_sudo on
 
 
-Ansible
--------
+FAQ
+---
 
-We also provide a Monitoring-Plugins Role within our `LFOps Ansible Collection <https://galaxy.ansible.com/linuxfabrik/lfops>`_. This Ansible role deploys the Linuxfabik Monitoring Plugins and the corresponding Monitoring Plugin Library to ``/usr/lib64/nagios/plugins/`` and ``/usr/lib64/nagios/plugins/lib`` respectively, allowing them to be easily executed by a monitoring system.
+* | **Q**: Do the OS packages have external dependencies?
+  | **A**: No.
 
+* | **Q**: Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?
+  | **A**: Of course. Just don't forget to install the libs either.
+
+* | **Q**: Wondering about ``/usr/lib64/nagios/plugins/`` on Debian/Ubuntu?
+  | **A**: We are always using the path ``/usr/lib64/nagios/plugins/`` on all Linux OS, even if the original Nagios-package installs itself to ``/usr/lib/nagios/plugins/``. This is because adding a command with ``sudo`` in Icinga Director, one needs to use the full path of the plugin. See the following `GitHub issue <https://github.com/Icinga/icingaweb2-module-director/issues/2123>`_.
+
+* | **Q**: On Windows, why do you use ``%programdata%`` instead of ``%programfiles%``?
+  | **A**: `According to Microsoft <https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default>`_, program files belong under ``%programfiles%`` instead of ``%programdata%``, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). Nevertheless, the Icinga agent puts its files in ``c:\programdata\icinga2``. This is why we also recommend to use this directory.
+
+* | **Q**: On Windows, some plugins result in ``0x80070005 (E_ACCESSDENIED)``.
+  | **A**: When using the plugins in Icinga: `According to the Icinga documentation <https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard>`_ the Icinga Agent runs as the ``Network Service`` user by default. This may result in ``0x80070005 (E_ACCESSDENIED)`` messages for some plugins. In this case, we recommend running the Icinga Agent under the ``Local System`` account, as plugins such as `updates <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates>`_ require higher privileges to perform certain lookups. Have a look at `#695 <https://github.com/Linuxfabrik/monitoring-plugins/issues/695#>`_ for details.
+
+* | **Q**: On Windows, sometimes Windows Defender randomly kills a plugin. Why?
+  | **A**: Windows Defender: Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our ``service.exe``). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
+
+    1. Open command prompt as administrator and change directory to ``c:\program files\windows defender``
+    2. Run ``MpCmdRun.exe -removedefinitions -dynamicsignatures``
+    3. Run ``MpCmdRun.exe -SignatureUpdate``
