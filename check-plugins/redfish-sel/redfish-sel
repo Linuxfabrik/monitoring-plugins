@@ -19,14 +19,14 @@ import sys  # pylint: disable=C0413
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.redfish  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024091901'
+__version__ = '2025021501'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an
                  alert based on the severity of the messages."""
@@ -157,12 +157,12 @@ def main():
     else:
         # do not call the command, put in test data
         args.TEST[0] += '-v1'
-        stdout, _, _ = lib.test.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
         vendor = lib.redfish.get_vendor(result)
 
         args.TEST[0] += '-managers'
-        stdout, _, _ = lib.test.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     # "Members": [
@@ -213,7 +213,7 @@ def main():
             ))
         else:
             args.TEST[0] += '-vendor'
-            stdout, _, _ = lib.test.test(args.TEST)
+            stdout, _, _ = lib.lftest.test(args.TEST)
             sel = json.loads(stdout)
         member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
         if member_msg:

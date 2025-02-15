@@ -17,13 +17,13 @@ import sys  # pylint: disable=C0413
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024120201'
+__version__ = '2025021501'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses per jail.'
 
@@ -92,7 +92,7 @@ def main():
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client ping'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test([args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]])
+        stdout, stderr, retc = lib.lftest.test([args.TEST[0] + '-ping', args.TEST[1], args.TEST[2]])
     if retc != 0:
         lib.base.cu('Problem while testing if the fail2ban server is alive.')
 
@@ -101,7 +101,7 @@ def main():
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('fail2ban-client status'))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test([args.TEST[0] + '-status', args.TEST[1], args.TEST[2]])
+        stdout, stderr, retc = lib.lftest.test([args.TEST[0] + '-status', args.TEST[1], args.TEST[2]])
     if retc != 0:
         lib.base.cu('Problem while testing the status of the fail2ban server.')
 
@@ -127,7 +127,7 @@ def main():
             )
         else:
             # do not call the command, put in test data
-            stdout, stderr, retc = lib.test.test(
+            stdout, stderr, retc = lib.lftest.test(
                 [args.TEST[0] + '-status-{}'.format(jail),
                 args.TEST[1],
                 args.TEST[2]],

@@ -19,7 +19,7 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025020401'
+__version__ = '2025021501'
 
 DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
                  to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
@@ -245,11 +245,11 @@ def main():
     else:
         # do not call the command, put in test data
         import json
-        possible_connection_keys, stderr, retc = lib.test.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
+        possible_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
         possible_connection_keys = json.loads(possible_connection_keys)
-        active_connection_keys, stderr, retc = lib.test.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
+        active_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
         active_connection_keys = json.loads(active_connection_keys)
-        list_sas, stderr, retc = lib.test.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
+        list_sas, stderr, retc = lib.lftest.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
         list_sas = json.loads(list_sas)
 
     if not possible_connection_keys:
