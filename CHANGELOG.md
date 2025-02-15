@@ -13,9 +13,21 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ### Breaking Changes
 
+Build, CI/CD:
+
+* Due to the new [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) and version string requirements in Windows MSI setup files, the project switches from [calendar versioning](https://calver.org/) to [semantic versioning](https://semver.org/).
+* Re-implemented `/build` and `/.github` from scratch.
+
+
+Assets:
+
+* Move `/selinux` to `/assets/selinux`
+
+
 Icinga Director:
 
 * all-the-rest.json: Remove Tarifpool-v2 Service Set
+
 
 Monitoring Plugins:
 
@@ -51,14 +63,20 @@ Monitoring Plugins:
 
 ### Changed ("enhancement")
 
-CI/CD:
+Build, CI/CD:
 
-* Build: Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+* Create MSI package for Windows.
+* Switch compilation for Linux from pyinstaller to Nuitka.
+* Switch compilation for Windows from mingw/gcc to MSVC.
+* Switch compilation platform for the .tar.gz/.zip distribution files from CentOS 7 to Ubuntu 20.04.
+* Refactor CI/CD pipeline, move from self-hosted Github runners to runners at Github.
+
 
 Icinga Director:
 
 * all-the-rest.json: Make all dmesg Service Sets use sudo
-* all-the-rest.json: Check /var/log/syslog file size instead /var/log/messages in all Debian Service Sets
+* all-the-rest.json: Check /var/log/syslog file size in all Debian Service Sets
 
 
 Monitoring Plugins:
