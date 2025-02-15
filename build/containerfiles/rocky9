@@ -5,7 +5,7 @@ RUN dnf --assumeyes install --nodocs python3.12 python3.12-devel && \
     dnf clean all
 
 # Install tools
-RUN dnf --assumeyes install --nodocs git zip binutils && \
+RUN dnf --assumeyes install --nodocs gcc zip binutils && \
     dnf clean all
 
 # for nuitka
@@ -25,17 +25,9 @@ RUN dnf --assumeyes install --nodocs make selinux-policy-devel && \
     dnf clean all
 
 RUN python3.12 -m venv --system-site-packages /opt/venv && \
-    /opt/venv/bin/python -m pip install pip==25.0 wheel==0.45.1 setuptools==75.8.0 && \
+    /opt/venv/bin/python -m pip install pip==25.0.1 wheel==0.45.1 setuptools==75.8.0 && \
     /opt/venv/bin/python -m pip install nuitka==2.6
 
 # Verify Python installation
 RUN python3.12 --version && \
     /opt/venv/bin/python -m pip list
-
-# dependencies for gem / fpm
-RUN dnf --assumeyes install --nodocs ruby-devel gcc make rpm-build libffi-devel && \
-    dnf clean all
-
-# install fpm using gem
-RUN gem install fpm
-
