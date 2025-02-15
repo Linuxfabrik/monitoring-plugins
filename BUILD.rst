@@ -1,72 +1,211 @@
 Compiling the Linuxfabrik Monitoring Plugins
 ============================================
 
-HOWTO build / compile / make the Linuxfabrik Monitoring Plugins, package them for Linux (rpm or deb) and for Windows (exe).
-
-
-Compiling on Linux
-------------------
+Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid Python on the Linux or Windows target systems. With this manual, plugins can be compiled and packaged (= "built") using Nuitka on Github runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the Github runner; for Linux only).
 
 .. note::
 
     * OS installation packages can be found at https://repo.linuxfabrik.ch/monitoring-plugins/
-    * Tar and zip files containing the compiled binaries can be found at https://download.linuxfabrik.ch/monitoring-plugins/
+    * tar and zip files containing the compiled binaries for Linux can be found at https://download.linuxfabrik.ch/monitoring-plugins/linux
+    * msi and zip files containing the compiled binaries for Windows can be found at https://download.linuxfabrik.ch/monitoring-plugins/windows
 
-The Linuxfabrik monitoring plugins are compiled using Nuitka. This allows us to completely avoid Python on the target systems.
 
-For Red Hat Package Manager (RPM) and Debian-based package files, we compile the plugins on specific platforms and build the packages using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`_ there.
+Build for Linux
+---------------
 
-Compiling platform for .rpm and .deb files:
+The following steps describe the **manual** compilation and package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using Github actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
+
+To automatically retrieve version information from outside Github, first create a Github Personal Access Token. If you are using a classic token, only the "repo:public_repo" scope is required.
+
+To be able to perform the same steps on a local Ubuntu host as on a Github runner, we decided to minimize the use of Github actions for the Linux build process (and therefore use some build scripts), and maximize the use of Github actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the Github runners.
+
+To build on Linux, first set environment variables for (absolute) paths, versions etc.:
+
+.. code-block:: bash
+
+    cat > env-file << 'EOF'
+    # ---
+    # User input in Github:
+    export LFMP_ARCH=x86_64                             # or "aarch64" if running on ARM64
+    export LFMP_COMPILE_PLUGINS="cpu-usage feed"        # check-plugins to compile. leave empty to compile all
+    export LFMP_PACKAGE_ITERATION=7
+    export LFMP_TARGET_DISTROS="debian12 rocky9"        # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
+
+    export GITHUB_TOKEN=ghp_abc123xyz987
+    export GITHUB_REPOSITORY=Linuxfabrik/monitoring-plugins
+
+    # ---
+    # Constants
+    # use absolut paths here
+    export LFMP_DIR_REPOS=/tmp/lfmp/repos
+    export LFMP_DIR_COMPILED=/tmp/lfmp/compiled
+    export LFMP_DIR_DIST=/tmp/lfmp/dist
+    export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
+    mkdir -p $LFMP_DIR_REPOS
+    mkdir -p $LFMP_DIR_COMPILED
+    mkdir -p $LFMP_DIR_DIST
+    mkdir -p $LFMP_DIR_PACKAGED
+    EOF
+
+.. code-block:: bash
+
+    source env-file
+
+The paths and their meanings:
+
+* repos: the source code / git repositories
+* compiled: store the compiled plugins, one-by-one
+* dist: files are taken from the compiled directory and merged together, ready to be packaged
+* packaged: contains the packages built by fpm
+
+Clone the Linuxfabrik Monitoring Plugins and the Linuxfabrik Python Libraries from Github:
+
+.. code-block:: bash
+
+    cd $LFMP_DIR_REPOS
+    git clone https://github.com/Linuxfabrik/monitoring-plugins.git
+    git clone https://github.com/Linuxfabrik/lib.git
+
+
+Fetch the current version from Github:
+
+.. code-block:: bash
+
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh
+    # or set it manually: export LFMP_VERSION=1.2.3.4
+
+
+Install podman:
+
+.. code-block:: bash
+
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/install-podman.sh
+
+From the containers perspective, every container assumes:
+
+* Python source code is located at ``/repos/monitoring-plugins`` and ``/repos/lib``.
+* Compiled files can be put in ``/compiled``.
+* The Python venv is located at ``/opt/venv``.
+
+
+For each distro compile the specified plugins:
+
+.. code-block:: bash
+
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/matrix-compile.sh
+
+After that, the $LFMP_DIR_COMPILED looks like so:
 
 .. code-block:: text
 
-    Target OS     ! Compiled on
-    --------------+-------------------------------------
-    Debian 11     ! docker.io/library/debian:11
-    Debian 12     ! docker.io/library/debian:12
-    RHEL 8        ! docker.io/library/rockylinux:8
-    RHEL 9        ! docker.io/library/rockylinux:9
-    Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
-    Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
-    Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
+    $LFMP_DIR_COMPILED/
+    ├── debian11
+    │   └── check-plugins
+    │       ├── cpu-usage.dist
+    │       └── feed.dist
+    └── debian12
+        └── check-plugins
+            ├── cpu-usage.dist
+            └── feed.dist
 
-.. note::
+Move and merge the relevant parts into $LFMP_DIR_DIST, the folder to build packages from:
 
-    Why Rocky instead of RHEL's "ubi" container images? According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`_, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
+.. code-block:: bash
 
-If you only need the compiled plugins, we want to make sure that they will run almost everywhere. For maximum compatibility between different Linux versions, the plugins are therefore compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running SELinux (`#732 <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`_), and - if there is more than one candidate - has the latest OpenSSL version due to security fixes. The binaries are distributed as .tar.gz and .zip files.
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/merge-to-dist.sh
 
-Versions of glibc and OpenSSL (2025-01-25):
+Install FPM, the packaging tool:
 
-.. code-block:: text
+.. code-block:: bash
 
-    OS               ! EOL ! libc.so.6 --version ! openssl version
-    -----------------+-----+---------------------+----------------
-    CentOS 7         ! EOL ! 2.17                ! 1.0.2k-fips    
-    RHEL 7           ! EOL ! 2.17                ! 1.0.2k-fips    
-    Ubuntu 18.04 LTS ! EOL ! 2.27                ! 1.1.1          
-    RHEL 8           !     ! 2.28                ! 1.1.1k         
-    Debian 10        ! EOL ! 2.28                ! 1.1.1n         
-    Ubuntu 20.04 LTS !     ! 2.31                ! 1.1.1f         current choice
-    Debian 11        !     ! 2.31                ! 1.1.1w         
-    RHEL 9           !     ! 2.34                ! 3.0.7          
-    Ubuntu 22.04 LTS !     ! 2.35                ! 3.0.2          
-    Debian 12        !     ! 2.36                ! 3.0.11         
-    Ubuntu 24.04 LTS !     ! 2.39                ! 3.0.13         
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/install-fpm.sh
 
-Compiling platform for the plugins distributed in the .tar.gz and .zip files:
+Create the fpm files:
 
-.. code-block:: text
+.. code-block:: bash
 
-    Target OS     ! Compiled on
-    --------------+-------------------------------------
-    Linux-general ! docker.io/library/ubuntu:20.04
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/create-fpms.sh
+
+Create the packages for every OS:
+
+.. code-block:: bash
+
+    source $LFMP_DIR_REPOS/monitoring-plugins/build/create-packages.sh
+
+
+Build for Windows
+-----------------
+
+Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/windows/. Both files are created automatically using Github Actions (workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__).
+
+To create the msi file, we use the `WiX Toolset <https://wixtoolset.org/docs/intro/>`__ on Windows. The zip is created on Windows as well.
+
+
+Compiling
+---------
+
+Platforms
+~~~~~~~~~
+
+rpm and deb OS packages
+    For Red Hat Package Manager (rpm) and Debian-based package files (deb), we compile the plugins on their specific platforms and build the packages using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`__ there.
+
+    Compiling platform for .rpm and .deb files:
+
+    .. code-block:: text
+
+        Target OS     ! Compiled on
+        --------------+-------------------------------------
+        Debian 11     ! docker.io/library/debian:11
+        Debian 12     ! docker.io/library/debian:12
+        RHEL 8        ! docker.io/library/rockylinux:8
+        RHEL 9        ! docker.io/library/rockylinux:9
+        Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
+        Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
+        Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
+
+    .. note::
+
+        Why Rocky instead of RHEL's "ubi" container images? According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`__, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
+
+Linux Binaries
+    If you just need the compiled plugins, use the binaries from the .tar or .zip file. We want to make sure that they will run almost everywhere, so for maximum compatibility between different Linux versions, these plugins are compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running SELinux (`#732 <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`__), and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
+
+    Versions of glibc and OpenSSL (2025-01-25):
+
+    .. code-block:: text
+
+                         !     ! libc.so.6 ! openssl     !         !
+        OS               ! EOL ! --version ! version     ! SELinux ! Usable?
+        -----------------+-----+-----------+-------------+---------+--------
+        CentOS 7         ! EOL ! 2.17      ! 1.0.2k-fips !    x    ! - 
+        RHEL 7           ! EOL ! 2.17      ! 1.0.2k-fips !    x    ! - 
+        Ubuntu 18.04 LTS ! EOL ! 2.27      ! 1.1.1       !    -    ! - 
+        RHEL 8           !     ! 2.28      ! 1.1.1k      !    x    ! - 
+        Debian 10        ! EOL ! 2.28      ! 1.1.1n      !    -    ! - 
+        Ubuntu 20.04 LTS !     ! 2.31      ! 1.1.1f      !    -    ! x 
+        Debian 11        !     ! 2.31      ! 1.1.1w      !    -    ! x current choice (2025-02)
+        RHEL 9           !     ! 2.34      ! 3.0.7       !    x    ! - 
+        Ubuntu 22.04 LTS !     ! 2.35      ! 3.0.2       !    -    ! - 
+        Debian 12        !     ! 2.36      ! 3.0.11      !    -    ! - 
+        Ubuntu 24.04 LTS !     ! 2.39      ! 3.0.13      !    -    ! - 
+
+    Compiling platform for the plugins distributed in the .tar and .zip files:
+
+    .. code-block:: text
+
+        Target OS     ! Compiled on
+        --------------+-------------------------------------
+        Linux-general ! docker.io/library/ubuntu:20.04
+
+Windows Binaries
+    Binaries for Windows are compiled on Windows Server 2025 using MSVC 14.
 
 
 pyinstaller vs. Nuitka
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
-We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The details of how we did this are given below, **but the results led us to set Nuitka as the standard compiler**. The results, sorted by runtime as of 2024-12-23:
+Why Nuitka? We compiled ``disk-usage`` - once with ``pyinstaller`` and once with Nuitka. The results led us to set Nuitka as the standard compiler (sorted by runtime as of 2024-12-23):
 
 .. code-block:: text
     :caption: disk-usage in action
@@ -95,253 +234,4 @@ Multiple-files compilation:
 * Plugin will be fast (3x compared to one file), but big.
 * You can't update just one plugin, you have to update all of them at once.
 
-On Windows, using Nuitka in onedir mode, a typical plugin will be 30MB plus 34MB of shared global libs, while in onefile mode it will be 16MB. 100 plugins result in 3.0 GB (onedir) versus 1.6 GB (onefile). We prefer speed over file size, especially on Windows, where plugins compiled with Nuitka in onedir mode are likely to be killed by Windows Defender with a false positive Trojan:Win32 report. On Windows, gcc vs. msvc really makes no difference, but gcc is much easier to automate and saves tons of resources.
-
-
-Build on Rocky 8
-~~~~~~~~~~~~~~~~
-
-Update and install Python 3.9:
-
-.. code-block:: bash
-
-    dnf -y update && reboot
-
-.. code-block:: bash
-
-    dnf -y install glibc binutils ncdu
-    dnf -y install python39 python39-devel
-
-Get the plugins:
-
-.. code-block:: bash
-
-    dnf -y install git
-    cd
-    git clone https://github.com/Linuxfabrik/monitoring-plugins.git
-    git clone https://github.com/Linuxfabrik/lib.git
-
-Compile using PyInstaller:
-
-.. code-block:: bash
-
-    python3.9 -m venv --system-site-packages /opt/venvs/pyinstaller
-    source /opt/venvs/pyinstaller/bin/activate
-
-    python3.9 -m pip install --upgrade pip
-    python3.9 -m pip install pyinstaller
-
-    cd
-    cd monitoring-plugins
-    python3.9 -m pip install --requirement requirements.txt --require-hashes
-
-    # compile with pyinstaller
-    cd check-plugins/disk-usage
-
-    # pyinstaller, multiple files, noupx
-    pyinstaller \
-        --clean \
-        --distpath /tmp/pyinst/dist/onedir \
-        --workpath /tmp/pyinst/work \
-        --specpath /tmp/pyinst/spec \
-        --noconfirm \
-        --noupx \
-        --onedir \
-        disk-usage
-    time for i in {1..500}; do /tmp/pyinst/dist/onedir/disk-usage/disk-usage; done
-    ncdu /tmp/pyinst/dist/onedir
-
-    # pyinstaller, one file, noupx
-    pyinstaller \
-        --clean \
-        --distpath /tmp/pyinst/dist/onefile \
-        --workpath /tmp/pyinst/work \
-        --specpath /tmp/pyinst/spec \
-        --noconfirm \
-        --noupx \
-        --onefile \
-        disk-usage
-    time for i in {1..500}; do /tmp/pyinst/dist/onefile/disk-usage; done
-    ncdu /tmp/pyinst/dist/onefile
-
-    deactivate
-
-Compile using Nuitka:
-
-.. code-block:: bash
-
-    dnf -y install patchelf ccache
-
-    python3.9 -m venv --system-site-packages /opt/venvs/nuitka
-    source /opt/venvs/nuitka/bin/activate
-
-    python3.9 -m pip install --upgrade pip
-    python3.9 -m pip install nuitka
-
-    cd
-    cd monitoring-plugins
-    python3.9 -m pip install --requirement requirements.txt --require-hashes
-
-    # compile with nuitka
-    cd check-plugins/disk-usage
-
-    # nuitka, multiple files, noupx
-    python3.9 -m nuitka \
-        --company-name='https://www.linuxfabrik.ch' \
-        --assume-yes-for-downloads \
-        --output-dir=/tmp/nuitka/onedir \
-        --remove-output \
-        --standalone \
-        disk-usage
-    time for i in {1..500}; do /tmp/nuitka/onedir/disk-usage.dist/disk-usage.bin; done
-    ncdu /tmp/nuitka/onedir
-
-    # nuitka, one file, noupx
-    python3.9 -m nuitka \
-        --company-name='https://www.linuxfabrik.ch' \
-        --assume-yes-for-downloads \
-        --output-dir=/tmp/nuitka/onefile \
-        --remove-output \
-        --standalone \
-        --onefile \
-        disk-usage
-    time for i in {1..500}; do /tmp/nuitka/onefile/disk-usage.bin; done
-    ncdu /tmp/nuitka
-
-    deactivate
-
-
-Build on Windows Server 2022
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Download and install Python 3.12. As of 2024-12-23: *Sorry, non-MSVC is not currently supported with Python 3.13+, due to differences in layout internal structures of Python.*
-
-Download Microsoft Visual C++ 14.0+:
-
-* Open https://visualstudio.microsoft.com/downloads/
-* Tools for Visual Studio > Build Tools for Visual Studio 20xx > Download
-* Start the downloaded file
-* Tab "Workloads":
-
-    * Activate "Desktop development with C++"" aktivieren, choose oldest "Windows 10 SDK"
-    * Activate "Visual Studio extension development"; on the right, choose "MSVC v143 - VS 2022 ..."
-
-.. code-block:: text
-
-    mkdir c:\temp
-
-Create a "runtime measurement" script in Powershell:
-
-.. code-block:: text
-    :caption: c:\temp\measure.ps1
-
-    # Define the program
-    $program = ".\disk-usage.exe"
-
-    # Run the program 500 times and measure the time
-    $results = 1..500 | ForEach-Object {
-        Measure-Command { & $program } | Select-Object -ExpandProperty TotalMilliseconds
-    }
-
-    # Output the timings
-    $results | ForEach-Object { Write-Host "Run: $_ ms" }
-
-    # Calculate and output the average and total time
-    $averageTime = ($results | Measure-Object -Average).Average
-    $totalTime = ($results | Measure-Object -Sum).Sum
-    Write-Host "Average Time: $averageTime ms"
-    Write-Host "Total Time for 500 runs: $totalTime ms"
-
-To measure the runtime in Powershell later, run for example:
-
-.. code-block:: text
-
-    # measure runtime in Powershell
-    cd c:\temp\msvc.onedir\disk-usage.dist\
-    C:\temp\measure.ps1
-
-Mount the Monitoring Plugins from the Git repo on your Linux machine (assuming you're using RDP):
-
-.. code-block:: text
-
-    net use m: \\tsclient\_\home\$USER\git\linuxfabrik\monitoring-plugins
-    m:
-
-Setup Python on Windows:
-
-.. code-block:: text
-
-    python.exe -m pip install --upgrade pip wheel setuptools
-    python.exe -m pip install --upgrade ordered-set Nuitka pyinstaller
-    python.exe -m pip install --requirement requirements.txt --require-hashes
-
-Compile using Nuitka+MSVC:
-
-.. code-block:: text
-
-    python -m nuitka \
-        --assume-yes-for-downloads \
-        --output-dir=c:\temp\msvc.onedir   \
-        --remove-output \
-        --standalone \
-        --msvc=latest \
-        check-plugins\disk-usage\disk-usage
-
-    python -m nuitka \
-        --assume-yes-for-downloads \
-        --output-dir=c:\temp\msvc.onefile  \
-        --remove-output \
-        --standalone \
-        --msvc=latest \
-        --onefile \
-        check-plugins\disk-usage\disk-usage
-
-Compile using Nuitka+gcc:
-
-.. code-block:: text
-
-    python -m nuitka \
-        --assume-yes-for-downloads \
-        --output-dir=c:\temp\mingw.onedir  \
-        --remove-output \
-        --standalone \
-        --mingw64 \
-        check-plugins\disk-usage\disk-usage
-
-    python -m nuitka \
-        --assume-yes-for-downloads \
-        --output-dir=c:\temp\mingw.onefile \
-        --remove-output \
-        --standalone \
-        --mingw64 \
-        --onefile \
-        check-plugins\disk-usage\disk-usage
-
-Compile using pyinstaller:
-
-.. code-block:: text
-
-    c:
-    pyinstaller \
-        --clean \
-        --distpath c:\temp\pyinst.onedir\dist\onedir \
-        --workpath c:\temp\pyinst.onedir\work \
-        --specpath c:\temp\pyinst.onedir\spec \
-        --noconfirm \
-        --onedir \
-        m:\check-plugins\disk-usage\disk-usage
-
-    pyinstaller \
-        --clean \
-        --distpath c:\temp\pyinst.onefile\dist\onefile \
-        --workpath c:\temp\pyinst.onefile\work \
-        --specpath c:\temp\pyinst.onefile\spec \
-        --noconfirm \
-        --onefile \
-        m:\check-plugins\disk-usage\disk-usage
-
-
-CI/CD
------
-
-Currently the compilation and build process is done automatically using GitHub Actions. See the `CI/CD <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`_ folder for details.
+On Windows, using Nuitka in onedir mode, a typical plugin will be 30MB plus 34MB of shared global libs, while in onefile mode it will be 16MB. 100 plugins result in 3.0 GB (onedir) versus 1.6 GB (onefile). We prefer speed over file size, especially on Windows, where plugins compiled with Nuitka in onedir mode are also likely to be killed by Windows Defender with a false positive Trojan:Win32 report. On Windows, gcc vs. msvc really makes no difference.
