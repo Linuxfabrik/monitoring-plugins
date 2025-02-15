@@ -58,7 +58,6 @@ Clone the Linuxfabrik Monitoring Plugins and the Linuxfabrik Python Libraries fr
 
     cd $LFMP_DIR_REPOS
     git clone https://github.com/Linuxfabrik/monitoring-plugins.git
-    git clone https://github.com/Linuxfabrik/lib.git
 
 
 Fetch the current version from Github:
@@ -77,7 +76,7 @@ Install podman:
 
 From the containers perspective, every container assumes:
 
-* Python source code is located at ``/repos/monitoring-plugins`` and ``/repos/lib``.
+* Python source code is located at ``/repos/monitoring-plugins``.
 * Compiled files can be put in ``/compiled``.
 * The Python venv is located at ``/opt/venv``.
 

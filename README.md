@@ -433,7 +433,7 @@ So the `|` character is reserved to separate plugin output from performance data
 
 Q: **Negative values for plugin arguments cause problems in Icinga.**
 
-A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789>)).
+A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+, v2.0.0.0+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789>)).
 
 
 Q: **On Windows, sometimes Windows Defender randomly kills a plugin. Why?**

@@ -49,27 +49,16 @@ Get the monitoring check plugins from our Git repository to your local machine o
     git checkout tags/$RELEASE
     cd ..
 
-The check plugins require the `Linuxfabrik Python libraries <https://github.com/linuxfabrik/lib>`_. The libraries are in a separate Git repository, as we also use them in other projects.
-
-.. code-block:: bash
-
-    git clone https://github.com/Linuxfabrik/lib.git
-    cd lib
-    git checkout tags/$RELEASE
-    cd ..
-
-Copy the libraries onto the remote host to ``/usr/lib64/nagios/plugins/lib``, and copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, for example by doing the following on your deployment host:
+Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, for example by doing the following on your deployment host:
 
 .. code-block:: bash
 
     REMOTE_USER=root
     REMOTE_HOST=192.0.2.74
-    SOURCE_LIBS=/path/to/lib
     SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
     TARGET_DIR=/usr/lib64/nagios/plugins
 
     ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $TARGET_DIR/lib"
-    scp $SOURCE_LIBS/* $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/lib/
     for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
 
 After installing/copying, the directory on the remote host should look like this:

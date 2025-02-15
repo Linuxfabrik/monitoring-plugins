@@ -75,6 +75,7 @@ Build, CI/CD:
 * Switch compilation for Windows from mingw/gcc to MSVC.
 * Switch compilation platform for the .tar.gz/.zip distribution files from CentOS 7 to Ubuntu 20.04.
 * Refactor CI/CD pipeline, move from self-hosted Github runners to runners at Github.
+* Linuxfabrik/lib are now part of the requirements.txt, so no extra checkout needed any more.
 
 
 Icinga Director:

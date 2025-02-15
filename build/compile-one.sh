@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021104
+# 2025021501
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -17,7 +17,8 @@ if uname -a | grep -q "_NT"; then
         exit 0
     fi
     COMPILE_DIR="$LFMP_DIR_COMPILED"
-    ADDITIONAL_PARAMS="--include-plugin-directory=$REPO_DIR/lib --msvc=latest"
+    #ADDITIONAL_PARAMS="--include-plugin-directory=$REPO_DIR/lib --msvc=latest"
+    ADDITIONAL_PARAMS="--msvc=latest"
 else
     # We are in a container.
     REPO_DIR="/repos"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021104
+# 2025021501
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -11,12 +11,6 @@ if uname -a | grep -q "_NT"; then
 else
     # We are in a container.
     REPO_DIR="/repos"
-fi
-
-if [[ ! -d "$REPO_DIR/lib" ]]; then
-    echo "❌ The Python libraries (https://github.com/Linuxfabrik/lib) could not be found at $REPO_DIR/lib."
-    echo "❌ They should be in a directory called 'lib' on the same level as the monitoring-plugins directory."
-    exit 2
 fi
 
 if ! uname -a | grep -q "_NT"; then
