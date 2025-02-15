@@ -356,7 +356,8 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 
 ## Python
 
-When running from source, almost all check plugins are happy with Python 3.9+. All plugins define the `#!/usr/bin/env python3` shebang.
+* When running from source, all check plugins are happy with Python 3.9+.
+* All plugins define the `#!/usr/bin/env python3` shebang.
 
 
 ## Icons
@@ -374,14 +375,14 @@ See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFAN
 See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
 
 
-## Compiling
+## Compiling and Packaging
 
 See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
 
 
-## Tips & Tricks
+## FAQ
 
-Q: After an update, I get **Operational Error: no such column: ...**, state UNKNOWN. On the next run, this disappears. What happened?
+Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 
 A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
 
@@ -433,4 +434,38 @@ So the `|` character is reserved to separate plugin output from performance data
 Q: **Negative values for plugin arguments cause problems in Icinga.**
 
 A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789>)).
+
+
+Q: **On Windows, sometimes Windows Defender randomly kills a plugin. Why?**
+
+A: Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our `service.exe`). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
+
+1. Open command prompt as administrator and change directory to `c:\program files\windows defender`
+2. Run `MpCmdRun.exe -removedefinitions -dynamicsignatures`
+3. Run `MpCmdRun.exe -SignatureUpdate`
+
+
+Q: **Do the OS packages have external dependencies?**
+
+A: No.
+
+
+Q: **Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?**
+
+A: Of course. Just don't forget to install the libs either.
+
+
+Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
+
+A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following `[GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+
+
+Q: **On Windows, why do you use `%programdata%` instead of `%programfiles%`?**
+
+A: [According to Microsoft](https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default), program files belong under `%programfiles%` instead of `%programdata%`, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). Nevertheless, the Icinga agent puts its files in `c:\programdata\icinga2`. This is why we also recommend to use this directory.
+
+
+Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
+
+A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, we recommend running the Icinga Agent under the `Local System` account, as plugins such as [updates](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates) require higher privileges to perform certain lookups. Have a look at [#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695#) for details.
 
