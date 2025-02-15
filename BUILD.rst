@@ -1,13 +1,7 @@
-Compiling the Linuxfabrik Monitoring Plugins
-============================================
+Compile and Package the Linuxfabrik Monitoring Plugins
+======================================================
 
 Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid Python on the Linux or Windows target systems. With this manual, plugins can be compiled and packaged (= "built") using Nuitka on Github runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the Github runner; for Linux only).
-
-.. note::
-
-    * OS installation packages can be found at https://repo.linuxfabrik.ch/monitoring-plugins/
-    * tar and zip files containing the compiled binaries for Linux can be found at https://download.linuxfabrik.ch/monitoring-plugins/linux
-    * msi and zip files containing the compiled binaries for Windows can be found at https://download.linuxfabrik.ch/monitoring-plugins/windows
 
 
 Build for Linux
@@ -141,8 +135,8 @@ Packaging for Windows means creating both a zip and an msi file, both of which c
 To create the msi file, we use the `WiX Toolset <https://wixtoolset.org/docs/intro/>`__ on Windows. The zip is created on Windows as well.
 
 
-Compiling
----------
+Compiling - Good to Know
+------------------------
 
 Platforms
 ~~~~~~~~~
