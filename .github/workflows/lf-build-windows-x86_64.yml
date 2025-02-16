@@ -53,8 +53,8 @@ jobs:
         shell: 'bash'
         run: |
           mkdir -p $LFMP_DIR_REPOS
-          mkdir -p $LFMP_DIR_COMPILED/signed
-          mkdir -p $LFMP_DIR_PACKAGED/{in,out,out-signed}
+          mkdir -p $LFMP_DIR_COMPILED
+          mkdir -p $LFMP_DIR_PACKAGED/{in,out}
 
       - name: 'git clone https://github.com/Linuxfabrik/THIS-REPO'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
@@ -115,12 +115,14 @@ jobs:
           artifact-configuration-slug: 'exe'
           github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
           wait-for-completion: true
-          output-artifact-directory: '${{ env.LFMP_DIR_COMPILED }}/signed/'
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-compiled/'
 
       - name: 'Upload the signed compiled plugins'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          path: '${{ env.LFMP_DIR_COMPILED }}/signed/*'
+          path: '${{ github.workspace }}/signed-compiled/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-compiled.${{ env.LFMP_ARCH }}"
 
       - name: 'Configure MSBuild in the workflow PATH for building .NET Framework applications'
@@ -162,10 +164,12 @@ jobs:
           artifact-configuration-slug: 'msi'
           github-artifact-id: '${{ steps.upload-unsigned-packaged.outputs.artifact-id }}'
           wait-for-completion: true
-          output-artifact-directory: '${{ env.LFMP_DIR_PACKAGED }}/out-signed/'
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-packaged/'
 
       - name: 'Upload the signed package (msi)'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          path: '${{ env.LFMP_DIR_PACKAGED }}/out-signed/*'
+          path: '${{ github.workspace }}/signed-packaged/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-packaged.${{ env.LFMP_ARCH }}"
