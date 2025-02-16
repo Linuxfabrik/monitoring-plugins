@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021103
+# 2025021601
 
 set -e -x
 
@@ -65,11 +65,6 @@ EOF
     find "$LFMP_DIR_REPOS/monitoring-plugins"/check-plugins -type d -name 'assets' -exec find {} -type f -print0 \; | while IFS= read -r -d '' file; do
         \cp --archive "$file" $LFMP_DIR_DIST/$LFMP_TARGET_DISTRO/check-plugins/assets/
     done
-
-    # SELinux .pp file
-    if [[ -e $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins/linuxfabrik-monitoring-plugins.pp ]]; then
-        \cp --archive $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins/linuxfabrik-monitoring-plugins.pp $LFMP_DIR_DIST/$LFMP_TARGET_DISTRO/check-plugins/assets/
-    fi
 
     # build the check-plugins file list
     find $LFMP_DIR_DIST/$LFMP_TARGET_DISTRO/check-plugins -type f -print0 | while IFS= read -r -d '' file; do
