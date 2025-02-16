@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# 2025021602
 
 set -e -x
 
@@ -19,7 +20,7 @@ cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
                         <Directory Id="NagiosDir" Name="nagios">
                             <Directory Id="PluginsDir" Name="plugins">
                                 <!-- Automatically includes all files from the specified directory -->
-                                <Files Include="$LFMP_DIR_DIST\**" />
+                                <Files Include="$LFMP_DIR_COMPILED\check-plugins\**" />
                                 <Component Id="Icinga2ServiceControl" Guid="{7e398e63-b894-47d1-9375-eea744988032}">
                                     <ServiceControl
                                         Id="icinga2"

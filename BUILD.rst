@@ -19,25 +19,25 @@ To build on Linux, first set environment variables for (absolute) paths, version
 
     cat > env-file << 'EOF'
     # ---
-    # User input in Github:
-    export LFMP_ARCH=x86_64                             # or "aarch64" if running on ARM64
-    export LFMP_COMPILE_PLUGINS="cpu-usage feed"        # check-plugins to compile. leave empty to compile all
+    # User input on Github:
+    export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
+    export LFMP_COMPILE_PLUGINS="cpu-usage feed scanrootkit"  # check-plugins to compile. leave empty to compile all
     export LFMP_PACKAGE_ITERATION=7
-    export LFMP_TARGET_DISTROS="debian12 rocky9"        # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
+    export LFMP_TARGET_DISTROS="debian12 rocky9"              # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
 
+    # for getting the latest version
     export GITHUB_TOKEN=ghp_abc123xyz987
     export GITHUB_REPOSITORY=Linuxfabrik/monitoring-plugins
+    # or set manually: export LFMP_VERSION=1.2.3.4
 
     # ---
     # Constants
     # use absolut paths here
     export LFMP_DIR_REPOS=/tmp/lfmp/repos
     export LFMP_DIR_COMPILED=/tmp/lfmp/compiled
-    export LFMP_DIR_DIST=/tmp/lfmp/dist
     export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
     mkdir -p $LFMP_DIR_REPOS
     mkdir -p $LFMP_DIR_COMPILED
-    mkdir -p $LFMP_DIR_DIST
     mkdir -p $LFMP_DIR_PACKAGED
     EOF
 
@@ -85,27 +85,22 @@ For each distro compile the specified plugins:
 
 .. code-block:: bash
 
+    # a run takes round about one minute per plugin
     source $LFMP_DIR_REPOS/monitoring-plugins/build/matrix-compile.sh
 
-After that, the $LFMP_DIR_COMPILED looks like so:
+After that, $LFMP_DIR_COMPILED should look somethinglike this:
 
 .. code-block:: text
 
     $LFMP_DIR_COMPILED/
-    ├── debian11
-    │   └── check-plugins
-    │       ├── cpu-usage.dist
-    │       └── feed.dist
-    └── debian12
-        └── check-plugins
-            ├── cpu-usage.dist
-            └── feed.dist
-
-Move and merge the relevant parts into $LFMP_DIR_DIST, the folder to build packages from:
-
-.. code-block:: bash
-
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/merge-to-dist.sh
+    ├── debian12/
+    │   ├── check-plugins/
+    │   │   └── a bunch of files and directories
+    │   └── ...
+    ├── rocky9/
+    │   └── check-plugins/
+    │   └── ...
+    └── ...
 
 Install FPM, the packaging tool:
 

@@ -47,7 +47,6 @@ jobs:
 
           echo "LFMP_DIR_REPOS=$GITHUB_WORKSPACE/repos" >> $GITHUB_ENV
           echo "LFMP_DIR_COMPILED=$RUNNER_TEMP/lfmp/compiled" >> $GITHUB_ENV
-          echo "LFMP_DIR_DIST=$RUNNER_TEMP/lfmp/dist" >> $GITHUB_ENV
           echo "LFMP_DIR_PACKAGED=$RUNNER_TEMP/lfmp/packaged" >> $GITHUB_ENV
 
       - name: 'Create working directories'
@@ -55,20 +54,12 @@ jobs:
         run: |
           mkdir -p $LFMP_DIR_REPOS
           mkdir -p $LFMP_DIR_COMPILED
-          mkdir -p $LFMP_DIR_DIST
           mkdir -p $LFMP_DIR_PACKAGED/{in,out}
 
       - name: 'git clone https://github.com/Linuxfabrik/THIS-REPO'
         uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
         with:
           path: '${{ env.LFMP_DIR_REPOS }}/monitoring-plugins'
-
-      # - name: 'git clone https://github.com/Linuxfabrik/lib'
-      #   uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
-      #   with:
-      #     repository: 'Linuxfabrik/lib'
-      #     ref: '${{ inputs.lib-repo-ref || github.ref_name }}'
-      #     path: '${{ env.LFMP_DIR_REPOS }}/lib'
 
       - name: 'Fetch the current version from Github'
         shell: 'bash'
@@ -107,20 +98,10 @@ jobs:
           /bin/bash
           $LFMP_DIR_REPOS/monitoring-plugins/build/compile-multiple.sh
 
-      - name: 'Move and merge the relevant parts into $LFMP_DIR_DIST, the folder to build packages from'
-        shell: 'bash'
-        run: |
-          cd $LFMP_DIR_COMPILED
-          for dir in */*/; do
-              echo "dir: $dir"
-              echo cp -rv $dir* $LFMP_DIR_DIST/
-              cp -rv $dir* $LFMP_DIR_DIST/
-          done
-
       - name: 'Upload the compiled plugins'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
-          path: '${{ env.LFMP_DIR_DIST }}/*'
+          path: '${{ env.LFMP_DIR_COMPILED }}/check-plugins/_all.dist/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.compiled.${{ env.LFMP_ARCH }}"
 
       - name: 'Configure MSBuild in the workflow PATH for building .NET Framework applications'
