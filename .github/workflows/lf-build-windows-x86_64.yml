@@ -98,11 +98,32 @@ jobs:
           /bin/bash
           $LFMP_DIR_REPOS/monitoring-plugins/build/compile-multiple.sh
 
-      - name: 'Upload the compiled plugins'
+      - name: 'Upload the unsigned compiled plugins'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
+        id: 'upload-unsigned-compiled'
         with:
           path: '${{ env.LFMP_DIR_COMPILED }}/check-plugins/*'
-          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.compiled.${{ env.LFMP_ARCH }}"
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-compiled.${{ env.LFMP_ARCH }}"
+
+      - name: 'Sign the compiled plugins'
+        uses: 'signpath/github-action-submit-signing-request@v1.1'
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
+          project-slug: 'monitoring-plugins'
+          signing-policy-slug: 'test-signing'
+          artifact-configuration-slug: 'exe'
+          github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
+          wait-for-completion: true
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-compiled/'
+
+      - name: 'Upload the signed compiled plugins'
+        uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
+        with:
+          path: '${{ github.workspace }}/signed-compiled/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-compiled.${{ env.LFMP_ARCH }}"
 
       - name: 'Configure MSBuild in the workflow PATH for building .NET Framework applications'
         uses: 'microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce' # v2.0.0
@@ -126,8 +147,29 @@ jobs:
           ${{ env.LFMP_DIR_PACKAGED }}\in\lfmp.wxs
           -out ${{ env.LFMP_DIR_PACKAGED }}\out\linuxfabrik-monitoring-plugins.msi
 
-      - name: 'Upload the package (msi)'
+      - name: 'Upload the unsigned package (msi)'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
+        id: 'upload-unsigned-packaged'
         with:
           path: '${{ env.LFMP_DIR_PACKAGED }}/out/*'
-          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.packaged.${{ env.LFMP_ARCH }}"
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-packaged.${{ env.LFMP_ARCH }}"
+
+      - name: 'Sign the package'
+        uses: 'signpath/github-action-submit-signing-request@v1.1'
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
+          project-slug: 'monitoring-plugins'
+          signing-policy-slug: 'test-signing'
+          artifact-configuration-slug: 'msi'
+          github-artifact-id: '${{ steps.upload-unsigned-packaged.outputs.artifact-id }}'
+          wait-for-completion: true
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-packaged/'
+
+      - name: 'Upload the signed package (msi)'
+        uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
+        with:
+          path: '${{ github.workspace }}/signed-packaged/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-packaged.${{ env.LFMP_ARCH }}"
