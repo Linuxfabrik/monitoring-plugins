@@ -25,10 +25,35 @@ permissions:
   contents: 'read'
 
 jobs:
-  build-linux-aarch64:
+  prepare-matrix:
     runs-on:
       - 'ubuntu-24.04-arm'
-    timeout-minutes: 1440  # 24 hours, default is 360 minutes / 6 hours
+    outputs:
+      distro_list: '${{ steps.set-matrix.outputs.distro_list }}'
+    steps:
+      # Transform the space‐separated string into a valid JSON array using shell commands (with sed),
+      # then pass that result as an output to be used in the matrix of a subsequent job.
+      - id: set-matrix
+        run: |
+          # Grab the space-separated input value
+          input="${{ github.event.inputs.target-distros }}"
+          # Replace spaces with '","' using sed
+          json_array=$(echo "$input" | sed 's/ /","/g')
+          # Wrap the result in a JSON array
+          json_array='["'"$json_array"'"]'
+          echo "Computed JSON array: $json_array"
+          echo "distro_list=$json_array" >> $GITHUB_OUTPUT
+
+  build-linux-aarch64:
+    needs: 'prepare-matrix'
+    runs-on:
+      - 'ubuntu-24.04-arm'
+
+    strategy:
+      matrix:
+        # Parse the JSON array output from the prepare-matrix job.
+        distro: '${{ fromJson(needs.prepare-matrix.outputs.distro_list) }}'
+
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@cb605e52c26070c328afc4562f0b4ada7618a84e # v2.10.4
@@ -40,7 +65,9 @@ jobs:
           echo "LFMP_ARCH=aarch64" >> $GITHUB_ENV
           echo "LFMP_COMPILE_PLUGINS=${{ github.event.inputs.compile-plugins }}" >> $GITHUB_ENV
           echo "LFMP_PACKAGE_ITERATION=${{ github.event.inputs.package-iteration }}" >> $GITHUB_ENV
-          echo "LFMP_TARGET_DISTROS=${{ github.event.inputs.target-distros }}" >> $GITHUB_ENV
+
+          # Each matrix job gets one distro value here (to parallelize job runs and avoiding Github's 6h timeout).
+          echo "LFMP_TARGET_DISTROS=${{ matrix.distro }}" >> $GITHUB_ENV
 
           echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
 
@@ -97,11 +124,31 @@ jobs:
       - name: 'Upload the compiled plugins'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
+          compression-level: 7
           path: '${{ env.LFMP_DIR_COMPILED }}/*'
-          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.compiled.${{ env.LFMP_ARCH }}"
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.compiled.${{ env.LFMP_ARCH }}.${{ env.LFMP_TARGET_DISTROS }}"
 
       - name: 'Upload the packages (rpm, deb, tar, zip)'
         uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
         with:
+          compression-level: 7
           path: '${{ env.LFMP_DIR_PACKAGED }}/*'
-          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.packaged.${{ env.LFMP_ARCH }}"
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.packaged.${{ env.LFMP_ARCH }}.${{ env.LFMP_TARGET_DISTROS }}"
+
+  upload-artifacts:
+    needs: 'build-linux-aarch64'
+    runs-on:
+      - 'ubuntu-24.04-arm'
+
+    steps:
+      - name: 'Download all artifacts'
+        uses: 'actions/download-artifact@v4'
+        with:
+          path: '/tmp/artifacts'
+
+      - name: 'Upload the final result (one file)'
+        uses: 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' # v4.6.0
+        with:
+          compression-level: 7
+          path: '/tmp/artifacts/*'
+          name: "lfmp"

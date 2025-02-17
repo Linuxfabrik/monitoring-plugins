@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021602
+# 2025021701
 
 set -e -x
 
@@ -62,14 +62,33 @@ EOF
 
     # prepare and ship the asset files for all check-plugins
     mkdir -p $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins/assets/
-    find "$LFMP_DIR_REPOS/monitoring-plugins"/check-plugins -type d -name 'assets' -exec find {} -type f -print0 \; | while IFS= read -r -d '' file; do
-        \cp --archive "$file" $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins/assets/
+
+    # Find all assets - but avoiding `find` as we get `/bin/sh: find: command not found` in Github runners sometimes
+
+    # Enable recursive globbing and allow unmatched globs to expand to nothing.
+    shopt -s globstar nullglob
+    # Loop over all directories named "assets" within check-plugins (at any depth).
+    for asset_dir in "$LFMP_DIR_REPOS/monitoring-plugins/check-plugins"/**/assets; do
+        # Ensure it's really a directory.
+        [ -d "$asset_dir" ] || continue
+
+        # Recursively loop through all files within the assets directory.
+        for file in "$asset_dir"/**/*; do
+            # Only process regular files.
+            [ -f "$file" ] || continue
+            # Copy each file to the target directory.
+            cp --archive "$file" "$LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins/assets/"
+        done
     done
 
-    # build the check-plugins file list
-    find $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins -type f -print0 | while IFS= read -r -d '' file; do
-        file=${file// /\\ }  # handle file names with spaces correctly, escape all spaces
-        echo "check-plugins/$file=/usr/lib64/nagios/plugins/$file" >> $LFMP_DIR_PACKAGED/$LFMP_TARGET_DISTRO/check-plugins/.fpm
+    # Build the check-plugins file list - again avoiding `find`...
+    shopt -s globstar nullglob
+    for file in "$LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/check-plugins"/**/*; do
+        # Only process regular files.
+        [ -f "$file" ] || continue
+        # Escape spaces in the file name.
+        escaped_file="${file// /\\ }"
+        echo "check-plugins/$escaped_file=/usr/lib64/nagios/plugins/$escaped_file" >> "$LFMP_DIR_PACKAGED/$LFMP_TARGET_DISTRO/check-plugins/.fpm"
     done
 
     # fix directories
@@ -100,9 +119,14 @@ EOF
 EOF
 
     # build the notification-plugins file list
-    find $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/notification-plugins -type f -print0 | while IFS= read -r -d '' file; do
-        file=${file// /\\ }  # handle file names with spaces correctly, escape all spaces
-        echo "notification-plugins/$file=/usr/lib64/nagios/plugins/notifications/$file" >> $LFMP_DIR_PACKAGED/$LFMP_TARGET_DISTRO/notification-plugins/.fpm
+    shopt -s globstar nullglob
+
+    for file in "$LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/notification-plugins"/**/*; do
+        # Only process regular files.
+        [ -f "$file" ] || continue
+        # Escape spaces in the file name.
+        escaped_file="${file// /\\ }"
+        echo "notification-plugins/$escaped_file=/usr/lib64/nagios/plugins/notifications/$escaped_file" >> "$LFMP_DIR_PACKAGED/$LFMP_TARGET_DISTRO/notification-plugins/.fpm"
     done
 
     # fix directories
