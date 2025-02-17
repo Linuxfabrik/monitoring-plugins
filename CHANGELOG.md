@@ -94,6 +94,7 @@ Monitoring Plugins:
 * disk-io: Re-add support for Windows after last rewrite
 * disk-usage: Add `--list-fstypes` and `--fstype` for specifying the file system type
 * fail2ban: More compact output (closes #141)
+* file-size: fix help text
 * fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
 * keycloak-version: Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only

@@ -42,8 +42,7 @@ Help
                            m/mb/mib, g/gb/gib etc.). Supports Nagios ranges.
                            Example: `:1G` alerts if size is greater than 1
                            GiB.Default: 1G
-      --filename FILENAME  File (or directory) name to check. Supports glob in
-                           accordance with
+      --filename FILENAME  File name to check. Supports glob in accordance with
                            https://docs.python.org/2.7/library/glob.html. Note
                            that using recursive globs can cause high memory usage.
                            This is mutually exclusive with `-u` / `--url`.
@@ -54,9 +53,8 @@ Help
                            Default: *.
       --password PASSWORD  SMB Password.
       --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
-      -u, --url URL        Set the url of the file (or directory) to check,
-                           starting with "smb://". This is mutually exclusive with
-                           `--filename`.
+      -u, --url URL        Set the url of the file to check, starting with
+                           "smb://". This is mutually exclusive with `--filename`.
       --username USERNAME  SMB Username.
       -w, --warning WARN   Threshold for the file size in a human readable format
                            (base is always 1024; valid qualifiers are b, k/kb/kib,
