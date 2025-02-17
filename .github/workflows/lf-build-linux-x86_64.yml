@@ -33,6 +33,11 @@ jobs:
     steps:
       # Transform the space‐separated string into a valid JSON array using shell commands (with sed),
       # then pass that result as an output to be used in the matrix of a subsequent job.
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+
       - id: set-matrix
         run: |
           # Grab the space-separated input value
@@ -141,8 +146,13 @@ jobs:
       - 'ubuntu-24.04'
 
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+
       - name: 'Download all artifacts'
-        uses: 'actions/download-artifact@v4'
+        uses: 'actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8'
         with:
           path: '/tmp/artifacts'
 
