@@ -375,7 +375,7 @@ See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFAN
 See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
 
 
-## Compiling and Packaging
+## Compiling and Packaging, Windows Code Signing Policy
 
 See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
 
