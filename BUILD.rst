@@ -126,9 +126,13 @@ Build for Windows
 
 Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/windows/. Both files are created automatically using the Github Actions workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__.
 
-Signing the .exe and .msi files is done using `SignPath for Open Source projects <https://about.signpath.io/product/open-source>`__.
+To create the msi file, we use the most recent `WiX Toolset <https://wixtoolset.org/docs/intro/>`__.
 
-To create the msi file, we use the `WiX Toolset <https://wixtoolset.org/docs/intro/>`__.
+Code signing policy:
+
+* Free code signing provided by `SignPath.io <https://signpath.io>`__, certificate by `SignPath Foundation <https://signpath.org>`__.
+* This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+* We sign .dll, .exe, .pyd and .msi files.
 
 
 Compiling - Good to Know
