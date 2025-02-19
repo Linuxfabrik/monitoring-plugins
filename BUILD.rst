@@ -124,9 +124,11 @@ Create the packages for every OS:
 Build for Windows
 -----------------
 
-Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/windows/. Both files are created automatically using Github Actions (workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__).
+Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/windows/. Both files are created automatically using the Github Actions workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__.
 
-To create the msi file, we use the `WiX Toolset <https://wixtoolset.org/docs/intro/>`__ on Windows. The zip is created on Windows as well.
+Signing the .exe and .msi files is done using `SignPath for Open Source projects <https://about.signpath.io/product/open-source>`__.
+
+To create the msi file, we use the `WiX Toolset <https://wixtoolset.org/docs/intro/>`__.
 
 
 Compiling - Good to Know
