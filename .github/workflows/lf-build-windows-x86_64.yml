@@ -104,6 +104,8 @@ jobs:
           path: '${{ env.LFMP_DIR_COMPILED }}/check-plugins/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-compiled.${{ env.LFMP_ARCH }}"
 
+      # https://github.com/SignPath/github-actions/tree/main/actions/submit-signing-request
+      # https://about.signpath.io/documentation/trusted-build-systems/github
       - name: 'Sign the compiled plugins'
         uses: 'signpath/github-action-submit-signing-request@3c306158facd969ebdb385c6845dee38afc2ebf9' # v1.1
         with:
@@ -111,7 +113,7 @@ jobs:
           organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
           project-slug: 'monitoring-plugins'
           signing-policy-slug: 'test-signing'
-          artifact-configuration-slug: 'exe'
+          #artifact-configuration-slug: 'exe'
           github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
           wait-for-completion: true
           # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
@@ -160,7 +162,7 @@ jobs:
           organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
           project-slug: 'monitoring-plugins'
           signing-policy-slug: 'test-signing'
-          artifact-configuration-slug: 'msi'
+          #artifact-configuration-slug: 'msi'
           github-artifact-id: '${{ steps.upload-unsigned-packaged.outputs.artifact-id }}'
           wait-for-completion: true
           # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
