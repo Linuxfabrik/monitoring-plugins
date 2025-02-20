@@ -21,7 +21,7 @@ import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031501'
+__version__ = '2025022001'
 
 DESCRIPTION = 'Tracks if MySQL/MariaDB is EOL.'
 
@@ -136,9 +136,13 @@ def get_installed_version():
             return stdout.group(1).strip()
         except:
             pass
-    success, result = lib.shell.shell_exec('mysql --version')
+
+    success, result = lib.shell.shell_exec('mariadb --version')
+    if not success:
+        success, result = lib.shell.shell_exec('mysql --version')
     if not success:
         return ''
+
     stdout = result[0].strip()
     # where to find the version number in output?
     version_regex = r'(?i)b (.*?),'

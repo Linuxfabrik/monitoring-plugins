@@ -11,7 +11,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-### Breaking Changes
+### Breaking Changes ("!")
 
 Build, CI/CD:
 
@@ -41,7 +41,7 @@ Notification Plugins:
 * notify-\*-rocketchat-telegram: Remove Telegram functionality, remove ``-telegram`` suffix
 
 
-### Added
+### Added ("feat")
 
 Icinga Director:
 
@@ -65,7 +65,32 @@ Monitoring Plugins:
 * whmcs-status
 
 
-### Changed ("enhancement")
+### Fixed ("fix")
+
+Icinga Director:
+
+* crypto-policy: New defaults according to LFOps crypto_policy role
+* dhcp-relayed: Binding a socket to all network interfaces
+* disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
+* fortios-network-io: Fix reading from local SQLite database
+* mysql-query: Fix director basket
+* needs-restarting: UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
+* service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
+* snmp: With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
+* strongswan-connections: check fails if using AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
+* swap-usage: Fix ProcessLookupError
+
+
+Monitoring Plugins:
+
+* about-me: expanded RAM isn't updating ([#757](https://github.com/Linuxfabrik/monitoring-plugins/issues/757))
+* apache-httpd.status: failure when mod_md is enabled ([#783](https://github.com/Linuxfabrik/monitoring-plugins/issues/783))
+* docker-stats: ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
+* redfish-sel: UnboundLocalError: local variable 'sel_path' referenced before assignment ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
+* whmcs-status: handle null correctly in whmcs api response ([#820](https://github.com/Linuxfabrik/monitoring-plugins/pull/820))
+
+
+### Changed ("refactor", "chore" etc.)
 
 Build, CI/CD:
 
@@ -99,6 +124,7 @@ Monitoring Plugins:
 * keycloak-version: Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
+* mysql-version: handle `mysql: Deprecated program name`
 * nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
 * nodebb-stats: In "Last user", don't report the user you login with ([#536](https://github.com/Linuxfabrik/monitoring-plugins/issues/536))
 * openstack-nova-list: No more need for keystoneauth and keystoneclient
@@ -106,31 +132,6 @@ Monitoring Plugins:
 * rhel-version: `--extended-support` checks for "Extended Life Cycle Support" EOL ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
 * systemd-unit: Improve output
 * uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
-
-
-### Fixed ("bug")
-
-Icinga Director:
-
-* crypto-policy: New defaults according to LFOps crypto_policy role
-* dhcp-relayed: Binding a socket to all network interfaces
-* disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
-* fortios-network-io: Fix reading from local SQLite database
-* mysql-query: Fix director basket
-* needs-restarting: UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
-* service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
-* snmp: With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
-* strongswan-connections: check fails if using AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
-* swap-usage: Fix ProcessLookupError
-
-
-Monitoring Plugins:
-
-* about-me: expanded RAM isn't updating ([#757](https://github.com/Linuxfabrik/monitoring-plugins/issues/757))
-* apache-httpd.status: failure when mod_md is enabled ([#783](https://github.com/Linuxfabrik/monitoring-plugins/issues/783))
-* docker-stats: ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
-* redfish-sel: UnboundLocalError: local variable 'sel_path' referenced before assignment ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
-* whmcs-status: handle null correctly in whmcs api response ([#820](https://github.com/Linuxfabrik/monitoring-plugins/pull/820))
 
 
 ## 2024060401
