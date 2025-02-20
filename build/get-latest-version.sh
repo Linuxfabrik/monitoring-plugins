@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 2025022001
 
-set -e -x
+set -e
 
 if ! command -v jq &> /dev/null; then
     sudo apt update
@@ -33,7 +33,7 @@ while true; do
 
     # If we found an artifact, break out of the loop.
     if [[ "$ARTIFACT_INFO" != "{}" ]]; then
-        echo "✅ Found $ARTIFACT_NAME artifact on page $PAGE."
+        echo "✅ Found $ARTIFACT_COUNT artifcats with '$ARTIFACT_NAME' artifact on page $PAGE."
         break
     fi
 
@@ -42,6 +42,7 @@ done
 
 # Extract the download URL.
 ARTIFACT_URL=$(echo "$ARTIFACT_INFO" | jq --raw-output ".archive_download_url // empty")
+echo "✅ Artifact URL: $ARTIFACT_URL"
 
 if [[ -z "$ARTIFACT_URL" ]]; then
     echo "❌ No previous version artifact found. Exiting..."
