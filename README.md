@@ -16,6 +16,11 @@ The plugins are fast, reliable and use as few system resources as possible. They
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 
 
+## Want to see some Plugins in Action?
+
+Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
+
+
 ## Support & Sponsoring
 
 The source code is published here without support. If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
