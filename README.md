@@ -20,6 +20,8 @@ The plugins are fast, reliable and use as few system resources as possible. They
 
 Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
 
+If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images. Just take a look at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/).
+
 
 ## Support & Sponsoring
 
