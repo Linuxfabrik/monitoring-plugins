@@ -121,6 +121,7 @@ Monitoring Plugins:
 * fail2ban: More compact output (closes #141)
 * file-size: fix help text
 * fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
+* infomaniak-events: return CRIT in case of critical events
 * keycloak-version: Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
 * librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
 * mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
