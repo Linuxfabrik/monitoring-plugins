@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.base  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025022301'
+
+DESCRIPTION = 'Tracks if OpenVPN is EOL.'
+
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_PATH = '/usr/sbin/openvpn'
+DEFAULT_TIMEOUT = 8
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help='Alert me when there is a new major release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26 (not yet EOL) and v27 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help='Alert me when there is a new major.minor release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help='Alert me when there is a new major.minor.patch release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available. '
+             'Default: %(default)s',
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
+             'Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Local path to your OpenVPN binary. '
+             'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    return parser.parse_args()
+
+
+def get_installed_version(path):
+    success, result = lib.shell.shell_exec(f'{path} --version')
+    if not success:
+        return ''
+    stdout = result[0].strip()
+    # where to find the version number in output?
+    # OpenVPN 2.4.12 x86_64-redhat-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Nov 10 2023  # pylint: disable=C0301
+    # OpenVPN 2.5.11 x86_64-redhat-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] built on Jul 18 2024  # pylint: disable=C0301
+    # OpenVPN 2.6.13 x86_64-redhat-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] [DCO]  # pylint: disable=C0301
+    version_regex = r'N (\d+\.\d+\.\d+)'
+    try:
+        stdout = re.search(version_regex, stdout)
+        return stdout.group(1).strip()
+    except:
+        return ''
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version(args.PATH)
+    if not installed_version:
+        lib.base.cu(f'OpenVPN `{args.PATH}` not found.')
+    state, msg = lib.version.check_eol(
+        'https://endoflife.date/api/openvpn.json',
+        installed_version,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
+
+    # over and out
+    lib.base.oao(
+        f'OpenVPN v{installed_version} ({msg})',
+        state,
+        lib.base.get_perfdata(
+            'openvpn-version',
+            lib.version.version2float(installed_version),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

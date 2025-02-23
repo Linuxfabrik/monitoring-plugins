@@ -61,6 +61,7 @@ Monitoring Plugins:
 * keycloak-stats
 * mastodon-version
 * moodle-version
+* openvpn-version
 * scanrootkit
 * whmcs-status
 
