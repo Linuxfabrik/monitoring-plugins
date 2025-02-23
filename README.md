@@ -467,11 +467,6 @@ Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
 A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following `[GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
-Q: **On Windows, why do you use `%programdata%` instead of `%programfiles%`?**
-
-A: [According to Microsoft](https://docs.microsoft.com/en-us/windows/win32/win_cert/certification-requirements-for-windows-desktop-apps#10-apps-must-install-to-the-correct-folders-by-default), program files belong under `%programfiles%` instead of `%programdata%`, because under the latter, even non-admins have write permissions. This may allow a local attacker to gain admin rights by manipulating these files (swapping, modifying, adding). Nevertheless, the Icinga agent puts its files in `c:\programdata\icinga2`. This is why we also recommend to use this directory.
-
-
 Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
 
 A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, we recommend running the Icinga Agent under the `Local System` account, as plugins such as [updates](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates) require higher privileges to perform certain lookups. Have a look at [#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695#) for details.
