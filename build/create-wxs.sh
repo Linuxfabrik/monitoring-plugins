@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021602
+# 2025022301
 
 set -e -x
 
@@ -13,7 +13,7 @@ cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
 
         <MediaTemplate EmbedCab="yes" />
 
-        <StandardDirectory Id="ProgramFilesFolder">
+        <StandardDirectory Id="ProgramFiles64Folder">
             <Directory Id="Icinga2Dir" Name="icinga2">
                 <Directory Id="UsrDir" Name="sbin">
                     <Directory Id="Lib64Dir" Name="linuxfabrik">
