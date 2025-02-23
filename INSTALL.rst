@@ -33,55 +33,57 @@ Installation on Linux
 Run from Source
 ---------------
 
-If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3.9+ on the remote host. We describe one way to do so. Do whatever you have to do to get to this.
+If you run the Linuxfabrik check plugins directly from source (which is no problem at all), you need to install Python 3.9+ on the remote host, and make it default. We describe one way to do so (on Linux). Do whatever you have to do to get to this.
 
-Get the monitoring check plugins from our Git repository to your local machine or deployment host:
+Clone the monitoring check plugins from Linuxfabrik's Git repository to your local machine or deployment host:
 
 .. code-block:: bash
 
     # https://github.com/Linuxfabrik/monitoring-plugins/releases
-    RELEASE=1.2.3.4
+    release=1.2.3.4
 
 .. code-block:: bash
 
     git clone https://github.com/Linuxfabrik/monitoring-plugins.git
     cd monitoring-plugins
-    git checkout tags/$RELEASE
+    git checkout tags/$release
     cd ..
 
 Copy some or all Python check plugins to ``/usr/lib64/nagios/plugins``, for example by doing the following on your deployment host:
 
 .. code-block:: bash
 
-    REMOTE_USER=root
-    REMOTE_HOST=192.0.2.74
-    SOURCE_PLUGINS=/path/to/monitoring-plugins/check-plugins
-    TARGET_DIR=/usr/lib64/nagios/plugins
+    plugin_source_dir=/path/to/monitoring-plugins/check-plugins
+    remote_user=root
+    remote_host=192.0.2.74
+    remote_target_dir=/usr/lib64/nagios/plugins
 
-    ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $TARGET_DIR/lib"
-    for f in $(find $SOURCE_PLUGINS -maxdepth 1 -type d); do f=$(basename $f); scp $SOURCE_PLUGINS/$f/$f $REMOTE_USER@$REMOTE_HOST:$TARGET_DIR/$f; done
+    ssh $remote_user@$remote_host "sudo mkdir -p $remote_target_dir/lib"
+    for dir in $(find $plugin_source_dir -maxdepth 1 -type d); do
+        file=$(basename $dir)
+        rsync --archive --progress --human-readable --rsync-path='sudo rsync' $dir/$file $remote_user@$remote_host:/usr/lib64/nagios/plugins/${file}
+    done
+    scp $plugin_source_dir/../requirements.txt $remote_user@$remote_host:/tmp
 
 After installing/copying, the directory on the remote host should look like this:
 
 .. code-block:: text
 
     /path/to/plugins (normally /usr/lib64/nagios/plugins)
-    |-- about-me
-    |-- disk-smart
-    |-- ...
-    |-- lib
-    |   |-- base.py
-    |   |-- ...
-    |-- ...
+    ├── about-me
+    ├── apache-httpd-status
+    ├── apache-httpd-version
+    ├── ...
+    └── xml
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. Some plugins use some of the following 3rd-party python libraries, so the easiest way is to install these as well, using your package manager, pip or whatever (depends on your environment):
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. The easiest way is to install them using your package manager, pip or whatever (depends on your environment). On the remote machine:
 
 .. code-block:: bash
 
-    python3 -m pip install --upgrade pip
-    python3 -m pip install --requirement requirements.txt --require-hashes
+    python3 -m pip install --user --upgrade pip
+    python3 -m pip install --user --requirement /tmp/requirements.txt --require-hashes
 
-To make SELinux happy, after installing from source, run:
+On RHEL and compatible, to make SELinux happy run:
 
 .. code-block:: bash
 
