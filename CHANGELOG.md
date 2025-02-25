@@ -73,6 +73,7 @@ Icinga Director:
 * crypto-policy: New defaults according to LFOps crypto_policy role
 * dhcp-relayed: Binding a socket to all network interfaces
 * disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
+* docker-stats: always-ok not referenced ([#839](https://github.com/Linuxfabrik/monitoring-plugins/issues/839))
 * fortios-network-io: Fix reading from local SQLite database
 * mysql-query: Fix director basket
 * needs-restarting: UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
