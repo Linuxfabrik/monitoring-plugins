@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import base64  # pylint: disable=C0413
+import configparser  # pylint: disable=C0413
+import datetime  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.db_sqlite  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025030201'
+
+DESCRIPTION = """This check plugin counts the number of state changes per service within a
+                 given lookback interval. This makes it possible to detect fast flapping services.
+                 The data is determined in the 'History > Event Overview' view in IcingaDB.
+
+                 An output like `srv01 ! Swap Usage ! 10 ! [WARNING]` means that the service
+                 'Swap Usage' on host 'srv01' has had 10 service state changes in the lookback
+                 interval. With this information, you can now examine the history of the
+                 specified service.
+                 """
+
+DEFAULT_CRIT = 19
+DEFAULT_INSECURE = False
+DEFAULT_LOOKBACK = 4*3600
+DEFAULT_NO_PROXY = False
+DEFAULT_PWFILE = '/var/spool/icinga2/.icingaweb'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = 5
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Critical number of state changes per service within the "lookback" period. '
+             'Supports Nagios ranges. '
+             'Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Seconds in the past that the plugin should consider when looking for data. '
+             'Default: %(default)s',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='IcingaWeb Password. '
+             'Takes precedence over setting in `--password-file`.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--pwfile',
+        help='Specifies a password file to read "url", "user" or "password" for IcingaWeb from '
+             '(instead of specifying them on the command line), '
+             'for example `/var/spool/icinga2/.icingaweb`. '
+             'Default: %(default)s',
+        dest='PWFILE',
+        default=DEFAULT_PWFILE,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='URL to IcingaDB > History > Event Overview, including filter parameters. '
+             'Takes precedence over setting in `--password-file`.'
+             'Something like `https:/icinga//icingaweb2/icingadb/history?limit=250',
+        dest='URL',
+    )
+
+    parser.add_argument(
+        '--username',
+        help='IcingaWeb Username. '
+             'Takes precedence over setting in `--password-file`.',
+        dest='USERNAME',
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Warning number of state changes per service within the "lookback" period. '
+             'Supports Nagios ranges. '
+             'Default: %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def get_data(args):
+    """Login to Icinga, call the URL and return JSON data.
+    """
+    header = {}
+    auth = f'{args.USERNAME}:{args.PASSWORD}'
+    encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+    header['Authorization'] = f'Basic {encoded_auth}'
+    header['Accept'] = 'application/json'
+    return lib.url.fetch_json(
+        args.URL,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # if given, read password INI-file, but cmdline takes precedence
+    config = configparser.ConfigParser()
+    try:
+        if config.read(args.PWFILE):
+            # there is a password file
+            for section in config.sections():
+                for key, value in config.items(section):
+                    if args.USERNAME is None and key.lower().startswith('user'):
+                        args.USERNAME = value
+                    if args.PASSWORD is None and key.lower() == 'password':
+                        args.PASSWORD = value
+                    if args.URL is None and key.lower() == 'url':
+                        args.URL = value
+    except configparser.Error as e:
+        print(e)
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+
+    # create the db table
+    definition = '''
+        host_id                 TEXT NOT NULL,
+        host_display_name       TEXT NOT NULL,
+        service_id              TEXT NOT NULL,
+        service_display_name    TEXT NOT NULL,
+        state_event_time        TEXT NOT NULL
+    '''
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-icinga-topflap-services.db'),
+    )
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=True))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'host_id, service_id'))
+
+    now = lib.time.now()
+
+    # fetch data
+    for event in lib.base.coe(get_data(args)):
+        # filter events
+        if event.get('object_type') != 'service':
+            continue
+
+        data = {}
+        data['state_event_time'] = event.get('state').get('event_time')
+        if not data['state_event_time']:
+            continue
+        data['state_event_time'] = lib.time.timestr2epoch(
+            data['state_event_time'][:19],  # 2025-02-26T13:45:15.207+00:00
+            pattern='%Y-%m-%dT%H:%M:%S',    # 2025-02-26T13:45:15
+            tzinfo=datetime.timezone.utc,   # icinga works with UTC timezone format
+        )
+        # ignore if event is outside lookback interval
+        if abs(now - data['state_event_time']) > args.LOOKBACK:
+            continue
+
+        # ignore myself
+        data['service_display_name'] = event.get('service').get('display_name')
+        if 'top' in data['service_display_name'].lower() and \
+            'flap' in data['service_display_name'].lower():
+            continue
+
+        data['host_id'] = event.get('host').get('id')
+        data['host_display_name'] = event.get('host').get('display_name')
+        data['service_id'] = event.get('service').get('id')
+        lib.base.coe(lib.db_sqlite.insert(conn, data))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    # analyze data
+    # from here on just working on the database
+    data = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        '''
+        select host_display_name, service_display_name, count(*) as cnt
+        from perfdata
+        where 1
+        group by host_id, service_id
+        order by cnt desc
+        ''',
+    ))
+    lib.db_sqlite.close(conn)
+
+    for i, item in enumerate(data):
+        data[i]['state'] = lib.base.get_state(
+            item['cnt'],
+            args.WARN,
+            args.CRIT,
+            _operator='range',
+        )
+        data[i]['state_hr'] = lib.base.state2str(data[i]['state'], empty_ok=False)
+        state = lib.base.get_worst(state, data[i]['state'])
+
+    # build the message
+    if state == STATE_CRIT:
+        msg = 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg = 'There are warnings.'
+    else:
+        msg = 'Everything is ok.'
+    msg += f' (lookback={lib.human.seconds2human(args.LOOKBACK)} warn={args.WARN} crit={args.CRIT})'
+    if data:
+        msg +=  '\n\n' + lib.base.get_table(
+            data,
+            [
+                'host_display_name',
+                'service_display_name',
+                'cnt',
+                'state_hr',
+            ],
+            header=[
+                'Host',
+                'Service',
+                'Cnt',
+                'State',
+            ],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
