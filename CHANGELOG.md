@@ -46,6 +46,7 @@ Notification Plugins:
 Icinga Director:
 
 * all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
+* all-the-rest.json: Add IcingaDB Service Set
 * all-the-rest.json: Add Mastodon Service Set
 * all-the-rest.json: Add Moodle Service Set
 * all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
