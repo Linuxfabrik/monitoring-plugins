@@ -722,3 +722,7 @@ Unit tests use Docker/Podman to test against a range of versions or a reange of 
 
 * `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
 * `keycloak-version <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version>`_ (checking the filesystem in the container as well as the API)
+
+Read ini files (example use case: password file parsing):
+
+* `icinga-topflap-services <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services>`_
