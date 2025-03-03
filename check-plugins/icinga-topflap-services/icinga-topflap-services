@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025030201'
+__version__ = '2025030301'
 
 DESCRIPTION = """This check plugin counts the number of state changes per service within a
                  given lookback interval. This makes it possible to detect fast flapping services.
@@ -224,10 +224,11 @@ def main():
 
     now = lib.time.now()
 
-    # fetch data
+    # fetch data, filter events and enrich them
     for event in lib.base.coe(get_data(args)):
-        # filter events
         if event.get('object_type') != 'service':
+            continue
+        if event.get('service').get('state').get('in_downtime'):
             continue
 
         data = {}
@@ -280,12 +281,11 @@ def main():
         state = lib.base.get_worst(state, data[i]['state'])
 
     # build the message
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.'
-    elif state == STATE_WARN:
-        msg = 'There are warnings.'
-    else:
-        msg = 'Everything is ok.'
+    state_messages = {
+        STATE_CRIT: 'There are critical errors.',
+        STATE_WARN: 'There are warnings.'
+    }
+    msg = state_messages.get(state, 'Everything is ok.')
     msg += f' (lookback={lib.human.seconds2human(args.LOOKBACK)} warn={args.WARN} crit={args.CRIT})'
     if data:
         msg +=  '\n\n' + lib.base.get_table(
