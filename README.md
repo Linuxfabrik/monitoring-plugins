@@ -184,6 +184,11 @@ If you zoom in, for example on *CPU Usage*:
 
 Some comments from the community about our monitoring plugins:
 
+> We replaced all checks from the Icinga Powershell Framework with the Linuxfabrik equivalents. Much faster and a heavily reduced memory footprint. Great work!
+
+-- [jprusch](https://github.com/jprusch)
+
+
 > Thanks again @linuxfabrik for writing the csv-values check the way you did and not what I originally requested ;-)
 
 -- [Dominik Riva](https://community.icinga.com/t/monitor-ldap-queries-on-active-directory-controllers/13066)
