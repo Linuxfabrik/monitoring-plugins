@@ -31,6 +31,7 @@ Fact Sheet
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "IcingaDB, Read access to ``/icingaweb2/icingadb/history``"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db``"
 
 
 Help
