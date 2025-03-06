@@ -76,12 +76,12 @@ After installing/copying, the directory on the remote host should look like this
     ├── ...
     └── xml
 
-We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. The easiest way is to install them using your package manager, pip or whatever (depends on your environment). On the remote machine:
+We try to avoid dependencies on 3rd party OS- or Python-libraries wherever possible. If we need to use additional libraries for various reasons (for example `psutil <https://psutil.readthedocs.io/en/latest/>`_), we stick with official versions. The easiest way is to install them using your package manager, pip or whatever (depends on your environment). On the remote machine, for example including switching to the user "icinga":
 
 .. code-block:: bash
 
-    python3 -m pip install --user --upgrade pip
-    python3 -m pip install --user --requirement /tmp/requirements.txt --require-hashes
+    sudo -u icinga python3 -m pip install --user --upgrade pip
+    sudo -u icinga python3 -m pip install --user --requirement /tmp/requirements.txt --require-hashes
 
 On RHEL and compatible, to make SELinux happy run:
 
