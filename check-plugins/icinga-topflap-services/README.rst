@@ -4,7 +4,7 @@ Check icinga-topflap-services
 Overview
 --------
 
-This check plugin counts the number of state changes per service within a given lookback interval. This makes it possible to detect fast flapping services. The data is retrieved from the History > Event Overview view in IcingaDB.
+This check plugin counts the number of state changes per service within a given lookback interval. This makes it possible to detect fast flapping services. The data is retrieved from the History > Event Overview view in IcingaDB. To access the URL, all you need is an IcingaWeb2 user with the 'icingadb > General Module Access' permission.
 
 An output like ``srv01 ! Swap usage ! 10 ! [WARNING]`` means that the service 'Swap Usage' on host 'srv01' has had 10 service state changes in the lookback interval. With this information, you can now examine the history of the specified service.
 
