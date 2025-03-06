@@ -65,6 +65,7 @@ Monitoring Plugins:
 * moodle-version
 * openvpn-version
 * scanrootkit
+* statusiq
 * whmcs-status
 
 

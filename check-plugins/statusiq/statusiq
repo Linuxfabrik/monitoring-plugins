@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError as e:
+    print('Python module "BeautifulSoup4" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025030601'
+
+DESCRIPTION = """StatusIQ is a hosted status page provided by Site24x7. This check plugin retrieves
+                 the StatusIQ status page (must be rss-enabled) and returns a specific status - OK
+                 for "Operational" or "Informational" messages, WARN for "Under Maintenance",
+                 "Degraded Performance" and "Partial Outage", and CRIT for "Major Outage" messages.
+                 You only need to provide the URL to the StatusIQ page, for example
+                 "https://status.trustid.ch"."""
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 8
+DEFAULT_URL = 'https://status.trustid.ch'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='StatusIQ URL. '
+             'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def statusiqstate2state(siqs):
+    """Convert StatusIQs incident level to the Nagios world.
+    """
+    siqs = siqs.lower()
+    if siqs.endswith('major outage'):
+        return STATE_CRIT
+    if siqs.endswith('partial outage') or \
+    siqs.endswith('degraded performance') or \
+    siqs.endswith('under maintenance'):
+        return STATE_WARN
+    return STATE_OK
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        xml = lib.base.coe(lib.url.fetch(
+            args.URL + ('rss' if args.URL.endswith('/') else '/rss'),
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
+    else:
+        # do not call the command, put in test data
+        xml, _, _ = lib.lftest.test(args.TEST)
+
+    try:
+        soup = BeautifulSoup(xml, 'xml')
+    except Exception as e:  # pylint: disable=W0718
+        print(f'{e}')
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    table_data = []
+
+    # analyze data
+    for item in soup.find_all('item'):
+        title = item.find('title')
+        if not title:
+            continue
+        title = title.text.strip()
+        pubdate = item.find('pubDate')
+        pubdate = pubdate.text.strip()
+
+        item_state = statusiqstate2state(title)
+        state = lib.base.get_worst(state, item_state)
+        table_data.append({
+            'title': title,
+            'pubdate': lib.time.timestr2datetime(pubdate, pattern='%a, %d %b %Y %H:%M:%S %z'),  # Thu, 06 Mar 2025 14:44:59 +0100  pylint: disable=C0301
+            'state_hr': lib.base.state2str(item_state, empty_ok=False),
+        })
+    if not table_data:
+        state = STATE_UNKNOWN
+
+    # build the message
+    msg = {
+        STATE_CRIT: 'Major incidents',
+        STATE_WARN: 'Partial outages, degraded performance or under maintenance',
+        STATE_UNKNOWN: 'RSS feed disabled for this page?',
+    }.get(state, 'Everything is ok')
+    msg += f' @ {args.URL}'
+    if table_data:
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['title', 'pubdate', 'state_hr'],
+            header=['Component Name', 'Published', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, '', always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
