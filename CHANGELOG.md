@@ -58,6 +58,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * graylog-version
+* hin-status
 * icinga-topflap-services
 * keycloak-memory-usage
 * keycloak-stats
