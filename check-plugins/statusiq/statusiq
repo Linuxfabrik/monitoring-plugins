@@ -30,7 +30,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025030601'
+__version__ = '2025030801'
 
 DESCRIPTION = """StatusIQ is a hosted status page provided by Site24x7. This check plugin retrieves
                  the StatusIQ status page (must be rss-enabled) and returns a specific status - OK
@@ -153,18 +153,24 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
+    perfdata = ''
     table_data = []
+    cnt_warn, cnt_crit = 0, 0
 
     # analyze data
     for item in soup.find_all('item'):
         title = item.find('title')
         if not title:
             continue
-        title = title.text.strip()
+        title = title.text.strip().replace(' - Operational', '')
         pubdate = item.find('pubDate')
         pubdate = pubdate.text.strip()
 
         item_state = statusiqstate2state(title)
+        if item_state == STATE_WARN:
+            cnt_warn += 1
+        if item_state == STATE_CRIT:
+            cnt_crit += 1
         state = lib.base.get_worst(state, item_state)
         table_data.append({
             'title': title,
@@ -175,7 +181,7 @@ def main():
         state = STATE_UNKNOWN
 
     # build the message
-    msg = {
+    msg += {
         STATE_CRIT: 'Major incidents',
         STATE_WARN: 'Partial outages, degraded performance or under maintenance',
         STATE_UNKNOWN: 'RSS feed disabled for this page?',
@@ -187,9 +193,27 @@ def main():
             ['title', 'pubdate', 'state_hr'],
             header=['Component Name', 'Published', 'State'],
         )
+    perfdata += lib.base.get_perfdata(
+        'cnt_warn',
+        cnt_warn,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cnt_crit',
+        cnt_crit,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
 
     # over and out
-    lib.base.oao(msg, state, '', always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
