@@ -73,12 +73,14 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="file-size" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-size.png" width="30%"/> &nbsp;
 <img alt="fs-inodes" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/fs-inodes.png" width="30%"/> &nbsp;
 <img alt="fs-ro" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/fs-ro.png" width="30%"/> &nbsp;
+<img alt="getent" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/getent.png" width="30%"/> &nbsp;
 <img alt="githubstatus" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/githubstatus.png" width="30%"/> &nbsp;
 <img alt="gitlab-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-health.png" width="30%"/> &nbsp;
 <img alt="gitlab-liveness" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-liveness.png" width="30%"/> &nbsp;
 <img alt="gitlab-readiness" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-readiness.png" width="30%"/> &nbsp;
 <img alt="gitlab-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-version.png" width="30%"/> &nbsp;
 <img alt="grafana-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/grafana-version.png" width="30%"/> &nbsp;
+<img alt="icinga-topflap-services" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/icinga-topflap-services.png" width="30%"/> &nbsp;
 <img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
 <img alt="infomaniak-swiss-backp-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backp-devices.png" width="30%"/> &nbsp;
 <img alt="infomaniak-swiss-backup-products" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-products.png" width="30%"/> &nbsp;
@@ -120,6 +122,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="mysql-traffic" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-traffic.png" width="30%"/> &nbsp;
 <img alt="mysql-user-security" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-user-security.png" width="30%"/> &nbsp;
 <img alt="mysql-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-version.png" width="30%"/> &nbsp;
+<img alt="needs-restarting" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/needs-restarting.png" width="30%"/> &nbsp;
 <img alt="network-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-connections.png" width="30%"/> &nbsp;
 <img alt="network-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-io.png" width="30%"/> &nbsp;
 <img alt="network-port-tcp" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-port-tcp.png" width="30%"/> &nbsp;
@@ -136,6 +139,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="php-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-status.png" width="30%"/> &nbsp;
 <img alt="php-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-version.png" width="30%"/> &nbsp;
 <img alt="ping" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/ping.png" width="30%"/> &nbsp;
+<img alt="pip-updates" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/pip-updates.png" width="30%"/> &nbsp;
 <img alt="postfix-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/postfix-version.png" width="30%"/> &nbsp;
 <img alt="procs" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/procs.png" width="30%"/> &nbsp;
 <img alt="redis-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/redis-status.png" width="30%"/> &nbsp;
@@ -144,6 +148,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="rocketchat-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rocketchat-stats.png" width="30%"/> &nbsp;
 <img alt="rocketchat-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rocketchat-version.png" width="30%"/> &nbsp;
 <img alt="rpm-lastactivity" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rpm-lastactivity.png" width="30%"/> &nbsp;
+<img alt="sap-open-concur-com" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/sap-open-concur-com.png" width="30%"/> &nbsp;
 <img alt="scanrootkit" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/scanrootkit.png" width="30%"/> &nbsp;
 <img alt="selinux-mode" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/selinux-mode.png" width="30%"/> &nbsp;
 <img alt="service" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/service.png" width="30%"/> &nbsp;
@@ -154,6 +159,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="starface-java-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-java-memory-usage.png" width="30%"/> &nbsp;
 <img alt="starface-peer-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-peer-stats.png" width="30%"/> &nbsp;
 <img alt="starface-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-status.png" width="30%"/> &nbsp;
+<img alt="statusiq" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/statusiq.png" width="30%"/> &nbsp;
 <img alt="statuspal" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/statuspal.png" width="30%"/> &nbsp;
 <img alt="swap-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/swap-usage.png" width="30%"/> &nbsp;
 <img alt="systemd-unit" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/systemd-unit.png" width="30%"/> &nbsp;
@@ -161,6 +167,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="tuned-profile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/tuned-profile.png" width="30%"/> &nbsp;
 <img alt="updates" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/updates.png" width="30%"/> &nbsp;
 <img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptime.png" width="30%"/> &nbsp;
+<img alt="uptimerobot" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptimerobot.png" width="30%"/> &nbsp;
 <img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/users.png" width="30%"/> &nbsp;
 <img alt="whmcs-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/whmcs-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
