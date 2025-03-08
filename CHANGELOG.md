@@ -115,6 +115,7 @@ Icinga Director:
 * all-the-rest.json: Make all dmesg Service Sets use sudo
 * all-the-rest.json: Check /var/log/syslog file size in all Debian Service Sets
 * All plugins for Windows: Prepared for msi and changed default path from C:\ProgramData\icinga2\usr\lib64\nagios\plugins to c:\Program Files\icinga2\sbin\linuxfabrik
+* Replaced png with svg icons for over 70 plugins
 
 
 Monitoring Plugins:
