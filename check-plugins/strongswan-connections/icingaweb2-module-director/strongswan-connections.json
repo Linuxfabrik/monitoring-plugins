@@ -1,1 +1,126 @@
-null
+{
+    "Command": {
+        "cmd-check-strongswan-connections": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$strongswan_connections_always_ok$"
+                },
+                "--lengthy": {
+                    "set_if": "$strongswan_connections_lengthy$"
+                },
+                "--socket": {
+                    "value": "$strongswan_connections_socket$"
+                }
+            },
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/strongswan-connections",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-strongswan-connections",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "082e5ed9-c59d-43a6-8cce-7d7808f9f5c0"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-strongswan-connections": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-strongswan-connections",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "strongswan-connections.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI) to monitor the IKE daemon 'charon'. The most prominent user of the VICI interface is strongSwan/swanctl. ",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/strongswan-connections",
+            "object_name": "tpl-service-strongswan-connections",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "strongswan_connections_always_ok": false,
+                "strongswan_connections_lengthy": false,
+                "strongswan_connections_socket": "/run/strongswan/charon.vici"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "710b7fd8-dcee-4e5f-9816-80aea2288d62"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "strongswan_connections_always_ok",
+            "caption": "Strongswan Connections: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "584d20e3-6a37-49bd-8775-e659107932ea"
+        },
+        "2": {
+            "varname": "strongswan_connections_lengthy",
+            "caption": "Strongswan Connections: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a59704e1-8a80-4f5a-a8f5-e7ed09ef73ab"
+        },
+        "3": {
+            "varname": "strongswan_connections_socket",
+            "caption": "Strongswan Connections: Socket",
+            "description": "Path to Versatile IKE Control Interface (VICI) Socket.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dfb9fc01-b4e7-46cc-bc83-66324da1628e"
+        }
+    }
+}
