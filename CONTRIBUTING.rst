@@ -24,9 +24,7 @@ All plugins are written in Python and will be licensed under the [UNLICENSE](htt
 Setting up your development environment
 ---------------------------------------
 
-All plugins are coded in Python. Use at least Python 3.6 and max. Python 3.8 for development.
-
-Simply clone the libraries and monitoring plugins and start working:
+All plugins are coded using Python 3.9. Simply clone the libraries and monitoring plugins and start working:
 
 .. code:: bash
 
@@ -39,13 +37,13 @@ Deliverables
 
 Checklist:
 
-* The plugin itself.
-* A nice 16x16 transparent PNG icon, for example based on https://simpleicons.org or font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
-* README file explaining "How?" and Why?"
+* The plugin itself, tested on RHEL and Debian.
+* README file explaining "How?" and "Why?"
+* A free, monochrome, transparent SVG icon from https://simpleicons.org or https://fontawesome.com/search?ic=free, placed in the ``icon`` directory.
 * Optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * Optional: ``requirements.txt``
 * If providing performance data: Grafana dashboard (see `GRAFANA <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst>`_) and ``.ini`` file for the Icinga Web 2 Grafana Module
-* Icinga Director Basket Config for the check plugin
+* Icinga Director Basket Config for the check plugin (``check2basket``)
 * Icinga Service Set in ``all-the-rest.json``
 * Optional: sudoers file (see `sudoers File <#sudoers-file>`_)
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color ``#f5f9fa``, hosted on `download.linuxfabrik.ch <https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/>`_, and listed alphabetically in the projects `README <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md>`_.
