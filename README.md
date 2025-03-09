@@ -382,7 +382,7 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 
 ## Icons
 
-You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
+Each plugin comes with an SVG icon, which you can find at [github.com/Linuxfabrik/monitoring-plugins](https://github.com/Linuxfabrik/monitoring-plugins), in the "icon" directory below each plugin. For IcingaWeb2, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
 ## Grafana
