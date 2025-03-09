@@ -1,0 +1,182 @@
+{
+    "Command": {
+        "cmd-check-dummy": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$dummy_always_ok$"
+                },
+                "--message": {
+                    "value": "$dummy_message$"
+                },
+                "--perfdata": {
+                    "value": "$dummy_perfdata$"
+                },
+                "--state": {
+                    "value": "$dummy_state$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/dummy",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-dummy",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "850ae846-e258-460e-b4b6-2e93d4c3bec0"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-dummy": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-dummy",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "dummy.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "This check just returns the given message, state and perfdata.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dummy",
+            "object_name": "tpl-service-dummy",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "dummy_always_ok": false,
+                "dummy_message": "Everything is ok.",
+                "dummy_state": "ok"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "2ffb3cea-f521-4a18-a5a1-b235067d9c20"
+        }
+    },
+    "DataList": {
+        "dummy_state_list": {
+            "list_name": "dummy_state_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unk",
+                    "entry_value": "Unk",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "b5580504-264f-455b-b67a-d3dfcb85b0c5"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "dummy_always_ok",
+            "caption": "Dummy: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ad13a0a7-a2d8-4580-8ead-86006d17614d"
+        },
+        "2": {
+            "varname": "dummy_message",
+            "caption": "Dummy: Message",
+            "description": "The message to return.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2ac49fca-a77f-45a9-8446-36c97786a8b8"
+        },
+        "3": {
+            "varname": "dummy_perfdata",
+            "caption": "Dummy: Perfdata",
+            "description": "The perfdata to return, formatted according to the nagios guidelines.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0af94622-ea4e-4fbf-8db5-12de0b6324a8"
+        },
+        "4": {
+            "varname": "dummy_state",
+            "caption": "Dummy: State",
+            "description": "The state to return (ok, warn, crit, unk).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "dummy_state_list"
+            },
+            "uuid": "c954048d-0d82-4b75-b6d5-42b8070c1df8"
+        }
+    }
+}
