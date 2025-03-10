@@ -130,9 +130,8 @@ To create the msi file, we use the most recent `WiX Toolset <https://wixtoolset.
 
 Code signing policy:
 
-* Free code signing provided by `SignPath.io <https://signpath.io>`__, certificate by `SignPath Foundation <https://signpath.org>`__.
-* This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
-* We sign .dll, .exe, .pyd and .msi files.
+* Free code signing on Windows provided by `SignPath.io <https://signpath.io>`__, certificate by `SignPath Foundation <https://signpath.org>`__ (thank you for your support!).
+* .dll, .exe, .pyd and .msi files are signed.
 
 
 Compiling - Good to Know
