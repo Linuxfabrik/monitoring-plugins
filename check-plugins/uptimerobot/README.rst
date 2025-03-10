@@ -25,11 +25,10 @@ Help
 .. code-block:: text
 
     usage: uptimerobot [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                      [--test TEST] [--timeout TIMEOUT] [--url URL]
+                       [--test TEST] [--timeout TIMEOUT] [--url URL]
 
-    Retrieves the HIN status page from https://support.hin.ch/de/ and searches for
-    out-of-service messages. Unfortunately there is no machine-readable version
-    yet, so the plugin has to rely on the WordPress-generated HTML content.
+    Alerts on all monitors in down or unknown status on a given UptimeRobot status
+    page.
 
     options:
       -h, --help         show this help message and exit
@@ -41,7 +40,8 @@ Help
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-      --url URL          HIN Status Page URL. Default: https://support.hin.ch/de/
+      --url URL          UptimeRobot Status Page URL. Default:
+                         https://status.linuxfabrik.io
 
 
 Usage Examples
@@ -49,19 +49,26 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./uptimerobot
+    ./uptimerobot --url=https://status.linuxfabrik.io
 
 Output:
 
 .. code-block:: text
 
-    Incidents: Störung beim Einlesen von Krankenkassenkarten. See https://support.hin.ch/de/ for details.
+    0/0/3 of 3 monitors are down/paused/up, 24h uptime: 99.976%
+
+    Name                      ! Type    ! State 
+    --------------------------+---------+-------
+    001 cloud.linuxfabrik.io  ! HTTP(s) ! [OK]  
+    001 office.linuxfabrik.io ! HTTP(s) ! [OK]  
+    001 ws.linuxfabrik.io     ! HTTP(s) ! [OK]
 
 
 States
 ------
 
-* WARN if out-of-service messages are found
+* WARN if any monitor is in "danger" state.
+* OK if all monitors are in "success" state, else UNKNOWN.
 
 
 Perfdata / Metrics
@@ -72,7 +79,9 @@ Perfdata / Metrics
     :header-rows: 1
 
     Name,                                       Type,               Description                                           
-    cnt_incidents,                              Number,             "``1`` if out-of-service messages are found, ``0`` otherwise"
+    cnt_down,                                   Number,             Number of monitors in "down" state
+    cnt_paused,                                 Number,             Number of monitors in "paused" state
+    cnt_up,                                     Number,             Number of monitors in "up" state
 
 
 Credits, License
