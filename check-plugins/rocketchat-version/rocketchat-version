@@ -15,24 +15,22 @@ import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
-import lib.cache  # pylint: disable=C0413
 import lib.rocket  # pylint: disable=C0413
-import lib.time  # pylint: disable=C0413
-import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031501'
+__version__ = '2025031001'
 
-DESCRIPTION = """This plugin lets you track if server updates are available. Requires a user with
-                 strong password and "view-statistics" permission (only)."""
+DESCRIPTION = 'Tracks if Rocket.Chat is EOL.'
 
-DEFAULT_CACHE_EXPIRE = 24 # hours
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT = 3
+DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost:3000/api/v1'
 DEFAULT_USERNAME = 'rocket-stats'
 
@@ -45,8 +43,8 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
-        )
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
 
     parser.add_argument(
         '--always-ok',
@@ -54,16 +52,48 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-        )
+    )
 
     parser.add_argument(
+        # deprecated
         '--cache-expire',
-        help='The amount of time after which the update check cache expires, in hours. '
-             'Default: %(default)s',
+        help=argparse.SUPPRESS,
         dest='CACHE_EXPIRE',
         type=int,
-        default=DEFAULT_CACHE_EXPIRE,
-        )
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help='Alert me when there is a new major release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26 (not yet EOL) and v27 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help='Alert me when there is a new major.minor release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help='Alert me when there is a new major.minor.patch release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available. '
+             'Default: %(default)s',
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
 
     parser.add_argument(
         '--insecure',
@@ -81,6 +111,15 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
+             'Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
     )
 
     parser.add_argument(
@@ -105,7 +144,7 @@ def parse_args():
              'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
-        )
+    )
 
     parser.add_argument(
         '--username',
@@ -114,37 +153,12 @@ def parse_args():
         dest='USERNAME',
         default=DEFAULT_USERNAME,
         required=True,
-        )
+    )
 
     return parser.parse_args()
 
 
-def get_latest_version(expire):
-    # get version online, but first from cache
-    latest_version = lib.cache.get('rocketchat-version')
-    if latest_version:
-        return (True, latest_version)
-
-    # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url.get_latest_version_from_github('RocketChat', 'Rocket.Chat')
-    if not success:
-        return (success, latest_version)
-
-    lib.cache.set('rocketchat-version', latest_version, lib.time.now() + expire)
-    return (True, latest_version)
-
-
-def main():
-    """The main function. Hier spielt die Musik.
-    """
-
-    # parse the command line, exit with UNKNOWN if it fails
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
-
-    # fetch data
+def get_installed_version(args):
     credentials = lib.base.coe(lib.rocket.get_token(
         args.URL,
         args.USERNAME,
@@ -165,19 +179,52 @@ def main():
 
     if result.get('statistics', None):
         # version < 3.0.0
-        installed_version = result['statistics']['version']
-    else:
-        # version >= 3.0.0
-        installed_version = result['version']
-    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+        return result['statistics']['version']
+    # version >= 3.0.0
+    return result['version']
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    installed_version = get_installed_version(args)
+    if not installed_version:
+        lib.base.cu(f'Rocket.Chat at `{args.URL}` not found.')
+    state, msg = lib.version.check_eol(
+        'https://endoflife.date/api/rocket-chat.json',
+        installed_version,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
     # over and out
-    if lib.version.version(installed_version) >= lib.version.version(latest_version):
-        lib.base.oao('Rocket.Chat v{} is up to date'.format(installed_version), STATE_OK)
-    lib.base.oao('Rocket.Chat v{} installed, Rocket.Chat v{} available'.format(
-        installed_version,
-        latest_version,
-    ), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        f'Rocket.Chat v{installed_version} ({msg})',
+        state,
+        lib.base.get_perfdata(
+            'rocketchat-version',
+            lib.version.version2float(installed_version),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
 
 
 if __name__ == '__main__':

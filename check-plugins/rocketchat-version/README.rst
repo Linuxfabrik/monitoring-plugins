@@ -4,7 +4,9 @@ Check rocketchat-version
 Overview
 --------
 
-This plugin lets you track if a Rocket.Chat server update is available. To check for updates, this plugin uses the Git Repo at https://github.com/RocketChat/Rocket.Chat/releases. To compare against the current/installed version of Rocket.Chat, the check needs URL/API access to the Rocket.Chat server.
+This plugin lets you track if Rocket.Chat is End-of-Life (EOL). To compare against the current/installed version of Rocket.Chat, the check needs URL/API access to the Rocket.Chat server.
+
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
 
 
 Fact Sheet
@@ -18,7 +20,7 @@ Fact Sheet
     "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
     "Requirements",                         "Requires a user with strong password and 'view-statistics' permission (only)."
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-version.db``"
 
 
 Help
@@ -26,27 +28,38 @@ Help
 
 .. code-block:: text
 
-    usage: rocketchat-version [-h] [-V] [--always-ok]
-                              [--cache-expire CACHE_EXPIRE] [--insecure]
-                              [--no-proxy] -p PASSWORD [--timeout TIMEOUT]
-                              [--url URL] --username USERNAME
+    usage: rocketchat-version [-h] [-V] [--always-ok] [--check-major]
+                              [--check-minor] [--check-patch] [--insecure]
+                              [--no-proxy] [--offset-eol OFFSET_EOL] -p PASSWORD
+                              [--timeout TIMEOUT] [--url URL] --username USERNAME
 
-    This plugin lets you track if server updates are available. Requires a user
-    with strong password and "view-statistics" permission (only).
+    Tracks if Rocket.Chat is EOL.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --cache-expire CACHE_EXPIRE
-                            The amount of time after which the update check cache
-                            expires, in hours. Default: 24
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
       -p, --password PASSWORD
                             Rocket.Chat API password.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --url URL             Rocket.Chat API URL. Default:
                             http://localhost:3000/api/v1
       --username USERNAME   Rocket.Chat API username. Default: rocket-stats
@@ -57,26 +70,33 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./rocketchat-version --username rocket-stats --password mypassword --url http://rocket:3000/api/v1 --cache-expire 8 --always-ok
-    
+    ./rocketchat-version --username rocket-stats --password mypassword --url http://rocket:3000/api/v1 --offset-eol=-30
+
 Output:
 
 .. code-block:: text
 
-    Rocket.Chat v6.6.2 installed, Rocket.Chat v6.6.3 available
+    Rocket.Chat v6.13.0 (full support ended on 2024-10-10; EOL 2025-04-30 -30d, major 7.4.0 available, patch 6.13.1 available)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if update is available.
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    rocketchat-version,                         Number,             Installed Rocket.Chat version as float. "6.13.1" becomes "6.131".
 
 
 Credits, License
