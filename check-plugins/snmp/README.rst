@@ -22,7 +22,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
@@ -36,9 +36,9 @@ Help
 
 .. code-block:: text
 
-    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok] -H
-                HOSTNAME [--mib MIB] [--mib-dir MIB_DIR] [--snmp-version {1,2c,3}]
-                [--test TEST] [-t TIMEOUT]
+    usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
+                -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
+                [--snmp-version {1,2c,3}] [--test TEST] [-t TIMEOUT]
                 [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
                 [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
                 [--v3-boots-time V3_BOOTS_TIME] [--v3-context V3_CONTEXT]
@@ -65,7 +65,7 @@ Help
                             `any-any-any.csv` is a good starting point showing
                             some features.Default: any-any-any.csv.
       --hide-ok             Don't print OIDs with OK state. Default: False.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             SNMP Appliance address.
       --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
                             MIB:BROTHER-MIB`. Behaves like the `-m` option of
@@ -77,7 +77,7 @@ Help
                             Specifies SNMP version to use. Default: 2c.
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -t TIMEOUT, --timeout TIMEOUT
+      -t, --timeout TIMEOUT
                             Network timeout in seconds. Default: 7 (seconds).
       --v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}
                             SNMP Version 3 specific. Set authentication protocol.
@@ -175,23 +175,23 @@ Defining a Device
 
 If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
 
-========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
-OID                       Name          Re-Calc            Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as   Ignore in Perfdata Perfdata Alert Thresholds
-========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
+OID                       Name          Re-Calc                    Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as   Ignore in Perfdata Perfdata Alert Thresholds
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
 SNMPv2-MIB::sysName.0     Name                                                                                                 
-SNMPv2-MIB::sysLocation.0 Location                                                                                                         WARN
-SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100   s            value > 4*365*24*3600   value > 5*365*24*3600   True                                                     3*30*24*3600,None
-========================= ============= ================== ============ ======================= ======================= ================== ================== ================== ==========================
+SNMPv2-MIB::sysLocation.0 Location                                                                                                                 WARN
+SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100 * 24*3600 s            value > 6*30            value > 2*365           True                                                     "3*30,None"
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
 
 The columns in detail:
 
-* | OID (String)
+* | Column 1: OID (String)
   | The Object-Identifier from any of your MIB files.
-* | Name (String)
+* | Column 2: Name (String)
   | If provided, the check prints this instead of the OID.
-* | Re-Calc (Python code, or empty)
-  | Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result of the SNMPGET operation on the given OID.
-* | Unit (String, or empty)
+* | Column 3: Re-Calc (Python code, or empty)
+  | Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result (always a string) of the SNMPGET operation on the given OID.
+* | Column 4: Unit (String, or empty)
   | This is the "Unit of Measurement", case-insensitiv. One of:
 
      * s - seconds (also us, ms)
@@ -207,17 +207,17 @@ The columns in detail:
     * b - bytes
     * bps - bits per second
 
-* | WARN (Python condition, or empty)
-  | The warning threshold for the re-calculated or raw ``value``.
-* | CRIT (Python condition, or empty)
-  | The critical threshold for the re-calculated or raw ``value``.
-* | Show in first line (Bool, either "False", "True", or empty)
+* | Column 5: WARN (Python condition, or empty)
+  | The warning condition for the re-calculated or raw ``value``.
+* | Column 6: CRIT (Python condition, or empty)
+  | The critical condition for the re-calculated or raw ``value``.
+* | Column 7: Show in first line (Bool, either "False", "True", or empty)
   | Should ``value`` be printed in the first line of the check output?
-* | Report Change as (String, either "WARN", "CRIT", or empty)
+* | Column 8: Report Change as (String, either "WARN", "CRIT", or empty)
   | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``.
-* | Ignore in Perfdata (Bool, either "False", "True", or empty)
+* | Column 9: Ignore in Perfdata (Bool, either "False", "True", or empty)
   | By default, all numeric values are automatically returned as perfdata objects. Set to ``True`` to exclude this item from the perfdata list.
-* | Perfdata Alert Thresholds (Python tuple)
+* | Column 10: Perfdata Alert Thresholds (Python tuple)
   | Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
 
 The output would be something like this
@@ -233,8 +233,6 @@ The output would be something like this
     Contact     The Printer Guy [OK]  
     Description Brother NC-350w [OK]  
     Uptime      5M 1W           [WARNING]
-
-If you get a ``Traceback (most recent call last)`` when running the check plugin with your CSV file, there is something wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the correct amount of commas, quotes, etc.
 
 The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
@@ -337,6 +335,13 @@ Perfdata / Metrics
 ------------------
 
 By default, all numeric values are automatically returned as perfdata objects.
+
+
+Troubleshooting
+---------------
+
+`IndexError: list index out of range`
+    Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
 
 
 Credits, License

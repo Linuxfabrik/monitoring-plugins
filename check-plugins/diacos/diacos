@@ -18,7 +18,7 @@ import time  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 __author__ = """Linuxfabrik GmbH, Zurich/Switzerland;
                 originally written by Dominik Riva, Universitätsspital Basel/Switzerland"""
-__version__ = '2024031401'
+__version__ = '2025021501'
 
 
 DESCRIPTION = """This plugin checks availability and performance of an ID DIACOS® installation
@@ -275,17 +275,17 @@ def main():
     else:
         # do not call the command, put in test data
         args.TEST[0] += '-login'
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
         login_duration = result['totalTimeMillis']
 
         args.TEST[0] = args.TEST[0].replace('-login', '-searchDiagnoses')
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
         search_duration = result['totalTimeMillis']
 
         args.TEST[0] = args.TEST[0].replace('-searchDiagnoses', '-logoff')
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
         logout_duration = result['totalTimeMillis']
 

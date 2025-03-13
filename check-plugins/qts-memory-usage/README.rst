@@ -17,7 +17,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-memory-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
@@ -37,23 +37,21 @@ Help
     Appliances running QTS via API.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold Memory Usage Percentage.
-                            Default: 90
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --password PASSWORD   QTS Password.
-      --timeout TIMEOUT     Network timeout in seconds. Default: 6 (seconds)
-      --url URL             QTS-based Appliance URL, for example
-                            https://192.168.1.1:8080.
-      --username USERNAME   QTS User. Default: admin
-      -w WARN, --warning WARN
-                            Set the warning threshold Memory Usage Percentage.
-                            Default: 80
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the critical threshold Memory Usage Percentage.
+                           Default: 90
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --password PASSWORD  QTS Password.
+      --timeout TIMEOUT    Network timeout in seconds. Default: 6 (seconds)
+      --url URL            QTS-based Appliance URL, for example
+                           https://192.168.1.1:8080.
+      --username USERNAME  QTS User. Default: admin
+      -w, --warning WARN   Set the warning threshold Memory Usage Percentage.
+                           Default: 80
 
 
 Usage Examples

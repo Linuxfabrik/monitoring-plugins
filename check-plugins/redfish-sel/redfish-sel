@@ -13,17 +13,20 @@
 
 import argparse  # pylint: disable=C0413
 import base64  # pylint: disable=C0413
+import json  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
+import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.redfish  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2025021501'
 
 DESCRIPTION = """Checks the System Event Log (SEL) of the Redfish Manager collection. Returns an
                  alert based on the severity of the messages."""
@@ -78,6 +81,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help='Network timeout in seconds. '
              'Default: %(default)s (seconds)',
@@ -113,38 +123,48 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    base_url = args.URL
-    if not args.URL.startswith('http'):
-        lib.base.cu('--url parameter has to start with "http://" or https://".')
+    # fetch data
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
 
-    # Authorization (if needed)
-    header = {}
-    header['Accept'] = 'application/json'
-    if args.USERNAME and args.PASSWORD:
-        auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
-        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-        header['Authorization'] = 'Basic {}'.format(encoded_auth)
+        # Authorization (if needed)
+        header = {}
+        header['Accept'] = 'application/json'
+        if args.USERNAME and args.PASSWORD:
+            auth = '{}:{}'.format(args.USERNAME, args.PASSWORD)
+            encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+            header['Authorization'] = 'Basic {}'.format(encoded_auth)
 
-    # get the vendor to know which entry point to use
-    url = '{}/redfish/v1/'.format(base_url)
-    result = lib.base.coe(lib.url.fetch_json(
-        url,
-        header=header,
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
-    vendor = lib.redfish.get_vendor(result)
+        # get the vendor to know which entry point to use
+        result = lib.base.coe(lib.url.fetch_json(
+            '{}/redfish/v1/'.format(args.URL),
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
+        vendor = lib.redfish.get_vendor(result)
 
-    # Entry point: Get the main data
-    url = '{}/redfish/v1/Managers'.format(base_url)
-    result = lib.base.coe(lib.url.fetch_json(
-        url,
-        header=header,
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        timeout=args.TIMEOUT,
-    ))
+        # Entry point: Get the main data
+        result = lib.base.coe(lib.url.fetch_json(
+            '{}/redfish/v1/Managers'.format(args.URL),
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
+    else:
+        # do not call the command, put in test data
+        args.TEST[0] += '-v1'
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+        vendor = lib.redfish.get_vendor(result)
+
+        args.TEST[0] += '-managers'
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Managers/BMC"
@@ -159,43 +179,62 @@ def main():
 
     if vendor == 'generic':
         sel_path = '/LogServices/Log/Entries'
-    if vendor in ['ami']:
+    elif vendor in ['avigilon']:  # which is a relabeled dell
+        sel_path = '/LogServices'
+    elif vendor in ['ami']:
         sel_path = '/LogServices/BIOS/Entries'
-    if vendor in ['cisco']:
+    elif vendor in ['cisco']:
         sel_path = '/LogServices/SEL/Entries'
-    if vendor in ['dell']:
+    elif vendor in ['dell']:
         sel_path = '/LogServices/Sel/Entries'
-    if vendor in ['hpe', 'hp']:
+    elif vendor in ['hpe', 'hp']:
         sel_path = '/LogServices/IML/Entries'
-    if vendor in ['lenovo']:
+    elif vendor in ['lenovo']:
         sel_path = '/LogServices/ActiveLog/Entries'
-    if vendor in ['ts_fujitsu']:
+    elif vendor in ['ts_fujitsu']:
         sel_path = '/LogServices/SystemEventLog/Entries'
+    else:
+        sel_path = ''
 
     member_count = 0
     # fetch and analyze data by following the "Members" found
     for member in result.get('Members', []):
+        if not sel_path:
+            continue
         member_count += 1
-        # For example {https://localhost:5000/redfish/v1/Managers/} {BMC} {/LogServices/Log/Entries}
-        url = '{}{}{}'.format(base_url, member['@odata.id'], sel_path)
-        sel = lib.base.coe(lib.url.fetch_json(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
-        ))
+        if args.TEST is None:
+            # For example {https://localhost:5000} {/redfish/v1/Managers/BMC} {/LogServices/Log/Entries}  # pylint: disable=C0301
+            sel = lib.base.coe(lib.url.fetch_json(
+                '{}{}{}'.format(args.URL, member['@odata.id'], sel_path),
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            ))
+        else:
+            args.TEST[0] += '-vendor'
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            sel = json.loads(stdout)
         member_msg, member_state = lib.redfish.get_manager_logservices_sel_entries(sel)
         if member_msg:
             msg += '{}\n{}\n\n'.format(member['@odata.id'], member_msg)
             state = lib.base.get_worst(state, member_state)
 
     if state == STATE_CRIT:
-        msg = 'Checked SEL on {} {}. There are critical errors.\n\n'.format(member_count, lib.txt.pluralize('member', member_count)) + msg
+        msg = 'Checked SEL on {} {}. There are critical errors.\n\n'.format(
+            member_count,
+            lib.txt.pluralize('member', member_count),
+        ) + msg
     elif state == STATE_WARN:
-        msg = 'Checked SEL on {} {}. There are warnings.\n\n'.format(member_count, lib.txt.pluralize('member', member_count)) + msg
+        msg = 'Checked SEL on {} {}. There are warnings.\n\n'.format(
+            member_count,
+            lib.txt.pluralize('member', member_count),
+        ) + msg
     else:
-        msg = 'Everything is ok, checked SEL on {} {}.\n\n'.format(member_count, lib.txt.pluralize('member', member_count)) + msg
+        msg = 'Everything is ok, checked SEL on {} {}.\n\n'.format(
+            member_count,
+            lib.txt.pluralize('member', member_count),
+        ) + msg
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)

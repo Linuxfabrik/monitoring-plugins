@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024032905'
+__version__ = '2024090301'
 
 DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
                  reports the most recent alert for each device (only for those
@@ -39,7 +39,7 @@ DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-DEFAULT_LENGTHY = True
+DEFAULT_LENGTHY = False
 DEFAULT_SERVERITY = 'crit'
 DEFAULT_TIMEOUT = 3
 
@@ -117,7 +117,7 @@ def parse_args():
 
     parser.add_argument(
         '--lengthy',
-        help='Extended reporting.',
+        help='Extended reporting. ',
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -213,6 +213,7 @@ def main():
         data += args.DEVICE_TYPE
     devices = lib.base.coe(lib.db_mysql.select(conn, sql, data))
     lib.db_mysql.close(conn)
+    device_count = len(devices)
 
     # enrich and analyse data
     for i, device in enumerate(devices):
@@ -229,23 +230,30 @@ def main():
         )
         state = lib.base.get_worst(local_state, state)
 
+    # filter data if compact layout is choosen (just get everything that is not ok)
+    if not args.LENGTHY:
+        # brief data
+        devices = [device for device in devices if device['state'] != '[OK]']
+
     # build the message
-    msg = 'Checked {} {}.'.format(
-        len(devices),
-        lib.txt.pluralize('device', len(devices)),
-    )
-    if state != STATE_OK:
-        msg += ' There {} {} {}.'.format(
+    if state == STATE_OK:
+        msg = 'Everything is ok. '
+    else:
+        msg = 'There {} {} {}. '.format(
             lib.txt.pluralize('', alert_count, 'is,are'),
             alert_count,
             lib.txt.pluralize('alert', alert_count),
         )
+    msg += 'Checked {} {}.'.format(
+        device_count,
+        lib.txt.pluralize('device', device_count),
+    )
     msg += '\n\n'
 
-    perfdata += lib.base.get_perfdata('device_count', len(devices), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('device_count', device_count, None, None, None, 0, None) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None) # pylint: disable=C0301
 
-    if len(devices) > 0:
+    if device_count > 0:
         if not args.LENGTHY:
             msg += lib.base.get_table(
                 devices,

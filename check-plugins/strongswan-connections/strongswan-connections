@@ -19,7 +19,7 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
@@ -28,11 +28,12 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
 try:
     import vici  # pylint: disable=C0413
 except ImportError:
-    lib.base.cu('Python module "vici" is not installed.')
+    print('Python module "vici" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025021501'
 
 DESCRIPTION = """This Nagios/Icinga monitoring plugin checks IPSec connection states. It connects
                  to the vici plugin in libcharon using the Versatile IKE Control Interface (VICI)
@@ -121,11 +122,16 @@ def format_sas_data(sas):
         if isinstance(value, bytearray):
             data[key] = lib.txt.to_text(b', '.join(value))
         if key == 'integ-alg' and not value:
-            value = 'None'
+            continue
         # handle different versions:
         if key == 'reauth-time': # v5.7
             data['rekey-time'] = data['reauth-time'] # v5.9
 
+    if 'integ-alg' not in data:
+        # If a connection uses AES GCM encryption (or probably an other AEAD algorithm) the vici
+        # interface does not return a "integ-alg" key at all. There is no key without value but the
+        # key is missing in the dictionary.
+        data['integ-alg'] = 'None'
     data['encr'] = '{}-{}/{}/{}/{}'.format(
         data['encr-alg'],
         data['encr-keysize'],
@@ -239,11 +245,11 @@ def main():
     else:
         # do not call the command, put in test data
         import json
-        possible_connection_keys, stderr, retc = lib.test.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
+        possible_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-possible_connection_keys', args.TEST[1], args.TEST[2]])
         possible_connection_keys = json.loads(possible_connection_keys)
-        active_connection_keys, stderr, retc = lib.test.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
+        active_connection_keys, stderr, retc = lib.lftest.test([args.TEST[0] + '-active_connection_keys', args.TEST[1], args.TEST[2]])
         active_connection_keys = json.loads(active_connection_keys)
-        list_sas, stderr, retc = lib.test.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
+        list_sas, stderr, retc = lib.lftest.test([args.TEST[0] + '-list_sas', args.TEST[1], args.TEST[2]])
         list_sas = json.loads(list_sas)
 
     if not possible_connection_keys:

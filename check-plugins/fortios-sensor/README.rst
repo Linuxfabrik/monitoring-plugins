@@ -33,7 +33,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
                             port ("192.168.1.1:443").
       --insecure            This option explicitly allows to perform "insecure"

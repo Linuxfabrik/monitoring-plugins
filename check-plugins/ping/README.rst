@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ping"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -41,12 +41,12 @@ Help
       --always-ok           Always returns OK.
       --count COUNT         Stop after sending count ECHO_REQUEST packets.
                             Default: 5
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             The ping destination. Default: 127.0.0.1
       --interval INTERVAL   Wait interval seconds between sending each packet.
                             Real number allowed with dot as a decimal separator
                             (regardless locale setup). Default: 0.2
-      -t DEADLINE, --timeout DEADLINE
+      -t, --timeout DEADLINE
                             Specify a timeout, in seconds, before ping exits
                             regardless of how many packets have been sent or
                             received. Default: 5

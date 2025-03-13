@@ -24,20 +24,27 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-journald-query
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*journald-query.*/
+      current:
+        text: cmd-check-journald-query
+        value: cmd-check-journald-query
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-journald-query" WITH KEY = "hostname"
-      refresh: 2
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
       sort: 1
       type: query
     - label: Service
       name: service
-      type: textbox
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
 
   panels:
 
@@ -87,7 +94,7 @@ spec:
       - params:
         - 'null'
         type: fill
-      measurement: /^$command$/
+      measurement: $command
       select:
       - - params:
           - value
@@ -96,9 +103,9 @@ spec:
           type: mean
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
-        operator: =~
-        value: /^$service$/
+        operator: '='
+        value: $service

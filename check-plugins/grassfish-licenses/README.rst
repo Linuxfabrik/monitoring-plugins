@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/grassfish-licenses"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "No"
@@ -43,7 +43,7 @@ Help
       --always-ok           Always returns OK.
       --api-version API_VERSION
                             Grassfish API Version. Default: 1.12
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Grassfish hostname. Default: None
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
@@ -53,7 +53,7 @@ Help
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
       --token TOKEN         Grassfish API token
-      -u URL, --url URL     Grassfish API URL. Default: /gv2/webservices/API
+      -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API
 
 
 Usage Examples

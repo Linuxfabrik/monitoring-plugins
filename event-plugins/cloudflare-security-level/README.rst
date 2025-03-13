@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Event Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dummy"
     "Check Interval Recommendation",        "Event Plugin: On state change"
     "Can be called without parameters",     "No"

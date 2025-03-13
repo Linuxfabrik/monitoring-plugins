@@ -2,7 +2,7 @@
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
 
-This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of 200+ Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
+This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
 The check plugins run on
 
@@ -13,17 +13,25 @@ All plugins are written in Python and licensed under the [UNLICENSE](https://unl
 
 The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
+
+
+## Want to see some Plugins in Action?
+
+Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
+
+If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images. Just take a look at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/).
+
 
 ## Support & Sponsoring
 
 The source code is published here without support. If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
 
-If you simply like to support our work, please consider donating and become a sponsor:
-
-* [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
-* [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
-
 Do you think more people should know about it? Sharing is caring, so feel free to spread the word. We would really appreciate if you share this on any social media, or link this site on any blog or forum. Or more specifically: [It would be great if you could tell on GitHub discussions how you use the plugins](https://github.com/Linuxfabrik/monitoring-plugins/discussions/categories/show-and-tell?discussions_q=is%3Aopen+category%3A%22Show+and+tell%22).
+
+If you simply like to support our work, please consider donating and become a sponsor.
+
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Installation
@@ -39,126 +47,141 @@ For now, there are two ways:
 1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
 2.  [Contact us](https://www.linuxfabrik.ch/en/contact) by email or web form and describe your problem.
 
+For reporting a vulnerability, see [SECURITY](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/SECURITY.md).
+
 
 ## Check Plugin Poster
 
 See some of our check plugins at a glance on an Icinga server:
 
-<img alt="about-me" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/about-me.png" width="30%"/> &nbsp;
-<img alt="apache-httpd-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/apache-httpd-status.png" width="30%"/> &nbsp;
-<img alt="apache-httpd-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/apache-httpd-version.png" width="30%"/> &nbsp;
-<img alt="apache-solr-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/apache-solr-version.png" width="30%"/> &nbsp;
-<img alt="cpu-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/cpu-usage.png" width="30%"/> &nbsp;
-<img alt="crypto-policy" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/crypto-policy.png" width="30%"/> &nbsp;
-<img alt="disk-io" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/disk-io.png" width="30%"/> &nbsp;
-<img alt="disk-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/disk-usage.png" width="30%"/> &nbsp;
-<img alt="dmesg" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/dmesg.png" width="30%"/> &nbsp;
-<img alt="dns" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/dns.png" width="30%"/> &nbsp;
-<img alt="fail2ban" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/fail2ban.png" width="30%"/> &nbsp;
-<img alt="file-age" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-age.png" width="30%"/> &nbsp;
-<img alt="file-count" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-count.png" width="30%"/> &nbsp;
-<img alt="file-descriptors" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-descriptors.png" width="30%"/> &nbsp;
-<img alt="file-ownership" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-ownership.png" width="30%"/> &nbsp;
-<img alt="file-size" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/file-size.png" width="30%"/> &nbsp;
-<img alt="fs-inodes" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/fs-inodes.png" width="30%"/> &nbsp;
-<img alt="fs-ro" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/fs-ro.png" width="30%"/> &nbsp;
-<img alt="githubstatus" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/githubstatus.png" width="30%"/> &nbsp;
-<img alt="gitlab-health" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/gitlab-health.png" width="30%"/> &nbsp;
-<img alt="gitlab-liveness" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/gitlab-liveness.png" width="30%"/> &nbsp;
-<img alt="gitlab-readiness" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/gitlab-readiness.png" width="30%"/> &nbsp;
-<img alt="gitlab-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/gitlab-version.png" width="30%"/> &nbsp;
-<img alt="grafana-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/grafana-version.png" width="30%"/> &nbsp;
-<img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
-<img alt="infomaniak-swiss-backp-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/infomaniak-swiss-backp-devices.png" width="30%"/> &nbsp;
-<img alt="infomaniak-swiss-backup-products" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/infomaniak-swiss-backup-products.png" width="30%"/> &nbsp;
-<img alt="journald-query" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/journald-query.png" width="30%"/> &nbsp;
-<img alt="journald-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/journald-usage.png" width="30%"/> &nbsp;
-<img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/keycloak-version.png" width="30%"/> &nbsp;
-<img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/kvm-vm.png" width="30%"/> &nbsp;
-<img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/librenms-alerts.png" width="30%"/> &nbsp;
-<img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/librenms-health.png" width="30%"/> &nbsp;
-<img alt="librenms-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/librenms-version.png" width="30%"/> &nbsp;
-<img alt="load" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/load.png" width="30%"/> &nbsp;
-<img alt="mailq" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mailq.png" width="30%"/> &nbsp;
-<img alt="matomo-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/matomo-version.png" width="30%"/> &nbsp;
-<img alt="memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/memory-usage.png" width="30%"/> &nbsp;
-<img alt="mydumper-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mydumper-version.png" width="30%"/> &nbsp;
-<img alt="mysql-aria" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-aria.png" width="30%"/> &nbsp;
-<img alt="mysql-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-connections.png" width="30%"/> &nbsp;
-<img alt="mysql-database-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-database-metrics.png" width="30%"/> &nbsp;
-<img alt="mysql-innodb-buffer-pool-instances" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-innodb-buffer-pool-instances.png" width="30%"/> &nbsp;
-<img alt="mysql-innodb-buffer-pool-size" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-innodb-buffer-pool-size.png" width="30%"/> &nbsp;
-<img alt="mysql-innodb-log-waits" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-innodb-log-waits.png" width="30%"/> &nbsp;
-<img alt="mysql-joins" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-joins.png" width="30%"/> &nbsp;
-<img alt="mysql-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-logfile.png" width="30%"/> &nbsp;
-<img alt="mysql-memory" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-memory.png" width="30%"/> &nbsp;
-<img alt="mysql-open-files" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-open-files.png" width="30%"/> &nbsp;
-<img alt="mysql-perf-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-perf-metrics.png" width="30%"/> &nbsp;
-<img alt="mysql-slow-queries" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-slow-queries.png" width="30%"/> &nbsp;
-<img alt="mysql-sorts" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-sorts.png" width="30%"/> &nbsp;
-<img alt="mysql-storage-engines" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-storage-engines.png" width="30%"/> &nbsp;
-<img alt="mysql-system" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-system.png" width="30%"/> &nbsp;
-<img alt="mysql-table-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-table-cache.png" width="30%"/> &nbsp;
-<img alt="mysql-table-definition-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-table-definition-cache.png" width="30%"/> &nbsp;
-<img alt="mysql-table-indexes" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-table-indexes.png" width="30%"/> &nbsp;
-<img alt="mysql-table-locks" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-table-locks.png" width="30%"/> &nbsp;
-<img alt="mysql-temp-tables" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-temp-tables.png" width="30%"/> &nbsp;
-<img alt="mysql-thread-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-thread-cache.png" width="30%"/> &nbsp;
-<img alt="mysql-traffic" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-traffic.png" width="30%"/> &nbsp;
-<img alt="mysql-user-security" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-user-security.png" width="30%"/> &nbsp;
-<img alt="mysql-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/mysql-version.png" width="30%"/> &nbsp;
-<img alt="network-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/network-connections.png" width="30%"/> &nbsp;
-<img alt="network-io" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/network-io.png" width="30%"/> &nbsp;
-<img alt="network-port-tcp" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/network-port-tcp.png" width="30%"/> &nbsp;
-<img alt="nextcloud-security-scan" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/nextcloud-security-scan.png" width="30%"/> &nbsp;
-<img alt="nextcloud-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/nextcloud-stats.png" width="30%"/> &nbsp;
-<img alt="nextcloud-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/nextcloud-version.png" width="30%"/> &nbsp;
-<img alt="ntp-chronyd" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/ntp-chronyd.png" width="30%"/> &nbsp;
-<img alt="openstack-nova-list" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/openstack-nova-list.png" width="30%"/> &nbsp;
-<img alt="openstack-swift-stat" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/openstack-swift-stat.png" width="30%"/> &nbsp;
-<img alt="openvpn-client-list" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/openvpn-client-list.png" width="30%"/> &nbsp;
-<img alt="path-rw-test" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/path-rw-test.png" width="30%"/> &nbsp;
-<img alt="php-fpm-ping" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/php-fpm-ping.png" width="30%"/> &nbsp;
-<img alt="php-fpm-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/php-fpm-status.png" width="30%"/> &nbsp;
-<img alt="php-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/php-status.png" width="30%"/> &nbsp;
-<img alt="php-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/php-version.png" width="30%"/> &nbsp;
-<img alt="ping" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/ping.png" width="30%"/> &nbsp;
-<img alt="postfix-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/postfix-version.png" width="30%"/> &nbsp;
-<img alt="procs" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/procs.png" width="30%"/> &nbsp;
-<img alt="redis-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/redis-status.png" width="30%"/> &nbsp;
-<img alt="redis-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/redis-version.png" width="30%"/> &nbsp;
-<img alt="rhel-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rhel-version.png" width="30%"/> &nbsp;
-<img alt="rocketchat-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rocketchat-stats.png" width="30%"/> &nbsp;
-<img alt="rocketchat-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rocketchat-version.png" width="30%"/> &nbsp;
-<img alt="rpm-lastactivity" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/rpm-lastactivity.png" width="30%"/> &nbsp;
-<img alt="selinux-mode" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/selinux-mode.png" width="30%"/> &nbsp;
-<img alt="service" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/service.png" width="30%"/> &nbsp;
-<img alt="starface-account-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-account-stats.png" width="30%"/> &nbsp;
-<img alt="starface-backup-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-backup-status.png" width="30%"/> &nbsp;
-<img alt="starface-channel-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-channel-status.png" width="30%"/> &nbsp;
-<img alt="starface-database-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-database-stats.png" width="30%"/> &nbsp;
-<img alt="starface-java-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-java-memory-usage.png" width="30%"/> &nbsp;
-<img alt="starface-peer-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-peer-stats.png" width="30%"/> &nbsp;
-<img alt="starface-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/starface-status.png" width="30%"/> &nbsp;
-<img alt="statuspal" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/statuspal.png" width="30%"/> &nbsp;
-<img alt="swap-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/swap-usage.png" width="30%"/> &nbsp;
-<img alt="systemd-unit" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/systemd-unit.png" width="30%"/> &nbsp;
-<img alt="systemd-units-failed" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/systemd-units-failed.png" width="30%"/> &nbsp;
-<img alt="tuned-profile" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/tuned-profile.png" width="30%"/> &nbsp;
-<img alt="updates" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/updates.png" width="30%"/> &nbsp;
-<img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/uptime.png" width="30%"/> &nbsp;
-<img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/users.png" width="30%"/> &nbsp;
-<img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
-<img alt="wildfly-gc-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-gc-status.png" width="30%"/> &nbsp;
-<img alt="wildfly-memory-pool-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-memory-pool-usage.png" width="30%"/> &nbsp;
-<img alt="wildfly-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-memory-usage.png" width="30%"/> &nbsp;
-<img alt="wildfly-non-xa-datasource-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-non-xa-datasource-stats.png" width="30%"/> &nbsp;
-<img alt="wildfly-server-status" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-server-status.png" width="30%"/> &nbsp;
-<img alt="wildfly-thread-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-thread-usage.png" width="30%"/> &nbsp;
-<img alt="wildfly-uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-uptime.png" width="30%"/> &nbsp;
-<img alt="wildfly-xa-datasources-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wildfly-xa-datasources-stats.png" width="30%"/> &nbsp;
-<img alt="wordpress-version" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/wordpress-version.png" width="30%"/> &nbsp;
-<img alt="xca-cert" src="https://download.linuxfabrik.ch/monitoring-plugins/screenshots/xca-cert.png" width="30%"/> &nbsp;
+<img alt="about-me" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/about-me.png" width="30%"/> &nbsp;
+<img alt="apache-httpd-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-status.png" width="30%"/> &nbsp;
+<img alt="apache-httpd-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-version.png" width="30%"/> &nbsp;
+<img alt="apache-solr-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-solr-version.png" width="30%"/> &nbsp;
+<img alt="cpu-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cpu-usage.png" width="30%"/> &nbsp;
+<img alt="crypto-policy" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/crypto-policy.png" width="30%"/> &nbsp;
+<img alt="disk-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-io.png" width="30%"/> &nbsp;
+<img alt="disk-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-usage.png" width="30%"/> &nbsp;
+<img alt="dmesg" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/dmesg.png" width="30%"/> &nbsp;
+<img alt="dns" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/dns.png" width="30%"/> &nbsp;
+<img alt="fail2ban" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/fail2ban.png" width="30%"/> &nbsp;
+<img alt="feed" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/feed.png" width="30%"/> &nbsp;
+<img alt="file-age" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-age.png" width="30%"/> &nbsp;
+<img alt="file-count" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-count.png" width="30%"/> &nbsp;
+<img alt="file-descriptors" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-descriptors.png" width="30%"/> &nbsp;
+<img alt="file-ownership" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-ownership.png" width="30%"/> &nbsp;
+<img alt="file-size" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/file-size.png" width="30%"/> &nbsp;
+<img alt="fs-inodes" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/fs-inodes.png" width="30%"/> &nbsp;
+<img alt="fs-ro" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/fs-ro.png" width="30%"/> &nbsp;
+<img alt="getent" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/getent.png" width="30%"/> &nbsp;
+<img alt="githubstatus" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/githubstatus.png" width="30%"/> &nbsp;
+<img alt="gitlab-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-health.png" width="30%"/> &nbsp;
+<img alt="gitlab-liveness" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-liveness.png" width="30%"/> &nbsp;
+<img alt="gitlab-readiness" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-readiness.png" width="30%"/> &nbsp;
+<img alt="gitlab-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/gitlab-version.png" width="30%"/> &nbsp;
+<img alt="grafana-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/grafana-version.png" width="30%"/> &nbsp;
+<img alt="hin-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/hin-status.png" width="30%"/> &nbsp;
+<img alt="icinga-topflap-services" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/icinga-topflap-services.png" width="30%"/> &nbsp;
+<img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
+<img alt="infomaniak-swiss-backp-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backp-devices.png" width="30%"/> &nbsp;
+<img alt="infomaniak-swiss-backup-products" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-products.png" width="30%"/> &nbsp;
+<img alt="journald-query" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-query.png" width="30%"/> &nbsp;
+<img alt="journald-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-usage.png" width="30%"/> &nbsp;
+<img alt="keycloak-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-memory-usage.png" width="30%"/> &nbsp;
+<img alt="keycloak-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-stats.png" width="30%"/> &nbsp;
+<img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-version.png" width="30%"/> &nbsp;
+<img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kvm-vm.png" width="30%"/> &nbsp;
+<img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-alerts.png" width="30%"/> &nbsp;
+<img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-health.png" width="30%"/> &nbsp;
+<img alt="librenms-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-version.png" width="30%"/> &nbsp;
+<img alt="load" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/load.png" width="30%"/> &nbsp;
+<img alt="mailq" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mailq.png" width="30%"/> &nbsp;
+<img alt="matomo-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/matomo-version.png" width="30%"/> &nbsp;
+<img alt="memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/memory-usage.png" width="30%"/> &nbsp;
+<img alt="mydumper-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mydumper-version.png" width="30%"/> &nbsp;
+<img alt="mysql-aria" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-aria.png" width="30%"/> &nbsp;
+<img alt="mysql-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-connections.png" width="30%"/> &nbsp;
+<img alt="mysql-database-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-database-metrics.png" width="30%"/> &nbsp;
+<img alt="mysql-innodb-buffer-pool-instances" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-buffer-pool-instances.png" width="30%"/> &nbsp;
+<img alt="mysql-innodb-buffer-pool-size" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-buffer-pool-size.png" width="30%"/> &nbsp;
+<img alt="mysql-innodb-log-waits" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-innodb-log-waits.png" width="30%"/> &nbsp;
+<img alt="mysql-joins" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-joins.png" width="30%"/> &nbsp;
+<img alt="mysql-logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-logfile.png" width="30%"/> &nbsp;
+<img alt="mysql-memory" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-memory.png" width="30%"/> &nbsp;
+<img alt="mysql-open-files" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-open-files.png" width="30%"/> &nbsp;
+<img alt="mysql-perf-metrics" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-perf-metrics.png" width="30%"/> &nbsp;
+<img alt="mysql-slow-queries" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-slow-queries.png" width="30%"/> &nbsp;
+<img alt="mysql-sorts" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-sorts.png" width="30%"/> &nbsp;
+<img alt="mysql-storage-engines" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-storage-engines.png" width="30%"/> &nbsp;
+<img alt="mysql-system" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-system.png" width="30%"/> &nbsp;
+<img alt="mysql-table-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-table-cache.png" width="30%"/> &nbsp;
+<img alt="mysql-table-definition-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-table-definition-cache.png" width="30%"/> &nbsp;
+<img alt="mysql-table-indexes" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-table-indexes.png" width="30%"/> &nbsp;
+<img alt="mysql-table-locks" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-table-locks.png" width="30%"/> &nbsp;
+<img alt="mysql-temp-tables" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-temp-tables.png" width="30%"/> &nbsp;
+<img alt="mysql-thread-cache" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-thread-cache.png" width="30%"/> &nbsp;
+<img alt="mysql-traffic" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-traffic.png" width="30%"/> &nbsp;
+<img alt="mysql-user-security" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-user-security.png" width="30%"/> &nbsp;
+<img alt="mysql-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mysql-version.png" width="30%"/> &nbsp;
+<img alt="needs-restarting" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/needs-restarting.png" width="30%"/> &nbsp;
+<img alt="network-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-connections.png" width="30%"/> &nbsp;
+<img alt="network-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-io.png" width="30%"/> &nbsp;
+<img alt="network-port-tcp" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-port-tcp.png" width="30%"/> &nbsp;
+<img alt="nextcloud-security-scan" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-security-scan.png" width="30%"/> &nbsp;
+<img alt="nextcloud-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-stats.png" width="30%"/> &nbsp;
+<img alt="nextcloud-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-version.png" width="30%"/> &nbsp;
+<img alt="ntp-chronyd" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/ntp-chronyd.png" width="30%"/> &nbsp;
+<img alt="openstack-nova-list" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/openstack-nova-list.png" width="30%"/> &nbsp;
+<img alt="openstack-swift-stat" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/openstack-swift-stat.png" width="30%"/> &nbsp;
+<img alt="openvpn-client-list" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/openvpn-client-list.png" width="30%"/> &nbsp;
+<img alt="path-rw-test" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/path-rw-test.png" width="30%"/> &nbsp;
+<img alt="php-fpm-ping" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-fpm-ping.png" width="30%"/> &nbsp;
+<img alt="php-fpm-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-fpm-status.png" width="30%"/> &nbsp;
+<img alt="php-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-status.png" width="30%"/> &nbsp;
+<img alt="php-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/php-version.png" width="30%"/> &nbsp;
+<img alt="ping" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/ping.png" width="30%"/> &nbsp;
+<img alt="pip-updates" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/pip-updates.png" width="30%"/> &nbsp;
+<img alt="postfix-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/postfix-version.png" width="30%"/> &nbsp;
+<img alt="procs" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/procs.png" width="30%"/> &nbsp;
+<img alt="redis-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/redis-status.png" width="30%"/> &nbsp;
+<img alt="redis-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/redis-version.png" width="30%"/> &nbsp;
+<img alt="rhel-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rhel-version.png" width="30%"/> &nbsp;
+<img alt="rocketchat-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rocketchat-stats.png" width="30%"/> &nbsp;
+<img alt="rocketchat-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rocketchat-version.png" width="30%"/> &nbsp;
+<img alt="rpm-lastactivity" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/rpm-lastactivity.png" width="30%"/> &nbsp;
+<img alt="sap-open-concur-com" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/sap-open-concur-com.png" width="30%"/> &nbsp;
+<img alt="scanrootkit" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/scanrootkit.png" width="30%"/> &nbsp;
+<img alt="selinux-mode" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/selinux-mode.png" width="30%"/> &nbsp;
+<img alt="service" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/service.png" width="30%"/> &nbsp;
+<img alt="starface-account-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-account-stats.png" width="30%"/> &nbsp;
+<img alt="starface-backup-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-backup-status.png" width="30%"/> &nbsp;
+<img alt="starface-channel-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-channel-status.png" width="30%"/> &nbsp;
+<img alt="starface-database-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-database-stats.png" width="30%"/> &nbsp;
+<img alt="starface-java-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-java-memory-usage.png" width="30%"/> &nbsp;
+<img alt="starface-peer-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-peer-stats.png" width="30%"/> &nbsp;
+<img alt="starface-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/starface-status.png" width="30%"/> &nbsp;
+<img alt="statusiq" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/statusiq.png" width="30%"/> &nbsp;
+<img alt="statuspal" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/statuspal.png" width="30%"/> &nbsp;
+<img alt="swap-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/swap-usage.png" width="30%"/> &nbsp;
+<img alt="systemd-unit" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/systemd-unit.png" width="30%"/> &nbsp;
+<img alt="systemd-units-failed" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/systemd-units-failed.png" width="30%"/> &nbsp;
+<img alt="tuned-profile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/tuned-profile.png" width="30%"/> &nbsp;
+<img alt="updates" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/updates.png" width="30%"/> &nbsp;
+<img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptime.png" width="30%"/> &nbsp;
+<img alt="uptimerobot" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptimerobot.png" width="30%"/> &nbsp;
+<img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/users.png" width="30%"/> &nbsp;
+<img alt="whmcs-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/whmcs-status.png" width="30%"/> &nbsp;
+<img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
+<img alt="wildfly-gc-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-gc-status.png" width="30%"/> &nbsp;
+<img alt="wildfly-memory-pool-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-memory-pool-usage.png" width="30%"/> &nbsp;
+<img alt="wildfly-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-memory-usage.png" width="30%"/> &nbsp;
+<img alt="wildfly-non-xa-datasource-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-non-xa-datasource-stats.png" width="30%"/> &nbsp;
+<img alt="wildfly-server-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-server-status.png" width="30%"/> &nbsp;
+<img alt="wildfly-thread-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-thread-usage.png" width="30%"/> &nbsp;
+<img alt="wildfly-uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-uptime.png" width="30%"/> &nbsp;
+<img alt="wildfly-xa-datasources-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-xa-datasources-stats.png" width="30%"/> &nbsp;
+<img alt="wordpress-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wordpress-version.png" width="30%"/> &nbsp;
+<img alt="xca-cert" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/xca-cert.png" width="30%"/> &nbsp;
 
 If you zoom in, for example on *CPU Usage*:
 
@@ -168,6 +191,11 @@ If you zoom in, for example on *CPU Usage*:
 ## Feedback from our Community
 
 Some comments from the community about our monitoring plugins:
+
+> We replaced all checks from the Icinga Powershell Framework with the Linuxfabrik equivalents. Much faster and a heavily reduced memory footprint. Great work!
+
+-- [jprusch](https://github.com/jprusch)
+
 
 > Thanks again @linuxfabrik for writing the csv-values check the way you did and not what I originally requested ;-)
 
@@ -348,12 +376,13 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
 
 ## Python
 
-When running from source, almost all check plugins are happy with at least Python 3.6. All plugins define the `#!/usr/bin/env python3` shebang.
+* When running from source, all check plugins are happy with Python 3.9+.
+* All plugins define the `#!/usr/bin/env python3` shebang.
 
 
 ## Icons
 
-You can download all check plugin icons from [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/icons/icons.tar.gz). For Icinga, put them in `/usr/share/icingaweb2/public/img/icons/`.
+Each plugin comes with an SVG icon, which you can find at [github.com/Linuxfabrik/monitoring-plugins](https://github.com/Linuxfabrik/monitoring-plugins), in the "icon" directory below each plugin. For IcingaWeb2, put them in `/usr/share/icingaweb2/public/img/icons/`.
 
 
 ## Grafana
@@ -366,14 +395,14 @@ See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFAN
 See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
 
 
-## Compiling
+## Compiling and Packaging, Windows Code Signing Policy
 
 See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
 
 
-## Tips & Tricks
+## FAQ
 
-Q: After an update, I get **Operational Error: no such column: ...**, state UNKNOWN. On the next run, this disappears. What happened?
+Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 
 A: Some check plugins require SQLite database files to cache data or to calculate data over time. After an update it is possible that the check plugin uses a new schema, but the database file on disk hasn't been updated (we don't implement database migrations). So in case of an "OperationalError", which happens for example when the plugin tries to INSERT into an outdated table, the database library simply deletes the sqlite database file. It will then be recreated from scratch by the plugin on the next run, with the updated database structure.
 
@@ -421,4 +450,37 @@ Output lines | Performance data
 
 So the `|` character is reserved to separate plugin output from performance data. There is no way to escape it - so we have to replace it with `!`.
 
+
+Q: **Negative values for plugin arguments cause problems in Icinga.**
+
+A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+, v2.0.0.0+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789>)).
+
+
+Q: **On Windows, sometimes Windows Defender randomly kills a plugin. Why?**
+
+A: Depending on your signature versions or the healthiness of your signature cache, the Microsoft Windows Defender might classify a check as malicious (for example our `service.exe`). Please follow the steps below to clear cached detections and obtain the latest malware definitions.
+
+1. Open command prompt as administrator and change directory to `c:\program files\windows defender`
+2. Run `MpCmdRun.exe -removedefinitions -dynamicsignatures`
+3. Run `MpCmdRun.exe -SignatureUpdate`
+
+
+Q: **Do the OS packages have external dependencies?**
+
+A: No.
+
+
+Q: **Can I overwrite specific plugins with its source code variant, if all other plugins are installed by the OS package manager?**
+
+A: Of course. Just don't forget to install the libs either.
+
+
+Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
+
+A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following `[GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+
+
+Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
+
+A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, we recommend running the Icinga Agent under the `Local System` account, as plugins such as [updates](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/updates) require higher privileges to perform certain lookups. Have a look at [#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695#) for details.
 

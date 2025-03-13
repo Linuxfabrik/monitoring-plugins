@@ -30,11 +30,12 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
 try:
     import psutil
 except ImportError as e:
-    lib.base.cu('Python module "psutil" is not installed.')
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024071701'
+__version__ = '2025020401'
 
 DESCRIPTION = """Checks disk I/O. If the bandwidth usage of a disk is above the specified threshold
                  (as a percentage of the maximum bandwidth measured) for a certain period of time,
@@ -153,6 +154,7 @@ def top(count):
     """Get top X processes that generated the most I/O traffic.
     """
     cnt = {}
+    msg = ''
     try:
         for p in [x.as_dict(attrs=['name', 'io_counters']) for x in psutil.process_iter()]:
             if p['io_counters']:
@@ -166,7 +168,7 @@ def top(count):
     #     ('WebKitNetworkProcess', {'r': 1716224, 'w': 0}),
     #     ('ibus-x11', {'r': 0, 'w': 0}), ...
     if not cnt:
-        return ''
+        return msg
     cnt = sorted(cnt.items(), key=lambda x: x[1]['r']+x[1]['w'], reverse=True)
     if cnt[0][1]['r'] + cnt[0][1]['w'] > 0: # don't print "1. any-proc: 0.0B/0.0B (r/w)"
         msg = '\nTop {} processes that generate the most I/O traffic (r/w):\n'.format(count)

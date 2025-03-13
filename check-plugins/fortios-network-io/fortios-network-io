@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024090501'
 
 DESCRIPTION = """This plugin checks network I/O and link states on all interfaces found on a Forti
                  Appliance like FortiGate running FortiOS, using the FortiOS REST API."""
@@ -122,13 +122,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_interface_states_from_db(conn, interface):
+def get_interface_states_from_db(conn, table, interface):
+    table = lib.db_sqlite.__filter_str(table)
     return lib.db_sqlite.select(conn,
         '''
         SELECT *
-        FROM state
+        FROM {}
         WHERE interface = :interface
-        ''',
+        '''.format(table),
         {'interface': interface},
         fetchone=True
     )
@@ -191,9 +192,9 @@ def main():
         data['link'] = int(interface.get('link', 0))
         data['speed'] = interface['speed']
         data['duplex'] = interface['duplex']
-        inventorized, first = get_interface_states_from_db(conn, data['interface'])
+        _, first = get_interface_states_from_db(conn, 'state_{}'.format(args.HOSTNAME), data['interface'])
 
-        if inventorized:
+        if first:  # if inventorized
             # we got something from DB, so there is inventorized data, so compare against current values
             # we want to be informed if
             # * link state changes from true to false
@@ -211,7 +212,7 @@ def main():
         else:
             # network states are not saved at all (first time), so we got `False` (an error) in `inventorized`
             # save the states one time (only if not exist)
-            success, retc = lib.db_sqlite.insert(conn, data, table='state_{}'.format(args.HOSTNAME))
+            _, _ = lib.db_sqlite.insert(conn, data, table='state_{}'.format(args.HOSTNAME))
 
     max_count = args.COUNT*len(result['results'])
     lib.base.coe(lib.db_sqlite.cut(conn, table='perfdata_{}'.format(args.HOSTNAME), _max=max_count))
@@ -280,7 +281,7 @@ def main():
     # over and out
     if not msg_link and not msg_saturation:
         # no warnings, so print the interface with the highest load
-        lib.base.oao(msg_header + '\n' + table, state, perfdata)
+        lib.base.oao(msg_header + '\n\n' + table, state, perfdata)
     lib.base.oao(msg_link + msg_saturation + '\n' + table, state, perfdata)
 
 

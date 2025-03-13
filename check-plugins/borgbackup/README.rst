@@ -25,7 +25,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/borgbackup"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
@@ -43,14 +43,12 @@ Help
     logfile.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the time difference to
-                            the start of the last backup (in hours). Default: None
-      -w WARN, --warning WARN
-                            Set the warning threshold for the time difference to
-                            the start of the last backup (in hours). Default: 24
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      -c, --critical CRIT  Set the critical threshold for the time difference to
+                           the start of the last backup (in hours). Default: None
+      -w, --warning WARN   Set the warning threshold for the time difference to
+                           the start of the last backup (in hours). Default: 24
 
 
 Usage Examples

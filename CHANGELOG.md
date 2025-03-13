@@ -11,30 +11,138 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-### Added
+### Breaking Changes ("!")
+
+Build, CI/CD:
+
+* Due to the new [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) and version string requirements in Windows MSI setup files, the project switches from [calendar versioning](https://calver.org/) to [semantic versioning](https://semver.org/). Project starts at `v1.0.0.0`.
+* Re-implemented `/build` and `/.github` from scratch.
+
+
+Assets:
+
+* Move `/selinux` to `/assets/selinux`
+
+
+Icinga Director:
+
+* all-the-rest.json: Remove Tarifpool-v2 Service Set
+
+
+Monitoring Plugins:
+
+* Since some libraries such as pymysql or openssl have security vulnerabilities for Python 3.6, the project now requires Python 3.9+ to use the plugins in the source code variant.
+* jitsi-videobridge-stats: Remove deprecated values ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
+* jitsi-videobridge-stats: Remove deprecated warning and critical parameters, always returns OK
+
+
+Notification Plugins:
+
+* notify-\*-rocketchat-telegram: Remove Telegram functionality, remove ``-telegram`` suffix
+
+
+### Added ("feat")
+
+Icinga Director:
+
+* all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
+* all-the-rest.json: Add IcingaDB Service Set
+* all-the-rest.json: Add Mastodon Service Set
+* all-the-rest.json: Add Moodle Service Set
+* all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
+* all-the-rest.json: Add rsyslog Service Set
+* all-the-rest.json: Add Ubuntu 24 Service Set
+* all-the-rest.json: Add WHMCS Service Set
+
 
 Monitoring Plugins:
 
 * graylog-version
+* hin-status
+* icinga-topflap-services
+* keycloak-memory-usage
+* keycloak-stats
+* mastodon-version
+* moodle-version
+* openvpn-version
+* scanrootkit
+* statusiq
+* uptimerobot
+* whmcs-status
 
 
-### Changed ("enhancement")
-
-Monitoring Plugins:
-
-* about-me: Determines date of birth of cloud VMs more accurately
-* disk-io: Re-add support for Windows after last rewrite
-* nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
-
-
-### Fixed ("bug")
+### Fixed ("fix")
 
 Icinga Director:
 
 * crypto-policy: New defaults according to LFOps crypto_policy role
+* dhcp-relayed: Binding a socket to all network interfaces
+* disk-io: UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
+* docker-stats: always-ok not referenced ([#839](https://github.com/Linuxfabrik/monitoring-plugins/issues/839))
+* fortios-network-io: Fix reading from local SQLite database
 * mysql-query: Fix director basket
+* needs-restarting: UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
 * service: Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
+* snmp: With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
+* strongswan-connections: check fails if using AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * swap-usage: Fix ProcessLookupError
+
+
+Monitoring Plugins:
+
+* about-me: expanded RAM isn't updating ([#757](https://github.com/Linuxfabrik/monitoring-plugins/issues/757))
+* apache-httpd-status: failure when mod_md is enabled ([#783](https://github.com/Linuxfabrik/monitoring-plugins/issues/783))
+* docker-stats: ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
+* redfish-sel: UnboundLocalError: local variable 'sel_path' referenced before assignment ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
+* whmcs-status: handle null correctly in whmcs api response ([#820](https://github.com/Linuxfabrik/monitoring-plugins/pull/820))
+
+
+### Changed ("refactor", "chore" etc.)
+
+Build, CI/CD:
+
+* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+* Create MSI package for Windows.
+* Switch compilation for Linux from pyinstaller to Nuitka.
+* Switch compilation for Windows from mingw/gcc to MSVC.
+* Switch compilation platform for the .tar.gz/.zip distribution files from CentOS 7 to Ubuntu 20.04.
+* Refactor CI/CD pipeline, move from self-hosted Github runners to runners at Github.
+* Linuxfabrik/lib are now part of the requirements.txt, so no extra checkout needed any more.
+
+
+Icinga Director:
+
+* all-the-rest.json: Make all dmesg Service Sets use sudo
+* all-the-rest.json: Check /var/log/syslog file size in all Debian Service Sets
+* All plugins for Windows: Prepared for msi and changed default path from C:\ProgramData\icinga2\usr\lib64\nagios\plugins to c:\Program Files\icinga2\sbin\linuxfabrik
+* Replace png with svg icons for all plugins
+
+
+Monitoring Plugins:
+
+* about-me: Determines date of birth of cloud VMs more accurately
+* about-me: Add Mastodon detection
+* about-me: Add Moodle detection
+* about-me: Add WHMCS detection
+* dhcp-scope-usage: Ignore PercentageInUse fractions
+* disk-io: Re-add support for Windows after last rewrite
+* disk-usage: Add `--list-fstypes` and `--fstype` for specifying the file system type
+* fail2ban: More compact output (closes #141)
+* file-size: fix help text
+* fs-inodes: Check inode usage on real and different disks. `--mount` parameter is deprecated.
+* infomaniak-events: return CRIT in case of critical events
+* keycloak-version: Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
+* librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
+* mysql-thread-cache: DB daemon must have been running for an hour before the cache hit rate is measured.
+* mysql-version: handle `mysql: Deprecated program name`
+* nextcloud-security-scan: Handle error on https://scan.nextcloud.com/
+* nodebb-stats: In "Last user", don't report the user you login with ([#536](https://github.com/Linuxfabrik/monitoring-plugins/issues/536))
+* openstack-nova-list: No more need for keystoneauth and keystoneclient
+* redis-status: Add `--tls` parameter
+* rhel-version: `--extended-support` checks for "Extended Life Cycle Support" EOL ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
+* rocketchat-version: use EOL library, parameter `--cache-expire` is deprecated
+* systemd-unit: Improve output
+* uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
 
 
 ## 2024060401

@@ -24,7 +24,7 @@ import lib.base  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024011702'
+__version__ = '2025010701'
 
 DESCRIPTION = """This plugin tests if a local or remote DHCP server can offer IPv4 addresses
                  (to a specific subnet).
@@ -32,6 +32,7 @@ DESCRIPTION = """This plugin tests if a local or remote DHCP server can offer IP
                  It only sends a DHCPDISCOVER, not a DHCPREQUEST.
               """
 
+DEFAULT_BIND_ADDRESS = '0.0.0.0'
 DEFAULT_TIMEOUT = 7 # seconds
 
 
@@ -52,6 +53,14 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--bind-address',
+        help='Bind the socket to address. The socket must not already be bound. '
+             'Default: %(default)s',
+        dest='BIND_ADDRESS',
+        default=DEFAULT_BIND_ADDRESS,
     )
 
     parser.add_argument(
@@ -264,7 +273,7 @@ def main():
     dhcps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # Internet, UDP
     dhcps.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     try:
-        dhcps.bind(('', 68)) # we want to send from port 68
+        dhcps.bind((args.BIND_ADDRESS, 68)) # we want to send from port 68
     except PermissionError as e:
         dhcps.close()
         lib.base.oao('Permission error "{}"'.format(e.strerror), STATE_UNKNOWN)

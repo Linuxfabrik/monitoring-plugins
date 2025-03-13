@@ -20,7 +20,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-backup-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -52,18 +52,16 @@ Help
       --cache-expire CACHE_EXPIRE
                             The amount of time after which the cached data
                             expires, in minutes. Default: 1
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the time difference to
+      -c, --critical CRIT   Set the critical threshold for the time difference to
                             the start of the last backup (in hours). Default: None
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Starface PBX address, can be IP address or hostname.
                             Default: localhost
       --port PORT           Starface PBX monitoring port. Default: 6556
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -w WARN, --warning WARN
-                            Set the warning threshold for the time difference to
+      -w, --warning WARN    Set the warning threshold for the time difference to
                             the start of the last backup (in hours). Default: 24
       --ipv6                Use IPv6.
 

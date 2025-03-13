@@ -39,8 +39,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical number of files. Supports ranges.
+      -c, --critical CRIT   Set the critical number of files. Supports ranges.
       --filename FILENAME   File (or directory) name to check. Supports glob in
                             accordance with https://docs.python.org/3/library/path
                             lib.html#pathlib.Path.glob. Beware of using recursive
@@ -57,12 +56,11 @@ Help
       --timerange TIMERANGE
                             Set the timerange (seconds) in which the files should
                             be considered. Supports ranges.
-      -u URL, --url URL     Set the url of the file (or directory) to check,
+      -u, --url URL         Set the url of the file (or directory) to check,
                             starting with "smb://". This is mutually exclusive
                             with --filename.
       --username USERNAME   SMB Username.
-      -w WARN, --warning WARN
-                            Set the warning number of files. Supports ranges.
+      -w, --warning WARN    Set the warning number of files. Supports ranges.
 
 
 Usage Examples

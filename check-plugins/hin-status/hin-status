@@ -1,0 +1,172 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError as e:
+    print('Python module "BeautifulSoup4" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025030801'
+
+DESCRIPTION = """Retrieves the HIN status page from https://support.hin.ch/de/ and searches for
+                 out-of-service messages. Unfortunately there is no machine-readable version yet,
+                 so the plugin has to rely on the WordPress-generated HTML content."""
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 8
+DEFAULT_URL = 'https://support.hin.ch/de/'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='HIN Status Page URL. '
+             'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        html = lib.base.coe(lib.url.fetch(
+            args.URL,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
+    else:
+        # do not call the command, put in test data
+        html, _, _ = lib.lftest.test(args.TEST)
+
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+    except Exception as e:  # pylint: disable=W0718
+        print(f'{e}')
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    cnt_incidents = 0
+
+    if soup.find('div', class_='hin-status-block-status is-ok'):
+        msg += 'Everything is ok.'
+    else:
+        incidents = []
+        try:
+            for incident in soup.find('div', class_='hin-status-block-content').find_all('li'):
+                incidents.append(incident.get_text(strip=True))
+            cnt_incidents = 1
+            state = STATE_WARN
+            msg += f'Incidents: {", ".join(incidents)}. See {args.URL} for details.'
+        except AttributeError:
+            lib.base.oao(f'Cannot parse html at {args.URL}', STATE_UNKNOWN)
+    perfdata += lib.base.get_perfdata(
+        'cnt_incidents',
+        cnt_incidents,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

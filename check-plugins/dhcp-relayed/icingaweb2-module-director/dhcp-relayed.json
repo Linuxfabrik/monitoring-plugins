@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$dhcp_relayed_always_ok$"
                 },
+                "--bind-address": {
+                    "value": "$dhcp_relayed_bind_address$"
+                },
                 "--hostname": {
                     "value": "$dhcp_relayed_hostname$"
                 },
@@ -53,6 +56,11 @@
                     "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -70,6 +78,9 @@
                 "--always-ok": {
                     "set_if": "$dhcp_relayed_windows_always_ok$"
                 },
+                "--bind-address": {
+                    "value": "$dhcp_relayed_windows_bind_address$"
+                },
                 "--hostname": {
                     "value": "$dhcp_relayed_windows_hostname$"
                 },
@@ -86,14 +97,9 @@
                     "value": "$dhcp_relayed_windows_timeout$"
                 }
             },
-            "command": "C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\dhcp-relayed.exe",
+            "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\dhcp-relayed.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 8,
                     "is_required": "n",
@@ -118,6 +124,16 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -132,7 +148,7 @@
         },
         "cmd-check-dhcp-relayed-windows-python": {
             "arguments": {},
-            "command": "C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\dhcp-relayed.py",
+            "command": "C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\dhcp-relayed.py",
             "disabled": false,
             "fields": [],
             "imports": [
@@ -172,7 +188,7 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "dhcp-relayed.png",
+            "icon_image": "dhcp-relayed.svg",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
@@ -190,6 +206,7 @@
             "vars": {
                 "criticality": "C",
                 "dhcp_relayed_always_ok": false,
+                "dhcp_relayed_bind_address": "0.0.0.0",
                 "dhcp_relayed_timeout": 7
             },
             "volatile": null,
@@ -219,7 +236,7 @@
             "flapping_threshold_low": null,
             "groups": [],
             "host": null,
-            "icon_image": "dhcp-relayed.png",
+            "icon_image": "dhcp-relayed.svg",
             "icon_image_alt": null,
             "imports": [
                 "tpl-service-generic"
@@ -237,6 +254,7 @@
             "vars": {
                 "criticality": "C",
                 "dhcp_relayed_windows_always_ok": false,
+                "dhcp_relayed_windows_bind_address": "0.0.0.0",
                 "dhcp_relayed_windows_timeout": 7
             },
             "volatile": null,
@@ -255,6 +273,17 @@
             "uuid": "780c9a45-836c-4608-9542-b701616f1b30"
         },
         "2": {
+            "varname": "dhcp_relayed_bind_address",
+            "caption": "Dhcp Relayed: Bind Address",
+            "description": "Bind the socket to address. The socket must not already be bound.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bd1d4f10-d900-49d1-b3b3-b8a1c3072a86"
+        },
+        "3": {
             "varname": "dhcp_relayed_hostname",
             "caption": "Dhcp Relayed: Hostname",
             "description": "DHCP server address, can be IP address or hostname.",
@@ -265,7 +294,7 @@
             },
             "uuid": "6d27e7ff-6626-4e8b-a276-69184f67b9e3"
         },
-        "3": {
+        "4": {
             "varname": "dhcp_relayed_mac",
             "caption": "Dhcp Relayed: Mac",
             "description": "Network MAC address to use. Doesn't have to be an existing MAC address. If you specify `--mac=random`, a random MAC address will be used. If omitted, the hardware address is obtained as described in https://docs.python.org/3/library/uuid.html#uuid.getnode.",
@@ -276,7 +305,7 @@
             },
             "uuid": "5d161f04-ae79-4f2a-959e-217c8820e250"
         },
-        "4": {
+        "5": {
             "varname": "dhcp_relayed_subnet_mask",
             "caption": "Dhcp Relayed: Subnet Mask",
             "description": "The subnet mask option specifies the client's subnet mask. Example: 255.255.255.248.",
@@ -287,7 +316,7 @@
             },
             "uuid": "58bf7315-1ef6-4c17-81cc-f1738942c834"
         },
-        "5": {
+        "6": {
             "varname": "dhcp_relayed_subnet_selection",
             "caption": "Dhcp Relayed: Subnet Selection",
             "description": "The subnet selection option would override a DHCP server's normal methods of selecting the subnet on which to allocate an address for a client. Example: 192.168.122.0.",
@@ -298,7 +327,7 @@
             },
             "uuid": "34ebe10c-abb0-49d9-bdd5-d1c1d583c604"
         },
-        "6": {
+        "7": {
             "varname": "dhcp_relayed_timeout",
             "caption": "Dhcp Relayed: Timeout",
             "description": "Network timeout in seconds.",
@@ -309,7 +338,7 @@
             },
             "uuid": "de9f8eaf-bc4a-4d1d-8c0e-0102c769ce90"
         },
-        "7": {
+        "8": {
             "varname": "dhcp_relayed_windows_always_ok",
             "caption": "Dhcp Relayed: Always OK?",
             "description": "Always returns OK.",
@@ -318,7 +347,18 @@
             "settings": {},
             "uuid": "3688f108-022f-48a9-bd8f-6a8b0b69d678"
         },
-        "8": {
+        "9": {
+            "varname": "dhcp_relayed_windows_bind_address",
+            "caption": "Dhcp Relayed: Bind Address",
+            "description": "Bind the socket to address. The socket must not already be bound.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9c148784-44f8-4d0b-9b4e-6ad1a239deed"
+        },
+        "10": {
             "varname": "dhcp_relayed_windows_hostname",
             "caption": "Dhcp Relayed: Hostname",
             "description": "DHCP server address, can be IP address or hostname.",
@@ -329,7 +369,7 @@
             },
             "uuid": "64d598bf-cac4-4ecf-adeb-caa2b5d289ff"
         },
-        "9": {
+        "11": {
             "varname": "dhcp_relayed_windows_mac",
             "caption": "Dhcp Relayed: Mac",
             "description": "Network MAC address to use. Doesn't have to be an existing MAC address. If you specify `--mac=random`, a random MAC address will be used. If omitted, the hardware address is obtained as described in https://docs.python.org/3/library/uuid.html#uuid.getnode.",
@@ -340,7 +380,7 @@
             },
             "uuid": "e2ea1619-4c62-4248-98dc-2b8b1bc4faf8"
         },
-        "10": {
+        "12": {
             "varname": "dhcp_relayed_windows_subnet_mask",
             "caption": "Dhcp Relayed: Subnet Mask",
             "description": "The subnet mask option specifies the client's subnet mask. Example: 255.255.255.248.",
@@ -351,7 +391,7 @@
             },
             "uuid": "63a4e2b3-331b-4493-ba65-41236f5c62ef"
         },
-        "11": {
+        "13": {
             "varname": "dhcp_relayed_windows_subnet_selection",
             "caption": "Dhcp Relayed: Subnet Selection",
             "description": "The subnet selection option would override a DHCP server's normal methods of selecting the subnet on which to allocate an address for a client. Example: 192.168.122.0.",
@@ -362,7 +402,7 @@
             },
             "uuid": "7e7a8aeb-55c4-4efe-8ab8-bf1103b4f9f2"
         },
-        "12": {
+        "14": {
             "varname": "dhcp_relayed_windows_timeout",
             "caption": "Dhcp Relayed: Timeout",
             "description": "Network timeout in seconds.",

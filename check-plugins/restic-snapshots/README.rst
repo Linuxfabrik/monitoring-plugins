@@ -18,10 +18,10 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-snapshots"
     "Check Interval Recommendation",        "Once a day"
-    "Can be called without parameters",     "Yes"
+    "Can be called without parameters",     "No"
     "Compiled for",                         "Linux, Windows"
 
 
@@ -32,16 +32,15 @@ Help
 
     usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
                             [--host HOST] [--latest LATEST] [--lengthy]
-                            [--password-file PASSWORD_FILE] [--path PATH] --repo
-                            REPO [--tag TAG] [--test TEST] [-w WARN]
+                            [--password-file PASSWORD_FILE] [--path PATH]
+                            --repo REPO [--tag TAG] [--test TEST] [-w WARN]
 
     Check the age of the newest restic repository snapshot.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the time difference to
+      -c, --critical CRIT   Set the critical threshold for the time difference to
                             the start of the last backup (in each group) (in
                             hours). Default: None
       --group-by GROUP_BY   String for grouping snapshots by host,paths,tags.
@@ -61,8 +60,7 @@ Help
                             times).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold for the time difference to
+      -w, --warning WARN    Set the warning threshold for the time difference to
                             the start of the last backup (in each group) (in
                             hours). Default: 24
 
@@ -74,7 +72,14 @@ Just show the latest three snapshots for host www.example.com, grouped by hosts,
 
 .. code-block:: bash
 
-    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='hosts,tags,paths' --warn=8 --lengthy
+    ./restic-snapshots \
+        --repo=/path/to/restic-repo \
+        --password-file=/path/to/restic-pwd \
+        --host=www.example.com \
+        --latest=3 \
+        --group-by='hosts,tags,paths' \
+        --warning=8 \
+        --lengthy
 
 Output:
 
@@ -101,7 +106,13 @@ The same check on the same restic repo, but without grouping - here the result i
 
 .. code-block:: bash
 
-    ./restic-snapshots --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd --host=www.example.com --latest=3 --group-by='' --warn=8
+    ./restic-snapshots \
+        --repo=/path/to/restic-repo \
+        --password-file=/path/to/restic-pwd \
+        --host=www.example.com \
+        --latest=3 \
+        --group-by='' \
+        --warning=8
 
 Output:
 
@@ -116,6 +127,17 @@ Output:
     a5cae06b ! 2022-12-05 09:45:00 ! 17m 38s ! www.example.com       ! /home ! tagA 
     34751e52 ! 2022-12-04 16:10:05 ! 17h 52m ! www.example.com       ! /home !      
     f958e789 ! 2022-12-04 16:08:51 ! 17h 53m ! www.example.com       ! /home !      
+
+A restic snapshot check via SFTP:
+
+.. code-block:: bash
+
+    ./restic-snapshots \
+        --repo=sftp://user123@linuxfabrik.your-storagebox.de:23//home/user123/myserver \
+        --password-file=/home/user123/restic_passwords/myserver.txt \
+        --latest=3 \
+        --warning=30 \
+        --critical=60
 
 
 States

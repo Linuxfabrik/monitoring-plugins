@@ -17,7 +17,7 @@ import sys  # pylint: disable=C0413
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
@@ -25,11 +25,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.cu('Python module "psutil" is not installed.')
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025021501'
 
 DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
                 further development, and much more text to help admins get this check up and
@@ -47,7 +48,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -122,7 +123,7 @@ def main():
             lib.base.cu(stderr)
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     # init some vars
     msg = ''

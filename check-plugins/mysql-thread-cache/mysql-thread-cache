@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2024112201'
 
 DESCRIPTION = """Checks the number of threads MySQL/MariaDB caches for re-use."""
 
@@ -97,6 +97,7 @@ def get_status(conn):
         show global status
         where variable_name like 'Connections'
             or variable_name like 'Threads_created'
+            or variable_name like 'Uptime'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
@@ -154,7 +155,10 @@ def main():
                 lib.human.number2human(mystat['Threads_created']),
                 lib.human.number2human(mystat['Connections']),
             )
-            if mycalc['thread_cache_hit_rate'] <= 50:
+            if int(mystat['Uptime']) < 3600:
+                # only alert if cache is warmed up
+                msg += '. Cache is warming up.'
+            elif mycalc['thread_cache_hit_rate'] <= 50:
                 state = STATE_WARN
                 msg += '{}. Set thread_cache_size > {}.'.format(
                     lib.base.state2str(state, prefix=' '),

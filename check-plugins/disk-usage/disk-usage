@@ -24,11 +24,12 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.cu('Python module "psutil" is not installed.')
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025020401'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -75,7 +76,7 @@ def parse_args():
 
     parser.add_argument(
         '--exclude-pattern',
-        help='Any line matching this pattern (case-insensitive) will count as a exclude. '
+        help='Any mountpoint matching this pattern (case-insensitive) will count as an exclude. '
              'The mountpoint is excluded if it contains the specified value. '
              'Example: "boot" excludes "/boot" as well as "/boot/efi". '
              'Can be specified multiple times. '
@@ -88,7 +89,8 @@ def parse_args():
 
     parser.add_argument(
         '--exclude-regex',
-        help='Any line matching this python regex (case-insensitive) will count as a exclude. '
+        help='Any mountpoint matching this python regex (case-insensitive) will count '
+             'as an exclude. '
              'Can be specified multiple times. '
              'On Windows, use drive letters without backslash ("Y:" or "Y"). '
              'Includes are matched before excludes.',
@@ -98,8 +100,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--fstype',
+        help='By default, this plugin only checks physical devices (e.g. hard disks, '
+             'CD-ROM drives, USB keys) and ignores all others (e.g. pseudo, memory, duplicate, '
+             'inaccessible file systems). You can override this behaviour with this parameter by '
+             'specifying which file system types should be checked explicitly. '
+             'Can be specified multiple times. '
+             'To get a list of file system types you can specify, run `disk-usage --list-fstype` '
+             'first (as file system types are machine dependent).',
+        dest='FSTYPE',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
         '--include-pattern',
-        help='Any line matching this pattern (case-insensitive) will count as a include. '
+        help='Any mountpoint matching this pattern (case-insensitive) will count as an include. '
              'The mountpoint is included if it contains the specified value. '
              'Example: "boot" includes "/boot" as well as "/boot/efi". '
              'Can be specified multiple times. '
@@ -112,13 +128,22 @@ def parse_args():
 
     parser.add_argument(
         '--include-regex',
-        help='Any line matching this python regex (case-insensitive) will count as a include. '
+        help='Any mountpoint matching this python regex (case-insensitive) will count '
+             'as an include. '
              'Can be specified multiple times. '
              'On Windows, use drive letters without backslash ("Y:" or "Y"). '
              'Includes are matched before excludes.',
         dest='INCLUDE_REGEX',
         action='append',
         default=[],
+    )
+
+    parser.add_argument(
+        '--list-fstypes',
+        help='Show which file system types are available and which are checked by default.',
+        dest='LIST_FSTYPES',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -169,6 +194,41 @@ def compile_regex(regex, what):
         )
 
 
+def list_fstypes():
+    """Print a nice table showing which file system types exist and which are checked by default.
+    """
+    # get all partitions, no matter which ones
+    parts = psutil.disk_partitions(all=True)
+    table_data = []
+    for part in parts:
+        table_data.append({
+            'fstype': part.fstype,
+            'mountpoint': part.mountpoint,
+            'device': part.device,
+            'checked': False,
+        })
+
+    # get which ones are checked by default
+    try:
+        parts = psutil.disk_partitions(all=False)
+    except AttributeError:
+        pass
+    for i, item in enumerate(table_data):
+        for part in parts:
+            if part.mountpoint == item['mountpoint']:
+                table_data[i]['checked'] = True
+                continue
+
+    # sort table by fstype, mountpoint
+    keys = [
+      'fstype',
+      'mountpoint',
+      'device',
+      'checked'
+    ]
+    lib.base.oao(lib.base.get_table(table_data, keys, header=keys, sort_by_key='fstype'), STATE_OK)
+
+
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -183,27 +243,31 @@ def main():
         float(args.WARN[0])
         float(args.CRIT[0])
     except ValueError:
-        lib.base.oao(
-            'Invalid parameter value.',
-            STATE_UNKNOWN,
-        )
-    compiled_include_regex = compile_regex(args.INCLUDE_REGEX, 'include-regex')
-    compiled_exclude_regex = compile_regex(args.EXCLUDE_REGEX, 'exclude-regex')
-    compiled_perfdata_regex = compile_regex(args.PERFDATA_REGEX, 'perfdata-regex')
+        lib.base.cu('Invalid parameter value.')
+
+    # show partition information and exit
+    if args.LIST_FSTYPES:
+        list_fstypes()
 
     # init some vars
     state = STATE_OK
     perfdata = ''
     table_data = []
+    compiled_include_regex = compile_regex(args.INCLUDE_REGEX, 'include-regex')
+    compiled_exclude_regex = compile_regex(args.EXCLUDE_REGEX, 'exclude-regex')
+    compiled_perfdata_regex = compile_regex(args.PERFDATA_REGEX, 'perfdata-regex')
 
     # analyze data
-    try:
-        parts = psutil.disk_partitions(all=False)
-    except AttributeError:
-        lib.base.oao(
-            'Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).',
-            STATE_UNKNOWN,
-        )
+    if args.FSTYPE:
+        # user wants to check file system types on his own
+        parts = psutil.disk_partitions(all=True)
+    else:
+        # default behaviour - check physical devices only (e.g. hard disks, cd-rom drives, USB keys)
+        # and ignore all others (e.g. pseudo, memory, duplicate, inaccessible filesystems)
+        try:
+            parts = psutil.disk_partitions(all=False)
+        except AttributeError:
+            lib.base.cu('Did not find physical devices (e.g. hard disks, cd-rom drives, USB keys).')
 
     for part in parts:
         # sdiskpart(device='/dev/vda2', mountpoint='/', fstype='ext4', opts='rw,relatime')
@@ -214,8 +278,14 @@ def main():
         #   opts='ro,nosuid,nodev,relatime,uid=0,gid=0,iocharset=utf8,mode=0400,dmode=0500'
         # )
         # ignore `/snap`, iso mountpoints and cdroms (UDF = universal disk format)
-        if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
-            continue
+        if args.FSTYPE:
+            # user wants to check file system types on his own
+            if part.fstype not in args.FSTYPE:
+                continue
+        else:
+            # default behaviour - ignore read-only and some other filesystems
+            if part.fstype in ['CDFS', 'iso9660', 'squashfs', 'UDF'] or part.opts in ['cdrom']:
+                continue
 
         # include (first) and exclude (second) specific partitions
         # hint: we can't do `if not part or part.mountpoint in args.IGNORE:` because it is

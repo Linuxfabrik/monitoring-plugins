@@ -53,7 +53,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statuspal"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -144,7 +144,13 @@ States
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+
+    Name,                                       Type,               Description                                           
+    cnt_crit,                                   Number,             Number of critical events
+    cnt_warn,                                   Number,             Number of warning events
 
 
 Credits, License

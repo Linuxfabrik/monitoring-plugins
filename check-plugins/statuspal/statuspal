@@ -14,19 +14,25 @@
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
-import flatdict  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
+try:
+    import flatdict  # pylint: disable=C0413
+except ImportError as e:
+    print('Python module "flatdict" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2025030801'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -140,7 +146,7 @@ def concat_values(mydict, hierarchy):
 def statuspalstate2state(sps):
     """Convert Statuspal's incident level to the Nagios world.
     """
-    if sps is None or sps == 'scheduled':
+    if sps is None or sps == 'scheduled' or sps == 'info':
         return STATE_OK
     if sps == 'minor':
         return STATE_WARN
@@ -171,7 +177,7 @@ def main():
         ))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     try:
@@ -182,6 +188,9 @@ def main():
     # init some vars
     msg = ''
     state = statuspalstate2state(result['status_page']['current_incident_type'])
+    perfdata = ''
+    table_data = []
+    cnt_warn, cnt_crit = 0, 0
 
     # analyze data and build the message
 
@@ -215,16 +224,20 @@ def main():
 
     # services - search for any incidents in services
     flattened_result = flatdict.FlatterDict(result['services'])
-    table_data = []
-    tmp = {}
+    item = {}
     for key, value in flattened_result.items():
         if key.endswith(':name'):
-            tmp['name'] = concat_values(flattened_result, key)
+            item['name'] = concat_values(flattened_result, key)
         if key.endswith(':current_incident_type'):
-            tmp['state'] = lib.base.state2str(statuspalstate2state(value), empty_ok=False)
-        if len(tmp) == 2:
-            table_data.append(tmp)
-            tmp = {}
+            item['state'] = statuspalstate2state(value)
+            if item['state'] == STATE_WARN:
+                cnt_warn += 1
+            if item['state'] == STATE_CRIT:
+                cnt_crit += 1
+            item['state'] = lib.base.state2str(item['state'], empty_ok=False)
+        if len(item) == 2:
+            table_data.append(item)
+            item = {}
     if table_data:
         msg += '\n\n'
         msg += lib.base.get_table(
@@ -283,9 +296,27 @@ def main():
             ['title', 'type', 'starts_at', 'ends_at'],
             header=['Upcoming Maintenance', 'Type', 'Start', 'End'],
         )
+    perfdata += lib.base.get_perfdata(
+        'cnt_warn',
+        cnt_warn,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cnt_crit',
+        cnt_crit,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
 
     # over and out
-    lib.base.oao(msg, state, '', always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

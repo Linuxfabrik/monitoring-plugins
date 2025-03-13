@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/pip-updates"
     "Check Interval Recommendation",        "Once a week"
     "Can be called without parameters",     "No"
@@ -41,8 +41,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of pending
+      -c, --critical CRIT   Set the critical threshold for the number of pending
                             updates. Default: 100
       --exclude EXCLUDE     Exclude specified package from the output.
       --extra-index-url EXTRA_INDEX_URL
@@ -75,8 +74,7 @@ Help
                             Path to the virtualenv that will be activated before
                             checking for updates. Example: `/opt/sphinx-
                             venv/bin/activate`
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of pending
+      -w, --warning WARN    Set the warning threshold for the number of pending
                             updates. Default: 10
 
 
@@ -91,7 +89,7 @@ Output:
 
 .. code-block:: text
 
-    venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && pip list --outdated --format=json --exclude=boto3 --exclude=pip --local`
+    venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `source /path/to/my/venv/bin/activate && python3 -m pip list --outdated --format=json --exclude=boto3 --exclude=pip --local`
 
     Package  ! Version ! Latest  ! Type  
     ---------+---------+---------+-------
@@ -135,7 +133,7 @@ This indicates that your version of ``pip`` is below 20.3:
         if dist.latest_version > dist.parsed_version
     TypeError: '>' not supported between instances of 'Version' and 'Version'
 
-So simply upgrade by using ``pip3 install --upgrade pip``.
+So simply upgrade by using ``python3 -m pip install --upgrade pip``.
 
 
 Credits, License

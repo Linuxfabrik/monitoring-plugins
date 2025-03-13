@@ -24,9 +24,7 @@ All plugins are written in Python and will be licensed under the [UNLICENSE](htt
 Setting up your development environment
 ---------------------------------------
 
-All plugins are coded in Python. Use at least Python 3.6 and max. Python 3.8 for development.
-
-Simply clone the libraries and monitoring plugins and start working:
+All plugins are coded using Python 3.9. Simply clone the libraries and monitoring plugins and start working:
 
 .. code:: bash
 
@@ -39,22 +37,23 @@ Deliverables
 
 Checklist:
 
-* The plugin itself.
-* A nice 16x16 transparent PNG icon, for example based on https://simpleicons.org or font-awesome (not in Git, will be put for download on https://download.linuxfabrik.ch).
-* README file explaining "How?" and Why?"
+* The plugin itself, tested on RHEL and Debian.
+* README file explaining "How?" and "Why?"
+* A free, monochrome, transparent SVG icon from https://simpleicons.org or https://fontawesome.com/search?ic=free, placed in the ``icon`` directory.
 * Optional: ``unit-test/run`` - the unittest file (see `Unit Tests <#unit-tests>`_)
 * Optional: ``requirements.txt``
 * If providing performance data: Grafana dashboard (see `GRAFANA <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst>`_) and ``.ini`` file for the Icinga Web 2 Grafana Module
-* Icinga Director Basket Config for the check plugin
+* Icinga Director Basket Config for the check plugin (``check2basket``)
 * Icinga Service Set in ``all-the-rest.json``
 * Optional: sudoers file (see `sudoers File <#sudoers-file>`_)
-* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color ``#f5f9fa``, hosted on `download.linuxfabrik.ch <https://download.linuxfabrik.ch/monitoring-plugins/screenshots/>`_, and listed alphabetically in the projects `README <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md>`_.
+* Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color ``#f5f9fa``, hosted on `download.linuxfabrik.ch <https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/>`_, and listed alphabetically in the projects `README <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md>`_.
 * CHANGELOG
 
 
 Rules of Thumb
 --------------
 
+* Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a ``--lengthy`` parameter.
 * The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
 * Develop with a minimal Linux in mind.
 * Develop with Icinga2 in mind.
@@ -88,7 +87,7 @@ Short:
 The theory:
 
 * Data coming into your plugins must be bytes, encoded with ``UTF-8``.
-* Decode incoming bytes as soon as possible (best within the libraries), producing unicode.
+* Decode incoming bytes as soon as possible (best by using the ``txt`` library), producing unicode.
 * **Use unicode throughout your plugin.**
 * When outputting data, use library functions, they should do output conversions for you. Library functions like ``base.oao`` or ``url.fetch_json`` will take care of the conversion to and from bytes.
 
@@ -119,7 +118,7 @@ There are a few Nagios-compatible reserved options that should not be used for o
     -v, --verbose           verbose
     -w, --warning           warning threshold
 
-For all other options, use long parameters only. Separate words using a ``-``. We recommend using some of those:
+For all other options, use long parameters only. Separate words using a ``-``. We recommend using some out of those:
 
 .. code-block:: text
 
@@ -265,9 +264,21 @@ Lessons learned: When it comes to parameters, stay backwards compatible. If you 
 Git Commits
 -----------
 
-* Commit messages must start with "plugin-name: " and clearly and precisely state what has changed. Example: ``about-me: Should be able to run even if psutil is or cannot be installed``.
-* If there is an issue, the commit message must consist of the issue title followed by "(fix #issueno)", for example: ``about-me: Add OpenVPN (fix #341)``.
+* | Since 2024-11-13, commit messages follow the `Conventional Commits specification <https://www.conventionalcommits.org/en/v1.0.0/>`_ (``<type>(<scope>): <subject>``)
+  | Example: ``fix(about-me): cryptography deprecation warning``.
+* If there is an issue, the commit message must consist of the issue title followed by "(fix #issueno)", for example: ``fix(about-me): cryptography deprecation warning (fix #341)``.
 * For the first commit, use the message ``Add <plugin-name>``.
+
+``<type>`` must be one of the following:
+
+* chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+* docs: Documentation only changes
+* feat: A new feature
+* fix: A bug fix
+* perf: A code change that improves performance
+* refactor: A code change that neither fixes a bug nor adds a feature
+* style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+* test: Adding missing tests
 
 
 Threshold and Ranges
@@ -340,6 +351,25 @@ Error Handling
 * A function calling a function with such an extended error handling has to return a ``(retc, result)`` tuple itself.
 * In ``main()`` you can use ``lib.base.coe()`` to simplify error handling.
 * Have a look at ``nextcloud-version`` for details.
+
+By the way, when running the compiled variants, this gives the nice and intended error if the module is missing:
+
+.. code-block:: python
+
+    try:
+        import psutil  # pylint: disable=C0413
+    except ImportError:
+        print('Python module "psutil" is not installed.')
+        sys.exit(STATE_UNKNOWN)
+
+while this leads to an ugly multi-exception stacktrace:
+
+.. code-block:: python
+
+    try:
+        import psutil  # pylint: disable=C0413
+    except ImportError:
+        lib.base.cu('Python module "psutil" is not installed.')
 
 
 Plugin Output
@@ -444,16 +474,18 @@ To help sort the ``import``-statements we use ``isort``:
 Unit Tests
 ----------
 
-Implementing tests:
+Unit tests are implemented using the ``unittest`` framework (`https://docs.python.org/3/library/unittest.html <https://docs.python.org/3/library/unittest.html>`_). Have a look at the ``fs-ro`` plugin on how to implement unit tests. Rules of thumb:
 
-* | Use the ``unittest`` framework (`https://docs.python.org/3/library/unittest.html <https://docs.python.org/3/library/unittest.html>`_).
-  | Within your ``unit-test/run`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions
-   against stdout, stderr and retc.
+* Within your ``unit-test/run`` file, call the plugin as a bash command, capture stdout, stderr and its return code (retc), and run your assertions against stdout, stderr and retc.
 * To test a plugin that needs to run some tools that aren't on your machine or that can't provide special output, provide stdout/stderr files in ``unit-test/stdout``, ``unit-test/stderr`` and/or ``unit-test/retc`` and a ``--test`` parameter to feed ``stdout/stdout-file,stderr/stderr-file,expected-retc`` into your plugin.  If you get the ``--test`` parameter, skip the execution of your bash/psutil/whatever function.
 
-For example, have a look at the ``fs-ro`` plugin on how to do this.
+If you want to implement unit tests based on containers, the following rules apply:
 
-Running a complete unit test:
+* Each container file does everything necessary to set up a running environment for the check plugin (e.g. install Python if you want to run the plugin inside the container).
+* The ``./run`` unit test simply calls podman and, for each containerfile found, builds the container, injects the libs and the check plugin, and runs the tests - but does not modify the container in any other way.
+* See the ``keycloak-version`` plugin for how to do this.
+
+Running a unit test:
 
 .. code:: bash
 
@@ -683,3 +715,12 @@ Supports human-readable Nagios ranges for durations:
 Differentiates between Windows and Linux (search for ``lib.base.LINUX`` or ``lib.base.WINDOWS``):
 
 * `users <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users>`_
+
+Unit tests use Docker/Podman to test against a range of versions or a reange of operating systems / OS's:
+
+* `cpu-usage <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage>`_
+* `keycloak-version <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version>`_ (checking the filesystem in the container as well as the API)
+
+Read ini files (example use case: password file parsing):
+
+* `icinga-topflap-services <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services>`_

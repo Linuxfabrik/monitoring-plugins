@@ -32,7 +32,7 @@ spec:
       # hard-coded "ping" here to get a list of all possible hosts direct from InfluxDB
       # without the need to use a second data source like MariaDB
       query: SHOW TAG VALUES FROM "cmd-check-ping" WITH KEY = "hostname"
-      refresh: 2
+      refresh: 1
       sort: 1
       type: query
     - label: Service
@@ -87,7 +87,7 @@ spec:
       - params:
         - 'null'
         type: fill
-      measurement: /^$command$/
+      measurement: $command
       select:
       - - params:
           - value
@@ -96,9 +96,9 @@ spec:
           type: mean
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
-        operator: =~
-        value: /^$service$/
+        operator: '='
+        value: $service

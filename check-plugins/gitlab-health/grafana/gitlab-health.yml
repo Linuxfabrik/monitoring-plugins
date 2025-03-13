@@ -24,15 +24,25 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-gitlab-health
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*gitlab-health.*/
+      current:
+        text: cmd-check-gitlab-health
+        value: cmd-check-gitlab-health
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-gitlab-health" WITH KEY = "hostname"
-      refresh: 2
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
 
@@ -93,7 +103,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       resultFormat: time_series
       select:
       - - params:
@@ -103,12 +113,12 @@ spec:
           type: mean
       tags:
       - key: hostname
-        operator: '=~'
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: GitLab Health
+        value: $service
       - condition: AND
         key: metric
         operator: '='

@@ -17,18 +17,19 @@ import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
 
 try:
     import psutil  # pylint: disable=C0413
 except ImportError:
-    lib.base.cu('Python module "psutil" is not installed.')
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024070902'
+__version__ = '2025021501'
 
 DESCRIPTION = '''Checks the state of one or more Windows services. You have to provide the
                  case-insensitive "Service Name", not the "Display Name". Supports Python regular
@@ -172,7 +173,7 @@ def main():
                     table_data.append(s.as_dict())
         else:
             # do not call the command, put in test data
-            stdout, _, _ = lib.test.test(args.TEST)
+            stdout, _, _ = lib.lftest.test(args.TEST)
             for s in stdout.splitlines():
                 name, display_name, status, start_type = s.split(', ')
                 if start_type not in args.STARTTYPE:

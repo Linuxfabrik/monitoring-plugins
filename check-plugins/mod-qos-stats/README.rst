@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mod-qos-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -44,7 +44,7 @@ Help
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-      -u URL, --url URL  mod_qos Status URL. Default: http://localhost/qos-status
+      -u, --url URL      mod_qos Status URL. Default: http://localhost/qos-status
 
 
 Usage Examples

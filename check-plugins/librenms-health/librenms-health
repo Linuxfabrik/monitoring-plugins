@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024032903'
+__version__ = '2024090301'
 
 DESCRIPTION = """This check plugin retrieves sensor information for each device
                  from a LibreNMS instance.
@@ -35,7 +35,7 @@ DESCRIPTION = """This check plugin retrieves sensor information for each device
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_INSECURE = False
-DEFAULT_LENGTHY = True
+DEFAULT_LENGTHY = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_URL = 'http://localhost'
@@ -114,7 +114,7 @@ def parse_args():
 
     parser.add_argument(
         '--lengthy',
-        help='Extended reporting.',
+        help='Extended reporting. ',
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
@@ -154,6 +154,7 @@ def main():
     state = STATE_OK
     perfdata = ''
     alert_count = 0
+    sensors_count = 0
 
     # fetch data
     sql = '''
@@ -207,6 +208,7 @@ def main():
     sql += ' ORDER BY d.hostname, s.sensor_class'
     sensors = lib.base.coe(lib.db_mysql.select(conn, sql, data))
     lib.db_mysql.close(conn)
+    sensors_count = len(sensors)
 
     # enrich and analyse data
     for i, sensor in enumerate(sensors):
@@ -234,23 +236,30 @@ def main():
         )
         state = lib.base.get_worst(local_state, state)
 
+    # filter data if compact layout is choosen (just get everything that is not ok)
+    if not args.LENGTHY:
+        # brief data
+        sensors = [sensor for sensor in sensors if sensor['state'] != '[OK]']
+
     # build the message
-    msg = 'Checked {} {}.'.format(
-        len(sensors),
-        lib.txt.pluralize('sensor', len(sensors)),
-    )
-    if state != STATE_OK:
-        msg += ' There {} {} {}.'.format(
+    if state == STATE_OK:
+        msg = 'Everything is ok. '
+    else:
+        msg = 'There {} {} {}. '.format(
             lib.txt.pluralize('', alert_count, 'is,are'),
             alert_count,
             lib.txt.pluralize('alert', alert_count),
         )
+    msg += 'Checked {} {}.'.format(
+        sensors_count,
+        lib.txt.pluralize('sensor', sensors_count),
+    )
     msg += '\n\n'
 
-    perfdata += lib.base.get_perfdata('sensor_count', len(sensors), None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('sensor_count', sensors_count, None, None, None, 0, None) # pylint: disable=C0301
     perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None) # pylint: disable=C0301
 
-    if len(sensors) > 0:
+    if sensors_count > 0:
         if not args.LENGTHY:
             msg += lib.base.get_table(
                 sensors,

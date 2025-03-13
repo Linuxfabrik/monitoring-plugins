@@ -34,7 +34,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -55,26 +55,24 @@ Help
     php.ini directives.
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold for Opcache usage as a
-                            percentage. Default: >= None
-      --config CONFIG       "key=value" pairs to check (startswith), for example
-                            `--config "memory_limit=128M"` (repeating)
-      --dev                 Be more tolerant in development environments: Allow
-                            `display_errors=On` and `display_startup_errors=On`.
-      --module MODULES      "modulename" to check (startswith), for example
-                            `--module json --module mbstring` (repeating)
-      --insecure            This option explicitly allows to perform "insecure"
-                            SSL connections. Default: False
-      --no-proxy            Do not use a proxy. Default: False
-      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      --url URL             URL to optional PHP `monitoring.php` script.
-      -w WARN, --warning WARN
-                            Set the WARN threshold for Opcache usage as a
-                            percentage. Default: >= 90
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      --always-ok          Always returns OK.
+      -c, --critical CRIT  Set the CRIT threshold for Opcache usage as a
+                           percentage. Default: >= None
+      --config CONFIG      "key=value" pairs to check (startswith), for example
+                           `--config "memory_limit=128M"` (repeating)
+      --dev                Be more tolerant in development environments: Allow
+                           `display_errors=On` and `display_startup_errors=On`.
+      --module MODULES     "modulename" to check (startswith), for example
+                           `--module json --module mbstring` (repeating)
+      --insecure           This option explicitly allows to perform "insecure" SSL
+                           connections. Default: False
+      --no-proxy           Do not use a proxy. Default: False
+      --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
+      --url URL            URL to optional PHP `monitoring.php` script.
+      -w, --warning WARN   Set the WARN threshold for Opcache usage as a
+                           percentage. Default: >= 90
 
 
 Usage Examples

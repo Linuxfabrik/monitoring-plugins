@@ -41,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024071601'
+__version__ = '2025030201'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -304,6 +304,7 @@ def get_lftags():
         {'sw': 'H-Net eFaktura', 'package': [], 'expr': [run_cmd('systemctl is-enabled hnet-securesvc.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'HAProxy', 'package': [], 'expr': [run_cmd('systemctl is-enabled haproxy.service', ignore_output=True)]}, # pylint: disable=C0301
         # {'sw': 'Huawei Dorado', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'IcingaDB', 'package': [], 'expr': [run_cmd('systemctl is-enabled icingadb.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'InfluxDB', 'package': [], 'expr': [run_cmd('systemctl is-enabled influxdb.service', ignore_output=True)]}, # pylint: disable=C0301
         # {'sw': 'Infomaniak Swiss Backup', 'package': [], 'expr': []}, # pylint: disable=C0301
         {'sw': 'IPMI', 'package': ['ipmitool'], 'expr': []}, # pylint: disable=C0301
@@ -323,6 +324,15 @@ def get_lftags():
         # {'sw': 'MariaDB Replication', 'package': [], 'expr': []}, # pylint: disable=C0301
         # {'sw': 'MariaDB Schemas', 'package': [], 'expr': []}, # pylint: disable=C0301
         # {'sw': 'MariaDB Security', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {
+            'sw': 'Mastodon',
+            'package': [],
+            'expr': [
+                run_cmd('systemctl is-enabled mastodon-sidekiq.service', ignore_output=True),
+                run_cmd('systemctl is-enabled mastodon-streaming.service', ignore_output=True),
+                run_cmd('systemctl is-enabled mastodon-web.service', ignore_output=True),
+            ]
+        },
         {'sw': 'Matomo', 'package': [], 'expr': [os.path.isdir('/var/www/matomo'), os.path.isdir('/var/www/html/matomo'), os.path.isdir('/var/www/html/piwik')]}, # pylint: disable=C0301
         {'sw': 'MediaWiki', 'package': [], 'expr': [os.path.isdir('/var/www/html/mediawiki'), os.path.isdir('/var/www/html/wiki'), os.path.isdir('/var/www/mediawiki'), os.path.isdir('/var/www/wiki')]}, # pylint: disable=C0301
         {'sw': 'Metabase', 'package': [], 'expr': [os.path.isdir('/opt/metabase')]}, # pylint: disable=C0301
@@ -337,6 +347,7 @@ def get_lftags():
             ]
         },
         {'sw': 'MongoDB', 'package': [], 'expr': [run_cmd('systemctl is-enabled mongod.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Moodle', 'package': [], 'expr': [run_cmd('systemctl is-enabled moodle-cron.timer', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'mydumper', 'package': ['mydumper'], 'expr': [os.path.isfile('/etc/mydumper.cnf'), os.path.isfile('/usr/bin/mydumper')]}, # pylint: disable=C0301
         {'sw': 'MySQL', 'package': [], 'expr': [run_cmd('systemctl is-enabled mysql.service', ignore_output=True)]}, # pylint: disable=C0301
         # {'sw': 'MySQL InnoDB', 'package': [], 'expr': []}, # pylint: disable=C0301
@@ -344,6 +355,7 @@ def get_lftags():
         # {'sw': 'MySQL Replication', 'package': [], 'expr': []}, # pylint: disable=C0301
         # {'sw': 'MySQL Schemas', 'package': [], 'expr': []}, # pylint: disable=C0301
         # {'sw': 'MySQL Security', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'networking.service', 'package': [], 'expr': [run_cmd('systemctl is-enabled networking.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'Nextcloud', 'package': [], 'expr': [run_cmd('systemctl is-enabled nextcloud-jobs.timer', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'NFS Server', 'package': [], 'expr': [run_cmd('systemctl is-enabled nfs-server.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'Nginx', 'package': [], 'expr': [run_cmd('systemctl is-enabled nginx.service', ignore_output=True)]}, # pylint: disable=C0301
@@ -375,19 +387,21 @@ def get_lftags():
         {'sw': 'Rocket.Chat', 'package': [], 'expr': [run_cmd('systemctl is-enabled rocketchat.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'rsyncd', 'package': [], 'expr': [run_cmd('systemctl is-enabled rsyncd.service', ignore_output=True)]}, # pylint: disable=C0301
         # {'sw': 'SafeNet HSM', 'package': [], 'expr': []}, # pylint: disable=C0301
+        {'sw': 'rsyslog', 'package': [], 'expr': [run_cmd('systemctl is-enabled rsyslog.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'Samba', 'package': [], 'expr': [run_cmd('systemctl is-enabled smb.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'Scanrootkit', 'package': [], 'expr': [True]}, # pylint: disable=C0301
         {'sw': 'snmpd', 'package': [], 'expr': [run_cmd('systemctl is-enabled snmpd.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'Splunk', 'package': [], 'expr': [run_cmd('systemctl is-enabled splunk.service', ignore_output=True)]}, # pylint: disable=C0301
         # {'sw': 'Starface PBX', 'package': [], 'expr': []}, # pylint: disable=C0301
         # {'sw': 'Statuspal', 'package': [], 'expr': []}, # pylint: disable=C0301
         {'sw': 'strongSwan IPSec', 'package': [], 'expr': [run_cmd('systemctl is-enabled strongswan.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'syslog-ng', 'package': [], 'expr': [run_cmd('systemctl is-enabled syslog-ng.service', ignore_output=True)]}, # pylint: disable=C0301
-        {'sw': 'system update', 'package': [], 'expr': [run_cmd('systemctl is-enabled notify-and-schedule.timer', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'System Update', 'package': [], 'expr': [run_cmd('systemctl is-enabled notify-and-schedule.timer', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'Systemd Timesyncd', 'package': [], 'expr': [run_cmd('systemctl is-enabled systemd-timesyncd.service', ignore_output=True)]}, # pylint: disable=C0301
-        {'sw': 'Tarifpool v2', 'package': [], 'expr': [os.path.isdir('/opt/tarifpool')]}, # pylint: disable=C0301
         {'sw': 'TuneD', 'package': [], 'expr': [run_cmd('systemctl is-enabled tuned.service', ignore_output=True)]},
         {'sw': 'UPS (Network UPS Tools, nut)', 'package': [], 'expr': [run_cmd('systemctl is-enabled nut-server.service', ignore_output=True)]}, # pylint: disable=C0301
         {'sw': 'vsftpd', 'package': [], 'expr': [run_cmd('systemctl is-enabled vsftpd.service', ignore_output=True)]}, # pylint: disable=C0301
+        {'sw': 'WHMCS', 'package': [], 'expr': [os.path.isdir('/home/whmcs')]}, # pylint: disable=C0301
         {'sw': 'Wildfly', 'package': [], 'expr': [os.path.isdir('/opt/wildfly')]}, # pylint: disable=C0301
         {'sw': 'Wordpress', 'package': [], 'expr': [os.path.isdir('/var/www/html/wordpress'), os.path.isdir('/var/www/html/wp-config.php'), os.path.isdir('/var/www/wordpress')]}, # pylint: disable=C0301
         # {'sw': 'XFS', 'package': [], 'expr': []}, # pylint: disable=C0301
@@ -590,6 +604,7 @@ def get_software_found():
         {'sw': 'Tarifpool v2', 'expr': [os.path.isdir('/opt/tarifpool')]}, # pylint: disable=C0301
         {'sw': 'VMware Tools', 'expr': [os.path.isdir('/etc/vmware-tools')]}, # pylint: disable=C0301
         {'sw': 'Vtiger', 'expr': [os.path.isdir('/var/www/html/vtigercrm')]}, # pylint: disable=C0301
+        {'sw': 'WHMCS', 'expr': [os.path.isdir('/home/whmcs')]}, # pylint: disable=C0301
         {'sw': 'Wildfly', 'expr': [os.path.isdir('/opt/wildfly')]}, # pylint: disable=C0301
         {'sw': 'Wordpress', 'expr': [os.path.isdir('/var/www/html/wordpress'), os.path.isdir('/var/www/html/wp-config.php'), os.path.isdir('/var/www/wordpress')]}, # pylint: disable=C0301
         {'sw': 'Yii2', 'expr': [os.path.isdir('/var/www/html/yii2'), os.path.isdir('/var/www/html/yii2-advanced'), os.path.isdir('/var/www/html/yii2-basic'), os.path.isdir('/var/www/html/yii')]}, # pylint: disable=C0301
@@ -787,7 +802,23 @@ def main():
 
     dmi = lib.dmidecode.get_data()
     sys_dimensions = get_sys_dimensions()
-    if dmi:
+    if dmi and sys_dimensions:
+        # combine the best from both worlds
+        msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
+        msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
+        msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
+        msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
+        msg += '#Cores: {}, '.format(lib.dmidecode.cpu_cores_enabled(dmi))
+        msg += '#Threads: {}, '.format(lib.dmidecode.cpu_threads(dmi))
+        msg += 'Current Speed: {} MHz, '.format(lib.dmidecode.cpu_speed(dmi))
+        msg += '{}/{} RAM (virtmem/max'.format(
+            lib.human.bytes2human(sys_dimensions['ram']),
+            lib.human.bytes2human(lib.dmidecode.ram(dmi)),
+        )
+        if sys_dimensions['ram'] > lib.dmidecode.ram(dmi):
+            msg += '; reboot recommended'
+        msg += '), '
+    elif dmi:
         msg += '{} {}, '.format(lib.dmidecode.manufacturer(dmi), lib.dmidecode.model(dmi))
         msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
         msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
@@ -803,7 +834,7 @@ def main():
             lib.human.bytes2human(sys_dimensions['ram'])
         )
     else:
-        msg += 'sys dimensions n/a (consider installing psutil), '
+        msg += 'sys dimensions n/a (consider installing dmidecode/psutil), '
 
     disk_msg, disk_count = get_disks()
     msg += disk_msg

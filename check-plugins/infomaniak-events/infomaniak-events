@@ -20,14 +20,14 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.infomaniak  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+                          STATE_CRIT, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024033002'
+__version__ = '2025022101'
 
 DESCRIPTION = """Informs you about open events at Infomaniak."""
 
@@ -142,7 +142,7 @@ def main():
         ))
     else:
         # do not call the command, put in test data
-        stdout, _, _ = lib.test.test(args.TEST)
+        stdout, _, _ = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     # init some vars
@@ -179,7 +179,10 @@ def main():
                 title,
                 services,
             )
-            state = STATE_WARN
+            if event.get('type').lower() == 'critical':
+                state = STATE_CRIT
+            else:
+                state = STATE_WARN
             perfdata = perfdata.replace('=0', '=1')
 
         table_data.append({

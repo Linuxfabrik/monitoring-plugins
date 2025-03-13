@@ -34,7 +34,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-events"
     "Check Interval Recommendation",        "Every minute"
     "Can be called without parameters",     "No"

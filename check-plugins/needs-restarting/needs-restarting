@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025010701'
 
 DESCRIPTION = """Checks for processes that started running before they or some component that they
                 use were updated. Returns WARN if a full reboot is required or if services might
@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     return parser.parse_args()
@@ -49,30 +49,40 @@ def main():
 
     # parse the command line, exit with UNKNOWN if it fails
     try:
-        args = parse_args()
+        args = parse_args()  # pylint: disable=W0612
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
     distro = lib.distro.get_distribution_facts()
 
     if distro['os_family'] == 'RedHat':
-        # 1. full reboot necessary? check the return code (<> 0: needs reboot): needs-restarting --reboothint
+        # 1. full reboot necessary? check the return code (<> 0: needs reboot):
+        # needs-restarting --reboothint
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting --reboothint'))
         if int(retc) == 1:
             lib.base.oao('A system reboot may be required.', STATE_WARN)
 
         # 2. long list of all updated services (process list): needs-restarting
-        stdout, tmp_stderr, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting'))
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec('needs-restarting'))
         service_restart_needed = stdout.strip()
         if service_restart_needed:
-            lib.base.oao('Found {} running {} that {} been updated and may need a restart:\n{}'.format(
-                stdout.count('\n'),
-                lib.txt.pluralize('process', stdout.count('\n'), 'es'),
-                lib.txt.pluralize('', stdout.count('\n'), 'has,have'),
-                service_restart_needed,
-            ), STATE_WARN)
+            #  support for backslash characters within the brace substitution is still disallowed
+            lib.base.oao(
+                (
+                    'Found {} running '
+                    '{} that '
+                    '{} been updated '
+                    'and may need a restart:\n{}'.format(
+                        stdout.count("\n"),
+                        lib.txt.pluralize("process", stdout.count("\n"), "es"),
+                        lib.txt.pluralize("", stdout.count("\n"), "has,have"),
+                        service_restart_needed,
+                    )
+                ),
+                STATE_WARN,
+            )
         if stderr:
-            lib.base.oao('No system or service restart needed, but {}'.format(stderr), STATE_OK)
+            lib.base.oao(f'No system or service restart needed, but {stderr}', STATE_OK)
         lib.base.oao('No system or service restart needed.', STATE_OK)
 
     if distro['os_family'] == 'Debian':
@@ -97,6 +107,7 @@ def main():
             svc = 0
             svcs = ''
             for line in stdout.split('\n'):
+                kcur, kexp = '', ''
                 if line.startswith('NEEDRESTART-KCUR: '):
                     kcur = line.replace('NEEDRESTART-KCUR: ', '')
                 if line.startswith('NEEDRESTART-KEXP: '):
@@ -110,27 +121,22 @@ def main():
                         msg += '(Version upgrade pending)'
                 if line.startswith('NEEDRESTART-SVC: '):
                     svc += 1
-                    svcs += '* {}\n'.format(line.replace('NEEDRESTART-SVC: ', ''))
+                    svcs += f'* {line.replace("NEEDRESTART-SVC: ", "")}\n'
             if kcur != kexp:
-                msg = 'Running Kernel {} != Installed Kernel {} {}. '.format(
-                    kcur,
-                    kexp,
-                    msg,
-                )
+                msg = f'Running Kernel {kcur} != Installed Kernel {kexp} {msg}. '
             if svc:
-                msg += 'Found {} running {} that {} been updated and may need a restart:\n{}, '.format(
-                    svc,
-                    lib.txt.pluralize('process', svc, 'es'),
-                    lib.txt.pluralize('', svc, 'has,have'),
-                    svcs,
+                msg += (
+                    f'Found {svc} running '
+                    f'{lib.txt.pluralize("process", svc, "es")} that '
+                    f'{lib.txt.pluralize("", svc, "has,have")} been updated '
+                    f'and may need a restart:\n{svcs}, '
                 )
             if msg:
-                lib.base.oao('A system reboot may be required. {}'.format(msg[:-2]), STATE_WARN)
+                lib.base.oao(f'A system reboot may be required. {msg[:-2]}', STATE_WARN)
             lib.base.oao('No system or service restart needed.', STATE_OK)
 
-        # 2. if not, check if /var/run/reboot-required exists
-        reboot_required = lib.disk.file_exists('/var/run/reboot-required', allow_empty=True)
-        if reboot_required:
+        # 2. if not, check if reboot is required
+        if lib.disk.file_exists('/var/run/reboot-required', allow_empty=True):
             lib.base.oao('A system reboot may be required.', STATE_WARN)
         lib.base.oao('No system or service restart needed.', STATE_OK)
 

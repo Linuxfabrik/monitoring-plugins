@@ -24,7 +24,7 @@ except ImportError:
     colorama = False
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024052901'
+__version__ = '2025030901'
 
 DESCRIPTION = 'A tool to generate Icinga Director baskets from a check plugin.'
 
@@ -309,7 +309,7 @@ def get_service_template(data, object_name, check_command, check_name, descripti
             "flapping_threshold_low": None,
             "groups": [],
             "host": None,
-            "icon_image": f"{check_name}.png",
+            "icon_image": f"{check_name}.svg",
             "icon_image_alt": None,
             "imports": [
                 "tpl-service-generic"
@@ -540,6 +540,9 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
 
     for action in plugin_args._actions:
         long_param = find_long_param(action.option_strings)
+        if action.help == argparse.SUPPRESS:
+            print(f'Skipping the "{long_param}" parameter as it is suppressed')
+            continue
         if not long_param:
             warn_print('Could not find a long parameter for:\n{}'.format(action))
             continue
@@ -763,7 +766,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
         print('Generating "windows" variant.')
         command_object_name = 'cmd-check-{}-windows'.format(check_name)
         service_object_name = 'tpl-service-{}-windows'.format(check_name)
-        command = 'C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{}.exe'.format(check_name)
+        command = 'C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{}.exe'.format(check_name)
         varname_suffix = '_windows'
 
         data = get_command_template(
@@ -815,7 +818,7 @@ def generate_basket(plugin_file, config=None, old_data=None):
         data = get_command_template(
             data,
             'cmd-check-{}-windows-python'.format(check_name),
-            'C:\\Windows\\py C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\{}.py'.format(check_name),
+            'C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\{}.py'.format(check_name),
             imports=[
                 'cmd-check-{}-windows'.format(check_name),
             ]

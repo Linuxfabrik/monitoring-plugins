@@ -26,7 +26,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-logfile"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
@@ -67,7 +67,7 @@ Help
       --defaults-group DEFAULTS_GROUP
                             Group/section to read from in the cnf file. Default:
                             client
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             MySQL/MariaDB hostname. Default: 127.0.0.1
       --ignore-pattern IGNORE_PATTERN
                             Any line containing this pattern will be ignored (must

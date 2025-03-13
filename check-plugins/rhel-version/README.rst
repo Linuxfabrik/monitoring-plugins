@@ -19,7 +19,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rhel-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
@@ -33,8 +33,8 @@ Help
 .. code-block:: text
 
     usage: rhel-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                        [--check-patch] [--insecure] [--no-proxy]
-                        [--offset-eol OFFSET_EOL] [--timeout TIMEOUT]
+                        [--check-patch] [--extended-support] [--insecure]
+                        [--no-proxy] [--offset-eol OFFSET_EOL] [--timeout TIMEOUT]
 
     Tracks if RHEL is EOL.
 
@@ -54,6 +54,8 @@ Help
                             available, even if the current version of my product
                             is not EOL. Example: Notify when I run v26.2.7 (not
                             yet EOL) and v26.2.8 is available. Default: False
+      --extended-support    Instead of "Maintenance Support" EOL (default), check
+                            for "Extended Life Cycle Support" EOL.
       --insecure            This option explicitly allows to perform "insecure"
                             SSL connections. Default: False
       --no-proxy            Do not use a proxy. Default: False
@@ -74,7 +76,7 @@ Output:
 
 .. code-block:: text
 
-    CentOS 6.8 (EOL 2020-11-30 -30d [WARNING], major 9.2 available, minor 6.10 available)
+    Rocky Linux 8.9 (Green Obsidian) (full support ended on 2024-05-31; EOL 2029-05-31 -30d, major 9.5 available, minor 8.10 available)
 
 
 States

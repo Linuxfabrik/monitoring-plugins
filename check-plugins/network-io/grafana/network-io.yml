@@ -23,27 +23,37 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-network-io
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*network-io.*/
+      current:
+        text: cmd-check-network-io
+        value: cmd-check-network-io
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "hostname"
-      refresh: 2
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
       sort: 1
       type: query
-    - hide: 2
-      includeAll: true
-      label: Metric
-      multi: true
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Metric
       name: metric
-      query: SHOW TAG VALUES FROM "cmd-check-network-io" WITH KEY = "metric" WHERE hostname =~ /$hostname/
-      refresh: 2
-      regex: /^(.*)_.*_.*_.*_.*$/
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "metric" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
+      hide: 2
+      includeAll: true
+      multi: true
+      regex: /^([^_]+)/
 
   panels:
 
@@ -108,7 +118,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_recv_per_second1
       resultFormat: time_series
       select:
@@ -121,12 +131,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv_per_second1/
@@ -136,7 +146,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_recv_per_second15
       resultFormat: time_series
       select:
@@ -149,12 +159,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv_per_second15/
@@ -164,7 +174,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_sent_per_second1
       resultFormat: time_series
       select:
@@ -177,12 +187,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent_per_second1/
@@ -192,7 +202,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_sent_per_second15
       resultFormat: time_series
       select:
@@ -205,12 +215,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent_per_second15/
@@ -220,7 +230,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-throughput1
       resultFormat: time_series
       select:
@@ -233,12 +243,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput1/
@@ -248,7 +258,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-throughput15
       resultFormat: time_series
       select:
@@ -261,12 +271,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput15/
@@ -309,7 +319,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_recv
       resultFormat: time_series
       select:
@@ -322,12 +332,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_recv/
@@ -337,7 +347,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-bytes_sent
       resultFormat: time_series
       select:
@@ -350,12 +360,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_bytes_sent/
@@ -398,7 +408,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-packets_recv
       resultFormat: time_series
       select:
@@ -411,12 +421,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_packets_recv/
@@ -426,7 +436,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-packets_sent
       resultFormat: time_series
       select:
@@ -439,12 +449,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_packets_sent/
@@ -467,20 +477,6 @@ spec:
         decimals: 2
         mappings: []
         unit: short
-      overrides:
-      - __systemRef: hideSeriesFrom
-        matcher:
-          id: byNames
-          options:
-            mode: exclude
-            names:
-            - read_time
-            - write_time
-            prefix: 'All except:'
-        properties:
-        - id: custom.hideFrom
-          value:
-            viz: true
     options:
       legend:
         calcs:
@@ -500,7 +496,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-dropin
       resultFormat: time_series
       select:
@@ -516,12 +512,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_dropin/
@@ -531,7 +527,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-dropout
       resultFormat: time_series
       select:
@@ -547,12 +543,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_dropout/
@@ -562,7 +558,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: network-io-errin
       resultFormat: time_series
       select:
@@ -578,23 +574,23 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_errin/
 
-    - alias: errin
+    - alias: errout
       groupBy:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
-      refId: network-io-errin
+      measurement: $command
+      refId: network-io-errout
       resultFormat: time_series
       select:
       - - params:
@@ -609,13 +605,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Network I/O
+        value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_errin/
-
+        value: /^${metric}_errout/

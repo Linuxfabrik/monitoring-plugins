@@ -54,7 +54,7 @@ Help
                             Name of the json array key containing the state.
                             Default: state
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u URL, --url URL     Set the url of the json file, either starting with
+      -u, --url URL         Set the url of the json file, either starting with
                             "http://", "https://" or "smb://". This is mutually
                             exclusive with --filename.
       --username USERNAME   SMB Username.
@@ -65,7 +65,7 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./json-values --url=http://example.com/example.json --message-key=output --state-key=state --perfdata-key=perfdata
+    ./json-values --url=http://example.com/example.json --message-key=message --state-key=state --perfdata-key=perfdata
 
     cat > /tmp/example.json2 << 'EOF'
     {

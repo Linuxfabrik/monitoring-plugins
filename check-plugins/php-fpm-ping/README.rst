@@ -29,7 +29,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-fpm-ping"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -61,7 +61,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-      -u URL, --url URL     PHP-FPM Ping URL. Default: http://localhost/fpm-ping
+      -u, --url URL         PHP-FPM Ping URL. Default: http://localhost/fpm-ping
 
 
 Usage Examples

@@ -23,7 +23,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed"
     "Check Interval Recommendation",        "Once an hour, or every 4 hours"
     "Can be called without parameters",     "Yes"
@@ -74,8 +74,7 @@ Help
       --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
       --url FEED_URL        The Feed URL. Default:
                             https://www.heise.de/security/rss/alert-news-atom.xml
-      -w WARN, --warning WARN
-                            How long should this check return a warning on new
+      -w, --warning WARN    How long should this check return a warning on new
                             entries? Default: 4320 (minutes)
 
 
@@ -133,12 +132,12 @@ Troubleshooting
 Python module "BeautifulSoup4" is not installed.
     .. code-block:: bash
 
-        sudo -u icinga pip3 install --user BeautifulSoup4
+        sudo -u icinga python3 -m pip install --user BeautifulSoup4
 
 Couldn't find a tree builder with the features you requested: xml. Do you need to install a parser library?
     .. code-block:: bash
 
-        sudo -u icinga pip3 install --user lxml
+        sudo -u icinga python3 -m pip install --user lxml
 
 
 Credits, License

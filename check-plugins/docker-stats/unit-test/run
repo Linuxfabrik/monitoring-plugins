@@ -63,6 +63,17 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('Container                                                           ! CPU % ! Mem % ', stdout)
+        self.assertIn('--------------------------------------------------------------------+-------+-------', stdout)
+        self.assertIn('runner-7ayh6h5f-project-107-concurrent-0-37b2c7aee9359db9-build     ! 95.0  ! 1.22  ', stdout)
+        self.assertIn('runner-7ayh6h5f-project-19-concurrent-0-99f0211c36d59d01-build      ! 59.5  ! 0.99  ', stdout)
+        self.assertIn('runner-7ayh6h5f-project-49-concurrent-0-e180afe41fc754dc-predefined ! 79.5  ! 0.15 ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,7 +20,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/starface-channel-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -54,7 +54,7 @@ Help
                             The amount of time after which the cached data
                             expires, in minutes. Default: 1
       --critical CRIT       Set the critical threshold (percentage). Default: 90
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             Starface PBX address, can be IP address or hostname.
                             Default: localhost
       --port PORT           Starface PBX monitoring port. Default: 6556

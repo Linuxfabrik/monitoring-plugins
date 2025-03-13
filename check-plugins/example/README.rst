@@ -24,7 +24,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes|No"
@@ -61,8 +61,7 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 90
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
       --ignore-regex IGNORE_REGEX
                             Any english title matching this python regex will be
                             ignored (repeating). Example: '(?i)linuxfabrik' for a
@@ -70,8 +69,7 @@ Help
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --token TOKEN         Software API token
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 
 
 Usage Examples

@@ -22,7 +22,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-sel"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -35,8 +35,8 @@ Help
 .. code-block:: text
 
     usage: redfish-sel [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                       [--password PASSWORD] [--timeout TIMEOUT] [--url URL]
-                       [--username USERNAME]
+                       [--password PASSWORD] [--test TEST] [--timeout TIMEOUT]
+                       [--url URL] [--username USERNAME]
 
     Checks the System Event Log (SEL) of the Redfish Manager collection. Returns
     an alert based on the severity of the messages.
@@ -49,6 +49,8 @@ Help
                            connections. Default: True
       --no-proxy           Do not use a proxy. Default: False
       --password PASSWORD  Redfish API password.
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
       --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
       --url URL            Redfish API URL. Default: https://localhost:5000
       --username USERNAME  Redfish API username.

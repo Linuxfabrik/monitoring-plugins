@@ -23,27 +23,37 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: cmd-check-disk-io
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*disk-io.*/
+      current:
+        text: cmd-check-disk-io
+        value: cmd-check-disk-io
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "cmd-check-disk-io" WITH KEY = "hostname"
-      refresh: 2
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
       sort: 1
       type: query
-    - hide: 2
-      includeAll: true
-      label: Metric
-      multi: true
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Metric
       name: metric
-      query: SHOW TAG VALUES FROM "cmd-check-disk-io"  WITH KEY = "metric"
-      refresh: 2
-      regex: /^(.*)_.*_.*_.*_.*$/
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "metric" WHERE hostname = '$hostname'
+      refresh: 1
       sort: 1
       type: query
+      hide: 2
+      includeAll: true
+      multi: true
+      regex: /^([^_]+)/
 
   panels:
 
@@ -108,7 +118,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-read_bytes_per_second1
       resultFormat: time_series
       select:
@@ -121,12 +131,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes_per_second1/
@@ -136,7 +146,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-read_bytes_per_second15
       resultFormat: time_series
       select:
@@ -149,12 +159,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes_per_second15/
@@ -164,7 +174,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-throughput1
       resultFormat: time_series
       select:
@@ -177,12 +187,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput1/
@@ -192,7 +202,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-throughput15
       resultFormat: time_series
       select:
@@ -205,12 +215,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_throughput15/
@@ -220,7 +230,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-write_bytes_per_second1
       resultFormat: time_series
       select:
@@ -233,12 +243,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes_per_second1/
@@ -248,7 +258,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-write_bytes_per_second15
       resultFormat: time_series
       select:
@@ -261,12 +271,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes_per_second15/
@@ -309,7 +319,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-read_bytes
       resultFormat: time_series
       select:
@@ -322,12 +332,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_bytes/
@@ -337,7 +347,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-write_bytes
       resultFormat: time_series
       select:
@@ -350,12 +360,12 @@ spec:
           type: non_negative_difference
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_bytes/
@@ -411,7 +421,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-busy_time
       resultFormat: time_series
       select:
@@ -427,12 +437,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_busy_time/
@@ -442,7 +452,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-read_time
       resultFormat: time_series
       select:
@@ -458,12 +468,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_read_time/
@@ -473,7 +483,7 @@ spec:
       - params:
         - $interval
         type: time
-      measurement: /^$command$/
+      measurement: $command
       refId: disk-io-write_time
       resultFormat: time_series
       select:
@@ -489,12 +499,12 @@ spec:
           type: math
       tags:
       - key: hostname
-        operator: =~
-        value: /^$hostname$/
+        operator: '='
+        value: $hostname
       - condition: AND
         key: service
         operator: '='
-        value: Disk I/O
+        value: $service
       - key: metric
         operator: =~
         value: /^${metric}_write_time/

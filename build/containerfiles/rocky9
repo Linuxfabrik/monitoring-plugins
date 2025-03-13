@@ -1,0 +1,33 @@
+FROM docker.io/library/rockylinux:9
+
+# Install Python 3.12
+RUN dnf --assumeyes install --nodocs python3.12 python3.12-devel && \
+    dnf clean all
+
+# Install tools
+RUN dnf --assumeyes install --nodocs gcc zip binutils && \
+    dnf clean all
+
+# for nuitka
+# codeready is already enabled inside ubi
+RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf clean all
+# RUN dnf --assumeyes install epel-release dnf-plugins-core && dnf config-manager --set-enabled powertools && dnf clean all
+RUN dnf --assumeyes install --nodocs patchelf ccache && \
+    dnf clean all
+
+# for compiling selinux policies
+# if using `registry.access.redhat.com/ubi9/ubi`, this results in
+#   No match for argument: selinux-policy-devel
+#   Error: Unable to find a match: selinux-policy-devel
+#   Error: building at STEP "RUN dnf --assumeyes install --nodocs make selinux-policy-devel && dnf clean all": while running runtime: exit status 1
+RUN dnf --assumeyes install --nodocs make selinux-policy-devel && \
+    dnf clean all
+
+RUN python3.12 -m venv --system-site-packages /opt/venv && \
+    /opt/venv/bin/python -m pip install pip==25.0.1 wheel==0.45.1 setuptools==75.8.0 && \
+    /opt/venv/bin/python -m pip install nuitka==2.6
+
+# Verify Python installation
+RUN python3.12 --version && \
+    /opt/venv/bin/python -m pip list

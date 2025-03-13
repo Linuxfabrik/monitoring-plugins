@@ -18,7 +18,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-relayed"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
@@ -30,8 +30,8 @@ Help
 
 .. code-block:: text
 
-    usage: dhcp-relayed [-h] [-V] [--always-ok] [-H HOSTNAME] [--mac MAC]
-                        [--subnet-mask SUBNET_MASK]
+    usage: dhcp-relayed [-h] [-V] [--always-ok] [--bind-address BIND_ADDRESS]
+                        [-H HOSTNAME] [--mac MAC] [--subnet-mask SUBNET_MASK]
                         [--subnet-selection SUBNET_SELECTION] [--timeout TIMEOUT]
 
     This plugin tests if a local or remote DHCP server can offer IPv4 addresses
@@ -43,7 +43,10 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -H HOSTNAME, --hostname HOSTNAME
+      --bind-address BIND_ADDRESS
+                            Bind the socket to address. The socket must not
+                            already be bound. Default: 0.0.0.0
+      -H, --hostname HOSTNAME
                             DHCP server address, can be IP address or hostname.
                             Default: None
       --mac MAC             Network MAC address to use. Doesn't have to be an
@@ -71,7 +74,7 @@ Usage Examples
     ./dhcp-relayed --mac=random
     ./dhcp-relayed --mac=80:32:15:12:34:AB
     ./dhcp-relayed --mac=8032151234AB
-    ./dhcp-relayed --hostname 192.168.122.1 --subnet-mask 255.255.0.0 --subnet-selection 192.168.122.0
+    ./dhcp-relayed --bind-address=192.0.2.74 --hostname=192.168.122.1 --subnet-mask=255.255.0.0 --subnet-selection=192.168.122.0
 
 Output:
 

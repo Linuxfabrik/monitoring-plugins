@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
@@ -50,7 +50,7 @@ Help
                             available, even if the current version of my product
                             is not EOL. Example: Notify when I run v26.2.7 (not
                             yet EOL) and v26.2.8 is available. Default: False
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             FortiOS-based Appliance address, optional including
                             port ("192.0.2.1:443").
       --insecure            This option explicitly allows to perform "insecure"

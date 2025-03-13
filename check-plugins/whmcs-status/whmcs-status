@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import base64  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025021501'
+
+DESCRIPTION = '''Returns the health status of a WHMCS server using its
+                 HTTP-based API.'''
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
+DEFAULT_URL = 'http://127.0.0.1:8080'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--identifier',
+        help='WHMCS API identifier. '
+             'Default: %(default)s',
+        dest='IDENTIFIER',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='HTTP basic auth password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--secret',
+        help='WHMCS API secret. '
+             'Default: %(default)s',
+        dest='SECRET',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='WHMCS API URL. '
+             'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='HTTP basic auth username.',
+        dest='USERNAME',
+    )
+
+    return parser.parse_args()
+
+
+def get_data(args):
+    """Login to WHCMS, call the API and return JSON data.
+    """
+    header = {}
+    if args.USERNAME and args.PASSWORD:
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
+        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+        header['Authorization'] = f'Basic {encoded_auth}'
+    return lib.url.fetch_json(
+        f'{args.URL}/includes/api.php',
+        data={
+            'identifier': args.IDENTIFIER,
+            'secret': args.SECRET,
+            'action': 'GetHealthStatus',
+            'fetchStatus': 'true',
+            'responsetype': 'json',
+        },
+        encoding='urlencode',
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
+
+
+def get_failed_checks(checks):
+    """Just return all items having severityLevel > notice.
+    """
+    failed_checks = []
+    for _, items in checks.get('checks', {}).items():
+        if items is None:
+            continue
+        for item in items:
+            if item.get('severityLevel') == 'notice':
+                continue
+            failed_checks.append({
+                'type': item.get('type'),
+                'severityLevel': item.get('severityLevel'),
+                'body': lib.url.strip_tags(
+                    item.get('body')
+                        .replace('<strong>', '*')
+                        .replace('</strong>', '*')
+                        .replace('<li>', ' ')
+                        .replace('</li>', '. ')
+                        .replace('<br>', ' '),
+                ),
+            })
+
+    # define the order of severity levels
+    severity_order = {'error': 0, 'warning': 1, 'info': 2}
+    return sorted(
+        failed_checks,
+        key=lambda x: (severity_order[x['severityLevel']], x['type'], x['body']),
+    )
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # fetch data
+    if args.TEST is None:
+        result = lib.base.coe(get_data(args))
+    else:
+        # do not call the command, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+    if result['result'] != 'success':
+        lib.base.cu(f'Error: {result}')
+
+    # analyze data
+    result = get_failed_checks(result)
+
+    # build the message
+    for item in result:
+        msg += f'* {item["type"]}: {item["body"]}'
+        msg += f' ({item["severityLevel"]})'
+        if item['severityLevel'] != 'info':
+            state = STATE_WARN
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+        msg += '\n'
+
+    if msg:
+        msg_header = (
+            f'There '
+            f'{lib.txt.pluralize("", len(result), "is,are")} '
+            f'{len(result)} {lib.txt.pluralize("message", len(result))}'
+        )
+        if len(result) > 1:
+            msg_header = f'{msg_header}, ordered by severity'
+        msg = f'{msg_header}.\n\n{msg}'
+    else:
+        msg = 'Everyhing is ok.'
+
+    # over and out
+    lib.base.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

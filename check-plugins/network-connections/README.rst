@@ -37,7 +37,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-connections"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -69,11 +69,9 @@ Help
       --conn-type {all,tcp,tcp6,udp,udp6}
                             Filter the family/type of the connections (repeating).
                             Default: None
-      -c CRIT, --critical CRIT
-                            Threshold for the number of connections. Type: None or
+      -c, --critical CRIT   Threshold for the number of connections. Type: None or
                             Range. Default: None
-      -w WARN, --warning WARN
-                            Threshold for the number of connections. Type: None or
+      -w, --warning WARN    Threshold for the number of connections. Type: None or
                             Range. Default: None
 
 

@@ -19,7 +19,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
@@ -40,18 +40,16 @@ Help
     disconnected users on Windows (closed connections without logging out).
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for logged in tty/pts
-                            users, in the format "3,10". On Windows, you can
-                            additionally set it for disconnected users, in the
-                            format "3,10,1". Default: [None, None, None]
-      -w WARN, --warning WARN
-                            Set the warning threshold for logged in tty/pts users,
-                            in the format "1,5". On Windows, you can additionally
-                            set it for disconnected users, in the format "1,5,10".
-                            Default: [1, 20, 1]
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      -c, --critical CRIT  Set the critical threshold for logged in tty/pts users,
+                           in the format "3,10". On Windows, you can additionally
+                           set it for disconnected users, in the format "3,10,1".
+                           Default: [None, None, None]
+      -w, --warning WARN   Set the warning threshold for logged in tty/pts users,
+                           in the format "1,5". On Windows, you can additionally
+                           set it for disconnected users, in the format "1,5,10".
+                           Default: [1, 20, 1]
 
 
 Usage Examples

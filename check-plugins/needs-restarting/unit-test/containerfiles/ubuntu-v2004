@@ -1,0 +1,29 @@
+# Base image: Official Ubuntu 20.04 (focal)
+FROM ubuntu:20.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Update and install Python 3.9 and pip
+RUN apt-get update && \
+    apt-get install -y python3.9 python3.9-venv python3-pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip
+RUN python3.9 -m venv /tmp/venv && \
+    . /tmp/venv/bin/activate && \
+    python3.9 -m pip install --upgrade pip && \
+    python3.9 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes
+
+# Verify Python installation
+RUN python3.9 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

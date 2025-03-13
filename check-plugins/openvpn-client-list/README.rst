@@ -12,7 +12,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openvpn-client-list"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
@@ -30,18 +30,16 @@ Help
     Prints a list of all clients connected to the OpenVPN Server
 
     options:
-      -h, --help            show this help message and exit
-      -V, --version         show program's version number and exit
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of connected
-                            clients. Default: None
-      --filename FILENAME   Set the path of the log filename. Default:
-                            /var/log/openvpn-status.log
-      --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                            stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of connected
-                            clients. Default: None
+      -h, --help           show this help message and exit
+      -V, --version        show program's version number and exit
+      -c, --critical CRIT  Set the critical threshold for the number of connected
+                           clients. Default: None
+      --filename FILENAME  Set the path of the log filename. Default:
+                           /var/log/openvpn-status.log
+      --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                           stderr-file,expected-retc".
+      -w, --warning WARN   Set the warning threshold for the number of connected
+                           clients. Default: None
 
 
 Usage Examples

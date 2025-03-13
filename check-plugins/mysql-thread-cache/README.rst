@@ -4,7 +4,7 @@ Check mysql-thread-cache
 Overview
 --------
 
-MySQL/MariaDB tracks the number of threads it caches for re-use. This plugin checks the cache hit rate. If the thread pool is active, ``thread_cache_size`` is ignored. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_stats(), v1.9.8.
+MySQL/MariaDB tracks the number of threads it caches for re-use. This plug-in checks the cache hit rate after a minimum uptime of one hour. If the thread pool is active, ``thread_cache_size`` is ignored. Logic is taken from `MySQLTuner script <https://github.com/major/MySQLTuner-perl>`_:mysql_stats(), v1.9.8.
 
 Hints:
 
@@ -16,7 +16,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-thread-cache"
     "Check Interval Recommendation",        "Once an hour"
     "Can be called without parameters",     "Yes"

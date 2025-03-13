@@ -18,14 +18,14 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.nodebb  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031401'
+__version__ = '2025021501'
 
 DESCRIPTION = """Get NodeBB users."""
 
@@ -132,7 +132,7 @@ def main():
     else:
         # do not call the command, put in test data
         import json
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     # init some vars
@@ -162,10 +162,11 @@ def main():
         lib.txt.pluralize('user', result['userCount']),
     )
     try:
+        # don't report the user you login with
         msg += ', latest active user: {} <{}>, online {}'.format(
-            result['users'][0]['username'],
-            result['users'][0]['email'],
-            result['users'][0]['lastonline'],
+            result['users'][1]['username'],
+            result['users'][1]['email'],
+            result['users'][1]['lastonline'],
         )
     except:
         pass

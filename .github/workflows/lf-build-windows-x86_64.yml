@@ -1,0 +1,177 @@
+name: 'Linuxfabrik: Build Windows (x86_64)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      compile-plugins:
+        description: 'Space-separated list of check plugins to compile and package, for example "cpu-usage feed scanrootkit". Leave empty to build all plugins.'
+        required: false
+        default: ''
+      # target-distros:
+      #   description: 'Space-separated list of operating systems to compile on and build packages for. Supported: `windows`. Cannot be empty.'
+      #   required: true
+      #   default: 'windows'
+      package-iteration:
+        description: 'The iteration number for the package (usually "1").'
+        required: true
+        default: '1'
+      # lib-repo-ref:
+      #   description: 'The branch, tag, or SHA to checkout from the lib repo. Defaults to the current branch or tag.'
+      #   required: false
+      #   default: ''
+
+# modify the default permissions granted to the GITHUB_TOKEN
+permissions:
+  contents: 'read'
+
+jobs:
+  build-windows-x86_64:
+    runs-on:
+      - 'windows-2025'  # https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+
+      - name: 'Set environment variables for the build scripts'
+        shell: 'bash'
+        run: |
+          echo "LFMP_ARCH=x86_64" >> $GITHUB_ENV
+          echo "LFMP_COMPILE_PLUGINS=${{ github.event.inputs.compile-plugins }}" >> $GITHUB_ENV
+          echo "LFMP_PACKAGE_ITERATION=${{ github.event.inputs.package-iteration }}" >> $GITHUB_ENV
+          # echo "LFMP_TARGET_DISTROS=${{ github.event.inputs.target-distros }}" >> $GITHUB_ENV
+
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+          echo "LFMP_DIR_REPOS=$GITHUB_WORKSPACE/repos" >> $GITHUB_ENV
+          echo "LFMP_DIR_COMPILED=$RUNNER_TEMP/lfmp/compiled" >> $GITHUB_ENV
+          echo "LFMP_DIR_PACKAGED=$RUNNER_TEMP/lfmp/packaged" >> $GITHUB_ENV
+
+      - name: 'Create working directories'
+        shell: 'bash'
+        run: |
+          mkdir -p $LFMP_DIR_REPOS
+          mkdir -p $LFMP_DIR_COMPILED
+          mkdir -p $LFMP_DIR_PACKAGED/{in,out}
+
+      - name: 'git clone https://github.com/Linuxfabrik/THIS-REPO'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
+        with:
+          path: '${{ env.LFMP_DIR_REPOS }}/monitoring-plugins'
+
+      - name: 'Fetch the current version from Github'
+        shell: 'bash'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh
+
+      - name: 'Debug'
+        shell: 'bash'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/debug.sh
+
+      - name: 'Install python3.13'
+        uses: 'actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38' # v5.4.0
+        with:
+          python-version: '3.13'
+
+      - name: 'python.exe -m pip install --upgrade pip wheel setuptools'
+        run: 'python.exe -m pip install --upgrade pip wheel setuptools'
+
+      # ordered-set is for nuitka: "Nuitka:WARNING: Using very slow fallback for ordered sets, please install 'ordered-set' or 'orderedset' PyPI packages for best Python compile time performance."
+      - name: 'python.exe -m pip install --upgrade ordered-set Nuitka'
+        run: 'python.exe -m pip install --upgrade ordered-set Nuitka'
+
+      # install 3rd party libraries for all check plugins
+      - name: 'python.exe -m pip install --requirement ${{ github.workspace }}\repos\monitoring-plugins\requirements-windows.txt --require-hashes'
+        run: 'python.exe -m pip install --requirement ${{ github.workspace }}\repos\monitoring-plugins\requirements-windows.txt --require-hashes'
+
+      - name: 'Verify Python installation'
+        run: 'python.exe -m pip list'
+
+      - name: 'Compile the check plugins'
+        shell: 'bash'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/compile-multiple.sh
+
+      - name: 'Upload the unsigned compiled plugins'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        id: 'upload-unsigned-compiled'
+        with:
+          path: '${{ env.LFMP_DIR_COMPILED }}/check-plugins/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-compiled.${{ env.LFMP_ARCH }}"
+
+      # https://github.com/SignPath/github-actions/tree/main/actions/submit-signing-request
+      # https://about.signpath.io/documentation/trusted-build-systems/github
+      - name: 'Sign the compiled plugins'
+        uses: 'signpath/github-action-submit-signing-request@3c306158facd969ebdb385c6845dee38afc2ebf9' # v1.1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
+          project-slug: 'monitoring-plugins'
+          signing-policy-slug: 'release-signing'
+          artifact-configuration-slug: 'compiled'
+          github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
+          wait-for-completion: true
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-compiled/'
+
+      - name: 'Upload the signed compiled plugins'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        with:
+          path: '${{ github.workspace }}/signed-compiled/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-compiled.${{ env.LFMP_ARCH }}"
+
+      - name: 'Configure MSBuild in the workflow PATH for building .NET Framework applications'
+        uses: 'microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce' # v2.0.0
+
+      - name: 'Install WiX toolset, the packaging tool'
+        run: 'dotnet tool install --global wix'
+
+      - name: 'Verify WiX installation'
+        run: 'wix --version'
+
+      - name: 'Create the wxs file for WiX'
+        shell: 'bash'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/create-wxs.sh
+
+      - name: 'Create the package for Windows'
+        run: >
+          wix.exe build
+          -arch x64
+          -defaultcompressionlevel high
+          ${{ env.LFMP_DIR_PACKAGED }}\in\lfmp.wxs
+          -out ${{ env.LFMP_DIR_PACKAGED }}\out\linuxfabrik-monitoring-plugins.msi
+
+      - name: 'Upload the unsigned package (msi)'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        id: 'upload-unsigned-packaged'
+        with:
+          path: '${{ env.LFMP_DIR_PACKAGED }}/out/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-packaged.${{ env.LFMP_ARCH }}"
+
+      - name: 'Sign the package'
+        uses: 'signpath/github-action-submit-signing-request@3c306158facd969ebdb385c6845dee38afc2ebf9' # v1.1
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '35067665-5434-42c5-9fa2-4c750069f161'
+          project-slug: 'monitoring-plugins'
+          signing-policy-slug: 'release-signing'
+          artifact-configuration-slug: 'packaged'
+          github-artifact-id: '${{ steps.upload-unsigned-packaged.outputs.artifact-id }}'
+          wait-for-completion: true
+          # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
+          # and will be created if it does not exist
+          output-artifact-directory: 'signed-packaged/'
+
+      - name: 'Upload the signed package (msi)'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        with:
+          path: '${{ github.workspace }}/signed-packaged/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.signed-packaged.${{ env.LFMP_ARCH }}"

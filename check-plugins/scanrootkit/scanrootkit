@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_WARN, STATE_UNKNOWN)  # pylint: disable=C0413
+
+try:
+    import yaml  # pylint: disable=C0413
+except ImportError:
+    print('Python module "yaml" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025020401'
+
+DESCRIPTION = """This monitoring plugin scans for round about 100 rootkits, from
+                 "55808 Trojan - Variant A" to "ZK Rootkit". New rootkit definitions can easily
+                 be added by dropping a `scanrootkit-<name>` YAML file into the `assets` folder."""
+
+DEFAULT_SERVERITY = 'crit'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity for alerts. One of "warn" or "crit". Default: %(default)s',
+        dest='SEVERITY',
+        default=DEFAULT_SERVERITY,
+        choices=['warn', 'crit'],
+    )
+
+    return parser.parse_args()
+
+
+def extra_rootkit_checks():
+    """This function carries out some extra checks for rootkits.
+    Return '' if nothing is found, else a string indicating what has been found.
+    """
+    result = []
+
+    # === Extra checks for Suckit rootkit
+
+    # Check the link count of the '/sbin/init' file.
+    #    1 is okay
+    #   >1 means that suckit may be installed
+    try:
+        stat_info = os.stat('/sbin/init')
+    except FileNotFoundError:
+        return result
+    except Exception as e:
+        return result
+    if stat_info.st_nlink > 1:
+        result.append('* More than one link in `/sbin/init`. Check for Suckit Rootkit.')
+
+    # Check to see if certain files are being hidden. These files have the '.xrk' or '.mem' suffix.
+    files = [
+        lib.disk.get_tmpdir() + '/linuxfabrik-monitoring-plugins-scanrootdir.mem',
+        lib.disk.get_tmpdir() + '/linuxfabrik-monitoring-plugins-scanrootdir.xrk',
+    ]
+    for file in files:
+        lib.base.coe(lib.disk.write_file(file, 'suckitexttest'))
+        if not lib.disk.file_exists(file):
+            result.append('* `{}` created and is now hidden. Check for Suckit Rootkit.'.format(file))
+        _, _ = lib.disk.rm_file(file)
+
+    return result
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    errors = []  # lists any yaml parsing errors
+    state = STATE_OK
+    perfdata = ''
+    rkdef_path = os.path.join(os.path.dirname(__file__), 'assets')
+    rkscanned = 0  # number of rootkits scanned
+    rkfound = []  # number of rootkit items (not rootkits) found
+    rkpossible = []  # number of possible rootkit items (not rootkits) found
+
+    # get a list of rootkit definition filenames
+    rootkits = lib.disk.walk_directory(
+        rkdef_path,
+        exclude_pattern=r'',
+        include_pattern=r'.*\.yml$',
+        relative=False,
+    )
+
+    # get the kernel symbols file
+    if lib.disk.file_exists('/proc/kallsyms', allow_empty=True):
+        ksyms_file = lib.base.coe(lib.disk.read_file('/proc/kallsyms'))
+    elif lib.disk.file_exists('/proc/ksyms', allow_empty=True):
+        ksyms_file = lib.base.coe(lib.disk.read_file('/proc/ksyms'))
+    else:
+        ksyms_file = ''
+
+    # analyze system
+    for rootkit in rootkits:
+        try:
+            # load the rootkit definition file
+            rk = yaml.safe_load(lib.base.coe(lib.disk.read_file(rootkit)))
+            rkscanned += 1
+
+            # see if any of the known files exists
+            for item in rk['files']:
+                if lib.disk.file_exists(item, allow_empty=True):
+                    # if confidence level is below 100%, it *could* be a rootkit
+                    if 'cl' in rk and rk['cl'] < 100:
+                        rkpossible.append('* {}: {} (File)'.format(rk['name'], item))
+                    else:
+                        rkfound.append('* {}: {} (File)'.format(rk['name'], item))
+
+            # see if any of the directories exist
+            for item in rk['dirs']:
+                if lib.disk.file_exists(item, allow_empty=True):
+                    if 'cl' in rk and rk['cl'] < 100:
+                        rkpossible.append('* {}: {} (Dir)'.format(rk['name'], item))
+                    else:
+                        rkfound.append('* {}: {} (Dir)'.format(rk['name'], item))
+
+            # scan kernel symbols for signs of rootkits or other malicious software
+            if not ksyms_file:
+                continue
+            for item in rk['ksyms']:
+                if item in ksyms_file:
+                    if 'cl' in rk and rk['cl'] < 100:
+                        rkpossible.append('* {}: {} (Kernel Symbol)'.format(rk['name'], item))
+                    else:
+                        rkfound.append('* {}: {} (Kernel Symbol)'.format(rk['name'], item))
+
+        except KeyError as e:
+            # missing an yaml attribute like 'files' or 'dirs'
+            errors.append('* {}: Key Error {}'.format(os.path.basename(rootkit), e))
+        except yaml.parser.ParserError:
+            # got yaml file that is syntactically wrong
+            errors.append('* {}: YAML syntax error'.format(os.path.basename(rootkit)))
+
+    rkextra = extra_rootkit_checks()
+
+    # build the message
+    if rkscanned == 0:
+        lib.base.cu('No rootkit definition files found in `{}`.'.format(rkdef_path))
+    if not rkfound and not rkpossible and not rkextra:
+        msg += 'Everything is ok. Scanned for {} {}.'.format(
+            rkscanned,
+            lib.txt.pluralize('rootkit', rkscanned),
+        )
+    else:
+        if rkpossible:
+            state = lib.base.get_worst(state, STATE_WARN)
+        if rkfound or rkextra:
+            state = lib.base.get_worst(state, lib.base.str2state(args.SEVERITY))
+        msg += 'Found {} rootkit {} and {} extra {}. {} possible rootkit {} found. {}'.format(
+            len(rkfound),
+            lib.txt.pluralize('item', len(rkfound)),
+            len(rkextra),
+            lib.txt.pluralize('item', len(rkextra)),
+            len(rkpossible),
+            lib.txt.pluralize('item', len(rkpossible)),
+            lib.base.state2str(state),
+        )
+        msg += '\nRootkits:\n' + '\n'.join(rkfound) if rkfound else ''
+        msg += '\nIn-depth scan:\n'+ '\n'.join(rkextra) if rkextra else ''
+        msg += '\nPossible Rootkits:\n' + '\n'.join(rkpossible) if rkpossible else ''
+    msg += '\nScanfile Errors:\n' + '\n'.join(errors) if errors else ''
+
+    perfdata += lib.base.get_perfdata('rootkit_items', len(rkfound), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rootkit_extra', len(rkextra), None, None, None, 0, None)
+    perfdata += lib.base.get_perfdata('rootkit_possible', len(rkpossible), None, None, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

@@ -1,0 +1,141 @@
+name: 'Linuxfabrik: Build Linux (x86_64)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      compile-plugins:
+        description: 'Space-separated list of check plugins to compile and package, for example "cpu-usage feed scanrootkit". Leave empty to build all plugins.'
+        required: false
+        default: ''
+      target-distros:
+        description: 'Space-separated list of operating systems to compile on and build packages for. Supported: `debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404`. Cannot be empty.'
+        required: true
+        default: 'debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404'
+      package-iteration:
+        description: 'The iteration number for the package (usually "1").'
+        required: true
+        default: '1'
+      # lib-repo-ref:
+      #   description: 'The branch, tag, or SHA to checkout from the lib repo. Defaults to the current branch or tag.'
+      #   required: false
+      #   default: ''
+
+# modify the default permissions granted to the GITHUB_TOKEN
+permissions:
+  contents: 'read'
+
+jobs:
+  prepare-matrix:
+    runs-on:
+      - 'ubuntu-24.04'
+    outputs:
+      distro_list: '${{ steps.set-matrix.outputs.distro_list }}'
+    steps:
+      # Transform the space‐separated string into a valid JSON array using shell commands (with sed),
+      # then pass that result as an output to be used in the matrix of a subsequent job.
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+
+      - id: set-matrix
+        run: |
+          # Grab the space-separated input value
+          input="${{ github.event.inputs.target-distros }}"
+          # Replace spaces with '","' using sed
+          json_array=$(echo "$input" | sed 's/ /","/g')
+          # Wrap the result in a JSON array
+          json_array='["'"$json_array"'"]'
+          echo "Computed JSON array: $json_array"
+          echo "distro_list=$json_array" >> $GITHUB_OUTPUT
+
+  build-linux-x86_64:
+    needs: 'prepare-matrix'
+    runs-on:
+      - 'ubuntu-24.04'
+
+    strategy:
+      matrix:
+        # Parse the JSON array output from the prepare-matrix job.
+        distro: '${{ fromJson(needs.prepare-matrix.outputs.distro_list) }}'
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+        with:
+          egress-policy: audit
+
+      - name: 'Set environment variables for the build scripts'
+        run: |
+          echo "LFMP_ARCH=x86_64" >> $GITHUB_ENV
+          echo "LFMP_COMPILE_PLUGINS=${{ github.event.inputs.compile-plugins }}" >> $GITHUB_ENV
+          echo "LFMP_PACKAGE_ITERATION=${{ github.event.inputs.package-iteration }}" >> $GITHUB_ENV
+
+          # Each matrix job gets one distro value here (to parallelize job runs and avoiding Github's 6h timeout).
+          echo "LFMP_TARGET_DISTROS=${{ matrix.distro }}" >> $GITHUB_ENV
+
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
+          echo "LFMP_DIR_REPOS=$GITHUB_WORKSPACE/repos" >> $GITHUB_ENV
+          echo "LFMP_DIR_COMPILED=$RUNNER_TEMP/lfmp/compiled" >> $GITHUB_ENV
+          echo "LFMP_DIR_PACKAGED=$RUNNER_TEMP/lfmp/packaged" >> $GITHUB_ENV
+
+      - name: 'Create working directories'
+        run: |
+          mkdir -p $LFMP_DIR_REPOS
+          mkdir -p $LFMP_DIR_COMPILED
+          mkdir -p $LFMP_DIR_PACKAGED
+
+      - name: 'git clone https://github.com/Linuxfabrik/THIS-REPO'
+        uses: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683' # v4.2.2
+        with:
+          path: '${{ env.LFMP_DIR_REPOS }}/monitoring-plugins'
+
+      - name: 'Fetch the current version from Github'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh
+
+      - name: 'Debug'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/debug.sh
+
+      - name: 'Install podman'
+        run: >
+          /bin/bash
+           $LFMP_DIR_REPOS/monitoring-plugins/build/install-podman.sh
+
+      - name: 'For each distro compile the specified plugins'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/matrix-compile.sh
+
+      - name: 'Install FPM, the packaging tool'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/install-fpm.sh
+
+      - name: 'Create the fpm files'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/create-fpms.sh
+
+      - name: 'Create the packages for every OS'
+        run: >
+          /bin/bash
+          $LFMP_DIR_REPOS/monitoring-plugins/build/create-packages.sh
+
+      - name: 'Upload the compiled plugins'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        with:
+          compression-level: 8
+          path: '${{ env.LFMP_DIR_COMPILED }}/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.compiled.${{ env.LFMP_ARCH }}.${{ env.LFMP_TARGET_DISTROS }}"
+
+      - name: 'Upload the packages (rpm, deb, tar, zip)'
+        uses: 'actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1' # v4.6.1
+        with:
+          compression-level: 8
+          path: '${{ env.LFMP_DIR_PACKAGED }}/*'
+          name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.packaged.${{ env.LFMP_ARCH }}.${{ env.LFMP_TARGET_DISTROS }}"

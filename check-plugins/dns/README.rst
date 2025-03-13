@@ -14,7 +14,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dns"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -38,17 +38,15 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Return critical if elapsed time in ms exceeds value.
+      -c, --critical CRIT   Return critical if elapsed time in ms exceeds value.
                             Default: None
-      -H HOSTNAME, --hostname HOSTNAME
+      -H, --hostname HOSTNAME
                             The host or ip address to check. Default: localhost
-      -p PORT, --port PORT  The port number. Default: 53
+      -p, --port PORT       The port number. Default: 53
       --type {udp,udp6,tcp,tcp6}
                             Connection type. Can be optionally specified in order
                             to narrow the list of addresses returned.
-      -w WARN, --warning WARN
-                            Return warning if elapsed time in ms exceeds value.
+      -w, --warning WARN    Return warning if elapsed time in ms exceeds value.
                             Default: None
 
 

@@ -22,7 +22,7 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
@@ -49,16 +49,14 @@ Help
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the CRIT threshold as a percentage. Default: >= 90
-      -H HOSTNAME, --hostname HOSTNAME
+      -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >= 90
+      -H, --hostname HOSTNAME
                             Specifies the DNS name, or IPv4 or IPv6 address, of
                             the target computer that runs the DHCP server service.
                             Default: localhost
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
-      -w WARN, --warning WARN
-                            Set the WARN threshold as a percentage. Default: >= 80
+      -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
       --winrm-domain WINRM_DOMAIN
                             WinRM Domain Name. Default: None
       --winrm-hostname WINRM_HOSTNAME
@@ -85,7 +83,13 @@ Remote usage, for example on a Linux server:
 
 .. code-block:: bash
 
-    ./dhcp-scope-usage3 --hostname=dhcp01.example.com --winrm-hostname=10.80.32.246 --winrm-username=Administrator --winrm-password=password --winrm-domain=EXAMPLE.COM --winrm-transport=ntlm
+    ./dhcp-scope-usage3 \
+        --hostname=dhcp01.example.com \
+        --winrm-hostname=10.80.32.246 \
+        --winrm-username=Administrator \
+        --winrm-password=linuxfabrik \
+        --winrm-domain=EXAMPLE.COM \
+        --winrm-transport=ntlm
 
 Output:
 

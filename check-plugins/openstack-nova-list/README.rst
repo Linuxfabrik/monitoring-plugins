@@ -20,7 +20,6 @@ You have to provide a path to an rc file to authenticate. A working rc file migh
     export OS_USER_DOMAIN_NAME=default
     export OS_USERNAME=MYUSER
     OS_PASSWORD='linuxfabrik'
-    [ -z "$OS_PASSWORD" ] && read -e -p "Please enter your OpenStack Password for project $OS_PROJECT_NAME as user $OS_USERNAME: " OS_PASSWORD
     export OS_PASSWORD
 
 
@@ -29,12 +28,12 @@ Fact Sheet
 
 .. csv-table::
     :widths: 30, 70
-    
+
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-nova-list"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
     "Compiled for",                         "Linux"
-    "3rd Party Python modules",             "``python-novaclient``, ``python-keystoneclient``"
+    "3rd Party Python modules",             "``python-novaclient``"
 
 
 Help

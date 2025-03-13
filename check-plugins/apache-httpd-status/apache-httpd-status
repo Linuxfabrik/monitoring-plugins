@@ -18,13 +18,13 @@ import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
 import lib.cache  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
-import lib.test  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031301'
+__version__ = '2025021501'
 
 DESCRIPTION = 'Checks how well an Apache httpd server is performing.'
 
@@ -148,7 +148,7 @@ def main():
             lib.base.cu('Malformed Apache server info.')
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.test.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
         result = stdout
     result = result.strip().split('\n')
 
@@ -177,7 +177,7 @@ def main():
         try:
             key, value = item.split(': ')
         except:
-            lib.base.cu('Malformed Apache server info.')
+            continue
 
         if key == 'ServerUptimeSeconds':
             apache['ServerUptimeSeconds'] = int(value) # continous counter

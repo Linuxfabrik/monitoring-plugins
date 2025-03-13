@@ -72,8 +72,7 @@ Help
                             matches (in minutes)? This is overwritten by --icinga-
                             callback. Default: 60
       --always-ok           Always returns OK.
-      -c CRIT, --critical CRIT
-                            Set the critical threshold for the number of found
+      -c, --critical CRIT   Set the critical threshold for the number of found
                             critical matches. Default: 1
       --critical-pattern CRIT_PATTERN
                             Any line containing this pattern will count as a
@@ -105,8 +104,7 @@ Help
       --suppress-lines      Suppress the found lines in the output, only report
                             the number of findings.
       --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)
-      -w WARN, --warning WARN
-                            Set the warning threshold for the number of found
+      -w, --warning WARN    Set the warning threshold for the number of found
                             warning matches. Default: 1
       --warning-pattern WARN_PATTERN
                             Any line containing this pattern will count as a
