@@ -6,10 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project does NOT adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2024060401...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v1.2.0.11...HEAD
 
 
 ## [Unreleased]
+
+tbd
+
+
+
+## v1.2.0.11
 
 ### Breaking Changes ("!")
 

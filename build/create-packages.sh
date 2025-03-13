@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021501
+# 2025031101
 
 set -e -x
 
@@ -13,7 +13,6 @@ for LFMP_TARGET_DISTRO in $LFMP_TARGET_DISTROS; do
         case "$LFMP_TARGET_DISTRO" in
         debian11)
             fpm --output-type deb
-            fpm --output-type tar
             fpm --output-type zip
             ;;
         debian12)

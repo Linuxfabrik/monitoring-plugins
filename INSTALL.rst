@@ -8,8 +8,8 @@ How to install the Linuxfabrik Monitoring Plugins Collection
     Linux, "Binaries from rpm/deb package (**recommended**)", "Want to use OS package manager and have distro that uses rpm/deb package formats", See `<https://repo.linuxfabrik.ch>`_
     Linux, "Binaries from tar/zip", "Don't want to use OS package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.9+", "See *Installation on Linux* in this document"
     Linux, "Source Code", "Want to use the latest development version and Python 3.9+ available", "See *Run from Source* in this document"
-    Windows,"Binaries from msi (**recommended**)","Want to use OS package manager", "Get the msi file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/windows>`_ and run it."
-    Windows,"Binaries from zip","Don't want to use OS package manager", "Get the zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/linux>`_ and unpack it to a folder of your choice, usually ``C:\Program Files\icinga2\sbin\linuxfabrik``"
+    Windows,"Binaries from msi (**recommended**)","Want to use OS package manager", "Get the 'signed-packaged' msi file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_ and run it."
+    Windows,"Binaries from zip","Don't want to use OS package manager", "Get the 'signed-compiled' zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_ and unpack it to a folder of your choice, usually ``C:\Program Files\icinga2\sbin\linuxfabrik``"
     Windows, "Source Code", "Want to use the latest development version and Python 3.9+ available", "See *Run from Source* in this document"
     Any, "Using Ansible", "Want to automate the installation process", "See the `LFOps Ansible Role linuxfabrik.lfops.monitoring_plugins <https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins>`_"
 
@@ -19,7 +19,7 @@ How to install the Linuxfabrik Monitoring Plugins Collection
 Installation on Linux
 ---------------------
 
-* Get the tar or zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/linux>`_ and unpack it to a folder of your choice, usually ``/usr/lib64/nagios/plugins``
+* Get the zip file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_ and unpack it to a folder of your choice, usually ``/usr/lib64/nagios/plugins``
 
 * On Linux, some check plugins require ``sudo``-permissions to run. To do this, we provide ``sudoers`` files for various operating system families in ``monitoring-plugins/assets/sudoers``, for example ``RedHat.sudoers``. The file name is compatible to `ansible_facts['os_family'] <https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267>`_. You need to place this file in ``/etc/sudoers.d/`` on the target host.
 
