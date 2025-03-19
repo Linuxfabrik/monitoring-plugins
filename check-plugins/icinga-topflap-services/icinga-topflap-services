@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025030301'
+__version__ = '2025031701'
 
 DESCRIPTION = """This check plugin counts the number of state changes per service within a
                  given lookback interval. This makes it possible to detect fast flapping services.
@@ -246,8 +246,10 @@ def main():
 
         # ignore myself
         data['service_display_name'] = event.get('service').get('display_name')
+        if not data['service_display_name']:
+            continue
         if 'top' in data['service_display_name'].lower() and \
-            'flap' in data['service_display_name'].lower():
+        'flap' in data['service_display_name'].lower():
             continue
 
         data['host_id'] = event.get('host').get('id')
