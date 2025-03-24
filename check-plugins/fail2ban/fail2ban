@@ -23,7 +23,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025032401'
 
 DESCRIPTION = 'In fail2ban, checks the amount of banned IP addresses per jail.'
 
@@ -158,14 +158,11 @@ def main():
         perfdata += lib.base.get_perfdata(jail, f2b_currently_banned, None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
 
     # over and out
-    if not count:
-        msg = 'Everything is ok.'
-    else:
-        msg = '{} {} banned\n{}'.format(
-            count,
-            lib.txt.pluralize('IP', count),
-            msg,
-        )
+    msg = '{} {} banned\n{}'.format(
+        count,
+        lib.txt.pluralize('IP', count),
+        msg,
+    )
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 

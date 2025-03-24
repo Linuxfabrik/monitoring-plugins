@@ -11,7 +11,11 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
-tbd
+### Changed ("refactor", "chore" etc.)
+
+Monitoring Plugins:
+
+* refactor(fail2ban): be a bit more verbose in case everything is ok
 
 
 
