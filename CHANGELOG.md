@@ -11,6 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Fixed ("fix")
+
+Monitoring Plugins:
+
+* ping: '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
+
+
 ### Changed ("refactor", "chore" etc.)
 
 Monitoring Plugins:

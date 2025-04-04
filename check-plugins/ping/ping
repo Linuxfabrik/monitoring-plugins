@@ -20,7 +20,7 @@ import lib.shell  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025040401'
 
 DESCRIPTION = 'Sends ICMP ECHO_REQUEST to network hosts using the built-in `ping` command.'
 
@@ -111,6 +111,12 @@ def main():
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
     if stderr or retc == 2:
         lib.base.cu(stderr)
+    # stdout:
+    #   PING 192.0.2.10 (192.0.2.10) 56(84) bytes of data.
+    #
+    #   --- 192.0.2.10 ping statistics ---
+    #   5 packets transmitted, 5 received, 0% packet loss, time 803ms
+    #   rtt min/avg/max/mdev = 6.724/13.682/15.856/3.488 ms
 
     # If ping does not receive any reply packets at all it will exit with code 1.
     # If a packet count and deadline are both specified, and fewer than count packets are received
@@ -125,14 +131,14 @@ def main():
     # init some vars
     # Throwing CRIT instead of WARN beacuse of the fact that this check will mainly be used
     # for checking host-liveliness [OK=UP, CRIT=DOWN].
-    state = STATE_CRIT if '0 received' in stdout else STATE_OK
+    state = STATE_CRIT if re.search(r'\b0 received', stdout) else STATE_OK
     if state == STATE_OK:
         msg = ''
     else:
         msg = 'Destination host unreachable. '
     perfdata = ''
 
-    # analyze data
+    # analyze data:
     result = stdout.splitlines()
     if not result[0] or not result[3]:
         lib.base.cu('Unexpected output from ping.')
