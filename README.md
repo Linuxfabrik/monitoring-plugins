@@ -1,6 +1,31 @@
-# The Linuxfabrik Monitoring Plugins Collection
+<h1 align="center">
+  <a href="https://linuxfabrik.ch" target="_blank">
+    <picture>
+      <img width="600" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png">
+    </picture>
+  </a>
+  <br />
+  Linuxfabrik Monitoring Plugins
+</h1>
+<p align="center"> <em>Check Plugin Collection for Nagios, Icinga and others</em> <span>&#8226;</span>
+ <b>made by <a href="https://linuxfabrik.ch/">Linuxfabrik</a></b>
+</p>
+<div align="center">
 
-![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-teaser.png)
+![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins) 
+![GitHub last commit](https://img.shields.io/github/last-commit/linuxfabrik/monitoring-plugins) 
+![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver
+) 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) 
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+
+</div>
+
+<br />
+
+
+# The Linuxfabrik Monitoring Plugins Collection
 
 This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
@@ -12,8 +37,6 @@ The check plugins run on
 All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
 
 The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
-
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 
 
 ## Want to see some Plugins in Action?
