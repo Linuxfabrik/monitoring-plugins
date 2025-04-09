@@ -146,9 +146,14 @@ def main():
         ))
         vendor = lib.redfish.get_vendor(result)
 
+        if vendor == 'supermicro':
+            entry_point = 'Systems'
+        else:
+            entry_point = 'Managers'
+
         # Entry point: Get the main data
         result = lib.base.coe(lib.url.fetch_json(
-            '{}/redfish/v1/Managers'.format(args.URL),
+            '{}/redfish/v1/{}'.format(args.URL, entry_point),
             header=header,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
@@ -193,6 +198,8 @@ def main():
         sel_path = '/LogServices/ActiveLog/Entries'
     elif vendor in ['ts_fujitsu']:
         sel_path = '/LogServices/SystemEventLog/Entries'
+    elif vendor in ['supermicro']:
+        sel_path = '/LogServices/Log1/Entries'
     else:
         sel_path = ''
 
