@@ -20,6 +20,10 @@ Monitoring Plugins:
 
 ### Fixed ("fix")
 
+Build, CI/CD:
+
+* compile-one.sh: provide Nuitka's no-deployment-flag ([#864](https://github.com/Linuxfabrik/monitoring-plugins/issues/864))
+
 Monitoring Plugins:
 
 * ping: '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
@@ -29,7 +33,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* refactor(fail2ban): be a bit more verbose in case everything is ok
+* fail2ban: be a bit more verbose in case everything is ok
 
 
 

@@ -27,8 +27,10 @@ else
 fi
 
 echo "✅ Compiling $PLUGIN into $COMPILE_DIR/$PLUGINS/..."
+# --no-deployment-flag=self-execution: https://github.com/Linuxfabrik/monitoring-plugins/issues/864
 python3 -m nuitka \
     --assume-yes-for-downloads \
+    --no-deployment-flag=self-execution \
     --output-dir=$COMPILE_DIR/$PLUGINS/ \
     --remove-output \
     --standalone \
