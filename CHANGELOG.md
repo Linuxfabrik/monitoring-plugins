@@ -16,6 +16,7 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 Monitoring Plugins:
 
 * systemd-unit: implement support for systemctl --machine and --user
+* redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
 
 
 ### Fixed ("fix")
