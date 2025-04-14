@@ -22,8 +22,8 @@ import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                         STATE_UNKNOWN, STATE_WARN)
 
 try:
     import vici  # pylint: disable=C0413
@@ -231,6 +231,8 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    msg = ''
+
     # fetch data
     if args.TEST is None:
         s = socket.socket(socket.AF_UNIX)
@@ -242,6 +244,33 @@ def main():
         possible_connection_keys = get_possible_connection_keys(session)
         active_connection_keys = get_active_connection_keys(session)
         list_sas = session.list_sas()
+
+        # Check connection states from list_conns(), compare with list_sas
+        conns_state_map = {}
+        for conn in session.list_conns():
+            for key, conn_data in conn.items():
+                state = conn_data.get(b"state", b"").decode()
+                conns_state_map[key] = state
+
+        # Flag connections with degraded or unclear states
+        for key, state_str in conns_state_map.items():
+            if key in active_connection_keys:
+                continue  # already handled via list_sas as active
+
+            if not state_str:
+                state = STATE_UNKNOWN
+                msg += f"{key} has no visible state. Possible misconfiguration{lib.base.state2str(state, prefix=' ')}. "
+            elif state_str.lower() in ("connecting", "retrying", "waiting"):
+                conn_state = STATE_WARN
+                state = lib.base.get_worst(state, conn_state)
+                msg += f"{key} is {state_str.lower()}{lib.base.state2str(conn_state, prefix=' ')}. "
+            elif state_str.lower() in ("failed", "error"):
+                conn_state = STATE_CRIT
+                state = lib.base.get_worst(state, conn_state)
+                msg += f"{key} is in failed state{lib.base.state2str(conn_state, prefix=' ')}. "
+            else:
+                state = lib.base.get_worst(state, STATE_UNKNOWN)
+                msg += f'{key} is in unknown state "{state_str}"{lib.base.state2str(STATE_UNKNOWN, prefix=" ")}. '
     else:
         # do not call the command, put in test data
         import json
@@ -258,7 +287,6 @@ def main():
         lib.base.oao('There are no active connections at all.', STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # init some vars
-    msg = ''
     state = STATE_OK
     perfdata = ''
     table_data = []
