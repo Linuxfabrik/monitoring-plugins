@@ -16,11 +16,13 @@ import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024120601'
+__version__ = '2025041501'
 
 DESCRIPTION = """Checks the state of a service, socket, device, mount, automount, swap, target,
                 path, timer, slice or scope - using systemd/systemctl. For example, to check if the
@@ -82,6 +84,16 @@ def parse_args():
             'not-found',
             'reloading',
         ],
+    )
+
+    parser.add_argument(
+        '--machine',
+        help='Connect to a different system scope bus via machine transport. May be '
+             'optionally prefixed by "username@" to specify a user to connect as. '
+             'Use the special string ".host" to connect to the local system. (This '
+             'allows to connect to the user\'s service manager using "--machine user@.host") '
+             'Default: %(default)s',
+        dest='MACHINE',
     )
 
     parser.add_argument(
@@ -182,6 +194,15 @@ def parse_args():
         ]
     )
 
+    parser.add_argument(
+        '--user',
+        help='Use the calling user\'s service manager, instead of the system\'s. '
+             'Default: %(default)s',
+        dest='USER',
+        action='store_true',
+        default=False,
+    )
+
     return parser.parse_args()
 
 
@@ -195,8 +216,27 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    command = 'systemctl show -p LoadState,ActiveState,SubState,UnitFileState '
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command + lib.txt.to_text(args.UNIT)))
+    options = ''
+
+    if args.MACHINE:
+        stdout, _, _ = lib.base.coe(lib.shell.shell_exec('systemctl --version'))
+
+        systemd_version = (stdout.split()[1:2] or ['unknown'])[0]  # Systemd reports the version number in the second word/field.
+
+        if lib.version.version(systemd_version) < lib.version.version('209'):
+            lib.base.oao(
+                f'Currently installed systemctl version "{systemd_version}" does not support the `--machine` argument',
+                STATE_UNKNOWN,
+            )
+
+        options += f'--machine {lib.txt.to_text(args.MACHINE)} '
+
+    if args.USER:
+        options += '--user '
+
+    command = f'systemctl {options}show -p LoadState,ActiveState,SubState,UnitFileState {lib.txt.to_text(args.UNIT)}'
+
+    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
     if (stderr or retc != 0):
         lib.base.oao(
             'Bash command `{}` failed.\nStdout: {}\nStderr: {}'.format(command, stdout, stderr),

@@ -11,6 +11,13 @@ and this project does NOT adhere to [Semantic Versioning](https://semver.org/spe
 
 ## [Unreleased]
 
+### Added ("feat")
+
+Monitoring Plugins:
+
+* systemd-unit: implement support for systemctl --machine and --user
+
+
 ### Fixed ("fix")
 
 Monitoring Plugins:
