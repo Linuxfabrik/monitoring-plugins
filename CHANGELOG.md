@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project does NOT adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 
 [Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v1.2.0.11...HEAD
@@ -35,6 +34,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * fail2ban: be a bit more verbose in case everything is ok
+* php-status: bz2 and curl are no default modules
 
 
 
