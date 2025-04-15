@@ -14,8 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 Monitoring Plugins:
 
-* systemd-unit: implement support for systemctl --machine and --user
 * redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
+* systemd-unit: implement support for `systemctl --machine` and `--user`
 
 
 ### Fixed ("fix")

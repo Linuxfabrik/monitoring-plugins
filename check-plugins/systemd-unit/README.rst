@@ -39,12 +39,13 @@ Help
 .. code-block:: text
 
     usage: systemd-unit [-h] [-V]
-                        [--activestate {activating,active,deactivating,failed,inactive,None}]
-                        [--loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,None,not-found,reloading}]
-                        [--severity {warn,crit}]
-                        [--substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,None,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
+                        [--activestate {None,activating,active,deactivating,failed,inactive}]
+                        [--loadstate {None,activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}]
+                        [--machine MACHINE] [--severity {warn,crit}]
+                        [--substate {None,abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}]
                         --unit UNIT
-                        [--unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}]
+                        [--unitfilestate {None,bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}]
+                        [--user]
 
     Checks the state of a service, socket, device, mount, automount, swap, target,
     path, timer, slice or scope - using systemd/systemctl. For example, to check
@@ -54,20 +55,31 @@ Help
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
-      --activestate {activating,active,deactivating,failed,inactive,None}
+      --activestate {None,activating,active,deactivating,failed,inactive}
                             Expected systemd ActiveState (repeating). This is the
                             high-level unit activation state(s), i.e.
                             generalization of SUB. If ommited or set to "None",
                             the unit's active state will not be checked.
-      --loadstate {activating,active,deactivating,failed,inactive,loaded,maintenance,masked,None,not-found,reloading}
+      --loadstate {None,activating,active,deactivating,failed,inactive,loaded,maintenance,masked,not-found,reloading}
                             Expected systemd LoadState. Reflects whether the unit
                             definition was properly loaded. If ommited or set to
                             "None", the unit's load state will not be checked.
                             Default: loaded
+      --machine MACHINE     Execute operation on a local container. Specify a
+                            container name to connect to, optionally prefixed by a
+                            user name to connect as and a separating "@"
+                            character. If the special string ".host" is used in
+                            place of the container name, a connection to the local
+                            system is made (which is useful to connect to a
+                            specific user's user bus: "--user
+                            --machine=lennart@.host"). If the "@" syntax is not
+                            used, the connection is made as root user. If the "@"
+                            syntax is used either the left hand side or the right
+                            hand side may be omitted (but not both) in which case
+                            the local user name and ".host" are implied.
       --severity {warn,crit}
-                            If something was found, the check returns WARN unless
-                            set here. Default: warn
-      --substate {abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,None,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
+                            Severity for alerting. Default: warn
+      --substate {None,abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
                             Expected systemd SubState (repeating). This is the
                             low-level unit activation state(s); values depend on
                             unit type. If ommited or set to "None", the unit's
@@ -75,11 +87,13 @@ Help
       --unit UNIT           The unit name (service, timer, mount etc.). Required.
                             For example "sshd", "sshd.service", "my-samba-
                             mount.mount" etc.
-      --unitfilestate {bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,None,static,transient}
-                            Expected systemd UnitFileState. If ommited or set to
-                            "None", the unit's unit-file state will not be
-                            checked. If "empty", checks exactly for
-                            ``UnitFileState=""``.
+      --unitfilestate {None,bad,disabled,empty,enabled,enabled-runtime,generated,indirect,linked,linked-runtime,masked,masked-runtime,static,transient}
+                            Expected systemd UnitFileState. If set to "empty",
+                            checks exactly for `UnitFileState=""`. If ommited or
+                            set to "None", the unit's unit-file state will not be
+                            checked.
+      --user                Talk to the service manager of the calling user,
+                            rather than the service manager of the system.
 
 
 Usage Examples
@@ -107,6 +121,8 @@ Usage Examples
   | ``./systemd-unit --activestate=active --substate=waiting --substate=running --unit=myjob.timer``
 * | Check a service depending on a timer (has two activestates and two substates):
   | ``./systemd-unit --activestate=active --activestate=inactive --substate=dead --substate=running --unit=myjob.service``
+* | Use the ``--machine`` parameter:
+  | ``./systemd-unit --machine=linus@.host --unit sshd``
 
 Output:
 

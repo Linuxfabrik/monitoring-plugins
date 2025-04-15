@@ -9,6 +9,9 @@
                 "--loadstate": {
                     "value": "$systemd_unit_loadstate$"
                 },
+                "--machine": {
+                    "value": "$systemd_unit_machine$"
+                },
                 "--severity": {
                     "value": "$systemd_unit_severity$"
                 },
@@ -21,6 +24,9 @@
                 },
                 "--unitfilestate": {
                     "value": "$systemd_unit_unitfilestate$"
+                },
+                "--user": {
+                    "set_if": "$systemd_unit_user$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/systemd-unit",
@@ -48,11 +54,21 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -117,6 +133,7 @@
                 "systemd_unit_substate": [
                     "running"
                 ],
+                "systemd_unit_user": false,
                 "systemd_unit_unitfilestate": "enabled"
             },
             "volatile": null,
@@ -129,6 +146,12 @@
             "list_name": "systemd_unit_activestate_list",
             "owner": "icinga-admin",
             "entries": [
+                {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
                 {
                     "entry_name": "activating",
                     "entry_value": "Activating",
@@ -158,12 +181,6 @@
                     "entry_value": "Inactive",
                     "format": "string",
                     "allowed_roles": null
-                },
-                {
-                    "entry_name": "None",
-                    "entry_value": "None",
-                    "format": "string",
-                    "allowed_roles": null
                 }
             ],
             "uuid": "8ecb8e5a-066b-4fd8-a771-e78babb5fb35"
@@ -172,6 +189,12 @@
             "list_name": "systemd_unit_loadstate_list",
             "owner": "icinga-admin",
             "entries": [
+                {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
                 {
                     "entry_name": "activating",
                     "entry_value": "Activating",
@@ -221,12 +244,6 @@
                     "allowed_roles": null
                 },
                 {
-                    "entry_name": "None",
-                    "entry_value": "None",
-                    "format": "string",
-                    "allowed_roles": null
-                },
-                {
                     "entry_name": "not-found",
                     "entry_value": "Not Found",
                     "format": "string",
@@ -264,6 +281,12 @@
             "list_name": "systemd_unit_substate_list",
             "owner": "icinga-admin",
             "entries": [
+                {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
                 {
                     "entry_name": "abandoned",
                     "entry_value": "Abandoned",
@@ -387,12 +410,6 @@
                 {
                     "entry_name": "mounting-done",
                     "entry_value": "Mounting Done",
-                    "format": "string",
-                    "allowed_roles": null
-                },
-                {
-                    "entry_name": "None",
-                    "entry_value": "None",
                     "format": "string",
                     "allowed_roles": null
                 },
@@ -542,6 +559,12 @@
             "owner": "icinga-admin",
             "entries": [
                 {
+                    "entry_name": "None",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
                     "entry_name": "bad",
                     "entry_value": "Bad",
                     "format": "string",
@@ -608,12 +631,6 @@
                     "allowed_roles": null
                 },
                 {
-                    "entry_name": "None",
-                    "entry_value": "None",
-                    "format": "string",
-                    "allowed_roles": null
-                },
-                {
                     "entry_name": "static",
                     "entry_value": "Static",
                     "format": "string",
@@ -657,9 +674,20 @@
             "uuid": "52984dff-232b-4bf9-b627-e9215b046483"
         },
         "3": {
+            "varname": "systemd_unit_machine",
+            "caption": "Systemd Unit: Machine",
+            "description": "Execute operation on a local container. Specify a container name to connect to, optionally prefixed by a user name to connect as and a separating \"@\" character. If the special string \".host\" is used in place of the container name, a connection to the local system is made (which is useful to connect to a specific user's user bus: \"--user --machine=lennart@.host\"). If the \"@\" syntax is not used, the connection is made as root user. If the \"@\" syntax is used either the left hand side or the right hand side may be omitted (but not both) in which case the local user name and \".host\" are implied.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2fb4b9db-9e55-486e-bf4d-1fc57241cbc8"
+        },
+        "4": {
             "varname": "systemd_unit_severity",
             "caption": "Systemd Unit: Severity",
-            "description": "If something was found, the check returns WARN unless set here.",
+            "description": "Severity for alerting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -669,7 +697,7 @@
             },
             "uuid": "6a074f34-081c-4f4d-a8d2-871d0b83fc07"
         },
-        "4": {
+        "5": {
             "varname": "systemd_unit_substate",
             "caption": "Systemd Unit: Substate",
             "description": "Expected systemd SubState (repeating). This is the low-level unit activation state(s); values depend on unit type. If ommited or set to \"None\", the unit's substate will not be checked.",
@@ -682,7 +710,7 @@
             },
             "uuid": "8dd61646-5d92-4378-9097-a3f124fca4f4"
         },
-        "5": {
+        "6": {
             "varname": "systemd_unit_unit",
             "caption": "Systemd Unit: Unit",
             "description": "The unit name (service, timer, mount etc.). Required. For example \"sshd\", \"sshd.service\", \"my-samba-mount.mount\" etc.",
@@ -693,10 +721,10 @@
             },
             "uuid": "499e53dc-746c-4194-92c0-c0e0f725e872"
         },
-        "6": {
+        "7": {
             "varname": "systemd_unit_unitfilestate",
             "caption": "Systemd Unit: Unitfilestate",
-            "description": "Expected systemd UnitFileState. If ommited or set to \"None\", the unit's unit-file state will not be checked. If \"empty\", checks exactly for ``UnitFileState=\"\"``.",
+            "description": "Expected systemd UnitFileState. If set to \"empty\", checks exactly for `UnitFileState=\"\"`. If ommited or set to \"None\", the unit's unit-file state will not be checked. ",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -705,6 +733,15 @@
                 "datalist": "systemd_unit_unitfilestate_list"
             },
             "uuid": "83015b7c-4f1d-41e6-ab44-fc0ed649f813"
+        },
+        "8": {
+            "varname": "systemd_unit_user",
+            "caption": "Systemd Unit: User?",
+            "description": "Talk to the service manager of the calling user, rather than the service manager of the system.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "bc1e6272-2008-47f9-8226-b4042cd57d20"
         }
     }
 }
