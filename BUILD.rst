@@ -9,7 +9,7 @@ Build for Linux
 
 The following steps describe the **manual** compilation and package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using Github actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
 
-To automatically retrieve version information from outside Github, first create a Github Personal Access Token. If you are using a classic token, only the "repo:public_repo" scope is required.
+To automatically retrieve version information from outside Github, first create a Github Personal Access Token. If you are using a [classic token](https://github.com/settings/tokens/new), only the "repo:public_repo" scope is required.
 
 To be able to perform the same steps on a local Ubuntu host as on a Github runner, we decided to minimize the use of Github actions for the Linux build process (and therefore use some build scripts), and maximize the use of Github actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the Github runners.
 
@@ -25,7 +25,7 @@ To build on Linux, first set environment variables for (absolute) paths, version
     export LFMP_PACKAGE_ITERATION=7
     export LFMP_TARGET_DISTROS="debian12 rocky9"              # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
 
-    # for getting the latest version
+    # for getting the latest version into $LFMP_VERSION
     export GITHUB_TOKEN=ghp_abc123xyz987
     export GITHUB_REPOSITORY=Linuxfabrik/monitoring-plugins
     # or set manually: export LFMP_VERSION=1.2.3.4
