@@ -55,7 +55,7 @@ Help
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
       --utc-offset UTC_OFFSET
-                            UTC offset. Default: +0100
+                            UTC offset. Default: +0200
 
 
 Usage Examples
