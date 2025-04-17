@@ -1,17 +1,17 @@
 Compile and Package the Linuxfabrik Monitoring Plugins
 ======================================================
 
-Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid Python on the Linux or Windows target systems. With this manual, plugins can be compiled and packaged (= "built") using Nuitka on Github runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the Github runner; for Linux only).
+Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid Python on the Linux or Windows target systems. With this manual, plugins can be compiled and packaged (= "built") using Nuitka on GitHub runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the GitHub runner; for Linux only).
 
 
 Build for Linux
 ---------------
 
-The following steps describe the **manual** compilation and package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using Github actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
+The following steps describe the **manual** compilation and package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using GitHub actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
 
-To automatically retrieve version information from outside Github, first create a Github Personal Access Token. If you are using a [classic token](https://github.com/settings/tokens/new), only the "repo:public_repo" scope is required.
+To automatically retrieve version information from outside GitHub, first create a GitHub Personal Access Token. If you are using a [classic token](https://github.com/settings/tokens/new), only the "repo:public_repo" scope is required.
 
-To be able to perform the same steps on a local Ubuntu host as on a Github runner, we decided to minimize the use of Github actions for the Linux build process (and therefore use some build scripts), and maximize the use of Github actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the Github runners.
+To be able to perform the same steps on a local Ubuntu host as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts), and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
 
 To build on Linux, first set environment variables for (absolute) paths, versions etc.:
 
@@ -19,7 +19,7 @@ To build on Linux, first set environment variables for (absolute) paths, version
 
     cat > env-file << 'EOF'
     # ---
-    # User input on Github:
+    # User input on GitHub:
     export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
     export LFMP_COMPILE_PLUGINS="cpu-usage feed scanrootkit"  # check-plugins to compile. leave empty to compile all
     export LFMP_PACKAGE_ITERATION=7
@@ -28,11 +28,11 @@ To build on Linux, first set environment variables for (absolute) paths, version
     # for getting the latest version into $LFMP_VERSION
     export GITHUB_TOKEN=ghp_abc123xyz987
     export GITHUB_REPOSITORY=Linuxfabrik/monitoring-plugins
-    # or set manually: export LFMP_VERSION=1.2.3.4
+    # or set manually: export LFMP_VERSION=1.4.0.5
 
     # ---
     # Constants
-    # use absolut paths here
+    # use absolute paths here
     export LFMP_DIR_REPOS=/tmp/lfmp/repos
     export LFMP_DIR_COMPILED=/tmp/lfmp/compiled
     export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
@@ -52,21 +52,20 @@ The paths and their meanings:
 * dist: files are taken from the compiled directory and merged together, ready to be packaged
 * packaged: contains the packages built by fpm
 
-Clone the Linuxfabrik Monitoring Plugins and the Linuxfabrik Python Libraries from Github:
+Clone the Linuxfabrik Monitoring Plugins and the Linuxfabrik Python Libraries from GitHub:
 
 .. code-block:: bash
 
     cd $LFMP_DIR_REPOS
     git clone https://github.com/Linuxfabrik/monitoring-plugins.git
 
-
-Fetch the current version from Github:
+Fetch the current version from GitHub:
 
 .. code-block:: bash
 
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh
-    # or set it manually: export LFMP_VERSION=1.2.3.4
-
+    if [[ -z "$LFMP_VERSION" ]]; then
+        source "$LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh"
+    fi
 
 Install podman:
 
@@ -88,7 +87,7 @@ For each distro compile the specified plugins:
     # a run takes round about one minute per plugin
     source $LFMP_DIR_REPOS/monitoring-plugins/build/matrix-compile.sh
 
-After that, $LFMP_DIR_COMPILED should look somethinglike this:
+After that, $LFMP_DIR_COMPILED should look like this:
 
 .. code-block:: text
 
@@ -120,11 +119,24 @@ Create the packages for every OS:
 
     source $LFMP_DIR_REPOS/monitoring-plugins/build/create-packages.sh
 
+After that, the packages directory should look like this:
+
+.. code-block:: text
+
+    $LFMP_DIR_PACKAGED
+    ├── debian12/
+    │   └── check-plugins/
+    │       ├── linuxfabrik-monitoring-plugins_1.4.0.5-7_amd64.deb
+    │       └── linuxfabrik-monitoring-plugins.zip
+    └── rocky9/
+        └── check-plugins/
+            └── linuxfabrik-monitoring-plugins-1.4.0.4-7.x86_64.rpm
+
 
 Build for Windows
 -----------------
 
-Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/. Both files are created automatically using the Github Actions workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__.
+Packaging for Windows means creating both a zip and an msi file, both of which can be downloaded from https://download.linuxfabrik.ch/monitoring-plugins/. Both files are created automatically using the GitHub Actions workflow `Linuxfabrik: Build Windows <https://github.com/Linuxfabrik/monitoring-plugins/actions/workflows/lf-build-windows.yml>`__.
 
 To create the msi file, we use the most recent `WiX Toolset <https://wixtoolset.org/docs/intro/>`__.
 
