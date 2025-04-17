@@ -4,19 +4,12 @@
 set -e -x
 
 get_vendor() {
-    local vendor
-
-    # Check if /etc/os-release exists
-    if [[ -f /etc/os-release ]]; then
-        vendor=$(source /etc/os-release && echo "$ID")
-    fi
-
-    # Map the vendor to standardized names
-    case "$vendor" in
-    rhel|centos|fedora|rocky|almalinux|suse|opensuse)
+    # Map the target OS to a OS family
+    case "$1" in
+    rocky8|rocky9)
         vendor="RedHat"
         ;;
-    debian|ubuntu|mint)
+    debian11|debian12|ubuntu2004|ubuntu2204|ubuntu2404)
         vendor="Debian"
         ;;
     *)
@@ -57,6 +50,7 @@ EOF
     mkdir -p $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/assets/
     if [ "$LFMP_TARGET_DISTRO_FAMILY" != "other" ]; then
         \cp --archive "$LFMP_DIR_REPOS/monitoring-plugins"/assets/sudoers/"$LFMP_TARGET_DISTRO_FAMILY".sudoers $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/assets/sudoers
+        chmod 0440 $LFMP_DIR_COMPILED/$LFMP_TARGET_DISTRO/assets/sudoers
         echo "assets/sudoers=/etc/sudoers.d/monitoring-plugins" >> $LFMP_DIR_PACKAGED/$LFMP_TARGET_DISTRO/check-plugins/.fpm
     fi
 

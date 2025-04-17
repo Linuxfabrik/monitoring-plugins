@@ -31,6 +31,10 @@ Monitoring Plugins:
 
 ### Changed ("refactor", "chore" etc.)
 
+Build, CI/CD:
+
+* create-fpms.sh: fix OS detection for setting OS family
+
 Monitoring Plugins:
 
 * fail2ban: be a bit more verbose in case everything is ok
