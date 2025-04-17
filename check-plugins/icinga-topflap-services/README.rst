@@ -79,7 +79,7 @@ Help
       --username USERNAME  IcingaWeb Username. Takes precedence over setting in
                            `--password-file`.
       -w, --warning WARN   Warning number of state changes per service within the
-                           "lookback" period. Supports Nagios ranges. Default: 5
+                           "lookback" period. Supports Nagios ranges. Default: 7
 
 
 Usage Examples
