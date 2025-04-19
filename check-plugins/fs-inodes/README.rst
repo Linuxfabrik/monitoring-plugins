@@ -4,9 +4,9 @@ Check fs-inodes
 Overview
 --------
 
-Checks the percentage of inode space used. To do this, this plugin fetches a list of local devices that are in use and have a filesystem on them. Filesystems that do not report inode usage are skipped.
+Checks the percentage of inode space used. To do this, this plugin fetches a list of local devices that are in use and have a filesystem on them. Filesystems that do not report inode usage (e.g. btrfs) are skipped.
 
-If you get an alert, use `find $MOUNT -xdev -printf '%h\n\' | sort | uniq -c | sort -k 1 -n | tail -n 10` to find where inodes are being used. This prints a top 10 list of directories prefixed with the number of files (and subdirectories).
+If you get an alert, use `find $MOUNT -xdev -printf '%h\n' | sort | uniq --count | sort --key=1 --numeric-sort --reverse | head -n 10` to find where inodes are being used. This finds the 10 directories under $MOUNT that have the most files inside them.
 
 
 Fact Sheet

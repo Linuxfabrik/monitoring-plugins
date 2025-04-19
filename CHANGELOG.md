@@ -38,6 +38,8 @@ Build, CI/CD:
 Monitoring Plugins:
 
 * fail2ban: be a bit more verbose in case everything is ok
+* fs-inodes: improve code
+* icinga-topflap-services: increase default warning level from 5 to 7
 * php-status: bz2 and curl are no default modules
 
 
