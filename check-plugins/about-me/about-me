@@ -30,7 +30,6 @@ import lib.net  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.time  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-import lib.version  # pylint: disable=C0413
 from lib.globals import STATE_OK, STATE_UNKNOWN  # pylint: disable=C0413
 
 try:
@@ -41,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025030201'
+__version__ = '2025042001'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -264,7 +263,7 @@ def get_interfaces():
     return output
 
 
-def get_lftags():
+def get_lftags(distro):
     """Try to automatically detect as many Linuxfabrik tags for Icinga Director as possible.
     Tags that are disabled here can't be detected on the system running this plugin, but are present
     in all-the-rest.json. So keep this function in sync with all-the-rest.json.
@@ -366,8 +365,8 @@ def get_lftags():
         {'sw': 'OpenVPN Server', 'package': ['openvpn'], 'expr': [run_cmd('systemctl is-enabled openvpn-server@server.service', ignore_output=True)]}, # pylint: disable=C0301
         {
             'sw': 'OS - {}, family "{}"'.format(
-                lib.version.get_os_info(),
-                lib.distro.get_distribution_facts()['os_family'],
+                distro.get('os_info'),
+                distro.get('os_family'),
             ),
             'package': [],
             'expr': [True], # always check this
@@ -771,8 +770,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # init some vars
+    distro = lib.distro.get_distribution_facts()
     perfdata = ''
-    tags = get_lftags()
+    tags = get_lftags(distro)
 
     # only tags wanted, so it's ok to stop here
     if args.TAGS:
@@ -783,7 +783,8 @@ def main():
     # first header line ----------------------------------------------------------------------------
     msg = '{}: '.format(socket.gethostname())
 
-    os_info = lib.version.get_os_info()
+
+    os_info = distro.get('os_info')
     if os_info:
         msg += '{} '.format(os_info)
     msg += 'Kernel {} '.format(run_cmd('uname -r'))
