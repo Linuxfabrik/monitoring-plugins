@@ -1,0 +1,218 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: kubectl-get-pods
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Kubectl Get Pods
+  uid: linuxfabrik-monitoring-plugins-kubectl-get-pods
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*kubectl-get-pods.*/
+      current:
+        text: cmd-check-kubectl-get-pods
+        value: cmd-check-kubectl-get-pods
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: Kubectl Get Pods
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 1
+        min: 0
+        unit: bytes
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: failed
+      refId: failed
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: failed
+
+    - alias: pending
+      refId: pending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: pending
+
+    - alias: running
+      refId: running
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: running
+
+    - alias: succeeded
+      refId: succeeded
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: succeeded
+
+    - alias: unknown
+      refId: unknown
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: unknown

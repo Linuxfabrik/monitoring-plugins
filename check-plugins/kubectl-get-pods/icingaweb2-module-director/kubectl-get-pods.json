@@ -1,0 +1,189 @@
+{
+    "Command": {
+        "cmd-check-kubectl-get-pods": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$kubectl_get_pods_always_ok$"
+                },
+                "--all-namespaces": {
+                    "set_if": "$kubectl_get_pods_all_namespaces$"
+                },
+                "--kubeconfig": {
+                    "value": "$kubectl_get_pods_kubeconfig$"
+                },
+                "--query": {
+                    "value": "$kubectl_get_pods_query$"
+                },
+                "--severity": {
+                    "value": "$kubectl_get_pods_severity$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/kubectl-get-pods",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-kubectl-get-pods",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "8c296420-12ca-4c8a-add7-86edb9c6a24b"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-kubectl-get-pods": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-kubectl-get-pods",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "kubectl-get-pods.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the health and status of Kubernetes Pods by running `kubectl get pods` and parsing the results. Prints a table listing namespace, pod name, readiness, status, restart count, pod age, and IP address. Adds performance data for each pod status (Running, Pending, Failed, Succeeded, Unknown). By default, only shows pods from the current namespace. Use `--all-namespaces` to check across all namespaces. The plugin also stores a temporary local SQLite database during runtime (no persistent history). Results can therefore be filtered with a custom SQL `--query` (e.g., by namespace, pod name, or status). See the README for more details. Pending and Failed pods can trigger a WARNING or CRITICAL state (configurable via `--severity`), while Unknown pods result in an UNKNOWN state. Intended for use with Nagios/Icinga to detect Kubernetes pod issues like stuck, failing, or unreachable pods. ",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kubectl-get-pods",
+            "object_name": "tpl-service-kubectl-get-pods",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "kubectl_get_pods_always_ok": false,
+                "kubectl_get_pods_all_namespaces": false,
+                "kubectl_get_pods_kubeconfig": "/var/spool/icinga2/.kubeconfig",
+                "kubectl_get_pods_query": "1",
+                "kubectl_get_pods_severity": "crit"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "d7e5f8fc-295c-46b7-8520-9dc1a963435c"
+        }
+    },
+    "DataList": {
+        "kubectl_get_pods_severity_list": {
+            "list_name": "kubectl_get_pods_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "e81cbec5-65ee-4027-a947-220e3fbc980a"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "kubectl_get_pods_always_ok",
+            "caption": "Kubectl Get Pods: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d9246145-dd9c-42f0-acb6-c03d4b8a86a7"
+        },
+        "2": {
+            "varname": "kubectl_get_pods_all_namespaces",
+            "caption": "Kubectl Get Pods: All Namespaces?",
+            "description": "If present, list the requested object(s) across all namespaces. Namespace in current context is ignored even if specified with `--namespace`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ef8bbc2b-58ea-4ae0-91c3-44db84fd2a9b"
+        },
+        "3": {
+            "varname": "kubectl_get_pods_kubeconfig",
+            "caption": "Kubectl Get Pods: Kubeconfig",
+            "description": "Path to the kubeconfig file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "635283cf-4d19-45ae-9832-4413c0b47e58"
+        },
+        "4": {
+            "varname": "kubectl_get_pods_query",
+            "caption": "Kubectl Get Pods: Query",
+            "description": "Provide the SQL `WHEN` statement part to narrow down results.  Example: `namespace = 'mynamespace' and name like 'prod-%%' and status != 'running'`. Have a look at the README for a list of available columns.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6d98f760-1f67-4700-837b-2ff6a5042e45"
+        },
+        "5": {
+            "varname": "kubectl_get_pods_severity",
+            "caption": "Kubectl Get Pods: Severity",
+            "description": "Severity for alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "kubectl_get_pods_severity_list"
+            },
+            "uuid": "87cc8d80-1b0f-4e41-b73b-25e1735df7a0"
+        }
+    }
+}
