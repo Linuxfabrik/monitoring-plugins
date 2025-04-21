@@ -15,11 +15,12 @@ import argparse  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
+import lib.distro  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
 from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024120901'
+__version__ = '2025042001'
 
 DESCRIPTION = 'Tracks if RHEL is EOL.'
 
@@ -143,7 +144,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.version.get_os_info()
+    installed_version = lib.distro.get_distribution_facts().get('os_info')
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/rhel.json',
         installed_version,
