@@ -40,6 +40,7 @@ Monitoring Plugins:
 
 * about-me: switch from lib.version to lib.distro
 * csv-values: make use of ommitted --warning-query and --critical-query more robust
+* disk-io: improve help text
 * fail2ban: be a bit more verbose in case everything is ok
 * fedora-version: switch from lib.version to lib.distro
 * fs-inodes: improve code
