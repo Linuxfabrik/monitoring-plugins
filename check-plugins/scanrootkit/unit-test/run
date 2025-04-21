@@ -34,7 +34,8 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_EXAMPLE02(self):
         lib.disk.write_file('/tmp/.cinik', 'test02')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check))
-        self.assertIn('2 rootkit items found. [CRITICAL]', stdout)
+        self.assertIn('Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [CRITICAL]', stdout)
+        self.assertIn('Rootkits:', stdout)
         self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
         self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)
         self.assertEqual(stderr, '')
@@ -44,7 +45,9 @@ class TestCheck(unittest.TestCase):
     def test_if_check_runs_EXAMPLE03(self):
         lib.disk.write_file('/tmp/.cinik', 'test03')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --severity=warn'))
-        self.assertIn('2 rootkit items found. [WARNING]', stdout)
+
+        self.assertIn('Found 2 rootkit items and 0 extra items. 0 possible rootkit items found. [WARNING]', stdout)
+        self.assertIn('Rootkits:', stdout)
         self.assertIn('* CiNIK Worm (Slapper.B variant): /tmp/.cinik (File)', stdout)
         self.assertIn('* Slapper Worm: /tmp/.cinik (File)', stdout)
         self.assertEqual(stderr, '')

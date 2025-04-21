@@ -32,13 +32,13 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE02_warn(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,'))
-        self.assertIn('Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [WARNING], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
+        self.assertIn('Pool www (dynamic): 47/55 reqs waiting for a free process in listen queue (85.5%) [WARNING], "max children" was reached at least once [WARNING], 42 slow reqs have hit the configured `request_slowlog_timeout` [WARNING], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
     def test_if_check_runs_EXAMPLE02_crit(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --critical-slowreq 40 --test=stdout/EXAMPLE02,,'))
-        self.assertIn('Pool www (dynamic): 47/55 reqs in queue (85.5%) [WARNING], 3x max children reached [WARNING], 42 slow requests [CRITICAL], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
+        self.assertIn('Pool www (dynamic): 47/55 reqs waiting for a free process in listen queue (85.5%) [WARNING], "max children" was reached at least once [WARNING], 42 slow reqs have hit the configured `request_slowlog_timeout` [CRITICAL], 129.1K connections, 23 processes (3 active, 20 idle), Up 3h 28m (since 2021-05-08 09:18:11)', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 

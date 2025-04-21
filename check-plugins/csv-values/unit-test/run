@@ -48,7 +48,7 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01_04(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="test" --skip-header'))
-        self.assertIn('Query failed: test, Error: near "test": syntax error, Data: {}', stdout)
+        self.assertIn('Operational Error: near "test": syntax error, Query: test, Data: {}', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
@@ -60,7 +60,7 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01_06(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --filename=stdout/EXAMPLE01.csv --columns-query="date TEXT, network TEXT, hostname TEXT, waitingupdates INTEGER" --warning-query="select * from x where 1" --skip-header'))
-        self.assertIn('Query failed: select * from x where 1, Error: no such table: x, Data: {}', stdout)
+        self.assertIn('Operational Error: no such table: x, Query: select * from x where 1, Data: {}', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 

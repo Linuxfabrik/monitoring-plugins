@@ -30,7 +30,16 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Everything is ok.\n\nUUID       ! Location     ! Model                                 ! RunMode  ! LED ! Health ! Running \n-----------+--------------+---------------------------------------+----------+-----+--------+---------\n209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC       ! Off ! [OK]   ! [OK]', stdout)
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('UUID       ! Location     ! Model                                 ! RunMode  ! LED ! Health ! Running', stdout)
+        self.assertIn('-----------+--------------+---------------------------------------+----------+-----+--------+--------', stdout)
+        self.assertIn('209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC       ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.135  ! CTE0.IOM.H7  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.140  ! CTE0.IOM.H12 ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]   ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 

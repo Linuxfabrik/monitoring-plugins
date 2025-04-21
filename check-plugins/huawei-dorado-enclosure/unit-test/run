@@ -30,7 +30,11 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Everything is ok.\n\nUUID   ! Location ! Name   ! Model                                 ! SerialNumber         ! Logic                                ! MacAddress        ! Switch ! Temp ! Health ! Running \n-------+----------+--------+---------------------------------------+----------------------+--------------------------------------+-------------------+--------+------+--------+---------\n206:0  ! 0.1      ! CTE0   ! Unknown                               ! 210235843910E6000009 ! Controller Enclosure                 ! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! [OK]   ! [OK]', stdout)
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('UUID   ! Location ! Name   ! Model                                 ! SerialNumber         ! Logic                                ! MacAddress        ! Switch ! Temp ! Health ! Running', stdout)
+        self.assertIn('-------+----------+--------+---------------------------------------+----------------------+--------------------------------------+-------------------+--------+------+--------+--------', stdout)
+        self.assertIn('206:0  ! 0.1      ! CTE0   ! Unknown                               ! 210235843910E6000009 ! Controller Enclosure                 ! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! [OK]   ! [OK]   ', stdout)
+        self.assertIn('206:0  ! --       ! CTE0   ! 4 U 4-controller controller enclosure ! 0815                 ! Controller Enclosure                 ! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! [OK]   ! [OK]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 

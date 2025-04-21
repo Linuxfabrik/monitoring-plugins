@@ -30,7 +30,12 @@ class TestCheck(unittest.TestCase):
 
     def test_if_check_runs_EXAMPLE01(self):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --device-id=1 --password=pass --url=https://localhost --username=admin --test=stdout/EXAMPLE01,,0'))
-        self.assertIn('Everything is ok.\n\nUUID                   ! Name               ! QuorumSrv ! QuorumType    ! Running \n-----------------------+--------------------+-----------+---------------+---------\n15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]', stdout)
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('', stdout)
+        self.assertIn('UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Running', stdout)
+        self.assertIn('-----------------------+--------------------+-----------+---------------+--------', stdout)
+        self.assertIn('15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]   ', stdout)
+        self.assertIn('15362:8038bc14bd750100 ! test               !           ! None          ! [OK]   ', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
