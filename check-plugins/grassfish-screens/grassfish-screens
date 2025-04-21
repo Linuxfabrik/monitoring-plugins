@@ -27,7 +27,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025042101'
 
 DESCRIPTION = """This monitoring plugin checks if the screens attached to a Grassfish player
                  are on or off.
@@ -298,6 +298,13 @@ def main():
         # set defaults
         player = lib.grassfish.set_player_defaults(player)
 
+        player['screen1_IsOn'] = None
+        player['screen1_LastStatusChange'] = None
+        player['screen1_LastUpdate'] = None
+        player['screen2_IsOn'] = None
+        player['screen2_LastStatusChange'] = None
+        player['screen2_LastUpdate'] = None
+
         # filter
         if args.BOX_ID:
             if 'BoxId' not in player:
@@ -327,13 +334,6 @@ def main():
         if args.TRANSFER_STATUS:
             if player['TransferStatus'].lower() not in args.TRANSFER_STATUS:
                 continue
-
-        player['screen1_IsOn'] = None
-        player['screen1_LastStatusChange'] = None
-        player['screen1_LastUpdate'] = None
-        player['screen2_IsOn'] = None
-        player['screen2_LastStatusChange'] = None
-        player['screen2_LastUpdate'] = None
 
         # get player's screens (using a cache, because this data is not soooo important,
         # and fetching all screens stresses the API a lot)
