@@ -32,7 +32,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024060601'
+__version__ = '2025042101'
 
 DESCRIPTION = """This check imports a CSV file into an SQLite database and can then run a separate
                  warning query and/or a critical query against it. The result - the number of
@@ -97,6 +97,7 @@ def parse_args():
         help='`SELECT` statement. If its result contains more than one column, the number of rows '
              'is checked against `--critical`, otherwise the single value is used.',
         dest='CRITICAL_QUERY',
+        default='',
     )
 
     parser.add_argument(
@@ -204,6 +205,7 @@ def parse_args():
         help='`SELECT` statement. If its result contains more than one column, the number of rows '
              'is checked against `--warning`, otherwise the single value is used.',
         dest='WARNING_QUERY',
+        default='',
     )
 
     return parser.parse_args()
@@ -251,7 +253,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if args.WARNING_QUERY is None and args.CRITICAL_QUERY is None:
+    if args.WARNING_QUERY == '' and args.CRITICAL_QUERY == '':
         lib.base.cu('Nothing to check, no queries provided.')
 
     # fetch data in various ways (file, url, smb)
