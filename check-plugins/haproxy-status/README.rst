@@ -6,7 +6,17 @@ Overview
 
 This check shows you an *abundance of metrics that cover the health of your HAProxy server, current request rates, response times, and more. These metrics give you granular data on a per-frontend, backend, and server basis. You need to add a stats enable directive, which is typically put into its own frontend section.* (from https://www.haproxy.com/blog/exploring-the-haproxy-stats-page/).
 
-HAProxy config example:
+HAProxy provides the ability to use Unix sockets for statistics. In monitoring setups where checks can be run locally on the system running HAProxy, this provides an easy and secure way to monitor without exposing the stats frontend to the network.
+
+To make **HAProxy listen on a Unix domain socket**, you need to configure the stats socket option, typically within the global section of your ``haproxy.cfg`` file:
+
+.. code-block:: text
+
+    global
+        # Other global settings ...
+        stats socket /run/haproxy.sock mode 600 level admin
+
+To make **HAProxy listen on a TCP port instead**, configure HAProxy as follows:
 
 .. code-block:: text
 
@@ -56,13 +66,17 @@ Help
       --lengthy             Extended reporting.
       --no-proxy            Do not use a proxy. Default: False
       -p, --password PASSWORD
-                            HAProxy Stats Auth password.
+                            HAProxy Stats Auth password (not needed for socket
+                            access).
       --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                             stderr-file,expected-retc".
       --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-      -u, --url URL         HAProxy Stats URI. Default: http://localhost/server-
-                            status
-      --username USERNAME   HAProxy Stats Auth username. Default: haproxy-stats
+      -u, --url URL         HAProxy Stats URI. Can be either
+                            `unix:///path/to/haproxy.sock` or an URL like
+                            `https://webserver:8443/server-status`. Default:
+                            unix:///run/haproxy.sock
+      --username USERNAME   HAProxy Stats Auth username (not needed for socket
+                            access). Default: haproxy-stats
       -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 80
 
 
@@ -77,23 +91,20 @@ Output:
 
 .. code-block:: text
 
-    frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP, rabbitmq-35671-5672 BACKEND: DOWN, srvvcs01-80 srvvcs01: NOLB, srvvcs01-80 BACKEND: MAINT, srvvcs01-5050 srvvcs01: DRAIN, srvapp01-6080 srvapp01: 8 queued connections (80.0%) [WARNING], stats FRONTEND: 8 sessions over the last second (rate 80.0%) [WARNING]
+    static static: DOWN, static BACKEND: DOWN, app app1: DOWN, app app2: DOWN, app app3: DOWN, app app4: DOWN, app BACKEND: DOWN
 
-    Proxy name          Server name Status          Sessions            RqBytes   RspBytes Rsp5xx Rq/s 
-    ----------          ----------- ------          --------            -------   -------- ------ ---- 
-    frontend-https      FRONTEND    OPEN            2.7K/3.0K [WARNING] 220.9MiB  438.8MiB 588.0  1    
-    frontend-https-8443 FRONTEND    STOP [WARNING]  0.0/3.0K            1004.3KiB 14.8MiB  72.0   0    
-    rabbitmq-35671-5672 FRONTEND    OPEN            0.0/3.0K            0.0B      0.0B            0    
-    rabbitmq-35671-5672 srvmq01     UP              0.0                 0.0B      0.0B                 
-    rabbitmq-35671-5672 BACKEND     DOWN [WARNING]  0.0/300.0           0.0B      0.0B                 
-    srvvcs01-80         srvvcs01    NOLB [WARNING]  0.0                 111.1MiB  361.4MiB 5.0         
-    srvvcs01-80         BACKEND     MAINT [WARNING] 0.0/300.0           111.2MiB  361.4MiB 96.0        
-    srvvcs01-5050       srvvcs01    DRAIN [WARNING] 0.0                 103.8MiB  92.5KiB  0.0         
-    srvvcs01-5050       BACKEND     no check        0.0/300.0           103.8MiB  92.5KiB  0.0         
-    srvlog01-9000       srvlog01    UP              0.0                 990.1KiB  14.7MiB  0.0         
-    srvlog01-9000       BACKEND     UP              0.0/300.0           990.1KiB  14.7MiB  0.0         
-    stats               FRONTEND    OPEN            1.0/3.0K            70.7KiB   1.7MiB   3.0    1    
-    stats               BACKEND     UP              0.0/300.0           70.7KiB   1.7MiB   3.0
+    Proxy name ! Server name ! Sessions ! RqBytes  ! RspBytes ! Rsp5xx ! Rq/s ! Status        
+    -----------+-------------+----------+----------+----------+--------+------+---------------
+    main       ! FRONTEND    ! 0/3000   ! 0.0B     ! 0.0B     ! 0      ! 0    ! OPEN          
+    static     ! static      ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    static     ! BACKEND     ! 0/300    ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    app        ! app1        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    app        ! app2        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    app        ! app3        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    app        ! app4        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    app        ! BACKEND     ! 0/300    ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
+    stats      ! FRONTEND    ! 0/3000   ! 443.2KiB ! 8.6MiB   ! 733    ! 0    ! OPEN          
+    stats      ! BACKEND     ! 0/300    ! 443.2KiB ! 8.6MiB   ! 733    !      ! UP
 
 .. code-block:: bash
 
@@ -103,23 +114,20 @@ Output:
 
 .. code-block:: text
 
-    frontend-https FRONTEND: 2666 sessions (88.9%) [WARNING], frontend-https-8443 FRONTEND: STOP, rabbitmq-35671-5672 BACKEND: DOWN, srvvcs01-80 srvvcs01: NOLB, srvvcs01-80 BACKEND: MAINT, srvvcs01-5050 srvvcs01: DRAIN, srvapp01-6080 srvapp01: 8 queued connections (80.0%) [WARNING], stats FRONTEND: 8 sessions over the last second (rate 80.0%) [WARNING]
+    static static: DOWN, static BACKEND: DOWN, app app1: DOWN, app app2: DOWN, app app3: DOWN, app app4: DOWN, app BACKEND: DOWN
 
-    Proxy name          Server name Status          Queued Sessions            RqBytes   RspBytes RqLB   Rate           Rsp2xx Rsp4xx Rsp5xx Rq/s LastReq RqRspTime 
-    ----------          ----------- ------          ------ --------            -------   -------- ----   ----           ------ ------ ------ ---- ------- --------- 
-    frontend-https      FRONTEND    OPEN                   2.7K/3.0K [WARNING] 220.9MiB  438.8MiB        0/0            172.2K 228.0  588.0  1                      
-    frontend-https-8443 FRONTEND    STOP [WARNING]         0.0/3.0K            1004.3KiB 14.8MiB         0/0            8.3K   732.0  72.0   0                      
-    rabbitmq-35671-5672 FRONTEND    OPEN                   0.0/3.0K            0.0B      0.0B            0/0                                 0                      
-    rabbitmq-35671-5672 srvmq01     UP              0      0.0                 0.0B      0.0B     0.0    0                                                0         
-    rabbitmq-35671-5672 BACKEND     DOWN [WARNING]  0      0.0/300.0           0.0B      0.0B     0.0    0                                                0         
-    srvvcs01-80         srvvcs01    NOLB [WARNING]  0      0.0                 111.1MiB  361.4MiB 138.1K 1              134.0K 6.0    5.0         0.00s   2889      
-    srvvcs01-80         BACKEND     MAINT [WARNING] 0      0.0/300.0           111.2MiB  361.4MiB 138.1K 1              134.0K 6.0    96.0        0.00s   2889      
-    srvvcs01-5050       srvvcs01    DRAIN [WARNING] 0      0.0                 103.8MiB  92.5KiB  195.0  0              164.0  31.0   0.0         2m 24s  71        
-    srvvcs01-5050       BACKEND     no check        0      0.0/300.0           103.8MiB  92.5KiB  195.0  0              164.0  31.0   0.0         2m 24s  71        
-    srvlog01-9000       srvlog01    UP              0      0.0                 990.1KiB  14.7MiB  8.3K   0              8.3K   0.0    0.0         52s     4121      
-    srvlog01-9000       BACKEND     UP              0      0.0/300.0           990.1KiB  14.7MiB  8.3K   0              8.3K   0.0    0.0         52s     4121      
-    stats               FRONTEND    OPEN                   1.0/3.0K            70.7KiB   1.7MiB          8/10 [WARNING] 202.0  1.0    3.0    1                      
-    stats               BACKEND     UP              0      0.0/300.0           70.7KiB   1.7MiB   0.0    0              0.0    0.0    3.0         0.00s   71
+    Proxy name ! Server name ! Queued ! Sessions ! RqBytes  ! RspBytes ! RqLB ! Rate ! Rsp2xx ! Rsp4xx ! Rsp5xx ! Rq/s ! LastReq ! RqRspTime ! Status        
+    -----------+-------------+--------+----------+----------+----------+------+------+--------+--------+--------+------+---------+-----------+---------------
+    main       ! FRONTEND    !        ! 0/3000   ! 0.0B     ! 0.0B     !      ! 0/0  ! 0      ! 0      ! 0      ! 0    !         !           ! OPEN          
+    static     ! static      ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    static     ! BACKEND     ! 0      ! 0/300    ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    app        ! app1        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    app        ! app2        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    app        ! app3        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    app        ! app4        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    app        ! BACKEND     ! 0      ! 0/300    ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
+    stats      ! FRONTEND    !        ! 0/3000   ! 443.2KiB ! 8.6MiB   !      ! 0/0  ! 2397   ! 0      ! 733    ! 0    !         !           ! OPEN          
+    stats      ! BACKEND     ! 0      ! 0/300    ! 443.2KiB ! 8.6MiB   ! 0    ! 0    ! 0      ! 0      ! 733    !      ! 3m 22s  ! 0         ! UP
 
 
 States
