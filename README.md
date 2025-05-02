@@ -14,8 +14,7 @@
 
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins) 
 ![GitHub last commit](https://img.shields.io/github/last-commit/linuxfabrik/monitoring-plugins) 
-![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver
-) 
+![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver) 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
