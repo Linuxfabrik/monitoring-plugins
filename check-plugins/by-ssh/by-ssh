@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025051301'
 
 DESCRIPTION = """This plugin uses SSH to execute a command on a remote host,
                  returning STDOUT and, in case of failure, STDERR and the command's return code.
@@ -309,8 +309,9 @@ def main():
         )
     timer_start = lib.time.now('float')
     stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=args.SHELL))
-    if args.PASSWORD and retc:
-        # stderr will not be set, we just get "Permission denied""
+    if args.PASSWORD and not stderr and retc in range(1, 8):
+        # we got a specific sshpass return code (this also means stderr = ""), and not just
+        # something like stderr = "Permission denied" with retc 127 or 255
         stderr = 'sshpass: {}'.format(lib.shell.RETC_SSHPASS[retc])
 
     perfdata = lib.base.get_perfdata('remote_runtime', lib.time.now('float') - timer_start, 's')

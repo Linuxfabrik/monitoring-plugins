@@ -27,6 +27,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* by-ssh: fix traceback on "permission denied"
 * needs-restarting: add missung import of lib.disk
 * ping: '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
 
