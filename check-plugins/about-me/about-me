@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025050801 / v1.5.0.10'
+__version__ = '2025051501 / v1.5.0.10'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -840,6 +840,10 @@ def main():
     disk_msg, disk_count = get_disks()
     msg += disk_msg
     msg += get_boot_mode()
+    env = os.environ.copy()
+    display_server = env.get('XDG_SESSION_TYPE')
+    if display_server and display_server != 'unspecified':
+        msg += 'Display Server {}, '.format(display_server)
     msg += get_tuned_active_profile()
     msg += get_public_ip(args)
     msg += get_birthday()

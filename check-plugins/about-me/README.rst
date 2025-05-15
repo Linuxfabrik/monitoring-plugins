@@ -74,7 +74,7 @@ Shortened output example:
 .. code-block:: text
 
     Plugin Output
-    server.example.com: Fedora Linux 39 (Workstation Edition) Kernel 6.8.4-200.fc39.x86_64 on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: 39d3e1cd, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16.0GiB RAM, Disk nvme0n1 1.8T, UEFI boot, born 2024-03-20. About-me v2024041001
+    server.example.com: Fedora Linux 39 (Workstation Edition) Kernel 6.8.4-200.fc39.x86_64 on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: 39d3e1cd, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16.0GiB RAM, Disk nvme0n1 1.8T, UEFI boot, Display Server wayland, tuned profile "throughput-performance", born 2024-03-20. About-me v2024041001
 
     Hardware Info:
     * BIOS: Dell Inc., Ver 3.21.0 (released 02/01/2024), ROM 32 MB
