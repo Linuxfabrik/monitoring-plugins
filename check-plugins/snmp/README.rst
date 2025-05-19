@@ -37,7 +37,7 @@ Help
 .. code-block:: text
 
     usage: snmp [-h] [-V] [--community COMMUNITY] [--device DEVICE] [--hide-ok]
-                -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
+                [--hide-table] -H HOSTNAME [--mib MIB] [--mib-dir MIB_DIR]
                 [--snmp-version {1,2c,3}] [--test TEST] [-t TIMEOUT]
                 [--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}]
                 [--v3-auth-prot-password V3_AUTH_PROT_PASSWORD]
@@ -63,8 +63,13 @@ Help
                             located under `./device-oids`, for example `switch-
                             fs-s3900.csv` or `printer-brother-mfcj5720dw.csv`.
                             `any-any-any.csv` is a good starting point showing
-                            some features.Default: any-any-any.csv.
+                            some features. The file name is irrelevant. We
+                            recommend the three-part structure, where the first
+                            "any" refers to the device class, the second "any"
+                            refers to the vendor, and the third refers to the
+                            model. Default: any-any-any.csv.
       --hide-ok             Don't print OIDs with OK state. Default: False.
+      --hide-table          Suppress the output of the table. Default: False.
       -H, --hostname HOSTNAME
                             SNMP Appliance address.
       --mib MIB             Load given list of MIBs, for example `+FS-MIB` or `FS-
@@ -133,6 +138,31 @@ Other example using a more specific OID list and an additional MIB directory:
         --mib-dir +/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900 \
         --hide-ok \
         --hostname 10.80.32.109
+
+Checking a Radware Alteon load balancer appliance - CSV file and result:
+
+.. code-block:: text
+
+    OID,Name,Re-Calc,Unit Label,WARN,CRIT,Show in 1st Line,Report Change as
+    SNMPv2-SMI::enterprises.1872.2.5.1.2.8.1.0,TotalMem,int(value),,,,,
+    SNMPv2-SMI::enterprises.1872.2.5.1.2.8.3.0,FreeMem,int(value),,,,,
+    ,warnPercent,70,%,,,,
+    ,critPercent,90,%,,,,
+    ,UsedMem,"values['TotalMem'] - values['FreeMem']",,,,,
+    ,Memory Usage,"round( 100.0 * values['UsedMem'] / values['TotalMem'],2)",%,value > values['warnPercent'],value > values['critPercent'],True,
+
+.. code-block:: text
+
+    lb-alteon-any.csv: Memory Usage: 40.06%
+
+    Key          ! Value    ! State
+    -------------+----------+-------
+    TotalMem     ! 65835992 ! [OK]
+    FreeMem      ! 39465220 ! [OK]
+    warnPercent  ! 70%      ! [OK]
+    critPercent  ! 90%      ! [OK]
+    UsedMem      ! 26370772 ! [OK]
+    Memory Usage ! 40.06%   ! [OK]
 
 
 Installation

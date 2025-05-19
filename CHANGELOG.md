@@ -53,6 +53,7 @@ Monitoring Plugins:
 * icinga-topflap-services: increase default warning level from 5 to 7
 * php-status: bz2 and curl are no default modules
 * rhel-version: switch from lib.version to lib.distro
+* snmp: make table output suppressable, streamline output
 
 
 
