@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 Monitoring Plugins:
 
-* about-me: Reports display server (if any)
+* about-me: Reports type of display server (if any)
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
 * redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
 * systemd-unit: implement support for `systemctl --machine` and `--user`
@@ -31,6 +31,7 @@ Monitoring Plugins:
 * by-ssh: fix traceback on "permission denied"
 * needs-restarting: add missung import of lib.disk
 * ping: '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
+* snmp: Special characters not supported in options --v3-auth-prot-password and --v3-priv-prot-password ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
 
 
 ### Changed ("refactor", "chore" etc.)

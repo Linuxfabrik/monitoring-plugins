@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025051901'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -209,18 +209,18 @@ def build_snmpget_call(args):
     """
     if args.SNMP_VERSION in ['1', '2c']:
         cmd = 'snmpget -v {} '.format(args.SNMP_VERSION)
-        cmd += '-c {} '.format(args.COMMUNITY) if args.COMMUNITY else ''
+        cmd += "-c '{}' ".format(args.COMMUNITY) if args.COMMUNITY else ''
     else:
         cmd = 'snmpget -v 3 '
         cmd += '-a {} '.format(args.V3_AUTH_PROT) if args.V3_AUTH_PROT else ''
-        cmd += '-A {} '.format(args.V3_AUTH_PROT_PASSWORD) if args.V3_AUTH_PROT_PASSWORD else ''
+        cmd += "-A '{}' ".format(args.V3_AUTH_PROT_PASSWORD) if args.V3_AUTH_PROT_PASSWORD else ''
         cmd += '-e {} '.format(args.V3_SECURITY_ENGINE_ID) if args.V3_SECURITY_ENGINE_ID else ''
         cmd += '-E {} '.format(args.V3_CONTEXT_ENGINE_ID) if args.V3_CONTEXT_ENGINE_ID else ''
         cmd += '-l {} '.format(args.V3_LEVEL) if args.V3_LEVEL else ''
         cmd += '-n {} '.format(args.V3_CONTEXT) if args.V3_CONTEXT else ''
         cmd += '-u {} '.format(args.V3_USERNAME) if args.V3_USERNAME else ''
         cmd += '-x {} '.format(args.V3_PRIV_PROT) if args.V3_PRIV_PROT else ''
-        cmd += '-X {} '.format(args.V3_PRIV_PROT_PASSWORD) if args.V3_PRIV_PROT_PASSWORD else ''
+        cmd += "-X '{}' ".format(args.V3_PRIV_PROT_PASSWORD) if args.V3_PRIV_PROT_PASSWORD else ''
         cmd += '-Z {} '.format(args.V3_BOOTS_TIME) if args.V3_BOOTS_TIME else ''
     cmd += '-OSqtU -r 0 '
     cmd += '-t {} '.format(args.TIMEOUT) if args.TIMEOUT else ''
