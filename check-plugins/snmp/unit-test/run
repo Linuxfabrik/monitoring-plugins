@@ -63,14 +63,37 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
 
-    # against EXAMPLE03.csv
-    def test_if_check_runs_EXAMPLE03(self):
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0'))
+    # against EXAMPLE03.csv v1
+    def test_if_check_runs_EXAMPLE03_v1(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v1.csv'))
         self.assertIn('Key                      ! Value        ! State', stdout)
         self.assertIn('-------------------------+--------------+----------', stdout)
         self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
         self.assertIn('System Location          ! My Location  ! [OK]', stdout)
         self.assertIn('Supply Air Temperature   ! 27.0         ! [WARNING]', stdout)
+        self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    # against EXAMPLE03.csv v2
+    def test_if_check_runs_EXAMPLE03_v2(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v2.csv'))
+        self.assertIn('Key                      ! Value        ! State', stdout)
+        self.assertIn('-------------------------+--------------+----------', stdout)
+        self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
+        self.assertIn('System Location          ! My Location  ! [OK]', stdout)
+        self.assertIn('Supply Air Temperature   ! 27.0         ! [WARNING]', stdout)
+        self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    # against EXAMPLE03.csv v3
+    def test_if_check_runs_EXAMPLE03_v3(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --hostname 127.0.0.3 --test=stdout/EXAMPLE03,,0  --device=../unit-test/stdout/EXAMPLE03-v3.csv'))
+        self.assertIn('Key                      ! Value        ! State', stdout)
+        self.assertIn('-------------------------+--------------+----------', stdout)
+        self.assertIn('System Name              ! My Appliance ! [OK]', stdout)
+        self.assertIn('System Location          ! My Location  ! [OK]', stdout)
         self.assertIn('Rack Inlet Temperature 1 ! 36.0         ! [CRITICAL]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)

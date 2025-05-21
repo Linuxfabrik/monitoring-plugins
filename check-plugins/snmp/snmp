@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025051902'
+__version__ = '2025052101'
 
 DESCRIPTION = """This check is a SNMP application that uses the SNMP GET request to query for
                  information on a network entity. The object identifiers (OIDs) of interest have
@@ -43,6 +43,8 @@ CSV_COL_SIFL = 6
 CSV_COL_RCA = 7
 CSV_COL_IGNPERF = 8       # added 2024052901
 CSV_COL_PERFTHRSHLD = 9   # added 2024052901
+CSV_COL_SKIPOUTPUT = 10   # added 2025052101
+# the last (non-existent) column contains the snmp result
 
 DEFAULT_HIDE_TABLE = False
 
@@ -348,6 +350,7 @@ def main():
 
     # the last (non-existent) column should contain the result
     CSV_COL_VALUE = len(snmp_objects[0])
+
     # evaluate results
     for snmp_object in snmp_objects[1:]:
         if len(snmp_object) <= 1:
@@ -386,19 +389,28 @@ def main():
         except:
             pass
 
+        # manage different CSV formats
+        # v1: last column is CSV_COL_RCA
+        # v2: last column is CSV_COL_PERFTHRSHLD, added 2024052901
+        # v3: last column is CSV_COL_SKIPOUTPUT, added 2025052101
+        skip_output = False
+        ignore_perfdata = False
+        perf_thresholds = False
+        if CSV_COL_VALUE > CSV_COL_SKIPOUTPUT:
+            # v3
+            try:
+                skip_output = lib.base.str2bool(snmp_object[CSV_COL_SKIPOUTPUT])
+            except IndexError:
+                # invalid csv definition
+                pass
         if CSV_COL_VALUE > CSV_COL_RCA:
-            # these two columns were added 2024052901
+            # v2
             try:
                 ignore_perfdata = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
                 perf_thresholds = snmp_object[CSV_COL_PERFTHRSHLD]
             except IndexError:
-                # invalid csv definition, so ignore perfdata
-                ignore_perfdata = False
-                perf_thresholds = False
-        else:
-            # previous behaviour
-            ignore_perfdata = False
-            perf_thresholds = False
+                # invalid csv definition
+                pass
 
         if recalc:
             # we got a formula
@@ -485,12 +497,13 @@ def main():
                     lib.human.seconds2human(value),
                     lib.base.state2str(value_state, prefix=' '),
                 )
-            if not args.HIDEOK or value_state:
-                table_values.append({
-                    'name': name,
-                    'value': '{}{}'.format(lib.human.seconds2human(value), ''),
-                    'state': lib.base.state2str(value_state, empty_ok=False),
-                })
+            if not skip_output:
+                if not args.HIDEOK or value_state:
+                    table_values.append({
+                        'name': name,
+                        'value': '{}{}'.format(lib.human.seconds2human(value), ''),
+                        'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
         elif unit.lower() == 'b':
             if show_in_first_line:
                 msg_header += '{}: {}{}, '.format(
@@ -498,12 +511,13 @@ def main():
                     lib.human.bytes2human(value),
                     lib.base.state2str(value_state, prefix=' '),
                 )
-            if not args.HIDEOK or value_state:
-                table_values.append({
-                    'name': name,
-                    'value': '{}{}'.format(lib.human.bytes2human(value), ''),
-                    'state': lib.base.state2str(value_state, empty_ok=False),
-                })
+            if not skip_output:
+                if not args.HIDEOK or value_state:
+                    table_values.append({
+                        'name': name,
+                        'value': '{}{}'.format(lib.human.bytes2human(value), ''),
+                        'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
         elif unit.lower() == 'bps':
             if show_in_first_line:
                 msg_header += '{}: {}{}, '.format(
@@ -511,12 +525,13 @@ def main():
                     lib.human.bps2human(value),
                     lib.base.state2str(value_state, prefix=' '),
                 )
-            if not args.HIDEOK or value_state:
-                table_values.append({
-                    'name': name,
-                    'value': '{}{}'.format(lib.human.bps2human(value), ''),
-                    'state': lib.base.state2str(value_state, empty_ok=False),
-                })
+            if not skip_output:
+                if not args.HIDEOK or value_state:
+                    table_values.append({
+                        'name': name,
+                        'value': '{}{}'.format(lib.human.bps2human(value), ''),
+                        'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
         else:
             if show_in_first_line:
                 msg_header += '{}: {}{}{}, '.format(
@@ -525,12 +540,13 @@ def main():
                     unit,
                     lib.base.state2str(value_state, prefix=' '),
                 )
-            if not args.HIDEOK or value_state:
-                table_values.append({
-                    'name': name,
-                    'value': '{}{}'.format(value, unit),
-                    'state': lib.base.state2str(value_state, empty_ok=False),
-                })
+            if not skip_output:
+                if not args.HIDEOK or value_state:
+                    table_values.append({
+                        'name': name,
+                        'value': '{}{}'.format(value, unit),
+                        'state': lib.base.state2str(value_state, empty_ok=False),
+                    })
 
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)

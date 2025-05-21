@@ -18,6 +18,7 @@ Monitoring Plugins:
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
 * redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
 * systemd-unit: implement support for `systemctl --machine` and `--user`
+* snmp: add column "skip output" to CSV definition for devices, add unit tests
 
 
 ### Fixed ("fix")

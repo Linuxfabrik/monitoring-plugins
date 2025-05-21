@@ -200,29 +200,29 @@ If needed, get any MIB files ready. Copy them to ``$HOME/.snmp/mibs`` or ``/usr/
 Create an OID list in ``/usr/lib64/nagios/plugins/device-oids/...`` using CSV format. For details, have a look at "Defining a Device" within this document.
 
 
-Defining a Device
------------------
+Defining a Device via CSV file
+------------------------------
 
 If you want to define a device-specific list of OIDs, including any calculations, warning and critical thresholds, create a CSV file located at ``device-oids``, using ``,`` as delimiter and ``"`` as quoting character. A minimal example for nearly any device:
 
-========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
-OID                       Name          Re-Calc                    Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as   Ignore in Perfdata Perfdata Alert Thresholds
-========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ========================== ===========
+OID                       Name          Re-Calc                    Unit Label   WARN                    CRIT                    Show in 1st Line   Report Change as   Ignore in Perfdata Perfdata Alert Thresholds  Skip Output
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ========================== ===========
 SNMPv2-MIB::sysName.0     Name                                                                                                 
-SNMPv2-MIB::sysLocation.0 Location                                                                                                                 WARN
+SNMPv2-MIB::sysLocation.0 Location                                                                                                                 WARN                                                             True
 SNMPv2-MIB::sysUpTime.0   Uptime        int(value) / 100 * 24*3600 s            value > 6*30            value > 2*365           True                                                     "3*30,None"
-========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ==========================
+========================= ============= ========================== ============ ======================= ======================= ================== ================== ================== ========================== ===========
 
 The columns in detail:
 
-* | Column 1: OID (String)
-  | The Object-Identifier from any of your MIB files.
-* | Column 2: Name (String)
-  | If provided, the check prints this instead of the OID.
-* | Column 3: Re-Calc (Python code, or empty)
-  | Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result (always a string) of the SNMPGET operation on the given OID.
-* | Column 4: Unit (String, or empty)
-  | This is the "Unit of Measurement", case-insensitiv. One of:
+* | **OID**:
+  |  String. The Object-Identifier from any of your MIB files.
+* | **Name**:
+  |  String. If provided, the check prints this instead of the OID.
+* | **Re-Calc**:
+  |  Python code, or empty. Feel free to use any Python Code based on the variables ``value`` and ``values``, which contain the result (always a string) of the SNMPGET operation on the given OID.
+* | **Unit**:
+  |  String, or empty. This is the "Unit of Measurement", case-insensitiv. One of:
 
      * s - seconds (also us, ms)
      * % - percentage
@@ -237,32 +237,20 @@ The columns in detail:
     * b - bytes
     * bps - bits per second
 
-* | Column 5: WARN (Python condition, or empty)
-  | The warning condition for the re-calculated or raw ``value``.
-* | Column 6: CRIT (Python condition, or empty)
-  | The critical condition for the re-calculated or raw ``value``.
-* | Column 7: Show in first line (Bool, either "False", "True", or empty)
-  | Should ``value`` be printed in the first line of the check output?
-* | Column 8: Report Change as (String, either "WARN", "CRIT", or empty)
-  | Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``.
-* | Column 9: Ignore in Perfdata (Bool, either "False", "True", or empty)
-  | By default, all numeric values are automatically returned as perfdata objects. Set to ``True`` to exclude this item from the perfdata list.
-* | Column 10: Perfdata Alert Thresholds (Python tuple)
-  | Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
-
-The output would be something like this
-
-.. code-block:: text
-
-    Uptime: 5M 1W
-
-    Key         Value           State 
-    ---         -----           ----- 
-    Name        BRW38B1DB3B30F4 [OK]  
-    Location    Office          [OK]  
-    Contact     The Printer Guy [OK]  
-    Description Brother NC-350w [OK]  
-    Uptime      5M 1W           [WARNING]
+* | **WARN**:
+  |  Python condition, or empty. The warning condition for the re-calculated or raw ``value``.
+* | **CRIT**:
+  |  Python condition, or empty. The critical condition for the re-calculated or raw ``value``.
+* | **Show in first line**:
+  |  Bool, either "False", "True", or empty. Should ``value`` be printed in the first line of the check output?
+* | **Report Change as**:
+  |  String, either "WARN", "CRIT", or empty. Should a change of ``value`` be reported as ``WARN`` or ``CRIT``? The check stores the initial values on the first run in ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``.
+* | **Ignore in Perfdata**:
+  |  Bool, either "False", "True", or empty. By default, all numeric values are automatically returned as perfdata objects. Set to ``True`` to exclude this item from the perfdata list.
+* | **Perfdata Alert Thresholds**:
+  |  Python tuple. Add warning and critical thresholds to performance data by defining a valid Python tuple - first element for warning, second one for critical. Use double quotes around the tuple because the comma is the separator between the fields. Normally, the values of WARN and CRIT should be repeated here so that the actual thresholds used are written to the performance data.
+* | **Skip Output**:
+  |  Bool, either "False", "True", or empty. Should this row be included in the resulting table output? Set this to "True" if you only need the row for calculations.
 
 The check divides the OID list automatically into blocks of 25 OIDs per SNMPGET request.
 
@@ -291,8 +279,8 @@ IF-MIB::ifInOctets.1      NIC.1 rx      int(value)                              
 
 
 
-Parameter Mapping
------------------
+Parameter Mapping ``snmpget`` vs. this Plugin
+---------------------------------------------
 
 =================  ========================================================
 ``snmpget``        This check
@@ -330,26 +318,6 @@ Example:
         10.80.32.141 NETGEAR-SWITCHING-MIB::agentInfoGroup
 
 
-Q & A
------
-
-Q: **I get ``Too many object identifiers specified. Only 128 allowed in one request.``**
-
-A: Probably your SNMP v3 parameters are incomplete or incorrect.
-
-Q: **I get ``add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...``**
-
-A: There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
-
-Q: **I get ``Error in packet. Reason: (tooBig) Response message would have been too large.``**
-
-A: A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
-
-Q: **Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?**
-
-A: If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``. On the next run of the plugin, it will recreate the inventory.
-
-
 States
 ------
 
@@ -372,6 +340,18 @@ Troubleshooting
 
 `IndexError: list index out of range`
     Something is wrong with your CSV file format. Try editing it in LibreOffice Calc, for example, to get the right amount of commas, quotes, etc.
+
+Too many object identifiers specified. Only 128 allowed in one request.
+    Probably your SNMP v3 parameters are incomplete or incorrect.
+
+add_mibdir: strings scanned in from .snmp/mibs/.index are too large.  count = ...
+    There seems to be a malformed, a duplicated MIB file or one with spaces in its filename within one of your MIB directories.
+
+Error in packet. Reason: (tooBig) Response message would have been too large.
+    A "tooBig" response simply means that the SNMP agent tried to generate a response with all requested OID's, but the response grew too big for its buffer, resulting in this error message. To avoid this, we divide your OID list and send a maximum of 25 oids per request each.
+
+Within Icinga, if I acknowledge a value change in WARN or CRIT state, does the plugin returns OK?
+    If you acknowledge a value change in Icinga, the desired WARN or CRIT state remains - due to the fact that SNMP is mostly run against hardware, and you have to check what triggered the change. If everything is fine, delete ``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``. On the next run of the plugin, it will recreate the inventory.
 
 
 Credits, License
