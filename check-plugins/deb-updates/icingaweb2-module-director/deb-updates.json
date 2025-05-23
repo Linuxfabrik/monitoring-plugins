@@ -1,0 +1,166 @@
+{
+    "Command": {
+        "cmd-check-deb-updates": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$deb_updates_always_ok$"
+                },
+                "--only-critical": {
+                    "set_if": "$deb_updates_only_critical$"
+                },
+                "--query": {
+                    "value": "$deb_updates_query$"
+                },
+                "--timeout": {
+                    "value": "$deb_updates_timeout$"
+                },
+                "--warning": {
+                    "value": "$deb_updates_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/deb-updates",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-deb-updates",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "abb6d1b1-e3fa-4f01-a9c6-2f183f450bb4"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-deb-updates": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-deb-updates",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "deb-updates.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "This plugin checks for software updates on systems that use package management systems based on the apt-get(8) command found in Debian GNU/Linux and compatible. This plugin only lists updates and upgrades, and provides the relevant alerts. It never actually runs an update.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/deb-updates",
+            "object_name": "tpl-service-deb-updates",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "deb_updates_always_ok": false,
+                "deb_updates_only_critical": false,
+                "deb_updates_query": "1",
+                "deb_updates_timeout": 60,
+                "deb_updates_warning": 1
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "968ccc26-9c1b-4e90-9cf4-8f5165693653"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "deb_updates_always_ok",
+            "caption": "Deb Updates: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "afeb37fe-4a34-4170-8dfa-18e1bb187312"
+        },
+        "2": {
+            "varname": "deb_updates_only_critical",
+            "caption": "Deb Updates: Only Critical?",
+            "description": "Only collect critical updates and upgrades.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3caf808a-ca04-44e0-8e06-9a831bd25d7c"
+        },
+        "3": {
+            "varname": "deb_updates_query",
+            "caption": "Deb Updates: Query",
+            "description": "The list of available updates and upgrades is stored in a SQL table. Provide the SQL `WHEN` statement part to narrow down results.  Example: `--query='package like \"bind9-%%\"'`. Also supports regular expressions via a REGEXP statement. Have a look at the README for a list of available columns. If this parameter is used, a list of matching updates is printed.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aef23437-4881-44ad-afe9-987bd2008250"
+        },
+        "4": {
+            "varname": "deb_updates_timeout",
+            "caption": "Deb Updates: Timeout",
+            "description": "Plugin timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "52ed160e-79bf-4c30-b878-b37c913524e7"
+        },
+        "5": {
+            "varname": "deb_updates_warning",
+            "caption": "Deb Updates: Warning",
+            "description": "Minimum number of packages to return WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c182f55e-68eb-4f33-b41a-959da24f3676"
+        }
+    }
+}

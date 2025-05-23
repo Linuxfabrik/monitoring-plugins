@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.db_sqlite  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025052301'
+
+DESCRIPTION = '''This plugin checks for software updates on systems that use
+                 package management systems based on the apt-get(8) command
+                 found in Debian GNU/Linux and compatible.
+                 This plugin only lists updates and upgrades, and provides the relevant alerts.
+                 It never actually runs an update.'''
+
+DEFAULT_QUERY = '1'
+DEFAULT_TIMEOUT = 60
+DEFAULT_WARN = 1  # number of updatable packages
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--only-critical',
+        help='Only collect critical updates and upgrades.',
+        dest='ONLY_CRITICAL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--query',
+        help='The list of available updates and upgrades is stored in a SQL table. '
+             'Provide the SQL `WHEN` statement part to narrow down results. '
+             ' Example: '
+             "`--query='package like \"bind9-%%\"'`. "
+             'Also supports regular expressions via a REGEXP statement. '
+             'Have a look at the README for a list of available columns. '
+             'If this parameter is used, a list of matching updates is printed. '
+             'Default: %(default)s',
+        dest='QUERY',
+        default=DEFAULT_QUERY,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Plugin timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Minimum number of packages to return WARNING. '
+             'Default: %(default)s.',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # fetch data
+    # try to update the package cache first
+    stdout, stderr, retc = lib.base.coe(
+        lib.shell.shell_exec('sudo apt-get update --quiet 2', timeout=args.TIMEOUT),
+    )
+    if retc or stderr:
+        msg += '`apt-get update` returned with an error, maybe results are not accurate. '
+        # but go on...
+
+    stdout, _, retc = lib.base.coe(
+        lib.shell.shell_exec('apt list --upgradable', timeout=args.TIMEOUT),
+    )
+    if retc:
+        msg += '`apt list --upgradable` returned with an error. '
+        lib.base.cu(msg)
+
+    # strip first line "Listing... Done." (if any)
+    first, _, rest = stdout.partition('\n')
+    stdout = rest if first.lower().startswith('listing...') else stdout
+
+    # create the db table (just one simple column, cause *apt does not have a stable CLI interface*)
+    definition = '''
+        package TEXT DEFAULT NULL
+    '''
+    conn = lib.base.coe(lib.db_sqlite.connect(
+        filename='linuxfabrik-monitoring-plugins-deb-updates.db',
+    ))
+    lib.base.coe(lib.db_sqlite.create_table(
+        conn,
+        definition,
+        table='deb_updates',
+        drop_table_first=True,  # we don't need historical data
+    ))
+
+    # analyze data
+    pattern = re.compile(r',\w*-security')
+    for item in stdout.strip().splitlines():
+        if args.ONLY_CRITICAL:
+            if not bool(pattern.search(item)):  # if it is not critical
+                continue
+        lib.base.coe(lib.db_sqlite.insert(conn, {'package': item}, table='deb_updates'))
+
+    # store table_data in local sqlite database
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
+    sql = f'''
+        SELECT *
+        FROM deb_updates
+        WHERE {args.QUERY}
+        COLLATE NOCASE
+    '''
+    result = lib.base.coe(lib.db_sqlite.select(conn, sql))
+    lib.db_sqlite.close(conn)
+
+    # get state
+    state = lib.base.get_state(len(result), args.WARN, None)
+
+    # build the message
+    if state == STATE_OK:
+        msg += 'Everything is ok.'
+    else:
+        msg += f'{len(result)} {"critical " if args.ONLY_CRITICAL else ""}updates available'
+        msg += lib.base.state2str(state, prefix=' ')
+        if args.QUERY != '1':
+            msg += ':\n* '
+            msg += '\n* '.join([row['package'] for row in result])
+    perfdata += lib.base.get_perfdata('updates', len(result), None, args.WARN, None, 0, None)
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

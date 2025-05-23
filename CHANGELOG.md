@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Monitoring Plugins:
 
-* about-me: Reports type of display server (if any)
+* about-me: reports type of display server (if any)
+* deb-updates: checks for software updates on systems that use package management systems based on the apt-get
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
 * redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
 * systemd-unit: implement support for `systemctl --machine` and `--user`
