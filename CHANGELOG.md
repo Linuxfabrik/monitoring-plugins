@@ -39,6 +39,12 @@ Build, CI/CD:
 
 * create-fpms.sh: fix OS detection for setting OS family
 
+
+Assets:
+
+* prefix sudoers command alias to avoid conflicts ([#880](https://github.com/Linuxfabrik/monitoring-plugins/issues/880))
+
+
 Monitoring Plugins:
 
 * about-me: reports type of display server (if any)
