@@ -53,6 +53,7 @@ Monitoring Plugins:
 * grassfish-screens: initialize screen statuses earlier
 * haproxy-status: add unix socket support as alternative to HTTP(S) ([#767](https://github.com/Linuxfabrik/monitoring-plugins/issues/767))
 * icinga-topflap-services: increase default warning level from 5 to 7
+* load: Use `os.getloadavg()` instead of `cat /proc/loadavg` ([#295](https://github.com/Linuxfabrik/monitoring-plugins/issues/295))
 * php-status: bz2 and curl are no default modules
 * rhel-version: switch from lib.version to lib.distro
 * snmp: make table output suppressable, streamline output
