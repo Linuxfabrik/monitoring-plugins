@@ -14,12 +14,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Monitoring Plugins:
 
-* about-me: reports type of display server (if any)
+* atlassian-statuspage: receive alerts on incidents on a specific Atlassian Statuspage
 * deb-updates: checks for software updates on systems that use package management systems based on the apt-get
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
-* redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
-* systemd-unit: implement support for `systemctl --machine` and `--user`
-* snmp: add column "skip output" to CSV definition for devices, add unit tests
 
 
 ### Fixed ("fix")
@@ -36,7 +33,7 @@ Monitoring Plugins:
 * snmp: Special characters not supported in options --v3-auth-prot-password and --v3-priv-prot-password ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
 
 
-### Changed ("refactor", "chore" etc.)
+### Changed ("feat", "refactor", "chore" etc.)
 
 Build, CI/CD:
 
@@ -44,6 +41,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* about-me: reports type of display server (if any)
 * about-me: switch from lib.version to lib.distro
 * csv-values: make use of ommitted --warning-query and --critical-query more robust
 * disk-io: improve help text
@@ -55,8 +53,11 @@ Monitoring Plugins:
 * icinga-topflap-services: increase default warning level from 5 to 7
 * load: Use `os.getloadavg()` instead of `cat /proc/loadavg` ([#295](https://github.com/Linuxfabrik/monitoring-plugins/issues/295))
 * php-status: bz2 and curl are no default modules
+* redfish-sel: add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
 * rhel-version: switch from lib.version to lib.distro
+* snmp: add column "skip output" to CSV definition for devices, add unit tests
 * snmp: make table output suppressable, streamline output
+* systemd-unit: implement support for `systemctl --machine` and `--user`
 
 
 

@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+import lib.time  # pylint: disable=C0413
+import lib.url  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025052801'
+
+DESCRIPTION = """Receive alerts on incidents on a specific Atlassian Statuspage."""
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT  = 8
+DEFAULT_URL = 'https://status.atlassian.com'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Atlassian Statuspage URL. '
+             'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    return parser.parse_args()
+
+
+def statuspage2state(indicator):
+    """Convert Atlassian's Statuspage incident level to the Nagios world.
+    https://support.atlassian.com/statuspage/docs/top-level-status-and-incident-impact-calculations/
+    """
+    indicator = indicator.lower()
+    if indicator in ['minor', 'maintenance']:
+        return STATE_WARN
+    if indicator in ['major', 'critical']:
+        return STATE_CRIT
+    # indicator == 'none'
+    return STATE_OK
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data (https://url/api/v2/status.json)
+    if args.TEST is None:
+        result = lib.base.coe(lib.url.fetch_json(
+            f'{args.URL.rstrip("/")}/api/v2/status.json',
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        ))
+    else:
+        # do not call the command, put in test data
+        result, _, _ = lib.lftest.test(args.TEST)
+        result = json.loads(result)
+
+    # init some vars
+    msg = ''
+    state = statuspage2state(result.get('status').get('indicator'))
+    perfdata = ''
+
+    # analyze data and build the message
+    if state == STATE_OK:
+        msg += f'Everything is ok @ {result.get("page").get("url")}'
+    else:
+        msg += f'{result.get("status").get("description")} @ {result.get("page").get("url")}, '
+        updated_at = lib.time.timestr2epoch(
+            result.get('page').get('updated_at')[:19],  # 2025-05-28T11:04:36.171+01:00
+            pattern='%Y-%m-%dT%H:%M:%S',                # 2025-02-26T13:45:15
+            tzinfo=lib.time.get_timezone(result.get('page').get('time_zone')),
+        )
+        delta = lib.time.now() - updated_at
+        msg += f'last update at {result.get("page").get("updated_at")[:19]}'
+        if result.get("page").get("time_zone"):
+            msg += f' {result.get("page").get("time_zone")}'
+        msg += f' ({lib.human.seconds2human(delta)} ago)'
+    perfdata += lib.base.get_perfdata(
+        'impact',
+        state,
+        uom=None,
+        warn=None,
+        crit=None,
+        _min=STATE_OK,
+        _max=STATE_UNKNOWN,
+    )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

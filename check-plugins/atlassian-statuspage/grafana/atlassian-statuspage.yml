@@ -1,0 +1,125 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: atlassian-statuspage
+spec:
+  schemaVersion: 2023041201
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Atlassian Statuspage
+  uid: linuxfabrik-monitoring-plugins-atlassian-statuspage
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*atlassian-statuspage.*/
+      current:
+        text: cmd-check-atlassian-statuspage
+        value: cmd-check-atlassian-statuspage
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: Atlassian Statuspage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          lineInterpolation: smooth
+          spanNulls: true
+        decimals: 0
+        max: 3
+        min: 0
+        unit: short
+      overrides:
+      - matcher:
+          id: byName
+          options: atlassian-statuspage
+        properties:
+        - id: mappings
+          value:
+          - options:
+              '0':
+                text: OK
+              '1':
+                text: WARN
+              '2':
+                text: CRIT
+              '3':
+                text: UNKN
+            type: value
+    options:
+      legend:
+        calcs:
+        - min
+        - max
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: atlassian-statuspage
+      refId: atlassian-statuspage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: atlassian-statuspage

@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../atlassian-statuspage'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('Partially Degraded Service @ https://exact.statuspage.io, last update at 2025-05-28T11:04:36 Europe/London', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok @ https://status.atlassian.com', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04,,0'))
+        self.assertIn('Minor Service Outage @ https://www.cloudflarestatus.com, last update at 2025-05-28T11:40:49 Etc/UTC ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05,,0'))
+        self.assertIn('Partial System Degradation @ https://status.hashicorp.com/, last update at 2025-05-28T03:42:30 ', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE06(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06,,0'))
+        self.assertIn('Partially Degraded Service @ https://status.twilio.com, last update at 2025-05-28T04:22:59 America/Los_Angeles', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()
