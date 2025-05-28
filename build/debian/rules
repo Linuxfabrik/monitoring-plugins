@@ -1,0 +1,30 @@
+#!/usr/bin/make --file
+
+%:
+	# Use debhelper for this makefile
+	dh $@
+
+override_dh_auto_install:
+	${LFMP_PYTHON} -m venv debian/tmp/usr/lib64/linuxfabrik-monitoring-plugins/venv
+
+	LFMP_DIR_SOURCES=${LFMP_DIR_SOURCES} \
+	LFMP_VENV_PIP=debian/tmp/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/pip \
+		bash build/install-vendor.sh
+
+	# Install plugins
+	install --directory debian/tmp/usr/lib64/nagios/plugins
+	LFMP_DIR_TARGET=debian/tmp/usr/lib64/nagios/plugins bash build/install-plugins.sh
+
+	# Fix plugin shebangs
+	find debian/tmp/usr/lib64/nagios/plugins \
+		-maxdepth 1 \
+		-type f \
+		-exec sed --in-place '1s|^#!.*|#!/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python|' {} \;
+
+	# Install monitoring plugin sudoers
+	install --directory --mode 0750 debian/tmp/etc/sudoers.d
+	install --mode 0440 --no-target-directory assets/sudoers/Debian.sudoers debian/tmp/etc/sudoers.d/linuxfabrik-monitoring-plugins
+
+	# Install license
+	install --directory debian/tmp/usr/share/doc/linuxfabrik-monitoring-plugins
+	install LICENSE.txt debian/tmp/usr/share/doc/linuxfabrik-monitoring-plugins/copyright

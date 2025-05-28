@@ -1,17 +1,18 @@
 FROM docker.io/library/rockylinux:8
 
 # Install Python 3.9
-RUN dnf --assumeyes install --nodocs python39 python39-devel && \
+RUN dnf --assumeyes install --nodocs gcc python39-pip python39-devel && \
     dnf clean all
 
-# Install tools
-RUN dnf --assumeyes install --nodocs gcc zip binutils findutils && \
+# Enable powertools repo
+RUN dnf --assumeyes install --nodocs dnf-plugins-core && \
+    dnf config-manager --set-enabled powertools && \
     dnf clean all
 
-# for nuitka
-RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+RUN dnf --assumeyes install --nodocs epel-release && \
     dnf clean all
-RUN dnf --assumeyes install --nodocs patchelf ccache && \
+
+RUN dnf --assumeyes install --nodocs rpmdevtools && \
     dnf clean all
 
 # for compiling selinux policies
@@ -21,11 +22,3 @@ RUN dnf --assumeyes install --nodocs patchelf ccache && \
 #   Error: building at STEP "RUN dnf --assumeyes install --nodocs make selinux-policy-devel && dnf clean all": while running runtime: exit status 1
 RUN dnf --assumeyes install --nodocs make selinux-policy-devel && \
     dnf clean all
-
-RUN python3.9 -m venv --system-site-packages /opt/venv && \
-    /opt/venv/bin/python -m pip install pip==25.0.1 wheel==0.45.1 setuptools==50.3.2 && \
-    /opt/venv/bin/python -m pip install nuitka==2.6
-
-# Verify Python installation
-RUN python3.9 --version && \
-    /opt/venv/bin/python -m pip list

@@ -1,15 +1,11 @@
 FROM docker.io/library/ubuntu:22.04
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y gcc python3-venv python3-pip patchelf ccache && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes python3-dev python3-pip python3-venv && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv --system-site-packages /opt/venv && \
-    /opt/venv/bin/python -m pip install pip==25.0.1 wheel==0.45.1 setuptools==50.3.2 && \
-    /opt/venv/bin/python -m pip install nuitka==2.6
-
-# Verify Python installation
-RUN python3 --version && \
-    /opt/venv/bin/python -m pip list
-
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes build-essential debhelper devscripts && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*

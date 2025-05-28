@@ -38,6 +38,7 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * create-fpms.sh: fix OS detection for setting OS family
+* change linux packaging workflow to use native tools (rpmbuild, debuild)
 
 
 Assets:

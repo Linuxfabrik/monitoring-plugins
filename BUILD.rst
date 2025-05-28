@@ -1,17 +1,21 @@
 Compile and Package the Linuxfabrik Monitoring Plugins
 ======================================================
 
-Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid Python on the Linux or Windows target systems. With this manual, plugins can be compiled and packaged (= "built") using Nuitka on GitHub runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the GitHub runner; for Linux only).
+On Linux (RHEL, Debian) the Linuxfabrik Monitoring Plugins are packaged directly as Python source code including required dependencies in the native package formats.
+The Linux packages therefore depend on the system Python installation.
+
+For Windows we compile and package (= "build") using Nuitka on GitHub runners.
+Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid a separate Python installation on target systems.
+
+With this manual, plugin packages can be created on GitHub runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the GitHub runner; for Linux only).
 
 
 Build for Linux
 ---------------
 
-The following steps describe the **manual** compilation and package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using GitHub actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
+The following steps describe the **manual** package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using GitHub actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
 
-To automatically retrieve version information from outside GitHub, first create a GitHub Personal Access Token. If you are using a [classic token](https://github.com/settings/tokens/new), only the "repo:public_repo" scope is required.
-
-To be able to perform the same steps on a local Ubuntu host as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts), and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
+To be able to perform the same steps on a local Ubuntu host as well as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts), and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
 
 To build on Linux, first set environment variables for (absolute) paths, versions etc.:
 
@@ -21,23 +25,17 @@ To build on Linux, first set environment variables for (absolute) paths, version
     # ---
     # User input on GitHub:
     export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
-    export LFMP_COMPILE_PLUGINS="cpu-usage feed scanrootkit"  # check-plugins to compile. leave empty to compile all
+    export LFMP_VERSION=1.4.0
     export LFMP_PACKAGE_ITERATION=7
     export LFMP_TARGET_DISTROS="debian12 rocky9"              # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
-
-    # for getting the latest version into $LFMP_VERSION
-    export GITHUB_TOKEN=ghp_abc123xyz987
-    export GITHUB_REPOSITORY=Linuxfabrik/monitoring-plugins
-    # or set manually: export LFMP_VERSION=1.4.0.5
 
     # ---
     # Constants
     # use absolute paths here
     export LFMP_DIR_REPOS=/tmp/lfmp/repos
-    export LFMP_DIR_COMPILED=/tmp/lfmp/compiled
+    export LFMP_DIR_REPO_MP=$LFMP_DIR_REPOS/monitoring-plugins
     export LFMP_DIR_PACKAGED=/tmp/lfmp/packaged
     mkdir -p $LFMP_DIR_REPOS
-    mkdir -p $LFMP_DIR_COMPILED
     mkdir -p $LFMP_DIR_PACKAGED
     EOF
 
@@ -48,76 +46,29 @@ To build on Linux, first set environment variables for (absolute) paths, version
 The paths and their meanings:
 
 * repos: the source code / git repositories
-* compiled: store the compiled plugins, one-by-one
-* dist: files are taken from the compiled directory and merged together, ready to be packaged
-* packaged: contains the packages built by fpm
+* packaged: contains the built packages
 
-Clone the Linuxfabrik Monitoring Plugins and the Linuxfabrik Python Libraries from GitHub:
+Clone the Linuxfabrik Monitoring Plugins from GitHub:
 
 .. code-block:: bash
 
-    cd $LFMP_DIR_REPOS
-    git clone https://github.com/Linuxfabrik/monitoring-plugins.git
-
-Fetch the current version from GitHub:
-
-.. code-block:: bash
-
-    if [[ -z "$LFMP_VERSION" ]]; then
-        source "$LFMP_DIR_REPOS/monitoring-plugins/build/get-latest-version.sh"
-    fi
+    git clone https://github.com/Linuxfabrik/monitoring-plugins.git $LFMP_DIR_REPO_MP
 
 Install podman:
 
 .. code-block:: bash
 
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/install-podman.sh
+    bash $LFMP_DIR_REPO_MP/build/install-podman.sh
 
 From the containers perspective, every container assumes:
 
 * Python source code is located at ``/repos/monitoring-plugins``.
-* Compiled files can be put in ``/compiled``.
-* The Python venv is located at ``/opt/venv``.
 
-
-For each distro compile the specified plugins:
+For each distro package the plugins including assets:
 
 .. code-block:: bash
 
-    # a run takes round about one minute per plugin
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/matrix-compile.sh
-
-After that, $LFMP_DIR_COMPILED should look like this:
-
-.. code-block:: text
-
-    $LFMP_DIR_COMPILED/
-    ├── debian12/
-    │   ├── check-plugins/
-    │   │   └── a bunch of files and directories
-    │   └── ...
-    ├── rocky9/
-    │   └── check-plugins/
-    │   └── ...
-    └── ...
-
-Install FPM, the packaging tool:
-
-.. code-block:: bash
-
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/install-fpm.sh
-
-Create the fpm files:
-
-.. code-block:: bash
-
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/create-fpms.sh
-
-Create the packages for every OS:
-
-.. code-block:: bash
-
-    source $LFMP_DIR_REPOS/monitoring-plugins/build/create-packages.sh
+    bash $LFMP_DIR_REPO_MP/build/matrix-package.sh
 
 After that, the packages directory should look like this:
 
@@ -125,12 +76,10 @@ After that, the packages directory should look like this:
 
     $LFMP_DIR_PACKAGED
     ├── debian12/
-    │   └── check-plugins/
-    │       ├── linuxfabrik-monitoring-plugins_1.4.0.5-7_amd64.deb
-    │       └── linuxfabrik-monitoring-plugins.zip
+    │   └── linuxfabrik-monitoring-plugins_1.4.0-7_amd64.deb
     └── rocky9/
-        └── check-plugins/
-            └── linuxfabrik-monitoring-plugins-1.4.0.4-7.x86_64.rpm
+        ├── linuxfabrik-monitoring-plugins-1.4.0-7.el9.x86_64.rpm
+        └── linuxfabrik-monitoring-plugins-selinux-1.4.0-7.el9.x86_64.rpm
 
 
 Build for Windows
@@ -146,20 +95,20 @@ Code signing policy:
 * .dll, .exe, .pyd and .msi files are signed.
 
 
-Compiling - Good to Know
-------------------------
+Compiling/Packaging - Good to Know
+----------------------------------
 
 Platforms
 ~~~~~~~~~
 
 rpm and deb OS packages
-    For Red Hat Package Manager (rpm) and Debian-based package files (deb), we compile the plugins on their specific platforms and build the packages using `FPM <https://docs.linuxfabrik.ch/software/fpm.html>`__ there.
+    For Red Hat Package Manager (rpm) and Debian-based package files (deb), we build the packages using native packaging tools.
 
-    Compiling platform for .rpm and .deb files:
+    Packaging platform for .rpm and .deb files:
 
     .. code-block:: text
 
-        Target OS     ! Compiled on
+        Target OS     ! Packaged on
         --------------+-------------------------------------
         Debian 11     ! docker.io/library/debian:11
         Debian 12     ! docker.io/library/debian:12
@@ -173,35 +122,6 @@ rpm and deb OS packages
 
         Why Rocky instead of RHEL's "ubi" container images? According to `Types of container images <https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers>`__, Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
 
-Linux Binaries
-    If you just need the compiled plugins, use the binaries from the .tar or .zip file. We want to make sure that they will run almost everywhere, so for maximum compatibility between different Linux versions, these plugins are compiled on an OS platform that supports the oldest glibc, is not yet EOL, is not running SELinux (`#732 <https://github.com/Linuxfabrik/monitoring-plugins/issues/732>`__), and - if there is more than one candidate - has the latest OpenSSL version due to security fixes.
-
-    Versions of glibc and OpenSSL (2025-01-25):
-
-    .. code-block:: text
-
-                         !     ! libc.so.6 ! openssl     !         !
-        OS               ! EOL ! --version ! version     ! SELinux ! Usable?
-        -----------------+-----+-----------+-------------+---------+--------
-        CentOS 7         ! EOL ! 2.17      ! 1.0.2k-fips !    x    ! - 
-        RHEL 7           ! EOL ! 2.17      ! 1.0.2k-fips !    x    ! - 
-        Ubuntu 18.04 LTS ! EOL ! 2.27      ! 1.1.1       !    -    ! - 
-        RHEL 8           !     ! 2.28      ! 1.1.1k      !    x    ! - 
-        Debian 10        ! EOL ! 2.28      ! 1.1.1n      !    -    ! - 
-        Ubuntu 20.04 LTS !     ! 2.31      ! 1.1.1f      !    -    ! x 
-        Debian 11        !     ! 2.31      ! 1.1.1w      !    -    ! x current choice (2025-02)
-        RHEL 9           !     ! 2.34      ! 3.0.7       !    x    ! - 
-        Ubuntu 22.04 LTS !     ! 2.35      ! 3.0.2       !    -    ! - 
-        Debian 12        !     ! 2.36      ! 3.0.11      !    -    ! - 
-        Ubuntu 24.04 LTS !     ! 2.39      ! 3.0.13      !    -    ! - 
-
-    Compiling platform for the plugins distributed in the .tar and .zip files:
-
-    .. code-block:: text
-
-        Target OS     ! Compiled on
-        --------------+-------------------------------------
-        Linux-general ! docker.io/library/ubuntu:20.04
 
 Windows Binaries
     Binaries for Windows are compiled on Windows Server 2025 using MSVC 14.
