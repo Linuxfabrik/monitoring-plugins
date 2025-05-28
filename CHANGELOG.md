@@ -28,6 +28,7 @@ Build, CI/CD:
 Monitoring Plugins:
 
 * by-ssh: fix traceback on "permission denied"
+* icinga-topflap-services: ignore events with "Waiting for Icinga DB to synchronize the config." to prevent UNKNOWNs
 * needs-restarting: add missung import of lib.disk
 * ping: '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
 * snmp: Special characters not supported in options --v3-auth-prot-password and --v3-priv-prot-password ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
