@@ -12,9 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Breaking Changes ("!")
 
+Build, CI/CD:
+
+* Windows: To save disk space, Windows plugins are only compiled if they are useful for testing local system resources. Plugins that check remote services should run on Linux. In future, plugins will not be compiled for Windows by default unless there is a good reason to do so (if you require this, please let us know).
+* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9 to be installed on the target host. Sorry for the trouble.
+
 Icinga Director:
 
 * all-the-rest.json: drop legacy commands
+* The Icinga Director configuration has been updated to remove plugins that are no longer compiled for Windows: apache-solr-version, axenita-stats, composer-version, countdown, csv-values, dhcp-relayed, diacos, disk-smart, feed, fortios-cpu-usage, fortios-firewall-stats, fortios-ha-stats, fortios-memory-usage, fortios-network-io, fortios-sensor, fortios-version, githubstatus, grassfish-licenses, grassfish-players, grassfish-screens, haproxy-status, hin-status, huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-fan, huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair, huawei-dorado-interface, huawei-dorado-power, huawei-dorado-system, icinga-topflap-services, infomaniak-events, infomaniak-swiss-backup-devices, infomaniak-swiss-backup-products, jitsi-videobridge-stats, jitsi-videobridge-status, json-values, kemp-services, keycloak-memory-usage, keycloak-stats, keycloak-version, librenms-alerts, librenms-health, librenms-version, matomo-reporting, matomo-version, mediawiki-version, metabase-stats, mod-qos-stats, moodle-version, mysql-aria, mysql-binlog-cache, mysql-connections, mysql-database-metrics, mysql-innodb-buffer-pool-instances, mysql-innodb-buffer-pool-size, mysql-innodb-log-waits, mysql-joins, mysql-logfile, mysql-memory, mysql-open-files, mysql-perf-metrics, mysql-query, mysql-replica-status, mysql-slow-queries, mysql-sorts, mysql-storage-engines, mysql-system, mysql-table-cache, mysql-table-definition-cache, mysql-table-indexes, mysql-table-locks, mysql-temp-tables, mysql-thread-cache, mysql-traffic, mysql-user-security, nextcloud-security-scan, nextcloud-stats, nextcloud-version, nginx-status, nodebb-cache, nodebb-database, nodebb-errors, nodebb-events, nodebb-groups, nodebb-info, nodebb-users, nodebb-version, onlyoffice-stats, openjdk-redhat-version, openvpn-version, php-fpm-ping, php-fpm-status, php-status, php-version, pip-updates, python-version, qts-cpu-usage, qts-disk-smart, qts-memory-usage, qts-temperatures, qts-uptime, qts-version, redfish-drives, redfish-sel, redfish-sensor, restic-check, restic-snapshots, restic-stats, rocketchat-stats, rocketchat-version, sap-open-concur-com, starface-account-stats, starface-backup-status, starface-channel-status, starface-database-stats, starface-java-memory-usage, starface-peer-stats, starface-status, statusiq, statuspal, uptimerobot, veeam-status, whmcs-status, wildfly-deployment-status, wildfly-gc-status, wildfly-memory-pool-usage, wildfly-memory-usage, wildfly-non-xa-datasource-stats, wildfly-server-status, wildfly-thread-usage, wildfly-uptime, wildfly-xa-datasource-stats, wordpress-version, xml
 
 
 ### Added ("feat")
@@ -22,7 +28,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * atlassian-statuspage: receive alerts on incidents on a specific Atlassian Statuspage
-* deb-updates: checks for software updates on systems that use package management systems based on the apt-get
+* deb-updates: checks for software updates on systems that use package management systems based on the `apt-get` command
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
 
 
