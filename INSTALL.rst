@@ -5,7 +5,7 @@ How to install the Linuxfabrik Monitoring Plugins Collection
     :header-rows: 1
 
     Platform, Install, When, Installation Instructions
-    Linux, "Binaries from rpm/deb package (**recommended**)", "Want to use OS package manager and have distro that uses rpm/deb package formats", See `<https://repo.linuxfabrik.ch>`_
+    Linux, "Binaries from rpm/deb package (**recommended**)", "Want to use OS package manager and have distro that uses rpm/deb package formats", See `<https://repo.linuxfabrik.ch/monitoring-plugins/>`_
     Linux, "Binaries from zip", "Don't want to use OS package manager or have distro that uses package formats other than rpm/deb and can't run Python 3.9+", "See *Installation on Linux* in this document"
     Linux, "Source Code", "Want to use the latest development version and Python 3.9+ available", "See *Run from Source* in this document"
     Windows,"Binaries from msi (**recommended**)","Want to use OS package manager", "Get the 'signed-packaged' msi file from `Linuxfabrik's Download Server <https://download.linuxfabrik.ch/monitoring-plugins/>`_ and run it. Note: Icinga2 Agent is required."
