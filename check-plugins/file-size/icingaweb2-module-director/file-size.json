@@ -105,6 +105,112 @@
             "vars": {},
             "zone": null,
             "uuid": "7c18525b-ac1b-4fc8-9cf6-e2b24b82f263"
+        },
+        "cmd-check-file-size-windows": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$file_size_windows_always_ok$"
+                },
+                "--critical": {
+                    "value": "$file_size_windows_critical$"
+                },
+                "--filename": {
+                    "value": "$file_size_windows_filename$"
+                },
+                "--pattern": {
+                    "value": "$file_size_windows_pattern$"
+                },
+                "--password": {
+                    "value": "$file_size_windows_password$"
+                },
+                "--timeout": {
+                    "value": "$file_size_windows_timeout$"
+                },
+                "--url": {
+                    "value": "$file_size_windows_url$"
+                },
+                "--username": {
+                    "value": "$file_size_windows_username$"
+                },
+                "--warning": {
+                    "value": "$file_size_windows_warning$"
+                }
+            },
+            "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\file-size.exe",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-file-size-windows",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "a07b033f-42c1-4513-9b86-941aebac31e5"
+        },
+        "cmd-check-file-size-windows-python": {
+            "arguments": {},
+            "command": "C:\\Windows\\py C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\file-size.py",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-file-size-windows"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-file-size-windows-python",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "b2c6ca42-2f59-4d83-84e2-5c9979f86170"
         }
     },
     "ServiceTemplate": {
@@ -202,6 +308,56 @@
             "volatile": null,
             "zone": null,
             "uuid": "b2eba5c5-cff8-4f7a-8fa6-1cd197ff27cb"
+        },
+        "tpl-service-file-size-windows": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-file-size-windows",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "file-size.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the size for a file (in bytes).",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size",
+            "object_name": "tpl-service-file-size-windows",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "file_size_windows_always_ok": false,
+                "file_size_windows_critical": "1G",
+                "file_size_windows_pattern": "*",
+                "file_size_windows_timeout": 3,
+                "file_size_windows_warning": "25M"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "d0d44d9a-f496-450a-8218-4f65eb70f034"
         }
     },
     "Datafield": {
@@ -301,6 +457,103 @@
                 "visibility": "visible"
             },
             "uuid": "81630705-7df2-4ad3-9498-51fa3e5d7788"
+        },
+        "10": {
+            "varname": "file_size_windows_always_ok",
+            "caption": "File Size: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "38360153-ddcf-44c4-8aa9-e879826e05f9"
+        },
+        "11": {
+            "varname": "file_size_windows_critical",
+            "caption": "File Size: Critical",
+            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dcaf9e8e-599d-4391-84ae-3850e1c8cc5f"
+        },
+        "12": {
+            "varname": "file_size_windows_filename",
+            "caption": "File Size: Filename",
+            "description": "File name to check. Supports glob in accordance with https://docs.python.org/2.7/library/glob.html. Note that using recursive globs can cause high memory usage. This is mutually exclusive with `-u` / `--url`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cf224109-87ce-430a-8a39-9007fce38be0"
+        },
+        "13": {
+            "varname": "file_size_windows_pattern",
+            "caption": "File Size: Pattern",
+            "description": "The search string to match against the names of SMB directories or files. This pattern can use \"*\"\" as a wildcard for multiple chars and \"?\"\" as a wildcard for a single char. Does not support regex patterns.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "edd8c7a9-0096-4d0e-a36d-ed4cf0d65190"
+        },
+        "14": {
+            "varname": "file_size_windows_password",
+            "caption": "File Size: Password",
+            "description": "SMB Password.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "0fc3c701-dffe-49d7-931d-e63fffb393df"
+        },
+        "15": {
+            "varname": "file_size_windows_timeout",
+            "caption": "File Size: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0e65a7fb-4675-4c96-b151-cc7f28379628"
+        },
+        "16": {
+            "varname": "file_size_windows_url",
+            "caption": "File Size: URL",
+            "description": "Set the url of the file to check, starting with \"smb://\". This is mutually exclusive with `--filename`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2fa58ba2-ce87-4a8c-9850-606c6959e010"
+        },
+        "17": {
+            "varname": "file_size_windows_username",
+            "caption": "File Size: Username",
+            "description": "SMB Username.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a1ec99b7-7b39-4016-b705-a63715d8d34d"
+        },
+        "18": {
+            "varname": "file_size_windows_warning",
+            "caption": "File Size: Warning",
+            "description": "Threshold for the file size in a human readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.Default: %(default)s",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f509bfd4-62bc-4bd0-bb3c-f8c5ba4af4a0"
         }
     }
 }
