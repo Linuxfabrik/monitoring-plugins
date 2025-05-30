@@ -1,13 +1,44 @@
 Compile and Package the Linuxfabrik Monitoring Plugins
 ======================================================
 
-On Linux (RHEL, Debian) the Linuxfabrik Monitoring Plugins are packaged directly as Python source code including required dependencies in the native package formats.
-The Linux packages therefore depend on the system Python installation.
+On Linux (RHEL, Debian) the Linuxfabrik Monitoring Plugins are packaged directly as Python source code including required dependencies in the native package formats. The Linux packages therefore depend on the system Python installation.
 
-For Windows we compile and package (= "build") using Nuitka on GitHub runners.
-Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid a separate Python installation on target systems.
+For Windows we compile and package (= "build") using Nuitka on GitHub runners. Compiling the Linuxfabrik Monitoring Plugins allows you to completely avoid a separate Python installation on target systems.
 
 With this manual, plugin packages can be created on GitHub runners (Linux, Windows) or a self-hosted Ubuntu VM (which is compatible to the GitHub runner; for Linux only).
+
+
+Call Graphs
+-----------
+
+The two call graphs show how the `build scripts <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ are wired together when they're driven by the GitHub runner workflows and how you'd stitch them together on a standalone Ubuntu host.
+
+.. code-block:: text
+
+    GitHub Runners
+    ├── Linux Workflow (lf-build-linux-*.yml)
+    │   ├── debug.sh                            # just dumps env & uname
+    │   ├── install-podman.sh                   # install Podman locally
+    │   └── matrix-package.sh                   # builds a container per target-distro
+    │       └── create-package.sh               # branches on $LFMP_TARGET_DISTRO
+    │           ├── create-src-tarball.sh       # upstream source archive
+    │           ├── create-vendor-tarball.sh    # 3rd-party deps
+    │           ├── create-deb.sh               # for Debian/Ubuntu distros
+    │           └── create-rpm.sh               # for RHEL distros
+    └── Windows Workflow (lf-build-windows-x86_64.yml)
+        ├── compile-multiple.sh
+        │   └── compile-one.sh
+        ├── create-wxs.sh
+        └── wix.exe build                       # produces the .msi from the .wxs
+
+    Standalone Ubuntu
+    ├── install-podman.sh
+    └── matrix-package.sh
+        └── create-package.sh
+            ├── create-src-tarball.sh
+            ├── create-vendor-tarball.sh
+            ├── create-deb.sh
+            └── create-rpm.sh
 
 
 Build for Linux
