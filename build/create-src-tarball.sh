@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 2025051601
+# 2025053001
 
 set -e -o pipefail -u -x
+
+echo "✅ Create src tarball"
 
 mkdir --parent $LFMP_DIR_SOURCES
 

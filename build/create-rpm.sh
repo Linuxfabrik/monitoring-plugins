@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 2025052801
+# 2025053001
 
 set -e -o pipefail -u -x
 
+echo "✅ Create rpm"
 rpmdev-setuptree
 
 cp $LFMP_DIR_SOURCES/* ~/rpmbuild/SOURCES/

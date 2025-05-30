@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 2025052801
+# 2025053001
 
 set -e -o pipefail -u -x
+
+echo "✅ Create deb"
 
 # Debuild wants a specific tarball name
 mv $LFMP_DIR_SOURCES/v$LFMP_VERSION.tar.gz $LFMP_DIR_SOURCES/linuxfabrik-monitoring-plugins_$LFMP_VERSION.orig.tar.gz

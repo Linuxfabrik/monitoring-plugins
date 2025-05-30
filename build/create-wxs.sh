@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 2025022303
+# 2025053001
 
 set -e -x
+
+echo "✅ Create wxs"
 
 cat > "$LFMP_DIR_PACKAGED/in/lfmp.wxs" << EOF
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">

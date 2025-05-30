@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 2025052801
+# 2025053001
 
 set -e -o pipefail -u -x
+
+echo "✅ Create vendor tarball"
 
 mkdir --parent $LFMP_DIR_REPOS/vendor
 

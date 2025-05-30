@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 2025052801
+# 2025053001
 
 set -e -o pipefail -u -x
 
+echo "✅ Create package for $LFMP_TARGET_DISTRO"
 case "$LFMP_TARGET_DISTRO" in
 debian11 | debian12 | ubuntu2204 | ubuntu2404)
     export LFMP_PYTHON=python3
