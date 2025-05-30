@@ -30,6 +30,7 @@ Monitoring Plugins:
 * atlassian-statuspage: receive alerts on incidents on a specific Atlassian Statuspage
 * deb-updates: checks for software updates on systems that use package management systems based on the `apt-get` command
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
+* valkey-status: returns information and statistics about a Valkey server
 * valkey-version: tracks if Valkey is EOL
 
 

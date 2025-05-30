@@ -1,0 +1,521 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.human  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+                          STATE_UNKNOWN, STATE_WARN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025053001'
+
+DESCRIPTION = """Returns information and statistics about a Valkey server. Alerts on memory
+                 consumption, memory fragmentation, hit rates and more."""
+
+DEFAULT_CRIT = None
+DEFAULT_HOSTNAME = '127.0.0.1'
+DEFAULT_IGNORE_MAXMEMORY0 = False
+DEFAULT_IGNORE_OVERCOMMIT = False
+DEFAULT_IGNORE_SOMAXCONN = False
+DEFAULT_IGNORE_SYNCPARTIALERR = False
+DEFAULT_IGNORE_THP = False
+DEFAULT_PORT = '6379'
+DEFAULT_WARN = 90
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='Set the CRIT threshold as a percentage. Default: >= %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '-H', '--hostname',
+        help='Valkey server hostname. Default: %(default)s',
+        dest='HOSTNAME',
+        default=DEFAULT_HOSTNAME,
+    )
+
+    parser.add_argument(
+        '--ignore-maxmemory0',
+        help='Don\'t warn about valkey\' maxmemory=0. Default: %(default)s',
+        dest='IGNORE_MAXMEMORY0',
+        default=DEFAULT_IGNORE_MAXMEMORY0,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '--ignore-overcommit',
+        help='Don\'t warn about vm.overcommit_memory<>1. Default: %(default)s',
+        dest='IGNORE_OVERCOMMIT',
+        default=DEFAULT_IGNORE_OVERCOMMIT,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '--ignore-somaxconn',
+        help='Don\'t warn about net.core.somaxconn < net.ipv4.tcp_max_syn_backlog. '
+             'Default: %(default)s',
+        dest='IGNORE_SOMAXCONN',
+        default=DEFAULT_IGNORE_SOMAXCONN,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '--ignore-sync-partial-err',
+        help='Don\'t warn about partial sync errors (because if you have an asynchronous '
+             'replication, a small number of "denied partial resync requests" might be normal). '
+             'Default: %(default)s',
+        dest='IGNORE_SYNCPARTIALERR',
+        default=DEFAULT_IGNORE_SYNCPARTIALERR,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '--ignore-thp',
+        help='Don\'t warn about transparent huge page setting. Default: %(default)s',
+        dest='IGNORE_THP',
+        default=DEFAULT_IGNORE_THP,
+        action='store_true',
+    )
+
+    parser.add_argument(
+        '-p', '--password',
+        help='Password to use when connecting to the valkey server.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--port',
+        help='Valkey server port. Default: %(default)s',
+        dest='PORT',
+        type=int,
+        default=DEFAULT_PORT,
+    )
+
+    parser.add_argument(
+        '--socket',
+        help='Valkey server socket (overrides hostname and port).',
+        dest='SOCKET',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--tls',
+        help='Establish a secure TLS connection to Valkey.',
+        dest='TLS',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Set the WARN threshold as a percentage. Default: >= %(default)s',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if not args.SOCKET:
+        base_cmd = 'valkey-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
+    else:
+        base_cmd = 'valkey-cli -s {} '.format(args.SOCKET)
+    if args.PASSWORD:
+        base_cmd += '-a {} '.format(args.PASSWORD)
+        base_cmd += '--no-auth-warning '
+    if args.TLS:
+        base_cmd += '--tls --cacert /etc/pki/tls/certs/rootCA.pem '
+
+    # fetch data using `valkey-cli info default`
+    if args.TEST is None:
+        cmd = '{} info default'.format(base_cmd)
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.cu(stderr)
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+
+    # connection problems, for example "RR max number of clients reached"
+    if not stdout.startswith('# Server'):
+        lib.base.oao(stdout, STATE_WARN)
+
+    # parse the output
+    lines = stdout.splitlines()
+    result = {}
+    for line in lines:
+        try:
+            key, value = line.split(':')
+            result[key] = value.strip()
+            try:
+                result[key] = float(result[key])
+            except:
+                continue
+        except:
+            continue
+
+    # fetch data using `valkey-cli memory doctor`
+    result['memory_doctor'] = 'Hi Sam'
+    if args.TEST is None:
+        cmd = '{} memory doctor'.format(base_cmd)
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.cu(stderr)
+        if not stdout.startswith('ERR '):
+            result['memory_doctor'] = stdout.strip()
+
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze result, get the state and build the message
+
+    # Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379, 
+    msg += 'Valkey v{}'.format(result['valkey_version'])
+    if 'redis_version' in result:
+        msg += ' (based on Redis v{})'.format(result['redis_version'])
+    msg += ', {} mode '.format(result['server_mode'])
+    if not args.SOCKET:
+        msg += 'on {}:{}, '.format(
+            args.HOSTNAME,
+            int(result['tcp_port']),
+        )
+    else:
+        msg += 'connected via socket, '
+    # /etc/valkey.conf, up 1h 39m
+    msg += '{}, up {}, '.format(
+        result['config_file'],
+        lib.human.seconds2human(result['uptime_in_seconds']),
+    )
+
+    # 61.0% memory usage (5.8MiB/9.5MiB, 10.0MiB peak, 17.7MiB RSS), maxmemory-policy=noeviction
+    if result['maxmemory'] != 0:
+        # fixed memory size
+        mem_usage = round(
+            float(result['used_memory']) / float(result['maxmemory']) * 100,
+            1,
+        )
+    else:
+        # maxmemory = 0 (dangerous)
+        mem_usage = round(
+            float(result['used_memory']) / float(result['total_system_memory']) * 100,
+            1,
+        )
+        msg += 'unlimited memory usage enabled'
+        if not args.IGNORE_MAXMEMORY0:
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += ', '
+    mem_state = lib.base.get_state(mem_usage, args.WARN, args.CRIT)
+    state = lib.base.get_worst(state, mem_state)
+    msg += '{}% memory usage{} ({}/{}, {} peak, {} RSS), maxmemory-policy={}, '.format(
+        mem_usage,
+        lib.base.state2str(mem_state, prefix=' '),
+        lib.human.bytes2human(result['used_memory']),
+        lib.human.bytes2human(result['maxmemory']) if result['maxmemory'] != 0 else lib.human.bytes2human(result['total_system_memory']), # pylint: disable=C0301
+        lib.human.bytes2human(result['used_memory_peak']),
+        lib.human.bytes2human(result['used_memory_rss']),
+        result.get('maxmemory_policy', 'N/A'),
+    )
+
+    # 1 DB (db0) with 4 keys, 0.0 evicted keys, 0.0 expired keys, hit rate 100.0% (6.0M hits, 0.0 misses)
+    # search for {'db0': 'keys=20489,expires=20489,avg_ttl=47954'}
+    db_count = 0
+    key_count = 0
+    db_names = ''
+    for key, value in result.items():
+        try:
+            if value.startswith('keys='):
+                # we found a database section
+                keys, expires, avg_ttl = value.split(',')
+                keys = int(keys.replace('keys=', ''))
+                db_count += 1
+                db_names += key + ' '
+                key_count += keys
+                perfdata += lib.base.get_perfdata('keyspace_{}_keys'.format(key), keys, None, None, None, 0, None) # pylint: disable=C0301
+                perfdata += lib.base.get_perfdata('keyspace_{}_expires'.format(key), expires.replace('expires=', ''), None, None, None, 0, None) # pylint: disable=C0301
+                perfdata += lib.base.get_perfdata('keyspace_{}_avg_ttl'.format(key), float(avg_ttl.replace('avg_ttl=', ''))/1000, 's', None, None, 0, None) # pylint: disable=C0301
+        except:
+            continue
+    if db_count:
+        msg += '{} {} ({}) with {} keys, '.format(
+            db_count,
+            lib.txt.pluralize('DB', db_count),
+            db_names.strip(),
+            key_count
+        )
+        perfdata += lib.base.get_perfdata('db_count', db_count, None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('key_count', keys, None, None, None, 0, None)
+    if result['keyspace_hits'] + result['keyspace_misses'] != 0:
+        keyspace_hit_rate = round(
+            result['keyspace_hits'] / (result['keyspace_hits'] + result['keyspace_misses']) * 100,
+            1,
+        )
+    else:
+        keyspace_hit_rate = 0
+    msg += '{} evicted {}, {} expired {}, hit rate {}% ({} hits, {} misses), '.format(
+        lib.human.number2human(result['evicted_keys']),
+        lib.txt.pluralize('key', result['evicted_keys']),
+        lib.human.number2human(result['expired_keys']),
+        lib.txt.pluralize('key', result['expired_keys']),
+        keyspace_hit_rate,
+        lib.human.number2human(result['keyspace_hits']),
+        lib.human.number2human(result['keyspace_misses']),
+    )
+
+    # check the OS config
+    # see https://valkey.io/topics/admin for details
+
+    # vm.overcommit_memory is not set to 1
+    overcommit_memory = lib.base.coe(lib.disk.read_file('/proc/sys/vm/overcommit_memory'))
+    overcommit_memory = int(overcommit_memory)
+    if overcommit_memory != 1:
+        msg += 'vm.overcommit_memory is not set to 1'
+        if not args.IGNORE_OVERCOMMIT:
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += ', '
+
+    # kernel transparent_hugepage is not set to "madvise" or "never"
+    thp_enabled = lib.base.coe(lib.disk.read_file('/sys/kernel/mm/transparent_hugepage/enabled'))
+    if '[always]' in thp_enabled:
+        # on systems in which kernel transparent huge pages is set to "always",
+        # valkey might have latency problems specifically with fork(2) and CoW
+        msg += 'kernel transparent_hugepage is not set to "madvise" or "never"'
+        if not args.IGNORE_THP:
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += ', '
+
+    # net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog (256)
+    somaxconn = lib.base.coe(lib.disk.read_file('/proc/sys/net/core/somaxconn'))
+    somaxconn = int(somaxconn)
+    tcp_max_syn_backlog = lib.base.coe(
+        lib.disk.read_file(
+            '/proc/sys/net/ipv4/tcp_max_syn_backlog',
+        )
+    )
+    tcp_max_syn_backlog = int(tcp_max_syn_backlog)
+    if 0 < somaxconn < tcp_max_syn_backlog:
+        msg += 'net.core.somaxconn ({}) is lower than net.ipv4.tcp_max_syn_backlog ({})'.format(
+            somaxconn,
+            tcp_max_syn_backlog,
+        )
+        if not args.IGNORE_SOMAXCONN:
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += ', '
+
+    if result['sync_partial_err'] > 0:
+        msg += '{} denied partial resync requests'.format(
+            result['sync_partial_err'],
+        )
+        if not args.IGNORE_SYNCPARTIALERR:
+            msg += lib.base.state2str(STATE_WARN, prefix=' ')
+            state = lib.base.get_worst(state, STATE_WARN)
+        msg += ', '
+
+    # memory doctor
+
+    # Sam, I detected a few issues in this Valkey instance memory implants
+    if result['memory_doctor'].startswith('Sam, I detected a few issues'):
+        local_state = STATE_WARN
+        # have a look at https://github.com/valkey/valkey/blob/unstable/src/object.c
+
+        # * Peak memory: In the past this instance used more than 150% the memory that is
+        #   currently using. The allocator is normally not able to release memory after a peak,
+        #   so you can expect to see a big fragmentation ratio, however this is actually harmless
+        #   and is only due to the memory peak, and if the Valkey instance Resident Set Size
+        #   (RSS) is currently bigger than expected, the memory will be used as soon as you fill
+        #   the Valkey instance with more data. If the memory peak was only occasional and you
+        #   want to try to reclaim memory, please try the MEMORY PURGE command, otherwise
+        #   the only other option is to shutdown and restart the instance.\n\n");
+        if ' * Peak memory: ' in result['memory_doctor'] \
+        and result['memory_doctor'].count(' * ') == 1:
+            # just this one warning, which is harmless, so ignore this
+            local_state = STATE_OK
+
+        # * High total RSS: This instance has a memory fragmentation and RSS overhead greater than
+        #   1.4 (this means that the Resident Set Size of the Valkey process is much larger than the
+        #   sum of the logical allocations Valkey performed). This problem is usually due either to
+        #   a large peak memory (check if there is a peak memory entry above in the report) or may
+        #   result from a workload that causes the allocator to fragment memory a lot. If the
+        #   problem is a large peak memory, then there is no issue. Otherwise, make sure you are
+        #   using the Jemalloc allocator and not the default libc malloc. Note: The currently used
+        #   allocator is \"%s\".\n\n", ZMALLOC_LIB);
+        if ' * High total RSS: ' in result['memory_doctor']:
+            if ' * Peak memory: ' in result['memory_doctor']:
+                # if the problem is a large peak memory, then there is no issue
+                local_state = STATE_OK
+            if 'The currently used allocator is "jemalloc' in result['memory_doctor']:
+                # otherwise, make sure you are using the Jemalloc allocator and not the default libc
+                # malloc
+                local_state = STATE_OK
+
+        # * High allocator fragmentation: This instance has an allocator external fragmentation
+        #   greater than 1.1. This problem is usually due either to a large peak memory (check if
+        #   there is a peak memory entry above in the report) or may result from a workload that
+        #   causes the allocator to fragment memory a lot. You can try enabling 'activedefrag'
+        #   config option.\n\n");
+
+        # * High allocator RSS overhead: This instance has an RSS memory overhead is greater than
+        #   1.1 (this means that the Resident Set Size of the allocator is much larger than the sum
+        #   what the allocator actually holds). This problem is usually due to a large peak memory
+        #   (check if there is a peak memory entry above in the report), you can try the MEMORY
+        #   PURGE command to reclaim it.\n\n");
+
+        # * High process RSS overhead: This instance has non-allocator RSS memory overhead is
+        #   greater than 1.1 (this means that the Resident Set Size of the Valkey process is much
+        #   larger than the RSS the allocator holds). This problem may be due to Lua scripts or
+        #   Modules.\n\n");
+
+        # * Big replica buffers: The replica output buffers in this instance are greater than 10MB
+        #   for each replica (on average). This likely means that there is some replica instance
+        #   that is struggling receiving data, either because it is too slow or because of
+        #   networking issues. As a result, data piles on the master output buffers. Please try to
+        #   identify what replica is not receiving data correctly and why. You can use the INFO
+        #   output in order to check the replicas delays and the CLIENT LIST command to check the
+        #   output buffers of each replica.\n\n");
+
+        # * Big client buffers: The clients output buffers in this instance are greater than 200K
+        #   per client (on average). This may result from different causes, like Pub/Sub clients
+        #   subscribed to channels bot not receiving data fast enough, so that data piles on the
+        #   Valkey instance output buffer, or clients sending commands with large replies or very
+        #   large sequences of commands in the same pipeline. Please use the CLIENT LIST command in
+        #   order to investigate the issue if it causes problems in your instance, or to understand
+        #   better why certain clients are using a big amount of memory.\n\n");
+
+        # * Many scripts: There seem to be many cached scripts in this instance (more than 1000).
+        #   This may be because scripts are generated and `EVAL`ed, instead of being parameterized
+        #   (with KEYS and ARGV), `SCRIPT LOAD`ed and `EVALSHA`ed. Unless `SCRIPT FLUSH` is called
+        #   periodically, the scripts' caches may end up consuming most of your memory.\n\n");
+
+        msg = '{}. {}{}, '.format(
+            msg[:-2],
+            result['memory_doctor'],
+            lib.base.state2str(local_state, prefix=' '),
+        )
+        state = lib.base.get_worst(state, local_state)
+
+    # prepare perfdata
+    perfdata += lib.base.get_perfdata('mem_usage', mem_usage, '%', args.WARN, args.CRIT, 0, 100)
+    perfdata += lib.base.get_perfdata('keyspace_hit_rate', keyspace_hit_rate, '%', None, None, 0, 100) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('clients_blocked_clients', result['blocked_clients'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('clients_connected_clients', result['connected_clients'], None, None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('cpu_used_cpu_sys', result['used_cpu_sys'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('cpu_used_cpu_sys_children', result['used_cpu_sys_children'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('cpu_used_cpu_user', result['used_cpu_user'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('cpu_used_cpu_user_children', result['used_cpu_user_children'], None, None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('memory_maxmemory', result['maxmemory'], 'B', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('memory_mem_fragmentation_ratio', result['mem_fragmentation_ratio'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('memory_total_system_memory', result.get('total_system_memory', 0), 'B', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('memory_used_memory', result['used_memory'], 'B', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('memory_used_memory_lua', result['used_memory_lua'], 'B', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('memory_used_memory_rss', result['used_memory_rss'], 'B', None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('persistance_aof_current_rewrite_time_sec', result['aof_current_rewrite_time_sec'], 's', None, None, -1, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_aof_rewrite_in_progress', result['aof_rewrite_in_progress'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_aof_rewrite_scheduled', result['aof_rewrite_scheduled'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_loading', result['loading'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_rdb_bgsave_in_progress', result['rdb_bgsave_in_progress'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_rdb_changes_since_last_save', result['rdb_changes_since_last_save'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('persistance_rdb_current_bgsave_time_sec', result['rdb_current_bgsave_time_sec'], 's', None, None, -1, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('replication_connected_slaves', result['connected_slaves'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('replication_repl_backlog_histlen', result['repl_backlog_histlen'], 'B', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('replication_repl_backlog_size', result['repl_backlog_size'], 'B', None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('server_uptime_in_seconds', result['uptime_in_seconds'], 's', None, None, 0, None) # pylint: disable=C0301
+
+    perfdata += lib.base.get_perfdata('stats_evicted_keys', result['evicted_keys'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_expired_keys', result['expired_keys'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_instantaneous_input', int(float(result['instantaneous_input_kbps'])/8000), 'B', None, None, 0, None) # Bytes/sec # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_instantaneous_ops_per_sec', result['instantaneous_ops_per_sec'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_instantaneous_output', int(float(result['instantaneous_output_kbps'])/8000), 'B', None, None, 0, None) # Bytes/sec # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_keyspace_hits', result['keyspace_hits'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_keyspace_misses', result['keyspace_misses'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_latest_fork_usec', result['latest_fork_usec'], 'us', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_migrate_cached_sockets', result['migrate_cached_sockets'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_pubsub_channels', result['pubsub_channels'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_pubsub_patterns', result['pubsub_patterns'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_rejected_connections', result['rejected_connections'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_sync_full', result['sync_full'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_sync_partial_err', result['sync_partial_err'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_sync_partial_ok', result['sync_partial_ok'], None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_total_commands_processed', result['total_commands_processed'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_total_connections_received', result['total_connections_received'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_total_net_input_bytes', result['total_net_input_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata('stats_total_net_output_bytes', result['total_net_output_bytes'], 'c', None, None, 0, None) # pylint: disable=C0301
+
+    # over and out
+    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
