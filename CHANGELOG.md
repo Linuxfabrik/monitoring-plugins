@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Breaking Changes ("!")
+
+Icinga Director:
+
+* all-the-rest.json: drop legacy commands
+
+
 ### Added ("feat")
 
 Monitoring Plugins:
