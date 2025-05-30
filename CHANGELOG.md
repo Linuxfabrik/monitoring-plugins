@@ -30,6 +30,7 @@ Monitoring Plugins:
 * atlassian-statuspage: receive alerts on incidents on a specific Atlassian Statuspage
 * deb-updates: checks for software updates on systems that use package management systems based on the `apt-get` command
 * kubectl-get-pods: checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
+* valkey-version: tracks if Valkey is EOL
 
 
 ### Fixed ("fix")
@@ -62,6 +63,7 @@ Assets:
 
 Monitoring Plugins:
 
+* about-me: add valkey detection
 * about-me: reports type of display server (if any)
 * about-me: switch from lib.version to lib.distro
 * csv-values: make use of ommitted --warning-query and --critical-query more robust
