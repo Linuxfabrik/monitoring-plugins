@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/tuned-profile"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
 
 
 Help

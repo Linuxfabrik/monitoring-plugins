@@ -18,7 +18,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-version"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "Requires a user with strong password and 'view-statistics' permission (only)."
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-version.db``"
 

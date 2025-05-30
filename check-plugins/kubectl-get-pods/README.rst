@@ -30,7 +30,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kubectl-get-pods"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "Command-line tool ``kubectl`` (you must use a kubectl version that is within one minor version difference of your cluster. For example, a v1.32 client can communicate with v1.31, v1.32, and v1.33 control planes. Using the latest compatible version of kubectl helps avoid unforeseen issues. See `installation <https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/>`__)."
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-kubectl-get-pods.db``"
 

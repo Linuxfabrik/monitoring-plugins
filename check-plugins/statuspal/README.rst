@@ -57,7 +57,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/statuspal"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "3rd Party Python modules",             "``flatdict``"
 
 

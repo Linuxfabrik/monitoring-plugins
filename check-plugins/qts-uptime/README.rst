@@ -21,7 +21,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-uptime"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
 
 
 Help

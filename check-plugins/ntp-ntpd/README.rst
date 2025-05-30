@@ -31,7 +31,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-ntpd"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
 
 
 Help

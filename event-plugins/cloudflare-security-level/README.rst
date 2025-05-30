@@ -16,7 +16,7 @@ Fact Sheet
     "Event Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dummy"
     "Check Interval Recommendation",        "Event Plugin: On state change"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "3rd Party Python modules",             "``requests``"
 
 

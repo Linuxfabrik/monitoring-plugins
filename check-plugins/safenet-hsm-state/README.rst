@@ -21,7 +21,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/safenet-hsm-state"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "command-line tool ``sshpass``"
 
 

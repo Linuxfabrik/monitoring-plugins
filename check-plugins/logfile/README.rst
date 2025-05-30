@@ -41,7 +41,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/logfile"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "Yes"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-logfile-*.db``"
 
 

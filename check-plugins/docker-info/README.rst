@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
 
 
 Help

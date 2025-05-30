@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-stats"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "Requires a user with strong password and 'view-statistics' permission (only)."
 
 

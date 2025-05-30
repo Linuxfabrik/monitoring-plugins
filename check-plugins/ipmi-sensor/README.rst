@@ -26,7 +26,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sensor"
     "Check Interval Recommendation",        "Every 15 minutes"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "command-line tool ``ipmitool``"
 
    

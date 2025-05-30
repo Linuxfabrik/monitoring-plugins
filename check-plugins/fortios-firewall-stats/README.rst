@@ -16,7 +16,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-firewall-stats"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
 
 
 Help

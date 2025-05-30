@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-user-security"
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "User with SELECT privileges on mysql.user, locked down to ``127.0.0.1`` - for example ``monitoring\@127.0.0.1``. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions."
     "3rd Party Python modules",             "``pymysql``"
 

@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-enclosure"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Uses SQLite DBs",                      "Yes"
 
 

@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting"
     "Check Interval Recommendation",        "Once a day (or after a system update only)"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "RHEL: ``needs-restarting``, Debian: None, optional ``needrestart``"
 
 

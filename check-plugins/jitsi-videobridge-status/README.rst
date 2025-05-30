@@ -18,7 +18,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
 
 
 Help

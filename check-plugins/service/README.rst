@@ -29,7 +29,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/service"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Windows"
+    "Compiled for Windows",                 "Yes"
     "3rd Party Python modules",             "``psutil``"
 
 

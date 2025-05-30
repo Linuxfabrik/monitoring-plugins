@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "Yes"
     "3rd Party Python modules",             "``psutil``"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db``"

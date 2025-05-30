@@ -38,7 +38,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "PHP monitoring script `monitoring.php <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/php-status/monitoring.php>`_ (optional, callable via HTTP(S))"
 
 

@@ -26,7 +26,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "``snmpget`` from ``net-snmp-utils``"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-snmp.db``"
 

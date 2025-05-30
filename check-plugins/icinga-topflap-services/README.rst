@@ -29,7 +29,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services"
     "Check Interval Recommendation",        "Every 5 minutes"
     "Can be called without parameters",     "Yes"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Requirements",                         "IcingaDB, Read access to ``/icingaweb2/icingadb/history``"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db``"
 

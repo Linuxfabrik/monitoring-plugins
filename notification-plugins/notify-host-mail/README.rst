@@ -18,7 +18,7 @@ Fact Sheet
 
     "Notification Plugin Download",         "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-mail"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux"
+    "Compiled for Windows",                 "No"
 
 
 Help

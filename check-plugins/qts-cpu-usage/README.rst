@@ -22,7 +22,7 @@ Fact Sheet
     "Check Plugin Download",                "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-cpu-usage"
     "Check Interval Recommendation",        "Once a minute"
     "Can be called without parameters",     "No"
-    "Compiled for",                         "Linux, Windows"
+    "Compiled for Windows",                 "No"
     "Handles Periods",                      "Yes"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-qts-cpu-usage.db``"
 
