@@ -39,7 +39,7 @@ Help
       --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
                          stderr-file,expected-retc".
       --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
-      --url URL          UptimeRobot Status Page URL. Default:
+      --url URL          Atlassian Statuspage URL. Default:
                          https://status.atlassian.com
 
 
