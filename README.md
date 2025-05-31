@@ -80,6 +80,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="apache-httpd-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-status.png" width="30%"/> &nbsp;
 <img alt="apache-httpd-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-version.png" width="30%"/> &nbsp;
 <img alt="apache-solr-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-solr-version.png" width="30%"/> &nbsp;
+<img alt="atlassian-statuspage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/atlassian-statuspage.png" width="30%"/> &nbsp;
 <img alt="cpu-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cpu-usage.png" width="30%"/> &nbsp;
 <img alt="crypto-policy" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/crypto-policy.png" width="30%"/> &nbsp;
 <img alt="disk-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-io.png" width="30%"/> &nbsp;
