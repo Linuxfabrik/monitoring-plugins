@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# 2025053001
+# 2025060201
 
 set -e -o pipefail -u -x
 
 echo "✅ Create vendor tarball"
 
 mkdir --parent $LFMP_DIR_REPOS/vendor
+mkdir --parent $LFMP_DIR_SOURCES
 
 $LFMP_PYTHON -m pip download \
     --dest $LFMP_DIR_REPOS/vendor \
