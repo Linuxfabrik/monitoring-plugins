@@ -1,0 +1,27 @@
+# Base image: Official RHEL 8
+FROM registry.access.redhat.com/ubi8
+
+# Install Python 3.9
+RUN dnf --assumeyes install --nodocs python3.9 && \
+    dnf clean all
+
+# Install tools
+RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+    dnf --assumeyes install --nodocs stress && \
+    dnf clean all
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip
+RUN python3.9 -m pip install --upgrade pip && \
+    python3.9 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes
+
+# Verify Python installation
+RUN python3.9 --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

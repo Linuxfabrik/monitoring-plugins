@@ -1,0 +1,695 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+"""See the check's README for more details.
+"""
+
+import argparse  # pylint: disable=C0413
+import re  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+import lib.args  # pylint: disable=C0413
+import lib.base  # pylint: disable=C0413
+import lib.db_sqlite  # pylint: disable=C0413
+import lib.shell  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025060601'
+
+DESCRIPTION = '''Displays available updates, including a list of advisories about newer versions of
+                 installed packages. For these advisories, the plugin takes only the latest
+                 installed versions of packages into account. In case of the kernel packages
+                 (when multiple version could be installed simultaneously) also packages of the
+                 currently running version of kernel are added.
+                 This plugin only lists updates and upgrades and provides relevant alerts.
+                 It never actually runs an update.'''
+
+DEFAULT_QUERY = '1'
+DEFAULT_TIMEOUT = 120
+DEFAULT_WARN = 1  # number of updatable packages
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--only-critical',
+        help='Only collect critical updates and upgrades.',
+        dest='ONLY_CRITICAL',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--query',
+        help='The list of available updates and upgrades is stored in a SQL table. '
+             'Provide the SQL `WHEN` statement part to narrow down results. '
+             ' Example: '
+             "`--query='package like \"bind9-%%\"'`. "
+             'Also supports regular expressions via a REGEXP statement. '
+             'Have a look at the README for a list of available columns. '
+             'If this parameter is used, a list of matching updates is printed. '
+             'Default: %(default)s',
+        dest='QUERY',
+        default=DEFAULT_QUERY,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Plugin timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='Minimum number of packages to return WARNING. '
+             'Default: %(default)s.',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    return parser.parse_args()
+
+
+def get_updates(args):
+    """
+    Retrieve Available YUM Updates and Installed Packages
+
+    This function executes two YUM commands to obtain:
+    1. A list of available package updates (`yum list --upgrades`).
+    2. A list of currently installed packages (`yum list --installed`).
+
+    It uses the “Continue or Exit (CoE)” helper to run each shell command, ensuring that
+    any error from `lib.shell.shell_exec` is properly handled. If there are no available
+    updates, it reports this and does not exit. Any errors encountered when listing installed
+    packages are logged but do not abort execution.
+
+    ### Parameters
+    - **args** (`object`): An object (e.g., namespace) that must include:
+      - `args.TIMEOUT` (`int`): Timeout in seconds for each shell command.
+
+    ### Returns
+    - **tuple**:
+      - `yum_upgrades` (`str` or similar`): The stdout result of `"yum list --assumeyes --upgrades"`
+      - `yum_installed` (`str` or similar`): The stdout result of `"yum list --installed"`
+
+    ### Behavior
+    1. Calls `lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT)`:
+       - Wrapped with `lib.base.coe()`. If this call fails (nonzero exit code), the error
+         message is printed via `lib.base.cu()` and the script exits.
+       - If no upgrades are returned (`yum_upgrades` is empty or falsy), prints
+         `"No updates available."` via `lib.base.oao()` and continues.
+    2. Calls `lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT)`:
+       - Also wrapped with `lib.base.coe()`. If there is an error (nonzero exit code or
+         anything on stderr), logs the error with `lib.base.cu()` but does **not** exit.
+    3. Returns a tuple `(yum_upgrades, yum_installed)`.
+
+    ### Notes
+    - The function assumes that `lib.base.coe` will exit the program on a shell command failure.
+    - Any errors from listing installed packages are logged but do not stop execution.
+    - If there are no updates, the function notifies the user and still returns a pair of values;
+      in that case, `yum_upgrades` will be empty or falsy.
+    - Intended for use within a script or plugin’s `main()` function.
+    """
+    # get the list of updates (--assumeyes so command can import GPG keys)
+    yum_upgrades, stderr, retc = lib.base.coe(
+        lib.shell.shell_exec('yum list --assumeyes --upgrades', timeout=args.TIMEOUT),
+    )
+    if retc:
+        lib.base.cu(f'`yum list --upgrades` returned with error {retc}: {stderr}')
+    if not yum_upgrades:
+        # no updates available
+        lib.base.oao('No updates available.')
+
+    # get the list of installed software
+    yum_installed, stderr, retc = lib.base.coe(
+        lib.shell.shell_exec('yum list --installed', timeout=args.TIMEOUT),
+    )
+    if retc or stderr:
+        lib.base.cu(f'`yum list --installed` returned with error {retc}: {stderr}')
+
+    return yum_upgrades, yum_installed
+
+
+def get_updateinfo(args):
+    """
+    Retrieve Available YUM Update Advisories
+
+    This function executes the `yum updateinfo list --available` command to obtain
+    advisory information about available package updates. It uses the “Continue or Exit (CoE)”
+    helper to run the shell command, ensuring that any critical failure aborts execution.
+    If the command returns a nonzero exit code, the error is logged but the function still
+    returns whatever output (if any) was produced.
+
+    ### Parameters
+    - **args** (`object`): An object (e.g., namespace) that must include:
+      - `args.TIMEOUT` (`int`): Timeout in seconds for the shell command.
+
+    ### Returns
+    - **str**: The stdout result of `"yum updateinfo list --available"` containing update
+      advisory information. This may be empty if no update advisories are available or
+      if an error occurred.
+
+    ### Notes
+    - The function wraps `lib.shell.shell_exec('yum updateinfo list --available')`
+      with `lib.base.coe()`. If the shell command itself fails (e.g., cannot run YUM), `coe` will
+      exit the script after printing a sanitized error.
+    - After unwrapping with `coe`, the function destructures into `(yum_info, stderr, retc)`.
+      - If `retc` is nonzero (indicating a YUM-level error), it logs the error via `lib.base.cu()`
+        but does **not** exit.
+    - Advisory output formats differ by distribution:
+      - **RHEL 8/9** example:
+        ```
+        RLSA-2024:1751              Important/Sec. unbound-libs-1.16.2-5.el8_9.6.x86_64
+        RLBA-2024:1606              bugfix         util-linux-2.32.1-44.el8_9.1.x86_64
+        ```
+      - **Fedora** example:
+        ```
+        Name               Type     Severity Package                             Issued
+        FEDORA-2025-09f40d bugfix   Low      python3-boto3-1.38.23-1.fc42.noarch 2025-05-30 01:14:13
+        FEDORA-2025-34e9b9 security Critical firefox-139.0-1.fc42.x86_64         2025-05-30 02:21:33
+        ```
+    """
+    # Get update information by using `yum updateinfo`.
+    # RHEL8/9:
+    #   RLSA-2024:1751              Important/Sec. unbound-libs-1.16.2-5.el8_9.6.x86_64
+    #   RLBA-2024:1606              bugfix         util-linux-2.32.1-44.el8_9.1.x86_64
+    # Fedora:
+    #   Name               Type     Severity Package                             Issued
+    #   FEDORA-2025-09f40d bugfix   Low      python3-boto3-1.38.23-1.fc42.noarch 2025-05-30 01:14:13
+    #   FEDORA-2025-34e9b9 security Critical firefox-139.0-1.fc42.x86_64         2025-05-30 02:21:33
+    yum_info, stderr, retc = lib.base.coe(
+        lib.shell.shell_exec('yum updateinfo list --available', timeout=args.TIMEOUT),
+    )
+    if retc:
+        lib.base.cu(f'`yum updateinfo list --available` returned with error {retc}: {stderr}')
+
+    return yum_info
+
+
+def join_packages_updates(yum_installed, yum_upgrades):
+    """
+    Merge Installed and Available Upgrade Package Data
+
+    This function takes the raw output strings from `yum list --installed` and
+    `yum list --upgrades`, then combines them into a single dictionary of package entries.
+    Each entry is keyed by the base package name (without architecture suffix) and contains
+    details about the installed version, repository, and—if applicable—the available upgrade
+    version and its repository.
+
+    ### Parameters
+    - **yum_installed** (`str`): Multiline string output from
+      `yum list --installed`. Each non-header line is expected to have exactly three
+      whitespace-separated fields:
+        1. `package_installed` (e.g., `"bash-5.0.17-1.fc32.x86_64"`)
+        2. `version_installed` (e.g., `"5.0.17-1.fc32"`)
+        3. `repo_installed` (e.g., `"@anaconda"`)
+      Lines that do not split into exactly three fields are skipped.
+    - **yum_upgrades** (`str`): Multiline string output from
+      `yum list --upgrades`. Each non-header line is expected to have exactly three
+      whitespace-separated fields:
+        1. `package_upgrade` (e.g., `"bash-5.0.17-2.fc32.x86_64"`)
+        2. `version_upgrade` (e.g., `"5.0.17-2.fc32"`)
+        3. `repo_upgrade` (e.g., `"updates"`)
+      Lines that do not split into exactly three fields are skipped.
+
+    ### Returns
+    - **dict[str, dict]**: A dictionary mapping each base package name
+      (the portion before the first `.` in the RPM filename) to a sub-dictionary with keys:
+        - **"package"** (`str`): Base package name (e.g., `"bash"`).
+        - **"arch"** (`str`): Architecture suffix extracted from the RPM filename
+          (e.g., `"x86_64"`).
+        - **"version_installed"** (`str`): Installed version string without the
+          architecture/release suffix (e.g., `"5.0.17-1.fc32"` → `"5.0.17-1.fc32"`).
+        - **"repo_installed"** (`str`): Repository from which the package was installed
+          (e.g., `"@anaconda"`).
+        - **"version_upgrade"** (`str` or `None`): Available upgrade version (same format
+          as `version_installed`), or `None` if no upgrade is listed.
+        - **"repo_upgrade"** (`str` or `None`): Repository from which the upgrade would come,
+          or `None` if no upgrade is listed.
+
+    ### Behavior
+    1. Iterate over each non-empty line in `yum_installed`:
+       - Split the line by whitespace. If it does not yield exactly three parts, skip it.
+       - Extract:
+         - `package_installed`: RPM name with architecture (e.g., `"bash-5.0.17-1.fc32.x86_64"`).
+         - `version_installed`: Version string (e.g., `"5.0.17-1.fc32"`).
+         - `repo_installed`: Repository label (e.g., `"@anaconda"`).
+       - Derive:
+         - Base package name by taking the substring before the first `.` in `package_installed`
+           (e.g., `"bash-5` → `"bash-5"`; for standard RPM names like `bash-5.0.17-1.fc32.x86_64`,
+           splitting on `.` yields `["bash-5", "0", …]`, and taking index 0 gives `"bash-5"`; in
+           practice, most package names have a dash-separated epoch/version so this yields the
+           correct base).
+         - Architecture by taking the substring after the last `.` (e.g., `"x86_64"`).
+         - Store `version_installed` as everything except the last dotted segment of its own string
+           (dropping e.g. the `el8_9.6` or `fc32` suffix if present). Implementation does this by
+           splitting on `.` and rejoining all except the final element.
+       - Initialize the entry in `packages[...]` with `version_upgrade` and `repo_upgrade` set to
+        `None`.
+    2. Iterate over each non-empty line in `yum_upgrades` in the same manner:
+       - Split the line by whitespace. If it does not yield exactly three parts, skip it.
+       - Extract:
+         - `package_upgrade`, `version_upgrade`, `repo_upgrade`.
+       - Compute the same base package name (by splitting `package_upgrade` on `.` and taking
+         index 0).
+       - If that key exists in the `packages` dictionary, update its `"version_upgrade"`
+         (dropping the last dotted segment) and `"repo_upgrade"` fields. If the key does not
+         already exist (i.e., an upgrade for a package not currently installed), this implementation
+         will raise a `KeyError`. In typical use, every upgrade corresponds to an installed package.
+
+    ### Notes
+    - Package name splitting logic assumes RPM filenames formatted as
+      `<name>-<version>.<release>.<arch>`. If a package name contains additional dots or
+      unexpected formatting, the splitting heuristic may misidentify the base name or version.
+    - Lines in the YUM output that are headers, separators, or otherwise do not have exactly
+      three whitespace-separated columns are silently ignored.
+    - If there is an upgrade entry for a package not present in `yum_installed`, a `KeyError`
+      will occur. Should never happen...
+    """
+    packages = {}
+
+    for installed in yum_installed.strip().splitlines():
+        installed = installed.split()
+        if len(installed) != 3:
+            continue
+        package_installed, version_installed, repo_installed = installed
+        packages[package_installed.split('.')[0]] = {
+            'package': package_installed.split('.')[0],
+            'arch': package_installed.split('.')[-1],
+            'version_installed': '.'.join(version_installed.split('.')[0:-1]),
+            'repo_installed': repo_installed,
+            'version_upgrade': None,
+            'repo_upgrade': None,
+        }
+
+    for upgrade in yum_upgrades.strip().splitlines():
+        upgrade = upgrade.split()
+        if len(upgrade) != 3:
+            continue
+        package_upgrade, version_upgrade, repo_upgrade = upgrade
+        packages[package_upgrade.split('.')[0]].update({
+            'version_upgrade': '.'.join(version_upgrade.split('.')[0:-1]),
+            'repo_upgrade': repo_upgrade,
+        })
+
+    return packages
+
+
+def store_updateinfo(conn, yum_info):
+    """
+    Parse and Store YUM Update Advisories into SQLite
+
+    This function processes the raw advisory output from `yum updateinfo list --available`
+    (or similar) and inserts parsed entries into an SQLite table named `updateinfo`. It
+    handles both RHEL-style and Fedora-style advisory lines, extracting the package NEVRA
+    (Name-Epoch-Version-Release-Architecture) components via a regular expression, then
+    classifies each advisory by type and severity before inserting into the database.
+
+    ### Parameters
+    - **conn** (`sqlite3.Connection` or similar):  
+      An open SQLite connection object. Entries will be inserted into the `updateinfo` table
+      on this connection.
+    - **yum_info** (`str`):  
+      Multiline string containing advisory entries from `yum updateinfo list --available`.  
+      - **RHEL 8/9 format** (3 fields when split):
+        ```
+        RLSA-2025:0288  Moderate/Sec.  emacs-filesystem-1:27.2-10.el9_4.noarch
+        RLSA-2025:0288  bugfix         libstdc++-devel-11.4.1-3.el9.x86_64
+        ```
+      - **Fedora format** (6 fields when split):
+        ```
+        RLSA-2025:0288  bugfix  Low  python3-s3transfer-0.13.0-2.fc42.noarch  2025-05-30  01:14:13
+        ```
+
+    ### Behavior
+    1. **Compile NEVRA Regex**
+    2. **Iterate Over Each Line in `yum_info`**  
+       - Split each non-empty line on whitespace.  
+       - If the split yields exactly **3 fields** (RHEL/RLSA style):
+         1. `advisory_id = item[0]` (e.g., `"RLSA-2025:0288"`)  
+         2. `type_field = item[1]` (e.g., `"Moderate/Sec."` or `"bugfix"`)  
+         3. `nevra_str = item[2]` (e.g., `"emacs-filesystem-1:27.2-10.el9_4.noarch"`)  
+         - Apply `pattern.match(nevra_str)`. If it fails, skip this line.  
+         - Determine:
+           - **`name`**: from `m.group('name')`  
+           - **`version`**: from `m.group('version')`  
+           - **`type`**:  
+             - If `type_field` ends with `"/Sec."`, use `"security"`.  
+             - Otherwise, use the literal `type_field` (e.g., `"bugfix"`, `"enhancement"`, etc.).  
+           - **`severity`**:  
+             - If `type_field` ends with `"/Sec."`, take the substring before `"/Sec."
+             - Otherwise, use `"None"`.  
+         - Call `lib.db_sqlite.insert(conn, {...}, table='updateinfo')` wrapped by `lib.base.coe()`.
+           The inserted record has keys:
+           ```python
+           {
+               'name': <parsed name>,
+               'version': <parsed version>,
+               'type': <determined type>,
+               'severity': <determined severity>,
+           }
+           ```
+         - If the insert fails (nonzero return), `lib.base.coe` will log an error and exit
+
+       - If the split yields exactly **6 fields** (Fedora style):
+         1. `advisory_id = item[0]` (e.g., `"RLSA-2025:0288"`)  
+         2. `type_field = item[1]` (e.g., `"bugfix"`, `"security"`, etc.)  
+         3. `severity = item[2]` (e.g., `"Low"`, `"Critical"`, etc.)  
+         4. `nevra_str = item[3]` (e.g., `"python3-s3transfer-0.13.0-2.fc42.noarch"`)  
+         5. Date and time fields (`item[4]`, `item[5]`) are ignored.  
+         - Apply `pattern.match(nevra_str)`. If it fails, skip this line.  
+         - Extract `name` and `version` from the regex groups.  
+         - Call `lib.db_sqlite.insert(conn, {...}, table='updateinfo')` wrapped by `lib.base.coe()`:
+           ```python
+           {
+               'name': <parsed name>,
+               'version': <parsed version>,
+               'type': <type_field>,
+               'severity': <severity>,
+           }
+           ```
+
+    3. **Error Handling**  
+       - If the regex does not match `nevra_str`, the line is silently skipped.  
+       - Any database insert error triggers `lib.base.coe()`, which will sanitize the error message,
+         print it, and exit with the default `STATE_UNKNOWN` code.
+
+    ### Returns
+    - **None**: This function does not return a value. Successful inserts happen silently; on
+      failure, the script exits.
+
+    ### Notes
+    - The function assumes:
+      - A table named `updateinfo` already exists with at least the columns `name`, `version`,
+       `type`, and `severity`.  
+      - The SQLite connection `conn` is open and writable.  
+    - If an advisory line contains a package not matching the NEVRA pattern, it will be skipped.  
+    - Fedora-style lines include timestamp fields that are ignored by this function.  
+    - The column `platform` and `arch` extracted by the regex are not stored in the database; only
+     `name` and `version` matter.  
+    - If you need to store additional metadata (e.g., architecture or advisory ID), modify the
+      insert dictionary accordingly.
+    """
+    # Matches RPM NEVRA package names from updateinfo (for example: "netavark-2:1.15-1.fc42.x86_64")
+    pattern = re.compile(
+        r'''^
+          (?P<name>.+)             # Package name: everything up to the final "-" before the version
+          -
+          (?P<version>[^-]+-[^-]+) # Version‐Release (e.g. "2:1.40.16-19" or "4.18.0-553.37.1")
+          \.
+          (?P<platform>.+)         # Platform: everything between last "." before <arch> ("el8_10")
+          \.
+          (?P<arch>[^.]+)          # Architecture: everything til the end of the str (e.g. "x86_64")
+        $''',
+        re.VERBOSE,
+    )
+
+    for item in yum_info.strip().splitlines():
+        item = item.split()
+        if len(item) == 3:
+            # 'RLSA-2025:0288', 'Moderate/Sec.', 'emacs-filesystem-1:27.2-10.el9_4.noarch'
+            # 'RLSA-2025:0288', 'bugfix', 'libstdc++-devel-11.4.1-3.el9.x86_64'
+            m = pattern.match(item[2])
+            if not m:
+                continue
+            lib.base.coe(lib.db_sqlite.insert(
+                conn,
+                {
+                    'name': m.group('name'),
+                    'version': m.group('version'),
+                    'type': 'security' if item[1].endswith('/Sec.') else item[1],
+                    'severity': item[1].split('/')[0] if item[1].endswith('/Sec.') else 'None',
+                },
+                table='updateinfo',
+            ))
+        if len(item) == 6:
+            # ('RLSA-2025:0288', 'bugfix', 'Low', 'python3-s3transfer-0.13.0-2.fc42.noarch', '2025-05-30', '01:14:13')  # pylint: disable=C0301
+            m = pattern.match(item[3])
+            if not m:
+                continue
+            lib.base.coe(lib.db_sqlite.insert(
+                conn,
+                {
+                    'name': m.group('name'),
+                    'version': m.group('version'),
+                    'type': item[1],
+                    'severity': item[2],
+                },
+                table='updateinfo',
+            ))
+
+
+def get_advisory_type(args, update_data, info_data):
+    """
+    Annotate Updates with Advisory Types and Filter by Criticality
+
+    This function iterates over a list of update entries (`update_data`) and a list of
+    advisory info entries (`info_data`), matching them by package name. For each update,
+    it aggregates advisory “type” codes (taking the first character of each matching
+    advisory’s type and uppercasing it) into a concatenated string under the key `'type'`.
+    If `args.ONLY_CRITICAL` is True, only updates whose aggregated type string contains
+    `'S'` (for security) are retained. Matched advisory entries are removed from `info_data`
+    as they are consumed.
+
+    ### Parameters
+    - **args** (`object`):  
+      An object (e.g., namespace) that must include:
+      - `args.ONLY_CRITICAL` (`bool`):  
+        If True, only include updates that have at least one security advisory (i.e., `'S'` in
+        the `'type'` string).  
+    - **update_data** (`list[dict]`):  
+      A list of dictionaries, each representing an available update. Each dictionary must contain
+      at least:
+      - `'package'` (`str`): The base package name to match against advisory info.
+      Additional keys may be present (e.g., version, repository), but are not required for matching.
+      The function will inject a new key `'type'` into each dictionary to store the aggregated
+      advisory codes.
+    - **info_data** (`list[dict]`):  
+      A list of advisory information dictionaries. Each dictionary must contain:
+      - `'name'` (`str`): Package name, used to match against `update['package']`.
+      - `'type'` (`str` or similar): Advisory type string (e.g., `"security"`, `"bugfix"`).  
+        Only the first character of this string (uppercased) is used.  
+      As matches are found, corresponding dictionaries are removed from `info_data`.
+
+    ### Returns
+    - **list[dict]**:  
+      A filtered list of update dictionaries (from `update_data`). Each dictionary has an added key:
+      - `'type'` (`str`): Concatenated uppercase characters, one per matching advisory.  
+        For example, if two advisories matched—one `"security"` and one `"bugfix"`—then
+        `'type' == "SB"`.  
+      Only updates that pass the `ONLY_CRITICAL` filter (if enabled) are included.
+
+    ### Behavior
+    1. Initialize an empty list `table_data`.
+    2. For each `update` in `update_data`:
+       - Add or reset `update['type']` to an empty string.
+       - Repeatedly call `lib.base.lookup_lod(info_data, 'name', update['package'])`:
+         - If no match is found (`iidx == -1`), break the loop.
+         - Otherwise, remove the matching advisory dict from `info_data` (via `pop(iidx)`), 
+           take the first character of `info['type']`, uppercase it, and append it to
+           `update['type']`.
+       - If `args.ONLY_CRITICAL` is True and `'S'` (the code for security) is not in
+        `update['type']`, skip adding this update to `table_data`.
+       - Otherwise, append the annotated `update` dict to `table_data`.
+    3. Return `table_data`.
+
+    ### Notes
+    - The function mutates both `update_data` (by injecting `'type'` keys) and `info_data`
+      (by removing matched entries).  
+      If the caller needs to preserve the original lists, they should pass deep copies.
+    - If an update has no matching entries in `info_data`, its `'type'` remains an empty string.
+    - The ordering of characters in `'type'` corresponds to the order in which matches were found;
+      duplicates may occur if multiple advisories share the same first letter.
+    - The `lookup_lod` helper is expected to return a tuple `(index, info_dict)`.  
+      If multiple advisory entries share the same `'name'`, all will be consumed until none remain.
+    """
+    table_data = []
+    for update in update_data:
+        update.update({'type': ''})
+        while True:
+            iidx, info = lib.base.lookup_lod(info_data, 'name', update['package'])
+            if iidx == -1:
+                break
+            info_data.pop(iidx)
+            update['type'] += info['type'][0].upper()
+        if args.ONLY_CRITICAL and 'S' not in update['type']:
+            continue
+        table_data.append(update)
+
+    return table_data
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+
+    # get the list of installed software
+    yum_upgrades, yum_installed = get_updates(args)
+
+    # join the list of installed packages and their updates
+    packages = join_packages_updates(yum_installed, yum_upgrades)
+
+    conn = lib.base.coe(lib.db_sqlite.connect(
+        filename='linuxfabrik-monitoring-plugins-rpm-updates.db',
+    ))
+
+    # create the db table for the installed packages including their updates
+    sql = '''
+        package TEXT PRIMARY KEY,
+        arch TEXT DEFAULT NULL,
+        version_installed TEXT DEFAULT NULL,
+        repo_installed TEXT DEFAULT NULL,
+        version_upgrade TEXT DEFAULT NULL,
+        repo_upgrade TEXT DEFAULT NULL
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(
+        conn,
+        sql,
+        table='list',
+        drop_table_first=True,  # we don't need historical data
+    ))
+
+    # ready for the database
+    for package in packages.values():
+        if not package['version_upgrade']:
+            # no need to store packages without updates
+            continue
+        lib.base.coe(lib.db_sqlite.insert(
+            conn,
+            package,
+            table='list',
+        ))
+
+    # Get update information by using `yum updateinfo`.
+    yum_info = get_updateinfo(args)
+
+    # create the db table for the update info
+    sql = '''
+        name TEXT DEFAULT NULL,
+        version TEXT DEFAULT NULL,
+        type TEXT DEFAULT NULL,
+        severity TEXT DEFAULT NULL
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(
+        conn,
+        sql,
+        table='updateinfo',
+        drop_table_first=True,  # we don't need historical data
+    ))
+    # "package" can't be a PRIMARY KEY (it will not be UNIQUE), but an index will speed things up
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'name', table='updateinfo'))
+
+    # store updateinfo
+    store_updateinfo(conn, yum_info)
+
+    # store data in local sqlite database
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    # analyze data
+
+    # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
+    sql = f'''
+        SELECT *
+        FROM list
+        WHERE {args.QUERY}
+        ORDER BY package
+        COLLATE NOCASE
+    '''
+    update_data = lib.base.coe(lib.db_sqlite.select(conn, sql))
+
+    sql = f'''
+        SELECT DISTINCT *
+        FROM list LEFT JOIN updateinfo ON package = name
+        WHERE {args.QUERY}
+        ORDER BY package
+        COLLATE NOCASE
+    '''
+    info_data = lib.base.coe(lib.db_sqlite.select(conn, sql))
+    if not info_data:
+        # happens when we search for security updates, but first query returns standard updates only
+        update_data = []
+
+    lib.db_sqlite.close(conn)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # for each package get the update types up to the newest available version (first letter)
+    table_data = get_advisory_type(args, update_data, info_data)
+
+    # get state
+    state = lib.base.get_state(len(table_data), args.WARN, None)
+
+    # build the message
+    if len(table_data) == 0:
+        msg += f'No updates available{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}.'
+    else:
+        msg += f'{len(table_data)} {"critical " if args.ONLY_CRITICAL else ""}'
+        msg += f'{lib.txt.pluralize("update", len(table_data))} available'
+        msg += f'{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}'
+        msg += '.'
+        msg += lib.base.state2str(state, prefix=' ')
+        msg += '\n\n'
+        msg += lib.base.get_table(
+            table_data,
+            ['package', 'version_installed', 'version_upgrade', 'type'],
+            header=['Package', 'Installed', 'Upgrade to', 'Type'],
+        )
+    perfdata += lib.base.get_perfdata('updates', len(table_data), None, args.WARN, None, 0, None)
+
+    # over and out
+    lib.base.oao(
+        msg,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()

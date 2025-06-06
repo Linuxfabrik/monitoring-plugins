@@ -1,0 +1,167 @@
+{
+    "Command": {
+        "cmd-check-rpm-updates": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$rpm_updates_always_ok$"
+                },
+                "--only-critical": {
+                    "set_if": "$rpm_updates_only_critical$"
+                },
+                "--query": {
+                    "value": "$rpm_updates_query$"
+                },
+                "--timeout": {
+                    "value": "$rpm_updates_timeout$"
+                },
+                "--warning": {
+                    "value": "$rpm_updates_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/rpm-updates",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-rpm-updates",
+            "object_type": "object",
+            "timeout": 60,
+            "vars": {},
+            "zone": null,
+            "uuid": "9f76a41c-53bf-4650-9e08-ceb35b39d898"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-rpm-updates": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-rpm-updates",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "rpm-updates.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Displays available updates, including a list of advisories about newer versions of installed packages. For these advisories, the plugin takes only the latest installed versions of packages into account. In case of the kernel packages (when multiple version could be installed simultaneously) also packages of the currently running version of kernel are added. This plugin only lists updates and upgrades and provides relevant alerts. It never actually runs an update.",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rpm-updates",
+            "object_name": "tpl-service-rpm-updates",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "rpm_updates_always_ok": false,
+                "rpm_updates_only_critical": false,
+                "rpm_updates_query": "1",
+                "rpm_updates_timeout": 120,
+                "rpm_updates_warning": 1
+            },
+            "volatile": null,
+            "zone": null,
+            "only_critical": true,
+            "uuid": "aa827451-999d-4eea-9f2b-f91a22017c24"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "rpm_updates_always_ok",
+            "caption": "RPM Updates: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "58daef4a-6c3d-41d1-96e4-87f62af56d57"
+        },
+        "2": {
+            "varname": "rpm_updates_only_critical",
+            "caption": "RPM Updates: Only Critical?",
+            "description": "Only collect critical updates and upgrades.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "70ad3640-3806-48d1-a788-db5e59a09fb2"
+        },
+        "3": {
+            "varname": "rpm_updates_query",
+            "caption": "RPM Updates: Query",
+            "description": "The list of available updates and upgrades is stored in a SQL table. Provide the SQL `WHEN` statement part to narrow down results.  Example: `--query='package like \"bind9-%%\"'`. Also supports regular expressions via a REGEXP statement. Have a look at the README for a list of available columns. If this parameter is used, a list of matching updates is printed.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "56eaeee2-8988-47b3-9057-cf363f67da41"
+        },
+        "4": {
+            "varname": "rpm_updates_timeout",
+            "caption": "RPM Updates: Timeout",
+            "description": "Plugin timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "88935be0-efc5-411b-816c-a99de02da48d"
+        },
+        "5": {
+            "varname": "rpm_updates_warning",
+            "caption": "RPM Updates: Warning",
+            "description": "Minimum number of packages to return WARNING.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "913a0207-1e42-4498-9d1b-5997c1b90051"
+        }
+    }
+}
