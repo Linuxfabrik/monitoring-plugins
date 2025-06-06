@@ -6,7 +6,7 @@ Overview
 
 This plugin checks for software updates on systems that use package management systems based on the apt-get(8) command found in Debian GNU/Linux and compatible. This plugin only lists updates and upgrades, and provides the relevant alerts. It never actually runs an update. Tested on Debian 11+ and Ubuntu 20+.
 
-For the ``--query`` parameter, the following database columns can be used:
+The plugin stores all relevant information in a local SQLite database. For the ``--query`` parameter, the following database columns can be used:
 
 * package (TEXT)
 
