@@ -173,14 +173,16 @@ def main():
     state = lib.base.get_state(len(result), args.WARN, None)
 
     # build the message
-    if state == STATE_OK:
-        msg += 'Everything is ok.'
+    if len(result) == 0:
+        msg += f'No updates available{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}.'
     else:
-        msg += f'{len(result)} {"critical " if args.ONLY_CRITICAL else ""}updates available'
+        msg += f'{len(result)} {"critical " if args.ONLY_CRITICAL else ""}'
+        msg += f'{lib.txt.pluralize("update", len(result))} available'
+        msg += f'{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}'
+        msg += '.'
         msg += lib.base.state2str(state, prefix=' ')
-        if args.QUERY != '1':
-            msg += ':\n* '
-            msg += '\n* '.join([row['package'] for row in result])
+        msg += '\n'
+        msg += '\n* '.join([row['package'] for row in result])
     perfdata += lib.base.get_perfdata('updates', len(result), None, args.WARN, None, 0, None)
 
     # over and out
