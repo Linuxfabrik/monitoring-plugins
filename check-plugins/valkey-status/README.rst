@@ -31,10 +31,10 @@ Help
 .. code-block:: text
 
     usage: valkey-status [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
-                        [--ignore-maxmemory0] [--ignore-overcommit]
-                        [--ignore-somaxconn] [--ignore-sync-partial-err]
-                        [--ignore-thp] [-p PASSWORD] [--port PORT]
-                        [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
+                         [--ignore-maxmemory0] [--ignore-overcommit]
+                         [--ignore-somaxconn] [--ignore-sync-partial-err]
+                         [--ignore-thp] [-p PASSWORD] [--port PORT]
+                         [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
 
     Returns information and statistics about a Valkey server. Alerts on memory
     consumption, memory fragmentation, hit rates and more.
