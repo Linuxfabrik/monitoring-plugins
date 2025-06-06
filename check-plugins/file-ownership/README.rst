@@ -22,8 +22,8 @@ Default files checked:
 * /etc/cron.weekly: root:root
 * /etc/crontab: root:root
 * /etc/graylog/certs: graylog:graylog
-* /etc/group: root:root
 * /etc/group-: root:root
+* /etc/group: root:root
 * /etc/hosts.allow: root:root
 * /etc/hosts.deny: root:root
 * /etc/issue.net: root:root
@@ -31,12 +31,13 @@ Default files checked:
 * /etc/loolwsd/loolwsd.xml: lool:lool
 * /etc/motd: root:root
 * /etc/named.conf: root:named
-* /etc/passwd: root:root
 * /etc/passwd-: root:root
+* /etc/passwd: root:root
 * /etc/ssh/sshd_config: root:root
+* /etc/sssd/sssd.con: root:root
 * /home/ovirt: vdsm:kvm
-* /tmp: root:root
 * /tmp/linuxfabrik-monitoring-plugins-sqlite.db: icinga:icinga
+* /tmp: root:root
 * /var/hnet: hnet:hnet
 * /var/lib/unbound/root.key: unbound:unbound
 * /var/run/openldap: ldap:ldap
