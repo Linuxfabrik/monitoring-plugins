@@ -44,7 +44,7 @@ The two call graphs show how the `build scripts <https://github.com/Linuxfabrik/
 Build for Linux
 ---------------
 
-The following steps describe the **manual** package building process on an Ubuntu 24.04 LTS host. The same steps have been automated using GitHub actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
+The following steps describe the **manual package building process on an Ubuntu 24.04 LTS host**. The same steps have been automated using GitHub actions. See the `.github/workflows <https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/>`__ as well as the `build <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build>`__ folder for details.
 
 To be able to perform the same steps on a local Ubuntu host as well as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts), and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
 
