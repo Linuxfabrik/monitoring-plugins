@@ -5,15 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.0.0...HEAD
-
-
 ## [Unreleased]
 
 tbd
 
 
-## v2.0.0
+## [v2.0.0] - 2025-06-06
 
 ### Breaking Changes ("!")
 
@@ -91,7 +88,7 @@ Monitoring Plugins:
 
 
 
-## v1.2.0.11
+## [v1.2.0.11] - 2025-03-13
 
 ### Breaking Changes ("!")
 
@@ -227,7 +224,7 @@ Monitoring Plugins:
 * uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
 
 
-## 2024060401
+## [2024060401] - 2024-06-04
 
 ### Added
 
@@ -240,7 +237,7 @@ CI/CD:
 * Added Ubuntu 24.04
 
 
-## 2024052901
+## [2024052901] - 2024-05-29
 
 ### Breaking Changes
 
@@ -359,7 +356,7 @@ Monitoring Plugins:
 * ntp-w32tm: Fix `UnboundLocalError: local variable 'clock_rate' referenced before assignment`
 
 
-## 2023112901
+## [2023112901] - 2023-11-29
 
 ### Breaking Changes
 
@@ -462,7 +459,7 @@ Monitoring Plugins:
 
 
 
-## 2023051201
+## [2023051201] - 2023-05-12
 
 ### Breaking Changes
 
@@ -545,7 +542,7 @@ Monitoring Plugins:
 * top3-processes-which-caused-the-most-io (moved it into disk-io)
 
 
-## 2023030801
+## [2023030801] - 2023-03-08
 
 ### Breaking Changes
 
@@ -709,7 +706,7 @@ Icinga Director:
 
 
 
-## 2022072001
+## [2022072001] - 2022-07-20
 
 ### Breaking Changes
 
@@ -842,13 +839,13 @@ Icinga Director:
 
 
 
-## 2022030201
+## [2022030201] - 2022-03-02
 
 This is a "we migrated everything from GitLab to GitHub, but had to adjust many details afterwards" version. **In terms of source code, nothing has changed** compared to 2022022801, just a bunch of links in source code comments and READMEs.
 
 
 
-## 2022022801
+## [2022022801] - 2022-02-28
 
 ### Breaking Changes
 
@@ -1018,7 +1015,7 @@ Monitoring Plugins:
 
 
 
-## 2021101401
+## [2021101401] - 2021-10-14
 
 ### Added
 
@@ -1196,7 +1193,7 @@ Monitoring Plugins:
 
 
 
-## 2021061501
+## [2021061501] - 2021-06-15
 
 ### Added
 
@@ -1349,7 +1346,7 @@ Monitoring Plugins:
 
 
 
-## 2021021701
+## [2021021701] - 2021-02-17
 
 ### Fixed ("bug")
 
@@ -1359,7 +1356,7 @@ Monitoring Plugins:
 
 
 
-## 2021021601
+## [2021021601] - 2021-02-16
 
 ### Added
 
@@ -1387,7 +1384,7 @@ Monitoring Plugins:
 
 
 
-## 2020122401
+## [2020122401] - 2020-12-24
 
 ### Added
 
@@ -1422,14 +1419,14 @@ Monitoring Plugins:
 * updates: Added the --always-ok parameter.
 
 
-## Fixed
+### Fixed
 
 * users: Fixed the counting of user under Windows (it also includes disconnected users now)
 
 
 
 
-## 2020112001
+## [2020112001] - 2020-11-20
 
 ### Changed ("enhancement")
 
@@ -1439,7 +1436,7 @@ Monitoring Plugins:
 
 
 
-## 2020111901
+## [2020111901] - 2020-11-19
 
 ### Fixed ("bug")
 
@@ -1449,7 +1446,7 @@ Monitoring Plugins:
 
 
 
-## 2020111801
+## [2020111801] - 2020-11-18
 
 ### Added
 
@@ -1468,7 +1465,7 @@ Monitoring Plugins:
 
 
 
-## 2020102301
+## [2020102301] - 2020-10-23
 
 ### Breaking Changes
 
@@ -1534,7 +1531,7 @@ Monitoring Plugins:
 
 
 
-## 2020061901
+## [2020061901] - 2020-06-19
 
 ### Added
 
@@ -1558,7 +1555,7 @@ Monitoring Plugins:
 
 
 
-## 2020052801
+## [2020052801] - 2020-05-28
 
 ### Added
 
@@ -1608,7 +1605,7 @@ Monitoring Plugins:
 
 
 
-## 2020042001
+## [2020042001] - 2020-04-20
 
 ### Added
 
@@ -1632,7 +1629,7 @@ Monitoring Plugins:
 
 
 
-## 2020041501
+## [2020041501] - 2020-04-15
 
 ### Added
 
@@ -1657,7 +1654,7 @@ Monitoring Plugins:
 
 
 
-## 2020031201
+## [2020031201] - 2020-03-12
 
 ### Added
 
@@ -1675,6 +1672,34 @@ Monitoring Plugins:
 
 
 
-## 2020022801
+## [2020022801] - 2020-02-28
 
 Initial release for the general public.
+
+
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.0.0...HEAD
+[v2.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v1.2.0.11...v2.0.0
+[v1.2.0.11]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2024060401...v1.2.0.11
+[2024060401]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2024052901...2024060401
+[2024052901]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2023112901...2024052901
+[2023112901]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2023051201...2023112901
+[2023051201]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2023030801...2023051201
+[2023030801]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022072001...2023030801
+[2022072001]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022030201...2022072001
+[2022030201]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2022022801...2022030201
+[2022022801]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2021101401...2022022801
+[2021101401]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2021061501...2021101401
+[2021061501]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2021021701...2021061501
+[2021021701]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2021021601...2021021701
+[2021021601]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020122401...2021021601
+[2020122401]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020112001...2020122401
+[2020112001]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020111901...2020112001
+[2020111901]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020111801...2020111901
+[2020111801]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020102301...2020111801
+[2020102301]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020061901...2020102301
+[2020061901]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020052801...2020061901
+[2020052801]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020042001...2020052801
+[2020042001]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020041501...2020042001
+[2020041501]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020031201...2020041501
+[2020031201]: https://github.com/Linuxfabrik/monitoring-plugins/compare/2020022801...2020031201
+[2020022801]: https://github.com/Linuxfabrik/monitoring-plugins/releases/tag/2020022801
