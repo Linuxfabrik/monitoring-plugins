@@ -57,7 +57,7 @@ Monitoring Plugins:
 * snmp: Special characters not supported in options --v3-auth-prot-password and --v3-priv-prot-password ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
 
 
-### Changed ("feat", "refactor", "chore" etc.)
+### Changed ("refactor", "chore" etc.)
 
 Build, CI/CD:
 
@@ -850,7 +850,7 @@ This is a "we migrated everything from GitLab to GitHub, but had to adjust many 
 
 
 
-## [2022022801] - 2022-02-28
+## 2022022801 - 2022-02-28
 
 ### Breaking Changes
 
@@ -1020,7 +1020,7 @@ Monitoring Plugins:
 
 
 
-## [2021101401] - 2021-10-14
+## 2021101401 - 2021-10-14
 
 ### Added
 
@@ -1198,7 +1198,7 @@ Monitoring Plugins:
 
 
 
-## [2021061501] - 2021-06-15
+## 2021061501 - 2021-06-15
 
 ### Added
 
@@ -1351,7 +1351,7 @@ Monitoring Plugins:
 
 
 
-## [2021021701] - 2021-02-17
+## 2021021701 - 2021-02-17
 
 ### Fixed ("bug")
 
@@ -1361,7 +1361,7 @@ Monitoring Plugins:
 
 
 
-## [2021021601] - 2021-02-16
+## 2021021601 - 2021-02-16
 
 ### Added
 
@@ -1389,7 +1389,7 @@ Monitoring Plugins:
 
 
 
-## [2020122401] - 2020-12-24
+## 2020122401 - 2020-12-24
 
 ### Added
 
@@ -1431,7 +1431,7 @@ Monitoring Plugins:
 
 
 
-## [2020112001] - 2020-11-20
+## 2020112001 - 2020-11-20
 
 ### Changed ("enhancement")
 
@@ -1441,7 +1441,7 @@ Monitoring Plugins:
 
 
 
-## [2020111901] - 2020-11-19
+## 2020111901 - 2020-11-19
 
 ### Fixed ("bug")
 
@@ -1451,7 +1451,7 @@ Monitoring Plugins:
 
 
 
-## [2020111801] - 2020-11-18
+## 2020111801 - 2020-11-18
 
 ### Added
 
@@ -1470,7 +1470,7 @@ Monitoring Plugins:
 
 
 
-## [2020102301] - 2020-10-23
+## 2020102301 - 2020-10-23
 
 ### Breaking Changes
 
@@ -1536,7 +1536,7 @@ Monitoring Plugins:
 
 
 
-## [2020061901] - 2020-06-19
+## 2020061901 - 2020-06-19
 
 ### Added
 
@@ -1560,7 +1560,7 @@ Monitoring Plugins:
 
 
 
-## [2020052801] - 2020-05-28
+## 2020052801 - 2020-05-28
 
 ### Added
 
@@ -1610,7 +1610,7 @@ Monitoring Plugins:
 
 
 
-## [2020042001] - 2020-04-20
+## 2020042001 - 2020-04-20
 
 ### Added
 
@@ -1634,7 +1634,7 @@ Monitoring Plugins:
 
 
 
-## [2020041501] - 2020-04-15
+## 2020041501 - 2020-04-15
 
 ### Added
 
@@ -1659,7 +1659,7 @@ Monitoring Plugins:
 
 
 
-## [2020031201] - 2020-03-12
+## 2020031201 - 2020-03-12
 
 ### Added
 
@@ -1677,7 +1677,7 @@ Monitoring Plugins:
 
 
 
-## [2020022801] - 2020-02-28
+## 2020022801 - 2020-02-28
 
 Initial release for the general public.
 
