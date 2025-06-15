@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+
+import argparse  # pylint: disable=C0413
+import json  # pylint: disable=C0413
+import sys  # pylint: disable=C0413
+
+from deepdiff import DeepDiff
+
+import lib.base  # pylint: disable=C0413
+import lib.disk  # pylint: disable=C0413
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025021501'
+
+DESCRIPTION = """Compare two Icinga Director Baskets and highlight the differences."""
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        'current_basket',
+        help='Path to current Icinga Director Basket export.json. ',
+    )
+
+    parser.add_argument(
+        'new_basket',
+        help='Path to new Icinga Director Basket json. ',
+    )
+
+    return parser.parse_args()
+
+
+# Function to flatten a dict to single level dict
+def flatten_dict(data, parent_key='', separator='.'):
+    items = {}
+    for k, v in data.items():
+        new_key = f'{parent_key}{separator}{k}' if parent_key else k
+        if isinstance(v, dict):
+            items.update(flatten_dict(v, new_key, separator=separator))
+        else:
+            items[new_key] = v
+    return items
+
+
+def normalize_datafields(basket):
+    result = {}
+    for d in basket['Datafield'].values():
+        uuid = d.get('uuid')
+        result[uuid] = {}
+        result[uuid]['datatype'] = d.get('datatype')
+        result[uuid]['format'] = d.get('format')
+        for k, v in d.get('settings', {}).items():
+            result[uuid][f'settings.{k}'] = v
+        result[uuid]['uuid'] = uuid
+        result[uuid]['varname'] = d.get('varname')
+
+    return {'Datafield': result}
+
+
+def compare_datafields(left, right):
+    added = []
+    changed = []
+    removed = []
+    for l in left['Datafield'].values():
+        found_in_r = False
+        for r in right['Datafield'].values():
+            if l == r:
+                # exactly the same, so nothing to do, next in outer loop
+                found_in_r = True
+                break
+            if l['uuid'] == r['uuid']:
+                # found, but something has changed
+                found_in_r = True
+                ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
+                if ddiff:
+                    changed.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': ddiff})
+                break
+        else:
+            # last element
+            if r["uuid"] not in added:
+                added.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
+        if not found_in_r:
+            removed.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
+
+    return added, changed, removed
+
+
+def compare_commands(left, right):
+
+    def get_datafield_uuid(d, _id):
+        # "9": {
+        #     "uuid": "1a8f1c45-524b-44cf-83cf-241a2c6a79a2",
+        #     "varname": "memory_windows_legacy_crit",
+        #     ...
+        # },
+        return d[str(_id)].get('uuid')
+
+    def normalize_dict(d, datafields):
+        result = d.copy()
+
+        # cast values, set default values, ignore values
+        result['command'] = result['command'].replace('C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\', '')
+        result['command'] = result['command'].replace('C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\', '')
+        result['disabled'] = result.get('disabled', False)
+        result['imports'] = result.get('imports', [])
+        result['is_string'] = result.get('is_string', None)
+        result['methods_execute'] = result.get('zone', None)
+        result['timeout'] = str(result.get('timeout', '')).replace('None', '')
+        result['vars'] = result.get('vars', {})
+        result['zone'] = result.get('zone', None)
+
+        result.pop('arguments', None)
+        for k, v in d.get('arguments', {}).items():
+            # convert old format to new format
+            if isinstance(v, str) and v.endswith('$'):
+                v = {'value': v}
+            result[f'arguments.{k}'] = flatten_dict(v)
+        result.pop('fields', None)
+        for f in d.get('fields', []):
+            uuid = get_datafield_uuid(datafields, f['datafield_id'])
+            result[f'fields.{uuid}.datafield_id'] = uuid
+            result[f'fields.{uuid}.is_required'] = f['is_required']
+            result[f'fields.{uuid}.var_filter'] = f['var_filter']
+        return result
+
+    added = ''
+    changed = ''
+    removed = ''
+    for l in left['Command'].values():
+        l = normalize_dict(l, left['Datafield'])
+        found_in_r = False
+        for r in right['Command'].values():
+            r = normalize_dict(r, right['Datafield'])
+            if l == r:
+                # exactly the same, so nothing to do, next in outer loop
+                found_in_r = True
+                break
+            if l['uuid'] == r['uuid']:
+                # found, but something has changed
+                found_in_r = True
+                ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
+                if ddiff:
+                    changed += f'{r["uuid"]} ({r["object_name"]}): {ddiff}\n'
+                break
+        else:
+            # last element
+            if r["uuid"] not in added:
+                added += f'{r["uuid"]} ({r["object_name"]})\n'
+        if not found_in_r:
+            removed += f'{l["uuid"]} ({l["object_name"]})\n'
+
+    return added, changed, removed
+
+
+def get_diff(diff):
+    table_data = []
+    for d in diff:
+        tmp = {}
+        for category, changes in d['diff'].items():
+            tmp['varname'] = d['varname']
+            tmp['uuid'] = d['uuid']
+            if category == 'values_changed':
+                for k, v in changes.items():
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = v['old_value']
+                    tmp['new_value'] = v['new_value']
+            else:
+                print(f'!!! Currently unhandled category {category}.')
+                exit()
+        table_data.append(tmp)
+
+    return table_data
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # read both files
+    success, current_basket = lib.disk.read_file(args.current_basket)
+    if not success:
+        lib.base.cu(current_basket)
+    current_basket = json.loads(current_basket)
+    success, new_basket = lib.disk.read_file(args.new_basket)
+    if not success:
+        lib.base.cu(new_basket)
+    new_basket = json.loads(new_basket)
+
+    # init some vars
+    msg = ''
+
+    # compare and print datafields
+    current_basket = normalize_datafields(current_basket)
+    new_basket = normalize_datafields(new_basket)
+    added, changed, removed = compare_datafields(current_basket, new_basket)
+    # print(f'🟢 Added Datafields:\n{added}\n')
+    print(f'🟡 Changed Datafields:')
+    print(lib.base.get_table(
+        get_diff(changed),
+        cols=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
+        header=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
+    ))
+    # print(f'🔴 Removed Datafields:\n{removed}\n')
+    exit()
+
+    # normalize_commands(current_basket)
+    ...
+
+    # compare and print commands
+    added, changed, removed = compare_commands(current_basket, new_basket)
+    # print(f'🟢 Added Commands:\n{added}\n')
+    print(f'🟡 Changed Commands:\n{changed}\n')
+    # print(f'🔴 Removed Commands:\n{removed}\n')
+
+    # # compare and print host templates
+    # added, changed, removed = compare_host_templates(current_basket, new_basket)
+    # # print(f'🟢 Added Host Templates:\n{added}\n')
+    # print(f'🟡 Changed Host Templates:\n{changed}\n')
+    # # print(f'🔴 Removed Host Templates:\n{removed}\n')
+
+    # over and out
+    lib.base.oao(msg)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
