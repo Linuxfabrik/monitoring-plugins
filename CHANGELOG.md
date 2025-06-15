@@ -7,7 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-tbd
+### Fixed ("fix")
+
+Monitoring Plugins:
+
+* disk-usage: handle disk accessibility ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
+
 
 
 ## [v2.0.0] - 2025-06-06

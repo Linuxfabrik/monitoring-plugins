@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025020401'
+__version__ = '2025061501'
 
 DESCRIPTION = 'Checks the used disk space, for each partition.'
 
@@ -300,7 +300,18 @@ def main():
             or any(item.search(mountpoint) for item in compiled_exclude_regex):
                 continue
 
-        usage = psutil.disk_usage(part.mountpoint)
+        try:
+            usage = psutil.disk_usage(part.mountpoint)
+        except (PermissionError, FileNotFoundError, OSError):
+            table_data.append({
+                'mountpoint': '{}'.format(part.mountpoint),
+                'type': '{}'.format(part.fstype),
+                'used': 'N/A',
+                'avail': 'N/A',
+                'size': 'N/A',
+                'percent': 'N/A',
+            })
+            continue
 
         # check % vs. USED|FREE and K|M|G|T|P vs. USED|FREE, first WARN, then CRIT
         disk_state = STATE_OK
