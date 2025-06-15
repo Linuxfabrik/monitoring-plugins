@@ -19,7 +19,7 @@ import lib.disk  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025061502'
+__version__ = '2025061503'
 
 DESCRIPTION = """Compare two Icinga Director Baskets and highlight the differences."""
 
@@ -245,9 +245,10 @@ def normalize_service_sets(basket):
             services = normalize_service_templates({'ServiceTemplate': tmp})['ServiceTemplate']
         else:
             services = normalize_service_templates({'ServiceTemplate': d['services']})['ServiceTemplate']
+        # ignore those
         result[uuid]['services'] = services
 
-        result[uuid]['uuid'] = d.get('uuid', '')
+        result[uuid]['uuid'] = uuid
 
     return {'ServiceSet': result}
 
@@ -401,7 +402,8 @@ def get_datafields_diff(diff):
                     tmp = {}
                     tmp['varname'] = d['varname']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'val'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
                     table_data.append(tmp)
@@ -427,7 +429,8 @@ def get_commands_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'val'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
                     table_data.append(tmp)
@@ -436,7 +439,8 @@ def get_commands_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'type'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
                     tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
                     table_data.append(tmp)
@@ -462,7 +466,8 @@ def get_host_templates_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'val'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
                     table_data.append(tmp)
@@ -471,7 +476,8 @@ def get_host_templates_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'type'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
                     tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
                     table_data.append(tmp)
@@ -497,7 +503,8 @@ def get_service_templates_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'val'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
                     table_data.append(tmp)
@@ -506,7 +513,8 @@ def get_service_templates_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['what'] = 'type'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
                     tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
                     table_data.append(tmp)
@@ -532,7 +540,8 @@ def get_service_sets_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'val:  ' + k[34:].replace("']", '')
+                    tmp['what'] = 'val'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '').replace("services['", '') + "']"
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
                     table_data.append(tmp)
@@ -541,7 +550,8 @@ def get_service_sets_diff(diff):
                     tmp = {}
                     tmp['object_name'] = d['object_name']
                     tmp['uuid'] = d['uuid']
-                    tmp['changed'] = 'type: ' + k[34:].replace("root['", '').replace("']", '')
+                    tmp['what'] = 'type'
+                    tmp['changed'] = k.replace("root['", '').replace("']", '').replace("services['", '') + "']"
                     tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
                     tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
                     table_data.append(tmp)
@@ -584,8 +594,8 @@ def main():
         print(f'🟡 Changed Datafields:\n')
         print(lib.base.get_table(
             get_datafields_diff(changed),
-            cols=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
-            header=['uuid (-12:)', 'varname', 'changed', 'old_value', 'new_value'],
+            cols=['uuid', 'varname', 'what', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'varname', 'what', 'changed', 'old value', 'new value'],
         ))
     # print(f'🔴 Removed Datafields:')
 
@@ -598,8 +608,8 @@ def main():
         print(f'🟡 Changed Commands:\n')
         print(lib.base.get_table(
             get_commands_diff(changed),
-            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
-            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+            cols=['uuid', 'object_name', 'what', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'what', 'changed', 'old value', 'new value'],
         ))
     # print(f'🔴 Removed Commands:')
 
@@ -612,8 +622,8 @@ def main():
         print(f'🟡 Changed Host Templates:\n')
         print(lib.base.get_table(
             get_host_templates_diff(changed),
-            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
-            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+            cols=['uuid', 'object_name', 'what', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'what', 'changed', 'old value', 'new value'],
         ))
     # print(f'🔴 Removed Host Templates:')
 
@@ -626,8 +636,8 @@ def main():
         print(f'🟡 Changed Service Templates:\n')
         print(lib.base.get_table(
             get_service_templates_diff(changed),
-            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
-            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+            cols=['uuid', 'object_name', 'what', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'what', 'changed', 'old value', 'new value'],
         ))
     # print(f'🔴 Removed Service Templates:')
 
@@ -640,8 +650,8 @@ def main():
         print(f'🟡 Changed Service Sets:\n')
         print(lib.base.get_table(
             get_service_sets_diff(changed),
-            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
-            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+            cols=['uuid', 'object_name', 'what', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'what', 'changed', 'old value', 'new value'],
         ))
     # print(f'🔴 Removed Service Sets:')
 
