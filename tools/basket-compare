@@ -19,7 +19,7 @@ import lib.disk  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025061502'
 
 DESCRIPTION = """Compare two Icinga Director Baskets and highlight the differences."""
 
@@ -48,22 +48,10 @@ def parse_args():
     return parser.parse_args()
 
 
-# Function to flatten a dict to single level dict
-def flatten_dict(data, parent_key='', separator='.'):
-    items = {}
-    for k, v in data.items():
-        new_key = f'{parent_key}{separator}{k}' if parent_key else k
-        if isinstance(v, dict):
-            items.update(flatten_dict(v, new_key, separator=separator))
-        else:
-            items[new_key] = v
-    return items
-
-
 def normalize_datafields(basket):
     result = {}
     for d in basket['Datafield'].values():
-        uuid = d.get('uuid')
+        uuid = d.get('uuid')[-12:]
         result[uuid] = {}
         result[uuid]['datatype'] = d.get('datatype')
         result[uuid]['format'] = d.get('format')
@@ -73,6 +61,195 @@ def normalize_datafields(basket):
         result[uuid]['varname'] = d.get('varname')
 
     return {'Datafield': result}
+
+
+def normalize_commands(basket):
+    result = {}
+    for d in basket['Command'].values():
+        uuid = d.get('uuid')[-12:]
+        result[uuid] = {}
+
+        for k, v in d.get('arguments', {}).items():
+            # convert old format to new format
+            k = k.replace('--', '')
+            if isinstance(v, str):
+                v = {'value': v}
+            for kk, vv in v.items():
+                result[uuid][f'arguments.{k}.{kk}'] = vv
+
+        result[uuid]['command'] = d.get('command')
+        result[uuid]['command'] = result[uuid]['command'].replace('C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\', '')
+        result[uuid]['command'] = result[uuid]['command'].replace('C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\', '')
+        result[uuid]['command'] = result[uuid]['command'].replace('/usr/lib64/nagios/plugins/', '')
+        result[uuid]['disabled'] = d.get('disabled', False)
+
+        for f in d.get('fields', []):
+            # lookup the uuid of the datafield
+            dfuuid = basket['Datafield'][str(f['datafield_id'])]['uuid']
+            result[uuid][f'fields.{dfuuid}.datafield_id'] = dfuuid
+            result[uuid][f'fields.{dfuuid}.is_required'] = f['is_required']
+            result[uuid][f'fields.{dfuuid}.var_filter'] = f['var_filter']
+
+        result[uuid]['imports'] = d.get('imports', [])
+        result[uuid]['is_string'] = d.get('is_string')
+        result[uuid]['methods_execute'] = d.get('methods_execute')
+        result[uuid]['object_name'] = d.get('object_name', '')
+        result[uuid]['object_type'] = d.get('object_type', '')
+        result[uuid]['timeout'] = str(d.get('timeout', '')).replace('None', '')
+        result[uuid]['uuid'] = uuid
+
+        for k, v in d.get('vars', {}).items():
+            result[uuid][f'vars.{k}'] = v
+
+        result[uuid]['zone'] = d.get('zone')
+
+    return {'Command': result}
+
+
+def normalize_host_templates(basket):
+    # deactivated those that are not of interest
+    result = {}
+    for d in basket['HostTemplate'].values():
+        uuid = d.get('uuid')[-12:]
+        result[uuid] = {}
+        result[uuid]['accept_config'] = d.get('accept_config')
+        result[uuid]['action_url'] = d.get('action_url')
+        result[uuid]['address'] = d.get('address')
+        result[uuid]['address6'] = d.get('address6')
+        result[uuid]['api_key'] = d.get('api_key')
+        result[uuid]['check_command'] = d.get('check_command')
+        result[uuid]['check_interval'] = str(d.get('check_interval', '')).replace('None', '')
+        result[uuid]['check_period'] = d.get('check_period')
+        result[uuid]['check_timeout'] = str(d.get('check_timeout', '')).replace('None', '')
+        result[uuid]['command_endpoint'] = d.get('command_endpoint')
+        result[uuid]['disabled'] = d.get('disabled', False)
+        result[uuid]['display_name'] = d.get('display_name')
+        result[uuid]['enable_active_checks'] = d.get('enable_active_checks')
+        result[uuid]['enable_event_handler'] = d.get('enable_event_handler')
+        result[uuid]['enable_flapping'] = d.get('enable_flapping')
+        result[uuid]['enable_notifications'] = d.get('enable_notifications')
+        result[uuid]['enable_passive_checks'] = d.get('enable_passive_checks')
+        result[uuid]['enable_perfdata'] = d.get('enable_perfdata')
+        result[uuid]['event_command'] = d.get('event_command')
+
+        for f in d.get('fields', []):
+            # lookup the uuid of the datafield
+            dfuuid = basket['Datafield'][str(f['datafield_id'])]['uuid']
+            result[uuid][f'fields.{dfuuid}.datafield_id'] = dfuuid
+            result[uuid][f'fields.{dfuuid}.is_required'] = f['is_required']
+            result[uuid][f'fields.{dfuuid}.var_filter'] = f['var_filter']
+
+        result[uuid]['flapping_threshold_high'] = d.get('flapping_threshold_high')
+        result[uuid]['flapping_threshold_low'] = d.get('flapping_threshold_low')
+        result[uuid]['groups'] = d.get('groups', [])
+        result[uuid]['has_agent'] = d.get('has_agent')
+        # result[uuid]['icon_image'] = d.get('icon_image')
+        # result[uuid]['icon_image_alt'] = d.get('icon_image_alt')
+        result[uuid]['imports'] = d.get('imports', [])
+        result[uuid]['master_should_connect'] = d.get('master_should_connect')
+        result[uuid]['max_check_attempts'] = str(d.get('max_check_attempts', '')).replace('None', '')
+        result[uuid]['notes'] = d.get('notes')
+        result[uuid]['notes_url'] = d.get('notes_url')
+        result[uuid]['object_name'] = d.get('object_name', '')
+        result[uuid]['object_type'] = d.get('object_type', '')
+        result[uuid]['retry_interval'] = str(d.get('retry_interval', '')).replace('None', '')
+        result[uuid]['template_choice'] = d.get('template_choice')
+        result[uuid]['uuid'] = uuid
+
+        for k, v in d.get('vars', {}).items():
+            result[uuid][f'vars.{k}'] = v
+
+        result[uuid]['volatile'] = d.get('volatile')
+        result[uuid]['zone'] = d.get('zone')
+
+    return {'HostTemplate': result}
+
+
+def normalize_service_templates(basket):
+    # deactivated those that are not of interest
+    result = {}
+    for d in basket['ServiceTemplate'].values():
+        uuid = d.get('uuid')[-12:]
+        result[uuid] = {}
+
+        result[uuid]['action_url'] = d.get('action_url')
+        result[uuid]['apply_for'] = d.get('apply_for')
+        result[uuid]['assign_filter'] = d.get('assign_filter')
+        result[uuid]['check_command'] = d.get('check_command')
+        result[uuid]['check_interval'] = str(d.get('check_interval', '')).replace('None', '')
+        result[uuid]['check_period'] = d.get('check_period')
+        result[uuid]['check_timeout'] = str(d.get('check_timeout', '')).replace('None', '')
+        result[uuid]['command_endpoint'] = d.get('command_endpoint')
+        result[uuid]['disabled'] = d.get('disabled', False)
+        result[uuid]['display_name'] = d.get('display_name')
+        result[uuid]['enable_active_checks'] = d.get('enable_active_checks')
+        result[uuid]['enable_event_handler'] = d.get('enable_event_handler')
+        result[uuid]['enable_flapping'] = d.get('enable_flapping')
+        result[uuid]['enable_notifications'] = d.get('enable_notifications')
+        result[uuid]['enable_passive_checks'] = d.get('enable_passive_checks')
+        result[uuid]['enable_perfdata'] = d.get('enable_perfdata')
+        result[uuid]['event_command'] = d.get('event_command')
+
+        for f in d.get('fields', []):
+            # lookup the uuid of the datafield
+            dfuuid = basket['Datafield'][str(f['datafield_id'])]['uuid']
+            result[uuid][f'fields.{dfuuid}.datafield_id'] = dfuuid
+            result[uuid][f'fields.{dfuuid}.is_required'] = f['is_required']
+            result[uuid][f'fields.{dfuuid}.var_filter'] = f['var_filter']
+
+        result[uuid]['flapping_threshold_high'] = d.get('flapping_threshold_high')
+        result[uuid]['flapping_threshold_low'] = d.get('flapping_threshold_low')
+        result[uuid]['groups'] = d.get('groups', [])
+        result[uuid]['host'] = d.get('host')
+        # result[uuid]['icon_image'] = d.get('icon_image', '')
+        # result[uuid]['icon_image_alt'] = d.get('icon_image_alt')
+        result[uuid]['imports'] = d.get('imports', [])
+        result[uuid]['max_check_attempts'] = str(d.get('max_check_attempts', '')).replace('None', '')
+        # result[uuid]['notes'] = d.get('notes')
+        # result[uuid]['notes_url'] = d.get('notes_url')
+        result[uuid]['object_name'] = d.get('object_name', '')
+        result[uuid]['object_type'] = d.get('object_type', '')
+        result[uuid]['retry_interval'] = str(d.get('retry_interval', '')).replace('None', '')
+        result[uuid]['service_set'] = d.get('service_set')
+        result[uuid]['template_choice'] = d.get('template_choice')
+        result[uuid]['use_agent'] = d.get('use_agent')
+        result[uuid]['use_var_overrides'] = d.get('use_var_overrides')
+        result[uuid]['uuid'] = uuid
+
+        for k, v in d.get('vars', {}).items():
+            result[uuid][f'vars.{k}'] = v
+
+        result[uuid]['volatile'] = d.get('volatile')
+        result[uuid]['zone'] = d.get('zone')
+
+    return {'ServiceTemplate': result}
+
+
+def normalize_service_sets(basket):
+    # deactivated those that are not of interest
+    result = {}
+    for d in basket['ServiceSet'].values():
+        uuid = d.get('uuid')[-12:]
+        result[uuid] = {}
+
+        result[uuid]['assign_filter'] = d.get('assign_filter', '')
+        # result[uuid]['description'] = d.get('description')
+        result[uuid]['object_name'] = d.get('object_name', '')
+        result[uuid]['object_type'] = d.get('object_type', '')
+
+        # services: in old format it is a list, in new format it is a dict
+        if isinstance(d['services'], list):
+            tmp = {}
+            for s in d['services']:
+                tmp[s['object_name']] = s
+            services = normalize_service_templates({'ServiceTemplate': tmp})['ServiceTemplate']
+        else:
+            services = normalize_service_templates({'ServiceTemplate': d['services']})['ServiceTemplate']
+        result[uuid]['services'] = services
+
+        result[uuid]['uuid'] = d.get('uuid', '')
+
+    return {'ServiceSet': result}
 
 
 def compare_datafields(left, right):
@@ -95,7 +272,7 @@ def compare_datafields(left, right):
                 break
         else:
             # last element
-            if r["uuid"] not in added:
+            if r['uuid'] not in added:
                 added.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
         if not found_in_r:
             removed.append({'uuid': r['uuid'], 'varname': r['varname'], 'diff': None})
@@ -104,51 +281,12 @@ def compare_datafields(left, right):
 
 
 def compare_commands(left, right):
-
-    def get_datafield_uuid(d, _id):
-        # "9": {
-        #     "uuid": "1a8f1c45-524b-44cf-83cf-241a2c6a79a2",
-        #     "varname": "memory_windows_legacy_crit",
-        #     ...
-        # },
-        return d[str(_id)].get('uuid')
-
-    def normalize_dict(d, datafields):
-        result = d.copy()
-
-        # cast values, set default values, ignore values
-        result['command'] = result['command'].replace('C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\', '')
-        result['command'] = result['command'].replace('C:\\ProgramData\\icinga2\\usr\\lib64\\nagios\\plugins\\', '')
-        result['disabled'] = result.get('disabled', False)
-        result['imports'] = result.get('imports', [])
-        result['is_string'] = result.get('is_string', None)
-        result['methods_execute'] = result.get('zone', None)
-        result['timeout'] = str(result.get('timeout', '')).replace('None', '')
-        result['vars'] = result.get('vars', {})
-        result['zone'] = result.get('zone', None)
-
-        result.pop('arguments', None)
-        for k, v in d.get('arguments', {}).items():
-            # convert old format to new format
-            if isinstance(v, str) and v.endswith('$'):
-                v = {'value': v}
-            result[f'arguments.{k}'] = flatten_dict(v)
-        result.pop('fields', None)
-        for f in d.get('fields', []):
-            uuid = get_datafield_uuid(datafields, f['datafield_id'])
-            result[f'fields.{uuid}.datafield_id'] = uuid
-            result[f'fields.{uuid}.is_required'] = f['is_required']
-            result[f'fields.{uuid}.var_filter'] = f['var_filter']
-        return result
-
-    added = ''
-    changed = ''
-    removed = ''
+    added = []
+    changed = []
+    removed = []
     for l in left['Command'].values():
-        l = normalize_dict(l, left['Datafield'])
         found_in_r = False
         for r in right['Command'].values():
-            r = normalize_dict(r, right['Datafield'])
             if l == r:
                 # exactly the same, so nothing to do, next in outer loop
                 found_in_r = True
@@ -158,34 +296,258 @@ def compare_commands(left, right):
                 found_in_r = True
                 ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
                 if ddiff:
-                    changed += f'{r["uuid"]} ({r["object_name"]}): {ddiff}\n'
+                    changed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': ddiff})
                 break
         else:
             # last element
-            if r["uuid"] not in added:
-                added += f'{r["uuid"]} ({r["object_name"]})\n'
+            if r['uuid'] not in added:
+                added.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
         if not found_in_r:
-            removed += f'{l["uuid"]} ({l["object_name"]})\n'
+            removed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
 
     return added, changed, removed
 
 
-def get_diff(diff):
+def compare_host_templates(left, right):
+    added = []
+    changed = []
+    removed = []
+    for l in left['HostTemplate'].values():
+        found_in_r = False
+        for r in right['HostTemplate'].values():
+            if l == r:
+                # exactly the same, so nothing to do, next in outer loop
+                found_in_r = True
+                break
+            if l['uuid'] == r['uuid']:
+                # found, but something has changed
+                found_in_r = True
+                ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
+                if ddiff:
+                    changed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': ddiff})
+                break
+        else:
+            # last element
+            if r['uuid'] not in added:
+                added.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+        if not found_in_r:
+            removed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+
+    return added, changed, removed
+
+
+def compare_service_templates(left, right):
+    added = []
+    changed = []
+    removed = []
+    for l in left['ServiceTemplate'].values():
+        found_in_r = False
+        for r in right['ServiceTemplate'].values():
+            if l == r:
+                # exactly the same, so nothing to do, next in outer loop
+                found_in_r = True
+                break
+            if l['uuid'] == r['uuid']:
+                # found, but something has changed
+                found_in_r = True
+                ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
+                if ddiff:
+                    changed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': ddiff})
+                break
+        else:
+            # last element
+            if r['uuid'] not in added:
+                added.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+        if not found_in_r:
+            removed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+
+    return added, changed, removed
+
+
+def compare_service_sets(left, right):
+    added = []
+    changed = []
+    removed = []
+    for l in left['ServiceSet'].values():
+        found_in_r = False
+        for r in right['ServiceSet'].values():
+            if l == r:
+                # exactly the same, so nothing to do, next in outer loop
+                found_in_r = True
+                break
+            if l['uuid'] == r['uuid']:
+                # found, but something has changed
+                found_in_r = True
+                ddiff = DeepDiff(l, r, ignore_order=True, verbose_level=2)
+                if ddiff:
+                    changed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': ddiff})
+                break
+        else:
+            # last element
+            if r['uuid'] not in added:
+                added.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+        if not found_in_r:
+            removed.append({'uuid': r['uuid'], 'object_name': r['object_name'], 'diff': None})
+
+    return added, changed, removed
+
+
+def get_datafields_diff(diff):
     table_data = []
     for d in diff:
-        tmp = {}
         for category, changes in d['diff'].items():
-            tmp['varname'] = d['varname']
-            tmp['uuid'] = d['uuid']
             if category == 'values_changed':
                 for k, v in changes.items():
-                    tmp['changed'] = k.replace("root['", '').replace("']", '')
+                    tmp = {}
+                    tmp['varname'] = d['varname']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
                     tmp['old_value'] = v['old_value']
                     tmp['new_value'] = v['new_value']
+                    table_data.append(tmp)
             else:
                 print(f'!!! Currently unhandled category {category}.')
                 exit()
-        table_data.append(tmp)
+
+    return table_data
+
+
+def get_commands_diff(diff):
+    table_data = []
+    for d in diff:
+        for category, changes in d['diff'].items():
+            if category == 'dictionary_item_removed':
+                # not of any interest
+                continue
+            if category == 'dictionary_item_added':
+                # not of any interest
+                continue
+            if category == 'values_changed':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = v['old_value']
+                    tmp['new_value'] = v['new_value']
+                    table_data.append(tmp)
+            elif category == 'type_changes':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
+                    tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
+                    table_data.append(tmp)
+            else:
+                print(f'!!! Currently unhandled category {category}.')
+                exit()
+
+    return table_data
+
+
+def get_host_templates_diff(diff):
+    table_data = []
+    for d in diff:
+        for category, changes in d['diff'].items():
+            if category == 'dictionary_item_removed':
+                # not of any interest
+                continue
+            if category == 'dictionary_item_added':
+                # not of any interest
+                continue
+            if category == 'values_changed':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = v['old_value']
+                    tmp['new_value'] = v['new_value']
+                    table_data.append(tmp)
+            elif category == 'type_changes':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
+                    tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
+                    table_data.append(tmp)
+            else:
+                print(f'!!! Currently unhandled category {category}.')
+                exit()
+
+    return table_data
+
+
+def get_service_templates_diff(diff):
+    table_data = []
+    for d in diff:
+        for category, changes in d['diff'].items():
+            if category == 'dictionary_item_removed':
+                # not of any interest
+                continue
+            if category == 'dictionary_item_added':
+                # not of any interest
+                continue
+            if category == 'values_changed':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'val:  ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = v['old_value']
+                    tmp['new_value'] = v['new_value']
+                    table_data.append(tmp)
+            elif category == 'type_changes':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'type: ' + k.replace("root['", '').replace("']", '')
+                    tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
+                    tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
+                    table_data.append(tmp)
+            else:
+                print(f'!!! Currently unhandled category {category}.')
+                exit()
+
+    return table_data
+
+
+def get_service_sets_diff(diff):
+    table_data = []
+    for d in diff:
+        for category, changes in d['diff'].items():
+            if category == 'dictionary_item_removed':
+                # not of any interest
+                continue
+            if category == 'dictionary_item_added':
+                # not of any interest
+                continue
+            if category == 'values_changed':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'val:  ' + k[34:].replace("']", '')
+                    tmp['old_value'] = v['old_value']
+                    tmp['new_value'] = v['new_value']
+                    table_data.append(tmp)
+            elif category == 'type_changes':
+                for k, v in changes.items():
+                    tmp = {}
+                    tmp['object_name'] = d['object_name']
+                    tmp['uuid'] = d['uuid']
+                    tmp['changed'] = 'type: ' + k[34:].replace("root['", '').replace("']", '')
+                    tmp['old_value'] = f'{v["old_type"]} ("{v["old_value"]}")'
+                    tmp['new_value'] = f'{v["new_type"]} ("{v["new_value"]}")'
+                    table_data.append(tmp)
+            else:
+                print(f'!!! Currently unhandled category {category}.')
+                exit()
 
     return table_data
 
@@ -214,33 +576,74 @@ def main():
     msg = ''
 
     # compare and print datafields
-    current_basket = normalize_datafields(current_basket)
-    new_basket = normalize_datafields(new_basket)
-    added, changed, removed = compare_datafields(current_basket, new_basket)
-    # print(f'🟢 Added Datafields:\n{added}\n')
-    print(f'🟡 Changed Datafields:')
-    print(lib.base.get_table(
-        get_diff(changed),
-        cols=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
-        header=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
-    ))
-    # print(f'🔴 Removed Datafields:\n{removed}\n')
-    exit()
-
-    # normalize_commands(current_basket)
-    ...
+    current_datafields = normalize_datafields(current_basket)
+    new_datafields = normalize_datafields(new_basket)
+    added, changed, removed = compare_datafields(current_datafields, new_datafields)
+    # print(f'🟢 Added Datafields:')
+    if changed:
+        print(f'🟡 Changed Datafields:\n')
+        print(lib.base.get_table(
+            get_datafields_diff(changed),
+            cols=['uuid', 'varname', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'varname', 'changed', 'old_value', 'new_value'],
+        ))
+    # print(f'🔴 Removed Datafields:')
 
     # compare and print commands
-    added, changed, removed = compare_commands(current_basket, new_basket)
-    # print(f'🟢 Added Commands:\n{added}\n')
-    print(f'🟡 Changed Commands:\n{changed}\n')
-    # print(f'🔴 Removed Commands:\n{removed}\n')
+    current_commands = normalize_commands(current_basket)
+    new_commands = normalize_commands(new_basket)
+    added, changed, removed = compare_commands(current_commands, new_commands)
+    # print(f'🟢 Added Commands:')
+    if changed:
+        print(f'🟡 Changed Commands:\n')
+        print(lib.base.get_table(
+            get_commands_diff(changed),
+            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+        ))
+    # print(f'🔴 Removed Commands:')
 
-    # # compare and print host templates
-    # added, changed, removed = compare_host_templates(current_basket, new_basket)
-    # # print(f'🟢 Added Host Templates:\n{added}\n')
-    # print(f'🟡 Changed Host Templates:\n{changed}\n')
-    # # print(f'🔴 Removed Host Templates:\n{removed}\n')
+    # compare and print host templates
+    current_host_templates = normalize_host_templates(current_basket)
+    new_host_templates = normalize_host_templates(new_basket)
+    added, changed, removed = compare_host_templates(current_host_templates, new_host_templates)
+    # print(f'🟢 Added Host Templates:')
+    if changed:
+        print(f'🟡 Changed Host Templates:\n')
+        print(lib.base.get_table(
+            get_host_templates_diff(changed),
+            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+        ))
+    # print(f'🔴 Removed Host Templates:')
+
+    # compare and print service templates
+    current_service_templates = normalize_service_templates(current_basket)
+    new_service_templates = normalize_service_templates(new_basket)
+    added, changed, removed = compare_service_templates(current_service_templates, new_service_templates)
+    # print(f'🟢 Added Service Templates:')
+    if changed:
+        print(f'🟡 Changed Service Templates:\n')
+        print(lib.base.get_table(
+            get_service_templates_diff(changed),
+            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+        ))
+    # print(f'🔴 Removed Service Templates:')
+
+    # compare and print service sets
+    current_service_sets = normalize_service_sets(current_basket)
+    new_service_sets = normalize_service_sets(new_basket)
+    added, changed, removed = compare_service_sets(current_service_sets, new_service_sets)
+    # print(f'🟢 Added Service Sets:')
+    if changed:
+        print(f'🟡 Changed Service Sets:\n')
+        print(lib.base.get_table(
+            get_service_sets_diff(changed),
+            cols=['uuid', 'object_name', 'changed', 'old_value', 'new_value'],
+            header=['uuid (-12:)', 'object_name', 'changed', 'old_value', 'new_value'],
+        ))
+    # print(f'🔴 Removed Service Sets:')
 
     # over and out
     lib.base.oao(msg)
