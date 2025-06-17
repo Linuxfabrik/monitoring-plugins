@@ -16,18 +16,18 @@ import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+import lib.powershell  # pylint: disable=C0413
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN)
+
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025061701'
 
 DESCRIPTION = 'Checks the number of pending Windows updates.'
 
-DEFAULT_CRIT = 50      # #updates
-DEFAULT_TIMEOUT = 300  # seconds
-DEFAULT_WARN = 2       # #updates
+DEFAULT_CRIT = 50  # #updates
+DEFAULT_WARN = 2   # #updates
 
 
 def parse_args():
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -53,23 +53,25 @@ def parse_args():
         '-c', '--critical',
         default=DEFAULT_CRIT,
         dest='CRIT',
-        help='Set the critical threshold for the number of pending updates. Default: %(default)s',
+        help='Set the critical threshold for the number of pending updates. '
+             'Default: %(default)s',
         type=lib.args.int_or_none,
     )
 
     parser.add_argument(
         '--timeout',
-        help='Network timeout in seconds. Default: %(default)s (seconds)',
+        help=argparse.SUPPRESS,
         dest='TIMEOUT',
         type=int,
-        default=DEFAULT_TIMEOUT,
+        default=300,
     )
 
     parser.add_argument(
         '-w', '--warning',
         default=DEFAULT_WARN,
         dest='WARN',
-        help='Set the warning threshold for the number of pending updates. Default: %(default)s',
+        help='Set the warning threshold for the number of pending updates. '
+             'Default: %(default)s',
         type=lib.args.int_or_none,
     )
 
@@ -88,23 +90,22 @@ def main():
 
     # fetch data
     cmd = '''
-    powershell -Command "
     $WindowsUpdates = New-Object -ComObject 'Microsoft.Update.Session';
     $SearchIndex = $WindowsUpdates.CreateUpdateSearcher();
     $Pending = $SearchIndex.Search('IsInstalled=0');
     foreach ($update in $Pending.Updates) {
-        [string]$name = [string]::Format('{0} [{1}]', $update.Title, $update.LastDeploymentChangeTime);
+        $name = "{0} [{1}]" -f $update.Title, $update.LastDeploymentChangeTime;
         Write-Output $name;
     }
-    "'''
+    '''
 
     # execute the shell command and return its result and exit code
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, timeout=args.TIMEOUT))
-    if stderr:
-        # Could not find any documentation in the return codes of 'query user'.
-        # Therefore we assume any is ok.
-        lib.base.cu(stderr)
-    result = stdout.strip()
+    result = lib.powershell.run_ps(cmd)
+    if not result:
+        lib.base.cu('Error calling PowerShell.')
+    if result['retc']:
+        lib.base.cu(result['stderr'])
+    result = result['stdout'].strip()
 
     count = sum(1 for line in result.splitlines())
     perfdata = lib.base.get_perfdata('pending_updates', count, None, args.WARN, args.CRIT, 0, None)
@@ -112,7 +113,11 @@ def main():
     if count:
         state = lib.base.get_state(count, args.WARN, args.CRIT)
         lib.base.oao(
-            'There are {} pending updates:\n\n* '.format(count) + result.replace('\n', '\n* '),
+            (
+                f"There {lib.txt.pluralize('', count, 'is,are')} {count} pending "
+                f"{lib.txt.pluralize('update', count)}:\n\n"
+                f"* {result.replace('\n', '\n* ')}"
+            ),
             state,
             perfdata,
             always_ok=args.ALWAYS_OK,

@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Monitoring Plugins:
 
 * disk-usage: handle disk accessibility ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
+* updates: "The syntax of the command is incorrect."
 
 
 ### Changed ("refactor", "chore" etc.)

@@ -17,7 +17,6 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for Windows",                 "Yes"
-    "3rd Party Python modules",             "``psutil``"
 
 
 Help
@@ -25,7 +24,7 @@ Help
 
 .. code-block:: text
 
-    usage: updates [-h] [-V] [--always-ok] [-c CRIT] [--timeout TIMEOUT] [-w WARN]
+    usage: updates [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
     Checks the number of pending Windows updates.
 
@@ -35,7 +34,6 @@ Help
       --always-ok          Always returns OK.
       -c, --critical CRIT  Set the critical threshold for the number of pending
                            updates. Default: 50
-      --timeout TIMEOUT    Network timeout in seconds. Default: 300 (seconds)
       -w, --warning WARN   Set the warning threshold for the number of pending
                            updates. Default: 2
 
