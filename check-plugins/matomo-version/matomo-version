@@ -12,24 +12,26 @@
 """
 
 import argparse  # pylint: disable=C0413
+import os  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.base  # pylint: disable=C0413
-import lib.cache  # pylint: disable=C0413
-import lib.disk  # pylint: disable=C0413
-import lib.time  # pylint: disable=C0413
-import lib.url  # pylint: disable=C0413
 import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import STATE_UNKNOWN # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025061701'
 
-DESCRIPTION = 'This plugin lets you track if server updates are available.'
+DESCRIPTION = 'Tracks if Matomo is EOL.'
 
-DEFAULT_CACHE_EXPIRE = 24 # hours
-DEFAULT_PATH         = '/var/www/html/matomo'
+DEFAULT_CHECK_MAJOR = False
+DEFAULT_CHECK_MINOR = False
+DEFAULT_CHECK_PATCH = False
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_OFFSET_EOL = -30 # days
+DEFAULT_PATH = '/var/www/html/matomo'
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -40,7 +42,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -52,52 +54,104 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--cache-expire',
-        help='The amount of time after which the update check cache expires, in hours. Default: %(default)s',
+        '--cache-expire',  # deprecated parameter
+        help=argparse.SUPPRESS,
         dest='CACHE_EXPIRE',
         type=int,
-        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--check-major',
+        help='Alert me when there is a new major release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26 (not yet EOL) and v27 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MAJOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MAJOR,
+    )
+
+    parser.add_argument(
+        '--check-minor',
+        help='Alert me when there is a new major.minor release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available. '
+             'Default: %(default)s',
+        dest='CHECK_MINOR',
+        action='store_true',
+        default=DEFAULT_CHECK_MINOR,
+    )
+
+    parser.add_argument(
+        '--check-patch',
+        help='Alert me when there is a new major.minor.patch release available, '
+             'even if the current version of my product is not EOL. '
+             'Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available. '
+             'Default: %(default)s',
+        dest='CHECK_PATCH',
+        action='store_true',
+        default=DEFAULT_CHECK_PATCH,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='This option explicitly allows to perform "insecure" SSL connections. '
+             'Default: %(default)s',
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Do not use a proxy. '
+             'Default: %(default)s',
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help='Alert me n days before ("-30") or after an EOL date ("30" or "+30"). '
+             'Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
     )
 
     parser.add_argument(
         '--path',
-        help='Local path to your Matomo/Piwik installation, typically within your Webserver\'s Document Root. Default: %(default)s',
+        help='Local path to your Matomo/Piwik installation, typically within your '
+            'Webserver\'s Document Root. '
+            'Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Network timeout in seconds. '
+             'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     return parser.parse_args()
 
 
-def get_installed_version(path):
+def get_installed_version(args):
     # matomo/Version.php: const version='3.13.4';
-    success, matomo_version = lib.disk.grep_file(path + '/core/Version.php', r"N = '(.*?)'")
+    success, matomo_version = lib.disk.grep_file(
+        os.path.join(args.PATH, 'core/Version.php'),
+        r"N = '(.*?)'",
+    )
     if not success:
-        return (success, matomo_version)
+        return ''
     if matomo_version:
-        # 3.13.4
-        return (True, matomo_version)
-    return (True, False)
-
-
-def get_latest_version(expire):
-    # get version online, but first from cache
-    latest_version = lib.cache.get('matomo-version')
-    if latest_version:
-        return (True, latest_version)
-
-    # nothing found in cache, get the latest version from github
-    success, latest_version = lib.url.get_latest_version_from_github('matomo-org', 'matomo')
-    if not success:
-        return (success, latest_version)
-
-    if '-' in latest_version:
-        # it is a version like "3.13.4-b1" or "3.13.2-rc2", so the installed
-        # version is better, and don't save this pre-release to the cache
-        return (True, '0.0.0')
-
-    lib.cache.set('matomo-version', latest_version, lib.time.now() + expire)
-    return (True, latest_version)
+        return matomo_version  # 3.13.4
+    return ''
 
 
 def main():
@@ -111,16 +165,36 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.base.coe(get_installed_version(args.PATH))
-    latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE*60*60))
+    installed_version = get_installed_version(args)
+    if not installed_version:
+        lib.base.cu('Matomo not found.')
+    state, msg = lib.version.check_eol(
+        'https://endoflife.date/api/matomo.json',
+        installed_version,
+        offset_eol=args.OFFSET_EOL,
+        check_major=args.CHECK_MAJOR,
+        check_minor=args.CHECK_MINOR,
+        check_patch=args.CHECK_PATCH,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
 
     # over and out
-    if lib.version.version(installed_version) >= lib.version.version(latest_version):
-        lib.base.oao('Matomo v{} is up to date'.format(installed_version), STATE_OK)
-    lib.base.oao('Matomo v{} installed, Matomo v{} available'.format(
-        installed_version,
-        latest_version,
-    ), STATE_WARN, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        f'Matomo v{installed_version} ({msg})',
+        state,
+        lib.base.get_perfdata(
+            'matomo-version',
+            lib.version.version2float(installed_version),
+            None,
+            None,
+            None,
+            0,
+            None,
+        ),
+        always_ok=args.ALWAYS_OK,
+    )
 
 
 if __name__ == '__main__':

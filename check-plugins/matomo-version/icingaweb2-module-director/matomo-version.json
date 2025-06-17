@@ -5,11 +5,29 @@
                 "--always-ok": {
                     "set_if": "$matomo_version_always_ok$"
                 },
-                "--cache-expire": {
-                    "value": "$matomo_version_cache_expire$"
+                "--check-major": {
+                    "set_if": "$matomo_version_check_major$"
+                },
+                "--check-minor": {
+                    "set_if": "$matomo_version_check_minor$"
+                },
+                "--check-patch": {
+                    "set_if": "$matomo_version_check_patch$"
+                },
+                "--insecure": {
+                    "set_if": "$matomo_version_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$matomo_version_no_proxy$"
+                },
+                "--offset-eol": {
+                    "value": "$matomo_version_offset_eol$"
                 },
                 "--path": {
                     "value": "$matomo_version_path$"
+                },
+                "--timeout": {
+                    "value": "$matomo_version_timeout$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/matomo-version",
@@ -27,6 +45,36 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -59,7 +107,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": null,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -72,11 +120,11 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin lets you track if server updates are available.",
+            "notes": "Tracks if Matomo is EOL.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/matomo-version",
             "object_name": "tpl-service-matomo-version",
             "object_type": "template",
-            "retry_interval": 3600,
+            "retry_interval": 300,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
@@ -84,8 +132,14 @@
             "vars": {
                 "criticality": "C",
                 "matomo_version_always_ok": false,
-                "matomo_version_cache_expire": 24,
-                "matomo_version_path": "/var/www/html/matomo"
+                "matomo_version_check_major": false,
+                "matomo_version_check_minor": false,
+                "matomo_version_check_patch": false,
+                "matomo_version_insecure": false,
+                "matomo_version_no_proxy": false,
+                "matomo_version_offset_eol": -30,
+                "matomo_version_path": "/var/www/html/matomo",
+                "matomo_version_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -103,17 +157,62 @@
             "uuid": "c82972e6-2b6b-41ed-9d25-891a43cbf9d4"
         },
         "2": {
-            "varname": "matomo_version_cache_expire",
-            "caption": "Matomo Version: Cache Expire",
-            "description": "The amount of time after which the update check cache expires, in hours.",
+            "varname": "matomo_version_check_major",
+            "caption": "Matomo Version: Check Major?",
+            "description": "Alert me when there is a new major release available, even if the current version of my product is not EOL. Example: Notify when I run v26 (not yet EOL) and v27 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "79a50cf9-6b49-49c6-a43b-c979577107d2"
+        },
+        "3": {
+            "varname": "matomo_version_check_minor",
+            "caption": "Matomo Version: Check Minor?",
+            "description": "Alert me when there is a new major.minor release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2 (not yet EOL) and v26.3 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6b140576-61d6-4030-bdca-b58070839d0c"
+        },
+        "4": {
+            "varname": "matomo_version_check_patch",
+            "caption": "Matomo Version: Check Patch?",
+            "description": "Alert me when there is a new major.minor.patch release available, even if the current version of my product is not EOL. Example: Notify when I run v26.2.7 (not yet EOL) and v26.2.8 is available.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "91ada52d-eee6-4783-8ac2-0d960648cafb"
+        },
+        "5": {
+            "varname": "matomo_version_insecure",
+            "caption": "Matomo Version: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "27093ed0-357c-42c7-980a-5509becee7a5"
+        },
+        "6": {
+            "varname": "matomo_version_no_proxy",
+            "caption": "Matomo Version: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f57d21c5-0e31-473b-8e04-1194c36b9352"
+        },
+        "7": {
+            "varname": "matomo_version_offset_eol",
+            "caption": "Matomo Version: Offset Eol",
+            "description": "Alert me n days before (\"-30\") or after an EOL date (\"30\" or \"+30\").",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "c91ff76f-9693-49dd-83a0-5fb1cf8a3bf6"
+            "uuid": "c3118a6b-884f-44d4-bfe2-17c392897623"
         },
-        "3": {
+        "8": {
             "varname": "matomo_version_path",
             "caption": "Matomo Version: Path",
             "description": "Local path to your Matomo/Piwik installation, typically within your Webserver's Document Root.",
@@ -123,6 +222,17 @@
                 "visibility": "visible"
             },
             "uuid": "ed35a177-80eb-4104-9545-4a90f600a31b"
+        },
+        "9": {
+            "varname": "matomo_version_timeout",
+            "caption": "Matomo Version: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "547e3c2a-36a3-48f8-afa3-54eaff46f623"
         }
     }
 }

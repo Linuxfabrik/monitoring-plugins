@@ -4,7 +4,9 @@ Check matomo-version
 Overview
 --------
 
-This plugin lets you track if a matomo server update is available. To check for updates, this plugin uses the Git Repo at https://github.com/matomo-org/matomo/releases. To compare against the current/installed version of Matomo, the check has to run on the Matomo server itself and needs access to the Matomo installation directory.
+This plugin lets you track if Matomo is End-of-Life (EOL). To compare against the current/installed version of Matomo, the check has to run on the Matomo server itself.
+
+This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
 
 
 Fact Sheet
@@ -17,7 +19,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for Windows",                 "No"
-    "Uses SQLite DBs",                      "Yes"
+    "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-lib-version.db``"
 
 
 Help
@@ -25,21 +27,39 @@ Help
 
 .. code-block:: text
 
-    usage: matomo-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                          [--path PATH]
+    usage: matomo-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
+                          [--check-patch] [--insecure] [--no-proxy]
+                          [--offset-eol OFFSET_EOL] [--path PATH]
+                          [--timeout TIMEOUT]
 
-    This plugin lets you track if server updates are available.
+    Tracks if Matomo is EOL.
 
     options:
       -h, --help            show this help message and exit
       -V, --version         show program's version number and exit
       --always-ok           Always returns OK.
-      --cache-expire CACHE_EXPIRE
-                            The amount of time after which the update check cache
-                            expires, in hours. Default: 24
+      --check-major         Alert me when there is a new major release available,
+                            even if the current version of my product is not EOL.
+                            Example: Notify when I run v26 (not yet EOL) and v27
+                            is available. Default: False
+      --check-minor         Alert me when there is a new major.minor release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2 (not yet
+                            EOL) and v26.3 is available. Default: False
+      --check-patch         Alert me when there is a new major.minor.patch release
+                            available, even if the current version of my product
+                            is not EOL. Example: Notify when I run v26.2.7 (not
+                            yet EOL) and v26.2.8 is available. Default: False
+      --insecure            This option explicitly allows to perform "insecure"
+                            SSL connections. Default: False
+      --no-proxy            Do not use a proxy. Default: False
+      --offset-eol OFFSET_EOL
+                            Alert me n days before ("-30") or after an EOL date
+                            ("30" or "+30"). Default: -30 days
       --path PATH           Local path to your Matomo/Piwik installation,
                             typically within your Webserver's Document Root.
                             Default: /var/www/html/matomo
+      --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
 
 
 Usage Examples
@@ -47,27 +67,34 @@ Usage Examples
 
 .. code-block:: bash
 
-    ./matomo-version --path /var/www/html/matomo
-    ./matomo-version --path /var/www/html/matomo --cache-expire 8 --always-ok
+    ./matomo-version --path=/var/www/html/matomo
+    ./matomo-version --path=/var/www/html/matomo --offset-eol=-30
     
 Output:
 
 .. code-block:: text
 
-    Matomo v4.3.1 is up to date
+    Matomo v5.3.2 (EOL unknown)
 
 
 States
 ------
 
-* If wanted, always returns OK,
-* else returns WARN if update is available.
+* WARN if software is EOL
+* Optional: WARN when new major version is available
+* Optional: WARN when new minor version is available
+* Optional: WARN when new patch version is available
 
 
 Perfdata / Metrics
 ------------------
 
-There is no perfdata.
+.. csv-table::
+    :widths: 25, 15, 60
+    :header-rows: 1
+    
+    Name,                                       Type,               Description                                           
+    matomo-version,                             Number,             Installed Matomo version as float. "5.3.2" becomes "5.32".
 
 
 Credits, License

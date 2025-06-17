@@ -14,6 +14,13 @@ Monitoring Plugins:
 * disk-usage: handle disk accessibility ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
 
 
+### Changed ("refactor", "chore" etc.)
+
+Monitoring Plugins:
+
+* matomo-version: use EOL library, parameter `--cache-expire` is deprecated
+
+
 
 ## [v2.0.0] - 2025-06-06
 
