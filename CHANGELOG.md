@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed ("fix")
 
+Icinga Director:
+
+* all-the-rest.json: correct nextcloud-app-update.timer unit states
+
+
 Monitoring Plugins:
 
 * disk-usage: handle disk accessibility ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
