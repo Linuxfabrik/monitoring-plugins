@@ -506,3 +506,6 @@ A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, ev
 Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
 
 A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, [use JEA Profiles for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) and see [installing JEA for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/).
+
+
+<!-- GitAds-Verify: 1NTKT4F1KXJEQ79YJUY3WS1OKC1XMUU6 -->
