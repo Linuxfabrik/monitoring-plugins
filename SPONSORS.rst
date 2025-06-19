@@ -5,13 +5,17 @@ Your donation will help on the development of technologies around the Nagios/Ici
 
 If you like to support our work, please consider donating
 
-* GitHub Sponsors: |GitHubSponsors|
-* PayPal: |PayPal|
+* |GitHubSponsors|
+* |gitAds|
+* |PayPal|
 
 .. |GitHubSponsors| image:: https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors
    :target: https://github.com/sponsors/Linuxfabrik
 
-.. |PayPal| image:: https://img.shields.io/badge/Donate-PayPal-green.svg
+.. |gitAds| image:: https://img.shields.io/badge/Donate-gitAds-ff6600
+   :target: https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github
+
+.. |PayPal| image:: https://img.shields.io/badge/Donate-PayPal-ff6600
    :target: https://www.paypal.com/donate/?hosted_button_id=7AW3VVX62TR4A
 
 We are happy to mention you as a sponsor!
@@ -20,11 +24,7 @@ We are happy to mention you as a sponsor!
 Current and Past GitHub Sponsors
 --------------------------------
 
-Have a look at https://github.com/sponsors/Linuxfabrik:
-
-* `Robert Waffen <https://github.com/rwaffen>`_
-* `MajorTwip <https://github.com/MajorTwip>`_
-* `Robert Christian <https://github.com/soulsymphonies>`_
+Have a look at https://github.com/sponsors/Linuxfabrik.
 
 
 PayPal Sponsors
