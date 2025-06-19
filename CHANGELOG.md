@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added ("feat")
+
+Icinga Director:
+
+* Icinga2 Service Set
+
+
+Monitoring Plugins:
+
+* icinga-version: tracks if Icinga is EOL
+
+
 ### Fixed ("fix")
 
 Icinga Director:
