@@ -12,12 +12,13 @@
 </p>
 <div align="center">
 
-![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins) 
-![GitHub last commit](https://img.shields.io/github/last-commit/linuxfabrik/monitoring-plugins) 
-![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver) 
+![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
+![GitHub last commit](https://img.shields.io/github/last-commit/linuxfabrik/monitoring-plugins)
+![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
-[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) 
-[![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
+[![gitAds](https://img.shields.io/badge/Donate-gitAds-ff6600)](https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github)
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 </div>
 
@@ -42,24 +43,28 @@ The plugins are fast, reliable and use as few system resources as possible. They
 
 Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
 
-If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images. Just take a look at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/).
+
+## Donate
+
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![gitAds](https://img.shields.io/badge/Donate-gitAds-ff6600)](https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github) [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
-## Support & Sponsoring
+## Support
 
-The source code is published here without support. If you need Enterprise Support, [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
+The source code is published here without support. If you need Enterprise Support, please [conclude a Service Contract](https://www.linuxfabrik.ch/en/products/service-support).
 
-Do you think more people should know about it? Sharing is caring, so feel free to spread the word. We would really appreciate if you share this on any social media, or link this site on any blog or forum. Or more specifically: [It would be great if you could tell on GitHub discussions how you use the plugins](https://github.com/Linuxfabrik/monitoring-plugins/discussions/categories/show-and-tell?discussions_q=is%3Aopen+category%3A%22Show+and+tell%22).
 
-If you simply like to support our work, please consider donating and become a sponsor.
+## Spread the Word
 
-[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![PayPal](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+Do you think more people should know about it? Sharing is caring, so feel free to spread the word. We would really appreciate if you share this on any social media, or link this site on any blog or forum. [It would also be great if you could tell on GitHub discussions how you use the plugins](https://github.com/Linuxfabrik/monitoring-plugins/discussions/categories/show-and-tell?discussions_q=is%3Aopen+category%3A%22Show+and+tell%22).
 
 
 ## Installation
 
 * Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
 * For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.rst).
+
+If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/). Alternatively, you can set up a self-hosted Icinga infrastructure using our [LFOps Ansible collection](github.com/Linuxfabrik/lfops).
 
 
 ## Reporting Issues
@@ -69,7 +74,7 @@ For now, there are two ways:
 1.  [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
 2.  [Contact us](https://www.linuxfabrik.ch/en/contact) by email or web form and describe your problem.
 
-For reporting a vulnerability, see [SECURITY](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/SECURITY.md).
+For reporting a vulnerability issue, see [SECURITY](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/SECURITY.md).
 
 
 ## Check Plugin Poster
@@ -387,6 +392,7 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
     ├── grafana                     Grafana dashboard definition
     ├── icingaweb2-module-director  Icinga Director basket definition
     ├── icingaweb2-module-grafana   Grafana panel definition for Icinga's Grafana module
+    ├── icon                        SVG icon for Web GUIs
     ├── lib                         Link to the Linuxfabrik Python libraries
     ├── unit-test                   File for unit tests
     │   ├── retc                    Files for simulating return codes
