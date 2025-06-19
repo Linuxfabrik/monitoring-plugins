@@ -34,6 +34,13 @@ Monitoring Plugins:
 
 ### Changed ("refactor", "chore" etc.)
 
+Icinga Director:
+
+* atlassian-statuspage: Increase timeout from 8 to 30 secs
+* uptimerobot: Increase timeout from 8 to 30 secs
+* Path to notification plugins changed back to `/usr/lib64/nagios/plugins` 
+
+
 Monitoring Plugins:
 
 * matomo-version: use EOL library, parameter `--cache-expire` is deprecated
