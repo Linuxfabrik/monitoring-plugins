@@ -7,7 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-tbd
+### Fixed ("fix")
+
+Icinga Director:
+
+* Icinga2 Service Set
+
 
 
 ## [v2.1.0] - 2025-06-20
