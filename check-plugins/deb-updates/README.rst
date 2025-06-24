@@ -10,6 +10,8 @@ The plugin stores all relevant information in a local SQLite database. For the `
 
 * package (TEXT)
 
+As the output interface of the ``apt`` tool is not stable, the database table has been kept deliberately simple and consists of only one column.
+
 Example content of the ``package`` column:
 
 .. code-block:: text
@@ -29,7 +31,7 @@ Fact Sheet
     "Check Interval Recommendation",        "Once a day"
     "Can be called without parameters",     "Yes"
     "Compiled for Windows",                 "No"
-    "Requirements",                         "Command-line tool ``sudo``"
+    "Requirements",                         "Command-line tool ``sudo``; the user running this plugin must have sudo permissions, and the NOPASSWD tag must be set"
     "Uses SQLite DBs",                      "``$TEMP/linuxfabrik-monitoring-plugins-deb-updates.db``"
 
 
