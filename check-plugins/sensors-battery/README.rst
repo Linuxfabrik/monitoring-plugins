@@ -4,7 +4,11 @@ Check sensors-battery
 Overview
 --------
 
-Return battery status information. If no battery is installed or metrics can't be determined OK is returned.
+Return battery status information. If no battery is installed or the metrics cannot be determined, 'OK' is returned.
+
+Hints:
+
+* Run ``sensors-detect --auto`` beforehand to scan your system for the various hardware monitoring chips or sensors supported by libsensors or, more generally, by the lm_sensors tool suite.
 
 
 Fact Sheet

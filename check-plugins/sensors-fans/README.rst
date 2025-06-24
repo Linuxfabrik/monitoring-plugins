@@ -4,7 +4,11 @@ Check sensors-fans
 Overview
 --------
 
-Return hardware fans speed. Fan speed is expressed in RPM (rounds per minute). OK if no fans are found.
+Return the speed of the hardware fans. Fan speed is expressed in RPM (rounds per minute). The plugin returns 'OK' if no fans are found.
+
+Hints:
+
+* Run ``sensors-detect --auto`` beforehand to scan your system for the various hardware monitoring chips or sensors supported by libsensors or, more generally, by the lm_sensors tool suite.
 
 
 Fact Sheet

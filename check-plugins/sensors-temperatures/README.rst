@@ -4,7 +4,11 @@ Check sensors-temperatures
 Overview
 --------
 
-Return certain hardware temperature sensors (it may be a CPU, an hard disk or something else, depending on the OS and its configuration). All temperatures are expressed in celsius. Check is done automatically against hardware thresholds. If sensors are not supported by the OS OK is returned.
+Certain hardware temperature sensors may be returned (it could be a CPU, a hard disk or something else, depending on the operating system and its configuration). All temperatures are expressed in Celsius. Checks are performed automatically against hardware thresholds. If the sensors are not supported by the OS, 'OK' is returned.
+
+Hints:
+
+* Run ``sensors-detect --auto`` beforehand to scan your system for the various hardware monitoring chips or sensors supported by libsensors or, more generally, by the lm_sensors tool suite.
 
 
 Fact Sheet
