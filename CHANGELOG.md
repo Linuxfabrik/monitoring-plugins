@@ -7,7 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-tbd
+### Fixed ("fix")
+
+Assets:
+
+* deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+
 
 
 ## [v2.1.1] - 2025-06-20
