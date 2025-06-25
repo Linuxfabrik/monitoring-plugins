@@ -52,6 +52,34 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
 
+    def test_if_check_respects_ignores_EXAMPLE02c(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --ignore-pattern="iSCSI" --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
+    def test_events_below_threshold_EXAMPLE03a(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --count=5 --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('3 events. Latest event at 2022-07-28 14:29:48 from iscsid, level err: `iSCSI daemon with pid=865 started!`', stdout)
+        self.assertIn('Timestamp           ! Unit   ! Prio ! Message', stdout)
+        self.assertIn('--------------------+--------+------+------------------------------------', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=865 started!', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=866 started!', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=867 started!', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_events_above_threshold_EXAMPLE03b(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --count=2 --test=stdout/EXAMPLE03,,0'))
+        self.assertIn('3 events. Latest event at 2022-07-28 14:29:48 from iscsid, level err: `iSCSI daemon with pid=865 started!` [WARNING]', stdout)
+        self.assertIn('Timestamp           ! Unit   ! Prio ! Message', stdout)
+        self.assertIn('--------------------+--------+------+------------------------------------', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=865 started!', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=866 started!', stdout)
+        self.assertIn('2022-07-28 14:29:48 ! iscsid ! err  ! iSCSI daemon with pid=867 started!', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
 
 if __name__ == '__main__':
     unittest.main()

@@ -39,9 +39,11 @@ Help
     usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                           [--identifier IDENTIFIER]
                           [--ignore-pattern IGNORE_PATTERN]
-                          [--ignore-regex IGNORE_REGEX] [--priority PRIORITY]
-                          [--severity {warn,crit}] [--since SINCE] [--test TEST]
-                          [--unit UNIT] [--user-unit USER_UNIT]
+                          [--ignore-regex IGNORE_REGEX] [--grep GREP]
+                          [--priority PRIORITY] [--severity {warn,crit}]
+                          [--since SINCE] [--test TEST] [--unit UNIT]
+                          [--user-unit USER_UNIT] [--count COUNT]
+                          [--match MATCH]
 
     Query the systemd journal and alert on any events found. For help on any of
     the journalctl-specific parameters, see `man journalctl`.
@@ -67,6 +69,10 @@ Help
                             `journalctl`, you can easily use a regex to ignore
                             certain messages. Example: '(?i)linuxfabrik' for a
                             case-insensitive search for "linuxfabrik".
+      --grep GREP           journalctl: Filter output to entries where the
+                            MESSAGE= field matches the specified regular
+                            expression. PERL-compatible regular expressions are
+                            used
       --priority PRIORITY   journalctl: Filter output by message priorities or
                             priority ranges. Default: emerg..err
       --severity {warn,crit}
@@ -83,6 +89,10 @@ Help
                             journalctl: Show messages for the specified user
                             session unit. This parameter can be specified multiple
                             times. Default: None
+      --count COUNT         Number of events to trigger the state. Default: 1
+      --match MATCH         journalctl: Filter journal entries by specific fields'
+                            values. Should be in the format "FIELD=VALUE", see
+                            `man journalctl` for details.
 
 
 Usage Examples
@@ -98,21 +108,21 @@ Output:
 
 .. code-block:: text
 
-    27 events. Latest event at 2022-07-28 15:08:04 from systemd-resolved, level err: `Failed to send hostname reply: Transport endpoint is not connected` [WARNING]. 
+    27 events. Latest event at 2022-07-28 15:08:04 from systemd-resolved, level err: `Failed to send hostname reply: Transport endpoint is not connected` [WARNING].
     Attention: Table below is shortened and just shows the 5 newest and the 5 oldest messages.
 
-    Timestamp           ! Unit             ! Prio ! Message                                                                                                                                   
+    Timestamp           ! Unit             ! Prio ! Message
     --------------------+------------------+------+-------------------------------------------------------------------------------------------------------------------------------------------
-    2022-07-28 15:08:04 ! systemd-resolved ! err  ! Failed to send hostname reply: Transport endpoint is not connected                                                                        
-    2022-07-28 09:27:03 ! dnf-makecache    ! err  ! Failed to start dnf makecache.                                                                                                            
-    2022-07-28 09:10:55 ! session-c1.scope ! err  ! GLib-GObject: g_object_unref: assertion 'G_IS_OBJECT (object)' failed                                                                     
-    2022-07-28 09:10:51 ! user@1000        ! err  ! Failed to start Application launched by gnome-session-binary.                                                                             
-    2022-07-28 09:10:51 ! user@1000        ! err  ! Failed to start Application launched by gnome-session-binary.                                                                             
-    2022-07-27 20:36:52 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service' 
-    2022-07-27 20:36:36 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service' 
-    2022-07-27 20:36:36 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service' 
-    2022-07-27 20:36:34 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service' 
-    2022-07-27 20:36:34 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service' 
+    2022-07-28 15:08:04 ! systemd-resolved ! err  ! Failed to send hostname reply: Transport endpoint is not connected
+    2022-07-28 09:27:03 ! dnf-makecache    ! err  ! Failed to start dnf makecache.
+    2022-07-28 09:10:55 ! session-c1.scope ! err  ! GLib-GObject: g_object_unref: assertion 'G_IS_OBJECT (object)' failed
+    2022-07-28 09:10:51 ! user@1000        ! err  ! Failed to start Application launched by gnome-session-binary.
+    2022-07-28 09:10:51 ! user@1000        ! err  ! Failed to start Application launched by gnome-session-binary.
+    2022-07-27 20:36:52 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service'
+    2022-07-27 20:36:36 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service'
+    2022-07-27 20:36:36 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service'
+    2022-07-27 20:36:34 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service'
+    2022-07-27 20:36:34 ! user@1000        ! err  ! Ignoring duplicate name 'org.freedesktop.FileManager1' in service file '/usr/share//dbus-1/services/org.freedesktop.FileManager1.service'
 
     Use `journalctl --reverse --priority=emerg..err --since=-24h` as a starting point for debugging. Be aware of the fact that you might see even more messages then, as we apply a lot of unit filters to only get messages from basic system services.
     The full command used was:
@@ -131,18 +141,18 @@ Output:
     994 events. Latest event at 2022-07-28 18:00:04 from httpd, level err: `[proxy_fcgi:error] [pid 896:tid 929] [client 127.0.0.1:50256] AH01071: Got error 'Primary script unknown'` [CRITICAL].
     Attention: Table below is shortened and just shows the 5 newest and the 5 oldest messages.
 
-    Timestamp           ! Unit  ! Prio ! Message                                                                                                   
+    Timestamp           ! Unit  ! Prio ! Message
     --------------------+-------+------+-----------------------------------------------------------------------------------------------------------
-    2022-07-28 18:00:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 929] [client 127.0.0.1:50256] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 17:59:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 927] [client 127.0.0.1:57732] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 17:59:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 945] [client 127.0.0.1:53908] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 17:58:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 943] [client 127.0.0.1:56074] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 17:58:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 936] [client 127.0.0.1:44684] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 09:45:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 947] [client 127.0.0.1:52536] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 09:45:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 940] [client 127.0.0.1:53256] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 09:44:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 938] [client 127.0.0.1:44544] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 09:44:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 897:tid 904] [client 127.0.0.1:40142] AH01071: Got error 'Primary script unknown' 
-    2022-07-28 09:43:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 931] [client 127.0.0.1:34050] AH01071: Got error 'Primary script unknown' 
+    2022-07-28 18:00:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 929] [client 127.0.0.1:50256] AH01071: Got error 'Primary script unknown'
+    2022-07-28 17:59:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 927] [client 127.0.0.1:57732] AH01071: Got error 'Primary script unknown'
+    2022-07-28 17:59:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 945] [client 127.0.0.1:53908] AH01071: Got error 'Primary script unknown'
+    2022-07-28 17:58:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 943] [client 127.0.0.1:56074] AH01071: Got error 'Primary script unknown'
+    2022-07-28 17:58:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 936] [client 127.0.0.1:44684] AH01071: Got error 'Primary script unknown'
+    2022-07-28 09:45:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 947] [client 127.0.0.1:52536] AH01071: Got error 'Primary script unknown'
+    2022-07-28 09:45:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 940] [client 127.0.0.1:53256] AH01071: Got error 'Primary script unknown'
+    2022-07-28 09:44:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 938] [client 127.0.0.1:44544] AH01071: Got error 'Primary script unknown'
+    2022-07-28 09:44:04 ! httpd ! err  ! [proxy_fcgi:error] [pid 897:tid 904] [client 127.0.0.1:40142] AH01071: Got error 'Primary script unknown'
+    2022-07-28 09:43:55 ! httpd ! err  ! [proxy_fcgi:error] [pid 896:tid 931] [client 127.0.0.1:34050] AH01071: Got error 'Primary script unknown'
 
     The full command used was:
     journalctl --reverse --priority=emerg..err --since=-24h --unit="httpd.service"
@@ -160,8 +170,8 @@ Perfdata / Metrics
 .. csv-table::
     :widths: 25, 15, 60
     :header-rows: 1
-    
-    Name,                                       Type,               Description                                           
+
+    Name,                                       Type,               Description
     journald-query,                             Number,             Number of events found in journald
 
 
