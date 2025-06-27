@@ -14,6 +14,13 @@ Assets:
 * deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
 
 
+### Changed ("refactor", "chore" etc.)
+
+Monitoring Plugins:
+
+* statuspal: 'performance' degredation is now a WARN, not UNKNOWN
+
+
 
 ## [v2.1.1] - 2025-06-20
 
