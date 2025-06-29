@@ -15,6 +15,7 @@ Assets:
 
 Monitoring Plugins:
 
+* fix(openstack-swift-stat): Problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
 * fix(valkey-status|redis-status): improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
 
 
