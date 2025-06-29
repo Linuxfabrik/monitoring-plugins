@@ -16,6 +16,10 @@ Assets:
 
 ### Changed ("refactor", "chore" etc.)
 
+Assets:
+
+* To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
+
 Monitoring Plugins:
 
 * statuspal: 'performance' degredation is now a WARN, not UNKNOWN

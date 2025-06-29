@@ -22,16 +22,16 @@ for more information on how to submit a vulnerability using GitHub's interface.
 
 ### When Should I Report a Vulnerability?
 
-- You think you discovered a potential security vulnerability
-- You are unsure how a vulnerability affects your system
-- You think you discovered a vulnerability in another project that this project depends on
+* You think you discovered a potential security vulnerability
+* You are unsure how a vulnerability affects your system
+* You think you discovered a vulnerability in another project that this project depends on
   - For projects with their own vulnerability reporting and disclosure process, please report it directly there
 
 ### When Should I NOT Report a Vulnerability?
 
-- You need help tuning your System for security
-- You need help applying security related updates
-- Your issue is not security related
+* You need help tuning your System for security
+* You need help applying security related updates
+* Your issue is not security related
 
 
 ### Vulnerability Response
