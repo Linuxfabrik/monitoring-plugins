@@ -115,9 +115,9 @@ Latest info can be found `here <https://redis.io/commands/INFO>`_.
     cpu_used_cpu_user_children,                 Number,             User CPU consumed by the background processes
     db_count,                                   Number,             Number of Redis databases
     key_count,                                  Number,             Sum of all keys across all databases
-    keyspace_<dbname>_keys,                     Number,             The number of keys
-    keyspace_<dbname>_expires,                  Number,             The number of keys with an expiration
-    keyspace_<dbname>_avg_ttl,                  Seonds,             
+    keyspace_DBNAME_keys,                     Number,             The number of keys
+    keyspace_DBNAME_expires,                  Number,             The number of keys with an expiration
+    keyspace_DBNAME_avg_ttl,                  Seonds,             
     keyspace_hit_rate,                          Percentage,         "Percentage of key lookups that are successfully returned by keys in your Redis instance. Generally speaking, a higher cache-hit ratio is better than a lower cache-hit ratio. You should make a note of your cache-hit ratio before you make any large configuration changes such as adjusting the maxmemory-gb limit, changing your eviction policy, or scaling your instance. Then, after you modify your instance, check the cache-hit ratio again to see how your change impacted this metric."
     mem_usage,                                  Percentage,         "Indicates how close your working set size is to reaching the maxmemory-gb limit. Unless the eviction policy is set to no-eviction, the instance data reaching maxmemory does not always indicate a problem. However, key eviction is a background process that takes time. If you have a high write-rate, you could run out of memory before Redis has time to evict keys to free up space."
     memory_maxmemory,                           Bytes, 

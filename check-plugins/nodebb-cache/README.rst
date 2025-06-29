@@ -97,12 +97,12 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description
-    cache_<cachename>_hitRatio,                 Percentage,         According to the Web GUI /forum/admin/advanced/cache
-    cache_<cachename>_hits,                     Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
-    cache_<cachename>_itemCount,                Number,             According to the Web GUI /forum/admin/advanced/cache
-    cache_<cachename>_length,                   Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
-    cache_<cachename>_misses,                   Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
-    cache_<cachename>_percentFull,              Percentage,         According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_hitRatio,                 Percentage,         According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_hits,                     Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_itemCount,                Number,             According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_length,                   Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_misses,                   Continous Counter,  According to the Web GUI /forum/admin/advanced/cache
+    cache_CACHENAME_percentFull,              Percentage,         According to the Web GUI /forum/admin/advanced/cache
 
 
 Credits, License

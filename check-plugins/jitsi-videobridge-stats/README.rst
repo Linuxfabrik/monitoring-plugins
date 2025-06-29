@@ -89,7 +89,6 @@ For details have a look `here <https://github.com/jitsi/jitsi-videobridge/blob/m
     :header-rows: 1
 
     Name,                                       Type,   Description
-
     bit_rate_download,                          Bits per Second, "the current incoming bitrate (RTP) in kilobits per second."
     bit_rate_upload,                            Bits per Second, "the current outgoing bitrate (RTP) in kilobits per second."
     conferences,                                Number, "The current number of conferences."

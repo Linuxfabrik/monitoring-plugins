@@ -120,29 +120,29 @@ Perfdata / Metrics
 
 Depends on your hardware - as an example:
 
-* Chassis_Chassis_Fan_#1
-* Chassis_Chassis_Fan_#2
+* Chassis_Chassis_Fan_1
+* Chassis_Chassis_Fan_2
 * Chassis_Power_reading_for_the_Chassis
-* Chassis_Power_Supply_#1_12V_Output_Current
+* Chassis_Power_Supply_1_12V_Output_Current
 * Chassis_Total_Energy
-* CPU_CPU_#1_Fan_Speed
-* CPU_CPU_#1_Temperature
-* CPU_CPU_#2_Fan_Speed
-* Exhaust_Fan_Bay_#1_Exhaust_Temperature
+* CPU_CPU_1_Fan_Speed
+* CPU_CPU_1_Temperature
+* CPU_CPU_2_Fan_Speed
+* Exhaust_Fan_Bay_1_Exhaust_Temperature
 * Intake_Front_Panel_Intake_Temperature
-* Memory_DIMM_#1_Temperature
-* Memory_DIMM_#2_Temperature
-* Memory_DIMM_#3_Temperature
-* PowerSupply_Power_Supply_#1_12V_Output_Voltage
-* PowerSupply_Power_Supply_#1_3V_Output_Current
-* PowerSupply_Power_Supply_#1_3V_Output_Voltage
-* PowerSupply_Power_Supply_#1_5V_Output_Current
-* PowerSupply_Power_Supply_#1_5V_Output_Voltage
-* PowerSupply_Power_Supply_#1_Energy
-* PowerSupply_Power_Supply_#1_Frequency
-* PowerSupply_Power_Supply_#1_Input_Current
-* PowerSupply_Power_Supply_#1_Input_Power
-* PowerSupply_Power_Supply_#1_Input_Voltage
+* Memory_DIMM_1_Temperature
+* Memory_DIMM_2_Temperature
+* Memory_DIMM_3_Temperature
+* PowerSupply_Power_Supply_1_12V_Output_Voltage
+* PowerSupply_Power_Supply_1_3V_Output_Current
+* PowerSupply_Power_Supply_1_3V_Output_Voltage
+* PowerSupply_Power_Supply_1_5V_Output_Current
+* PowerSupply_Power_Supply_1_5V_Output_Voltage
+* PowerSupply_Power_Supply_1_Energy
+* PowerSupply_Power_Supply_1_Frequency
+* PowerSupply_Power_Supply_1_Input_Current
+* PowerSupply_Power_Supply_1_Input_Power
+* PowerSupply_Power_Supply_1_Input_Voltage
 * Room_Ambient_Temperature
 
 

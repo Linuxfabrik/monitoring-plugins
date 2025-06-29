@@ -120,11 +120,9 @@ Service notifications:
     ``A``, ``A``, sent during 7x24
     ``A``, ``B``, sent during 5x12
     ``A``, ``C``, not sent
-
     ``B``, ``A``, sent during 5x12
     ``B``, ``B``, sent during 5x12
     ``B``, ``C``, not sent
-
     ``C``, ``A``, not sent
     ``C``, ``B``, not sent
     ``C``, ``C``, not sent

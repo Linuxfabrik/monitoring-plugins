@@ -80,11 +80,11 @@ Perfdata / Metrics
 
 Depends on your mod_qos configuration. The configuration options are suffixed by their specified request pattern (path and query). For example:
 
-* QS_AllConn_All
-* QS_CondLocRequestLimitMatch_[^.*$]
-* QS_LocKBytesPerSecLimitMatch_[^.*$]
-* QS_LocRequestLimitMatch_[^.*$]
-* QS_SrvMaxConn_[]
+* ``QS_AllConn_All``
+* ``QS_CondLocRequestLimitMatch_[^.*$]``
+* ``QS_LocKBytesPerSecLimitMatch_[^.*$]``
+* ``QS_LocRequestLimitMatch_[^.*$]``
+* ``QS_SrvMaxConn_[]``
 
 
 Credits, License

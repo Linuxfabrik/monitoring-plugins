@@ -117,7 +117,7 @@ Perfdata / Metrics
     :header-rows: 1
     
     Name,                                       Type,               Description                                           
-    scope_<ScopeID>,                            Percentage,         The IP address range usage for the DHCP scope.
+    scope_SCOPEID,                             Percentage,         The IP address range usage for the DHCP scope.
 
 
 Credits, License
