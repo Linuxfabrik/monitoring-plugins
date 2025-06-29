@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025062901'
 
 DESCRIPTION = """Returns information and statistics about a Redis server. Alerts on memory
                  consumption, memory fragmentation, hit rates and more."""
@@ -336,15 +336,15 @@ def main():
         msg += ', '
 
     # kernel transparent_hugepage is not set to "madvise" or "never"
-    thp_enabled = lib.base.coe(lib.disk.read_file('/sys/kernel/mm/transparent_hugepage/enabled'))
-    if '[always]' in thp_enabled:
-        # on systems in which kernel transparent huge pages is set to "always",
-        # redis might have latency problems specifically with fork(2) and CoW
-        msg += 'kernel transparent_hugepage is not set to "madvise" or "never"'
-        if not args.IGNORE_THP:
+    if not args.IGNORE_THP:
+        thp_enabled = lib.base.coe(lib.disk.read_file('/sys/kernel/mm/transparent_hugepage/enabled'))
+        if '[always]' in thp_enabled:
+            # on systems in which kernel transparent huge pages is set to "always",
+            # redis might have latency problems specifically with fork(2) and CoW
+            msg += 'kernel transparent_hugepage is not set to "madvise" or "never"'
             msg += lib.base.state2str(STATE_WARN, prefix=' ')
             state = lib.base.get_worst(state, STATE_WARN)
-        msg += ', '
+            msg += ', '
 
     # net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog (256)
     somaxconn = lib.base.coe(lib.disk.read_file('/proc/sys/net/core/somaxconn'))

@@ -13,6 +13,10 @@ Assets:
 
 * deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
 
+Monitoring Plugins:
+
+* fix(valkey-status|redis-status): improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
+
 
 ### Changed ("refactor", "chore" etc.)
 
