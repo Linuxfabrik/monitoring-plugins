@@ -5,7 +5,6 @@ Your donation will help on the development of technologies around the Nagios/Ici
 If you like to support our work, please consider donating
 
 * [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
-* [![gitAds](https://img.shields.io/badge/Donate-gitAds-ff6600)](https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github)
 * [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/donate/?hosted_button_id=7AW3VVX62TR4A)
 
 We are happy to mention you as a sponsor!
