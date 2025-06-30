@@ -6,7 +6,7 @@ Checks whether a certain percentage of table locks had to wait in MySQL/MariaDB.
 
 Hints:
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst)
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 
 
 ## Fact Sheet

@@ -6,7 +6,7 @@ Returns some useful information about a Keycloak server using its HTTP-based API
 
 Hints:
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.rst).
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md).
 
 
 ## Fact Sheet

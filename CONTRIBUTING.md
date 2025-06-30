@@ -38,7 +38,7 @@ Checklist:
 * A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free>, placed in the `icon` directory.
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
 * Optional: `requirements.txt`
-* If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst)) and `.ini` file for the Icinga Web 2 Grafana Module
+* If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin (`check2basket`)
 * Icinga Service Set in `all-the-rest.json`
 * Optional: sudoers file (see [sudoers File](#sudoers-file))

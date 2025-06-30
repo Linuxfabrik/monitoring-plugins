@@ -6,7 +6,7 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import argparse  # pylint: disable=C0413
 import re  # pylint: disable=C0413
@@ -19,7 +19,7 @@ import lib.shell  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031501'
+__version__ = '2025063001'
 
 DESCRIPTION = """A tool to update the Linuxfabrik monitoring plugins README files at certain points.
                  Run this tool within the mp root directory."""
@@ -55,7 +55,7 @@ def main():
     readmes = lib.disk.walk_directory(
         './',
         exclude_pattern=r'',
-        include_pattern=r'.*README.rst',
+        include_pattern=r'.*README.md',
         relative=True,
     )
 
@@ -65,7 +65,7 @@ def main():
             continue
 
         # get the plugin name
-        plugin = readme_path.replace('check-plugins/', '').replace('/README.rst', '')
+        plugin = readme_path.replace('check-plugins/', '').replace('/README.md', '')
         # run `plugin-name --help`
         _help, stderr, retc = lib.base.coe(lib.shell.shell_exec(
             'check-plugins/{}/{} --help'.format(plugin, plugin)
@@ -80,12 +80,12 @@ def main():
         # nice: _help's layout is already 80-columns.
         readme = lib.base.coe(lib.disk.read_file(readme_path))
         readme = re.sub(
-            r'Help\n----\n\n\.\. code-block:: text\n\n?(.*?)\n\n\nUsage Examples\n--------------',
-            'Help\n----\n\n.. code-block:: text\n\n{}\n\n\nUsage Examples\n--------------'.format(
+            r'## Help\s*```text\s*?(.*?)\s*```\s*## Usage Examples',
+            '## Help\n\n```text\n{}\n```\n\n## Usage Examples'.format(
                 _help
             ),
             readme,
-            flags=re.DOTALL, # to match across all lines
+            flags=re.DOTALL, # to match dots across all lines
         )
         lib.base.coe(lib.disk.write_file(readme_path, readme))
 

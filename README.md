@@ -61,8 +61,8 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 
 ## Installation
 
-* Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
-* For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.rst).
+* Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.md) document for the various options, including SELinux etc.
+* For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
 
 If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/). Alternatively, you can set up a self-hosted Icinga infrastructure using our [LFOps Ansible collection](github.com/Linuxfabrik/lfops).
 
@@ -416,17 +416,17 @@ Each plugin comes with an SVG icon, which you can find at [github.com/Linuxfabri
 
 ## Grafana
 
-See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst)
+See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)
 
 
 ## Contributing
 
-See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
+See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md)
 
 
 ## Compiling and Packaging, Windows Code Signing Policy
 
-See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
+See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.md)
 
 
 ## FAQ

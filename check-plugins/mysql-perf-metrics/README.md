@@ -6,7 +6,7 @@ Checks some performance related metrics and best practice configurations for MyS
 
 Hints:
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst)
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * Requires MySQL/MariaDB v5.5+.
 
 
