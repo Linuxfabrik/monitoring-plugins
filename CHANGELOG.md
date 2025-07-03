@@ -27,6 +27,7 @@ Assets:
 
 Monitoring Plugins:
 
+* rocketchat-stats: improve output and docs a little bit
 * statuspal: 'performance' degredation is now a WARN, not UNKNOWN
 
 
