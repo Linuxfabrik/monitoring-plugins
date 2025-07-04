@@ -72,6 +72,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignores specified backends.',
+        dest='IGNORE',
+        action='append',
+    )
+
+    parser.add_argument(
         '--insecure',
         help='This option explicitly allows to perform "insecure" SSL connections. '
              'Default: %(default)s',
@@ -198,6 +205,11 @@ def main():
     state = STATE_OK
     perfdata_parts = []
     table_values = []
+    ignore_backends = []
+
+    # check ignore arg and fill
+    if args.IGNORE:
+        ignore_backends = args.IGNORE
 
     # analyze data
     for line in result[1:]:
@@ -272,7 +284,7 @@ def main():
 
         # Status check
         status_state = STATE_OK
-        if ha_status not in GOOD_STATUSES:
+        if ha_status not in GOOD_STATUSES and ha_pxname not in ignore_backends:
             status_state = STATE_WARN
             msg_parts.append(f'{ha_pxname} {ha_svname}: {ha_status}, ')
             state = lib.base.get_worst(status_state, state)
