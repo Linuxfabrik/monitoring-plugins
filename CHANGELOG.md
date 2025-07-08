@@ -11,12 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Assets:
 
-* deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets
+
 
 Monitoring Plugins:
 
-* fix(openstack-swift-stat): Problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
-* fix(valkey-status|redis-status): improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
+* deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+* openstack-swift-stat: Problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
+* valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
 
 
 ### Changed ("refactor", "chore" etc.)
@@ -24,6 +26,7 @@ Monitoring Plugins:
 Assets:
 
 * To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
+
 
 Monitoring Plugins:
 
@@ -117,6 +120,7 @@ Build, CI/CD:
     * users
 
 * Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9 to be installed on the target host. Sorry for the trouble.
+
 
 Icinga Director:
 
@@ -280,6 +284,7 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * compile-one.sh: provide Nuitka's no-deployment-flag ([#864](https://github.com/Linuxfabrik/monitoring-plugins/issues/864))
+
 
 Monitoring Plugins:
 

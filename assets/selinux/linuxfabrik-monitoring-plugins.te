@@ -6,5 +6,18 @@ require {
     class file { execute map };
 }
 
+
 #============= chronyc_t ==============
 allow chronyc_t nagios_unconfined_plugin_exec_t:file { execute map };
+
+
+# Errors:
+# * "Failed to start transient service unit: Connection reset by peer"
+# * "Failed to get properties: Transport endpoint is not connected"
+# Caused by (examples):
+# * `systemctl --machine myuser@.host --user ... my.service` (`--user` is important here)
+# Effects:
+# * Allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets.
+#============= system_dbusd_t ==============
+allow system_dbusd_t unconfined_service_t:fifo_file write;
+allow system_dbusd_t unconfined_service_t:unix_stream_socket { read write };
