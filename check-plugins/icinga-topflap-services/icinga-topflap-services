@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025051601'
+__version__ = '2025071001'
 
 DESCRIPTION = """This check plugin counts the number of state changes per service within a
                  given lookback interval. This makes it possible to detect fast flapping services.
@@ -186,6 +186,11 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if not args.USERNAME or not args.PASSWORD or not args.URL:
+        lib.base.cu('`--url`, `--username` and `--password` are required parameters. You can '
+                    'also provide a password file for IcingaWeb to read "url", "user" or '
+                    '"password" from.')
 
     # if given, read password INI-file, but cmdline takes precedence
     config = configparser.ConfigParser()
