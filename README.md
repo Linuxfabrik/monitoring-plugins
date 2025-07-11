@@ -197,6 +197,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptime.png" width="30%"/> &nbsp;
 <img alt="uptimerobot" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptimerobot.png" width="30%"/> &nbsp;
 <img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/users.png" width="30%"/> &nbsp;
+<img alt="virustotal-scan-url" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/virustotal-scan-url.png" width="30%"/> &nbsp;
 <img alt="whmcs-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/whmcs-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-gc-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-gc-status.png" width="30%"/> &nbsp;

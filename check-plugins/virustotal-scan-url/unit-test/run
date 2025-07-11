@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../virustotal-scan-url'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01_warn(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE01,,0'))
+        self.assertIn('1/97 security vendors flagged www.example.com as malicious.', stdout)
+        self.assertIn('Engine  ! Result    ! Method    ! Category           ', stdout)
+        self.assertIn('--------+-----------+-----------+--------------------', stdout)
+        self.assertIn('Webroot ! malicious ! blacklist ! malicious [WARNING]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE01_crit(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE01,,0 --severity=crit'))
+        self.assertIn('1/97 security vendors flagged www.example.com as malicious.', stdout)
+        self.assertIn('Engine  ! Result    ! Method    ! Category           ', stdout)
+        self.assertIn('--------+-----------+-----------+--------------------', stdout)
+        self.assertIn('Webroot ! malicious ! blacklist ! malicious [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE02(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE02,,0 --severity=crit'))
+        self.assertIn('Everything is ok. Checked www.example.com against 8 vendors.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE03(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE03,,0 --severity=crit'))
+        self.assertIn('www.example.com is being analysed, the analysis object has partial analysis results and stats', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+    def test_if_check_runs_EXAMPLE04(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=www.example.com --test=stdout/EXAMPLE04,,0 --severity=crit'))
+        self.assertIn('1/97 security vendors flagged www.example.com as malicious.', stdout)
+        self.assertIn('Engine              ! Result    ! Method    ! Category            ', stdout)
+        self.assertIn('--------------------+-----------+-----------+---------------------', stdout)
+        self.assertIn('ADMINUSLabs         ! clean     ! blacklist ! suspicious          ', stdout)
+        self.assertIn('AILabs (MONITORAPP) ! clean     ! blacklist ! type-unsupported    ', stdout)
+        self.assertIn('Acronis             ! clean     ! blacklist ! failure             ', stdout)
+        self.assertIn('Artists Against 419 ! clean     ! blacklist ! confirmed-timeout   ', stdout)
+        self.assertIn('Lionic              ! clean     ! blacklist ! timeout             ', stdout)
+        self.assertIn('Webroot             ! malicious ! blacklist ! malicious [CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_if_check_runs_EXAMPLE05(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=1234 --url=https://secure.eicar.org/eicar.com --test=stdout/EXAMPLE05,,0 --severity=warn'))
+        self.assertIn('9/97 security vendors flagged https://secure.eicar.org/eicar.com as malicious.', stdout)
+        self.assertIn('Engine      ! Result     ! Method    ! Category           ', stdout)
+        self.assertIn('------------+------------+-----------+--------------------', stdout)
+        self.assertIn('Antiy-AVL   ! malicious  ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('AutoShun    ! malicious  ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('BitDefender ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('CRDF        ! malicious  ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('Fortinet    ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('G-Data      ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('Lionic      ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('Sophos      ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertIn('URLQuery    ! suspicious ! blacklist ! suspicious         ', stdout)
+        self.assertIn('VIPRE       ! malware    ! blacklist ! malicious [WARNING]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()

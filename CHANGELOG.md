@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added ("feat")
+
+Monitoring Plugins:
+
+* virustotal-scan-url: analyses URLs to detect malware and other breaches using VirusTotal
+
+
 ### Fixed ("fix")
 
 Assets:
