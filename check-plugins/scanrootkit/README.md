@@ -57,7 +57,7 @@ Credits:
 usage: scanrootkit [-h] [-V] [--severity {warn,crit}]
 
 This monitoring plugin scans for round about 100 rootkits, from "55808 Trojan
-* Variant A" to "ZK Rootkit". New rootkit definitions can easily be added by
+- Variant A" to "ZK Rootkit". New rootkit definitions can easily be added by
 dropping a `scanrootkit-<name>` YAML file into the `assets` folder.
 
 options:
