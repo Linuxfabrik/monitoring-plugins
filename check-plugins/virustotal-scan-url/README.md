@@ -8,6 +8,7 @@ Hints:
 
 * In order to use this plugin, you will need to create a VirusTotal account.
 * This plugin uses the [VirusTotal API v3](https://docs.virustotal.com/reference/overview). See the [documentation](https://docs.virustotal.com/reference/public-vs-premium-api) on any constraints and restrictions, especially for commercial use.
+* Takes at least 60 seconds to execute.
 
 
 ## Fact Sheet
