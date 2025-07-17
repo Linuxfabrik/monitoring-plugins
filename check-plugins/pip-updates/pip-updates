@@ -20,11 +20,10 @@ import lib.base  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
 import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025031401'
+__version__ = '2025071701'
 
 DESCRIPTION = """Checks if there are outdated Python packages, installed via `pip`."""
 
@@ -40,7 +39,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -53,7 +52,8 @@ def parse_args():
 
     parser.add_argument(
         '-c', '--critical',
-        help='Set the critical threshold for the number of pending updates. Default: %(default)s',
+        help='Set the critical threshold for the number of pending updates. '
+             'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
         type=lib.args.int_or_none,
@@ -155,7 +155,8 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the warning threshold for the number of pending updates. Default: %(default)s',
+        help='Set the warning threshold for the number of pending updates. '
+             'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
         type=lib.args.int_or_none,
@@ -175,34 +176,31 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    # pip: don't use the --format=json parameter, because older pip versions don't have it
     cmd = 'python3 -m pip list --outdated --format=json'
     if args.TEST is None:
+        # build commandline call
         if args.EXCLUDE:
-            cmd = '{} --exclude={}'.format(cmd, ' --exclude='.join(args.EXCLUDE))
+            cmd += f' --exclude={" --exclude=".join(args.EXCLUDE)}'
         if args.EXTRA_INDEX_URL:
-            cmd = '{} --extra-index-url={}'.format(
-                cmd,
-                ' --extra-index-url='.join(args.EXTRA_INDEX_URL),
-            )
+            cmd += f' --extra-index-url={" --extra-index-url=".join(args.EXTRA_INDEX_URL)}'
         if args.FIND_LINKS:
-            cmd = '{} --find-links={}'.format(cmd, ' --find-links='.join(args.FIND_LINKS))
+            cmd += f' --find-links={" --find-links=".join(args.FIND_LINKS)}'
         if args.INDEX_URL:
-            cmd = '{} --index-url={}'.format(cmd, args.INDEX_URL)
+            cmd += f' --index-url={args.INDEX_URL}'
         if args.LOCAL:
-            cmd = '{} --local'.format(cmd)
+            cmd += ' --local'
         if args.NO_INDEX:
-            cmd = '{} --no-index'.format(cmd)
+            cmd += ' --no-index'
         if args.NOT_REQUIRED:
-            cmd = '{} --not-required'.format(cmd)
+            cmd += ' --not-required'
         if args.PRE:
-            cmd = '{} --pre'.format(cmd)
+            cmd += ' --pre'
         if args.USER:
-            cmd = '{} --user'.format(cmd)
+            cmd += ' --user'
 
         if args.VIRTUALENV:
             # `source` does not work on every environment, so use `.`
-            cmd = '. {} && {}'.format(args.VIRTUALENV, cmd)
+            cmd = f'. {args.VIRTUALENV} && {cmd}'
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd, shell=True))
         else:
             stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
@@ -215,16 +213,24 @@ def main():
     # analyze data
     try:
         packages = json.loads(stdout)
-    except:
-        return lib.base.cu('Failed to parse JSON.')
+    except json.decoder.JSONDecodeError:
+        lib.base.cu('Failed to parse JSON.')
 
     # init some vars
     if args.VIRTUALENV:
-        msg = 'venv {}. '.format(args.VIRTUALENV)
+        msg = f'venv {args.VIRTUALENV}. '
     else:
         msg = 'Not running in a venv. '
     state = lib.base.get_state(len(packages), args.WARN, args.CRIT)
-    perfdata = lib.base.get_perfdata('pip_outdated_packages', len(packages), None, args.WARN, args.CRIT, 0, None) # pylint: disable=C0301
+    perfdata = lib.base.get_perfdata(
+        'pip_outdated_packages',
+        len(packages),
+        uom=None,
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=None,
+    )
 
     # build the message
     if not stderr and state == STATE_OK:
@@ -237,12 +243,9 @@ def main():
     elif stderr and state != STATE_OK:
         msg += 'pip is complaining about something or about itself, plus '
     if len(packages) > 0:
-        msg += '{} outdated {}{}. '.format(
-            len(packages),
-            lib.txt.pluralize('package', len(packages)),
-            lib.base.state2str(state, prefix=' '),
-        )
-    msg += 'Executed command: `{}`'.format(cmd)
+        msg += f'{len(packages)} outdated {lib.txt.pluralize("package", len(packages))}' \
+               f'{lib.base.state2str(state, prefix=" ")}. '
+    msg += f'Executed command: `{cmd.replace(" --format=json", "")}`'
 
     if packages:
         msg += '\n\n'
