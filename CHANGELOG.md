@@ -36,6 +36,11 @@ Assets:
 * To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
 
 
+Icinga Director:
+
+* atlassian-statuspage: increase Icinga Director command timeout
+
+
 Monitoring Plugins:
 
 * pip-updates: modernize code
