@@ -32,7 +32,7 @@ except ImportError as e:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025062701'
+__version__ = '2025071801'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -146,7 +146,10 @@ def concat_values(mydict, hierarchy):
 def statuspalstate2state(sps):
     """Convert Statuspal's incident level to the Nagios world.
     """
-    if sps is None or sps == 'scheduled' or sps == 'info':
+    if sps is None:
+        return STATE_OK
+    sps = sps.lower()
+    if sps == 'scheduled' or sps == 'info':
         return STATE_OK
     if sps == 'minor' or sps == 'performance':
         return STATE_WARN
@@ -217,8 +220,8 @@ def main():
         msg += ': {}'.format(result['incidents'][0]['title'].strip())
         if result['incidents'][0]['updates']:
             msg += ' / {} ({})'.format(
-                result['incidents'][0]['updates'][0]['description'],
-                result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' '),
+                result['incidents'][0]['updates'][0]['description'].strip(),
+                result['incidents'][0]['updates'][0]['updated_at'].replace('T', ' ').strip(),
             )
         msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else '' # pylint: disable=C0301
 
@@ -268,10 +271,10 @@ def main():
             header=['Maintenance', 'Type', 'Start', 'End'],
         )
         # get newest maintenance task
-        if table_data[2]['starts_at'] <= lib.time.now(as_type='iso'):
+        if table_data[0]['starts_at'] <= lib.time.now(as_type='iso'):
             msg = 'Ongoing maintenance since {}: {}\n{}'.format(
-                table_data[2]['starts_at'],
-                table_data[2]['title'],
+                table_data[0]['starts_at'],
+                table_data[0]['title'],
                 msg,
             )
 
