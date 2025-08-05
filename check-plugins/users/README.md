@@ -21,7 +21,6 @@ Hints:
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |
 | Requirements                          | `w` on Linux, `query users` on Windows |
-| 3rd Party Python modules              | `psutil` |
 
 
 ## Help
@@ -49,10 +48,10 @@ options:
 
 ## Usage Examples
 
-On Linux, one user is connected to the console:
+On Linux, if one user is connected to the console:
 
 ```bash
-./users --warning 1,20 --critical 1,20
+./users --warning=1,20 --critical=1,20
 ```
 
 Output:
@@ -64,7 +63,7 @@ USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT
 markus.f :0         Mon06   ?xdm?  6:02m  0.03s /usr/libexec/gdm-x-session --run-script /usr/bin/gnome-session
 ```
 
-On Windows, one user is connected via RDP:
+On Windows, if one user is connected via RDP:
 
 ```text
 ./users --warning 1,20,1 --critical None,50,5
@@ -89,7 +88,7 @@ administrator         rdp-tcp#11          1  Active          .  24.08.2022 17:42
 |----|----|----|
 | tty | Number | Number of TTY users on Linux, Number of Console users on Windows. |
 | pts | Number | Number of PTY users on Linux (for example ssh), Number of RDP users on Windows. |
-| disc | Number | Number of disconnect users (on Windows only). |
+| disc | Number | Number of disconnected users (on Windows only). |
 
 
 ## Credits, License

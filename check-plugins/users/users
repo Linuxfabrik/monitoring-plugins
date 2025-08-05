@@ -16,12 +16,12 @@ import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
 import lib.base  # pylint: disable=C0413
+import lib.lftest  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2023112901'
+__version__ = '2025080501'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -34,23 +34,33 @@ DEFAULT_CRIT_PTS = None
 DEFAULT_CRIT_DISC = None
 DEFAULT_CRIT_TTY = None
 
-WINDOWS_NO_USER_STRING = 'No User exists for *'
-
 
 def parse_args():
+    """Parse command line arguments using argparse.
+    """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__),
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
         '-c', '--critical',
         default=[DEFAULT_CRIT_TTY, DEFAULT_CRIT_PTS, DEFAULT_CRIT_DISC],
         dest='CRIT',
-        help='Set the critical threshold for logged in tty/pts users, in the format "3,10". On Windows, you can additionally set it for disconnected users, in the format "3,10,1". Default: %(default)s',
+        help='Set the critical threshold for logged in tty/pts users, in the format "3,10". '
+             'On Windows, you can additionally set it for disconnected users, '
+             'in the format "3,10,1". '
+             'Default: %(default)s',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
         type=lib.args.csv,
     )
 
@@ -58,14 +68,56 @@ def parse_args():
         '-w', '--warning',
         default=[DEFAULT_WARN_TTY, DEFAULT_WARN_PTS, DEFAULT_WARN_DISC],
         dest='WARN',
-        help='Set the warning threshold for logged in tty/pts users, in the format "1,5". On Windows, you can additionally set it for disconnected users, in the format "1,5,10". Default: %(default)s',
+        help='Set the warning threshold for logged in tty/pts users, in the format "1,5". '
+             'On Windows, you can additionally set it for disconnected users, '
+             'in the format "1,5,10". '
+             'Default: %(default)s',
         type=lib.args.csv,
     )
 
     return parser.parse_args()
 
 
+def parse_linux_output(s):
+    """Parse the output of `w` on Linux.
+    """
+    # replace pipes in output, otherwise we will get problems with perfdata,
+    # and ignore the first line of w's output
+    s = s.strip().replace('|', '!').splitlines()[1:]
+    count_tty, count_pts = 0, 0
+    for line in s:
+        value = line.split()[1]
+        if 'tty' in value or ':' in value:
+            # for example, ":0", the 0. host display
+            # see https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean
+            count_tty += 1
+        else:
+            # this always counts the first header line "USER TTY FROM ...", too
+            count_pts += 1
+
+    return s, count_tty, count_pts - 1
+
+
+def parse_windows_output(s):
+    """Parse the output of `query user` on Windows.
+    """
+    s = s.strip().splitlines()
+    count_tty, count_pts, count_disc = 0, 0, 0
+    for line in s:
+        value = line.split()[1]
+        if value == 'console':
+            count_tty += 1
+        if 'rdp-' in value:
+            count_pts += 1
+        if value == '':     # independent of display language
+            count_disc += 1
+
+    return s, count_tty, count_pts, count_disc
+
+
 def main():
+    """The main function. Hier spielt die Musik.
+    """
     # parse the command line, exit with UNKNOWN if it fails
     try:
         args = parse_args()
@@ -76,9 +128,7 @@ def main():
     msg = ''
     perfdata = ''
     state = STATE_OK
-    count_tty = 0
-    count_pts = 0
-    count_disc = 0
+    count_tty, count_pts, count_disc = 0, 0, 0
 
     try:
         WARN_TTY = lib.args.int_or_none(args.WARN[0])
@@ -88,64 +138,78 @@ def main():
     except:
         lib.base.cu('Unexpected parameter values for --warning and/or --critical.')
 
-    # execute the shell command and return its result and exit code
-    if lib.base.LINUX:
-        cmd = '/usr/bin/w'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if stderr or retc != 0:
-            lib.base.cu(stderr)
-        result = stdout.strip().replace('|', '!') # quote pipes in output, otherwise we will get problems with perfdata
+    # fetch data
+    if args.TEST is None:
+        if lib.base.WINDOWS:
+            WARN_DISC = lib.args.int_or_none(args.WARN[2])
+            CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
+            cmd = 'query user'
+            stdout, _, _ = lib.base.coe(lib.shell.shell_exec(cmd))
+            # Could not find any documentation in the return codes of 'query user'
+            # (%ERRORLEVEL% is always 1).
+            lines, count_tty, count_pts, count_disc = parse_windows_output(stdout)
+        else:
+            cmd = '/usr/bin/w'
+            stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+            if stderr or retc != 0:
+                lib.base.cu(stderr)
+            lines, count_tty, count_pts = parse_linux_output(stdout)
+    else:
+        # do not call the command, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        if any('windows' in s for s in args.TEST):
+            WARN_DISC = lib.args.int_or_none(args.WARN[2])
+            CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
+            lines, count_tty, count_pts, count_disc = parse_windows_output(stdout)
+        else:
+            lines, count_tty, count_pts = parse_linux_output(stdout)
 
-        lines = result.splitlines()[1:] # ignore the first line
-        for line in lines:
-            value = line.split()[1]
-            if 'tty' in value or ':' in value:
-                # for example, ":0", the 0. host display (https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean)
-                count_tty += 1
-            if 'pts' in value:
-                count_pts += 1
-
-    # execute the shell command and return its result and exit code
-    if lib.base.WINDOWS:
-        WARN_DISC = lib.args.int_or_none(args.WARN[2])
-        CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
-
-        cmd = 'query user'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        # Could not find any documentation in the return codes of 'query user' (%ERRORLEVEL% is always 1).
-        result = stdout.strip()
-        lines = result.splitlines()
-        for line in lines:
-            value = line.split()[1]
-            if value == 'console':
-                count_tty += 1
-            if 'rdp-' in value:
-                count_pts += 1
-            if value == '':     # independent of display language
-                count_disc += 1
-
-    # calculating the final check state
-    if count_tty == 0 and count_pts == 0:
+    # analyze data and build the message
+    if count_tty == 0 and count_pts == 0 and len(lines) == 1:
         msg = 'No one is logged in.'
     else:
         tty_state = lib.base.get_state(count_tty, WARN_TTY, CRIT_TTY)
         state = lib.base.get_worst(state, tty_state)
-        msg += 'TTY: {}'.format(count_tty) + lib.base.state2str(tty_state, prefix=' ')
+        msg += f'TTY: {count_tty}' + lib.base.state2str(tty_state, prefix=' ')
 
         pts_state = lib.base.get_state(count_pts, WARN_PTS, CRIT_PTS)
         state = lib.base.get_worst(state, pts_state)
-        msg += ', PTS: {}'.format(count_pts) + lib.base.state2str(pts_state, prefix=' ')
+        msg += f', PTS: {count_pts}' + lib.base.state2str(pts_state, prefix=' ')
 
         if lib.base.WINDOWS:
             disc_state = lib.base.get_state(count_disc, WARN_DISC, CRIT_DISC)
             state = lib.base.get_worst(state, disc_state)
-            msg += ', Disconnected: {}'.format(count_disc) + lib.base.state2str(disc_state, prefix=' ')
-            perfdata += lib.base.get_perfdata('disc', count_disc, None, WARN_DISC, CRIT_DISC, 0, None)
+            msg += f', Disconnected: {count_disc}' + lib.base.state2str(disc_state, prefix=' ')
+            perfdata += lib.base.get_perfdata(
+                'disc',
+                count_disc,
+                uom=None,
+                warn=WARN_DISC,
+                crit=CRIT_DISC,
+                _min=0,
+                _max=None,
+            )
 
         msg += '\n\n' + '\n'.join(lines)
 
-    perfdata += lib.base.get_perfdata('tty', count_tty, None, WARN_TTY, CRIT_TTY, 0, None)
-    perfdata += lib.base.get_perfdata('pts', count_pts, None, WARN_PTS, CRIT_PTS, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'tty',
+        count_tty,
+        uom=None,
+        warn=WARN_TTY,
+        crit=CRIT_TTY,
+        _min=0,
+        _max=None,
+    )
+    perfdata += lib.base.get_perfdata(
+        'pts',
+        count_pts,
+        uom=None,
+        warn=WARN_PTS,
+        crit=CRIT_PTS,
+        _min=0,
+        _max=None,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata)

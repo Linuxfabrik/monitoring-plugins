@@ -27,6 +27,7 @@ Monitoring Plugins:
 * icinga-topflap-services: prevent stacktrace when required parameters are empty
 * openstack-swift-stat: problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
 * statuspal: handle incident_type "performance"
+* users: "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/lib/issues/919))
 * valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
 
 
