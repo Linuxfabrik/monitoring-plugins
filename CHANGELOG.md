@@ -42,7 +42,10 @@ Assets:
 Icinga Director:
 
 * atlassian-statuspage: increase Icinga Director command timeout
-* ntp-w32tm: change command timeout from 10 to 20 and check interval from 60 to 600
+* disk-io: change command timeout from 10 to 30 for Windows
+* memory-usage: change command timeout from 10 to 30 for Windows
+* ntp-w32tm: change command timeout from 10 to 30 and check interval from 60 to 600
+* procs: change command timeout from 10 to 30 for Windows
 
 
 Monitoring Plugins:
