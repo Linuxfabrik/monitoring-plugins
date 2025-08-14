@@ -42,6 +42,7 @@ Assets:
 Icinga Director:
 
 * atlassian-statuspage: increase Icinga Director command timeout
+* ntp-w32tm: change command timeout from 10 to 20 and check interval from 60 to 600
 
 
 Monitoring Plugins:
