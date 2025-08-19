@@ -50,6 +50,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* gitlab-readiness: increase timeout from 3 to 8 secs
 * journald-usage: also print SystemMaxUse and SystemKeepFree
 * pip-updates: modernize code
 * rocketchat-stats: improve output and docs a little bit
