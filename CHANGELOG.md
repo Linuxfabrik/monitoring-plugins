@@ -50,6 +50,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* gitlab-health: increase timeout from 3 to 8 secs
 * gitlab-liveness: increase timeout from 3 to 8 secs
 * gitlab-readiness: increase timeout from 3 to 8 secs
 * journald-usage: also print SystemMaxUse and SystemKeepFree
