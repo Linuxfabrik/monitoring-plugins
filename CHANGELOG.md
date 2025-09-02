@@ -19,6 +19,7 @@ Monitoring Plugins:
 Assets:
 
 * Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): add missing type enforcement requirements ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
 
 
 Monitoring Plugins:
