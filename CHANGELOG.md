@@ -35,6 +35,11 @@ Monitoring Plugins:
 
 ### Changed ("refactor", "chore" etc.)
 
+Build, CI/CD:
+
+* Add build targets for Debian 13 and Rocky 10
+
+
 Assets:
 
 * To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.

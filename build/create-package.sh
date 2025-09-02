@@ -5,7 +5,7 @@ set -e -o pipefail -u -x
 
 echo "✅ Create package for $LFMP_TARGET_DISTRO"
 case "$LFMP_TARGET_DISTRO" in
-debian11 | debian12 | ubuntu2204 | ubuntu2404)
+debian11 | debian12 | debian13 | ubuntu2204 | ubuntu2404)
     export LFMP_PYTHON=python3
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
@@ -19,7 +19,7 @@ rocky8)
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh
     ;;
-rocky9)
+rocky9 | rocky10)
     export LFMP_PYTHON=python3
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
