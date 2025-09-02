@@ -122,6 +122,14 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '-v', '--verbose',
+        help='Set the verbosity level.',
+        dest='VERBOSITY',
+        action='count',
+        default=0
+    )
+
     return parser.parse_args()
 
 
@@ -156,40 +164,72 @@ def main():
             extended=True,
         )
         
+        if args.VERBOSITY > 2:
+            print(success, jsonst, type(jsonst))
         try:
-            print(jsonst)
-            result = json.loads(jsonst)
+            result = jsonst['response_json']
+            status_code = jsonst['status_code']
         except:
             lib.base.cu('ValueError: No JSON object could be decoded')
     else:
         # do not call the command, put in test data
         result, retc = lib.lftest.test(args.TEST)
 
-    print_r(result)
+    if args.VERBOSITY > 2:
+            print(status_code, result)
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    try:
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    except:
-        lib.base.cu('Unable to compile regex.')
-
     table_data = []
 
     # analyze data
     #HTTP response code is 200 for server status UP and 503 for statuses DEGRADED and DOWN.
-    
+    if status_code == 503:
+        state = STATE_WARN
 
-    title = 'Lorem ipsum'
-    if any(item.search(title) for item in compiled_ignore_regex):
-        pass # in loops: continue
-    value = str(lib.time.now())[-2:]
+    if result['status'] == 'DOWN':
+        state = STATE_CRIT
 
     # build the message
-    state = lib.base.get_state(value, args.WARN, args.CRIT)
-    msg += '{}% used{}'.format(value, lib.base.state2str(state, prefix=' '))
-    perfdata += lib.base.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
+
+    table_cols = ["Component", "Status", "Details"]
+
+    for component, info in result['components'].items():
+        status = info.get('status')
+        details = info.get('details', {})
+        # Flatten details dict to a string
+        table_data.append({'Component': component, 'Status': status, 'Details': ''})
+        for k, v in details.items():
+            table_data.append({'Component': '', 'Status': '', 'Details': '{}={}'.format(k,v)})
+            if isinstance(v, (int, float)):
+                if k == 'threshold':
+                    continue
+                if k == 'total':
+                    continue
+                warn_threshold = details.get('threshold', '')
+                crit_threshold = details.get('threshold', '')
+                lable = '_'.join([component, k])
+                value = v
+                uom = ''
+                total = threshold = details.get('total', '')
+                if isinstance(v, bool):
+                    value = int(v)
+                    warn_threshold = ''
+                    crit_threshold = ''
+                    total = ''
+                perfdata += lib.base.get_perfdata(
+                    lable,
+                    value,
+                    uom,
+                    warn_threshold,
+                    crit_threshold,
+                    total)
+
+    msg += '{} Status: {}'.format(lib.base.state2str(state, prefix=' '), result['status'])
+    msg += '\n{}'.format(lib.base.get_table(table_data, table_cols, table_cols))
+    #perfdata += lib.base.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
