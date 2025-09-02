@@ -22,6 +22,11 @@ Assets:
 * Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): add missing type enforcement requirements ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
 
 
+Build, CI/CD:
+
+* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/lib/issues/918))
+
+
 Monitoring Plugins:
 
 * deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
@@ -35,16 +40,16 @@ Monitoring Plugins:
 
 ### Changed ("refactor", "chore" etc.)
 
+Assets:
+
+* To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
+
+
 Build, CI/CD:
 
 * Add build targets for Debian 13 and Rocky 10
 * Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
 * Build Debian 13, Rocky 10 packages by default in GitHub workflows
-
-
-Assets:
-
-* To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
 
 
 Icinga Director:
