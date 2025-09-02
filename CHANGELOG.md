@@ -38,6 +38,7 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * Add build targets for Debian 13 and Rocky 10
+* Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
 
 
 Assets:
