@@ -69,6 +69,7 @@ Monitoring Plugins:
 * infomaniak-events: increase timeout from 8 to 28 secs
 * journald-usage: also print SystemMaxUse and SystemKeepFree
 * pip-updates: modernize code
+* procs: avoid token + PEB reads and repeated attribute calls per process, as this has an impact on busy Windows servers
 * rocketchat-stats: improve output and docs a little bit
 * statuspal: 'performance' degredation is now a WARN, not UNKNOWN
 
