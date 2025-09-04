@@ -36,8 +36,6 @@ __version__ = '2025090101'
 DESCRIPTION = """A monitoring plugin, querying the Better EHR Health JSON endpoint.
                 http://server:port/health (application/json response)"""
 
-DEFAULT_WARN = 80
-DEFAULT_CRIT = 90
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_URL = 'http://localhost:80/health'
@@ -60,15 +58,6 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
-    )
-
-    parser.add_argument(
-        '-c', '--critical',
-        help='Set the CRIT threshold as a percentage. '
-             'Default: >= %(default)s',
-        dest='CRIT',
-        type=int,
-        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -114,12 +103,25 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w', '--warning',
-        help='Set the WARN threshold as a percentage. '
-             'Default: >= %(default)s',
-        dest='WARN',
-        type=int,
-        default=DEFAULT_WARN,
+        '--override-status',
+        metavar='COMPONENT:API_STATE:NAGIOS_STATE',
+        action='append',
+        help=(
+            'Override mapping from API state to Nagios state. '
+            'Format: component:api_state:nagios_state '
+            'Example: diskSpace:DEGRADED:WARN'
+        )
+    )
+
+    parser.add_argument(
+        '--override-threshold',
+        metavar='COMPONENT:DETAIL[:WARN[:CRIT]]',
+        action='append',
+        help=(
+            'Override threshold check for a component detail. '
+        'Nagios format: component:detail[:warn[:crit]] '
+        'Example: diskSpace:free::20000000'
+        )
     )
 
     parser.add_argument(
@@ -142,6 +144,30 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    status_overrides = []
+    for item in args.override_status or []:
+        try:
+            comp, api_state, nagios_state = item.split(':', 2)
+            status_overrides.append({
+                'component': comp,
+                'api_state': api_state.upper(),
+                'nagios_state': nagios_state.upper(),
+            })
+        except ValueError:
+            lib.base.cu('Invalid status override: {}'.format(item))
+
+    threshold_overrides = []
+    for item in args.override_threshold or []:
+        parts = item.split(':')
+        if len(parts) < 2:
+            lib.base.cu('Invalid threshold override: {}'.format(item))
+        threshold_overrides.append({
+            'component': parts[0],
+            'detail': parts[1],
+            'warn': parts[2] if len(parts) > 2 and parts[2] != '' else None,
+            'crit': parts[3] if len(parts) > 3 and parts[3] != '' else None,
+        })
 
     # fetch data
     if args.TEST is None:
@@ -182,9 +208,12 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    table_cols = ['Component', 'Status', 'Details']
     table_data = []
+    s_o_s = state
+    t_o_s = state
 
-    # analyze data
+    # analyze data and build message
     #HTTP response code is 200 for server status UP and 503 for statuses DEGRADED and DOWN.
     if status_code == 503:
         state = STATE_WARN
@@ -192,47 +221,88 @@ def main():
     if result['status'] == 'DOWN':
         state = STATE_CRIT
 
-    # build the message
-
-    table_cols = ["Component", "Status", "Details"]
-
+    # Go over components and check for state overrides
+    # build the table while we're at it
     for component, info in result['components'].items():
         status = info.get('status')
         details = info.get('details', {})
-        # Flatten details dict to a string
+
+        # Check for status overrides
+        for s_o in status_overrides:
+            if s_o['component'] == component:
+                api_state = info.get('status', '').upper()
+                if api_state == s_o['api_state']:
+                    temp_state = {
+                        'CRIT': STATE_CRIT,
+                        'CRITICAL': STATE_CRIT,
+                        'WARN': STATE_WARN,
+                        'WARNING': STATE_WARN,
+                        'OK': STATE_OK,
+                        'UNKNOWN': STATE_UNKNOWN,
+                    }.get(s_o['nagios_state'], STATE_UNKNOWN)
+                    s_o_s = lib.base.get_worst(s_o_s, temp_state)
+                    status = '{} -> {}'.format(status, lib.base.state2str(temp_state))
+
         table_data.append({'Component': component, 'Status': status, 'Details': ''})
+
         for k, v in details.items():
-            table_data.append({'Component': '', 'Status': '', 'Details': '{}={}'.format(k,v)})
-            if isinstance(v, (int, float)):
-                if k == 'threshold':
-                    continue
-                if k == 'total':
-                    continue
-                warn_threshold = details.get('threshold', '')
-                crit_threshold = details.get('threshold', '')
+            status = ''
+            warn = ''
+            crit = ''
+            # Apply threshold overrides that match this detail
+            for t_o in threshold_overrides:
+                if t_o['component'] == component and t_o['detail'] == k:
+                    warn = t_o['warn']
+                    crit = t_o['crit']
+                    temp_state = lib.base.get_state(v, warn, crit, 'range')
+                    t_o_s = lib.base.get_worst(t_o_s, temp_state)
+                    status = lib.base.state2str(temp_state)
+
+            table_data.append({'Component': '', 'Status': status, 'Details': '{}={}'.format(k,v)})
+
+            # Generate perfdata for numeric values
+            if isinstance(v, (int, float)) and k not in ('threshold', 'total'):
+                if warn != '':
+                    warn_threshold = warn
+                else:
+                    warn_threshold = details.get('threshold', '')
+                if crit != '':
+                    crit_threshold = crit
+                else:
+                    crit_threshold = details.get('threshold', '')
                 lable = '_'.join([component, k])
+                label = f'{component}_{k}'
                 value = v
                 uom = ''
-                total = threshold = details.get('total', '')
+                total = details.get('total', '')
                 if isinstance(v, bool):
                     value = int(v)
                     warn_threshold = ''
                     crit_threshold = ''
                     total = ''
                 perfdata += lib.base.get_perfdata(
-                    lable,
+                    label,
                     value,
                     uom,
                     warn_threshold,
                     crit_threshold,
                     total)
 
-    msg += '{} Status: {}'.format(lib.base.state2str(state, prefix=' '), result['status'])
+    # Final plugin state
+    final_state = lib.base.get_worst(lib.base.get_worst(state, s_o_s), t_o_s)
+
+    # Compose message
+    if final_state == state:
+        msg += '{} API Status: {}'.format(lib.base.state2str(state, prefix=' '), result['status'])
+    else:
+        msg += '{} overridden from {} API Status: {}'.format(
+            lib.base.state2str(final_state, prefix=' '),
+            lib.base.state2str(state, prefix=' '),
+            result['status'])
     msg += '\n{}'.format(lib.base.get_table(table_data, table_cols, table_cols))
-    #perfdata += lib.base.get_perfdata('usage_percent', value, '%', args.WARN, args.CRIT, 0, 100)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, final_state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
