@@ -24,7 +24,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN)  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025052301'
+__version__ = '2025090401'
 
 DESCRIPTION = '''This plugin checks for software updates on systems that use
                  package management systems based on the apt-get(8) command
@@ -120,13 +120,15 @@ def main():
         lib.shell.shell_exec('sudo apt-get update --quiet 2', timeout=args.TIMEOUT),
     )
     if retc or stderr:
-        msg += '`apt-get update` returned with an error, maybe results are not accurate. '
-        # but go on...
+        # Not printing stderr as it is quite verbose
+        msg += '`apt-get update` returned with an error. '
+        lib.base.cu(msg)
 
     stdout, _, retc = lib.base.coe(
         lib.shell.shell_exec('apt list --upgradable', timeout=args.TIMEOUT),
     )
     if retc:
+        # Not printing stderr as it is quite verbose
         msg += '`apt list --upgradable` returned with an error. '
         lib.base.cu(msg)
 
