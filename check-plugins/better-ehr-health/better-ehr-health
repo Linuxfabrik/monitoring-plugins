@@ -88,9 +88,15 @@ def parse_args():
 
     parser.add_argument(
         '--test',
-        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        help='For unit tests. Provide a path to a JSON file containing a captured API response.',
         dest='TEST',
-        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--record-json',
+        help='Write the full fetched JSON (including status_code and response_json) to the given file.',
+        dest='RECORD_JSON',
+        metavar='FILE',
     )
 
     parser.add_argument(
@@ -197,9 +203,28 @@ def main():
             status_code = jsonst['status_code']
         except:
             lib.base.cu('ValueError: No JSON object could be decoded')
+
+        # record JSON ready for testing
+        if args.RECORD_JSON:
+            try:
+                record = {
+                    "status_code": status_code,
+                    "response_json": result,
+                }
+                with open(args.RECORD_JSON, 'w', encoding='utf-8') as f:
+                    json.dump(record, f, indent=2, sort_keys=True)
+            except Exception as e:
+                lib.base.cu(f'Failed to write JSON to {args.RECORD_JSON}: {e}')
+
     else:
-        # do not call the command, put in test data
-        result, retc = lib.lftest.test(args.TEST)
+        # Load test data from JSON file
+        try:
+            with open(args.TEST, 'r', encoding='utf-8') as f:
+                jsonst = json.load(f)
+            result = jsonst['response_json']
+            status_code = jsonst.get('status_code', 200)
+        except Exception as e:
+            lib.base.cu(f'Failed to load test JSON file {args.TEST}: {e}')
 
     if args.VERBOSITY > 2:
             print(status_code, result)

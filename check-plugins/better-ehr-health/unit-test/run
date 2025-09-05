@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+import unittest
+
+sys.path.append("..")  # Adds higher directory to python modules path.
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../better-ehr-health'  # path to your plugin
+
+    def run_check(self, args):
+        """Helper to run the check with args and return stdout, stderr, retc."""
+        cmd = f"{self.check} {args}"
+        return lib.base.coe(lib.shell.shell_exec(cmd))
+
+    def test_fhir_up(self):
+        stdout, stderr, retc = self.run_check("--test fhir_up.json")
+        self.assertEqual(retc, STATE_OK, msg=stdout)
+        self.assertIn("API Status: UP", stdout)
+        self.assertEqual(stderr, "")
+
+    def test_fhir_down(self):
+        stdout, stderr, retc = self.run_check("--test fhir_down.json")
+        self.assertEqual(retc, STATE_CRIT, msg=stdout)
+        self.assertIn("API Status: DOWN", stdout)
+        self.assertEqual(stderr, "")
+
+    def test_fhir_degraded(self):
+        stdout, stderr, retc = self.run_check("--test fhir_degraded.json")
+        # degraded → WARN via HTTP 503
+        self.assertEqual(retc, STATE_WARN, msg=stdout)
+        self.assertIn("API Status: DEGRADED", stdout)
+        self.assertEqual(stderr, "")
+
+    def test_override_status(self):
+        stdout, stderr, retc = self.run_check(
+            "--override-status indexStatus:GREEN:WARN "
+            "--test fhir_up.json"
+        )
+        # GREEN overridden → WARN
+        self.assertEqual(retc, STATE_WARN, msg=stdout)
+        self.assertIn("overridden", stdout)
+        self.assertEqual(stderr, "")
+
+    def test_override_threshold(self):
+        stdout, stderr, retc = self.run_check(
+            "--override-threshold diskSpace:free:20:2000000000000000000000 "
+            "--test fhir_up.json"
+        )
+        # depending on JSON values, expect WARN or CRIT, but at least not UNKNOWN
+        self.assertIn(retc, [STATE_OK, STATE_WARN, STATE_CRIT], msg=stdout)
+        self.assertIn("diskSpace", stdout)
+        self.assertEqual(stderr, "")
+
+
+if __name__ == '__main__':
+    unittest.main()
