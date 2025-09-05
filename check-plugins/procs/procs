@@ -230,9 +230,10 @@ def main():
     attrs.append('memory_info')      # RSS; we'll compute percent ourselves
 
     # loop over all processes found, filter and count
-    # Let psutil pre-fill .info to reduce per-proc syscalls
+    # let psutil pre-fill .info to reduce per-proc syscalls
+    # iterate with ad_value to avoid per-proc exceptions
     # https://psutil.readthedocs.io/en/latest/#psutil.process_iter
-    for p in psutil.process_iter(attrs=attrs):
+    for p in psutil.process_iter(attrs=attrs, ad_value=''):
         try:
             info = p.info
         except (psutil.NoSuchProcess, psutil.AccessDenied):
