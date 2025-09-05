@@ -22,7 +22,8 @@ Hints:
 
 ```text
 usage: better-ehr-health [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
-                         [--url URL] [--test TEST] [--timeout TIMEOUT]
+                         [--url URL] [--test TEST] [--record-json FILE]
+                         [--timeout TIMEOUT]
                          [--override-status COMPONENT:API_STATE:NAGIOS_STATE]
                          [--override-threshold COMPONENT:DETAIL[:WARN[:CRIT]]]
                          [-v]
@@ -35,19 +36,24 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --insecure            Allow insecure SSL connections. Default: True
+  --insecure            This option explicitly allows to perform "insecure"
+                        SSL connections. Default: True
   --no-proxy            Do not use a proxy. Default: False
-  --url URL             Better EHR Health endpoint. Default:
+  --url URL             Better EHR Health Endpoint. Default:
                         http://localhost:80/health
-  --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
-                        stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3
+  --test TEST           For unit tests. Provide a path to a JSON file
+                        containing a captured API response.
+  --record-json FILE    Write the full fetched JSON (including status_code and
+                        response_json) to the given file.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --override-status COMPONENT:API_STATE:NAGIOS_STATE
                         Override mapping from API state to Nagios state.
-                        Example: diskSpace:DEGRADED:WARN
+                        Format: component:api_state:nagios_state Example:
+                        diskSpace:DEGRADED:WARN
   --override-threshold COMPONENT:DETAIL[:WARN[:CRIT]]
                         Override threshold check for a component detail.
-                        Example: diskSpace:free::20000000
+                        Nagios format: component:detail[:warn[:crit]] Example:
+                        diskSpace:free::20000000
   -v, --verbose         Set the verbosity level.
 ```
 
@@ -63,6 +69,29 @@ options:
 
 ```bash
 ./better-ehr-health --override-threshold diskSpace:free::20000000
+```
+
+### Output:
+```text
+[WARNING] overridden from  API Status: UP
+Component            ! Status             ! Details                  
+---------------------+--------------------+--------------------------
+db                   ! UP                 !                          
+                     !                    ! database=Oracle          
+                     !                    ! validationQuery=isValid()
+diskSpace            ! UP                 !                          
+                     !                    ! total=61041709056        
+                     ! [WARNING]          ! free=35045371904         
+                     !                    ! threshold=10485760       
+                     !                    ! exists=True              
+hikariConnectionPool ! UP                 !                          
+                     !                    ! activeConnections=0      
+                     !                    ! maxPoolSize=40           
+indexStatus          ! GREEN -> [WARNING] !                          
+indexSynchronization ! GREEN              !                          
+                     !                    ! queuedEntries=0          
+                     !                    ! erroredEntries=0         
+ping                 ! UP                 !|'diskSpace_free'=35045371904;20;2000000000000000000000;61041709056; 'diskSpace_exists'=1;;;; 'hikariConnectionPool_activeConnections'=0;;;; 'hikariConnectionPool_maxPoolSize'=40;;;; 'indexSynchronization_queuedEntries'=0;;;; 'indexSynchronization_erroredEntries'=0;;;;
 ```
 
 ## States
