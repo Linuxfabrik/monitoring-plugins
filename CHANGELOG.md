@@ -19,11 +19,18 @@ Monitoring Plugins:
 Assets:
 
 * Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): add missing type enforcement requirements ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
+
+
+Build, CI/CD:
+
+* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/lib/issues/918))
 
 
 Monitoring Plugins:
 
 * deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+* deb-updates: missing rights and still OK ([#937](https://github.com/Linuxfabrik/monitoring-plugins/issues/937))
 * icinga-topflap-services: prevent stacktrace when required parameters are empty
 * openstack-swift-stat: problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
 * safenet-hsm-state: set `use_agent` to false and enable perfdata in Icinga Director Basket
@@ -37,6 +44,13 @@ Monitoring Plugins:
 Assets:
 
 * To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
+
+
+Build, CI/CD:
+
+* Add build targets for Debian 13 and Rocky 10
+* Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
+* Build Debian 13, Rocky 10 packages by default in GitHub workflows
 
 
 Icinga Director:
@@ -56,6 +70,7 @@ Monitoring Plugins:
 * infomaniak-events: increase timeout from 8 to 28 secs
 * journald-usage: also print SystemMaxUse and SystemKeepFree
 * pip-updates: modernize code
+* procs: avoid token + PEB reads and repeated attribute calls per process, as this has an impact on busy Windows servers
 * rocketchat-stats: improve output and docs a little bit
 * statuspal: 'performance' degredation is now a WARN, not UNKNOWN
 

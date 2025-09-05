@@ -76,6 +76,11 @@ For now, there are two ways:
 For reporting a vulnerability issue, see [SECURITY](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/SECURITY.md).
 
 
+## Roadmap
+
+This Open Source project is not being developed according to a fixed roadmap. We do not provide any information about timelines, and even if we did, there would be no guarantee that they would be met. The content of milestones may change according to our customers' needs.
+
+
 ## Check Plugin Poster
 
 See some of our check plugins at a glance on an Icinga server:
@@ -219,6 +224,11 @@ If you zoom in, for example on *CPU Usage*:
 ## Feedback from our Community
 
 Some comments from the community about our monitoring plugins:
+
+> First, I just wanted to say thanks for your great work on these plugins. Great collection that cover a lot of bases!
+
+-- [Jostein Elvaker Haande](https://github.com/tolecnal)
+
 
 > We replaced all checks from the Icinga Powershell Framework with the Linuxfabrik equivalents. Much faster and a heavily reduced memory footprint. Great work!
 

@@ -4,23 +4,9 @@
 
 Prints the number of currently running processes and warns on metrics like process counts or process memory usage. You may filter the process list by process name, arguments and/or user name.
 
-In output, process states are summarized like so:
-
-| Reported Proc State | Description |
-|---------------------|-------------|
-| dead                | X           |
-| paging              | W           |
-| running             | R           |
-| sleeping            | I, S        |
-| stopped             | t, T        |
-| uninterruptible     | D           |
-| zombies             | Z           |
-
 Hints:
 
-* RSS aka "Resident Set Size" ("Res"): This is the non-swapped physical memory a process has used. On UNIX it matches "top"'s RES column. On Windows this is an alias for wset field and it matches "Mem Usage" column of `taskmgr.exe`.
-* Be aware of the differences in memory counting between different tools like top, htop, glances, GNOME System Monitor etc.
-* Memory counting also changed between different Linux Kernel versions.
+* Memory: We count RSS, also known as 'Resident Set Size' or 'Res'. This is the amount of physical memory that a process has used that has not been swapped out. In UNIX, it matches the 'RES' column in 'top'. Note the differences in memory counting between tools such as 'top', 'htop', 'glances', 'GNOME System Monitor' and others. The way memory is counted also changes between different Linux kernel versions. On Windows, this is an alias for the wset field, matching the 'Mem Usage' column in taskmgr.exe.
 
 
 ## Fact Sheet
@@ -54,10 +40,11 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --argument ARGUMENT   Filter: Search only for processes containing ARGUMENT
-                        in the command, for example `-s` (case-insensitive).
+                        in the command (case-insensitive), for example
+                        `--verbose`
   --command COMMAND     Filter: Search only for processes starting with
-                        COMMAND, for example `bash` (without path, case-
-                        insensitive).
+                        COMMAND (without path, case-insensitive), for example
+                        `bash`
   -c, --critical CRIT   Threshold for the number of processes. Type: None or
                         Range. Default: None
   --critical-mem CRIT_MEM
@@ -73,9 +60,9 @@ options:
                         Linux only). Default: False
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
                         Filter: Search only for processes that have a specific
-                        status. Default: None,
+                        status. Default: None
   --username USERNAME   Filter: Search only for processes with specific user
-                        name, e.g. `apache` (case-insensitive).
+                        name (case-insensitive), for example `apache`
   -w, --warning WARN    Threshold for the number of processes. Type: None or
                         Range. Default: None
   --warning-mem WARN_MEM
@@ -99,7 +86,7 @@ options:
 Output:
 
 ```text
-356 procs using 9.5GiB RAM (62.7%), oldest proc created 7h 44m ago, 5 running (1x glances, 1x WebExtensions, 1x systemd-resolved, 1x firefox, 1x Privileged Cont), 351 sleeping
+564 procs using 16.9GiB RAM (54.7%), 1 uninterruptible (1x kworker/u36:0+i915_flip), 1 running (1x isolated web co), 561 sleeping, 1 zombie (1x xdg-open)
 ```
 
 Other examples:
@@ -121,15 +108,6 @@ Other examples:
 ./procs --command='web content'
 ```
 
-## How to get process names
-
-Some process names in Python's psutil do not match the ones from `ps aux`. To get a list with all processes, their names and details from a Python point of view, do:
-
-```python
-(echo "import psutil"; echo "processes = psutil.process_iter()"; echo "for process in processes: print(process)") | python
-```
-
-
 ## States
 
 * WARN or CRIT depending on your parameters, or if no process can be found.
@@ -149,6 +127,15 @@ Some process names in Python's psutil do not match the ones from `ps aux`. To ge
 | procs_stopped | Number | Number of procs stopped by debugger during the tracing or by job control signal |
 | procs_uninterruptible | Number | Number of procs in uninterruptible state |
 | procs_zombies | Number | Number of zombie processes |
+
+
+## Troubleshooting
+
+How to get process names? Some process names in Python's psutil do not match the ones from `ps aux`. To get a list with all processes, their names and details from a Python point of view, do:
+
+```python
+(echo "import psutil"; echo "processes = psutil.process_iter()"; echo "for process in processes: print(process)") | python
+```
 
 
 ## Credits, License

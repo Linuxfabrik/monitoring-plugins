@@ -54,7 +54,7 @@ cat > env-file << 'EOF'
 export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
 export LFMP_VERSION=1.4.0
 export LFMP_PACKAGE_ITERATION=7
-export LFMP_TARGET_DISTROS="debian12 rocky9"              # "debian11 debian12 rocky8 rocky9 ubuntu2004 ubuntu2204 ubuntu2404"
+export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 ubuntu2004 ubuntu2204 ubuntu2404"
 
 # ---
 # Constants
@@ -136,8 +136,10 @@ Target OS     ! Packaged on
 --------------+-------------------------------------
 Debian 11     ! docker.io/library/debian:11
 Debian 12     ! docker.io/library/debian:12
-RHEL 8        ! docker.io/library/rockylinux:8
-RHEL 9        ! docker.io/library/rockylinux:9
+Debian 13     ! docker.io/library/debian:13
+RHEL 8        ! docker.io/rockylinux/rockylinux:8
+RHEL 9        ! docker.io/rockylinux/rockylinux:9
+RHEL 10       ! docker.io/rockylinux/rockylinux:10
 Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
 Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
 Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
@@ -145,6 +147,10 @@ Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
 
 > [!NOTE]
 > Why Rocky instead of RHEL's "ubi" container images? According to [Types of container images](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/9/html/building_running_and_managing_containers/assembly_types-of-container-images_building-running-and-managing-containers#assembly_types-of-container-images_building-running-and-managing-containers), Red Hat Universal Base images ("ubi") are built from a subset of the normal Red Hat Enterprise Linux content, so you have access to free dnf repositories for adding and updating software. A subset of the CRB repo is also available, and that's why EPEL is installable. If you need more packages, you will need to purchase a (developer) subscription or run the container on a subscribed host.
+
+> [!NOTE]
+> Why `docker.io/rockylinux/rockylinux` instead of `docker.io/library/rockylinux`?  
+> `docker.io/library/rockylinux` is currently not updated: "The Docker team curates the Official Images program, and there are currently some technical constraints preventing Rocky Linux from publishing updates here. For the most up-to-date container images, please refer to [the Rocky Linux Docker Hub repository](https://hub.docker.com/r/rockylinux/rockylinux) for now." (from https://hub.docker.com/_/rockylinux#important-note)
 
 Windows Binaries  
 Binaries for Windows are compiled on Windows Server 2025 using MSVC 14.
