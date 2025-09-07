@@ -44,7 +44,8 @@ focusing on sustained load. Perfdata is emitted for every field to enable full
 graphing. Extended stats (context switches, interrupts, etc.) are included if
 supported on this platform. With `--top`, the most CPU-intensive processes are
 also listed for quick diagnosis. This check is cross-platform and works on
-Linux, Windows, and all psutil-supported systems.
+Linux, Windows, and all psutil-supported systems. The check stores its short
+trend state locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help           show this help message and exit
