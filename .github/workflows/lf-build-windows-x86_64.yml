@@ -22,6 +22,7 @@ on:
 # modify the default permissions granted to the GITHUB_TOKEN
 permissions:
   contents: 'read'
+  actions: 'read'
 
 jobs:
   build-windows-x86_64:
@@ -97,6 +98,7 @@ jobs:
         with:
           path: '${{ env.LFMP_DIR_COMPILED }}/check-plugins/*'
           name: "lfmp-${{ env.LFMP_VERSION }}-${{ env.LFMP_PACKAGE_ITERATION }}.unsigned-compiled.windows.${{ env.LFMP_ARCH }}"
+          if-no-files-found: 'error'
 
       # https://github.com/SignPath/github-actions/tree/main/actions/submit-signing-request
       # https://about.signpath.io/documentation/trusted-build-systems/github
@@ -109,6 +111,7 @@ jobs:
           signing-policy-slug: 'release-signing'
           artifact-configuration-slug: 'compiled'
           github-artifact-id: '${{ steps.upload-unsigned-compiled.outputs.artifact-id }}'
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
           wait-for-completion: true
           # note: the path is always relative to GITHUB_WORKSPACE (hardcoded in the signpath action)
           # and will be created if it does not exist
