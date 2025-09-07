@@ -40,8 +40,7 @@ options:
   -c, --critical CRIT  Set the critical threshold for memory usage (in
                        percent). Default: 95
   --top TOP            List x "Top most memory consuming processes". Use
-                       `--top=0` to disable this feature. Default: 5 on Linux,
-                       0 on Windows
+                       `--top=0` to disable this feature. Default: 5
   -w, --warning WARN   Set the warning threshold for memory usage (in
                        percent). Default: 90
 ```
