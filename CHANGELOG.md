@@ -64,6 +64,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* cpu-usage: non-blocking behaviour (interval=None + manual deltas via SQLite DB) so we get both accuracy and faster runtime
 * gitlab-health: increase timeout from 3 to 8 secs
 * gitlab-liveness: increase timeout from 3 to 8 secs
 * gitlab-readiness: increase timeout from 3 to 8 secs

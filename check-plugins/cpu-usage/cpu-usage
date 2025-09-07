@@ -11,34 +11,46 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
-from collections import Counter  # pylint: disable=C0413
+import argparse
+import sys
+from collections import Counter
+from types import SimpleNamespace
 
-import lib.base  # pylint: disable=C0413
-import lib.db_sqlite  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+import lib.base
+import lib.db_sqlite
+import lib.human
+import lib.version
+from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 try:
-    import psutil  # pylint: disable=C0413
+    import psutil
 except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025020401'
+__version__ = '2025090701'
 
-DESCRIPTION = """Mainly provides utilization percentages for each specific CPU time. Takes a time
-                period into account: the cpu usage within a certain amount of time has to be equal
-                or above given thresholds before a warning is raised."""
+DESCRIPTION = """Reports CPU utilization percentages for all available time categories
+                 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus
+                 the overall cpu-usage (100 − idle − nice).
+
+                 Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage.
+                 An alert is raised only if the threshold is exceeded for COUNT consecutive runs,
+                 suppressing short spikes and focusing on sustained load.
+
+                 Perfdata is emitted for every field to enable full graphing. Extended stats
+                 (context switches, interrupts, etc.) are included if supported on this platform.
+                 With `--top`, the most CPU-intensive processes are also listed for quick diagnosis.
+
+                 This check is cross-platform and works on Linux, Windows, and all psutil-supported
+                 systems."""
+
 
 DEFAULT_COUNT = 5 # measurements; if check runs once per minute, this is a 5 minute interval
 DEFAULT_CRIT = 90 # %
-DEFAULT_TOP = 5
+DEFAULT_TOP = 0 if lib.base.WINDOWS else 5
 DEFAULT_WARN = 80 # %
 
 
@@ -50,7 +62,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -82,7 +94,8 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List x "Top processes using the most cpu time". '
-             'Default: %(default)s',
+             'Use `--top=0` to disable this feature. '
+             'Default: 5 on Linux, 0 on Windows',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
@@ -100,15 +113,124 @@ def parse_args():
     return parser.parse_args()
 
 
+def _cpu_times_to_dict(ct):
+    """Return a dict of cpu_times fields present on this platform.
+    """
+    # psutil returns a namedtuple; only keep fields that exist on this OS
+    fields = (
+        'user',
+        'nice',
+        'system',
+        'idle',
+        'iowait',
+        'irq',
+        'softirq',
+        'steal',
+        'guest',
+        'guest_nice',
+    )
+    return {f: getattr(ct, f, 0.0) for f in fields}
+
+
+# * Store a single last raw snapshot of psutil.cpu_times() (cumulative jiffy/seconds counters
+#   since boot) + a timestamp in the existing SQLite file.
+# * On the next run, read the last snapshot, compute deltas for each field, and turn those
+#   into percentages.
+# * If there's no prior snapshot (first run, or DB got cleaned), fall back to a short
+#   blocking sample (e.g., interval=0.25) so output stays sane.
+# * Continue to store the trend rows like in older versions of this plugin.
+# This is how psutil computes internally for interval>0, just that we do it across runs instead
+# of sleeping within a run.
+
+def cpu_times_percent_nonblocking(conn):
+    """Compute a non-blocking equivalent of psutil.cpu_times_percent(percpu=False).
+    Falls back to a short blocking sample only on the very first run.
+    """
+    # create one-row table for the last raw snapshot, if not exists
+    definition = '''
+        ts REAL NOT NULL,
+        user REAL DEFAULT 0,
+        nice REAL DEFAULT 0,
+        system REAL DEFAULT 0,
+        idle REAL DEFAULT 0,
+        iowait REAL DEFAULT 0,
+        irq REAL DEFAULT 0,
+        softirq REAL DEFAULT 0,
+        steal REAL DEFAULT 0,
+        guest REAL DEFAULT 0,
+        guest_nice REAL DEFAULT 0
+    '''
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='raw_last'))
+
+    # read last row (if any)
+    last = lib.base.coe(lib.db_sqlite.select(
+        conn,
+        'SELECT * FROM raw_last LIMIT 1',
+        fetchone=True,
+    ))
+
+    now_ct = psutil.cpu_times()
+    now = lib.time.now()
+    now_d = _cpu_times_to_dict(now_ct)
+
+    if last:
+        # compute deltas
+        deltas = {}
+        total = 0.0
+        for k, v in now_d.items():
+            dv = max(0.0, v - float(last.get(k, 0.0)))  # guard against clock/counter oddities
+            deltas[k] = dv
+            total += dv
+
+        # update snapshot for next run
+        lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM raw_last WHERE 1=1'))
+        lib.base.coe(lib.db_sqlite.insert(conn, {"ts": now, **now_d}, table='raw_last'))
+        lib.base.coe(lib.db_sqlite.commit(conn))
+
+        # if total is ~0 (very short time elapsed), fall back to tiny blocking sample
+        if total <= 0.0:
+            return psutil.cpu_times_percent(interval=0.25, percpu=False)
+
+        # turn deltas into percentages (namedtuple-like simple object)
+        pct = SimpleNamespace()
+        for k, dv in deltas.items():
+            setattr(pct, k, round((dv / total) * 100.0, 1))
+        return pct
+
+    # first run: store snapshot and do a short, blocking read to produce sane output
+    lib.base.coe(lib.db_sqlite.insert(conn, {"ts": now, **now_d}, table='raw_last'))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+    # short window to avoid a 1.25s stall like in previos versions while
+    # still getting stable numbers
+    return psutil.cpu_times_percent(interval=0.25, percpu=False)
+
+
 def get_from_db(conn, threshold):
+    """Return the number of perfdata rows where CPU usage fields exceed the given threshold.
+
+    Args:
+        conn: SQLite connection object.
+        threshold (int|float): Threshold value to compare against.
+
+    Returns:
+        int: Count of rows exceeding the threshold.
+    """
     result = lib.base.coe(lib.db_sqlite.select(
         conn,
         '''
         SELECT count(*) as cnt
         FROM perfdata
-        WHERE user > :user or system > :system or iowait > :iowait or cpu_usage > :cpu_usage
+        WHERE user > :user
+           or system > :system
+           or iowait > :iowait
+           or cpu_usage > :cpu_usage
         ''',
-        {'user': threshold, 'system': threshold, 'iowait': threshold, 'cpu_usage': threshold},
+        {
+            'user': threshold,
+            'system': threshold,
+            'iowait': threshold,
+            'cpu_usage': threshold,
+        },
         fetchone=True,
     ))
     return int(result['cnt'])
@@ -117,28 +239,54 @@ def get_from_db(conn, threshold):
 def top(count):
     """Get top X processes using the most cpu time.
     """
+    # Fast path: nothing to print, so nothing to scan
+    if count <= 0:
+        return ''
+
     cnt = Counter()
-    msg = '\nTop {} processes using the most cpu time:\n'.format(count)
+    msg = f'\n\nTop {count} processes using the most cpu time:\n'
+
+    # Prefer attrs path (psutil >= 5.3.0)
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
-            for p in psutil.process_iter(attrs=['name', 'cpu_times']):
-                if lib.base.WINDOWS and p.info['name'] == 'System Idle Process':
-                    # yes, the System Idle Process on Windows consumes CPU time
+            # name + cpu_times are all we need
+            # use ad_value to avoid AccessDenied; ad_value=None keeps types intact
+            for p in psutil.process_iter(attrs=['name', 'cpu_times'], ad_value=None):
+                try:
+                    name = p.info.get('name') or ''
+                    if lib.base.WINDOWS and name == 'System Idle Process':
+                        # yes, the System Idle Process on Windows consumes CPU time
+                        continue
+                    cput = p.info.get('cpu_times')
+                    if cput:
+                        # user + system
+                        cnt[name] += (cput.user or 0) + (getattr(cput, 'system', 0) or 0)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    # process vanished or denied: skip
                     continue
-                cnt[p.info['name']] += sum(p.info['cpu_times'][:2])
-        except psutil.NoSuchProcess:
+        except Exception:
+            # Defensive: if psutil attrs path misbehaves on some platform/version, fall back below.
             pass
-    else:
+
+    # Legacy / fallback path
+    if not cnt:
         try:
-            for p in [x.as_dict(attrs=['name', 'cpu_times']) for x in psutil.process_iter()]:
-                if lib.base.WINDOWS and p['name'] == 'System Idle Process':
-                    # yes, the System Idle Process on Windows consumes CPU time
+            for proc in psutil.process_iter():
+                try:
+                    p = proc.as_dict(attrs=['name', 'cpu_times'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
-                cnt[p['name']] += sum(p['cpu_times'][:2])
+                name = p.get('name') or ''
+                if lib.base.WINDOWS and name == 'System Idle Process':
+                    continue
+                cput = p.get('cpu_times')
+                if cput:
+                    cnt[name] += sum(cput[:2])
         except psutil.NoSuchProcess:
             pass
-    for i, p in enumerate(cnt.most_common(count)):
-        msg += '{}. {}: {}\n'.format(i + 1, p[0], lib.human.seconds2human(p[1]))
+
+    for i, (name, seconds) in enumerate(cnt.most_common(count), start=1):
+        msg += f'{i}. {name}: {lib.human.seconds2human(seconds)}\n'
     return msg
 
 
@@ -153,7 +301,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # init some vars
-    msg, msg_header, msg_body = '', '', ''
+    msg = ''
     perfdata = ''
     state = STATE_OK
     stats = {}
@@ -161,34 +309,46 @@ def main():
 
     # create the db table
     definition = '''
-                guest REAL DEFAULT NULL,
-                guest_nice REAL DEFAULT NULL,
-                iowait REAL DEFAULT NULL,
-                irq REAL DEFAULT NULL,
-                nice REAL DEFAULT NULL,
-                softirq REAL DEFAULT NULL,
-                steal REAL DEFAULT NULL,
-                system REAL DEFAULT NULL,
-                user REAL DEFAULT NULL,
-                cpu_usage REAL NOT NULL
-        '''
-    conn = lib.base.coe(lib.db_sqlite.connect(filename='linuxfabrik-monitoring-plugins-cpu-usage.db'))
+        guest REAL DEFAULT NULL,
+        guest_nice REAL DEFAULT NULL,
+        idle REAL DEFAULT NULL,
+        iowait REAL DEFAULT NULL,
+        irq REAL DEFAULT NULL,
+        nice REAL DEFAULT NULL,
+        softirq REAL DEFAULT NULL,
+        steal REAL DEFAULT NULL,
+        system REAL DEFAULT NULL,
+        user REAL DEFAULT NULL,
+        cpu_usage REAL NOT NULL
+    '''
+    conn = lib.base.coe(lib.db_sqlite.connect(
+        filename='linuxfabrik-monitoring-plugins-cpu-usage.db',
+    ))
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
+
+    # Best-effort: reduce IO stalls and file locking on Windows without changing outputs
+    # (Ignore errors if the underlying sqlite wrapper/driver doesn't expose execute)
+    try:
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA synchronous=NORMAL')
+    except Exception:
+        pass
 
     # Grab CPU stats using psutil's cpu_times_percent
     # https://github.com/Linuxfabrik/monitoring-plugins/issues/57: changed from 0.25 to 1.25
     try:
-        cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
+        # OLD (blocking; previous versions of this plugin):
+        # cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
+
+        # NEW (non-blocking, with first-run 0.25s fallback):
+        cpu_times_percent = cpu_times_percent_nonblocking(conn)
     except ValueError:
         lib.db_sqlite.close(conn)
         lib.base.cu('psutil raised an error')
 
-    # this is what we want to warn about: 100% - idle - nice
-    stats['cpu_usage'] = round(
-        100.0 - getattr(cpu_times_percent, 'idle', 0) - getattr(cpu_times_percent, 'nice', 0), 1)
-
     stats['guest'] = getattr(cpu_times_percent, 'guest', 0)
     stats['guest_nice'] = getattr(cpu_times_percent, 'guest_nice', 0)
+    stats['idle'] = getattr(cpu_times_percent, 'idle', 0)
     stats['iowait'] = getattr(cpu_times_percent, 'iowait', 0)
     stats['irq'] = getattr(cpu_times_percent, 'irq', 0)
     stats['nice'] = getattr(cpu_times_percent, 'nice', 0)
@@ -196,6 +356,12 @@ def main():
     stats['steal'] = getattr(cpu_times_percent, 'steal', 0)
     stats['system'] = getattr(cpu_times_percent, 'system', 0)
     stats['user'] = getattr(cpu_times_percent, 'user', 0)
+
+    # this is what we want to warn about: 100% - idle - nice
+    stats['cpu_usage'] = round(
+        100.0 - stats['idle'] - stats['nice'],
+        1
+    )
 
     # save trend data to local sqlite database, limited to "count" rows max.
     lib.base.coe(lib.db_sqlite.insert(conn, stats))
@@ -205,7 +371,8 @@ def main():
     # Additional CPU stats (number of events not as %; psutil>=4.1.0)
     # ctx_switches: number of context switches (voluntary + involuntary) since boot
     # interrupts: number of interrupts since boot
-    # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and SunOS.
+    # soft_interrupts: number of software interrupts since boot. Always set to 0 on Windows and
+    # SunOS.
     # syscalls: number of system calls since boot. Always set to 0 on Linux.
     if lib.version.version(psutil.__version__) >= lib.version.version('4.1.0'):
         cpu_stats = psutil.cpu_stats()
@@ -222,36 +389,57 @@ def main():
 
     # now, calculate the WARN or CRIT.
     # overall state is not ok, if ...
-    #   in a row in any column there is a value above the threshold
-    #   and this is true for every row
+    # in a row in any column there is a value above the threshold
+    # and this is true for every row
     if get_from_db(conn, args.CRIT) == args.COUNT:
         state = STATE_CRIT
     elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
+
     lib.db_sqlite.close(conn)
 
     # build the message
-    perfdata += lib.base.get_perfdata('cpu-usage', cpu_usage, '%', args.WARN, args.CRIT, 0, 100)
-    # msg_header: values > 0%
-    # msg_body: values == 0%
-    for stat in stats:
-        if stat[1] != 0:
-            msg_header += '{}: {:.1f}%, '.format(stat[0], stat[1])
+    perfdata += lib.base.get_perfdata(
+        'cpu-usage',
+        cpu_usage,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
+    )
+
+    msg_header = []  # for values > 0%
+    msg_body = []  # for values == 0%
+    for key, val in stats:
+        if key == 'idle':
+            continue
+        part = f'{key}: {val:.1f}%'
+        if val != 0:
+            msg_header.append(part)
         else:
-            msg_body += '{}: {:.1f}%, '.format(stat[0], stat[1])
-        perfdata += lib.base.get_perfdata(stat[0], stat[1], '%', None, None, 0, 100)
-    msg += '{:.1f}%'.format(cpu_usage)
+            msg_body.append(part)
+        perfdata += lib.base.get_perfdata(
+            key,
+            val,
+            uom='%',
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=100,
+        )
+    msg = f'{cpu_usage:.1f}%'
     if msg_header:
-        msg += ' - ' + msg_header[:-2]
+        msg += ' - ' + ', '.join(msg_header)
     if msg_body:
-        msg += '\n' + msg_body[:-2]
+        msg += '\n' + ', '.join(msg_body)
 
     if extstats:
-        msg += '\n'
-        for key in extstats.keys():
-            msg += '{}: {}, '.format(key, lib.human.number2human(extstats[key]))
-            perfdata += lib.base.get_perfdata(key, extstats[key], 'c', None, None, 0, None)
-        msg = msg[:-2] + '\n'
+        ext_parts = []
+        for key, val in extstats.items():
+            ext_parts.append(f'{key}: {lib.human.number2human(val)}')
+            perfdata += lib.base.get_perfdata(key, val, 'c', None, None, 0, None)
+        msg += '\n' + ', '.join(ext_parts)
 
     # Top X processes using the most cpu time
     msg += top(args.TOP)
