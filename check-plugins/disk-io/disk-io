@@ -35,7 +35,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025090702'
+__version__ = '2025090703'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -44,8 +44,8 @@ maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period ave
 the configured percentage of RWmax for COUNT consecutive runs.
 
 Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time)
-so you can graph trends. On Linux the check automatically focuses on “real” block devices with
-mountpoints; on Windows it uses psutil’s disk counters. Optionally, --top lists the processes
+so you can graph trends. On Linux the check automatically focuses on "real" block devices with
+mountpoints; on Windows it uses psutil’s disk counters. Optionally, `--top` lists the processes
 that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems.
@@ -57,7 +57,7 @@ DEFAULT_CACHE_EXPIRE = 90
 DEFAULT_COUNT = 5    # measurements; if check runs once per minute, this is a 5 minute interval
 DEFAULT_CRIT = 90    # %
 DEFAULT_MATCH = ''
-DEFAULT_TOP = 0 if lib.base.WINDOWS else 5
+DEFAULT_TOP = 5
 DEFAULT_WARN = 80    # %
 
 
@@ -112,7 +112,7 @@ def parse_args():
         '--top',
         help='List x "Top processes that generated the most I/O traffic". '
              'Use `--top=0` to disable this feature. '
-             'Default: 5 on Linux, 0 on Windows',
+             'Default: %(default)s',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,

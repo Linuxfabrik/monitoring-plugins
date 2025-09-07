@@ -61,12 +61,12 @@ period’s total bandwidth against the maximum ever observed for that disk
 (RWmax). WARN/CRIT trigger if the period average exceeds the configured
 percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each
 disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can
-graph trends. On Linux the check automatically focuses on “real” block devices
-with mountpoints; on Windows it uses psutil’s disk counters. Optionally, --top
-lists the processes that generated the most I/O traffic (read/write totals) to
-help identify offenders. This check is cross-platform and works on Linux,
-Windows, and all psutil-supported systems. The check stores its short trend
-state locally in an SQLite DB to evaluate sustained load across runs.
+graph trends. On Linux the check automatically focuses on "real" block devices
+with mountpoints; on Windows it uses psutil’s disk counters. Optionally,
+`--top` lists the processes that generated the most I/O traffic (read/write
+totals) to help identify offenders. This check is cross-platform and works on
+Linux, Windows, and all psutil-supported systems. The check stores its short
+trend state locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help       show this help message and exit
@@ -87,8 +87,7 @@ options:
                    characters that satisfy the condition inside it, zero or
                    more times. Default:
   --top TOP        List x "Top processes that generated the most I/O traffic".
-                   Use `--top=0` to disable this feature. Default: 5 on Linux,
-                   0 on Windows
+                   Use `--top=0` to disable this feature. Default: 5
   --warning WARN   Threshold for disk bandwidth saturation (over the last
                    `--count` measurements) as a percentage of the maximum
                    bandwidth the disk can support. Default: >= 80
