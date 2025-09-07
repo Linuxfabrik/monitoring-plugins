@@ -35,7 +35,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025090701'
+__version__ = '2025090702'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -173,7 +173,7 @@ def top(count):
     totals = {}  # name -> {'r': bytes, 'w': bytes}
     msg = ''
 
-    # Preferred path (psutil >= 5.3.0): pull only the attrs we need and avoid exceptions
+    # Prefer attrs path (psutil >= 5.3.0): fewer syscalls, fewer exceptions
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
             for p in psutil.process_iter(attrs=['name', 'io_counters'], ad_value=None):
