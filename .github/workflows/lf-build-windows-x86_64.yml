@@ -37,7 +37,10 @@ jobs:
         shell: 'bash'
         run: |
           echo "LFMP_ARCH=x86_64" >> $GITHUB_ENV
-          echo "LFMP_COMPILE_PLUGINS=${{ github.event.inputs.compile-plugins }}" >> $GITHUB_ENV
+          PLUGS="${{ github.event.inputs.compile-plugins }}"
+          # accept either "a b c" or "a,b,c"
+          PLUGS="${PLUGS//,/ }"
+          echo "LFMP_COMPILE_PLUGINS=$PLUGS" >> $GITHUB_ENV
           echo "LFMP_PACKAGE_ITERATION=${{ github.event.inputs.package-iteration }}" >> $GITHUB_ENV
           echo "LFMP_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
           # echo "LFMP_TARGET_DISTROS=${{ github.event.inputs.target-distros }}" >> $GITHUB_ENV
