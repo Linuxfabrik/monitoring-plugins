@@ -26,7 +26,7 @@ Hints:
 ## Help
 
 ```text
-usage: users [-h] [-V] [-c CRIT] [-w WARN]
+usage: users [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
 
 Counts how many users are currently logged in, both via tty (on Windows:
 Console) and pts (on Linux: typically ssh, on Windows: RDP). Also counts the
@@ -39,6 +39,8 @@ options:
                        in the format "3,10". On Windows, you can additionally
                        set it for disconnected users, in the format "3,10,1".
                        Default: [None, None, None]
+  --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
+                       stderr-file,expected-retc".
   -w, --warning WARN   Set the warning threshold for logged in tty/pts users,
                        in the format "1,5". On Windows, you can additionally
                        set it for disconnected users, in the format "1,5,10".
