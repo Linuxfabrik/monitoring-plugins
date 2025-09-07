@@ -71,6 +71,7 @@ Monitoring Plugins:
 * gitlab-readiness: increase timeout from 3 to 8 secs
 * infomaniak-events: increase timeout from 8 to 28 secs
 * journald-usage: also print SystemMaxUse and SystemKeepFree
+* memory-usage: modernize code
 * pip-updates: modernize code
 * procs: avoid token + PEB reads and repeated attribute calls per process, as this has an impact on busy Windows servers
 * rocketchat-stats: improve output and docs a little bit

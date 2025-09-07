@@ -2,7 +2,7 @@
 
 ## Overview
 
-Displays the amount of free and used memory in the system and checks how much physical memory is left across platforms by using the `available` field.
+Displays system memory usage and alerts on sustained high usage. Reports total/used/available/free plus shared/buffers/cached, and evaluates WARN/CRIT against the overall usage percentage. Perfdata is emitted for all fields so you can graph trends over time. With `--top`, the most memory-consuming processes are listed (by RSS and percentage) to aid quick diagnosis. Cross-platform on all psutil-supported systems (Linux, Windows, \*BSD, macOS).
 
 Hints:
 
@@ -26,8 +26,12 @@ Hints:
 ```text
 usage: memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--top TOP] [-w WARN]
 
-Displays amount of free and used memory in the system, checks against used
-memory in percent.
+Displays system memory usage and alerts on sustained high usage. Reports
+total/used/available/free plus shared/buffers/cached, and evaluates WARN/CRIT
+against the overall usage percentage. Perfdata is emitted for all fields so
+you can graph trends over time. With `--top`, the most memory-consuming
+processes are listed (by RSS and percentage) to aid quick diagnosis. Cross-
+platform on all psutil-supported systems (Linux, Windows, *BSD, macOS).
 
 options:
   -h, --help           show this help message and exit
@@ -35,8 +39,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  Set the critical threshold for memory usage (in
                        percent). Default: 95
-  --top TOP            List x "Top most memory consuming processes". Default:
-                       5
+  --top TOP            List x "Top most memory consuming processes". Use
+                       `--top=0` to disable this feature. Default: 5 on Linux,
+                       0 on Windows
   -w, --warning WARN   Set the warning threshold for memory usage (in
                        percent). Default: 90
 ```
@@ -46,7 +51,7 @@ options:
 
 ```bash
 ./memory-usage
-./memory-usage --warning 90 --critical 95
+./memory-usage --warning=90 --critical=95 --top=5
 ```
 
 Output:
@@ -55,7 +60,7 @@ Output:
 36.2% - total: 3.8GiB, used: 1.1GiB, available: 2.4GiB, free: 989.4MiB
 shared: 41.6MiB, buffers: 3.6MiB, cached: 1.8GiB
 
-Top5 most memory consuming processes:
+Top 5 most memory consuming processes:
 1. php-fpm: 810.7MiB (20.7%)
 2. forkit: 418.3MiB (10.7%)
 3. kit_spare_001: 335.5MiB (8.6%)
@@ -85,8 +90,8 @@ Top5 most memory consuming processes:
 
 ## Troubleshooting
 
-This checks sometimes reports \> 100% memory usage  
-That's fine, the RES column in `top` says the same if you sum up all values for a process (attention: the values in top's RES column are KB by default), and compare process memory to total physical system memory. The machine does not swap, so this is kind of Linux memory management mystery.
+This checks sometimes reports \> 100% memory usage on Linux  
+That's fine, the RES column in `top` says the same if you sum up all values for a process (attention: the values in top's RES column are KB by default), and compare process memory to total physical system memory. If machine does not swap, this is kind of Linux memory management mystery.
 
 
 ## Credits, License

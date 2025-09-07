@@ -11,31 +11,34 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
-                          STATE_UNKNOWN, STATE_WARN)
+import lib.base
+import lib.human
+import lib.version
+from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 try:
-    import psutil  # pylint: disable=C0413
+    import psutil
 except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025020401'
+__version__ = '2025090701'
 
-DESCRIPTION = """Displays amount of free and used memory in the system, checks against used memory
-                in percent."""
+DESCRIPTION = """Displays system memory usage and alerts on sustained high usage.
+Reports total/used/available/free plus shared/buffers/cached, and evaluates WARN/CRIT
+against the overall usage percentage. Perfdata is emitted for all fields so you can
+graph trends over time. With `--top`, the most memory-consuming processes are listed
+(by RSS and percentage) to aid quick diagnosis. Cross-platform on all psutil-supported
+systems (Linux, Windows, *BSD, macOS)."""
 
-DEFAULT_CRIT = 95 # %
-DEFAULT_TOP = 5
-DEFAULT_WARN = 90 # %
+DEFAULT_CRIT = 95  # %
+DEFAULT_TOP = 0 if lib.base.WINDOWS else 5
+DEFAULT_WARN = 90  # %
 
 
 def parse_args():
@@ -46,7 +49,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -69,7 +72,8 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List x "Top most memory consuming processes". '
-             'Default: %(default)s',
+             'Use `--top=0` to disable this feature. '
+             'Default: 5 on Linux, 0 on Windows',
         dest='TOP',
         type=int,
         default=DEFAULT_TOP,
@@ -90,46 +94,60 @@ def parse_args():
 def top(count):
     """Get top X most memory consuming processes.
     """
-    procs = {}
-    msg = '\nTop {} most memory consuming processes:\n'.format(count)
+    # Fast path: nothing to print, so nothing to scan
+    if count <= 0:
+        return ''
+
+    procs = {}  # name > {'%': float, 'rss': int}
+    msg = ''
+
+    # Prefer attrs path (psutil >= 5.3.0): fewer syscalls, fewer exceptions
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
-            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info']):
+            for p in psutil.process_iter(attrs=['name', 'memory_percent', 'memory_info'], ad_value=None):  # pylint: disable=C0301
                 try:
-                    procs[p.info['name']]
-                except:
-                    procs[p.info['name']] = {
-                        '%': 0,
-                        'rss': 0,
-                    }
-                procs[p.info['name']]['%'] += p.info['memory_percent']
-                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
-        except psutil.NoSuchProcess:
+                    info = p.info
+                    name = info.get('name') or ''
+                    # On some platforms memory_percent can be None briefly; guard it.
+                    mem_pct = float(info.get('memory_percent') or 0.0)
+                    mi = info.get('memory_info')
+                    rss = getattr(mi, 'rss', 0) if mi is not None else 0
+                    entry = procs.setdefault(name, {'%': 0.0, 'rss': 0})
+                    entry['%'] += mem_pct
+                    entry['rss'] += rss
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+        except Exception:
+            # Defensive: if psutil attrs path misbehaves on some platform/version, fall back below.
             pass
-    else:
+
+    # Legacy / fallback path
+    if not procs:
         try:
-            for p in [x.as_dict(attrs=['name', 'memory_percent']) for x in psutil.process_iter()]:
+            for proc in psutil.process_iter():
                 try:
-                    procs[p.info['name']]
-                except:
-                    procs[p.info['name']] = {
-                        '%': 0,
-                        'rss': 0,
-                    }
-                procs[p.info['name']]['%'] += p.info['memory_percent']
-                procs[p.info['name']]['rss'] += p.info['memory_info'].rss
+                    info = proc.as_dict(attrs=['name', 'memory_percent', 'memory_info'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+                name = info.get('name') or ''
+                mem_pct = float(info.get('memory_percent') or 0.0)
+                mi = info.get('memory_info')
+                rss = getattr(mi, 'rss', 0) if mi is not None else 0
+                entry = procs.setdefault(name, {'%': 0.0, 'rss': 0})
+                entry['%'] += mem_pct
+                entry['rss'] += rss
         except psutil.NoSuchProcess:
             pass
-    for i, p in enumerate(sorted(procs.items(), key=lambda d: d[1]['%'], reverse=True)):
-        if i >= count:
-            break
-        msg += '{}. {}: {} ({:.1f}%)\n'.format(
-            i + 1,
-            p[0],
-            lib.human.bytes2human(p[1]['rss']),
-            p[1]['%'],
-        )
-    return msg
+
+    if not procs:
+        return msg
+
+    # Sort by percentage, desc; produce up to 'count'
+    ranked = sorted(procs.items(), key=lambda kv: kv[1]['%'], reverse=True)[:count]
+    lines = [f'\nTop {count} most memory consuming processes:']
+    for i, (name, agg) in enumerate(ranked, start=1):
+        lines.append(f'{i}. {name}: {lib.human.bytes2human(agg["rss"])} ({agg["%"]:.1f}%)')
+    return '\n'.join(lines) + '\n'
 
 
 def main():
@@ -146,40 +164,108 @@ def main():
     virt = psutil.virtual_memory()
 
     # init some vars
-    msg_header, msg_body = '', ''
     state = STATE_OK
     perfdata = ''
 
     # analyze data and build the message
-    state = lib.base.get_state(getattr(virt, 'percent', 0), args.WARN, args.CRIT, _operator='ge')
+    usage_percent = float(getattr(virt, 'percent', 0))
+    state = lib.base.get_state(usage_percent, args.WARN, args.CRIT, _operator='ge')
 
-    msg_header += '{}%{} - '.format(
-        getattr(virt, 'percent', 0),
-        lib.base.state2str(state, prefix=' '),
-    )
-    msg_header += '{}: {}, '.format('total', lib.human.bytes2human(getattr(virt, 'total', 0)))
-    msg_header += '{}: {}, '.format('used', lib.human.bytes2human(getattr(virt, 'used', 0)))
-    msg_header += '{}: {}, '.format(
-        'available',
-        lib.human.bytes2human(getattr(virt, 'available', 0)),
-    )
-    msg_header += '{}: {}'.format('free', lib.human.bytes2human(getattr(virt, 'free', 0)))
+    # Header: percentage + main sizes
+    header_parts = [
+        f'{usage_percent:.0f}%{lib.base.state2str(state, prefix=" ")}',
+        f'total: {lib.human.bytes2human(getattr(virt, "total", 0))}',
+        f'used: {lib.human.bytes2human(getattr(virt, "used", 0))}',
+        f'available: {lib.human.bytes2human(getattr(virt, "available", 0))}',
+        f'free: {lib.human.bytes2human(getattr(virt, "free", 0))}',
+    ]
+    msg_header = ' - '.join([header_parts[0], ', '.join(header_parts[1:])])
 
-    msg_body += '\n{}: {}, '.format('shared', lib.human.bytes2human(getattr(virt, 'shared', 0)))
-    msg_body += '{}: {}, '.format('buffers',lib.human.bytes2human(getattr(virt, 'buffers', 0)))
-    msg_body += '{}: {}'.format('cached',lib.human.bytes2human(getattr(virt, 'cached', 0)))
-
-    perfdata += lib.base.get_perfdata('usage_percent', getattr(virt, 'percent', 0), '%', args.WARN, args.CRIT, 0, 100) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('total', getattr(virt, 'total', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('used', getattr(virt, 'used', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('available', getattr(virt, 'available', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('free', getattr(virt, 'free', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('shared', getattr(virt, 'shared', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('buffers', getattr(virt, 'buffers', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('cached', getattr(virt, 'cached', 0), 'B', None, None, 0, virt.total) # pylint: disable=C0301
+    # Body: extended fields (if present)
+    body_parts = [
+        f'shared: {lib.human.bytes2human(getattr(virt, "shared", 0))}',
+        f'buffers: {lib.human.bytes2human(getattr(virt, "buffers", 0))}',
+        f'cached: {lib.human.bytes2human(getattr(virt, "cached", 0))}',
+    ]
+    msg_body = '\n' + ', '.join(body_parts)
 
     # Top X most memory consuming processes
     msg_body += '\n' + top(args.TOP)
+
+    # perfdata (identical keys/units/min/max as before)
+    total = getattr(virt, 'total', 0)
+    perfdata += lib.base.get_perfdata(
+        'usage_percent',
+        usage_percent,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata(
+        'total',
+        total,
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'used',
+        getattr(virt, 'used', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'available',
+        getattr(virt, 'available', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'free',
+        getattr(virt, 'free', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'shared',
+        getattr(virt, 'shared', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'buffers',
+        getattr(virt, 'buffers', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
+    perfdata += lib.base.get_perfdata(
+        'cached',
+        getattr(virt, 'cached', 0),
+        uom='B',
+        warn=None,
+        crit=None,
+        _min=0,
+        _max=total,
+    )
 
     # over and out
     lib.base.oao(msg_header + msg_body, state, perfdata, always_ok=args.ALWAYS_OK)
@@ -188,5 +274,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:  # pylint: disable=W0703
         lib.base.cu()
