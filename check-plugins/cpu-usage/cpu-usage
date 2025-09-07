@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025090701'
+__version__ = '2025090702'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -247,7 +247,7 @@ def top(count):
     cnt = Counter()
     msg = f'\n\nTop {count} processes using the most cpu time:\n'
 
-    # Prefer attrs path (psutil >= 5.3.0)
+    # Prefer attrs path (psutil >= 5.3.0): fewer syscalls, fewer exceptions
     if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
         try:
             # name + cpu_times are all we need
