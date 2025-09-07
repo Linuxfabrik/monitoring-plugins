@@ -56,8 +56,7 @@ options:
   -c, --critical CRIT  Set the critical threshold CPU Usage Percentage.
                        Default: 90
   --top TOP            List x "Top processes using the most cpu time". Use
-                       `--top=0` to disable this feature. Default: 5 on Linux,
-                       0 on Windows
+                       `--top=0` to disable this feature. Default: 5
   -w, --warning WARN   Set the warning threshold CPU Usage Percentage.
                        Default: 80
 ```
