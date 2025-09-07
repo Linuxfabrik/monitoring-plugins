@@ -178,7 +178,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O. If the bandwidth usage of a disk is above the specified threshold (as a percentage of the maximum bandwidth measured) for a certain period of time, an alarm is triggered.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can graph trends. On Linux the check automatically focuses on \u201creal\u201d block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, --top lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io",
             "object_name": "tpl-service-disk-io",
             "object_type": "template",
@@ -229,7 +229,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks disk I/O. If the bandwidth usage of a disk is above the specified threshold (as a percentage of the maximum bandwidth measured) for a certain period of time, an alarm is triggered.",
+            "notes": "Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period\u2019s total bandwidth against the maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds the configured percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can graph trends. On Linux the check automatically focuses on \u201creal\u201d block devices with mountpoints; on Windows it uses psutil\u2019s disk counters. Optionally, --top lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io",
             "object_name": "tpl-service-disk-io-windows",
             "object_type": "template",
@@ -298,7 +298,7 @@
         "5": {
             "varname": "disk_io_top",
             "caption": "Disk I/O: Top",
-            "description": "List x \"Top processes that generated the most I/O traffic\".",
+            "description": "List x \"Top processes that generated the most I/O traffic\". Use `--top=0` to disable this feature. Default: 5 on Linux, 0 on Windows",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -362,7 +362,7 @@
         "11": {
             "varname": "disk_io_windows_top",
             "caption": "Disk I/O: Top",
-            "description": "List x \"Top processes that generated the most I/O traffic\".",
+            "description": "List x \"Top processes that generated the most I/O traffic\". Use `--top=0` to disable this feature. Default: 5 on Linux, 0 on Windows",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
