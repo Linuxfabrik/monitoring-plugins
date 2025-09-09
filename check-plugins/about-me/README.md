@@ -67,17 +67,17 @@ Shortened output example:
 
 ```text
 Plugin Output
-server.example.com: Fedora Linux 39 (Workstation Edition) Kernel 6.8.4-200.fc39.x86_64 on Bare-Metal, Dell Inc. XPS 13 9310, Firmware: n/a, SerNo: 39d3e1cd, Proc: 11th Gen Intel Core i7-1185G7 @ 3.00GHz, #Cores: 4, #Threads: 8, Current Speed: 3000 MHz, 16.0GiB RAM, Disk nvme0n1 1.8T, UEFI boot, Display Server wayland, tuned profile "throughput-performance", born 2024-03-20. About-me v2024041001
+server.example.com: Fedora Linux 42 (Workstation Edition) Kernel 6.16.4-200.fc42.x86_64 on Bare-Metal, Dell Inc. XPS 13 9350, Firmware: 1.20, SerNo: 12345678, Proc: Intel Core Ultra 7 258V, CPUs: 8/8/8 (phys/lcpu/onln), Current Speed: 3943 MHz, 30.9GiB/4.0GiB RAM (virtmem/max; reboot recommended), Disk nvme0n1 1.8T, UEFI boot, Display Server x11, tuned profile "throughput-performance", born 2024-03-20. About-me v2025090901
 
-Hardware Info:
-* BIOS: Dell Inc., Ver 3.21.0 (released 02/01/2024), ROM 32 MB
-* SysInfo: Dell Inc. XPS 13 9310, SerNo 39d3e1cd, SKU N/A, Wake-up Type "Other",
-  UUID 4c4c4544-0044-5a10-8052-c4c04f334a33
-* Base Board: Type Motherboard Dell Inc. 07P9Y7, SerNo /2cc8a595/20ca3e48/, Ver A00
-* Chassis: Dell Inc., Type Notebook, SKU N/A, SerNo 875b42b9
+Hardware Info from `dmidecode`:
+* BIOS: Dell Inc., Ver 1.13.0 (released 07/11/2025), ROM 64 MB
+* SysInfo: Dell Inc. XPS 13 9350, SerNo 12345678, SKU n/a, Wake-up Type "Other",
+  UUID 4c4c4544-005a-5110-804a-b8c04f593834
+* Base Board: Type Motherboard Dell Inc. 0MMW13, SerNo /12345678/98765432/, Ver A01
+* Chassis: Dell Inc., Type Notebook, SKU n/a, SerNo 12345678
   States: boot-up=Safe, pwr-supply=Safe, thermal=Safe, security=None
-* Proc: Intel(R) Corporation, Ver 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz,
-  Speed 3000 MHz/3000 MHz max., 4/4 Cores enabled, 8 Threads, Voltage 0.8 V
+* Proc: Intel(R) Corporation, Ver Intel(R) Core(TM) Ultra 7 258V,
+  Speed 4700 MHz/4800 MHz max., 8/8 Cores enabled, 8 Threads, Voltage 1.0 V
 * System Boot: No errors detected
 
 Interfaces (IPv4):
@@ -147,14 +147,13 @@ crontab:
 
 | Name | Type | Description |
 |----|----|----|
-| cpu | Number | Number of CPUs (if `dmidecode` is not available) |
-| cpu_cores_enabled | Number | Number of enabled CPU cores (if `dmidecode` is available) |
-| cpu_speed | Number | CPU speed (if `dmidecode` is available) |
-| cpu_threads | Number | Number of CPU cores with Hyper-Threading enabled (if `dmidecode` is available) |
+| cpu_logical | Number | Number of physical cores multiplied by the number of threads that can run on each core (this is known as Hyper Threading) |
+| cpu_physical | Number | Number of physical cores |
+| cpu_usable | Number | The number of usable CPUs. This may not necessarily be equivalent to the actual number of CPUs the current process can use. That can vary in case process CPU affinity has been changed, Linux cgroups are being used or (in case of Windows) on systems using processor groups or having more than 64 CPUs. |
+| cpu_freq | Number | On Linux reports the current real-time value, on all other platforms this usually represents the nominal "fixed" value (never changing) |
 | disks | Number | Number of disks |
 | osversion | None | 'Fedora 33' becomes '33', 'CentOS 7.4.1708' becomes '741708' - to see when an upgrade happened |
-| ram | Bytes | Size of memory (if `dmidecode` is not available) |
-| ram | Bytes | Size of memory (if `dmidecode` is available) |
+| ram | Bytes | Size of memory |
 
 
 ## Credits, License

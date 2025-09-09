@@ -48,7 +48,7 @@ spec:
 
   panels:
 
-  - title: About me - CPU Cores, Threads and Disks
+  - title: About me - CPUs and Disks
     type: timeseries
     gridPos:
       h: 8
@@ -80,8 +80,8 @@ spec:
 
     targets:
 
-    - alias: cpu_cores_enabled
-      refId: cpu_cores_enabled
+    - alias: cpu_logical
+      refId: cpu_logical
       groupBy:
       - params:
         - $interval
@@ -105,10 +105,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: cpu_cores_enabled
+        value: cpu_logical
 
-    - alias: cpu_threads
-      refId: cpu_threads
+    - alias: cpu_usable
+      refId: cpu_usable
       groupBy:
       - params:
         - $interval
@@ -132,7 +132,34 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: cpu_threads
+        value: cpu_physical
+
+    - alias: cpu_usable
+      refId: cpu_usable
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: cpu_usable
 
     - alias: disks
       refId: disks
@@ -162,7 +189,7 @@ spec:
         value: disks
 
 
-  - title: About me - CPU Speed
+  - title: About me - CPU Frequency
     type: timeseries
     gridPos:
       h: 8
@@ -197,8 +224,8 @@ spec:
 
     targets:
 
-    - alias: cpu_speed
-      refId: cpu_speed
+    - alias: cpu_freq
+      refId: cpu_freq
       groupBy:
       - params:
         - $interval
@@ -222,7 +249,7 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: cpu_speed
+        value: cpu_freq
 
 
   - title: About me - RAM
