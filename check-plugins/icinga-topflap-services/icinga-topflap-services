@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025071001'
+__version__ = '2025091001'
 
 DESCRIPTION = """This check plugin counts the number of state changes per service within a
                  given lookback interval. This makes it possible to detect fast flapping services.
@@ -187,10 +187,14 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if not args.USERNAME or not args.PASSWORD or not args.URL:
-        lib.base.cu('`--url`, `--username` and `--password` are required parameters. You can '
-                    'also provide a password file for IcingaWeb to read "url", "user" or '
-                    '"password" from.')
+    have_creds = args.USERNAME and args.PASSWORD and args.URL
+    have_pwfile = args.PWFILE
+    if not (have_creds or have_pwfile):
+        lib.base.cu(
+            'The three parameters `--url`, `--username` and `--password` are required. ' \
+            'Alternatively, you can provide a password file for IcingaWeb to read ' \
+            'the "url", "user" or "password" from, using `--pwfile`.'
+        )
 
     # if given, read password INI-file, but cmdline takes precedence
     config = configparser.ConfigParser()
@@ -208,6 +212,13 @@ def main():
     except configparser.Error as e:
         print(e)
         sys.exit(STATE_UNKNOWN)
+
+    have_creds = args.USERNAME and args.PASSWORD and args.URL
+    if not have_creds:
+        lib.base.cu(
+            'Either the username, password or URL is not specified' + \
+            f' in `{args.PWFILE}`.' if args.PWFILE else '.'
+        )
 
     # init some vars
     msg = ''
