@@ -131,6 +131,17 @@ SysMain                                        ! SysMain                ! runnin
 There is no perfdata.
 
 
+## Development
+
+How to create and delete a service on Windows (it will be removed on next boot):
+
+```
+sc.exe create tie-adt-importer binPath= "C:\Windows\System32\cmd.exe /c exit 0" DisplayName= "iengine - adt-importer" start= demand type= own
+sc.exe query tie-adt-importer
+sc.exe delete tie-adt-importer
+```
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
