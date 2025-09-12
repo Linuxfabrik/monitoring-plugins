@@ -28,14 +28,9 @@
 
 This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-The check plugins run on
+All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), a licence that dedicates works to the public domain with no conditions whatsoever. They run on all platforms that support Python 3.9 and above. For Windows, there are compiled plugins available, meaning you don't need Python.
 
-* Linux - Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
-* Windows - Tested on Windows 10+ and Windows Server 2019+
-
-All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
-
-The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
+The plugins are fast and reliable, using as few system resources as possible. They report the same metrics consistently and uniformly on all platforms (for example, they always use 'used' instead of a mixture of 'used' and 'free'). Where possible, automatic detection and auto-discovery mechanisms are built in. The plugins use meaningful default settings to trigger WARNs and CRITs only where absolutely necessary. In addition, many plugins offer troubleshooting information. We avoid dependencies on third-party system libraries wherever possible.
 
 
 ## Want to see some Plugins in Action?
