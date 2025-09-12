@@ -45,6 +45,7 @@ Checklist:
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in the projects [README](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md).
 * CHANGELOG
 
+
 ## Rules of Thumb
 
 * Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter.
