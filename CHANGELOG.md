@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Monitoring Plugins:
 
+* sprint-boot-actuator-health: derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
 * virustotal-scan-url: analyses URLs to detect malware and other breaches using VirusTotal
 
 

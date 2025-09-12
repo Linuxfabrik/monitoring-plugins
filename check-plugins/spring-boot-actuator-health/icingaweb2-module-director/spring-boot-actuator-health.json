@@ -1,0 +1,222 @@
+{
+    "Command": {
+        "cmd-check-spring-boot-actuator-health": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$spring_boot_actuator_health_always_ok$"
+                },
+                "--component-severity": {
+                    "value": "$spring_boot_actuator_health_component_severity$",
+                    "repeat_key": true
+                },
+                "--detail-severity": {
+                    "value": "$spring_boot_actuator_health_detail_severity$",
+                    "repeat_key": true
+                },
+                "--insecure": {
+                    "set_if": "$spring_boot_actuator_health_insecure$"
+                },
+                "--no-proxy": {
+                    "set_if": "$spring_boot_actuator_health_no_proxy$"
+                },
+                "--timeout": {
+                    "value": "$spring_boot_actuator_health_timeout$"
+                },
+                "--url": {
+                    "value": "$spring_boot_actuator_health_url$"
+                },
+                "--verbose": {
+                    "set_if": "$spring_boot_actuator_health_verbose$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/spring-boot-actuator-health",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-spring-boot-actuator-health",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "6cc2c5c7-d000-4ccb-9c4f-767f7a8a8906"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-spring-boot-actuator-health": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-spring-boot-actuator-health",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "spring-boot-actuator-health.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": " This is a monitoring plugin for the Spring Boot Actuator `/health` endpoint (e.g. http://localhost:port/actuator/health/db). It supports fine-grained overrides to adjust alerting behaviour and applying Nagios-style threshold ranges to detailed numeric metrics. ",
+            "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/spring-boot-actuator-health",
+            "object_name": "tpl-service-spring-boot-actuator-health",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "spring_boot_actuator_health_always_ok": false,
+                "spring_boot_actuator_health_insecure": false,
+                "spring_boot_actuator_health_no_proxy": false,
+                "spring_boot_actuator_health_timeout": 3,
+                "spring_boot_actuator_health_url": "http://localhost:80/health",
+                "spring_boot_actuator_health_verbose": false
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "47cd693d-ca94-440b-983a-f53e8e6783be"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "spring_boot_actuator_health_always_ok",
+            "caption": "Spring Boot Actuator Health: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a5cccbfa-4ff6-4f71-812f-e3f19a99acc1"
+        },
+        "2": {
+            "varname": "spring_boot_actuator_health_component_severity",
+            "caption": "Spring Boot Actuator Health: Component Severity",
+            "description": "Set the API status for a specific component like `UP`, `DEGRADED` and `DOWN` to a Nagios state, where Nagios state is one of `ok`, `warn`, `crit` or `unknown` (repeating). Format: `component-name,api-status,nagios-state`. Example: `hikariConnectionPool,DEGRADED,crit`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "522fa78d-8276-4f20-8def-2d9146aa1647"
+        },
+        "3": {
+            "varname": "spring_boot_actuator_health_detail_severity",
+            "caption": "Spring Boot Actuator Health: Detail Severity",
+            "description": "Set a threshold for a *numeric* component detail value (repeating). Supports Nagios ranges. Format: `component-name,detail-name,warn,crit`. Example: `hikariConnectionPool,activeConnections,@10:20,@0:9`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1a4654be-91cd-448f-b375-cced8bb4cbeb"
+        },
+        "4": {
+            "varname": "spring_boot_actuator_health_insecure",
+            "caption": "Spring Boot Actuator Health: Insecure?",
+            "description": "This option explicitly allows to perform \"insecure\" SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "88a6e6b5-5647-4c3c-9390-ec26c6077994"
+        },
+        "5": {
+            "varname": "spring_boot_actuator_health_no_proxy",
+            "caption": "Spring Boot Actuator Health: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a0608290-bfdb-43cc-845f-62118bbf8174"
+        },
+        "6": {
+            "varname": "spring_boot_actuator_health_timeout",
+            "caption": "Spring Boot Actuator Health: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bb231ad9-6bd1-4fe4-afd6-6a16e199c800"
+        },
+        "7": {
+            "varname": "spring_boot_actuator_health_url",
+            "caption": "Spring Boot Actuator Health: URL",
+            "description": "Spring Boot Actuator Health Endpoint, for example http://server:80/health/diskSpace.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5b789799-e63f-48cc-b085-e7c95f5ab174"
+        },
+        "8": {
+            "varname": "spring_boot_actuator_health_verbose",
+            "caption": "Spring Boot Actuator Health: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what's going on under the hood.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "968831ec-412d-4900-ba47-2765542fbe60"
+        }
+    }
+}
