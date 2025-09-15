@@ -56,6 +56,7 @@ Build, CI/CD:
 
 Icinga Director:
 
+* about-me: change command timeout from 30 to 60
 * atlassian-statuspage: increase Icinga Director command timeout
 * disk-io: change command timeout from 10 to 30 for Windows
 * memory-usage: change command timeout from 10 to 30 for Windows
