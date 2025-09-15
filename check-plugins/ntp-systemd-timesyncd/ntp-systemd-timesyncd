@@ -11,20 +11,21 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.args  # pylint: disable=C0413
-import lib.base  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
-import lib.lftest  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+from lib.globals import (STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025091501'
 
 DESCRIPTION = '''This plugin checks the state of systemd-timesyncd.'''
+
+DEFAULT_STRATUM = 6
 
 
 def parse_args():
@@ -35,7 +36,15 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--stratum',
+        help=lib.args.help('--stratum') + ' '
+             + 'Default: %(default)s',
+        dest='STRATUM',
+        default=DEFAULT_STRATUM,
     )
 
     parser.add_argument(
@@ -60,17 +69,18 @@ def main():
 
     if args.TEST is None:
         cmd = 'timedatectl show-timesync --all'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
-        if stderr:
-            lib.base.cu(stderr)
+        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd))
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, stderr, _ = lib.lftest.test(args.TEST)
+    if stderr:
+        lib.base.cu(stderr)
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+
     peer_used = False
 
     # analyze data
@@ -89,13 +99,21 @@ def main():
         lib.base.oao('No NTP server used.', STATE_WARN)
 
     # build the message
-    msg += 'Stratum is {}'.format(stratum)
-    if stratum >= 9:
+    msg += f'Stratum is {stratum}'
+    if stratum >= args.STRATUM:
         stratum_state = STATE_WARN
         state = lib.base.get_worst(state, stratum_state)
-        msg += ' is >= 9{}'.format(lib.base.state2str(stratum_state, prefix=' '))
+        msg += f' (is >= {args.STRATUM} {lib.base.state2str(stratum_state)})'
 
-    perfdata += lib.base.get_perfdata('stratum', stratum, None, 9, None, 0, None)
+    perfdata += lib.base.get_perfdata(
+        'stratum',
+        stratum,
+        uom=None,
+        warn=args.STRATUM,
+        crit=None,
+        _min=0,
+        _max=16,
+    )
 
     # over and out
     lib.base.oao(msg + '\n\n' + stdout, state, perfdata)
