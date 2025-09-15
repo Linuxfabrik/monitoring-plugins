@@ -28,7 +28,7 @@
 
 This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), a licence that dedicates works to the public domain with no conditions whatsoever. They run on all platforms that support Python 3.9 and above. For Windows, there are compiled plugins available, meaning you don't need Python.
+All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), a licence that dedicates works to the public domain with no conditions whatsoever. They run on all platforms that support Python 3.9 and above, like Linux, Windows, MacOS, FreeBSD and others. For Windows, there are compiled plugins available, meaning you don't need Python.
 
 The plugins are fast and reliable, using as few system resources as possible. They report the same metrics consistently and uniformly on all platforms (for example, they always use 'used' instead of a mixture of 'used' and 'free'). Where possible, automatic detection and auto-discovery mechanisms are built in. The plugins use meaningful default settings to trigger WARNs and CRITs only where absolutely necessary. In addition, many plugins offer troubleshooting information. We avoid dependencies on third-party system libraries wherever possible.
 
