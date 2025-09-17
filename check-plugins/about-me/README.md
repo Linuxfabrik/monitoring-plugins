@@ -33,7 +33,7 @@ Plugin execution may take up to 30 seconds, depending on the amount or type of i
 ## Help
 
 ```text
-usage: about-me [-h] [-V] [--insecure] [--no-proxy]
+usage: about-me [-h] [-V] [--dmidecode] [--insecure] [--no-proxy]
                 [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
 
 Provides a quick overview of host dimensions and software.
@@ -41,6 +41,11 @@ Provides a quick overview of host dimensions and software.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --dmidecode           Use the `dmidecode` command to gather additional
+                        hardware information, such as a list of the system's
+                        components, as well as other useful details like
+                        serial numbers and BIOS revisions. If enabled, this
+                        feature requires sudo permissions. Default: False
   --insecure            This option explicitly allows to perform "insecure"
                         SSL connections. Default: False
   --no-proxy            Do not use a proxy. Default: False
@@ -60,7 +65,7 @@ options:
 ## Usage Examples
 
 ```bash
-./about-me
+./about-me --dmidecode
 ```
 
 Shortened output example:

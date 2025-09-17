@@ -40,10 +40,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025090901 / v2.1.1'
+__version__ = '2025091701 / v2.1.1'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
+DEFAULT_DMIDECODE = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PUBLIC_IP_URL = None
@@ -59,6 +60,17 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--dmidecode',
+        help='Use the `dmidecode` command to gather additional hardware information, such as a list '
+             'of the system\'s components, as well as other useful details like serial numbers and '
+             'BIOS revisions. If enabled, this feature requires sudo permissions. '
+             'Default: %(default)s',
+        dest='DMIDECODE',
+        action='store_true',
+        default=DEFAULT_DMIDECODE,
     )
 
     parser.add_argument(
@@ -806,7 +818,10 @@ def main():
     if firmware_device_model:
         msg += '{}, '.format(firmware_device_model)
 
-    dmi = lib.dmidecode.get_data()
+    if args.DMIDECODE:
+        dmi = lib.dmidecode.get_data()
+    else:
+        dmi = False
     sys_dimensions = get_sys_dimensions()
     if dmi and sys_dimensions:
         # combine the best from both worlds
@@ -845,6 +860,7 @@ def main():
             sys_dimensions['cpu_logical'],
             sys_dimensions['cpu_usable'],
         )
+        msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{} RAM, '.format(
             lib.human.bytes2human(sys_dimensions['ram'])
         )
@@ -865,7 +881,8 @@ def main():
 
 
     # multi-line content - print further lines -----------------------------------------------------
-    msg += get_hw_info()
+    if args.DMIDECODE:
+        msg += get_hw_info()
     msg += get_interfaces()
     msg += get_listening_ports()
     msg += get_nondefault_software()
@@ -893,7 +910,7 @@ def main():
     perfdata += lib.base.get_perfdata('cpu_logical', sys_dimensions['cpu_logical'], None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('cpu_physical', sys_dimensions['cpu_physical'], None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('cpu_usable', sys_dimensions['cpu_usable'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('cpu_freq', int(sys_dimensions['cpu_freq'][0]), None, None, None, 0, lib.dmidecode.cpu_speed(dmi))
+    perfdata += lib.base.get_perfdata('cpu_freq', int(sys_dimensions['cpu_freq'][0]), None, None, None, 0, lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE else None)
     if dmi:
         perfdata += lib.base.get_perfdata('ram', lib.dmidecode.ram(dmi), 'B', None, None, 0, None)
     elif sys_dimensions:
