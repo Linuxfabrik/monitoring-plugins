@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+tbd
+
+
+## [v2.2.0] - 2025-09-19
+
 ### Added ("feat")
 
 Monitoring Plugins:
@@ -1968,7 +1973,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.0...HEAD
+[v2.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.0.0...v2.1.0
 [v2.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v1.2.0.11...v2.0.0
