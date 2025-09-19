@@ -18,7 +18,7 @@ Monitoring Plugins:
 
 * about-me: add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/lib/issues/948))
 * ntp-\*: add `--stratum` parameter and modernize code
-* sprint-boot-actuator-health: derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
+* spring-boot-actuator-health: derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
 * virustotal-scan-url: analyses URLs to detect malware and other breaches using VirusTotal
 
 
@@ -172,7 +172,7 @@ Build, CI/CD:
     * uptime
     * users
 
-* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9 to be installed on the target host. Sorry for the trouble.
+* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9+ to be installed on the target host. We also install a Python venv (virtual environment) in `/usr/lib64/linuxfabrik-monitoring-plugins/venv/` to manage all Python libraries with `pip`. Sorry for the back and forth.
 
 
 Icinga Director:
@@ -518,6 +518,19 @@ Monitoring Plugins:
 * rocketchat-version: use EOL library, parameter `--cache-expire` is deprecated
 * systemd-unit: Improve output
 * uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
+
+
+### Removed
+
+Monitoring Plugins:
+
+* Stop support for EOL distros: Remove builds for debian10, rhel7, ubuntu1804
+
+
+Notification Plugins:
+
+* notify-\*-rocketchat: remove telegram functionality
+
 
 
 ## [2024060401] - 2024-06-04
