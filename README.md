@@ -511,7 +511,7 @@ A: Of course. Just don't forget to install the libs either.
 
 Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
 
-A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following `[GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
 Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
