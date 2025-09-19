@@ -14,6 +14,11 @@ tbd
 
 ### Added ("feat")
 
+Build, CI/CD:
+
+* Add support for debian13 and rhel10 packages
+
+
 Monitoring Plugins:
 
 * about-me: add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/lib/issues/948))
@@ -57,7 +62,6 @@ Assets:
 Build, CI/CD:
 
 * Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
-* Build Debian 13 and Rocky 10 packages by default in GitHub workflows
 
 
 Icinga Director:
@@ -418,6 +422,11 @@ Notification Plugins:
 
 ### Added ("feat")
 
+Build, CI/CD:
+
+* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+
+
 Icinga Director:
 
 * all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
@@ -476,7 +485,6 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
 * Create MSI package for Windows.
 * Switch compilation for Linux from pyinstaller to Nuitka.
 * Switch compilation for Windows from mingw/gcc to MSVC.
@@ -522,9 +530,9 @@ Monitoring Plugins:
 
 ### Removed
 
-Monitoring Plugins:
+Build, CI/CD:
 
-* Stop support for EOL distros: Remove builds for debian10, rhel7, ubuntu1804
+* Remove support for debian10, rhel7, ubuntu1804 packages (OS's are EOL)
 
 
 Notification Plugins:
