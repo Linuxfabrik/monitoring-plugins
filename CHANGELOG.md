@@ -17,7 +17,7 @@ tbd
 
 Monitoring Plugins:
 
-* ntp-chronyd, ntp-ntpd: SyntaxError: f-string: unmatched '(' on python 3.11 ([#952](https://github.com/Linuxfabrik/lib/issues/952))
+* ntp-chronyd, ntp-ntpd: SyntaxError: f-string: unmatched '(' on python 3.11 ([#952](https://github.com/Linuxfabrik/monitoring-plugins/issues/952))
 
 
 
@@ -32,7 +32,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
-* about-me: add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/lib/issues/948))
+* about-me: add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/monitoring-plugins/issues/948))
 * ntp-\*: add `--stratum` parameter and modernize code
 * spring-boot-actuator-health: derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
 * virustotal-scan-url: analyses URLs to detect malware and other breaches using VirusTotal
@@ -48,7 +48,7 @@ Assets:
 
 Build, CI/CD:
 
-* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/lib/issues/918))
+* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
 
 
 Monitoring Plugins:
@@ -56,11 +56,11 @@ Monitoring Plugins:
 * deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
 * deb-updates: missing rights and still OK ([#937](https://github.com/Linuxfabrik/monitoring-plugins/issues/937))
 * icinga-topflap-services: prevent stacktrace when required parameters are empty
-* openstack-swift-stat: problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
+* openstack-swift-stat: problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/monitoring-plugins/issues/900))
 * safenet-hsm-state: set `use_agent` to false and enable perfdata in Icinga Director Basket
 * statuspal: handle incident_type "performance"
-* users: "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/lib/issues/919))
-* valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
+* users: "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/monitoring-plugins/issues/919))
+* valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/monitoring-plugins/issues/898))
 
 
 ### Changed ("refactor", "chore" etc.)
