@@ -7,7 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-tbd
+### Fixed ("fix")
+
+Monitoring Plugins:
+
+* ntp-chronyd, ntp-ntpd: SyntaxError: f-string: unmatched '(' on python 3.11 ([#952](https://github.com/Linuxfabrik/lib/issues/952))
 
 
 ## [v2.2.0] - 2025-09-19
