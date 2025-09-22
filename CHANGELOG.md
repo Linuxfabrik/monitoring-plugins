@@ -7,7 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-tbd
+### Fixed ("fix")
+
+Monitoring Plugins:
+
+* about-me: Error in perfdata if using `--dmidecode` and there is no HW information
 
 
 
