@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed ("fix")
 
+Grafana:
+* Icinga Dashboard: Use a query instead of a constant service name to allow the dashboard to be used even if the service name differs
+
 Monitoring Plugins:
 
 * about-me: Error in perfdata if using `--dmidecode` and there is no HW information
