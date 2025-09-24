@@ -6,7 +6,7 @@ Returns information and statistics about a Valkey server. Alerts on memory consu
 
 Hints:
 
-* Tested on Valkey 8.0.
+* Tested on Valkey 7.2 and 8.0.
 * "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
@@ -24,11 +24,11 @@ Hints:
 ## Help
 
 ```text
-usage: valkey-status [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
+usage: valkey-status [-h] [-V] [--always-ok] [-c CRIT] [--cacert FILE] [-H HOSTNAME]
                      [--ignore-maxmemory0] [--ignore-overcommit]
                      [--ignore-somaxconn] [--ignore-sync-partial-err]
                      [--ignore-thp] [-p PASSWORD] [--port PORT]
-                     [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
+                     [--socket SOCKET] [--test TEST] [--tls] [-u USER] [--verbose] [-w WARN]
 
 Returns information and statistics about a Valkey server. Alerts on memory
 consumption, memory fragmentation, hit rates and more.
@@ -39,6 +39,7 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >=
                         None
+  --cacert              CA Certificate file to verify with.
   -H, --hostname HOSTNAME
                         Valkey server hostname. Default: 127.0.0.1
   --ignore-maxmemory0   Don't warn about valkey' maxmemory=0. Default: False
@@ -60,6 +61,9 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --tls                 Establish a secure TLS connection to Valkey.
+  -u, --user USER
+                        Username to use when connecting to the valkey server.
+  --verbose             Verbose mode helps you debug stuff.
   -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
 ```
 
@@ -157,5 +161,5 @@ net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog
 
 ## Credits, License
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch); [Claudio Kuenzler](https://www.claudiokuenzler.com)
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
