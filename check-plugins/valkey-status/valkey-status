@@ -23,8 +23,8 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025062901'
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland; Claudio Kuenzler'
+__version__ = '2025092401'
 
 DESCRIPTION = """Returns information and statistics about a Valkey server. Alerts on memory
                  consumption, memory fragmentation, hit rates and more."""
@@ -65,6 +65,12 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--cacert',
+        help='CA Certificate file to verify with.',
+        dest='CACERT',
     )
 
     parser.add_argument(
@@ -154,6 +160,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-u', '--user',
+        help='Username to use when connecting to the valkey server.',
+        dest='USER',
+    )
+
+    parser.add_argument(
+        '--verbose',
+        help='Verbose mode helps you debug stuff.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-w', '--warning',
         help='Set the WARN threshold as a percentage. Default: >= %(default)s',
         dest='WARN',
@@ -178,11 +198,17 @@ def main():
         base_cmd = 'valkey-cli -h {} -p {} '.format(args.HOSTNAME, args.PORT)
     else:
         base_cmd = 'valkey-cli -s {} '.format(args.SOCKET)
-    if args.PASSWORD:
+    if args.PASSWORD and not args.USER:
         base_cmd += '-a {} '.format(args.PASSWORD)
         base_cmd += '--no-auth-warning '
+    if args.PASSWORD and args.USER:
+        base_cmd += '--user {} '.format(args.USER)
+        base_cmd += '--pass {} '.format(args.PASSWORD)
+        base_cmd += '--no-auth-warning '
     if args.TLS:
-        base_cmd += '--tls --cacert /etc/pki/tls/certs/rootCA.pem '
+        base_cmd += '--tls '
+    if args.CACERT:
+        base_cmd += '--cacert {} '.format(args.CACERT)
 
     # fetch data using `valkey-cli info default`
     if args.TEST is None:
@@ -198,6 +224,9 @@ def main():
     if not stdout.startswith('# Server'):
         lib.base.oao(stdout, STATE_WARN)
 
+    # Debug output
+    if args.VERBOSE:
+        print(stdout)
     # parse the output
     lines = stdout.splitlines()
     result = {}
@@ -230,11 +259,12 @@ def main():
 
     # analyze result, get the state and build the message
 
-    # Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379, 
+    # Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379,
     msg += 'Valkey v{}'.format(result['valkey_version'])
     if 'redis_version' in result:
         msg += ' (based on Redis v{})'.format(result['redis_version'])
-    msg += ', {} mode '.format(result['server_mode'])
+    if 'server_mode' in result:
+        msg += ', {} mode '.format(result['server_mode'])
     if not args.SOCKET:
         msg += 'on {}:{}, '.format(
             args.HOSTNAME,
