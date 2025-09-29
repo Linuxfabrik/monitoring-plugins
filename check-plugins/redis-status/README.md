@@ -6,7 +6,7 @@ Returns information and statistics about a Redis server. Alerts on memory consum
 
 Hints:
 
-* Tested on Redis 3.0, 3.2, 6.0, 6.2 and 7.0.
+* Tested on Redis 3.0+.
 * "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
@@ -24,11 +24,12 @@ Hints:
 ## Help
 
 ```text
-usage: redis-status [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
-                    [--ignore-maxmemory0] [--ignore-overcommit]
+usage: redis-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
+                    [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                     [--ignore-somaxconn] [--ignore-sync-partial-err]
                     [--ignore-thp] [-p PASSWORD] [--port PORT]
-                    [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
+                    [--socket SOCKET] [--test TEST] [--tls]
+                    [--username USERNAME] [--verbose] [-w WARN]
 
 Returns information and statistics about a Redis server. Alerts on memory
 consumption, memory fragmentation, hit rates and more.
@@ -37,8 +38,10 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >=
-                        None
+  --cacert CACERT       CA Certificate file to verify with. Needs `--tls`.
+                        Default: /etc/pki/tls/certs/rootCA.pem
+  -c, --critical CRIT   Set the CRIT memory usage threshold as a percentage.
+                        Default: >= None
   -H, --hostname HOSTNAME
                         Redis server hostname. Default: 127.0.0.1
   --ignore-maxmemory0   Don't warn about redis' maxmemory=0. Default: False
@@ -60,22 +63,45 @@ options:
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --tls                 Establish a secure TLS connection to Redis.
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
+  --username USERNAME   Username to use when connecting to the Redis server.
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what's going on under the
+                        hood. Default: False
+  -w, --warning WARN    Set the WARN memory usage threshold as a percentage.
+                        Default: >= 90
 ```
 
 
 ## Usage Examples
 
 ```bash
-./redis-status --ignore-maxmemory0 --ignore-overcommit --ignore-somaxconn --ignore-sync-partial-err --ignore-thp
+./redis-status \
+    --ignore-maxmemory0 \
+    --ignore-overcommit \
+    --ignore-somaxconn \
+    --ignore-sync-partial-err \
+    --ignore-thp \
+    --username=linus \
+    --password=linuxfabrik
 ```
 
 Output:
 
 ```text
-Redis v5.0.3, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 4m 25s, 100.9% memory usage [WARNING] (9.6MiB/9.5MiB, 9.6MiB peak, 19.6MiB RSS), maxmemory-policy=noeviction, 3 DBs (db0 db3 db4) with 10 keys, 0.0 evicted keys, 0.0 expired keys, hit rate 100.0% (3.0M hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not set to "madvise" or "never", net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog (256). Sam, I detected a few issues in this Redis instance memory implants:
+Redis v5.0.3, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 4m 25s, 100.9% memory usage
+[WARNING] (9.6MiB/9.5MiB, 9.6MiB peak, 19.6MiB RSS), maxmemory-policy=noeviction, 3 DBs
+(db0 db3 db4) with 10 keys, 0.0 evicted keys, 0.0 expired keys, hit rate 100.0%
+(3.0M hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not
+set to "madvise" or "never", net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog
+(256). Sam, I detected a few issues in this Redis instance memory implants:
 
- * High total RSS: This instance has a memory fragmentation and RSS overhead greater than 1.4 (this means that the Resident Set Size of the Redis process is much larger than the sum of the logical allocations Redis performed). This problem is usually due either to a large peak memory (check if there is a peak memory entry above in the report) or may result from a workload that causes the allocator to fragment memory a lot. If the problem is a large peak memory, then there is no issue. Otherwise, make sure you are using the Jemalloc allocator and not the default libc malloc. Note: The currently used allocator is "jemalloc-5.1.0".
+ * High total RSS: This instance has a memory fragmentation and RSS overhead greater than 1.4
+ (this means that the Resident Set Size of the Redis process is much larger than the sum of the
+logical allocations Redis performed). This problem is usually due either to a large peak
+memory (check if there is a peak memory entry above in the report) or may result from a workload
+that causes the allocator to fragment memory a lot. If the problem is a large peak memory, then
+there is no issue. Otherwise, make sure you are using the Jemalloc allocator and not the default
+libc malloc. Note: The currently used allocator is "jemalloc-5.1.0".
 
 I'm here to keep you safe, Sam. I want to help you.
 ```

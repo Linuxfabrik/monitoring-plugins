@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$valkey_status_always_ok$"
                 },
+                "--cacert": {
+                    "value": "$valkey_status_cacert$"
+                },
                 "--critical": {
                     "value": "$valkey_status_critical$"
                 },
@@ -37,6 +40,12 @@
                 },
                 "--tls": {
                     "set_if": "$valkey_status_tls$"
+                },
+                "--username": {
+                    "value": "$valkey_status_username$"
+                },
+                "--verbose": {
+                    "set_if": "$valkey_status_verbose$"
                 },
                 "--warning": {
                     "value": "$valkey_status_warning$"
@@ -109,6 +118,21 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -164,6 +188,7 @@
             "vars": {
                 "criticality": "C",
                 "valkey_status_always_ok": false,
+                "valkey_status_cacert": "/etc/pki/tls/certs/rootCA.pem",
                 "valkey_status_hostname": "127.0.0.1",
                 "valkey_status_ignore_maxmemory0": false,
                 "valkey_status_ignore_overcommit": false,
@@ -172,6 +197,7 @@
                 "valkey_status_ignore_thp": false,
                 "valkey_status_port": "6379",
                 "valkey_status_tls": false,
+                "valkey_status_verbose": false,
                 "valkey_status_warning": 90
             },
             "volatile": null,
@@ -190,9 +216,20 @@
             "uuid": "272eefa0-8b0f-44c0-8e7b-e5defb0a7dad"
         },
         "2": {
+            "varname": "valkey_status_cacert",
+            "caption": "Valkey Status: Cacert",
+            "description": "CA Certificate file to verify with. Needs `--tls`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "807733d5-9cee-4c70-8e17-1700582118b5"
+        },
+        "3": {
             "varname": "valkey_status_critical",
             "caption": "Valkey Status: Critical",
-            "description": "Set the CRIT threshold as a percentage.",
+            "description": "Set the CRIT memory usage threshold as a percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -200,7 +237,7 @@
             },
             "uuid": "774f6755-5dce-4c0c-9a96-7201960f4368"
         },
-        "3": {
+        "4": {
             "varname": "valkey_status_hostname",
             "caption": "Valkey Status: Hostname",
             "description": "Valkey server hostname.",
@@ -211,16 +248,16 @@
             },
             "uuid": "13de4d7f-383a-4513-929c-1c0a7186ca81"
         },
-        "4": {
+        "5": {
             "varname": "valkey_status_ignore_maxmemory0",
             "caption": "Valkey Status: Ignore Maxmemory0?",
-            "description": "Don't warn about valkey' maxmemory=0.",
+            "description": "Don't warn about Valkey' maxmemory=0.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "4d605485-4cb0-41ca-9dde-cc67c00d3717"
         },
-        "5": {
+        "6": {
             "varname": "valkey_status_ignore_overcommit",
             "caption": "Valkey Status: Ignore Overcommit?",
             "description": "Don't warn about vm.overcommit_memory<>1.",
@@ -229,7 +266,7 @@
             "settings": {},
             "uuid": "135bc79d-8f22-4824-84f9-092583567b3e"
         },
-        "6": {
+        "7": {
             "varname": "valkey_status_ignore_somaxconn",
             "caption": "Valkey Status: Ignore Somaxconn?",
             "description": "Don't warn about net.core.somaxconn < net.ipv4.tcp_max_syn_backlog.",
@@ -238,7 +275,7 @@
             "settings": {},
             "uuid": "abcd27f1-dc3f-4cd0-a1bd-7b11496dc044"
         },
-        "7": {
+        "8": {
             "varname": "valkey_status_ignore_sync_partial_err",
             "caption": "Valkey Status: Ignore Sync Partial Err?",
             "description": "Don't warn about partial sync errors (because if you have an asynchronous replication, a small number of \"denied partial resync requests\" might be normal).",
@@ -247,7 +284,7 @@
             "settings": {},
             "uuid": "7eb384ca-8b5b-4f95-92cb-a166a6658067"
         },
-        "8": {
+        "9": {
             "varname": "valkey_status_ignore_thp",
             "caption": "Valkey Status: Ignore Thp?",
             "description": "Don't warn about transparent huge page setting.",
@@ -256,10 +293,10 @@
             "settings": {},
             "uuid": "f6c2058f-6273-4f39-9a20-dfd266cdbd3c"
         },
-        "9": {
+        "10": {
             "varname": "valkey_status_password",
             "caption": "Valkey Status: Password",
-            "description": "Password to use when connecting to the valkey server.",
+            "description": "Password to use when connecting to the Valkey server.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -267,7 +304,7 @@
             },
             "uuid": "ff5ecf96-7e71-461b-962f-5ae418966e56"
         },
-        "10": {
+        "11": {
             "varname": "valkey_status_port",
             "caption": "Valkey Status: Port",
             "description": "Valkey server port.",
@@ -278,7 +315,7 @@
             },
             "uuid": "66198db2-4e9d-4854-9b70-d8beb8926de3"
         },
-        "11": {
+        "12": {
             "varname": "valkey_status_socket",
             "caption": "Valkey Status: Socket",
             "description": "Valkey server socket (overrides hostname and port).",
@@ -289,7 +326,7 @@
             },
             "uuid": "929f1232-18b7-4879-a1ab-789526165bea"
         },
-        "12": {
+        "13": {
             "varname": "valkey_status_tls",
             "caption": "Valkey Status: Tls?",
             "description": "Establish a secure TLS connection to Valkey.",
@@ -298,10 +335,30 @@
             "settings": {},
             "uuid": "23fb86ca-6e8b-4916-86d1-eec30769f322"
         },
-        "13": {
+        "14": {
+            "varname": "valkey_status_username",
+            "caption": "Valkey Status: Username",
+            "description": "Username to use when connecting to the Valkey server.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "123dc970-0157-45a3-bd4c-bbad5f6891f5"
+        },
+        "15": {
+            "varname": "valkey_status_verbose",
+            "caption": "Valkey Status: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what's going on under the hood.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a1fe5380-27d3-416e-bd3d-0439958d5153"
+        },
+        "16": {
             "varname": "valkey_status_warning",
             "caption": "Valkey Status: Warning",
-            "description": "Set the WARN threshold as a percentage.",
+            "description": "Set the WARN memory usage threshold as a percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

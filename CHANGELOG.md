@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added ("feat")
+
+* valkey-status: support user and password credentials, fix tls connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
+
+
 ### Fixed ("fix")
 
 Grafana:
@@ -16,6 +21,11 @@ Grafana:
 Monitoring Plugins:
 
 * about-me: Error in perfdata if using `--dmidecode` and there is no HW information
+
+
+### Changed ("refactor", "chore" etc.)
+
+* redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 
 
 
