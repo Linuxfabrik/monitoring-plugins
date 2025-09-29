@@ -117,6 +117,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="keycloak-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-memory-usage.png" width="30%"/> &nbsp;
 <img alt="keycloak-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-stats.png" width="30%"/> &nbsp;
 <img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-version.png" width="30%"/> &nbsp;
+<img alt="kubectl-get-pods" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kubectl-get-pods.png" width="30%"/> &nbsp;
 <img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kvm-vm.png" width="30%"/> &nbsp;
 <img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-alerts.png" width="30%"/> &nbsp;
 <img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-health.png" width="30%"/> &nbsp;
