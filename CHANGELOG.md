@@ -29,6 +29,14 @@ Monitoring Plugins:
 
 
 
+### Removed ("chore" etc.)
+
+Tools:
+
+* remove legacy `grafana-tool`
+
+
+
 ## [v2.2.1] - 2025-09-22
 
 ### Fixed ("fix")
