@@ -11,18 +11,17 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import json  # pylint: disable=C0413
-import os  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
-import lib.version  # pylint: disable=C0413
-from lib.globals import (STATE_UNKNOWN) # pylint: disable=C0413
+import lib.base
+import lib.disk
+import lib.nextcloud
+import lib.version
+from lib.globals import (STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2024031501'
+__version__ = '2025100201'
 
 DESCRIPTION = 'Tracks if Nextcloud is EOL.'
 
@@ -44,7 +43,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -118,7 +117,8 @@ def parse_args():
     parser.add_argument(
         '--path',
         help='Local path to your Nextcloud installation, typically within your Webserver\'s '
-             'Document Root. Default: %(default)s',
+             'Document Root. '
+             'Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
     )
@@ -135,37 +135,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_owner(file):
-    """Returns the user ID of the owner of a file (for example "0" for "root").
-    Returns -1 on failure.
-    """
-    try:
-        return os.stat(file).st_uid
-    except:
-        return -1
-
-
-def run_occ(path, cmd, _format='json'):
-    """Run the Nextcloud OCC command.
-    """
-    # get the owner of config.php
-    user = get_owner(os.path.join(path, 'config/config.php'))
-    occ = os.path.join(path, 'occ')
-    # When running a command as a UID, many shells require
-    # that the `#` be escaped with a backslash (`\`).
-    stdout, stderr, _ = lib.base.coe(
-        lib.shell.shell_exec('sudo -u \\#{} {} {}'.format(user, occ, cmd))
-    )
-    if stderr:
-        lib.base.cu(stderr)
-    try:
-        if _format == 'json':
-            return json.loads(stdout)
-        return stdout.strip()
-    except:
-        lib.base.cu('ValueError: No JSON object could be decoded')
-
-
 def main():
     """The main function. Hier spielt die Musik.
     """
@@ -177,7 +146,9 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    config = run_occ(args.PATH, 'config:list')
+    success, config = lib.nextcloud.run_occ(args.PATH, 'config:list')
+    if not success:
+        lib.base.cu(config)
 
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/nextcloud.json',
@@ -193,16 +164,16 @@ def main():
 
     # over and out
     lib.base.oao(
-        'Nextcloud v{} ({})'.format(config['system']['version'], msg),
+        f'Nextcloud v{config["system"]["version"]} ({msg})',
         state,
         lib.base.get_perfdata(
             'nextcloud-version',
             lib.version.version2float(config['system']['version']),
-            None,
-            None,
-            None,
-            0,
-            None,
+            uom=None,
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
         ),
         always_ok=args.ALWAYS_OK,
     )
