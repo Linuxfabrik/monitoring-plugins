@@ -25,6 +25,13 @@ Monitoring Plugins:
 
 ### Changed ("refactor", "chore" etc.)
 
+Assets:
+
+* sudoers: disable PAM's session stack log lines when user icinga or nagios uses sudo
+
+
+Monitoring Plugins:
+
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 
 
