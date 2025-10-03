@@ -155,6 +155,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="network-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-connections.png" width="30%"/> &nbsp;
 <img alt="network-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-io.png" width="30%"/> &nbsp;
 <img alt="network-port-tcp" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-port-tcp.png" width="30%"/> &nbsp;
+<img alt="nextcloud-enterprise" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-enterprise.png" width="30%"/> &nbsp;
 <img alt="nextcloud-security-scan" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-security-scan.png" width="30%"/> &nbsp;
 <img alt="nextcloud-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-stats.png" width="30%"/> &nbsp;
 <img alt="nextcloud-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-version.png" width="30%"/> &nbsp;
