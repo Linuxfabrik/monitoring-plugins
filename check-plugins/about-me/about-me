@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025092201 / v2.2.1'
+__version__ = '2025100601 / v2.2.1'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
@@ -834,7 +834,8 @@ def main():
             sys_dimensions['cpu_logical'],
             sys_dimensions['cpu_usable'],
         )
-        msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
+        if sys_dimensions['cpu_freq']:
+            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{}/{} RAM (virtmem/max'.format(
             lib.human.bytes2human(sys_dimensions['ram']),
             lib.human.bytes2human(lib.dmidecode.ram(dmi)),
@@ -852,7 +853,8 @@ def main():
             sys_dimensions['cpu_logical'],
             sys_dimensions['cpu_usable'],
         )
-        msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
+        if sys_dimensions['cpu_freq']:
+            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{} RAM, '.format(lib.human.bytes2human(lib.dmidecode.ram(dmi)))
     elif sys_dimensions:
         msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
@@ -860,7 +862,8 @@ def main():
             sys_dimensions['cpu_logical'],
             sys_dimensions['cpu_usable'],
         )
-        msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
+        if sys_dimensions['cpu_freq']:
+            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{} RAM, '.format(
             lib.human.bytes2human(sys_dimensions['ram'])
         )
@@ -910,7 +913,8 @@ def main():
     perfdata += lib.base.get_perfdata('cpu_logical', sys_dimensions['cpu_logical'], None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('cpu_physical', sys_dimensions['cpu_physical'], None, None, None, 0, None)
     perfdata += lib.base.get_perfdata('cpu_usable', sys_dimensions['cpu_usable'], None, None, None, 0, None)
-    perfdata += lib.base.get_perfdata('cpu_freq', int(sys_dimensions['cpu_freq'][0]), None, None, None, 0, lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE and dmi else None)
+    if sys_dimensions['cpu_freq']:
+        perfdata += lib.base.get_perfdata('cpu_freq', int(sys_dimensions['cpu_freq'][0]), None, None, None, 0, lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE and dmi else None)
     if dmi:
         perfdata += lib.base.get_perfdata('ram', lib.dmidecode.ram(dmi), 'B', None, None, 0, None)
     elif sys_dimensions:

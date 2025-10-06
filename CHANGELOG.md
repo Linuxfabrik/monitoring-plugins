@@ -24,6 +24,7 @@ Grafana:
 Monitoring Plugins:
 
 * about-me: Error in perfdata if using `--dmidecode` and there is no HW information
+* about-me: TypeError: 'NoneType' object is not subscriptable for `sys_dimensions['cpu_freq']` on some machines
 
 
 ### Changed ("refactor", "chore" etc.)
