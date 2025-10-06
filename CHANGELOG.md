@@ -36,6 +36,7 @@ Assets:
 
 Monitoring Plugins:
 
+* all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * nextcloud-version: modernize code
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 
