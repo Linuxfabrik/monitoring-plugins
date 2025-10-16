@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added ("feat")
 
+Build, CI/CD:
+
+* Add support for sle15 packages
+
+
 Monitoring Plugins:
 
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription

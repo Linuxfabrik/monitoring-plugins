@@ -54,7 +54,7 @@ cat > env-file << 'EOF'
 export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
 export LFMP_VERSION=1.4.0
 export LFMP_PACKAGE_ITERATION=7
-export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 ubuntu2004 ubuntu2204 ubuntu2404"
+export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 ubuntu2004 ubuntu2204 ubuntu2404"
 
 # ---
 # Constants
@@ -140,6 +140,7 @@ Debian 13     ! docker.io/library/debian:13
 RHEL 8        ! docker.io/rockylinux/rockylinux:8
 RHEL 9        ! docker.io/rockylinux/rockylinux:9
 RHEL 10       ! docker.io/rockylinux/rockylinux:10
+SLE 15        ! registry.suse.com/suse/sle15:15.5
 Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
 Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
 Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
@@ -151,6 +152,9 @@ Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
 > [!NOTE]
 > Why `docker.io/rockylinux/rockylinux` instead of `docker.io/library/rockylinux`?  
 > `docker.io/library/rockylinux` is currently not updated: "The Docker team curates the Official Images program, and there are currently some technical constraints preventing Rocky Linux from publishing updates here. For the most up-to-date container images, please refer to [the Rocky Linux Docker Hub repository](https://hub.docker.com/r/rockylinux/rockylinux) for now." (from https://hub.docker.com/_/rockylinux#important-note)
+
+> [!NOTE]
+> The SLE 15 packages require at least openSUSE 15.5 or SLES 15 Service Pack 5.
 
 Windows Binaries  
 Binaries for Windows are compiled on Windows Server 2025 using MSVC 14.

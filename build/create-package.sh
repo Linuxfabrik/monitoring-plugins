@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025053001
+# 2025101601
 
 set -e -o pipefail -u -x
 
@@ -17,14 +17,21 @@ rocky8)
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
-    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.spec
     ;;
 rocky9 | rocky10)
     export LFMP_PYTHON=python3
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
-    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.spec
+    ;;
+sle15)
+    export LFMP_PYTHON=python3.11
+
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.sle.spec
     ;;
 ubuntu2004)
     # (System) Python 3.9 on Ubuntu 20.04 does not have Pip
