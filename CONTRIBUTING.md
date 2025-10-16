@@ -38,12 +38,13 @@ Checklist:
 * A free, monochrome, transparent SVG icon from <https://simpleicons.org> or <https://fontawesome.com/search?ic=free>, placed in the `icon` directory.
 * Optional: `unit-test/run` - the unittest file (see [Unit Tests](#unit-tests))
 * Optional: `requirements.txt`
-* If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst)) and `.ini` file for the Icinga Web 2 Grafana Module
+* If providing performance data: Grafana dashboard (see [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin (`check2basket`)
 * Icinga Service Set in `all-the-rest.json`
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in the projects [README](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/README.md).
 * CHANGELOG
+
 
 ## Rules of Thumb
 
@@ -103,9 +104,12 @@ The theory:
 See <https://nedbatchelder.com/text/unipain.html> for details.
 
 
-## Names, Naming Conventions, Parameters, Option Processing
+## Names, Naming Conventions
 
 The plugin name should match the following regex: `^[a-zA-Z0-9\-\_]*$`. This allows the plugin name to be used as the grafana dashboard uid (according to [here](https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11)).
+
+
+## Parameters, Option Processing
 
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
@@ -251,8 +255,7 @@ Hints:
 * For repeating parameters, use the `append` action. A `default` variable has to be a list then. `--input=a --input=b` results in `[ 'a', 'b' ]`
 * If you combine `csv` type and `append` action, you get a two-dimensional list: `--repeating-csv='1, 2, 3' --repeating-csv='a, b, c'` results in `[['1', '2', '3'], ['a', 'b', 'c']]`
 * If you want to provide default values together with `append`, in `parser.add_argument()`, leave the `default` as `None`. If after `main:parse_args()` the value is still `None`, put the desired default list (or any other object) there. The primary purpose of the parser is to parse the commandline - to figure out what the user wants to tell you. There's nothing wrong with tweaking (and checking) the `args` Namespace after parsing. (According to <https://bugs.python.org/issue16399>)
-
-Lessons learned: When it comes to parameters, stay backwards compatible. If you have to rename or drop parameters, keep the old ones, but silently ignore them. This helps admins deploy the monitoring plugins to thousands of servers, while the monitoring server is updated later for various reasons. To be as tolerant as possible, replace the parameter's help text with `help=argparse.SUPPRESS`:
+* When it comes to parameters, stay backwards compatible. If you have to rename or drop parameters, keep the old ones, but silently ignore them. This helps admins deploy the monitoring plugins to thousands of servers, while the monitoring server is updated later for various reasons. To be as tolerant as possible, replace the parameter's help text with `help=argparse.SUPPRESS`:
 
 ```python
 def parse_args():
@@ -266,6 +269,8 @@ def parse_args():
         dest='MY_OLD_VAR',
     )
 ```
+
+* A plugin should tolerate unknown parameters. Imagine an monitoring system that checks thousand hosts. You want to update a plugin offering a new parameter that is essential for you, so you adjust the service definition, add the new parameter and update the plugin on one host. The non-updated plugin on the other 999 hosts will throw an 'UNKNOWN' error when argparse is used with `parser.parse_args()`. This would significantly disrupt operations and cause stress. Therefore, it makes more sense to be tolerant and use `parser.parse_known_args()`.
 
 
 ## Git Commits

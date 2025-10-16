@@ -6,7 +6,7 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 """See the check's README for more details.
 """
@@ -29,7 +29,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025051601'
+__version__ = '2025100601'
 
 DESCRIPTION = """This check plugin counts the number of state changes per service within a
                  given lookback interval. This makes it possible to detect fast flapping services.
@@ -157,7 +157,8 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args
 
 
 def get_data(args):
@@ -187,6 +188,15 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    have_creds = args.USERNAME and args.PASSWORD and args.URL
+    have_pwfile = args.PWFILE
+    if not (have_creds or have_pwfile):
+        lib.base.cu(
+            'The three parameters `--url`, `--username` and `--password` are required. ' \
+            'Alternatively, you can provide a password file for IcingaWeb to read ' \
+            'the "url", "user" or "password" from, using `--pwfile`.'
+        )
+
     # if given, read password INI-file, but cmdline takes precedence
     config = configparser.ConfigParser()
     try:
@@ -203,6 +213,13 @@ def main():
     except configparser.Error as e:
         print(e)
         sys.exit(STATE_UNKNOWN)
+
+    have_creds = args.USERNAME and args.PASSWORD and args.URL
+    if not have_creds:
+        lib.base.cu(
+            'Either the username, password or URL is not specified' + \
+            f' in `{args.PWFILE}`.' if args.PWFILE else '.'
+        )
 
     # init some vars
     msg = ''

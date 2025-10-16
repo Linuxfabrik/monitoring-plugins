@@ -6,7 +6,7 @@ Checks the replication status of MySQL/MariaDB. Logic is taken from [MySQLTuner 
 
 Hints:
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst)
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * Can also be run against standalone servers.
 
 

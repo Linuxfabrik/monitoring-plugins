@@ -1,0 +1,28 @@
+# Base image: Official RHEL 10
+FROM registry.access.redhat.com/ubi10
+
+# Install Python
+RUN dnf --assumeyes install --nodocs python python-pip python-devel gcc && \
+    dnf clean all
+
+# Install tools
+RUN dnf --assumeyes install --nodocs https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    dnf --assumeyes install --nodocs stress && \
+    dnf clean all
+
+# Set the working directory in the container
+WORKDIR /tmp
+
+# Use ADD to download the requirements.txt file
+ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/main/requirements.txt /tmp/requirements.txt
+
+# Install dependencies using pip
+RUN dnf --assumeyes remove python3-requests
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir --requirement requirements.txt --no-deps
+
+# Verify Python installation
+RUN python --version
+
+# Default command to keep the container running
+CMD ["sleep", "infinity"]

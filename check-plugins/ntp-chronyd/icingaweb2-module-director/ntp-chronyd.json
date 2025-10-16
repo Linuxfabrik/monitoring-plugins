@@ -5,6 +5,9 @@
                 "--critical": {
                     "value": "$ntp_chronyd_critical$"
                 },
+                "--stratum": {
+                    "value": "$ntp_chronyd_stratum$"
+                },
                 "--warning": {
                     "value": "$ntp_chronyd_warning$"
                 }
@@ -19,6 +22,11 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -64,7 +72,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "This plugin checks the clock offset of chronyd in milliseconds compared to ntp servers.",
+            "notes": "This plugin compares the chronyd clock offset in milliseconds to that of the NTP servers.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-chronyd",
             "object_name": "tpl-service-ntp-chronyd",
             "object_type": "template",
@@ -76,6 +84,7 @@
             "vars": {
                 "criticality": "C",
                 "ntp_chronyd_critical": 86400000,
+                "ntp_chronyd_stratum": 6,
                 "ntp_chronyd_warning": 800
             },
             "volatile": null,
@@ -96,6 +105,17 @@
             "uuid": "47e8b431-eaae-4136-8a70-350ce0ca1804"
         },
         "2": {
+            "varname": "ntp_chronyd_stratum",
+            "caption": "NTP Chronyd: Stratum",
+            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "61cac0f3-c41b-42f8-a11d-f255d74ece12"
+        },
+        "3": {
             "varname": "ntp_chronyd_warning",
             "caption": "NTP Chronyd: Warning",
             "description": "Set the warning threshold for the ntp time offset, in ms.",

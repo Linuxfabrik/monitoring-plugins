@@ -4,6 +4,10 @@
 
 This plugin lets you track statistics about a Rocket.Chat server.
 
+Hints:
+
+* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md).
+
 
 ## Fact Sheet
 

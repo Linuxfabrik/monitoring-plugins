@@ -7,16 +7,99 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added ("feat")
+
+Monitoring Plugins:
+
+* nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
+* valkey-status: support user and password credentials, fix tls connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
+
+
+### Fixed ("fix")
+
+Grafana:
+
+* Icinga Dashboard: Use a query instead of a constant service name to allow the dashboard to be used even if the service name differs
+
+Monitoring Plugins:
+
+* about-me: error in perfdata if using `--dmidecode` and there is no HW information
+* about-me: fix various errors with `sys_dimensions` on some machines
+
+
+### Changed ("refactor", "chore" etc.)
+
+Assets:
+
+* sudoers: disable PAM's session stack log lines when user icinga or nagios uses sudo
+
+
+Monitoring Plugins:
+
+* all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
+* nextcloud-version: modernize code
+* redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
+
+
+
+### Removed ("chore" etc.)
+
+Tools:
+
+* remove legacy `grafana-tool`
+
+
+
+## [v2.2.1] - 2025-09-22
+
+### Fixed ("fix")
+
+Monitoring Plugins:
+
+* ntp-chronyd, ntp-ntpd: SyntaxError: f-string: unmatched '(' on python 3.11 ([#952](https://github.com/Linuxfabrik/monitoring-plugins/issues/952))
+
+
+
+## [v2.2.0] - 2025-09-19
+
+### Added ("feat")
+
+Build, CI/CD:
+
+* Add support for debian13 and rhel10 packages
+
+
+Monitoring Plugins:
+
+* about-me: add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/monitoring-plugins/issues/948))
+* ntp-\*: add `--stratum` parameter and modernize code
+* spring-boot-actuator-health: derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
+* virustotal-scan-url: analyses URLs to detect malware and other breaches using VirusTotal
+
+
 ### Fixed ("fix")
 
 Assets:
 
-* deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets
+* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): add missing type enforcement requirements ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
+
+
+Build, CI/CD:
+
+* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
+
 
 Monitoring Plugins:
 
-* fix(openstack-swift-stat): Problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/lib/issues/900))
-* fix(valkey-status|redis-status): improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/lib/issues/898))
+* deb-updates: apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
+* deb-updates: missing rights and still OK ([#937](https://github.com/Linuxfabrik/monitoring-plugins/issues/937))
+* icinga-topflap-services: prevent stacktrace when required parameters are empty
+* openstack-swift-stat: problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/monitoring-plugins/issues/900))
+* safenet-hsm-state: set `use_agent` to false and enable perfdata in Icinga Director Basket
+* statuspal: handle incident_type "performance"
+* users: "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/monitoring-plugins/issues/919))
+* valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/monitoring-plugins/issues/898))
 
 
 ### Changed ("refactor", "chore" etc.)
@@ -25,8 +108,36 @@ Assets:
 
 * To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
 
+
+Build, CI/CD:
+
+* Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
+
+
+Icinga Director:
+
+* about-me: change command timeout from 30 to 60
+* atlassian-statuspage: increase Icinga Director command timeout
+* disk-io: change command timeout from 10 to 30 for Windows
+* memory-usage: change command timeout from 10 to 30 for Windows
+* ntp-w32tm: change command timeout from 10 to 30 and check interval from 60 to 600
+* procs: change command timeout from 10 to 30 for Windows
+
+
 Monitoring Plugins:
 
+* about-me: report current cpu frequency and avoid dmidecode noise, new perfdata
+* cpu-usage: non-blocking behaviour (interval=None + manual deltas via SQLite DB) so we get both accuracy and faster runtime
+* disk-io: modernize code
+* gitlab-health: increase timeout from 3 to 8 secs
+* gitlab-liveness: increase timeout from 3 to 8 secs
+* gitlab-readiness: increase timeout from 3 to 8 secs
+* infomaniak-events: increase timeout from 8 to 28 secs
+* journald-usage: also print SystemMaxUse and SystemKeepFree
+* memory-usage: modernize code
+* pip-updates: modernize code
+* procs: avoid token + PEB reads and repeated attribute calls per process, as this has an impact on busy Windows servers
+* rocketchat-stats: improve output and docs a little bit
 * statuspal: 'performance' degredation is now a WARN, not UNKNOWN
 
 
@@ -115,7 +226,8 @@ Build, CI/CD:
     * uptime
     * users
 
-* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9 to be installed on the target host. Sorry for the trouble.
+* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9+ to be installed on the target host. We also install a Python venv (virtual environment) in `/usr/lib64/linuxfabrik-monitoring-plugins/venv/` to manage all Python libraries with `pip`. Sorry for the back and forth.
+
 
 Icinga Director:
 
@@ -280,6 +392,7 @@ Build, CI/CD:
 
 * compile-one.sh: provide Nuitka's no-deployment-flag ([#864](https://github.com/Linuxfabrik/monitoring-plugins/issues/864))
 
+
 Monitoring Plugins:
 
 * by-ssh: fix traceback on "permission denied"
@@ -359,6 +472,11 @@ Notification Plugins:
 
 ### Added ("feat")
 
+Build, CI/CD:
+
+* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
+
+
 Icinga Director:
 
 * all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
@@ -417,7 +535,6 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
 * Create MSI package for Windows.
 * Switch compilation for Linux from pyinstaller to Nuitka.
 * Switch compilation for Windows from mingw/gcc to MSVC.
@@ -459,6 +576,19 @@ Monitoring Plugins:
 * rocketchat-version: use EOL library, parameter `--cache-expire` is deprecated
 * systemd-unit: Improve output
 * uptime: Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
+
+
+### Removed
+
+Build, CI/CD:
+
+* Remove support for debian10, rhel7, ubuntu1804 packages (OS's are EOL)
+
+
+Notification Plugins:
+
+* notify-\*-rocketchat: remove telegram functionality
+
 
 
 ## [2024060401] - 2024-06-04
@@ -1914,7 +2044,9 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.1...HEAD
+[v2.2.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.2.0...v2.2.1
+[v2.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.1...v2.2.0
 [v2.1.1]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v2.0.0...v2.1.0
 [v2.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v1.2.0.11...v2.0.0

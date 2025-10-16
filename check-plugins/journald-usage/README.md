@@ -66,7 +66,9 @@ options:
 Output:
 
 ```text
-3.0GiB used [WARNING] (sum of all archived and active journal files). Remove the oldest archived journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.
+3.0GiB used [WARNING] (sum of all archived and active journal files; SystemMaxUse=595M SystemKeepFree=1388M).
+Configure `SystemMaxUse` and `SystemKeepFree` in `/etc/systemd/journald.conf/`, or remove the oldest archived
+journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.
 ```
 
 

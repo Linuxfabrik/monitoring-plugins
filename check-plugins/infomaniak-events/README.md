@@ -26,6 +26,10 @@ Links:
 * API Tokens: <https://manager.infomaniak.com/v3/$ACCOUNT_ID/ng/accounts/token>
 * Infomaniak Status Page: <https://infomaniakstatus.com/>
 
+Hints:
+
+* Might take more than 10 seconds to execute.
+
 
 ## Fact Sheet
 
@@ -60,7 +64,7 @@ options:
   --service SERVICE     Only report this service category (repeating).
                         Example: `--service=swiss_backup
                         --service=public_cloud`. Default: none (so report all)
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 28 (seconds)
   --token TOKEN         Infomaniak API token
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".

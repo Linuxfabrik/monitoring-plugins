@@ -1,0 +1,25 @@
+# Don't use Rocky containers from docker.io/library as they are out of date.
+FROM docker.io/rockylinux/rockylinux:10
+
+# Install Python 3
+RUN dnf --assumeyes install --nodocs gcc python3-pip python3-devel && \
+    dnf clean all
+
+# Enable crb repo
+RUN dnf --assumeyes install --nodocs dnf-plugins-core && \
+    dnf config-manager --set-enabled crb && \
+    dnf clean all
+
+RUN dnf --assumeyes install --nodocs epel-release && \
+    dnf clean all
+
+RUN dnf --assumeyes install --nodocs rpmdevtools && \
+    dnf clean all
+
+# for compiling selinux policies
+# if using `registry.access.redhat.com/ubi10/ubi`, this results in
+#   No match for argument: selinux-policy-devel
+#   Error: Unable to find a match: selinux-policy-devel
+#   Error: building at STEP "RUN dnf --assumeyes install --nodocs make selinux-policy-devel && dnf clean all": while running runtime: exit status 1
+RUN dnf --assumeyes install --nodocs make selinux-policy-devel && \
+    dnf clean all

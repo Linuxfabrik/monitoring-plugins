@@ -11,7 +11,7 @@ To compare with the current/installed version of Keycloak, the check
 
 Hints:
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.rst).
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md).
 
 
 ## Fact Sheet

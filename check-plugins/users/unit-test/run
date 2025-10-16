@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+sys.path.append("..") # Adds higher directory to python modules path.
+
+
+
+import unittest
+
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN, STATE_CRIT
+import lib.base
+import lib.shell
+
+
+class TestCheck(unittest.TestCase):
+
+    check = '../users'
+
+    #self.assertEqual(retc, STATE_CRIT)
+    #self.assertIn('Waiting for more data (1).', stdout)
+    #self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
+
+    def test_if_check_runs_EXAMPLE01_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01-linux,,0'))
+        self.assertIn('TTY: 1 [WARNING], PTS: 1', stdout)
+        self.assertIn('USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT', stdout)
+        self.assertIn('linuxfab tty2      29Jul25  6days  1:01m 26.32s /opt/paloaltonetworks/globalprotect/PanGPA start', stdout)
+        self.assertIn('linuxfab           29Jul25 19:04   0.00s 18.60s /usr/lib/systemd/systemd --user', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE01_windows(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01-windows,,0'))
+        self.assertIn('TTY: 0, PTS: 1', stdout)
+        self.assertIn('USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME', stdout)
+        self.assertIn('>linuxfabrik           rdp-tcp#0           5  Active          .  05.08.2025 10:58', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE02-linux,,0'))
+        self.assertIn('TTY: 0, PTS: 2', stdout)
+        self.assertIn('USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU  WHAT', stdout)
+        self.assertIn('vagrant           192.168.124.1    08:48    4:05   0.00s  0.01s sshd: vagrant [priv]', stdout)
+        self.assertIn('vagrant           192.168.124.1    08:49    4:05   0.00s   ?    sshd: vagrant [priv]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE03_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE03-linux,,0'))
+        self.assertIn('TTY: 0, PTS: 1', stdout)
+        self.assertIn('USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT', stdout)
+        self.assertIn('linuxfab pts/0     10:52    1.00s  0.03s  0.01s w', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE04_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE04-linux,,0'))
+        self.assertIn('No one is logged in.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE05_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE05-linux,,0 --warning=1,1,2'))
+        self.assertIn('TTY: 0, PTS: 1 [WARNING]', stdout)
+        self.assertIn('USER       TTY      FROM                                      LOGIN@  IDLE WHAT', stdout)
+        self.assertIn('vagrant    pts/0    linuxfabrik                               9:03AM     - w', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE06_linux(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE06-linux,,0 --warning=1,1,2'))
+        self.assertIn('TTY: 1 [WARNING], PTS: 1 [WARNING]', stdout)
+        self.assertIn('USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU  WHAT', stdout)
+        self.assertIn('vagrant  tty1     -                12:20   10.00s  0.04s  0.01s -bash', stdout)
+        self.assertIn('vagrant           192.168.124.1    12:21   56.00s  0.00s   ?    sshd: vagrant [priv]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+
+if __name__ == '__main__':
+    unittest.main()

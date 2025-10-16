@@ -6,7 +6,7 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 """See the check's README for more details.
 """
@@ -40,10 +40,11 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025062002 / v2.1.1'
+__version__ = '2025100603 / v2.2.1'
 
 DESCRIPTION = 'Provides a quick overview of host dimensions and software.'
 
+DEFAULT_DMIDECODE = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PUBLIC_IP_URL = None
@@ -59,6 +60,17 @@ def parse_args():
         '-V', '--version',
         action='version',
         version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+    )
+
+    parser.add_argument(
+        '--dmidecode',
+        help='Use the `dmidecode` command to gather additional hardware information, such as a list '
+             'of the system\'s components, as well as other useful details like serial numbers and '
+             'BIOS revisions. If enabled, this feature requires sudo permissions. '
+             'Default: %(default)s',
+        dest='DMIDECODE',
+        action='store_true',
+        default=DEFAULT_DMIDECODE,
     )
 
     parser.add_argument(
@@ -108,7 +120,8 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args
 
 
 def get_birthday():
@@ -239,7 +252,7 @@ def get_hw_info():
                 value.get('UUID', 'n/a').replace('Default string', 'n/a'),
             )
     if output:
-        return 'Hardware Info:\n{}\n'.format(output)
+        return 'Hardware Info (`dmidecode`):\n{}\n'.format(output)
     return output
 
 
@@ -626,7 +639,10 @@ def get_sys_dimensions():
     """
     sys_dimensions = {}
     try:
-        sys_dimensions['cpu'] = psutil.cpu_count(logical=True)
+        sys_dimensions['cpu_logical'] = psutil.cpu_count(logical=True)
+        sys_dimensions['cpu_physical'] = psutil.cpu_count(logical=False)
+        sys_dimensions['cpu_usable'] = psutil.cpu_count(logical=True)
+        sys_dimensions['cpu_freq'] = psutil.cpu_freq()
         sys_dimensions['ram'] = psutil.virtual_memory().total
     except:
         pass
@@ -803,7 +819,10 @@ def main():
     if firmware_device_model:
         msg += '{}, '.format(firmware_device_model)
 
-    dmi = lib.dmidecode.get_data()
+    if args.DMIDECODE:
+        dmi = lib.dmidecode.get_data()
+    else:
+        dmi = False
     sys_dimensions = get_sys_dimensions()
     if dmi and sys_dimensions:
         # combine the best from both worlds
@@ -811,9 +830,13 @@ def main():
         msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
         msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
         msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
-        msg += '#Cores: {}, '.format(lib.dmidecode.cpu_cores_enabled(dmi))
-        msg += '#Threads: {}, '.format(lib.dmidecode.cpu_threads(dmi))
-        msg += 'Current Speed: {} MHz, '.format(lib.dmidecode.cpu_speed(dmi))
+        msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
+            sys_dimensions['cpu_physical'],
+            sys_dimensions['cpu_logical'],
+            sys_dimensions['cpu_usable'],
+        )
+        if sys_dimensions['cpu_freq']:
+            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{}/{} RAM (virtmem/max'.format(
             lib.human.bytes2human(sys_dimensions['ram']),
             lib.human.bytes2human(lib.dmidecode.ram(dmi)),
@@ -826,14 +849,24 @@ def main():
         msg += 'Firmware: {}, '.format(lib.dmidecode.firmware(dmi))
         msg += 'SerNo: {}, '.format(lib.dmidecode.serno(dmi))
         msg += 'Proc: {}, '.format(lib.dmidecode.cpu_type(dmi))
-        msg += '#Cores: {}, '.format(lib.dmidecode.cpu_cores_enabled(dmi))
-        msg += '#Threads: {}, '.format(lib.dmidecode.cpu_threads(dmi))
-        msg += 'Current Speed: {} MHz, '.format(lib.dmidecode.cpu_speed(dmi))
+        if sys_dimensions:
+            msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
+                sys_dimensions['cpu_physical'],
+                sys_dimensions['cpu_logical'],
+                sys_dimensions['cpu_usable'],
+            )
+            if sys_dimensions['cpu_freq']:
+                msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
         msg += '{} RAM, '.format(lib.human.bytes2human(lib.dmidecode.ram(dmi)))
     elif sys_dimensions:
-        msg += '{} {}, {} RAM, '.format(
-            sys_dimensions['cpu'],
-            lib.txt.pluralize('CPU', sys_dimensions['cpu']),
+        msg += 'CPUs: {}/{}/{} (phys/lcpu/onln), '.format(
+            sys_dimensions['cpu_physical'],
+            sys_dimensions['cpu_logical'],
+            sys_dimensions['cpu_usable'],
+        )
+        if sys_dimensions['cpu_freq']:
+            msg += 'Current Speed: {} MHz, '.format(int(sys_dimensions['cpu_freq'][0]))
+        msg += '{} RAM, '.format(
             lib.human.bytes2human(sys_dimensions['ram'])
         )
     else:
@@ -853,7 +886,8 @@ def main():
 
 
     # multi-line content - print further lines -----------------------------------------------------
-    msg += get_hw_info()
+    if args.DMIDECODE:
+        msg += get_hw_info()
     msg += get_interfaces()
     msg += get_listening_ports()
     msg += get_nondefault_software()
@@ -878,13 +912,15 @@ def main():
         re_search = re.search(r'[\d\.]+', os_info)
         if re_search:
             perfdata += lib.base.get_perfdata('osversion', re_search.group(0).replace('.', ''), None, None, None, None, None) # pylint: disable=C0301
+    if sys_dimensions:
+        perfdata += lib.base.get_perfdata('cpu_logical', sys_dimensions['cpu_logical'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('cpu_physical', sys_dimensions['cpu_physical'], None, None, None, 0, None)
+        perfdata += lib.base.get_perfdata('cpu_usable', sys_dimensions['cpu_usable'], None, None, None, 0, None)
+        if sys_dimensions['cpu_freq']:
+            perfdata += lib.base.get_perfdata('cpu_freq', int(sys_dimensions['cpu_freq'][0]), None, None, None, 0, lib.dmidecode.cpu_speed(dmi) if args.DMIDECODE and dmi else None)
     if dmi:
-        perfdata += lib.base.get_perfdata('cpu_cores_enabled', lib.dmidecode.cpu_cores_enabled(dmi), None, None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('cpu_threads', lib.dmidecode.cpu_threads(dmi), None, None, None, 0, None) # pylint: disable=C0301
-        perfdata += lib.base.get_perfdata('cpu_speed', lib.dmidecode.cpu_speed(dmi), None, None, None, 0, None) # pylint: disable=C0301
         perfdata += lib.base.get_perfdata('ram', lib.dmidecode.ram(dmi), 'B', None, None, 0, None)
     elif sys_dimensions:
-        perfdata += lib.base.get_perfdata('cpu', sys_dimensions['cpu'], None, None, None, 0, None)
         perfdata += lib.base.get_perfdata('ram', sys_dimensions['ram'], 'B', None, None, 0, None)
     perfdata += lib.base.get_perfdata('disks', disk_count, None, None, None, 0, None)
 

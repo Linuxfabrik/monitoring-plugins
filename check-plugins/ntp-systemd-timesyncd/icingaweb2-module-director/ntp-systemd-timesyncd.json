@@ -1,10 +1,20 @@
 {
     "Command": {
         "cmd-check-ntp-systemd-timesyncd": {
-            "arguments": {},
+            "arguments": {
+                "--stratum": {
+                    "value": "$ntp_systemd_timesyncd_stratum$"
+                }
+            },
             "command": "/usr/lib64/nagios/plugins/ntp-systemd-timesyncd",
             "disabled": false,
-            "fields": [],
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
             "imports": [],
             "is_string": null,
             "methods_execute": "PluginCheck",
@@ -33,7 +43,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": null,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -56,11 +66,25 @@
             "use_agent": null,
             "use_var_overrides": null,
             "vars": {
-                "criticality": "C"
+                "criticality": "C",
+                "ntp_systemd_timesyncd_stratum": 6
             },
             "volatile": null,
             "zone": null,
             "uuid": "45b1b36a-3838-4878-8b3e-e74872620a2d"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "ntp_systemd_timesyncd_stratum",
+            "caption": "NTP Systemd Timesyncd: Stratum",
+            "description": "Warns if the determined stratum of the time server is greater than or equal to this value. Stratum 1 indicates a computer with a locally attached reference clock. A computer that is synchronised to a stratum 1 computer is at stratum 2. A computer that is synchronised to a stratum 2 computer is at stratum 3, and so on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "60f4ae4a-5675-4490-9b26-206bd442a7ef"
         }
     }
 }

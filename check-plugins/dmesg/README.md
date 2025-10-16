@@ -42,18 +42,19 @@ options:
                         VFS: Free previous auth_key.response = ', ' cpufreq:
                         __cpufreq_add_dev: ->get() failed', ' EFI MOKvar
                         config table is not in EFI runtime memory', ' ERST:
-                        Failed to get Error Log Address Range.', ' i8042: No
-                        controller found', ' Ignoring unsafe software power
-                        cap!', ' integrity: Problem loading X.509 certificate
-                        -126', ' ioctl error in smb2_get_dfs_refer rc=-5', '
-                        kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ', ' mokvar:
-                        EFI MOKvar config table is not in EFI runtime memory',
-                        ' No Caching mode page found', ' SMBus base address
-                        uninitialized - upgrade BIOS or use ', ' SMBus Host
-                        Controller not enabled!', ' tsc: Fast TSC calibration
-                        failed', ' unhandled rdmsr: ', ' unhandled wrmsr: ', '
-                        vcpu0 disabled perfctr wrmsr', ' Warning: Deprecated
-                        Driver is detected', ' Warning: Unmaintained driver is
+                        Failed to get Error Log Address Range.', ' flip_done
+                        timed out', ' i8042: No controller found', ' Ignoring
+                        unsafe software power cap!', ' integrity: Problem
+                        loading X.509 certificate -126', ' ioctl error in
+                        smb2_get_dfs_refer rc=-5', ' kvm_set_msr_common:
+                        MSR_IA32_DEBUGCTLMSR ', ' mokvar: EFI MOKvar config
+                        table is not in EFI runtime memory', ' No Caching mode
+                        page found', ' SMBus base address uninitialized -
+                        upgrade BIOS or use ', ' SMBus Host Controller not
+                        enabled!', ' tsc: Fast TSC calibration failed', '
+                        unhandled rdmsr: ', ' unhandled wrmsr: ', ' vcpu0
+                        disabled perfctr wrmsr', ' Warning: Deprecated Driver
+                        is detected', ' Warning: Unmaintained driver is
                         detected']
   --severity {warn,crit}
                         Severity for alerting. Default: crit

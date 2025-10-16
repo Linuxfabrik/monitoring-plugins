@@ -6,7 +6,7 @@ If you are using XCA by Christian Hohnstädt (an *application that is intended f
 
 Hints:
 
-* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst)
+* See [additional notes for all mysql monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
 * This check works with MySQL/MariaDB backend only, although XCA is supporting PostgreSQL as well.
 * We recommend to run this check directly on your database host.
 

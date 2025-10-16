@@ -44,7 +44,7 @@ options:
                         Severity for alerting. Default: warn
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             GitLab readiness URL endpoint. Default:
                         http://localhost/-/readiness?all=1
 ```

@@ -8,7 +8,7 @@ This check requires direct access to the LibreNMS MySQL/MariaDB database, becaus
 
 Notes:
 
-* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.rst) on how to configure access to the database.
+* See [additional notes for all monitoring plugins accessing MySQL/MariaDB](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md) on how to configure access to the database.
 * When defining device groups in LibreNMS for use with `--device--group`, do not use slashes in the name, as this will not work. See [this topic for example](https://github.com/laravel/framework/issues/22125).
 * This check could, but does not, return performance data for each device as LibreNMS provides direct integration with several time series databases such as Graphite, InfluxDB, OpenTSDB, Prometheus and RRDTool. The configuration options can be found in LibreNMS under Settings \> Global Settings \> Poller \> Datastore.
 

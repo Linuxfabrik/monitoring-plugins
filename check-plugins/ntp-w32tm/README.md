@@ -22,7 +22,8 @@ Hints:
 ## Help
 
 ```text
-usage: ntp-w32tm [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
+usage: ntp-w32tm [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
+                 [-w WARN]
 
 This monitoring plugin runs `w32tm /query /status /verbose` (Windows) to help
 diagnose problems with the time settings.
@@ -32,6 +33,13 @@ options:
   -V, --version        show program's version number and exit
   -c, --critical CRIT  Set the critical threshold for the time since "Last
                        Good Sync", in s. Default: 129600s
+  --stratum STRATUM    Warns if the determined stratum of the time server is
+                       greater than or equal to this value. Stratum 1
+                       indicates a computer with a locally attached reference
+                       clock. A computer that is synchronised to a stratum 1
+                       computer is at stratum 2. A computer that is
+                       synchronised to a stratum 2 computer is at stratum 3,
+                       and so on. Default: 6
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   Set the warning threshold for the time since "Last Good
@@ -42,7 +50,7 @@ options:
 ## Usage Examples
 
 ```bash
-./ntp-w32tm --warning 28800 --critical 129600
+./ntp-w32tm --warning=28800 --critical=129600 --stratum=6
 ```
 
 Output:
@@ -73,7 +81,7 @@ Time since Last Good Sync Time: 19.2218793s
 ## States
 
 * WARN if no NTP server is used.
-* WARN if stratum is \>= 5.
+* WARN if stratum is \>= `--stratum`.
 * WARN if "Leap Indicator" is not "0(no warning)"
 * WARN if "Last Sync Error" is not "0"
 * WARN or CRIT if "Time since Last Good Sync Time" is above a given threshold.

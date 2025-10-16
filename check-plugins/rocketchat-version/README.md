@@ -6,6 +6,10 @@ This plugin lets you track if Rocket.Chat is End-of-Life (EOL). To compare again
 
 This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
 
+Hints:
+
+* See [Creating an API user account to monitor Rocket.Chat](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-ROCKETCHAT.md).
+
 
 ## Fact Sheet
 

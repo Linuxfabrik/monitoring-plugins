@@ -20,7 +20,7 @@ dm-1 ! 10.0MiB ! 4.7KiB   ! 4.0KiB   ! 2.0KiB   ! 6.8KiB   ! 8.7KiB
 ...
 ```
 
-The first line always shows the disk with the currently highest bandwidth (here `dm-0`).
+The first line always shows the disk with the currently highest bandwidth usage (here `dm-0`).
 
 The table columns mean:
 
@@ -54,9 +54,19 @@ Hints:
 usage: disk-io [-h] [-V] [--always-ok] [--count COUNT] [--critical CRIT]
                [--match MATCH] [--top TOP] [--warning WARN]
 
-Checks disk I/O. If the bandwidth usage of a disk is above the specified
-threshold (as a percentage of the maximum bandwidth measured) for a certain
-period of time, an alarm is triggered.
+Checks disk I/O bandwidth over time and alerts on sustained saturation, not
+short spikes. The check records per-disk read/write counters and then derives
+current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the
+period’s total bandwidth against the maximum ever observed for that disk
+(RWmax). WARN/CRIT trigger if the period average exceeds the configured
+percentage of RWmax for COUNT consecutive runs. Perfdata is emitted for each
+disk (busy_time, read_bytes, read_time, write_bytes, write_time) so you can
+graph trends. On Linux the check automatically focuses on "real" block devices
+with mountpoints; on Windows it uses psutil’s disk counters. Optionally,
+`--top` lists the processes that generated the most I/O traffic (read/write
+totals) to help identify offenders. This check is cross-platform and works on
+Linux, Windows, and all psutil-supported systems. The check stores its short
+trend state locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help       show this help message and exit
@@ -77,7 +87,7 @@ options:
                    characters that satisfy the condition inside it, zero or
                    more times. Default:
   --top TOP        List x "Top processes that generated the most I/O traffic".
-                   Default: 5
+                   Use `--top=0` to disable this feature. Default: 5
   --warning WARN   Threshold for disk bandwidth saturation (over the last
                    `--count` measurements) as a percentage of the maximum
                    bandwidth the disk can support. Default: >= 80
@@ -132,15 +142,15 @@ Top 5 processes that generate the most I/O traffic (r/w):
 
 ## Perfdata / Metrics
 
-Per (matched) disk, where \<disk\> is the block device name:
+Per (matched) disk, where <disk\> is the block device name:
 
 | Name | Type | Description |
 |----|----|----|
-| \<disk\>\_busy_time | Continous Counter | Time spent doing actual I/Os (in milliseconds). |
-| \<disk\>\_read_bytes | Continous Counter | Number of bytes read. |
-| \<disk\>\_read_time | Continous Counter | Time spent reading from disk (in milliseconds). |
-| \<disk\>\_write_bytes | Continous Counter | Number of bytes written. |
-| \<disk\>\_write_time | Continous Counter | Time spent writing to disk (in milliseconds). |
+| <disk\>\_busy_time | Continous Counter | Time spent doing actual I/Os (in milliseconds). |
+| <disk\>\_read_bytes | Continous Counter | Number of bytes read. |
+| <disk\>\_read_time | Continous Counter | Time spent reading from disk (in milliseconds). |
+| <disk\>\_write_bytes | Continous Counter | Number of bytes written. |
+| <disk\>\_write_time | Continous Counter | Time spent writing to disk (in milliseconds). |
 
 
 ## Troubleshooting

@@ -6,7 +6,7 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
-# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 """See the check's README for more details.
 """
@@ -19,16 +19,18 @@ import lib.base  # pylint: disable=C0413
 import lib.human  # pylint: disable=C0413
 import lib.shell  # pylint: disable=C0413
 import lib.lftest  # pylint: disable=C0413
-from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
-                          STATE_WARN)
+import lib.txt  # pylint: disable=C0413
+from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025021501'
+__version__ = '2025100601'
 
 DESCRIPTION = """Checks the current disk usage of all journal files of the systemd journal
                  (in fact the sum of the disk usage of all archived and active journal files)."""
 
 DEFAULT_WARN = 6  # GiB; journald: "capped to 4G" per default
+SYSTEMD_DEFAULT_MAX_USE = '4G'
+SYSTEMD_DEFAULT_KEEP_FREE = '1M'
 
 
 def parse_args():
@@ -39,7 +41,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='%(prog)s: v{} by {}'.format(__version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -59,13 +61,36 @@ def parse_args():
 
     parser.add_argument(
         '-w', '--warning',
-        help='Set the WARN threshold in GiB. Default: >= %(default)s',
+        help='Set the WARN threshold in GiB. '
+             'Default: >= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
     )
 
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def extract_config(output):
+    """
+    Extracts the last occurrences of SystemMaxUse and SystemKeepFree.
+    Returns a tuple: (SystemMaxUse_value, SystemKeepFree_value).
+    """
+    max_use = None
+    keep_free = None
+    for line in reversed(output.splitlines()):
+        if max_use is None and line.startswith('SystemMaxUse='):
+            max_use = line.split('=', 1)[1].strip()
+        if keep_free is None and line.startswith('SystemKeepFree='):
+            keep_free = line.split('=', 1)[1].strip()
+        if max_use is not None and keep_free is not None:
+            break
+    if max_use is None:
+        max_use = SYSTEMD_DEFAULT_MAX_USE
+    if keep_free is None:
+        keep_free = SYSTEMD_DEFAULT_KEEP_FREE
+    return max_use, keep_free
 
 
 def main():
@@ -81,12 +106,20 @@ def main():
     # fetch data
     if args.TEST is None:
         cmd = 'journalctl --disk-usage'
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        stdout, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
         if stderr:
             lib.base.cu(stderr)
+
+        # get journald's thresholds
+        cmd = 'systemd-analyze cat-config systemd/journald.conf'
+        config, stderr, _ = lib.base.coe(lib.shell.shell_exec(cmd)) # pylint: disable=W0612
+        if stderr:
+            lib.base.cu(stderr)
+        max_use, keep_free = extract_config(config)
     else:
         # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
+        stdout, stderr, _ = lib.lftest.test(args.TEST)
+        max_use, keep_free = SYSTEMD_DEFAULT_MAX_USE, SYSTEMD_DEFAULT_KEEP_FREE
 
     # init some vars
     msg = ''
@@ -96,22 +129,28 @@ def main():
     #   Archived and active journals take up %s on disk.\n
     #   Archived and active journals take up %s in the file system.\n
     #   Journals take up %s on disk.\n
-    # currently no need for re module, let's do simple string matching
-    pos1 = stdout.find(' take up ') + len(' take up ')
-    pos2 = stdout.find(' ', pos1)
-    value = stdout[pos1:pos2]
+    value = lib.txt.extract_str(stdout, ' take up ', ' ', include_fromto=False, be_tolerant=False)
     value = lib.human.human2bytes(value)
 
     # build the message
     state = lib.base.get_state(value, args.WARN * 1024 * 1024 * 1024, None)
-    msg += '{} used{} (sum of all archived and active journal files)'.format(
-        lib.human.bytes2human(value),
-        lib.base.state2str(state, prefix=' '),
-    )
+    msg += f'{lib.human.bytes2human(value)} used{lib.base.state2str(state, prefix=" ")} ' \
+           '(sum of all archived and active journal files; ' \
+           f'SystemMaxUse={max_use} SystemKeepFree={keep_free})'
     if state != STATE_OK:
-        msg += '. Remove the oldest archived journal files by using `journalctl --vacuum-size=`, ' \
-               '`--vacuum-time=` and/or `--vacuum-files=`.'
-    perfdata += lib.base.get_perfdata('journald-usage', value, 'B', args.WARN * 1024 * 1024 * 1024, None, 0, None)
+        msg += '. Configure `SystemMaxUse` and `SystemKeepFree` in ' \
+               '`/etc/systemd/journald.conf/`, ' \
+               'or remove the oldest archived journal files by using ' \
+               '`journalctl --vacuum-size=`, `--vacuum-time=` and/or `--vacuum-files=`.'
+    perfdata += lib.base.get_perfdata(
+        'journald-usage',
+        value,
+        uom='B',
+        warn=args.WARN * 1024 * 1024 * 1024,
+        crit=None,
+        _min=0,
+        _max=None,
+    )
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)

@@ -17,7 +17,6 @@
 ![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
-[![gitAds](https://img.shields.io/badge/Donate-gitAds-ff6600)](https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github)
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 </div>
@@ -29,14 +28,9 @@
 
 This Enterprise Class Check Plugin Collection made by [Linuxfabrik](https://www.linuxfabrik.ch) offers a package of Python-based, Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
-The check plugins run on
+All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), a licence that dedicates works to the public domain with no conditions whatsoever. They run on all platforms that support Python 3.9 and above, like Linux, Windows, MacOS, FreeBSD and others. For Windows, there are compiled plugins available, meaning you don't need Python.
 
-* Linux - Tested on RHEL 7+, Fedora 30+, Ubuntu Server 16+, Debian 9+, SLES 15+
-* Windows - Tested on Windows 10+ and Windows Server 2019+
-
-All plugins are written in Python and licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
-
-The plugins are fast, reliable and use as few system resources as possible. They uniformly and consistently report the same metrics briefly and precisely on all platforms (for example, always "used" instead of a mixture of "used" and "free"). Automatic detection and Auto-Discovery mechanisms are built-in where possible. Using meaningful default settings, the plugins trigger WARNs and CRITs only where absolutely necessary. In addition they provide information for troubleshooting. We try to avoid dependencies on 3rd party system libraries where possible.
+The plugins are fast and reliable, using as few system resources as possible. They report the same metrics consistently and uniformly on all platforms (for example, they always use 'used' instead of a mixture of 'used' and 'free'). Where possible, automatic detection and auto-discovery mechanisms are built in. The plugins use meaningful default settings to trigger WARNs and CRITs only where absolutely necessary. In addition, many plugins offer troubleshooting information. We avoid dependencies on third-party system libraries wherever possible.
 
 
 ## Want to see some Plugins in Action?
@@ -46,7 +40,7 @@ Visit [icinga-demo.linuxfabrik.ch](https://icinga-demo.linuxfabrik.ch).
 
 ## Donate
 
-[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![gitAds](https://img.shields.io/badge/Donate-gitAds-ff6600)](https://gitads.dev/v1/ad-track?source=linuxfabrik/monitoring-plugins@github) [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
+[![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik) [![PayPal](https://img.shields.io/badge/Donate-PayPal-ff6600)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url)
 
 
 ## Support
@@ -61,8 +55,8 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 
 ## Installation
 
-* Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.rst) document for the various options, including SELinux etc.
-* For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.rst).
+* Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.md) document for the various options, including SELinux etc.
+* For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
 
 If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/). Alternatively, you can set up a self-hosted Icinga infrastructure using our [LFOps Ansible collection](github.com/Linuxfabrik/lfops).
 
@@ -75,6 +69,11 @@ For now, there are two ways:
 2.  [Contact us](https://www.linuxfabrik.ch/en/contact) by email or web form and describe your problem.
 
 For reporting a vulnerability issue, see [SECURITY](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/SECURITY.md).
+
+
+## Roadmap
+
+This Open Source project is not being developed according to a fixed roadmap. We do not provide any information about timelines, and even if we did, there would be no guarantee that they would be met. The content of milestones may change according to our customers' needs.
 
 
 ## Check Plugin Poster
@@ -118,6 +117,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="keycloak-memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-memory-usage.png" width="30%"/> &nbsp;
 <img alt="keycloak-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-stats.png" width="30%"/> &nbsp;
 <img alt="keycloak-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/keycloak-version.png" width="30%"/> &nbsp;
+<img alt="kubectl-get-pods" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kubectl-get-pods.png" width="30%"/> &nbsp;
 <img alt="kvm-vm" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/kvm-vm.png" width="30%"/> &nbsp;
 <img alt="librenms-alerts" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-alerts.png" width="30%"/> &nbsp;
 <img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-health.png" width="30%"/> &nbsp;
@@ -155,6 +155,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="network-connections" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-connections.png" width="30%"/> &nbsp;
 <img alt="network-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-io.png" width="30%"/> &nbsp;
 <img alt="network-port-tcp" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/network-port-tcp.png" width="30%"/> &nbsp;
+<img alt="nextcloud-enterprise" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-enterprise.png" width="30%"/> &nbsp;
 <img alt="nextcloud-security-scan" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-security-scan.png" width="30%"/> &nbsp;
 <img alt="nextcloud-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-stats.png" width="30%"/> &nbsp;
 <img alt="nextcloud-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/nextcloud-version.png" width="30%"/> &nbsp;
@@ -198,6 +199,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptime.png" width="30%"/> &nbsp;
 <img alt="uptimerobot" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/uptimerobot.png" width="30%"/> &nbsp;
 <img alt="users" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/users.png" width="30%"/> &nbsp;
+<img alt="virustotal-scan-url" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/virustotal-scan-url.png" width="30%"/> &nbsp;
 <img alt="whmcs-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/whmcs-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-deployment-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-deployment-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-gc-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-gc-status.png" width="30%"/> &nbsp;
@@ -219,6 +221,11 @@ If you zoom in, for example on *CPU Usage*:
 ## Feedback from our Community
 
 Some comments from the community about our monitoring plugins:
+
+> First, I just wanted to say thanks for your great work on these plugins. Great collection that cover a lot of bases!
+
+-- [Jostein Elvaker Haande](https://github.com/tolecnal)
+
 
 > We replaced all checks from the Icinga Powershell Framework with the Linuxfabrik equivalents. Much faster and a heavily reduced memory footprint. Great work!
 
@@ -416,17 +423,17 @@ Each plugin comes with an SVG icon, which you can find at [github.com/Linuxfabri
 
 ## Grafana
 
-See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.rst)
+See [GRAFANA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/GRAFANA.md)
 
 
 ## Contributing
 
-See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.rst)
+See [CONTRIBUTING](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md)
 
 
 ## Compiling and Packaging, Windows Code Signing Policy
 
-See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.rst)
+See [BUILD](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/BUILD.md)
 
 
 ## FAQ
@@ -506,12 +513,10 @@ A: Of course. Just don't forget to install the libs either.
 
 Q: **Wondering about `/usr/lib64/nagios/plugins/` on Debian/Ubuntu?**
 
-A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following `[GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
+A: We are always using the path `/usr/lib64/nagios/plugins/` on all Linux OS, even if the original Nagios-package installs itself to `/usr/lib/nagios/plugins/`. This is because adding a command with `sudo` in Icinga Director, one needs to use the full path of the plugin. See the following [GitHub issue](https://github.com/Icinga/icingaweb2-module-director/issues/2123).
 
 
 Q: **On Windows, some plugins result in `0x80070005 (E_ACCESSDENIED)`.**
 
 A: When using the plugins in Icinga: [According to the Icinga documentation](https://icinga.com/docs/icinga-2/latest/doc/06-distributed-monitoring/#agent-setup-on-windows-configuration-wizard) the Icinga Agent runs as the `Network Service` user by default. This may result in `0x80070005 (E_ACCESSDENIED)` messages for some plugins. In this case, [use JEA Profiles for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) and see [installing JEA for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/).
 
-
-<!-- GitAds-Verify: 1NTKT4F1KXJEQ79YJUY3WS1OKC1XMUU6 -->

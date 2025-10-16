@@ -32,22 +32,28 @@ The stratum of the NTP time source determines its quality. The stratum is equal 
 ## Help
 
 ```text
-usage: ntp-systemd-timesyncd [-h] [-V] [--test TEST]
+usage: ntp-systemd-timesyncd [-h] [-V] [--stratum STRATUM] [--test TEST]
 
 This plugin checks the state of systemd-timesyncd.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --test TEST    For unit tests. Needs "path-to-stdout-file,path-to-stderr-
-                 file,expected-retc".
+  -h, --help         show this help message and exit
+  -V, --version      show program's version number and exit
+  --stratum STRATUM  Warns if the determined stratum of the time server is
+                     greater than or equal to this value. Stratum 1 indicates
+                     a computer with a locally attached reference clock. A
+                     computer that is synchronised to a stratum 1 computer is
+                     at stratum 2. A computer that is synchronised to a
+                     stratum 2 computer is at stratum 3, and so on. Default: 6
+  --test TEST        For unit tests. Needs "path-to-stdout-file,path-to-
+                     stderr-file,expected-retc".
 ```
 
 
 ## Usage Examples
 
 ```bash
-./ntp-systemd-timesyncd
+./ntp-systemd-timesyncd --stratum=6
 ```
 
 Output:
@@ -71,7 +77,7 @@ Frequency=-1365573
 
 ## States
 
-* WARN if stratum is \>= 9.
+* WARN if stratum is \>= `--stratum`.
 * WARN if no NTP server is used.
 
 

@@ -6,6 +6,10 @@ This plugin lets you track if Nextcloud is End-of-Life (EOL). To compare against
 
 This check plugin alerts n days before or after the EOL date is reached. Optionally, it can also alert on available major, minor or patch releases (each independently).
 
+Hints:
+
+* Passwordless or otherwise configured sudo permissions are required for the UID under which the Nextcloud application is running.
+
 
 ## Fact Sheet
 
@@ -60,7 +64,7 @@ options:
 ## Usage Examples
 
 ```bash
-./nextcloud-version --path /var/www/html/nextcloud
+./nextcloud-version --path=/var/www/html/nextcloud
 ```
 
 Output:

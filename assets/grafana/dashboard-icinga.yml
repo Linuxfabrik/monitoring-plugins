@@ -4,7 +4,7 @@ metadata:
   folder: linuxfabrik-monitoring-plugins
   name: icinga
 spec:
-  schemaVersion: 2023041201
+  schemaVersion: 2025092301
   tags:
     - Linuxfabrik
     - Grizzly
@@ -24,14 +24,24 @@ spec:
   refresh: 1m
   templating:
     list:
-    - hide: 2
-      label: Command
+    - label: Command
       name: command
-      query: icinga
-      type: constant
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*icinga.*/
+      current:
+        text: icinga
+        value: icinga
+      refresh: 1
+      sort: 1
+      type: query
     - label: Hostname
       name: hostname
-      query: SHOW TAG VALUES FROM "icinga" WITH KEY = "hostname"
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
       refresh: 1
       sort: 1
       type: query
@@ -93,7 +103,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -120,7 +130,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -196,7 +206,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -223,7 +233,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -250,7 +260,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -277,7 +287,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -353,7 +363,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -380,7 +390,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -407,7 +417,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -434,7 +444,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -461,7 +471,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -488,7 +498,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -550,7 +560,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -577,7 +587,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -639,7 +649,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -666,7 +676,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -728,7 +738,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -755,7 +765,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -817,7 +827,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -844,7 +854,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -920,7 +930,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -947,7 +957,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -974,7 +984,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1001,7 +1011,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1028,7 +1038,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1055,7 +1065,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1082,7 +1092,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1109,7 +1119,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1136,7 +1146,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1214,7 +1224,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1241,7 +1251,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1268,7 +1278,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1295,7 +1305,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1322,7 +1332,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1349,7 +1359,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1376,7 +1386,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1403,7 +1413,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1430,7 +1440,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1457,7 +1467,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1484,7 +1494,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='
@@ -1546,7 +1556,7 @@ spec:
       - condition: AND
         key: service
         operator: '='
-        value: Icinga
+        value: $service
       - condition: AND
         key: metric
         operator: '='

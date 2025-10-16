@@ -8,7 +8,7 @@ Tested with WildFly 11 and WildFly 23+.
 
 Hints:
 
-* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.rst)
+* See [additional notes for all wildfly monitoring plugins](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-WILDFLY.md)
 
 * [How is the java memory pool divided?](https://stackoverflow.com/questions/1262328/how-is-the-java-memory-pool-divided)
 

@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$redis_status_always_ok$"
                 },
+                "--cacert": {
+                    "value": "$redis_status_cacert$"
+                },
                 "--critical": {
                     "value": "$redis_status_critical$"
                 },
@@ -37,6 +40,12 @@
                 },
                 "--tls": {
                     "set_if": "$redis_status_tls$"
+                },
+                "--username": {
+                    "value": "$redis_status_username$"
+                },
+                "--verbose": {
+                    "set_if": "$redis_status_verbose$"
                 },
                 "--warning": {
                     "value": "$redis_status_warning$"
@@ -109,6 +118,21 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -164,6 +188,7 @@
             "vars": {
                 "criticality": "C",
                 "redis_status_always_ok": false,
+                "redis_status_cacert": "/etc/pki/tls/certs/rootCA.pem",
                 "redis_status_hostname": "127.0.0.1",
                 "redis_status_ignore_maxmemory0": false,
                 "redis_status_ignore_overcommit": false,
@@ -172,6 +197,7 @@
                 "redis_status_ignore_thp": false,
                 "redis_status_port": "6379",
                 "redis_status_tls": false,
+                "redis_status_verbose": false,
                 "redis_status_warning": 90
             },
             "volatile": null,
@@ -190,9 +216,20 @@
             "uuid": "79d5910d-c4bf-4281-85ef-4f34e8f04614"
         },
         "2": {
+            "varname": "redis_status_cacert",
+            "caption": "Redis Status: Cacert",
+            "description": "CA Certificate file to verify with. Needs `--tls`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "16720bf0-7d82-4588-8055-57b0ee443234"
+        },
+        "3": {
             "varname": "redis_status_critical",
             "caption": "Redis Status: Critical",
-            "description": "Set the CRIT threshold as a percentage.",
+            "description": "Set the CRIT memory usage threshold as a percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -200,7 +237,7 @@
             },
             "uuid": "35c762a1-c673-4a3e-bf30-68770d52b14d"
         },
-        "3": {
+        "4": {
             "varname": "redis_status_hostname",
             "caption": "Redis Status: Hostname",
             "description": "Redis server hostname.",
@@ -211,7 +248,7 @@
             },
             "uuid": "f29df302-80f1-4c0b-b835-396fe1f06b10"
         },
-        "4": {
+        "5": {
             "varname": "redis_status_ignore_maxmemory0",
             "caption": "Redis Status: Ignore Maxmemory0?",
             "description": "Don't warn about redis' maxmemory=0.",
@@ -220,7 +257,7 @@
             "settings": {},
             "uuid": "53a21ea5-e1e4-4eac-8fd8-96baeab59f94"
         },
-        "5": {
+        "6": {
             "varname": "redis_status_ignore_overcommit",
             "caption": "Redis Status: Ignore Overcommit?",
             "description": "Don't warn about vm.overcommit_memory<>1.",
@@ -229,7 +266,7 @@
             "settings": {},
             "uuid": "16bca65f-dc6d-4655-a11e-f783cb3fe427"
         },
-        "6": {
+        "7": {
             "varname": "redis_status_ignore_somaxconn",
             "caption": "Redis Status: Ignore Somaxconn?",
             "description": "Don't warn about net.core.somaxconn < net.ipv4.tcp_max_syn_backlog.",
@@ -238,7 +275,7 @@
             "settings": {},
             "uuid": "b36373f6-40b3-46a6-b074-ade8326cdc82"
         },
-        "7": {
+        "8": {
             "varname": "redis_status_ignore_sync_partial_err",
             "caption": "Redis Status: Ignore Sync Partial Err?",
             "description": "Don't warn about partial sync errors (because if you have an asynchronous replication, a small number of \"denied partial resync requests\" might be normal).",
@@ -247,7 +284,7 @@
             "settings": {},
             "uuid": "6b089856-43d7-4008-94d8-478fbacc7730"
         },
-        "8": {
+        "9": {
             "varname": "redis_status_ignore_thp",
             "caption": "Redis Status: Ignore Thp?",
             "description": "Don't warn about transparent huge page setting.",
@@ -256,7 +293,7 @@
             "settings": {},
             "uuid": "c7300af7-f285-4012-a160-2647a5a58a2b"
         },
-        "9": {
+        "10": {
             "varname": "redis_status_password",
             "caption": "Redis Status: Password",
             "description": "Password to use when connecting to the redis server.",
@@ -267,7 +304,7 @@
             },
             "uuid": "eabaadd8-f4c3-4313-afee-cfea175f93aa"
         },
-        "10": {
+        "11": {
             "varname": "redis_status_port",
             "caption": "Redis Status: Port",
             "description": "Redis server port.",
@@ -278,7 +315,7 @@
             },
             "uuid": "15c740aa-0173-4b4f-b139-b1595d8052c8"
         },
-        "11": {
+        "12": {
             "varname": "redis_status_socket",
             "caption": "Redis Status: Socket",
             "description": "Redis server socket (overrides hostname and port).",
@@ -289,7 +326,7 @@
             },
             "uuid": "bf84ac19-1b7a-406f-9699-08a66b0bd733"
         },
-        "12": {
+        "13": {
             "varname": "redis_status_tls",
             "caption": "Redis Status: Tls?",
             "description": "Establish a secure TLS connection to Redis.",
@@ -298,10 +335,30 @@
             "settings": {},
             "uuid": "5390b14b-2ee3-4ad5-a1f0-dc8d94e1a5db"
         },
-        "13": {
+        "14": {
+            "varname": "redis_status_username",
+            "caption": "Redis Status: Username",
+            "description": "Username to use when connecting to the Redis server.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "00b3c2c2-db14-46da-a0fe-27ac0b3d77ba"
+        },
+        "15": {
+            "varname": "redis_status_verbose",
+            "caption": "Redis Status: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what's going on under the hood.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b810b444-d17e-4609-b579-0717285f17d1"
+        },
+        "16": {
             "varname": "redis_status_warning",
             "caption": "Redis Status: Warning",
-            "description": "Set the WARN threshold as a percentage.",
+            "description": "Set the WARN memory usage threshold as a percentage.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

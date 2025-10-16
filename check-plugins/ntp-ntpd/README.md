@@ -33,7 +33,8 @@ The stratum of the NTP time source determines its quality. The stratum is equal 
 ## Help
 
 ```text
-usage: ntp-ntpd [-h] [-V] [-c CRIT] [--test TEST] [-w WARN]
+usage: ntp-ntpd [-h] [-V] [-c CRIT] [--stratum STRATUM] [--test TEST]
+                [-w WARN]
 
 This plugin checks the clock offset of ntpd in milliseconds compared to ntp
 servers.
@@ -43,6 +44,13 @@ options:
   -V, --version        show program's version number and exit
   -c, --critical CRIT  Set the critical threshold for the ntp time offset, in
                        ms. Default: 86400000ms
+  --stratum STRATUM    Warns if the determined stratum of the time server is
+                       greater than or equal to this value. Stratum 1
+                       indicates a computer with a locally attached reference
+                       clock. A computer that is synchronised to a stratum 1
+                       computer is at stratum 2. A computer that is
+                       synchronised to a stratum 2 computer is at stratum 3,
+                       and so on. Default: 6
   --test TEST          For unit tests. Needs "path-to-stdout-file,path-to-
                        stderr-file,expected-retc".
   -w, --warning WARN   Set the warning threshold for the ntp time offset, in
@@ -53,7 +61,7 @@ options:
 ## Usage Examples
 
 ```bash
-./ntp-ntpd --warning 500 --critical 10000
+./ntp-ntpd --warning=500 --critical=10000 --stratum=6
 ```
 
 Output:
@@ -73,7 +81,7 @@ NTP offset is -3.005ms, Stratum is 2
 ## States
 
 * WARN or CRIT if ntp offset is below or above a given threshold.
-* WARN if stratum is \>= 9.
+* WARN if stratum is \>= `--stratum`.
 * WARN if no NTP server is used.
 * WARN if no NTP server is found.
 * WARN if only LOCAL clock is used.

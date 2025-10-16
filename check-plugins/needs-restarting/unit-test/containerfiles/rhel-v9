@@ -2,7 +2,7 @@
 FROM registry.access.redhat.com/ubi9
 
 # Install Python 3.9
-RUN dnf --assumeyes install --nodocs python39 python39-pip && \
+RUN dnf --assumeyes install --nodocs python python-pip python-devel gcc && \
     dnf clean all
 
 # Install tools
@@ -18,7 +18,7 @@ ADD https://raw.githubusercontent.com/Linuxfabrik/monitoring-plugins/refs/heads/
 # Install dependencies using pip
 RUN dnf --assumeyes remove python3-requests
 RUN python3.9 -m pip install --upgrade pip && \
-    python3.9 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes
+    python3.9 -m pip install --no-cache-dir --requirement requirements.txt --require-hashes --no-deps
 
 # Verify Python installation
 RUN python3.9 --version

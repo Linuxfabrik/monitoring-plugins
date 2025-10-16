@@ -1,10 +1,27 @@
-module linuxfabrik-monitoring-plugins 1.0;
+module linuxfabrik-monitoring-plugins 2025090201;
 
 require {
     type chronyc_t;
     type nagios_unconfined_plugin_exec_t;
+    type system_dbusd_t;
+    type unconfined_service_t;
+    class fifo_file write;
     class file { execute map };
+    class unix_stream_socket { read write };
 }
+
 
 #============= chronyc_t ==============
 allow chronyc_t nagios_unconfined_plugin_exec_t:file { execute map };
+
+
+# Errors:
+# * "Failed to start transient service unit: Connection reset by peer"
+# * "Failed to get properties: Transport endpoint is not connected"
+# Caused by (examples):
+# * `systemctl --machine myuser@.host --user ... my.service` (`--user` is important here)
+# Effects:
+# * Allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets.
+#============= system_dbusd_t ==============
+allow system_dbusd_t unconfined_service_t:fifo_file write;
+allow system_dbusd_t unconfined_service_t:unix_stream_socket { read write };

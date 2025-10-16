@@ -6,7 +6,7 @@ This check plugin monitors the memory usage of a Keycloak server using its HTTP-
 
 Hints:
 
-* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.rst).
+* See [Creating an API user account to monitor Keycloak](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-KEYCLOAK.md).
 
 
 ## Fact Sheet

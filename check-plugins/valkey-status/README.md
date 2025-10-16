@@ -6,7 +6,7 @@ Returns information and statistics about a Valkey server. Alerts on memory consu
 
 Hints:
 
-* Tested on Valkey 8.0.
+* Tested on Valkey 7.2 and 8.0.
 * "I'm here to keep you safe, Sam. I want to help you." comes from the character GERTY in the movie "Moon" (2009).
 
 
@@ -24,11 +24,12 @@ Hints:
 ## Help
 
 ```text
-usage: valkey-status [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
-                     [--ignore-maxmemory0] [--ignore-overcommit]
+usage: valkey-status [-h] [-V] [--always-ok] [--cacert CACERT] [-c CRIT]
+                     [-H HOSTNAME] [--ignore-maxmemory0] [--ignore-overcommit]
                      [--ignore-somaxconn] [--ignore-sync-partial-err]
                      [--ignore-thp] [-p PASSWORD] [--port PORT]
-                     [--socket SOCKET] [--test TEST] [--tls] [-w WARN]
+                     [--socket SOCKET] [--test TEST] [--tls]
+                     [--username USERNAME] [--verbose] [-w WARN]
 
 Returns information and statistics about a Valkey server. Alerts on memory
 consumption, memory fragmentation, hit rates and more.
@@ -37,11 +38,13 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  -c, --critical CRIT   Set the CRIT threshold as a percentage. Default: >=
-                        None
+  --cacert CACERT       CA Certificate file to verify with. Needs `--tls`.
+                        Default: /etc/pki/tls/certs/rootCA.pem
+  -c, --critical CRIT   Set the CRIT memory usage threshold as a percentage.
+                        Default: >= None
   -H, --hostname HOSTNAME
                         Valkey server hostname. Default: 127.0.0.1
-  --ignore-maxmemory0   Don't warn about valkey' maxmemory=0. Default: False
+  --ignore-maxmemory0   Don't warn about Valkey' maxmemory=0. Default: False
   --ignore-overcommit   Don't warn about vm.overcommit_memory<>1. Default:
                         False
   --ignore-somaxconn    Don't warn about net.core.somaxconn <
@@ -54,26 +57,42 @@ options:
   --ignore-thp          Don't warn about transparent huge page setting.
                         Default: False
   -p, --password PASSWORD
-                        Password to use when connecting to the valkey server.
+                        Password to use when connecting to the Valkey server.
   --port PORT           Valkey server port. Default: 6379
   --socket SOCKET       Valkey server socket (overrides hostname and port).
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --tls                 Establish a secure TLS connection to Valkey.
-  -w, --warning WARN    Set the WARN threshold as a percentage. Default: >= 90
+  --username USERNAME   Username to use when connecting to the Valkey server.
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what's going on under the
+                        hood. Default: False
+  -w, --warning WARN    Set the WARN memory usage threshold as a percentage.
+                        Default: >= 90
 ```
 
 
 ## Usage Examples
 
 ```bash
-./valkey-status --ignore-maxmemory0 --ignore-overcommit --ignore-somaxconn --ignore-sync-partial-err --ignore-thp
+./valkey-status \
+    --ignore-maxmemory0 \
+    --ignore-overcommit \
+    --ignore-somaxconn \
+    --ignore-sync-partial-err \
+    --ignore-thp \
+    --username=linus \
+    --password=linuxfabrik
 ```
 
 Output:
 
 ```text
-Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379, /etc/valkey/valkey.conf, up 52m 17s, unlimited memory usage enabled, 0.0% memory usage (959.1KiB/3.8GiB, 959.1KiB peak, 14.5MiB RSS), maxmemory-policy=noeviction, 0.0 evicted keys, 0.0 expired keys, hit rate 0% (0.0 hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not set to "madvise" or "never"
+Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379, /etc/valkey/valkey.conf,
+up 52m 17s, unlimited memory usage enabled, 0.0% memory usage (959.1KiB/3.8GiB, 959.1KiB peak,
+14.5MiB RSS), maxmemory-policy=noeviction, 0.0 evicted keys, 0.0 expired keys, hit rate 0%
+(0.0 hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage
+is not set to "madvise" or "never"
 ```
 
 
@@ -157,5 +176,5 @@ net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog
 
 ## Credits, License
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch); [Claudio Kuenzler](https://www.claudiokuenzler.com)
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).

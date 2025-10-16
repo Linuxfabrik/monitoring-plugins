@@ -8,7 +8,12 @@ An output like `srv01 ! Swap usage ! 10 ! [WARNING]` means that the service 'Swa
 
 Instead of specifying url, user and password on the command line, you can create and specify an INI file like this
 
-> \[icingaweb2\] url = <http://localhost/icingaweb2/icingadb/history?limit=250> username = alice password = linuxfabrik
+```text
+[icingaweb2]
+url = http://localhost/icingaweb2/icingadb/history?limit=250
+username = alice
+password = linuxfabrik
+```
 
 Command line arguments override the settings in the password INI file.
 
