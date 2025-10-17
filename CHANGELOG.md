@@ -34,6 +34,11 @@ Assets:
 * sudoers: disable PAM's session stack log lines when user icinga or nagios uses sudo
 
 
+Build, CI/CD:
+
+* Windows MSI still installs all plugins to ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik, but does not depend on an Icinga2 agent any longer
+
+
 Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
