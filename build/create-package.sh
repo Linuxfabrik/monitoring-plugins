@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025101601
+# 2025101701
 
 set -e -o pipefail -u -x
 
@@ -17,14 +17,14 @@ rocky8)
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
-    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.spec
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.el.spec
     ;;
 rocky9 | rocky10)
     export LFMP_PYTHON=python3
 
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
-    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.spec
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.el.spec
     ;;
 sle15)
     export LFMP_PYTHON=python3.11
