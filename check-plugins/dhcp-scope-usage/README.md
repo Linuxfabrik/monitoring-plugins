@@ -19,7 +19,7 @@ Hints:
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-scope-usage> |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | Yes |

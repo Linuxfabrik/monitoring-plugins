@@ -13,7 +13,7 @@ Hints:
 
 | Fact | Value |
 |----|----|
-| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
+| Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sap-open-concur-com> |
 | Check Interval Recommendation         | Once a minute |
 | Can be called without parameters      | Yes |
 | Compiled for Windows                  | No |
