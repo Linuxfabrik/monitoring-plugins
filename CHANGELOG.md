@@ -44,10 +44,16 @@ Build, CI/CD:
 * Windows MSI still installs all plugins to ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik, but does not depend on an Icinga2 agent any longer
 
 
+Grafana:
+
+* All panels: do not connect across nulls
+
+
 Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * nextcloud-version: modernize code
+* php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 
 

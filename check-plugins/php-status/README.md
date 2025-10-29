@@ -64,7 +64,10 @@ options:
                        connections. Default: False
   --no-proxy           Do not use a proxy. Default: False
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            URL to optional PHP `monitoring.php` script.
+  --url URL            URL to optional PHP `monitoring.php` script. The plugin
+                       will work, but its accuracy will be reduced if the
+                       `monitoring.php` file cannot be fetched via HTTP(S).
+                       Default: http://localhost/monitoring.php
   -w, --warning WARN   Set the WARN threshold for Opcache usage as a
                        percentage. Default: >= 90
 ```
@@ -79,25 +82,36 @@ options:
 Output:
 
 ```text
-Everything is ok. PHP v8.0.12 (/etc/php.ini), Opcache Mem 6.8% used (8.7MiB/128.0MiB), Wasted 0.0% (0.0B, max. 5.0%), Keys 0.0% used (1/16229), Hit Rate 0.0% (0.0 hits, 1.0 misses), Interned Strings 4.1% used (250.8KiB/6.0MiB, 5482 Strings), 0 OOM / 0 manual / 0 key restarts, 
+Everything is ok. PHP v8.3.26 (/etc/php.ini), Opcache Mem 59.2% used (75.8MiB/128.0MiB),
+Wasted 0% (0.0B, max. 5.0%), Keys 78.4% used (6245/7963), Hit Rate 100.0% (13.5M hits, 3.3K misses),
+Interned Strings 61.8% used (12.4MiB/20.0MiB, 130787 Strings), 0 OOM / 0 manual / 0 key restarts,
+No startup errors were detected. No unexpected configurations detected. All expected modules were
+found.
 
-Key                             ! Value         
---------------------------------+---------------
-date.timezone                   ! Europe/Zurich 
-display_errors                  ! Off           
-display_startup_errors          ! Off           
-error_reporting                 ! 22519         
-expose_php                      ! Off           
-max_execution_time              ! 30            
-memory_limit                    ! 64M           
-post_max_size                   ! 50M           
-upload_max_filesize             ! 20M           
-opcache.enable                  ! True          
-opcache.interned_strings_buffer ! 8             
-opcache.max_accelerated_files   ! 10000         
-opcache.memory_consumption      ! 134217728     
-opcache.revalidate_freq         ! 1             
-opcache.save_comments           ! True          
+Key                             ! Value                            
+--------------------------------+----------------------------------
+date.timezone                   ! Europe/Zurich                    
+default_socket_timeout          ! 10                               
+display_errors                  ! Off                              
+display_startup_errors          ! Off                              
+error_reporting                 ! 22519                            
+expose_php                      ! Off                              
+max_execution_time              ! 3600                             
+max_file_uploads                ! 100                              
+max_input_time                  ! -1                               
+memory_limit                    ! 1024M                            
+post_max_size                   ! 16M                              
+SMTP                            ! localhost                        
+upload_max_filesize             ! 10000M                           
+opcache.blacklist_filename      ! /etc/php-zts.d/opcache*.blacklist
+opcache.enable                  ! True                             
+opcache.enable_cli              ! True                             
+opcache.huge_code_pages         ! False                            
+opcache.interned_strings_buffer ! 20                               
+opcache.max_accelerated_files   ! 7963                             
+opcache.memory_consumption      ! 128.0MiB                         
+opcache.revalidate_freq         ! 60                               
+opcache.save_comments           ! True                             
 opcache.validate_timestamps     ! True
 ```
 
