@@ -20,17 +20,18 @@ This plugin uses SSH to execute a command on a remote host, returning STDOUT and
 
 ```text
 usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
-              [--configfile CONFIGFILE] [--critical-pattern CRIT_PATTERN]
-              [--critical-regex CRIT_REGEX] [--disable-pseudo-terminal]
-              -H HOSTNAME [--identity IDENTITY] [--ipv4] [--ipv6]
-              [-p PASSWORD] [--port PORT] [--quiet]
+              [--configfile CONFIGFILE] [-c CRIT]
+              [--critical-pattern CRIT_PATTERN] [--critical-regex CRIT_REGEX]
+              [--disable-pseudo-terminal] -H HOSTNAME [--identity IDENTITY]
+              [--ipv4] [--ipv6] [-p PASSWORD] [--port PORT] [--quiet]
               [--severity-retc {ok,warn,crit,unknown}]
               [--severity-stderr {ok,warn,crit,unknown}]
               [--severity-stdout {ok,warn,crit,unknown}]
               [--severity-timeout {ok,warn,crit,unknown}]
               [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
               [--ssh-option SSH_OPTION] [--shell] [--test TEST] [-u USERNAME]
-              [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+              [-w WARN] [--warning-pattern WARN_PATTERN]
+              [--warning-regex WARN_REGEX]
 
 This plugin uses SSH to execute a command on a remote host, returning STDOUT
 and, in case of failure, STDERR and the command's return code. With this
@@ -50,6 +51,9 @@ options:
                         for the per-user configuration file is
                         `~/.ssh/config`. If set to `none`, no configuration
                         files will be read.
+  -c, --critical CRIT   CRIT threshold for single numeric return values.
+                        Supports Nagios ranges. Example: `@10:20` alerts if
+                        STDOUT is in range 10..20.
   --critical-pattern CRIT_PATTERN
                         Any line matching this pattern (case-insensitive) will
                         count as a critical. Can be specified multiple times.
@@ -123,6 +127,9 @@ options:
                         stderr-file,expected-retc".
   -u, --username USERNAME
                         SSH: Username. Default: root
+  -w, --warning WARN    WARN threshold for single numeric return values.
+                        Supports Nagios ranges. Example: `@10:20` alerts if
+                        STDOUT is in range 10..20.
   --warning-pattern WARN_PATTERN
                         Any line matching this pattern (case-insensitive) will
                         count as a warning. Can be specified multiple times.

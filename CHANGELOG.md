@@ -16,6 +16,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* by-ssh: add alerting on single numeric values
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
 * statuspal: also detect 'emergency-maintenance' state

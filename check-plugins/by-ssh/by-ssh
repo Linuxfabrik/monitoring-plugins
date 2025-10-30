@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2025103001'
 
 DESCRIPTION = """This plugin uses SSH to execute a command on a remote host,
                  returning STDOUT and, in case of failure, STDERR and the command's return code.
@@ -76,6 +76,14 @@ def parse_args():
              'default for the per-user configuration file is `~/.ssh/config`. If '
              'set to `none`, no configuration files will be read.',
         dest='CONFIGFILE',
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='CRIT threshold for single numeric return values. '
+             'Supports Nagios ranges. '
+             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        dest='CRIT',
     )
 
     parser.add_argument(
@@ -256,6 +264,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-w', '--warning',
+        help='WARN threshold for single numeric return values. '
+             'Supports Nagios ranges. '
+             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        dest='WARN',
+    )
+
+    parser.add_argument(
         '--warning-pattern',
         help='Any line matching this pattern (case-insensitive) will count as a warning. '
              'Can be specified multiple times.',
@@ -336,9 +352,22 @@ def main():
     state = stdout_state = stderr_state = retc_state = STATE_OK
 
     # analyze data
+
+    # check stdout - alert with given severity if there is any output at all
     if stdout:
-        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)
+        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)  # if SEVERITY_STDOUT != 'ok'
         state = lib.base.get_worst(state, stdout_state)
+
+    # check stdout - alert with given severity on a single numeric value
+    try:
+        float(stdout)
+        stdout_state = lib.base.get_state(stdout, args.WARN, args.CRIT, _operator='range')
+        state = lib.base.get_worst(state, stdout_state)
+    except:
+        if args.VERBOSE:
+            msg += 'STDOUT is not a "float". '
+
+    # check stdout - alert with given severity using pattern matching
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
     compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
     haystack = stdout.lower()
