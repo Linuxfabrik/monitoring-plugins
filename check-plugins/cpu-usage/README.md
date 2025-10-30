@@ -2,18 +2,27 @@
 
 ## Overview
 
-Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 − idle − nice).
+Monitors system-wide CPU utilization with sustained load detection to avoid false alerts from short-lived spikes. Reports percentages across all standard CPU time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus calculated overall CPU usage (100 - idle - nice).
 
-Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load.
+**Alerting Logic:**
 
-Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. With `--top`, the most CPU-intensive processes are also listed for quick diagnosis.
+* Thresholds apply to: `user`, `system`, `iowait`, and overall `cpu-usage`
+* Alert triggers only when threshold exceeded for `--count` consecutive check runs (default: 5)
+* Example: With default settings and 1-minute check interval, WARN/CRIT states require sustained high CPU for 5 consecutive minutes
+* Single brief spikes are ignored, focusing on persistent performance issues
 
-This check is cross-platform and works on Linux, Windows, and all psutil-supported systems.
+**Data Collection:**
 
-Hints and Recommendations:
+* System-wide aggregate CPU statistics (not per-core)
+* Non-blocking measurement using SQLite state persistence between runs
+* Platform-specific extended metrics where available (context switches, interrupts, soft interrupts)
+* Optional top-N CPU-consuming processes (`--top`, default: 5)
 
-* We check system-wide CPU stats, not per-CPU.
-* `--count=5` (the default) while checking every minute means that the check reports a warning if any of `user`, `system`, `iowait` or overall `cpu-usage` was above a threshold in the last 5 minutes.
+**Compatibility:**
+
+* Cross-platform: Linux, Windows, and all psutil-supported systems
+* Uses SQLite database (`$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db`) for trend tracking
+* Full perfdata output for graphing all metrics in Nagios/Icinga
 
 
 ## Fact Sheet
