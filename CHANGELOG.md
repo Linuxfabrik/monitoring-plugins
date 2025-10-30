@@ -16,6 +16,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials, fix tls connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)

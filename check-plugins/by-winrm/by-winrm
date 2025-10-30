@@ -1,0 +1,337 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details.
+"""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.powershell
+import lib.lftest
+import lib.time
+import lib.txt
+import lib.winrm
+from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2025102901'
+
+DESCRIPTION = """This plugin executes commands on remote Windows hosts by WinRM, supporting JEA.
+It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with
+the command's exit code. By evaluating these results - through threshold checks or pattern matching
+on STDOUT - the plugin can generate alerts with configurable severity levels.
+"""
+
+DEFAULT_SEVERITY_CONNTIMEOUT = 'unknown'
+DEFAULT_SEVERITY_RETC = 'warn'
+DEFAULT_SEVERITY_STDERR = 'warn'
+DEFAULT_SEVERITY_STDOUT = 'ok'
+DEFAULT_USERNAME = 'Administrator'
+DEFAULT_VERBOSE = False
+DEFAULT_WINRM_TRANSPORT = 'ntlm'
+
+
+def parse_args():
+    """Parse command line arguments using argparse.
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        '-V', '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}'
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help='Always returns OK.',
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--command',
+        help='WinRM: Command that will be executed on the remote host.',
+        dest='COMMAND',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-c', '--critical',
+        help='CRIT threshold for single numeric return values. '
+             'Supports Nagios ranges. '
+             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        dest='CRIT',
+    )
+
+    parser.add_argument(
+        '--critical-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a critical. '
+             'Can be specified multiple times.',
+        dest='CRIT_PATTERN',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--critical-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a critical. '
+             'Can be specified multiple times.',
+        dest='CRIT_REGEX',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--severity-retc',
+        help='Severity for alerting if there is a return code != 0. Default: %(default)s',
+        dest='SEVERITY_RETC',
+        default=DEFAULT_SEVERITY_RETC,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-stderr',
+        help='Severity for alerting if there is an output on STDERR. Default: %(default)s',
+        dest='SEVERITY_STDERR',
+        default=DEFAULT_SEVERITY_STDERR,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-stdout',
+        help='Severity for alerting if there is an output on STDOUT. Default: %(default)s',
+        dest='SEVERITY_STDOUT',
+        default=DEFAULT_SEVERITY_STDOUT,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--severity-timeout',
+        help='Severity on connection problems. Default: %(default)s',
+        dest='SEVERITY_CONNTIMEOUT',
+        default=DEFAULT_SEVERITY_CONNTIMEOUT,
+        choices=['ok', 'warn', 'crit', 'unknown'],
+    )
+
+    parser.add_argument(
+        '--skip-stderr',
+        help='Ignore all (0) or first n lines on STDERR. Default: %(default)s (no ignore)',
+        dest='SKIP_STDERR',
+        type=int,
+        default=-1,
+    )
+
+    parser.add_argument(
+        '--skip-stdout',
+        help='Ignore all (0) or first n lines on STDOUT. Default: %(default)s (no ignore)',
+        dest='SKIP_STDOUT',
+        type=int,
+        default=-1,
+    )
+
+    parser.add_argument(
+        '--test',
+        help='For unit tests. Needs "path-to-stdout-file,path-to-stderr-file,expected-retc".',
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--verbose',
+        help=lib.args.help('--verbose') + ' ' +
+             'Default: %(default)s',
+        dest='VERBOSE',
+        action='store_true',
+        default=DEFAULT_VERBOSE,
+    )
+
+    parser.add_argument(
+        '-w', '--warning',
+        help='WARN threshold for single numeric return values. '
+             'Supports Nagios ranges. '
+             'Example: `@10:20` alerts if STDOUT is in range 10..20.',
+        dest='WARN',
+    )
+
+    parser.add_argument(
+        '--warning-pattern',
+        help='Any line matching this pattern (case-insensitive) will count as a warning. '
+             'Can be specified multiple times.',
+        dest='WARN_PATTERN',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--warning-regex',
+        help='Any line matching this python regex (case-insensitive) will count as a warning. '
+             'Can be specified multiple times.',
+        dest='WARN_REGEX',
+        action='append',
+        default=[],
+    )
+
+    parser.add_argument(
+        '--winrm-domain',
+        help='WinRM Domain Name. Default: %(default)s',
+        dest='WINRM_DOMAIN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--winrm-hostname',
+        help='Target Windows computer on which the command is to be executed.',
+        dest='WINRM_HOSTNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--winrm-password',
+        help='WinRM Account Password.',
+        dest='WINRM_PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--winrm-transport',
+        help='WinRM transport type. Default: %(default)s',
+        dest='WINRM_TRANSPORT',
+        choices=['basic', 'ntlm', 'kerberos', 'credssp', 'plaintext'],
+        default=DEFAULT_WINRM_TRANSPORT,
+    )
+
+    parser.add_argument(
+        '--winrm-username',
+        help='WinRM Account Name. Default: %(default)s',
+        dest='WINRM_USERNAME',
+        default=DEFAULT_USERNAME,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. Hier spielt die Musik.
+    """
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data - run WinRM command
+    if args.TEST is None:
+        timer_start = lib.time.now('float')
+        result = lib.winrm.run_ps(args, args.COMMAND)
+        if result['stderr']:
+            lib.base.cu(result['stderr'])
+        stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
+    else:
+        # do not call the command, put in test data
+        timer_start = lib.time.now('float')
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+
+    perfdata = lib.base.get_perfdata(
+        'remote_runtime',
+        lib.time.now('float') - timer_start,
+        uom='s',
+        warn=None,
+        crit=None,
+        _min=None,
+        _max=None,
+    )
+
+    # strip output
+    if args.SKIP_STDOUT == 0:
+        # ignore all lines on STDOUT
+        stdout = ''
+    if args.SKIP_STDOUT > 0:
+        stdout = '\n'.join(stdout.splitlines()[args.SKIP_STDOUT:])
+    if args.SKIP_STDERR == 0:
+        # ignore all lines on STDERR
+        stderr = ''
+    if args.SKIP_STDERR > 0:
+        stderr = '\n'.join(stderr.splitlines()[args.SKIP_STDERR:])
+    stdout = stdout.strip()
+    stderr = stderr.strip()
+
+    # init some vars
+    msg = ''
+    state = stdout_state = stderr_state = retc_state = STATE_OK
+
+    if args.VERBOSE:
+        if lib.winrm.HAVE_JEA:
+            msg += 'Connecting via pypsrp, using JEA. '
+        else:
+            msg += 'Connecting via pywinrm (without JEA). '
+
+    # analyze data
+
+    # check stdout - alert with given severity if there is any output at all
+    if stdout:
+        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)  # if SEVERITY_STDOUT != 'ok'
+        state = lib.base.get_worst(state, stdout_state)
+
+    # check stdout - alert with given severity on a single numeric value
+    try:
+        float(stdout)
+        stdout_state = lib.base.get_state(stdout, args.WARN, args.CRIT, _operator='range')
+        state = lib.base.get_worst(state, stdout_state)
+    except:
+        if args.VERBOSE:
+            msg += 'STDOUT is not a "float". '
+
+    # check stdout - alert with given severity using pattern matching
+    compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
+    compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
+    haystack = stdout.lower()
+    if any(warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN) \
+    or any(item.search(haystack) for item in compiled_warn_regex):
+        stdout_state = STATE_WARN
+    if any(crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN) \
+    or any(item.search(haystack) for item in compiled_crit_regex):
+        stdout_state = STATE_CRIT
+    state = lib.base.get_worst(state, stdout_state)
+
+    # stderr overwrites state from stdout
+    if stderr:
+        stderr_state = lib.base.str2state(args.SEVERITY_STDERR)
+        state = lib.base.get_worst(state, stderr_state)
+
+    # retc overwrites state from stderr
+    if retc:
+        retc_state = lib.base.str2state(args.SEVERITY_RETC)
+        state = lib.base.get_worst(state, retc_state)
+
+    # build the message
+    if retc:
+        msg += f'retc: {retc}{lib.base.state2str(retc_state, prefix=" ")}; '
+    if stderr:
+        msg += f'stderr: {stderr}{lib.base.state2str(stderr_state, prefix=" ")}; '
+    msg += f'{stdout if stdout else "stdout: None"}{lib.base.state2str(stdout_state, prefix=" ")}'
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:   # pylint: disable=W0703
+        lib.base.cu()
