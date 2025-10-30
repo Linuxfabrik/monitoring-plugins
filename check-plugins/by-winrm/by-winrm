@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025102901'
+__version__ = '2025103001'
 
 DESCRIPTION = """This plugin executes commands on remote Windows hosts by WinRM, supporting JEA.
 It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with
@@ -38,9 +38,10 @@ DEFAULT_SEVERITY_CONNTIMEOUT = 'unknown'
 DEFAULT_SEVERITY_RETC = 'warn'
 DEFAULT_SEVERITY_STDERR = 'warn'
 DEFAULT_SEVERITY_STDOUT = 'ok'
-DEFAULT_USERNAME = 'Administrator'
 DEFAULT_VERBOSE = False
+DEFAULT_WINRM_DOMAIN = None
 DEFAULT_WINRM_TRANSPORT = 'ntlm'
+DEFAULT_WINRM_USERNAME = 'Administrator'
 
 
 def parse_args():
@@ -97,7 +98,8 @@ def parse_args():
 
     parser.add_argument(
         '--severity-retc',
-        help='Severity for alerting if there is a return code != 0. Default: %(default)s',
+        help='Severity for alerting if there is a return code != 0. '
+             'Default: %(default)s',
         dest='SEVERITY_RETC',
         default=DEFAULT_SEVERITY_RETC,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -105,7 +107,8 @@ def parse_args():
 
     parser.add_argument(
         '--severity-stderr',
-        help='Severity for alerting if there is an output on STDERR. Default: %(default)s',
+        help='Severity for alerting if there is an output on STDERR. '
+             'Default: %(default)s',
         dest='SEVERITY_STDERR',
         default=DEFAULT_SEVERITY_STDERR,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -113,7 +116,8 @@ def parse_args():
 
     parser.add_argument(
         '--severity-stdout',
-        help='Severity for alerting if there is an output on STDOUT. Default: %(default)s',
+        help='Severity for alerting if there is an output on STDOUT. '
+             'Default: %(default)s',
         dest='SEVERITY_STDOUT',
         default=DEFAULT_SEVERITY_STDOUT,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -121,7 +125,8 @@ def parse_args():
 
     parser.add_argument(
         '--severity-timeout',
-        help='Severity on connection problems. Default: %(default)s',
+        help='Severity on connection problems. '
+             'Default: %(default)s',
         dest='SEVERITY_CONNTIMEOUT',
         default=DEFAULT_SEVERITY_CONNTIMEOUT,
         choices=['ok', 'warn', 'crit', 'unknown'],
@@ -129,7 +134,8 @@ def parse_args():
 
     parser.add_argument(
         '--skip-stderr',
-        help='Ignore all (0) or first n lines on STDERR. Default: %(default)s (no ignore)',
+        help='Ignore all (0) or first n lines on STDERR. '
+             'Default: %(default)s (no ignore)',
         dest='SKIP_STDERR',
         type=int,
         default=-1,
@@ -137,7 +143,8 @@ def parse_args():
 
     parser.add_argument(
         '--skip-stdout',
-        help='Ignore all (0) or first n lines on STDOUT. Default: %(default)s (no ignore)',
+        help='Ignore all (0) or first n lines on STDOUT. '
+             'Default: %(default)s (no ignore)',
         dest='SKIP_STDOUT',
         type=int,
         default=-1,
@@ -187,14 +194,15 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-domain',
-        help='WinRM Domain Name. Default: %(default)s',
+        help='WinRM Domain Name. '
+             'Default: %(default)s',
         dest='WINRM_DOMAIN',
-        default=None,
+        default=DEFAULT_WINRM_DOMAIN,
     )
 
     parser.add_argument(
         '--winrm-hostname',
-        help='Target Windows computer on which the command is to be executed.',
+        help='Target Windows computer on which the command will be executed.',
         dest='WINRM_HOSTNAME',
         required=True,
     )
@@ -208,7 +216,8 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-transport',
-        help='WinRM transport type. Default: %(default)s',
+        help='WinRM transport type. '
+             'Default: %(default)s',
         dest='WINRM_TRANSPORT',
         choices=['basic', 'ntlm', 'kerberos', 'credssp', 'plaintext'],
         default=DEFAULT_WINRM_TRANSPORT,
@@ -216,9 +225,10 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-username',
-        help='WinRM Account Name. Default: %(default)s',
+        help='WinRM Account Name. '
+             'Default: %(default)s',
         dest='WINRM_USERNAME',
-        default=DEFAULT_USERNAME,
+        default=DEFAULT_WINRM_USERNAME,
     )
 
     args, _ = parser.parse_known_args()

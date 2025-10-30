@@ -96,7 +96,7 @@ options:
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME
-                        Target Windows computer on which the command is to be
+                        Target Windows computer on which the command will be
                         executed.
   --winrm-password WINRM_PASSWORD
                         WinRM Account Password.
