@@ -193,6 +193,12 @@ def _return_parser(self):
     return self
 
 
+def _return_parser_as_tuple(self, *args, **kwargs):
+    # parse_known_args() returns a tuple (namespace, remaining_args)
+    # We return the parser as the first element and an empty list as the second
+    return self, []
+
+
 def warn_print(msg):
     msg = msg.strip()
     if colorama:
@@ -212,8 +218,9 @@ def err_print(msg):
 def get_plugin_args(plugin_file):
     check = os.path.basename(plugin_file)
 
-    # Overwrite the parse_args() function that we usually call in our checks to simply return the parser
+    # Overwrite the parse_args() and parse_known_args() functions that we usually call in our checks to simply return the parser
     argparse.ArgumentParser.parse_args = _return_parser
+    argparse.ArgumentParser.parse_known_args = _return_parser_as_tuple
 
     spec = importlib.util.spec_from_loader(check, importlib.machinery.SourceFileLoader(check, plugin_file))
     plugin_module = importlib.util.module_from_spec(spec)
