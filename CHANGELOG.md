@@ -57,7 +57,7 @@ Monitoring Plugins:
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
-
+* updates: adapt to updated powershell.py library
 
 
 ### Removed ("chore" etc.)
