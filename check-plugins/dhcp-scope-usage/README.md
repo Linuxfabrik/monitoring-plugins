@@ -7,7 +7,7 @@ Checks the IPv4 scope usage for a Windows DHCP server service using the PowerShe
 If you provide `--winrm-hostname`, the check plugin will execute all Powershell commands via WinRM, otherwise it will run locally. This allows the plugin to run on Linux servers as well. By using the [winrm Python module](https://github.com/diyan/pywinrm), this plugin supports various transport methods in order to authenticate with the WinRM server. The options that are supported in the transport parameter are:
 
 * `basic`: Basic auth only works for local Windows accounts, not domain accounts. Credentials are base64 encoded when sending to the server.
-* `kerberos`: Will use Kerberos authentication for domain accounts which only works when the client is in the same domain as the server and the required dependencies are installed. Currently a Kerberos ticket needs to be initialized outside of the plugin using the `kinit` command.
+* `kerberos`: Will use Kerberos authentication for domain accounts which only works when the client is in the same domain as the server and the required dependencies are installed. Obtain a Kerberos ticket on Linux (`kinit`) or use a keytab. Ensure `/etc/krb5.conf` and DNS/SPNs are correct so Kerberos to the Windows service succeeds.
 * `ntlm`: Will use NTLM authentication for both domain and local accounts (default).
 
 Hints:
