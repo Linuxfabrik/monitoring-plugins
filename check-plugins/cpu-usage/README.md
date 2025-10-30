@@ -22,7 +22,6 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 
 * Cross-platform: Linux, Windows, and all psutil-supported systems
 * Uses SQLite database (`$TEMP/linuxfabrik-monitoring-plugins-cpu-usage.db`) for trend tracking
-* Full perfdata output for graphing all metrics in Nagios/Icinga
 
 
 ## Fact Sheet

@@ -2,12 +2,31 @@
 
 ## Overview
 
-Displays system memory usage and alerts on sustained high usage. Reports total/used/available/free plus shared/buffers/cached, and evaluates WARN/CRIT against the overall usage percentage. Perfdata is emitted for all fields so you can graph trends over time. With `--top`, the most memory-consuming processes are listed (by RSS and percentage) to aid quick diagnosis. Cross-platform on all psutil-supported systems (Linux, Windows, \*BSD, macOS).
+Monitors physical memory utilization with threshold-based alerting on overall memory usage percentage. Reports total, used, available, and free memory, plus platform-specific metrics (shared, buffers, cached).
 
-Hints:
+**Alerting Logic:**
 
-* Be aware of the differences in memory counting between different tools like top, htop, glances, GNOME System Monitor etc.
-* Memory counting also changed between different Linux Kernel versions.
+* Thresholds apply to overall memory usage percentage (default: WARN at 90%, CRIT at 95%)
+* Single-point evaluation - alerts immediately when threshold exceeded (no sustained load detection)
+* Uses psutil's `percent` calculation which accounts for platform-specific memory semantics
+
+**Data Collection:**
+
+* Physical memory statistics only (RAM, excludes swap)
+* Reports `available` metric for cross-platform usable memory estimation
+* Platform-specific metrics on Linux/BSD: shared, buffers, cached
+* Optional top-N memory-consuming processes by RSS (`--top`, default: 5), aggregated by process name
+
+**Compatibility:**
+
+* Cross-platform: Linux, Windows, \*BSD, macOS
+* Stateless check - no database or state persistence required
+
+**Important Notes:**
+
+* Memory usage calculations differ between tools (top, htop, free) due to different counting methods and kernel versions
+* This check uses psutil's cross-platform `available` metric for consistency
+* Process memory percentages may sum to >100% on Linux due to shared memory accounting
 
 
 ## Fact Sheet
