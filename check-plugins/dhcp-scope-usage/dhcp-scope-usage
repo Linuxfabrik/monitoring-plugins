@@ -24,13 +24,16 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2025103002'
 
 DESCRIPTION = """Checks the IPv4 scope usage for a Windows DHCP server service."""
 
+DEFAULT_CRIT = 90
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_WARN = 80
-DEFAULT_CRIT = 90
+DEFAULT_WINRM_DOMAIN = None
+DEFAULT_WINRM_TRANSPORT = 'ntlm'
+DEFAULT_WINRM_USERNAME = 'Administrator'
 
 
 def parse_args():
@@ -84,39 +87,43 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-domain',
-        help='WinRM Domain Name. Default: %(default)s',
+        help='WinRM Domain Name. '
+             'Default: %(default)s',
         dest='WINRM_DOMAIN',
-        default=None,
+        default=DEFAULT_WINRM_DOMAIN,
     )
 
     parser.add_argument(
         '--winrm-hostname',
-        help='Target Windows computer on which the Windows commands are to be executed. Default: %(default)s',
+        help='Target Windows computer on which the command will be executed.',
         dest='WINRM_HOSTNAME',
-        default=None,
+        required=True,
     )
 
     parser.add_argument(
         '--winrm-password',
-        help='WinRM Account Password. Default: %(default)s',
+        help='WinRM Account Password.',
         dest='WINRM_PASSWORD',
-        default=None,
+        required=True,
     )
 
     parser.add_argument(
         '--winrm-transport',
-        help='WinRM transport type. Default: %(default)s',
+        help='WinRM transport type. '
+             'Default: %(default)s',
         dest='WINRM_TRANSPORT',
-        choices=['basic', 'ntlm', 'kerberos'],
-        default='ntlm',
+        choices=['basic', 'ntlm', 'kerberos', 'credssp', 'plaintext'],
+        default=DEFAULT_WINRM_TRANSPORT,
     )
 
     parser.add_argument(
         '--winrm-username',
-        help='WinRM Account Name. Default: %(default)s',
+        help='WinRM Account Name. '
+             'Default: %(default)s',
         dest='WINRM_USERNAME',
-        default=None,
+        default=DEFAULT_WINRM_USERNAME,
     )
+
 
     args, _ = parser.parse_known_args()
     return args
@@ -142,8 +149,6 @@ def main():
             if lib.base.LINUX:
                 lib.base.cu('Running this check plugin directly on Linux is not supported. Use the --winrm parameters.')
             result = lib.powershell.run_ps(cmd)
-        if not result:
-            lib.base.cu('Got nothing back.')
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data

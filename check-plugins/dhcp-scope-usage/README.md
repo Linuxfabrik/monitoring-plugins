@@ -4,11 +4,7 @@
 
 Checks the IPv4 scope usage for a Windows DHCP server service using the PowerShell command `Get-DhcpServerv4ScopeStatistics -ComputerName "dhcpServer.contoso.com"`. Have a look at <https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics> for details.
 
-If you provide `--winrm-hostname`, the check plugin will execute all Powershell commands via WinRM, otherwise it will run locally. This allows the plugin to run on Linux servers as well. By using the [winrm Python module](https://github.com/diyan/pywinrm), this plugin supports various transport methods in order to authenticate with the WinRM server. The options that are supported in the transport parameter are:
-
-* `basic`: Basic auth only works for local Windows accounts, not domain accounts. Credentials are base64 encoded when sending to the server.
-* `kerberos`: Will use Kerberos authentication for domain accounts which only works when the client is in the same domain as the server and the required dependencies are installed. Obtain a Kerberos ticket on Linux (`kinit`) or use a keytab. Ensure `/etc/krb5.conf` and DNS/SPNs are correct so Kerberos to the Windows service succeeds.
-* `ntlm`: Will use NTLM authentication for both domain and local accounts (default).
+If you provide `--winrm-hostname`, the check plugin will execute all Powershell commands via WinRM, otherwise it will run locally. This allows the plugin to run on Linux servers as well.
 
 Hints:
 
@@ -32,9 +28,9 @@ Hints:
 ```text
 usage: dhcp-scope-usage [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME]
                         [--test TEST] [-w WARN] [--winrm-domain WINRM_DOMAIN]
-                        [--winrm-hostname WINRM_HOSTNAME]
-                        [--winrm-password WINRM_PASSWORD]
-                        [--winrm-transport {basic,ntlm,kerberos}]
+                        --winrm-hostname WINRM_HOSTNAME
+                        --winrm-password WINRM_PASSWORD
+                        [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                         [--winrm-username WINRM_USERNAME]
 
 Checks the IPv4 scope usage for a Windows DHCP server service.
@@ -54,14 +50,14 @@ options:
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME
-                        Target Windows computer on which the Windows commands
-                        are to be executed. Default: None
+                        Target Windows computer on which the command will be
+                        executed.
   --winrm-password WINRM_PASSWORD
-                        WinRM Account Password. Default: None
-  --winrm-transport {basic,ntlm,kerberos}
+                        WinRM Account Password.
+  --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM Account Name. Default: None
+                        WinRM Account Name. Default: Administrator
 ```
 
 
