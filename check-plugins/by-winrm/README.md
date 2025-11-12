@@ -35,7 +35,7 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--test TEST] [--verbose] [-w WARN]
                 [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
                 [--winrm-domain WINRM_DOMAIN] --winrm-hostname WINRM_HOSTNAME
-                --winrm-password WINRM_PASSWORD
+                [--winrm-password WINRM_PASSWORD]
                 [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                 [--winrm-username WINRM_USERNAME]
 
@@ -103,7 +103,7 @@ options:
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM Account Name. Default: Administrator
+                        WinRM Account Name.
 ```
 
 
