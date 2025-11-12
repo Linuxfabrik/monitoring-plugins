@@ -147,6 +147,18 @@ Output:
 2.78062697768402 [WARNING]
 ```
 
+Use Kerberos Authentication:
+
+```bash
+kinit -V linus@EXAMPLE.COM
+klist
+
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-transport=kerberos \
+    --command='Get-CpuPercent'
+```
+
 
 ## States
 
