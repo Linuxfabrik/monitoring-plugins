@@ -33,6 +33,7 @@ Monitoring Plugins:
 
 * about-me: error in perfdata if using `--dmidecode` and there is no HW information
 * about-me: fix various errors with `sys_dimensions` on some machines
+* by-ssh: add missing `--verbose` parameter
 
 
 ### Changed ("refactor", "chore" etc.)
