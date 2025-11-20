@@ -269,18 +269,18 @@ In the last three lines of this example we simply calculate "NIC.1 Traffic" as a
 
 | `snmpget`       | This check                                               |
 |-----------------|----------------------------------------------------------|
-| `-v 1|2c|3`     | `--snmpversion {1,2c,3}`                                 |
+| `-v 1|2c|3`     | `--snmp-version {1,2c,3}`                                 |
 | `-c COMMUNITY`  | `--community COMMUNITY`                                  |
-| `-a PROTOCOL`   | `--v3authprot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}` |
-| `-A PASSPHRASE` | `--v3authprotpassword V3AUTHPROTPASSWORD`                |
-| `-e ENGINE-ID`  | `--v3securityengineid V3SECURITYENGINEID`                |
-| `-E ENGINE-ID`  | `--v3contextengineid V3CONTEXTENGINEID`                  |
-| `-l LEVEL`      | `--v3level {noAuthNoPriv,authNoPriv,authPriv}`           |
-| `-n CONTEXT`    | `--v3context V3CONTEXT`                                  |
-| `-u USER-NAME`  | `--v3username V3USERNAME`                                |
-| `-x PROTOCOL`   | `--v3privprot {DES,AES,AES-192,AES-256}`                 |
-| `-X PASSPHRASE` | `--v3privprotpassword V3PRIVPROTPASSWORD`                |
-| `-Z BOOTS,TIME` | `--v3bootstime V3BOOTSTIME`                              |
+| `-a PROTOCOL`   | `--v3-auth-prot {MD5,SHA,SHA-224,SHA-256,SHA-384,SHA-512}` |
+| `-A PASSPHRASE` | `--v3-auth-prot-password V3AUTHPROTPASSWORD`                |
+| `-e ENGINE-ID`  | `--v3-security-engine-id V3SECURITYENGINEID`                |
+| `-E ENGINE-ID`  | `--v3-context-engine-id V3CONTEXTENGINEID`                  |
+| `-l LEVEL`      | `--v3-level {noAuthNoPriv,authNoPriv,authPriv}`           |
+| `-n CONTEXT`    | `--v3-context V3CONTEXT`                                  |
+| `-u USER-NAME`  | `--v3-username V3USERNAME`                                |
+| `-x PROTOCOL`   | `--v3-priv-prot {DES,AES,AES-192,AES-256}`                 |
+| `-X PASSPHRASE` | `--v3-priv-prot-password V3PRIVPROTPASSWORD`                |
+| `-Z BOOTS,TIME` | `--v3-boots-time V3BOOTSTIME`                              |
 | `-r RETRIES`    | hard-coded to `0`                                        |
 | `-t TIMEOUT`    | `-t TIMEOUT`, `--timeout TIMEOUT`                        |
 | `-m MIB[:...]`  | `--mib MIB`                                              |
