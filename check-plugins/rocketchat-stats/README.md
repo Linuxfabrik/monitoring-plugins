@@ -59,8 +59,8 @@ Output:
 * Users: 325 total, 8 online, 0 busy, 1 away, 316 offline
 * Types and Distribution: 9 connected, 223 activated users, 0 activated guests, 100 deactivated users, 2 Rocket.Chat app users
 * Total Uploads: 6285, 4.3GiB size
-* Total Rooms: 672 rooms, 1 channel, 96 private groups, 440 direct msg rooms, 0 discussions, 135 omnichannel rooms
-* Total Messages: 295.2K, 829 threads, 5 in channels, 178.3K in priv groups, 115.0K in direct msg, 1.9K in omnichannel
+* Total Rooms: 672 (1 channel, 96 private groups, 440 direct msg rooms, 0 discussions, 135 omnichannel rooms)
+* Total Messages: 295.2K (829 threads, 5 in channels, 178.3K in priv groups, 115.0K in direct msg, 1.9K in omnichannel)
 ```
 
 
