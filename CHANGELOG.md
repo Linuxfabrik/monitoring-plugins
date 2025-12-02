@@ -34,6 +34,7 @@ Monitoring Plugins:
 * about-me: error in perfdata if using `--dmidecode` and there is no HW information
 * about-me: fix various errors with `sys_dimensions` on some machines
 * by-ssh: add missing `--verbose` parameter
+* ntp-*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
 
 
 ### Changed ("refactor", "chore" etc.)
