@@ -31,7 +31,8 @@ options:
   --ignore IGNORE  Mount point that should be ignored (repeatable). For
                    example, if you provide `/sys/fs`, all mount points
                    starting with `/sys/fs` will be ignored. Default:
-                   ['/dev/loop', '/proc', '/snap', '/sys/fs']
+                   ['/dev/loop', '/proc', '/run/credentials', '/snap',
+                   '/sys/fs']
   --test TEST      For unit tests. Needs "path-to-stdout-file,path-to-stderr-
                    file,expected-retc".
 ```
