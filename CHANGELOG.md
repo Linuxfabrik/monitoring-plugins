@@ -23,6 +23,11 @@ Monitoring Plugins:
 * valkey-status: support user and password credentials, fix tls connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
 
+Icinga Director:
+
+* Add Debian 13 Service Set
+
+
 ### Fixed ("fix")
 
 Grafana:
