@@ -41,7 +41,7 @@ Monitoring Plugins:
 * by-ssh: add missing `--verbose` parameter
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
 * keycloak-stats: fix incorrect symlink for lib
-* ntp-*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
+* ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
 
 
 ### Changed ("refactor", "chore" etc.)
@@ -64,6 +64,7 @@ Grafana:
 Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
+* file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)

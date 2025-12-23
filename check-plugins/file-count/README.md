@@ -4,7 +4,7 @@
 
 Checks the number of matching files or directories found. It can be also used to check the existence / absence of a single file.
 
-Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with [Python 3](https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob) or [Python 2](https://docs.python.org/2.7/library/glob.html). Beware that using recursive globs might cause high memory usage. Also note that there are small differences in recursive file matching between Python 2 and Python 3. Optionally, the check can be restricted to only consider files that were modified in a given timerange.
+Depending on the file and user (e.g. running as *icinga*), sudo (sudoers) is needed. It supports globs in accordance with [Python 3](https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob). Beware that using recursive globs might cause high memory usage. Optionally, the check can be restricted to only consider files that were modified in a given timerange.
 
 
 ## Fact Sheet
@@ -38,8 +38,8 @@ options:
                         accordance with https://docs.python.org/3/library/path
                         lib.html#pathlib.Path.glob. Beware of using recursive
                         globs. This is mutually exclusive with -u / --url.
-  --only-dirs           Only consider directories.
-  --only-files          Only consider files.
+  --only-dirs           Only count directories.
+  --only-files          Only count files.
   --password PASSWORD   SMB Password.
   --pattern PATTERN     The search string to match against the names of SMB
                         directories or files. This pattern can use '*' as a
