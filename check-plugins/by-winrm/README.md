@@ -34,6 +34,7 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
                 [--test TEST] [--verbose] [-w WARN]
                 [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+                [--winrm-configuration-name WINRM_CONFIGURATION_NAME]
                 [--winrm-domain WINRM_DOMAIN] --winrm-hostname WINRM_HOSTNAME
                 [--winrm-password WINRM_PASSWORD]
                 [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
@@ -93,6 +94,9 @@ options:
                         Any line matching this python regex (case-insensitive)
                         will count as a warning. Can be specified multiple
                         times.
+  --winrm-configuration-name WINRM_CONFIGURATION_NAME
+                        PowerShell session configuration name (JEA endpoint).
+                        Only supported with pypsrp.
   --winrm-domain WINRM_DOMAIN
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME

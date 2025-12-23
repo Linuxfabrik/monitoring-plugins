@@ -30,7 +30,7 @@ usage: by-ssh [-h] [-V] [--always-ok] --command COMMAND
               [--severity-timeout {ok,warn,crit,unknown}]
               [--skip-stderr SKIP_STDERR] [--skip-stdout SKIP_STDOUT]
               [--ssh-option SSH_OPTION] [--shell] [--test TEST] [-u USERNAME]
-              [-w WARN] [--warning-pattern WARN_PATTERN]
+              [--verbose] [-w WARN] [--warning-pattern WARN_PATTERN]
               [--warning-regex WARN_REGEX]
 
 This plugin uses SSH to execute a command on a remote host, returning STDOUT
@@ -127,6 +127,9 @@ options:
                         stderr-file,expected-retc".
   -u, --username USERNAME
                         SSH: Username. Default: root
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what's going on under the
+                        hood. Default: False
   -w, --warning WARN    WARN threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
                         STDOUT is in range 10..20.
