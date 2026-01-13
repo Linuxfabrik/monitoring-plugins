@@ -29,23 +29,26 @@ Tested with Nextcloud 15+.
 
 ```text
 usage: nextcloud-stats [-h] [-V] [--insecure] [--no-proxy] --password PASSWORD
-                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+                       [--timeout TIMEOUT] [--failure-is-critical] [--url URL]
+                       [--username USERNAME]
 
 This plugin lets you track the number of active users over time, the number of
 shares in various categories and some storage statistics against a Nextcloud
 server.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --insecure           This option explicitly allows to perform "insecure" SSL
-                       connections. Default: False
-  --no-proxy           Do not use a proxy. Default: False
-  --password PASSWORD  Nextcloud API password.
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Nextcloud API URL. Default: http://localhost/nextcloud/
-                       ocs/v2.php/apps/serverinfo/api/v1/info
-  --username USERNAME  Nextcloud API username. Default: admin
+  -h, --help                 show this help message and exit
+  -V, --version              show program's version number and exit
+  --insecure                 This option explicitly allows to perform "insecure" SSL
+                             connections. Default: False
+  --no-proxy                 Do not use a proxy. Default: False
+  --password PASSWORD        Nextcloud API password.
+  --timeout TIMEOUT          Network timeout in seconds. Default: 8 (seconds)
+  --failure-is-critical      Return CRITICAL instead of UNKNOWN when any failure occurs
+                             (timeout, connection error, etc.). Default: False
+  --url URL                  Nextcloud API URL. Default: http://localhost/nextcloud/
+                             ocs/v2.php/apps/serverinfo/api/v1/info
+  --username USERNAME        Nextcloud API username. Default: admin
 ```
 
 
@@ -70,7 +73,9 @@ Output:
 
 ## States
 
-* Always returns OK.
+* Returns OK on success.
+* Returns UNKNOWN on errors (such as connection failures, DNS resolution errors, authentication errors, and timeouts by default).
+* Returns CRITICAL on any failure (timeout, connection error, etc.) when `--failure-is-critical` is used.
 
 
 ## Perfdata / Metrics
