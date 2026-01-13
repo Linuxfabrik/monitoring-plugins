@@ -82,10 +82,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--timeout-is-critical',
-        help='Return CRITICAL instead of UNKNOWN when a timeout occurs. '
+        '--failure-is-critical',
+        help='Return CRITICAL instead of UNKNOWN when any failure occurs (timeout, connection error, etc.). '
              'Default: %(default)s',
-        dest='TIMEOUT_IS_CRITICAL',
+        dest='FAILURE_IS_CRITICAL',
         action='store_true',
         default=False,
     )
@@ -145,24 +145,12 @@ def main():
     if isinstance(fetch_result, tuple) and len(fetch_result) == 2 and not fetch_result[0]:
         # This is an error
         error_message = fetch_result[1]
-        # Check if this is a timeout error
-        timeout_exceptions = (
-            'timeout',
-            'Timeout',
-            'timed out',
-            'Connection timeout',
-            'Read timeout',
-        )
-        error_str = str(error_message).lower()
-        is_timeout = any(
-            timeout_str.lower() in error_str
-            for timeout_str in timeout_exceptions
-        )
-        if args.TIMEOUT_IS_CRITICAL and is_timeout:
+        if args.FAILURE_IS_CRITICAL:
             lib.base.oao(
-                'Connection timeout occurred while fetching Nextcloud API data.',
+                'Connection failure occurred while fetching Nextcloud API data: {}'.format(error_message),
                 STATE_CRIT,
             )
+            return  # Exit early, oao() should have already exited but just in case
         # Let lib.base.coe() handle the error normally (will return UNKNOWN)
         jsonst = lib.base.coe(fetch_result)
     else:
