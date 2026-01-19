@@ -146,6 +146,9 @@ Each *numeric*  component detail value is exposed as perfdata.
 For testing purposes, install a Spring Boot Actuator application providing a `/health` endpoint. For example:
 
 ```bash
+
+podman network create --ignore pcnet
+
 podman rm -f petclinic pg >/dev/null 2>&1 || true
 
 podman run -d --name pg --network pcnet -p 5432:5432 \
@@ -164,11 +167,20 @@ podman run -d --name petclinic --network pcnet -p 9966:9966 \
   -e MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info \
   -e MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always \
   -e MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS=always \
+  --health-cmd='curl --fail --show-error --silent --max-time 2 http://localhost:9966/petclinic/actuator/health' \
+  --health-interval=30s \
+  --health-on-failure=kill \
+  --health-retries=5 \
+  --health-start-period=5s \
+  --health-timeout=10s \
   docker.io/springcommunity/spring-petclinic-rest
+
 
 sleep 5
 
 curl http://localhost:9966/petclinic/actuator/health
+
+podman inspect petclinic | jq '.[0].State.Health'
 ```
 
 
