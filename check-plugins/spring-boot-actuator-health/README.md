@@ -175,7 +175,6 @@ podman run -d --name petclinic --network pcnet -p 9966:9966 \
   --health-timeout=10s \
   docker.io/springcommunity/spring-petclinic-rest
 
-
 sleep 5
 
 curl http://localhost:9966/petclinic/actuator/health
