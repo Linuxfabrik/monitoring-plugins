@@ -215,13 +215,17 @@ def main():
     if args.FILENAME:
         path = Path(args.FILENAME)
         for item in sorted(Path(path.anchor).glob(str(path.relative_to(path.anchor)))):
-            if item.is_file() and args.ONLY_DIRS:
-                continue
-            if item.is_dir() and args.ONLY_FILES:
-                continue
+            try:
+                if item.is_file() and args.ONLY_DIRS:
+                    continue
+                if item.is_dir() and args.ONLY_FILES:
+                    continue
 
-            # brandnew files might get negative values
-            age = abs(lib.time.now() - item.stat().st_mtime)
+                # brandnew files might get negative values
+                age = abs(lib.time.now() - item.stat().st_mtime)
+            except FileNotFoundError:
+                # it is normal that files disappear while reading
+                continue
             ages.append(age)
             item_state = STATE_OK
             # not using elif, as the item could contribute to both the warn_count and crit_count
