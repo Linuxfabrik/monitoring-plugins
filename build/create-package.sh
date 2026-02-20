@@ -33,6 +33,13 @@ sle15)
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
     bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.sle.spec
     ;;
+sle16)
+    export LFMP_PYTHON=python3
+
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-src-tarball.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-vendor-tarball.sh
+    bash $LFMP_DIR_REPOS/monitoring-plugins/build/create-rpm.sh $LFMP_DIR_REPOS/monitoring-plugins/build/linuxfabrik-monitoring-plugins.sle.spec
+    ;;
 ubuntu2004)
     # (System) Python 3.9 on Ubuntu 20.04 does not have Pip
     # so we must use a (temporary) venv to download the packages.

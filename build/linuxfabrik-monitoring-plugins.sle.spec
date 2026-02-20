@@ -10,9 +10,16 @@ Packager:       info@linuxfabrik.ch
 Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/tags/v%{version}.tar.gz
 Source1:        vendor.tar.gz
 
-BuildRequires:	python311, python311-devel, python311-pip
-Requires:       python311
+%if 0%{suse_version} < 1600
+%define python_build_deps python311, python311-devel, python311-pip
+%define python_deps python311
+%else
+%define python_build_deps python3 >= 3.9, python3-devel, python3-pip
+%define python_deps python3 >= 3.9
+%endif
 
+BuildRequires: %{python_build_deps}
+Requires: %{python_deps}
 
 %description
 This Enterprise Class Check Plugin Collection offers a bunch of Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
