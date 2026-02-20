@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Build, CI/CD:
 
 * Add support for sle15 packages
+* Add support for sle16 packages
 
 
 Monitoring Plugins:

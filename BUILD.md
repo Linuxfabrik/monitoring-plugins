@@ -43,9 +43,9 @@ Standalone Ubuntu
 
 The following steps describe the **manual package building process on an Ubuntu 24.04 LTS host**. The same steps have been automated using GitHub actions. See the [.github/workflows](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/.github/workflows/) as well as the [build](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/build) folder for details.
 
-To be able to perform the same steps on a local Ubuntu host as well as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts), and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
+To be able to perform the same steps on a local Ubuntu host as well as on a GitHub runner, we decided to minimize the use of GitHub actions for the Linux build process (and therefore use some build scripts) and maximize the use of GitHub actions on Windows. The build scripts are written in bash and make heavy use of environment variables to be compliant with the GitHub runners.
 
-To build on Linux, first set environment variables for (absolute) paths, versions etc.:
+To build on Linux, first set environment variables for (absolute) paths, versions, etc.:
 
 ```bash
 cat > env-file << 'EOF'
@@ -54,7 +54,7 @@ cat > env-file << 'EOF'
 export LFMP_ARCH=x86_64                                   # or "aarch64" if running on ARM64
 export LFMP_VERSION=1.4.0
 export LFMP_PACKAGE_ITERATION=7
-export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 ubuntu2004 ubuntu2204 ubuntu2404"
+export LFMP_TARGET_DISTROS="debian13 rocky10"              # "debian11 debian12 debian13 rocky8 rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404"
 
 # ---
 # Constants
@@ -141,6 +141,7 @@ RHEL 8        ! docker.io/rockylinux/rockylinux:8
 RHEL 9        ! docker.io/rockylinux/rockylinux:9
 RHEL 10       ! docker.io/rockylinux/rockylinux:10
 SLE 15        ! registry.suse.com/suse/sle15:15.5
+SLE 16        ! registry.suse.com/bci/bci-base:16.0
 Ubuntu 20.04  ! docker.io/library/ubuntu:20.04
 Ubuntu 22.04  ! docker.io/library/ubuntu:22.04
 Ubuntu 24.04  ! docker.io/library/ubuntu:24.04
