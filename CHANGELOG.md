@@ -16,6 +16,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* librenms-health: add new device-type 'management'
 * by-ssh: add alerting on single numeric values
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
