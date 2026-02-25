@@ -32,7 +32,7 @@ usage: librenms-alerts [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                        [--defaults-group DEFAULTS_GROUP]
                        [--device-group DEVICE_GROUP]
                        [--device-hostname DEVICE_HOSTNAME]
-                       [--device-type {appliance,collaboration,environment,firewall,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
+                       [--device-type {appliance,collaboration,environment,firewall,management,loadbalancer,network,power,printer,server,storage,wireless,workstation}]
                        [--lengthy] [--severity {warn,crit}]
                        [--timeout TIMEOUT]
 
