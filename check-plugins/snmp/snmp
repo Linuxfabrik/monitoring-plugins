@@ -551,10 +551,14 @@ def main():
 
         # create perfdata for numeric values
         value_type = lib.base.guess_type(value)
-        w, c = None, None
+        w, c, mi, ma = None, None, 0, None
         try:
             # performance thresholds should return a tuple
-            w, c = eval(perf_thresholds, {}) # pylint: disable=W0123
+            result = eval(perf_thresholds, {}) # pylint: disable=W0123
+            if not isinstance(result, (tuple, list)):
+                result = (result,)
+            result = (list(result) + [None, None, None, None])[:4]
+            w, c, mi, ma = result
         except:
             pass
         if not ignore_perfdata and isinstance(value_type, (int, float)):
@@ -575,8 +579,8 @@ def main():
                     uom=perfdata_unit.upper(),
                     warn=w,
                     crit=c,
-                    _min=0,
-                    _max=None,
+                    _min=mi,
+                    _max=ma,
                 )
             elif perfdata_unit.lower() in ['c', 's', 'ms', 'us',]:
                 perfdata += lib.base.get_perfdata(
@@ -585,8 +589,8 @@ def main():
                     uom=perfdata_unit.lower(),
                     warn=w,
                     crit=c,
-                    _min=0,
-                    _max=None,
+                    _min=mi,
+                    _max=ma,
                 )
             else:
                 # unknown perfdata suffixes, so do not use them
@@ -596,8 +600,8 @@ def main():
                     uom=None,
                     warn=w,
                     crit=c,
-                    _min=0,
-                    _max=None,
+                    _min=mi,
+                    _max=ma,
                 )
 
     # create output
