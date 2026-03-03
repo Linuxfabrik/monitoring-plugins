@@ -24,12 +24,12 @@ from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025111402'
+__version__ = '2026030301'
 
-DESCRIPTION = """This plugin executes commands on remote Windows hosts by WinRM, supporting JEA.
-It returns standard output (STDOUT) and, in case of failure, standard error (STDERR) along with
-the command's exit code. By evaluating these results - through threshold checks or pattern matching
-on STDOUT - the plugin can generate alerts with configurable severity levels.
+DESCRIPTION = """This plugin executes PowerShell commands or scripts on remote Windows hosts via
+WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error
+(STDERR) along with the command's exit code. By evaluating these results - through threshold checks
+or pattern matching on STDOUT - the plugin can generate alerts with configurable severity levels.
 """
 
 DEFAULT_SEVERITY_CONNTIMEOUT = 'unknown'
@@ -62,7 +62,8 @@ def parse_args():
 
     parser.add_argument(
         '--command',
-        help='WinRM: Command that will be executed on the remote host.',
+        help='PowerShell command or script to execute on the remote host. '
+             'Supports pipelines and complex expressions.',
         dest='COMMAND',
         required=True,
     )
@@ -198,7 +199,9 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-domain',
-        help='WinRM Domain Name. '
+        help='AD domain name for NTLM authentication. '
+             'When set, username is sent as user@DOMAIN. '
+             'Not needed for Kerberos or local accounts. '
              'Default: %(default)s',
         dest='WINRM_DOMAIN',
         default=DEFAULT_WINRM_DOMAIN,
@@ -213,7 +216,8 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-password',
-        help='WinRM Account Password.',
+        help='WinRM account password. '
+             'Optional for Kerberos (uses credential cache from kinit).',
         dest='WINRM_PASSWORD',
     )
 
@@ -228,7 +232,8 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-username',
-        help='WinRM Account Name.',
+        help='WinRM account name. '
+             'Optional for Kerberos (uses credential cache from kinit).',
         dest='WINRM_USERNAME',
     )
 
@@ -250,8 +255,6 @@ def main():
     if args.TEST is None:
         timer_start = lib.time.now('float')
         result = lib.winrm.run_ps(args, args.COMMAND)
-        if result['stderr']:
-            lib.base.cu(result['stderr'])
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data
@@ -327,7 +330,12 @@ def main():
 
     # retc overwrites state from stderr
     if retc:
-        retc_state = lib.base.str2state(args.SEVERITY_RETC)
+        if not stdout and stderr:
+            # no command output but error present - likely a connection
+            # error (timeout, authentication failure, etc.)
+            retc_state = lib.base.str2state(args.SEVERITY_CONNTIMEOUT)
+        else:
+            retc_state = lib.base.str2state(args.SEVERITY_RETC)
         state = lib.base.get_worst(state, retc_state)
 
     # build the message

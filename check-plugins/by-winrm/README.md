@@ -21,6 +21,43 @@ This makes the plugin ideal for retrieving Windows-specific metrics, running cus
 | 3rd Party Python modules              | `pypsrp` (supports JEA). Alternative without JEA: `pywinrm`, `pywinrm[kerberos]`, `pywinrm[credssp]` |
 
 
+## Prerequisites
+
+### Windows (Remote Host)
+
+Enable WinRM on the target Windows host:
+
+```powershell
+Enable-PSRemoting -Force
+```
+
+By default, WinRM listens on port **5985** (HTTP) and **5986** (HTTPS). Ensure the corresponding firewall port is open.
+
+Depending on the chosen transport, additional configuration may be required:
+
+| Transport | When to use | Extra Setup on Windows |
+|----|----|----|
+| `ntlm` (default) | Domain and workgroup environments. Works out of the box. | None - works with `Enable-PSRemoting`. |
+| `kerberos` | Active Directory environments. Most secure; supports SSO via `kinit` on the monitoring host (no password needed). | Requires AD domain membership. |
+| `basic` | Testing or HTTPS-only setups. Credentials are base64-encoded (not encrypted). | `winrm set winrm/config/service/auth @{Basic="true"}`. Use HTTPS in production. |
+| `credssp` | Multi-hop scenarios where credentials must be delegated to a third system. | `Enable-WSManCredSSP -Role Server` on the target host. |
+| `plaintext` | Same as `basic` but explicitly over HTTP. | Same as `basic`. Insecure - avoid in production. |
+
+### Linux (Monitoring Host)
+
+For **Kerberos** transport, configure `/etc/krb5.conf` for your Active Directory domain and obtain a ticket before running the plugin:
+
+```bash
+kinit user@EXAMPLE.COM
+```
+
+When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
+
+### `--winrm-domain`
+
+When set, the username is sent as `user@DOMAIN` for NTLM authentication. Use the Active Directory domain name (e.g. `EXAMPLE.COM`). Not needed for Kerberos (the domain is part of the Kerberos principal) or local accounts.
+
+
 ## Help
 
 ```text
@@ -40,18 +77,18 @@ usage: by-winrm [-h] [-V] [--always-ok] --command COMMAND [-c CRIT]
                 [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                 [--winrm-username WINRM_USERNAME]
 
-This plugin executes commands on remote Windows hosts by WinRM, supporting
-JEA. It returns standard output (STDOUT) and, in case of failure, standard
-error (STDERR) along with the command's exit code. By evaluating these results
-- through threshold checks or pattern matching on STDOUT - the plugin can
-generate alerts with configurable severity levels.
+This plugin executes PowerShell commands or scripts on remote Windows hosts
+via WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of
+failure, standard error (STDERR) along with the command's exit code. By
+evaluating these results - through threshold checks or pattern matching on
+STDOUT - the plugin can generate alerts with configurable severity levels.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --command COMMAND     WinRM: Command that will be executed on the remote
-                        host.
+  --command COMMAND     PowerShell command or script to execute on the remote
+                        host. Supports pipelines and complex expressions.
   -c, --critical CRIT   CRIT threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
                         STDOUT is in range 10..20.
@@ -98,16 +135,20 @@ options:
                         PowerShell session configuration name (JEA endpoint).
                         Only supported with pypsrp.
   --winrm-domain WINRM_DOMAIN
-                        WinRM Domain Name. Default: None
+                        AD domain name for NTLM authentication. When set,
+                        username is sent as user@DOMAIN. Not needed for
+                        Kerberos or local accounts. Default: None
   --winrm-hostname WINRM_HOSTNAME
                         Target Windows computer on which the command will be
                         executed.
   --winrm-password WINRM_PASSWORD
-                        WinRM Account Password.
+                        WinRM account password. Optional for Kerberos (uses
+                        credential cache from kinit).
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
-                        WinRM Account Name.
+                        WinRM account name. Optional for Kerberos (uses
+                        credential cache from kinit).
 ```
 
 
@@ -151,7 +192,38 @@ Output:
 2.78062697768402 [WARNING]
 ```
 
-Use Kerberos Authentication:
+Check if the Windows Update service is running - alert with CRIT if it is stopped (uses a pipeline and pattern matching):
+
+```bash
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-username=Administrator \
+    --winrm-password=linuxfabrik \
+    --winrm-domain=EXAMPLE.COM \
+    --command='(Get-Service -Name wuauserv).Status' \
+    --critical-pattern='Stopped'
+```
+
+Output if the service is stopped:
+
+```text
+Stopped [CRITICAL]
+```
+
+Use regex matching - alert with WARNING if any of the last 50 system event log messages contain "disk", or CRIT if they contain "error" or "fail":
+
+```bash
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-username=Administrator \
+    --winrm-password=linuxfabrik \
+    --winrm-domain=EXAMPLE.COM \
+    --command='Get-EventLog -LogName System -Newest 50 | Select-Object -ExpandProperty Message' \
+    --warning-pattern='disk' \
+    --critical-regex='error|fail'
+```
+
+Use Kerberos authentication (no password needed when a valid ticket exists):
 
 ```bash
 kinit -V linus@EXAMPLE.COM
@@ -161,6 +233,37 @@ klist
     --winrm-hostname=winsrv.example.com \
     --winrm-transport=kerberos \
     --command='Get-CpuPercent'
+```
+
+Use a JEA (Just Enough Administration) endpoint - requires `pypsrp`:
+
+```bash
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-username=jea-operator \
+    --winrm-password=linuxfabrik \
+    --winrm-domain=EXAMPLE.COM \
+    --winrm-configuration-name=MyJEAEndpoint \
+    --command='Get-DiskSpace'
+```
+
+The `--winrm-configuration-name` specifies the PowerShell session configuration (JEA endpoint) on the target host. Only the cmdlets allowed by the JEA role capability will be available.
+
+What error output looks like - for example when authentication fails:
+
+```bash
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-username=Administrator \
+    --winrm-password=wrong-password \
+    --winrm-domain=EXAMPLE.COM \
+    --command='Get-Service'
+```
+
+Output:
+
+```text
+the server did not respond with one of the following authentication methods - Negotiate [UNKNOWN]
 ```
 
 
@@ -182,7 +285,7 @@ Output on STDERR?
 
 Return code != 0?
 
-* Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if SSH can't connect.
+* Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if WinRM can't connect (no command output but error present).
 * Depending on the given `--severity-retc`, returns OK, WARN (default), CRIT or UNKNOWN if there is a return code != 0.
 
 
