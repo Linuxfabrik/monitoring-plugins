@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Build, CI/CD:
+
+* Remove `flatdict` dependency as it breaks builds on newer targets (RHEL 10, SLE 15/16) and no fix is available that also supports older targets (such as RHEL 8). This has the consequence that the [statuspal plugin](check-plugins/statuspal) is currently broken until the affected code is rewritten.
+
+
 ### Added
 
 Build, CI/CD:
