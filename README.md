@@ -8,7 +8,7 @@
   Linuxfabrik Monitoring Plugins
 </h1>
 <p align="center">
-  230+ monitoring plugins for Icinga, Nagios & friends. Python 3.9+, Linux/Windows/macOS/FreeBSD. Smart defaults, auto-discovery, consistent cross-platform metrics, minimal dependencies. 
+  230+ monitoring plugins for Icinga, Nagios & friends. Python 3.9+, all platforms. Smart defaults, auto-discovery, consistent cross-platform metrics, minimal dependencies. 
   <span>&#8226;</span>
   <b>made by <a href="https://linuxfabrik.ch/">Linuxfabrik</a></b>
 </p>
@@ -18,7 +18,7 @@
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
 ![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
-![Platforms](https://img.shields.io/badge/Platforms-Linux%20%7C%20Windows%20%7C%20macOS-informational)
+![Platforms](https://img.shields.io/badge/Platforms-All%20Platforms-informational)
 ![GitHub Issues](https://img.shields.io/github/issues/linuxfabrik/monitoring-plugins)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Linuxfabrik/monitoring-plugins/badge)](https://scorecard.dev/viewer/?uri=github.com/Linuxfabrik/monitoring-plugins)
 [![GitHubSponsors](https://img.shields.io/github/sponsors/Linuxfabrik?label=GitHub%20Sponsors)](https://github.com/sponsors/Linuxfabrik)
