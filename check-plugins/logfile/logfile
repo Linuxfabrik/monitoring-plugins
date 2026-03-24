@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026032401'
 
 DESCRIPTION = """Scans a logfile for a set of patterns or regex and alerts
                  on the number of matches."""
@@ -245,7 +245,7 @@ def main():
     definition = '''
         filename TEXT NOT NULL PRIMARY KEY,
         offset INTEGER NOT NULL,
-        inode INTEGER NOT NULL
+        inode TEXT NOT NULL
     '''
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='file_stats'))
     definition = '''
@@ -256,7 +256,7 @@ def main():
     '''
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='matching_lines'))
 
-    current_inode = file_stat.st_ino
+    current_inode = str(file_stat.st_ino)
     current_size = file_stat.st_size
 
     old_file_stats = lib.base.coe(lib.db_sqlite.select(

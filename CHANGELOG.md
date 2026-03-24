@@ -86,6 +86,7 @@ Monitoring Plugins:
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
 * keycloak-stats: fix incorrect symlink for lib
+* logfile: fix `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
 * ntp-\*: prevent `TypeError: ''=' not supported between instances of 'int' and 'str'`
 * valkey-status: fix TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
