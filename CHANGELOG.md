@@ -81,7 +81,7 @@ Grafana:
 Monitoring Plugins:
 
 * about-me: error in perfdata if using `--dmidecode` and there is no HW information
-* about-me: fix various errors with `sys_dimensions` on some machines
+* about-me: fix various errors with `sys_dimensions` on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
 * by-ssh: add missing `--verbose` parameter
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
