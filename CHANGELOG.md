@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
+
 ### Breaking Changes
 
 Build, CI/CD:

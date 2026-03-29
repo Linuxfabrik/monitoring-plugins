@@ -1,6 +1,84 @@
-# Linuxfabrik's Check Plugin Developer Guidelines
+# Contributing
 
-## Monitoring of an Application
+
+## Linuxfabrik Standards
+
+The following standards apply to all Linuxfabrik repositories.
+
+
+### Code of Conduct
+
+Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+
+### Issue Tracking
+
+Open issues are tracked on GitHub Issues in the respective repository.
+
+
+### Pre-commit
+
+Some repositories use [pre-commit](https://pre-commit.com/) for automated linting and formatting checks. If the repository contains a `.pre-commit-config.yaml`, install [pre-commit](https://pre-commit.com/#install) and configure the hooks after cloning:
+
+```bash
+pre-commit install
+```
+
+
+### Commit Messages
+
+Commit messages follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+
+```
+<type>(<scope>): <subject>
+```
+
+If there is a related issue, append `(fix #N)`:
+
+```
+<type>(<scope>): <subject> (fix #N)
+```
+
+`<type>` must be one of:
+
+- `chore`: Changes to the build process or auxiliary tools and libraries
+- `docs`: Documentation only changes
+- `feat`: A new feature
+- `fix`: A bug fix
+- `perf`: A code change that improves performance
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `style`: Changes that do not affect the meaning of the code (whitespace, formatting, etc.)
+- `test`: Adding missing tests
+
+
+### Changelog
+
+Document all changes in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sort entries within sections alphabetically.
+
+
+### Language
+
+Code, comments, commit messages, and documentation must be written in English.
+
+
+### Coding Conventions
+
+- Sort variables, parameters, lists, and similar items alphabetically where possible.
+- Always use long parameters when using shell commands.
+- Use RFC [5737](https://datatracker.ietf.org/doc/html/rfc5737), [3849](https://datatracker.ietf.org/doc/html/rfc3849), [7042](https://datatracker.ietf.org/doc/html/rfc7042#section-2.1.1), and [2606](https://datatracker.ietf.org/doc/html/rfc2606) in examples and documentation:
+    - IPv4: `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`
+    - IPv6: `2001:DB8::/32`
+    - MAC: `00-00-5E-00-53-00` through `00-00-5E-00-53-FF` (unicast), `01-00-5E-90-10-00` through `01-00-5E-90-10-FF` (multicast)
+    - Domains: `*.example`, `example.com`
+
+
+---
+
+
+## Check Plugin Developer Guidelines
+
+
+### Monitoring of an Application
 
 Monitoring an application can be complex and produce a wide variety of data. In order to standardize the handling of threshold values on the command line, to reduce the number of command line parameters and their interdependencies and to enable independent and thus extended designs of the Grafana panels, each topic should be dealt with in a separate check (following the Linux mantra: "one tool, one task").
 
@@ -16,10 +94,10 @@ Better write three separate checks:
 * `myapp-memory-usage --warning 80 --critical 90`
 * `myapp-deployment-status`
 
-All plugins are written in Python and will be licensed under the \[UNLICENSE\](<https://unlicense.org/>), which is a license with no conditions whatsoever that dedicates works to the public domain.
+All plugins are written in Python and will be licensed under the [UNLICENSE](https://unlicense.org/), which is a license with no conditions whatsoever that dedicates works to the public domain.
 
 
-## Setting up your development environment
+### Setting up your Development Environment
 
 All plugins are coded using Python 3.9. Simply clone the libraries and monitoring plugins and start working:
 
@@ -29,7 +107,7 @@ git clone git@github.com:Linuxfabrik/monitoring-plugins.git
 ```
 
 
-## Deliverables
+### Deliverables
 
 Checklist:
 
@@ -46,49 +124,44 @@ Checklist:
 * CHANGELOG
 
 
-## Rules of Thumb
+### Rules of Thumb
 
 * Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter.
-
 * The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
-
 * Develop with a minimal Linux in mind.
-
 * Develop with Icinga2 in mind.
-
 * Avoid complicated or fancy (and therefore unreadable) Python statements.
-
-* Comments and output should be in English only.
-
 * If possible avoid libraries that have to be installed.
-
 * Validate user input.
-
-* It is not needed to execute system (shell/bash) commands by specifying their full path.
-
 * It is ok to use temp files if needed.
-
 * Much better: use a local SQLite database if you want to use a temp file.
-
 * Keep in mind: Plugins have a limited runtime - typically 10 seconds max. Therefore it is ideal if the plugin executes fast and uses minimal resources (CPU time, memory etc.).
-
 * Timeout gracefully on errors (for example `df` on a failed network drive) and return WARN.
-
 * Return UNKNOWN on missing dependencies or wrong parameters.
-
 * Mainly return WARN. Only return CRIT if the operators want to or have to wake up at night. CRIT means "react immediately".
-
 * EAFP: Easier to ask for forgiveness than permission. This common Python coding style assumes the existence of valid keys or attributes and catches exceptions if the assumption proves false. This clean and fast style is characterized by the presence of many try and except statements.
 
-* Use RFC [5737](https://datatracker.ietf.org/doc/html/rfc5737), [3849](https://datatracker.ietf.org/doc/html/rfc3849), [7042](https://datatracker.ietf.org/doc/html/rfc7042#section-2.1.1) and [2606](https://datatracker.ietf.org/doc/html/rfc2606) in examples / documentation:
 
-    * IPv4 Addresses: `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`
-    * IPv6 Addresses: `2001:DB8::/32`
-    * MAC Addresses: `00-00-5E-00-53-00 through 00-00-5E-00-53-FF` (unicast), `01-00-5E-90-10-00 through 01-00-5E-90-10-FF` (multicast)
-    * Domains: `*.example`, `example.com`
+### Return Codes
+
+Plugins must return one of the following POSIX-compliant exit codes. Use the constants from `lib.base`:
+
+| Exit Code | Status | Constant | Meaning |
+|---|---|---|---|
+| 0 | OK | `STATE_OK` | Service functioning properly |
+| 1 | Warning | `STATE_WARN` | Service above warning threshold or not working properly |
+| 2 | Critical | `STATE_CRIT` | Service not running or above critical threshold |
+| 3 | Unknown | `STATE_UNKNOWN` | Invalid arguments, missing dependencies, or internal plugin failures |
+
+Guidelines:
+
+* Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, or when `--help`/`--version` is requested.
+* Return `STATE_WARN` for most alert conditions. Only return `STATE_CRIT` if the situation requires immediate human intervention ("wake up at night").
+* Never return any exit code other than 0, 1, 2, or 3.
+* Use `lib.base.oao()` (output and out) to print the result and exit with the appropriate state in a single call.
 
 
-## Bytes vs. Unicode
+### Bytes vs. Unicode
 
 Short:
 
@@ -104,12 +177,12 @@ The theory:
 See <https://nedbatchelder.com/text/unipain.html> for details.
 
 
-## Names, Naming Conventions
+### Names, Naming Conventions
 
 The plugin name should match the following regex: `^[a-zA-Z0-9\-\_]*$`. This allows the plugin name to be used as the grafana dashboard uid (according to [here](https://github.com/grafana/grafana/blob/552ecfeda320a422bfc7ca9978c94ffea887134a/pkg/util/shortid_generator.go#L11)).
 
 
-## Parameters, Option Processing
+### Parameters, Option Processing
 
 There are a few Nagios-compatible reserved options that should not be used for other purposes:
 
@@ -129,6 +202,13 @@ There are a few Nagios-compatible reserved options that should not be used for o
 -v, --verbose           verbose
 -w, --warning           warning threshold
 ```
+
+Every plugin must support at least `--help` and `--version`:
+
+* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
+* `--version` (`-V`): Print the plugin name and version (`__version__`). Exit with `STATE_UNKNOWN` (3).
+
+Positional arguments are not allowed. All parameters must be named options.
 
 For all other options, use long parameters only. Separate words using a `-`. We recommend using some out of those:
 
@@ -273,98 +353,44 @@ def parse_args():
 * A plugin should tolerate unknown parameters. Imagine an monitoring system that checks thousand hosts. You want to update a plugin offering a new parameter that is essential for you, so you adjust the service definition, add the new parameter and update the plugin on one host. The non-updated plugin on the other 999 hosts will throw an 'UNKNOWN' error when argparse is used with `parser.parse_args()`. This would significantly disrupt operations and cause stress. Therefore, it makes more sense to be tolerant and use `parser.parse_known_args()`.
 
 
-## Git Commits
+### Commit Scopes
 
-* Since 2024-11-13, commit messages follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) (`<type>(<scope>): <subject>`)  
-  Example: `fix(about-me): cryptography deprecation warning`.
+Use the plugin name as commit scope:
 
-* If there is an issue, the commit message must consist of the issue title followed by "(fix \#issueno)", for example: `fix(about-me): cryptography deprecation warning (fix #341)`.
+```
+fix(about-me): cryptography deprecation warning (fix #341)
+```
 
-* For the first commit, use the message `Add <plugin-name>`.
-
-`<type>` must be one of the following:
-
-* chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
-* docs: Documentation only changes
-* feat: A new feature
-* fix: A bug fix
-* perf: A code change that improves performance
-* refactor: A code change that neither fixes a bug nor adds a feature
-* style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
-* test: Adding missing tests
+For the first commit, use the message `Add <plugin-name>`.
 
 
-## Threshold and Ranges
+### Threshold and Ranges
 
-If a threshold has to be handled as a range parameter, this is how to interpret them. Pretty much the same as stated in the [Nagios Development Guidelines](http://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
+If a threshold has to be handled as a range parameter, this is how to interpret them. Compatible with the [Monitoring Plugins Development Guidelines](https://www.monitoring-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) and the [Nagios Plugin Development Guidelines](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT).
 
+The generalized range format is `[@]start:end`:
+
+* `start` must be less than or equal to `end`.
+* `start` and `:` are not required if `start` is 0.
 * simple value: a range from 0 up to and including the value
 * empty value after `:`: positive infinity
 * `~`: negative infinity
 * `@`: if range starts with "@", then alert if inside this range (including endpoints)
+* An alert is raised if the metric is **outside** the range (inclusive of endpoints). The `@` prefix inverts this logic.
 
 Examples:
 
-<table>
-<thead>
-<tr>
-<th><dl>
-<dt><code>-w, -c</code></dt>
-<dd>
-&#10;</dd>
-</dl></th>
-<th>OK if result is</th>
-<th>WARN/CRIT if</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>10</td>
-<td>in (0..10)</td>
-<td>not in (0..10)</td>
-</tr>
-<tr>
-<td>-10</td>
-<td>in (-10..0)</td>
-<td>not in (-10..0)</td>
-</tr>
-<tr>
-<td>10:</td>
-<td>in (10..inf)</td>
-<td>not in (10..inf)</td>
-</tr>
-<tr>
-<td>:</td>
-<td>in (0..inf)</td>
-<td>not in (0..inf)</td>
-</tr>
-<tr>
-<td>~:10</td>
-<td>in (-inf..10)</td>
-<td>not in (-inf..10)</td>
-</tr>
-<tr>
-<td>10:20</td>
-<td>in (10..20)</td>
-<td>not in (10..20)</td>
-</tr>
-<tr>
-<td>@10:20</td>
-<td>not in (10..20)</td>
-<td>in 10..20</td>
-</tr>
-<tr>
-<td>@~:20</td>
-<td>not in (-inf..20)</td>
-<td>in (-inf..20)</td>
-</tr>
-<tr>
-<td>@</td>
-<td>not in (0..inf)</td>
-<td>in (0..inf)</td>
-</tr>
-</tbody>
-</table>
+| `-w, -c` | OK if result is | WARN/CRIT if |
+|---|---|---|
+| 10 | in (0..10) | not in (0..10) |
+| -10:0 | in (-10..0) | not in (-10..0) |
+| 10: | in (10..inf) | not in (10..inf) |
+| : | in (0..inf) | not in (0..inf) |
+| ~:10 | in (-inf..10) | not in (-inf..10) |
+| 10:20 | in (10..20) | not in (10..20) |
+| @10:20 | not in (10..20) | in 10..20 |
+| @~:20 | not in (-inf..20) | in (-inf..20) |
+| @ | not in (0..inf) | in (0..inf) |
 
 So, a definition like `--warning 2:100 --critical 1:150` should return the states:
 
@@ -396,12 +422,12 @@ val  -2  -1   0   1 ..   9  10  11
 Have a look at `procs` on how to implement this.
 
 
-## Caching temporary data, SQLite database
+### Caching temporary data, SQLite database
 
 Use `cache` if you need a simple key-value store, for example as used in `nextcloud-version`. Otherwise, use `db_sqlite` as used in `cpu-usage`.
 
 
-## Error Handling
+### Error Handling
 
 * Catch exceptions using `try`/`except`, especially in functions.
 * In functions, if you have to catch exceptions, on such an exception always return `(False, errormessage)`. Otherwise return `(True, result)` if the function succeeds in any way. For example, returning `(True, False)` means that the function has not raised an exception and its result is simply `False`.
@@ -429,29 +455,55 @@ except ImportError:
 ```
 
 
-## Plugin Output
+### Timeout Handling
+
+Plugins have a limited runtime - typically 10 seconds max. Every plugin must handle timeouts gracefully to prevent hanging processes (e.g. `df` on a failed network drive, unresponsive API endpoints, stuck database connections).
+
+* Always support a `--timeout` parameter (default: 8 seconds, leaving headroom for Icinga's own 10s timeout).
+* Use `lib.base.coe(lib.url.fetch(..., timeout=args.TIMEOUT))` for HTTP requests - the library handles timeouts.
+* For shell commands, pass a timeout to `lib.shell.shell_exec()`.
+* If a timeout occurs, return `STATE_WARN` with a meaningful message (e.g. "Timeout after 8s while connecting to ...").
+
+
+### Security
+
+* **External commands**: When executing system commands, use `lib.shell.shell_exec()`. Avoid `os.system()` or `subprocess` with `shell=True`, as these are vulnerable to shell injection. The official Monitoring Plugins guidelines require full paths for all external commands to prevent PATH-based trojan hijacking. Our `lib.shell.shell_exec()` uses `subprocess` with `shell=False`, which eliminates shell injection. We accept PATH-based command resolution for cross-platform compatibility (paths differ across distributions), but be aware that a compromised PATH could still redirect commands.
+* **Input validation**: Validate all user-supplied input. Use `argparse` type converters (`type=int`, `type=float`, `type=lib.args.csv`) to enforce expected types.
+* **Temporary files**: Avoid temporary files where possible. Prefer a local SQLite database via `lib.db_sqlite` or `lib.cache`. If temp files are unavoidable, fail cleanly if the file cannot be created, and delete it when done.
+* **Symlinks**: If a plugin opens or reads files, ensure it does not follow symlinks to unintended locations.
+* **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
+* **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
+
+
+### Plugin Output
+
+Plugins must only print to STDOUT. Never print to STDERR, as Icinga/Nagios does not capture it.
+
+The output structure follows the Monitoring Plugins standard:
+
+```text
+STATUS_TEXT - summary message | perfdata
+detailed line 1
+detailed line 2 | more_perfdata
+```
+
+The first line is the most important - Icinga/Nagios uses it for notifications, web interface display, and SMS alerts. Everything after the first newline is considered "long output" and only shown in detail views.
+
+Rules:
 
 * Print a short concise message in the first line within the first 80 chars if possible.
-
 * Use multi-line output for details (`msg_body`), with the most important output in the first line (`msg_header`).
-
+* Performance data is separated from text output by a pipe (`|`) character. Additional perfdata can follow on subsequent lines after a pipe.
+* Do not use the pipe character (`|`) in the text output itself, as Icinga/Nagios uses it as a delimiter to separate text from performance data. `lib.base.oao()` automatically replaces stray pipes in the message.
 * Don't print "OK".
-
 * Print "\[WARNING\]" or "\[CRITICAL\]" for clarification next to a specific item using `lib.base.state2str()`.
-
 * If possible give a help text to solve the problem.
-
 * Multiple items checked, and ...
-
     * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
     * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-
 * Based on parameters etc. nothing is checked at the end? Print "Nothing checked."
-
 * Wrong username or password? Print "Failed to authenticate."
-
 * Use short "Units of Measurements" without white spaces, including these terms:
-
     * Bits: use `human.bits2human()`
     * Bytes: use `human.bytes2human()`
     * I/O and Throughput: `human.bytes2human() + '/s'` (Byte per Second)
@@ -461,32 +513,53 @@ except ImportError:
     * Read/Write: "R/s", "W/s", "IO/s"
     * Seconds, Minutes etc.: use `human.seconds2human()`
     * Temperatures: 7.3C, 45F.
-
 * Use ISO format for date or datetime ("yyyy-mm-dd", "yyyy-mm-dd hh:mm:ss")
-
 * Print human readable datetimes and time periods ("Up 3d 4h", "2019-12-31 23:59:59", "1.5s")
 
 
-## Plugin Performance Data, Perfdata
+### Verbose Output
+
+If a plugin supports `-v`/`--verbose`, it should implement up to three verbosity levels (stackable `-v -v -v` or `--verbose --verbose --verbose`):
+
+| Level | Output |
+|---|---|
+| 0 (default) | Single-line summary, minimal output |
+| 1 (`-v`) | Single-line with additional detail (e.g. list of affected items) |
+| 2 (`-v -v`) | Multi-line with configuration debug info (e.g. commands executed, API endpoints queried) |
+| 3 (`-v -v -v`) | Extensive diagnostic detail for troubleshooting |
+
+Note: Most of our plugins use `--lengthy` instead of `-v` for extended output. The verbosity levels above apply if the plugin explicitly supports `--verbose`.
+
+
+### Plugin Performance Data, Perfdata
 
 "UOM" means "Unit of Measurement".
 
-Sample:
+Format (space-separated label/value pairs):
 
 ```text
-'label'=value[UOM];[warn];[crit];[min];[max];
+'label'=value[UOM];[warn];[crit];[min];[max]
 ```
 
-`label` doesn't need to be machine friendly, so `Pages scanned=100;;;;;` is as valuable as `pages-scanned=100;;;;;`.
+Rules:
 
-Suffixes:
+* Labels may contain any characters except `=` (equals) and `'` (single quote).
+* Single quotes around the label are optional but required if the label contains spaces.
+* The first 19 characters of a label should be unique (RRD data source limitation).
+* `value`, `min`, and `max` must match the character class `[-0-9.]` and share the same UOM.
+* `warn` and `crit` use the range format (see [Threshold and Ranges](#threshold-and-ranges)).
+* `min` and `max` are not required for percentage (`%`) UOM.
+* Trailing unfilled semicolons may be dropped.
+* `label` doesn't need to be machine friendly, so `Pages scanned=100;;;;;` is as valuable as `pages-scanned=100;;;;;`.
+
+UOM suffixes:
 
 ```text
 no unit specified - assume a number (int or float) of things (eg, users, processes, load averages)
 s - seconds (also us, ms etc.)
 % - percentage
 B - bytes (also KB, MB, TB etc.). Bytes preferred, they are exact.
-c - a continous counter (such as bytes transmitted on an interface [so instead of 'B'])
+c - a continuous counter (such as bytes transmitted on an interface [so instead of 'B'])
 ```
 
 Wherever possible, prefer percentages over absolute values to assist users in comparing different systems with different absolute sizes.
@@ -496,17 +569,17 @@ Be aware of already-aggregated values returned by systems and applications. Apac
 A monitoring plugin has to calculate such values always on its own. If this is not possible because of missing data, discard them.
 
 
-## PEP8 Style Guide for Python Code
+### PEP 8
 
-We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/) (where it makes sense).
+We use [PEP 8 -- Style Guide for Python Code](https://www.python.org/dev/peps/pep-0008/) where it makes sense.
 
 
-## docstring, pydoc
+### Docstrings
 
 We document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using [numpydoc docstrings](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
 
 
-## PyLint
+### PyLint
 
 To further improve code quality, we use [PyLint](https://www.pylint.org/) like so:
 
@@ -516,7 +589,7 @@ To further improve code quality, we use [PyLint](https://www.pylint.org/) like s
 Have a look at [PyLint's message codes](http://pylint-messages.wikidot.com/all-codes).
 
 
-## isort
+### isort
 
 To help sort the `import`-statements we use `isort`:
 
@@ -529,7 +602,7 @@ isort plugin-name
 ```
 
 
-## Unit Tests
+### Unit Tests
 
 Unit tests are implemented using the `unittest` framework (<https://docs.python.org/3/library/unittest.html>). Have a look at the `fs-ro` plugin on how to implement unit tests. Rules of thumb:
 
@@ -552,24 +625,14 @@ cd unit-test
 ```
 
 
-## sudoers File
+### sudoers File
 
 If the plugin requires `sudo`-permissions to run, please add the plugin to the `sudoers`-files for all supported operating systems in `assets/sudoers/`. The OS name should match the ansible variables `ansible_facts['distribution'] + ansible_facts['distribution_major_version']` (eg `CentOS7`). Use symbolic links to prevent duplicate files.
 
-<div class="attention">
-
-<div class="title">
-
-Attention
-
-</div>
-
-The newline at the end is required!
-
-</div>
+> **Attention:** The newline at the end is required!
 
 
-## Icinga Director Basket Config
+### Icinga Director Basket Config
 
 Each plugin should provide its required Director config in form of a Director basket. The basket usually contains at least one Command, one Service Template and some associated Datafields. The rest of the Icinga Director configuration (Host Templates, Service Sets, Notification Templates, Tag Lists, etc) can be placed in the `assets/icingaweb2-module-director/all-the-rest.json` file.
 
@@ -578,11 +641,11 @@ The Icinga Director Basket for one or all plugins can be created using the `chec
 > **Always review the basket before committing.**
 
 
-### Create a Basket File from Scratch
+#### Create a Basket File from Scratch
 
 After writing a new check called `new-check`, generate a basket file using:
 
-```
+```bash
 ./tools/check2basket --plugin-file check-plugins/new-check/new-check
 ```
 
@@ -596,7 +659,7 @@ The basket will be saved as `check-plugins/new-check/icingaweb2-module-director/
 * ServiceTemplate: `retry_interval`
 
 
-### Fine-tune a Basket File
+#### Fine-tune a Basket File
 
 **Never directly edit a basket JSON file.** If adjustments must be made to the basket, create a YML/YAML config file for `check2basket`.
 
@@ -622,14 +685,14 @@ overwrites:
 
 Then, re-run `check2basket` to apply the overwrites:
 
-```
+```bash
 ./tools/check2basket --plugin-file check-plugins/new-check/new-check
 ```
 
 If a parameter was added, changed or deleted in the plugin, simply re-run the `check2basket` to update the basket file.
 
 
-### Basket File for different OS
+#### Basket File for different OS
 
 The `check2basket` tool also offers to generate so-called `variants` of the checks (different flavours of the check command call to run on different operating systems):
 
@@ -650,7 +713,7 @@ variants:
 ```
 
 
-### Create Basket Files for all Check Plugins
+#### Create Basket Files for all Check Plugins
 
 To run `check2basket` against all checks, for example due to a change in the `check2basket` script itself, use:
 
@@ -659,19 +722,19 @@ To run `check2basket` against all checks, for example due to a change in the `ch
 ```
 
 
-### Service Sets
+#### Service Sets
 
 If you want to create a Service Set, edit `assets/icingaweb2-module-director/all-the-rest.json` and append the definition using JSON. Provide new unique UUIDs. Do a syntax check using `cat assets/icingaweb2-module-director/all-the-rest.json | jq` afterwards.
 
 If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
 
 
-## Grafana Dashboards
+### Grafana Dashboards
 
 The title of the dashboard should be capitalized, the name has to match the folder/plugin name (spaces will be replaced with `-`, `/` will be ignored. eg `Network I/O` will become `network-io`). Each Grafana panel should be meaningful, especially when comparing it to other related panels (eg memory usage and CPU usage).
 
 
-## Plugins and Capabilities
+### Plugins and Capabilities
 
 Incomplete list of special features in some check-plugins.
 
@@ -769,7 +832,7 @@ Differentiates between Windows and Linux (search for `lib.base.LINUX` or `lib.ba
 
 * [users](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/users)
 
-Unit tests use Docker/Podman to test against a range of versions or a reange of operating systems / OS's:
+Unit tests use Docker/Podman to test against a range of versions or a range of operating systems:
 
 * [cpu-usage](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage)
 * [keycloak-version](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-version) (checking the filesystem in the container as well as the API)
