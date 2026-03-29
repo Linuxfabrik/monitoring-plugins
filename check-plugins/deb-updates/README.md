@@ -88,6 +88,23 @@ Output:
 | updates | Number | Number of updatable packages matching the current `--query`. |
 
 
+## Troubleshooting
+
+**`apt-get update` returned with an error.**
+
+> The plugin runs `sudo apt-get update` and requires a working sudoers configuration. The package installs `/etc/sudoers.d/linuxfabrik-monitoring-plugins` automatically. If this file is missing, restore it:
+>
+> ```bash
+> apt install --reinstall -o Dpkg::Options::="--force-confmiss" linuxfabrik-monitoring-plugins
+> ```
+>
+> If the file exists but the error persists, verify that the monitoring user (typically `icinga` or `nagios`) can run `sudo apt-get update` without a password prompt:
+>
+> ```bash
+> su icinga -s /bin/bash -c "sudo apt-get update --quiet 2"
+> ```
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
