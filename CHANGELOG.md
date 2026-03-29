@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* Update and extend pre-commit hooks (add `check-added-large-files`, `check-merge-conflict`, `check-yaml`; update all hook versions)
 * Unify CONTRIBUTING and enhance it with the official Monitoring Plugins and Nagios Plugin Development Guidelines
 
 ### Breaking Changes
