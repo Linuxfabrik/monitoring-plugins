@@ -24,15 +24,8 @@ import lib.url  # pylint: disable=C0413
 from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
-try:
-    import flatdict  # pylint: disable=C0413
-except ImportError as e:
-    print('Python module "flatdict" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025101701'
+__version__ = '2026033101'
 
 DESCRIPTION = """Statuspal is a status page provider from Germany. This check plugin gets
                  the summary of a Statuspal status page, checks its status, services,
@@ -110,37 +103,28 @@ def parse_args():
     return args
 
 
-def concat_values(mydict, hierarchy):
-    """Concat the values of the same hierarchy level in a dict.
+def flatten_services(services, parent_name=''):
+    """Recursively flatten the services tree into a list of dicts with
+    'name' (dotted hierarchy) and 'current_incident_type'.
 
-    >>> mydict = {
-        'services:0:name': 'Global',
-        'services:0:description': 'Lorem ipsum',
-        'services:0:children:0:name': 'DNS'
-        'services:0:children:0:id': '4711'
-        'services:0:children:0:children:1:name': 'Server01'
-    }
-    >>> concat_values(mydict, 'services:0:name')
-    >>> 'Global'
-    >>> concat_values(mydict, 'services:0:children:0:name')
-    >>> 'Global.DNS'
-    >>> concat_values(mydict, 'services:0:children:0:children:1:name')
-    >>> 'Global.DNS.Server01'
+    >>> services = [{'name': 'Global', 'current_incident_type': None, 'children': [
+    ...     {'name': 'DNS', 'current_incident_type': None, 'children': []}
+    ... ]}]
+    >>> flatten_services(services)
+    [{'name': 'Global', 'current_incident_type': None},
+     {'name': 'Global.DNS', 'current_incident_type': None}]
     """
-    result = ''
-    hierarchy = hierarchy.split(':')
-    for i, item in enumerate(hierarchy):  # pylint: disable=W0612
-        # testing
-        # * services:name
-        # * services:0:name
-        # * services:0:children:name
-        # * services:0:children:0:name
-        # etc.
-        key = ':'.join(hierarchy[0:i+1]) + ':' + hierarchy[-1]
-        if key in mydict:
-            result += mydict[key] + '.'
-    if result.endswith('.'):
-        return result[:-1]
+    result = []
+    for service in services:
+        if not service.get('name'):
+            continue
+        full_name = '{}.{}'.format(parent_name, service['name']) if parent_name else service['name']
+        result.append({
+            'name': full_name,
+            'current_incident_type': service.get('current_incident_type'),
+        })
+        for child in service.get('children') or []:
+            result.extend(flatten_services([child], full_name))
     return result
 
 
@@ -227,21 +211,16 @@ def main():
         msg += ' (see {})'.format(result['incidents'][0]['url']) if result['incidents'][0]['url'] else '' # pylint: disable=C0301
 
     # services - search for any incidents in services
-    flattened_result = flatdict.FlatterDict(result['services'])
-    item = {}
-    for key, value in flattened_result.items():
-        if key.endswith(':name'):
-            item['name'] = concat_values(flattened_result, key)
-        if key.endswith(':current_incident_type'):
-            item['state'] = statuspalstate2state(value)
-            if item['state'] == STATE_WARN:
-                cnt_warn += 1
-            if item['state'] == STATE_CRIT:
-                cnt_crit += 1
-            item['state'] = lib.base.state2str(item['state'], empty_ok=False)
-        if len(item) == 2:
-            table_data.append(item)
-            item = {}
+    for service in flatten_services(result['services']):
+        service_state = statuspalstate2state(service['current_incident_type'])
+        if service_state == STATE_WARN:
+            cnt_warn += 1
+        if service_state == STATE_CRIT:
+            cnt_crit += 1
+        table_data.append({
+            'name': service['name'],
+            'state': lib.base.state2str(service_state, empty_ok=False),
+        })
     if table_data:
         msg += '\n\n'
         msg += lib.base.get_table(
