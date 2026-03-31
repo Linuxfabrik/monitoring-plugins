@@ -10,6 +10,8 @@
 
 import argparse
 import importlib
+import importlib.machinery
+import importlib.util
 import json
 import os
 import re
@@ -647,6 +649,11 @@ def parse_plugin_args(data, plugin_args, check_name, command_object_name, servic
                     data[service_object_parent_key][service_object_name]['vars'][varname] = sanitize_default_value(action.default)
                 else:
                     data[service_object_parent_key][service_object_name]['vars'][varname] = action.default
+            elif isinstance(action, argparse._AppendAction):
+                # append parameters use default=None to avoid the argparse
+                # bug where user values are appended to the default list
+                # instead of replacing it; treat as empty list in the basket
+                data[service_object_parent_key][service_object_name]['vars'][varname] = []
 
             command_field_id += 1
             continue
