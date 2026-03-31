@@ -43,7 +43,7 @@ options:
   --metric METRIC      Filter the output and optionally check against
                        thresholds or ranges, for example "--metric
                        nb_visits,100:,50:" (repeating, csv, works with
-                       ranges). Default: []
+                       ranges). Default: None
   --no-proxy           Do not use a proxy. Default: False
   --password PASSWORD  REST API Access Token. Default: anonymous
   --period PERIOD      REST API period, for example "period=range" or
