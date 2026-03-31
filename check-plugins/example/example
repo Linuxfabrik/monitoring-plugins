@@ -29,14 +29,15 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026033101'
 
 DESCRIPTION = """A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
 further development, and much more text to help admins get this check up and
 running."""
 
-DEFAULT_WARN = 80
 DEFAULT_CRIT = 90
+DEFAULT_MODULE = ['calendar', 'Core', 'ctype', 'date']
+DEFAULT_WARN = 80
 
 
 def parse_args():
@@ -67,6 +68,15 @@ def parse_args():
         default=DEFAULT_CRIT,
     )
 
+    # Append parameters must always use `default=None` instead of a list,
+    # because argparse appends user values to the default list instead of
+    # replacing it (see https://bugs.python.org/issue16399).
+    # After parsing, assign the actual defaults in main() if the value is
+    # still None.
+    #
+    # Case 1: "not specified" and "empty list" are the same thing.
+    #         The parameter is purely additive (e.g. patterns to match).
+    #         Assign `[]` as the default in main().
     parser.add_argument(
         '--ignore-regex',
         help='Any english title matching this python regex will be ignored '
@@ -74,8 +84,35 @@ def parse_args():
              'Example: \'(?i)linuxfabrik\' for a case-insensitive search for '
              '"linuxfabrik".',
         action='append',
-        default=[],
+        default=None,
         dest='IGNORE_REGEX',
+    )
+
+    # Case 2: "not specified" and "empty list" are the same thing, but there
+    #         is a non-empty default list that should be used if the user
+    #         does not specify any values.
+    #         Assign `DEFAULT_X` as the default in main().
+    parser.add_argument(
+        '--module',
+        help='"modulename" to check (startswith), for example '
+             '`--module json --module mbstring` (repeating)',
+        dest='MODULE',
+        action='append',
+        default=None,
+    )
+
+    # Case 3: "not specified" means something different than "empty list".
+    #         For example, None = check all items, list = filter to only
+    #         the specified items.
+    #         Do NOT assign a default in main(). Instead, check for None
+    #         where the parameter is used: `if args.X is not None`.
+    parser.add_argument(
+        '--name',
+        help='Only check items with this name (repeating). '
+             'If not specified, all items are checked.',
+        dest='NAME',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -115,6 +152,13 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE_REGEX is None:        # case 1: default to empty list
+        args.IGNORE_REGEX = []
+    if args.MODULE is None:              # case 2: default to non-empty list
+        args.MODULE = DEFAULT_MODULE
+    # args.NAME is not set here          # case 3: None means "check all"
+
     # fetch data
     if args.TEST is None:
         cmd = 'cat /etc/os-release'
@@ -138,6 +182,10 @@ def main():
 
     # analyze data
     title = 'Lorem ipsum'
+    if args.NAME is not None:
+        # case 3: user specified --name, so filter
+        if title not in args.NAME:
+            pass # in loops: continue
     if any(item.search(title) for item in compiled_ignore_regex):
         pass # in loops: continue
     value = str(lib.time.now())[-2:]

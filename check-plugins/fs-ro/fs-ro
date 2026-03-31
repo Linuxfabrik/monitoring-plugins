@@ -23,7 +23,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025120201'
+__version__ = '2026033101'
 
 DESCRIPTION = """This plugin checks for read-only mount points, such as `/` mounted read-only due
                  to file system errors, mounted CD-ROMs or ISO files, etc. It always ignores ramfs
@@ -53,12 +53,12 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help="""Mount point that should be ignored (repeatable). For example, if you provide
-                `/sys/fs`, all mount points starting with `/sys/fs` will be ignored.
-                Default: %(default)s""",
+        help='Mount point that should be ignored (repeatable). For example, if you provide '
+             '`/sys/fs`, all mount points starting with `/sys/fs` will be ignored. '
+             'Default: /dev/loop, /proc, /run/credentials, /snap, /sys/fs',
         action='append',
         dest='IGNORE',
-        default=DEFAULT_IGNORE,
+        default=None,
     )
 
     parser.add_argument(
@@ -81,6 +81,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = DEFAULT_IGNORE
 
     if args.TEST is None:
         # get the values the normal way

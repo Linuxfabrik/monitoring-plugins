@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025111401'
+__version__ = '2026033101'
 
 DESCRIPTION = """This plugin uses SSH to execute a command on a remote host,
                  returning STDOUT and, in case of failure, STDERR and the command's return code.
@@ -93,7 +93,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='CRIT_PATTERN',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -102,7 +102,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='CRIT_REGEX',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -287,7 +287,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='WARN_PATTERN',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -296,7 +296,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='WARN_REGEX',
         action='append',
-        default=[],
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
@@ -312,6 +312,16 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.CRIT_PATTERN is None:
+        args.CRIT_PATTERN = []
+    if args.CRIT_REGEX is None:
+        args.CRIT_REGEX = []
+    if args.WARN_PATTERN is None:
+        args.WARN_PATTERN = []
+    if args.WARN_REGEX is None:
+        args.WARN_REGEX = []
 
     # fetch data - run ssh
     cmd = "ssh {} {} {} {} {} {} {} {} '{}'@'{}' '{}'".format(

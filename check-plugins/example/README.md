@@ -40,7 +40,8 @@ Hints for the Author (delete those):
 
 ```text
 usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
-               [--test TEST] --token TOKEN [-w WARN]
+               [--module MODULE] [--name NAME] [--test TEST] --token TOKEN
+               [-w WARN]
 
 A working Linuxfabrik monitoring plugin, written in Python 3, as a basis for
 further development, and much more text to help admins get this check up and
@@ -55,6 +56,10 @@ options:
                         Any english title matching this python regex will be
                         ignored (repeating). Example: '(?i)linuxfabrik' for a
                         case-insensitive search for "linuxfabrik".
+  --module MODULE       "modulename" to check (startswith), for example
+                        `--module json --module mbstring` (repeating)
+  --name NAME           Only check items with this name (repeating). If not
+                        specified, all items are checked.
   --test TEST           For unit tests. Needs "path-to-stdout-file,path-to-
                         stderr-file,expected-retc".
   --token TOKEN         Software API token

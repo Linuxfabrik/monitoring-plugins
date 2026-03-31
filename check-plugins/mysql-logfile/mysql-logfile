@@ -27,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026033101'
 
 DESCRIPTION = """Checks MySQL/MariaDB log content the same way MySQLTuner does, but also
                  in case the DB is down."""
@@ -96,7 +96,7 @@ def parse_args():
         '--ignore-pattern',
         help='Any line containing this pattern will be ignored (must be lowercase; repeating).',
         action='append',
-        default=[],
+        default=None,
         dest='IGNORE_PATTERN',
     )
 
@@ -104,7 +104,7 @@ def parse_args():
         '--ignore-regex',
         help='Any line matching this python regex will be ignored.',
         action='append',
-        default=[],
+        default=None,
         dest='IGNORE_REGEX',
     )
 
@@ -192,6 +192,12 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE_PATTERN is None:
+        args.IGNORE_PATTERN = []
+    if args.IGNORE_REGEX is None:
+        args.IGNORE_REGEX = []
 
     if args.SERVER_LOG:
         # user told us to use this log source, so don't try to find anything else

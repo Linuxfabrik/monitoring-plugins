@@ -21,7 +21,7 @@ from lib.globals import (STATE_OK, STATE_UNKNOWN,  # pylint: disable=C0413
                           STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026033101'
 
 DESCRIPTION = 'Checks the ownership (owner and group, both have to be names) of a list of files.'
 
@@ -85,7 +85,7 @@ def parse_args():
         help='File to be checked, in the format `owner:group,path` (repeatable).',
         action='append',
         dest='FILES',
-        default=DEFAULT_FILES,
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
@@ -101,6 +101,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.FILES is None:
+        args.FILES = DEFAULT_FILES
 
     state = STATE_OK
     msg = ''

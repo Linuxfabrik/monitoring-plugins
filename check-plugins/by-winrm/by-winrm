@@ -24,7 +24,7 @@ from lib.globals import (STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026030301'
+__version__ = '2026033101'
 
 DESCRIPTION = """This plugin executes PowerShell commands or scripts on remote Windows hosts via
 WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error
@@ -82,7 +82,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='CRIT_PATTERN',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -91,7 +91,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='CRIT_REGEX',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -178,7 +178,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='WARN_PATTERN',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -187,7 +187,7 @@ def parse_args():
              'Can be specified multiple times.',
         dest='WARN_REGEX',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -250,6 +250,16 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.CRIT_PATTERN is None:
+        args.CRIT_PATTERN = []
+    if args.CRIT_REGEX is None:
+        args.CRIT_REGEX = []
+    if args.WARN_PATTERN is None:
+        args.WARN_PATTERN = []
+    if args.WARN_REGEX is None:
+        args.WARN_REGEX = []
 
     # fetch data - run WinRM command
     if args.TEST is None:

@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Build, CI/CD:
 
-* Remove `flatdict` dependency as it breaks builds on newer targets (RHEL 10, SLE 15/16) and no fix is available that also supports older targets (such as RHEL 8). This has the consequence that the [statuspal plugin](check-plugins/statuspal) is currently broken until the affected code is rewritten (tracked in [#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044)).
+* Remove `flatdict` dependency as it breaks builds on newer targets (RHEL 10, SLE 15/16) and no fix is available that also supports older targets (such as RHEL 8). The statuspal plugin has been rewritten to no longer depend on `flatdict` ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044)).
 
 
 ### Added
@@ -62,11 +62,13 @@ Grafana:
 Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
+* by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant
 * redis-status, valkey-status: modernize code and unify both plugins again after [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954)
 * rocketchat-stats: improve output
+* statuspal: replace `flatdict` dependency with a recursive approach ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
 * updates: adapt to updated powershell.py library
 
 
@@ -78,6 +80,17 @@ Tools:
 
 
 ### Fixed
+
+Build, CI/CD:
+
+* requirements.txt: add missing `setuptools` dependency (required by `pbr`)
+
+
+Tools:
+
+* check2basket: fix missing `importlib.machinery` and `importlib.util` imports
+* check2basket: write `[]` as default value for `append` parameters with `default=None` in the Icinga Director basket
+
 
 Grafana:
 

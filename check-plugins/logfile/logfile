@@ -26,7 +26,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026032401'
+__version__ = '2026033101'
 
 DESCRIPTION = """Scans a logfile for a set of patterns or regex and alerts
                  on the number of matches."""
@@ -80,7 +80,7 @@ def parse_args():
         '--critical-pattern',
         help='Any line containing this pattern will count as a critical.',
         action='append',
-        default=[],
+        default=None,
         dest='CRIT_PATTERN',
     )
 
@@ -89,7 +89,7 @@ def parse_args():
         help='Any line matching this Python regex will count as a critical.',
         action='append',
         dest='CRIT_REGEX',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -139,7 +139,7 @@ def parse_args():
         '--ignore-pattern',
         help='Any line containing this pattern will be ignored.',
         action='append',
-        default=[],
+        default=None,
         dest='IGNORE_PATTERN',
     )
 
@@ -147,7 +147,7 @@ def parse_args():
         '--ignore-regex',
         help='Any line matching this Python regex will be ignored.',
         action='append',
-        default=[],
+        default=None,
         dest='IGNORE_REGEX',
     )
 
@@ -198,7 +198,7 @@ def parse_args():
         '--warning-pattern',
         help='Any line containing this pattern will count as a warning.',
         action='append',
-        default=[],
+        default=None,
         dest='WARN_PATTERN',
     )
 
@@ -207,7 +207,7 @@ def parse_args():
         help='Any line matching this Python regex will count as a warning.',
         action='append',
         dest='WARN_REGEX',
-        default=[],
+        default=None,
     )
 
     args, _ = parser.parse_known_args()
@@ -220,6 +220,20 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.CRIT_PATTERN is None:
+        args.CRIT_PATTERN = []
+    if args.CRIT_REGEX is None:
+        args.CRIT_REGEX = []
+    if args.IGNORE_PATTERN is None:
+        args.IGNORE_PATTERN = []
+    if args.IGNORE_REGEX is None:
+        args.IGNORE_REGEX = []
+    if args.WARN_PATTERN is None:
+        args.WARN_PATTERN = []
+    if args.WARN_REGEX is None:
+        args.WARN_REGEX = []
 
     try:
         file_stat = os.stat(args.FILENAME)

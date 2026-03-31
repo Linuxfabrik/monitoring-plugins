@@ -22,7 +22,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026033101'
 
 DESCRIPTION = """This plugin lets you check the most common analytics values from Matomo, for one
                  or several websites and for any given date and period."""
@@ -87,7 +87,7 @@ def parse_args():
         dest='METRIC',
         type=lib.args.csv,
         action='append',
-        default=DEFAULT_METRIC,
+        default=None,
     )
 
     parser.add_argument(
@@ -140,6 +140,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.METRIC is None:
+        args.METRIC = DEFAULT_METRIC
 
     # fetch data
     url = args.URL + ('/' if not args.URL.endswith('/') else '') + 'index.php?method=API.get&idSite={}&period={}&date={}&module=API&token_auth={}&format=json&filter_limit=1'.format(args.IDSITE, args.PERIOD, args.DATE, args.PASSWORD)

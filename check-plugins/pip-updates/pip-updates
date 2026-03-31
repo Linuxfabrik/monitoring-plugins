@@ -23,7 +23,7 @@ import lib.txt  # pylint: disable=C0413
 from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026033101'
 
 DESCRIPTION = """Checks if there are outdated Python packages, installed via `pip`."""
 
@@ -73,7 +73,7 @@ def parse_args():
              '--index-url.',
         dest='EXTRA_INDEX_URL',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -85,7 +85,7 @@ def parse_args():
              'Links to VCS project URLs are not supported.',
         dest='FIND_LINKS',
         action='append',
-        default=[],
+        default=None,
     )
 
     parser.add_argument(
@@ -175,6 +175,12 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.EXTRA_INDEX_URL is None:
+        args.EXTRA_INDEX_URL = []
+    if args.FIND_LINKS is None:
+        args.FIND_LINKS = []
 
     # fetch data
     cmd = 'python3 -m pip list --outdated --format=json'
