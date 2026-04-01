@@ -20,8 +20,8 @@ Compatibility:
 
 Important Notes:
 
-* If `--filename` is specified, only the user-supplied files are checked. The default list is not used.
-* The following CIS-recommended files are excluded from the defaults because their ownership differs across RHEL, Debian, Ubuntu and SLES: `/etc/gshadow`, `/etc/gshadow-`, `/etc/shadow`, `/etc/shadow-`. To check these, supply them via `--filename` with suitable values.
+* `--filename` entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins. Use `--no-default-files` to skip the defaults entirely.
+* The following CIS-recommended files are excluded from the defaults because their ownership differs across RHEL, Debian, Ubuntu and SLES: `/etc/gshadow`, `/etc/gshadow-`, `/etc/shadow`, `/etc/shadow-`. To check these, add them via `--filename` with suitable values.
 
 Default files checked:
 
@@ -95,17 +95,20 @@ Default files checked:
 ## Help
 
 ```text
-usage: file-ownership [-h] [-V] [--filename FILES]
+usage: file-ownership [-h] [-V] [--filename FILES] [--no-default-files]
 
 Checks the ownership (owner and group, both have to be names) of a list of
 files.
 
 options:
-  -h, --help        show this help message and exit
-  -V, --version     show program's version number and exit
-  --filename FILES  File to be checked, in the format `owner:group,path`
-                    (repeatable). If specified, the default file list is
-                    replaced entirely.
+  -h, --help          show this help message and exit
+  -V, --version       show program's version number and exit
+  --filename FILES    File to be checked, in the format `owner:group,path`
+                      (repeatable). User-supplied entries are merged with the
+                      default file list. If the same path appears in both, the
+                      user-supplied entry wins.
+  --no-default-files  Do not check the default file list, only check files
+                      specified via `--filename`.
 ```
 
 
@@ -132,21 +135,16 @@ Path                       ! Expected        ! Found
 ...
 ```
 
-Specifying custom files (replaces the entire default list):
+Adding files to the defaults (merged, user entry wins on duplicate paths):
 
 ```bash
-./file-ownership --filename root:root,/tmp --filename root:root,/etc/motd
+./file-ownership --filename root:root,/etc/shadow --filename root:root,/etc/shadow-
 ```
 
-Output:
+Checking only specific files (no defaults):
 
-```text
-Everything is ok.
-
-Path      ! Expected  ! Found
-----------+-----------+----------
-/tmp      ! root:root ! root:root
-/etc/motd ! root:root ! root:root
+```bash
+./file-ownership --no-default-files --filename root:root,/etc/passwd --filename root:root,/etc/shadow
 ```
 
 

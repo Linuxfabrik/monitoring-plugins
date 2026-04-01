@@ -5,6 +5,9 @@
                 "--filename": {
                     "value": "$file_ownership_filename$",
                     "repeat_key": true
+                },
+                "--no-default-files": {
+                    "set_if": "$file_ownership_no_default_files$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/file-ownership",
@@ -12,6 +15,11 @@
             "fields": [
                 {
                     "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -68,7 +76,8 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "file_ownership_filename": []
+                "file_ownership_filename": [],
+                "file_ownership_no_default_files": false
             },
             "volatile": null,
             "zone": null,
@@ -79,13 +88,22 @@
         "1": {
             "varname": "file_ownership_filename",
             "caption": "File Ownership: Filename",
-            "description": "File to be checked, in the format `owner:group,path` (repeatable). If specified, the default file list is replaced entirely.",
+            "description": "File to be checked, in the format `owner:group,path` (repeatable). User-supplied entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "2a0ff480-14e2-4a3f-8ee7-2ac5af6a9c7a"
+        },
+        "2": {
+            "varname": "file_ownership_no_default_files",
+            "caption": "File Ownership: No Default Files?",
+            "description": "Do not check the default file list, only check files specified via `--filename`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1b0281c6-336c-40ee-857a-1b1da70ab768"
         }
     }
 }

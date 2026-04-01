@@ -64,6 +64,8 @@ Monitoring Plugins:
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
 * file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
+* file-ownership: `--filename` now merges with the default file list instead of replacing it; use `--no-default-files` to check only user-supplied files
+* file-ownership: extend default file list with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
 * file-ownership: use `os.stat()` instead of shelling out to `stat`, improving performance and robustness
 * nextcloud-version: modernize code
 * php-status: always assume http://localhost/monitoring.php and, if not found, be tolerant

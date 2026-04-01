@@ -103,10 +103,19 @@ def parse_args():
     parser.add_argument(
         '--filename',
         help='File to be checked, in the format `owner:group,path` (repeatable). '
-             'If specified, the default file list is replaced entirely.',
+             'User-supplied entries are merged with the default file list. '
+             'If the same path appears in both, the user-supplied entry wins.',
         action='append',
         dest='FILES',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-default-files',
+        help='Do not check the default file list, only check files specified via `--filename`.',
+        dest='NO_DEFAULT_FILES',
+        action='store_true',
+        default=False,
     )
 
     args, _ = parser.parse_known_args()
@@ -165,14 +174,23 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # set default values for append parameters that were not specified
-    if args.FILES is None:
-        args.FILES = DEFAULT_FILES
+    # build the file list: merge defaults with user-supplied entries (last wins by path)
+    if args.NO_DEFAULT_FILES:
+        file_list = args.FILES or []
+    else:
+        files_by_path = {}
+        for entry in DEFAULT_FILES:
+            path = entry.split(',', 1)[1]
+            files_by_path[path] = entry
+        for entry in args.FILES or []:
+            path = entry.split(',', 1)[1]
+            files_by_path[path] = entry
+        file_list = list(files_by_path.values())
 
     state = STATE_OK
     table_values = []
 
-    for file_spec in args.FILES:
+    for file_spec in file_list:
         result = check_file(file_spec)
         if result is None:
             continue
