@@ -5,30 +5,29 @@ on:
     - cron: '0 8 * * 1'
   workflow_dispatch: {}
 
-permissions:
-  contents: 'write'
-  pull-requests: 'write'
-
 jobs:
   update:
     runs-on: 'ubuntu-latest'
+    permissions:
+      contents: 'write'
+      pull-requests: 'write'
     steps:
       - name: 'Checkout repository'
-        uses: 'actions/checkout@v6'
+        uses: 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' # v6
 
       - name: 'Set up Python'
-        uses: 'actions/setup-python@v6'
+        uses: 'actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405' # v6
         with:
           python-version: '3.12'
 
       - name: 'Install pre-commit'
-        run: 'pip install pre-commit'
+        run: 'pip install --require-hashes --requirement /dev/stdin <<< "pre-commit==4.5.1 --hash=sha256:3b3afd891e97337708c1674210f8eba659b52a38ea5f822ff142d10786221f77"'
 
       - name: 'Run pre-commit autoupdate'
         run: 'pre-commit autoupdate'
 
       - name: 'Create Pull Request'
-        uses: 'peter-evans/create-pull-request@v8'
+        uses: 'peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0' # v8
         with:
           commit-message: 'chore: update pre-commit hooks'
           title: 'chore: update pre-commit hooks'
