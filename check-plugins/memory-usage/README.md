@@ -27,6 +27,11 @@ Monitors physical memory utilization with threshold-based alerting on overall me
 * Memory usage calculations differ between tools (top, htop, free) due to different counting methods and kernel versions
 * This check uses psutil's cross-platform `available` metric for consistency
 * Process memory percentages may sum to >100% on Linux due to shared memory accounting
+* The `--top` list reports RSS per process from psutil's `memory_info()`:
+
+| Field | Description |
+|----|----|
+| rss | Resident Set Size. The non-swapped physical memory a process has used. On UNIX matches the `top` RES column. On Windows maps to `WorkingSetSize`. |
 
 
 ## Fact Sheet

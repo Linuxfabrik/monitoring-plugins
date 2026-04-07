@@ -26,6 +26,9 @@
                 "--critical-mem-percent": {
                     "value": "$procs_critical_mem_percent$"
                 },
+                "--lengthy": {
+                    "set_if": "$procs_lengthy$"
+                },
                 "--no-kthreads": {
                     "set_if": "$procs_no_kthreads$"
                 },
@@ -141,6 +144,11 @@
                     "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -179,6 +187,9 @@
                 "--critical-mem-percent": {
                     "value": "$procs_windows_critical_mem_percent$"
                 },
+                "--lengthy": {
+                    "set_if": "$procs_windows_lengthy$"
+                },
                 "--no-kthreads": {
                     "set_if": "$procs_windows_no_kthreads$"
                 },
@@ -210,11 +221,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\procs.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 18,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 19,
                     "is_required": "n",
@@ -294,6 +300,16 @@
                     "datafield_id": 34,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 35,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 36,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -366,6 +382,7 @@
             "vars": {
                 "criticality": "C",
                 "procs_always_ok": false,
+                "procs_lengthy": false,
                 "procs_no_kthreads": false,
                 "procs_top": 5
             },
@@ -414,6 +431,7 @@
             "vars": {
                 "criticality": "C",
                 "procs_windows_always_ok": false,
+                "procs_windows_lengthy": false,
                 "procs_windows_no_kthreads": false,
                 "procs_windows_top": 5
             },
@@ -694,6 +712,15 @@
             "uuid": "3a42c0a0-67ee-42bc-b514-390d1ba795f2"
         },
         "9": {
+            "varname": "procs_lengthy",
+            "caption": "Procs: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8adaceba-0a08-4d11-8c0c-dfe0b61aa17f"
+        },
+        "10": {
             "varname": "procs_no_kthreads",
             "caption": "Procs: No KThreads?",
             "description": "Filter: Only scan for non kernel threads (works on Linux only).",
@@ -702,7 +729,7 @@
             "settings": {},
             "uuid": "25bf1d6b-1284-481a-9d43-153ed2ca43dc"
         },
-        "10": {
+        "11": {
             "varname": "procs_status",
             "caption": "Procs: Status",
             "description": "Filter: Search only for processes that have a specific status.",
@@ -715,10 +742,10 @@
             },
             "uuid": "420a87a9-9ef9-4d4e-9931-7e37536397cb"
         },
-        "11": {
+        "12": {
             "varname": "procs_top",
             "caption": "Procs: Top",
-            "description": "List the top N processes using the most CPU time. Processes where all instances are sleeping are excluded from the table. Use `--top=0` to disable this feature.",
+            "description": "List the top N processes using the most CPU time. Processes with zero CPU time are excluded from the table. Use `--top=0` to disable this feature.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -726,7 +753,7 @@
             },
             "uuid": "f279f834-a707-4da9-9ea5-22acda8c558b"
         },
-        "12": {
+        "13": {
             "varname": "procs_username",
             "caption": "Procs: Username",
             "description": "Filter: Search only for processes whose user name matches USERNAME as a regular expression (case-insensitive). Example: `--username=\"^(apache|www-data)$\"`",
@@ -737,7 +764,7 @@
             },
             "uuid": "89d5757b-04b0-444f-98af-dd65bdd2dc5d"
         },
-        "13": {
+        "14": {
             "varname": "procs_warning",
             "caption": "Procs: Warning",
             "description": "Threshold for the number of processes. Type: None or Range.",
@@ -748,7 +775,7 @@
             },
             "uuid": "f503bdb1-a9df-44ad-9c46-dbfd59531ee9"
         },
-        "14": {
+        "15": {
             "varname": "procs_warning_age",
             "caption": "Procs: Warning Age",
             "description": "Threshold for age of the process, in seconds. Type: None or Range.",
@@ -759,7 +786,7 @@
             },
             "uuid": "4bc69774-4b1c-4f8c-9485-014c6d449dda"
         },
-        "15": {
+        "16": {
             "varname": "procs_warning_cpu_percent",
             "caption": "Procs: Warning CPU Percent",
             "description": "Threshold for CPU usage of all matching processes, in percent. Requires two consecutive check runs to calculate. A value of 100% equals one fully utilized CPU core. Type: None or Range.",
@@ -770,7 +797,7 @@
             },
             "uuid": "13668f24-9c42-4fb3-920b-eb1d27da45d6"
         },
-        "16": {
+        "17": {
             "varname": "procs_warning_mem",
             "caption": "Procs: Warning Memory",
             "description": "Threshold for memory usage, in bytes. Type: None or Range.",
@@ -781,7 +808,7 @@
             },
             "uuid": "d4597d61-14ed-4fc2-b516-24f7c42f29d8"
         },
-        "17": {
+        "18": {
             "varname": "procs_warning_mem_percent",
             "caption": "Procs: Warning Memory Percent",
             "description": "Threshold for memory usage, in percent. Type: None or Range.",
@@ -792,7 +819,7 @@
             },
             "uuid": "5f4edaf4-f4cf-4a65-9895-37e8aa54f0a2"
         },
-        "18": {
+        "19": {
             "varname": "procs_windows_always_ok",
             "caption": "Procs: Always OK?",
             "description": "Always returns OK.",
@@ -801,7 +828,7 @@
             "settings": {},
             "uuid": "c1ab7e89-c80a-491b-926a-612e843b4b4b"
         },
-        "19": {
+        "20": {
             "varname": "procs_windows_argument",
             "caption": "Procs: Argument",
             "description": "Filter: Search only for processes where the command line matches ARGUMENT as a regular expression (case-insensitive). Example: `--argument=\"--config.*production\"`",
@@ -812,7 +839,7 @@
             },
             "uuid": "8b433173-a4a3-45f6-9b11-313d32cbc8a8"
         },
-        "20": {
+        "21": {
             "varname": "procs_windows_command",
             "caption": "Procs: Command",
             "description": "Filter: Search only for processes whose name matches COMMAND as a regular expression (case-insensitive). Example: `--command=\"^(apache|httpd)\"`",
@@ -823,7 +850,7 @@
             },
             "uuid": "7b50ebbb-5aa3-4294-9874-e9fa3d86e90b"
         },
-        "21": {
+        "22": {
             "varname": "procs_windows_critical",
             "caption": "Procs: Critical",
             "description": "Threshold for the number of processes. Type: None or Range.",
@@ -834,7 +861,7 @@
             },
             "uuid": "308cad68-29a8-4229-9e8f-288e0d39dc51"
         },
-        "22": {
+        "23": {
             "varname": "procs_windows_critical_age",
             "caption": "Procs: Critical Age",
             "description": "Threshold for age of the process, in seconds. Type: None or Range.",
@@ -845,7 +872,7 @@
             },
             "uuid": "b0357195-062d-49b1-91e4-85b4e17c327b"
         },
-        "23": {
+        "24": {
             "varname": "procs_windows_critical_cpu_percent",
             "caption": "Procs: Critical CPU Percent",
             "description": "Threshold for CPU usage of all matching processes, in percent. Requires two consecutive check runs to calculate. A value of 100% equals one fully utilized CPU core. Type: None or Range.",
@@ -856,7 +883,7 @@
             },
             "uuid": "1c4f90b6-2cd7-4dbd-81be-bfa2b7e83b1e"
         },
-        "24": {
+        "25": {
             "varname": "procs_windows_critical_mem",
             "caption": "Procs: Critical Memory",
             "description": "Threshold for memory usage, in bytes. Type: None or Range.",
@@ -867,7 +894,7 @@
             },
             "uuid": "42ceb239-0a36-4f46-a0c1-6c8d10d06f5f"
         },
-        "25": {
+        "26": {
             "varname": "procs_windows_critical_mem_percent",
             "caption": "Procs: Critical Memory Percent",
             "description": "Threshold for memory usage, in percent. Type: None or Range.",
@@ -878,7 +905,16 @@
             },
             "uuid": "29d7f6f8-8d9a-4fea-b0e6-3fe37f8f4c7b"
         },
-        "26": {
+        "27": {
+            "varname": "procs_windows_lengthy",
+            "caption": "Procs: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5aec4169-489f-4610-a8e0-98282ea2ebfa"
+        },
+        "28": {
             "varname": "procs_windows_no_kthreads",
             "caption": "Procs: No KThreads?",
             "description": "Filter: Only scan for non kernel threads (works on Linux only).",
@@ -887,7 +923,7 @@
             "settings": {},
             "uuid": "f1e51251-c2f3-45e5-b941-d8f178472504"
         },
-        "27": {
+        "29": {
             "varname": "procs_windows_status",
             "caption": "Procs: Status",
             "description": "Filter: Search only for processes that have a specific status.",
@@ -900,10 +936,10 @@
             },
             "uuid": "479980ff-1661-41c3-b1b7-9d866b197884"
         },
-        "28": {
+        "30": {
             "varname": "procs_windows_top",
             "caption": "Procs: Top",
-            "description": "List the top N processes using the most CPU time. Processes where all instances are sleeping are excluded from the table. Use `--top=0` to disable this feature.",
+            "description": "List the top N processes using the most CPU time. Processes with zero CPU time are excluded from the table. Use `--top=0` to disable this feature.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -911,7 +947,7 @@
             },
             "uuid": "abdc41bb-dc94-48dd-ad09-2f02b5c7312e"
         },
-        "29": {
+        "31": {
             "varname": "procs_windows_username",
             "caption": "Procs: Username",
             "description": "Filter: Search only for processes whose user name matches USERNAME as a regular expression (case-insensitive). Example: `--username=\"^(apache|www-data)$\"`",
@@ -922,7 +958,7 @@
             },
             "uuid": "8dede2b2-0542-4a75-99e3-66f0073d61b9"
         },
-        "30": {
+        "32": {
             "varname": "procs_windows_warning",
             "caption": "Procs: Warning",
             "description": "Threshold for the number of processes. Type: None or Range.",
@@ -933,7 +969,7 @@
             },
             "uuid": "c285a3f7-3125-4b11-8593-bfd5717c6a39"
         },
-        "31": {
+        "33": {
             "varname": "procs_windows_warning_age",
             "caption": "Procs: Warning Age",
             "description": "Threshold for age of the process, in seconds. Type: None or Range.",
@@ -944,7 +980,7 @@
             },
             "uuid": "31d5c5a9-b49f-472b-bd61-ed73bd9439c9"
         },
-        "32": {
+        "34": {
             "varname": "procs_windows_warning_cpu_percent",
             "caption": "Procs: Warning CPU Percent",
             "description": "Threshold for CPU usage of all matching processes, in percent. Requires two consecutive check runs to calculate. A value of 100% equals one fully utilized CPU core. Type: None or Range.",
@@ -955,7 +991,7 @@
             },
             "uuid": "4c033fd2-c3b6-4591-8ce6-65640f27696f"
         },
-        "33": {
+        "35": {
             "varname": "procs_windows_warning_mem",
             "caption": "Procs: Warning Memory",
             "description": "Threshold for memory usage, in bytes. Type: None or Range.",
@@ -966,7 +1002,7 @@
             },
             "uuid": "467822e7-aa4e-4e70-89dd-ef3673f3745d"
         },
-        "34": {
+        "36": {
             "varname": "procs_windows_warning_mem_percent",
             "caption": "Procs: Warning Memory Percent",
             "description": "Threshold for memory usage, in percent. Type: None or Range.",

@@ -6,8 +6,38 @@ Prints the number of currently running processes and warns on metrics like proce
 
 Hints:
 
-* Memory: We count RSS, also known as 'Resident Set Size' or 'Res'. This is the amount of physical memory that a process has used that has not been swapped out. In UNIX, it matches the 'RES' column in 'top'. Note the differences in memory counting between tools such as 'top', 'htop', 'glances', 'GNOME System Monitor' and others. The way memory is counted also changes between different Linux kernel versions. On Windows, this is an alias for the wset field, matching the 'Mem Usage' column in taskmgr.exe.
 * CPU usage: The `--warning-cpu-percent` and `--critical-cpu-percent` thresholds compare the aggregated CPU usage of all matching processes against the given threshold. This requires at least two consecutive check runs for the delta calculation. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
+* Memory: The `--top` table reports per-process memory fields from psutil's `memory_info()`. Note the differences in memory counting between tools such as `top`, `htop`, `glances`, `GNOME System Monitor` and others. The way memory is counted also changes between different Linux kernel versions. The following fields are available (all values in bytes):
+
+Portable (all platforms):
+
+| Field | Description |
+|----|----|
+| rss | Resident Set Size. The non-swapped physical memory a process has used. On UNIX matches the `top` RES column. On Windows maps to `WorkingSetSize`. |
+| vms | Virtual Memory Size. The total amount of virtual memory used by the process. On UNIX matches the `top` VIRT column. On Windows maps to `PrivateUsage` (private committed pages only), which differs from the UNIX definition. |
+
+Linux:
+
+| Field | Description |
+|----|----|
+| data | Aka DRS (Data Resident Set). Covers the data and stack segments combined (from `/proc/<pid>/statm`). Matches `top`'s DATA column. |
+| shared | Shared memory that could be shared with other processes (shared libraries, memory-mapped files). Counted even if no other process is currently mapping it. Matches `top`'s SHR column. |
+| text | Aka TRS (Text Resident Set). Resident memory devoted to executable code. This memory is read-only and typically shared across all processes running the same binary. Matches `top`'s CODE column. |
+
+Windows:
+
+| Field | Description |
+|----|----|
+| nonpaged_pool | Current nonpaged pool usage. Kernel memory used for objects that must remain in physical memory. |
+| num_page_faults | The number of page faults. |
+| pagefile | The Commit Charge value for this process (same as `vms`). |
+| paged_pool | Current paged pool usage. Kernel memory used for objects created by the process that can be paged to disk. |
+| peak_nonpaged_pool | Peak nonpaged pool usage. |
+| peak_paged_pool | Peak paged pool usage. |
+| peak_pagefile | Peak Commit Charge during the lifetime of this process. |
+| peak_wset | Peak working set size (same as peak RSS). |
+| private | Same as `vms`. |
+| wset | Current working set size (same as `rss`). |
 
 
 ## Fact Sheet
@@ -29,7 +59,8 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
              [-c CRIT] [--critical-age CRIT_AGE]
              [--critical-cpu-percent CRIT_CPU_PERCENT]
              [--critical-mem CRIT_MEM]
-             [--critical-mem-percent CRIT_MEM_PERCENT] [--no-kthreads]
+             [--critical-mem-percent CRIT_MEM_PERCENT] [--lengthy]
+             [--no-kthreads]
              [--status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}]
              [--top TOP] [--username USERNAME] [-w WARN]
              [--warning-age WARN_AGE] [--warning-cpu-percent WARN_CPU_PERCENT]
@@ -66,15 +97,16 @@ options:
   --critical-mem-percent CRIT_MEM_PERCENT
                         Threshold for memory usage, in percent. Type: None or
                         Range. Default: None
+  --lengthy             Extended reporting.
   --no-kthreads         Filter: Only scan for non kernel threads (works on
                         Linux only). Default: False
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
                         Filter: Search only for processes that have a specific
                         status. Default: None
   --top TOP             List the top N processes using the most CPU time.
-                        Processes where all instances are sleeping are
-                        excluded from the table. Use `--top=0` to disable this
-                        feature. Default: 5
+                        Processes with zero CPU time are excluded from the
+                        table. Use `--top=0` to disable this feature. Default:
+                        5
   --username USERNAME   Filter: Search only for processes whose user name
                         matches USERNAME as a regular expression (case-
                         insensitive). Example: `--username="^(apache|www-
@@ -107,13 +139,33 @@ options:
 Output:
 
 ```text
-564 procs using 16.9GiB RAM (54.7%), 1 uninterruptible (1x kworker/u36:0+i915_flip), 1 running (1x isolated web co), 561 sleeping, 1 zombie (1x xdg-open), up 1W 1D
+582 procs using 17.2GiB RAM (55.6%), 581 sleeping, 1 zombie (1x xdg-open), up 1W 1D
 
-Name             ! CPU User ! CPU System ! CPU Total ! Status
------------------+----------+------------+-----------+-----------------------------
-isolated web co  ! 1h 24m   ! 12m 30s    ! 1h 37m    ! 1x running
-kworker/u36:0+i9 !          ! 5s         ! 5s        ! 1x disk-sleep
-xdg-open         !          !            !           ! 1x zombie
+Name               ! CPU Total ! RSS      ! Status
+-------------------+-----------+----------+------------
+firefox            ! 6h 34m    ! 980.4MiB ! 1x sleeping
+gnome-shell        ! 5h 49m    ! 692.2MiB ! 1x sleeping
+WebExtensions      ! 3h 14m    ! 1.8GiB   ! 1x sleeping
+rocketchat-desktop ! 2h 9m     ! 739.5MiB ! 9x sleeping
+claude             ! 1h 7m     ! 2.3GiB   ! 5x sleeping
+```
+
+With `--lengthy`, the table includes all platform-specific `memory_info()` fields from the installed psutil version (fields that are not available are automatically omitted):
+
+```bash
+./procs --lengthy
+```
+
+Output (Linux, psutil 7.x):
+
+```text
+575 procs using 18.1GiB RAM (58.7%), 574 sleeping, 1 zombie (1x xdg-open), up 1W 1D
+
+Name          ! CPU User ! CPU System ! CPU Total ! RSS      ! VMS     ! Shared   ! Text     ! Lib  ! Data     ! Dirty ! Status
+--------------+----------+------------+-----------+----------+---------+----------+----------+------+----------+-------+------------
+firefox       ! 5h 15m   ! 1h 19m     ! 6h 35m    ! 978.1MiB ! 21.1GiB ! 229.1MiB ! 300.0KiB ! 0.0B ! 1.6GiB   ! 0.0B  ! 1x sleeping
+gnome-shell   ! 4h 13m   ! 1h 36m     ! 5h 50m    ! 693.2MiB ! 7.3GiB  ! 122.4MiB ! 12.0KiB  ! 0.0B ! 931.9MiB ! 0.0B  ! 1x sleeping
+WebExtensions ! 2h 59m   ! 15m 40s    ! 3h 14m    ! 1.8GiB   ! 9.9GiB  ! 105.2MiB ! 300.0KiB ! 0.0B ! 3.1GiB   ! 0.0B  ! 1x sleeping
 ```
 
 Other examples:

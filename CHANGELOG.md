@@ -39,7 +39,8 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
-* procs: add `--top` parameter to list the top N processes by CPU time (user/system/total) with status, excluding sleeping processes by default
+* procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
+* procs: add `--top` parameter to list the top N processes by CPU time and memory usage
 * procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)

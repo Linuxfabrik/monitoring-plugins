@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040702'
+__version__ = '2026040801'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
                  counts, process memory usage or CPU usage. You may filter the process list by
@@ -44,6 +44,7 @@ DEFAULT_CRIT_AGE = None
 DEFAULT_CRIT_CPU_PERCENT = None
 DEFAULT_CRIT_MEM = None
 DEFAULT_CRIT_MEM_PERCENT = None
+DEFAULT_LENGTHY = False
 DEFAULT_NO_KTHREADS = False
 DEFAULT_STATUS = None
 DEFAULT_TOP = 5
@@ -137,6 +138,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--lengthy',
+        help='Extended reporting.',
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
         '--no-kthreads',
         help='Filter: Only scan for non kernel threads (works on Linux only). '
              'Default: %(default)s',
@@ -172,7 +181,7 @@ def parse_args():
     parser.add_argument(
         '--top',
         help='List the top N processes using the most CPU time. '
-             'Processes where all instances are sleeping are excluded from the table. '
+             'Processes with zero CPU time are excluded from the table. '
              'Use `--top=0` to disable this feature. '
              'Default: %(default)s',
         dest='TOP',
@@ -272,6 +281,69 @@ def main():
     need_username = bool(args.USERNAME)
     show_top_table = bool(args.TOP)
 
+    # platform-specific memory_info fields for --top table
+    # (attr_name, header_label, format: 'bytes' or 'number')
+    # mem_fields: all fields for aggregation and --lengthy display
+    # mem_fields_short: key fields for compact display (without --lengthy)
+    if lib.base.WINDOWS:
+        # rss=wset, vms=pagefile on Windows, so skip wset and pagefile to avoid duplicates;
+        # psutil 8.0 renamed peak_wset→peak_rss, peak_pagefile→peak_vms and moved
+        # pool fields to memory_info_ex, so include both old and new names
+        mem_fields = [
+            ('rss', 'RSS', 'bytes'),
+            ('vms', 'VMS', 'bytes'),
+            ('num_page_faults', 'PageFaults', 'number'),
+            ('peak_rss', 'Peak RSS', 'bytes'),
+            ('peak_wset', 'Peak RSS', 'bytes'),
+            ('peak_paged_pool', 'Peak Paged', 'bytes'),
+            ('paged_pool', 'Paged', 'bytes'),
+            ('peak_nonpaged_pool', 'Peak NonPaged', 'bytes'),
+            ('nonpaged_pool', 'NonPaged', 'bytes'),
+            ('peak_vms', 'Peak VMS', 'bytes'),
+            ('peak_pagefile', 'Peak VMS', 'bytes'),
+            ('private', 'Private', 'bytes'),
+        ]
+        mem_fields_short = [
+            ('rss', 'RSS', 'bytes'),
+            ('private', 'Private', 'bytes'),
+            ('peak_rss', 'Peak RSS', 'bytes'),
+            ('peak_wset', 'Peak RSS', 'bytes'),
+        ]
+    elif sys.platform.startswith('linux'):
+        mem_fields = [
+            ('rss', 'RSS', 'bytes'),
+            ('vms', 'VMS', 'bytes'),
+            ('shared', 'Shared', 'bytes'),
+            ('text', 'Text', 'bytes'),
+            ('lib', 'Lib', 'bytes'),
+            ('data', 'Data', 'bytes'),
+            ('dirty', 'Dirty', 'bytes'),
+        ]
+        mem_fields_short = [
+            ('rss', 'RSS', 'bytes'),
+        ]
+    else:
+        mem_fields = [
+            ('rss', 'RSS', 'bytes'),
+            ('vms', 'VMS', 'bytes'),
+            ('shared', 'Shared', 'bytes'),
+            ('text', 'Text', 'bytes'),
+            ('data', 'Data', 'bytes'),
+            ('stack', 'Stack', 'bytes'),
+            ('peak_rss', 'Peak RSS', 'bytes'),
+        ]
+        mem_fields_short = [
+            ('rss', 'RSS', 'bytes'),
+        ]
+
+    # filter to only include fields actually available in the installed psutil version
+    try:
+        available_mem_fields = set(psutil.Process(my_pid).memory_info()._fields)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        available_mem_fields = {'rss', 'vms'}
+    mem_fields = [f for f in mem_fields if f[0] in available_mem_fields]
+    mem_fields_short = [f for f in mem_fields_short if f[0] in available_mem_fields]
+
     # We always print a per-status / per-name breakdown later,
     # so we will collect 'status' and 'name' (even if not used for filters).
     attrs = ['name', 'status', 'memory_info']
@@ -297,7 +369,7 @@ def main():
         lib.base.cu(f'Invalid regular expression: {e}')
 
     # per-process-name aggregation for --top table and CPU% calculation
-    top_procs = {}  # {name: {'user': float, 'system': float, 'statuses': defaultdict(int)}}
+    top_procs = {}
 
     total_ram = psutil.virtual_memory().total or 0
 
@@ -396,20 +468,27 @@ def main():
                 # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
                 proc_states['other'] += 1
 
-            # aggregate cpu_times and statuses per process name for --top table / CPU%
+            # aggregate cpu_times, memory and statuses per process name for --top table / CPU%
             if need_cpu:
                 pname = info.get('name') or ''
                 if not (lib.base.WINDOWS and pname == 'System Idle Process'):
                     if pname not in top_procs:
-                        top_procs[pname] = {
+                        init = {
                             'user': 0.0,
                             'system': 0.0,
                             'statuses': defaultdict(int),
                         }
+                        for attr, _, _ in mem_fields:
+                            init[attr] = 0
+                        top_procs[pname] = init
                     cput = info.get('cpu_times')
                     if cput:
                         top_procs[pname]['user'] += cput.user or 0
                         top_procs[pname]['system'] += (getattr(cput, 'system', 0) or 0)
+                    meminfo = info.get('memory_info')
+                    if meminfo:
+                        for attr, _, _ in mem_fields:
+                            top_procs[pname][attr] += getattr(meminfo, attr, 0) or 0
                     top_procs[pname]['statuses'][st] += 1
 
         except Exception:
@@ -576,39 +655,55 @@ def main():
 
     # build --top table
     if show_top_table and top_procs:
-        # filter out process groups where all instances are sleeping,
+        # filter out processes with zero CPU time,
         # sort by total cpu time descending, take top N
         table_data = []
         for pname, data in top_procs.items():
             statuses = data['statuses']
-            sleeping_count = statuses.get(psutil.STATUS_SLEEPING, 0) \
-                           + statuses.get(psutil.STATUS_IDLE, 0)
-            total_count = sum(statuses.values())
-            if sleeping_count == total_count:
-                continue
             total = data['user'] + data['system']
+            if total == 0:
+                continue
             status_parts = []
             for s, cnt in sorted(statuses.items()):
                 status_parts.append(f'{cnt}x {s}')
-            table_data.append({
+            row = {
                 'name': pname,
-                'user': lib.human.seconds2human(data['user']),
-                'system': lib.human.seconds2human(data['system']),
                 'total': lib.human.seconds2human(total),
                 'status': ', '.join(status_parts),
                 '_total_raw': total,
-            })
+            }
+            if args.LENGTHY:
+                row['user'] = lib.human.seconds2human(data['user'])
+                row['system'] = lib.human.seconds2human(data['system'])
+                display_fields = mem_fields
+            else:
+                display_fields = mem_fields_short
+            for attr, _, fmt in display_fields:
+                if fmt == 'bytes':
+                    row[attr] = lib.human.bytes2human(data[attr])
+                else:
+                    row[attr] = data[attr]
+            table_data.append(row)
         table_data.sort(key=lambda x: x['_total_raw'], reverse=True)
         table_data = table_data[:args.TOP]
         for row in table_data:
             del row['_total_raw']
         if table_data:
+            if args.LENGTHY:
+                keys = ['name', 'user', 'system', 'total']
+                headers = ['Name', 'CPU User', 'CPU System', 'CPU Total']
+                display_fields = mem_fields
+            else:
+                keys = ['name', 'total']
+                headers = ['Name', 'CPU Total']
+                display_fields = mem_fields_short
+            for attr, header, _ in display_fields:
+                keys.append(attr)
+                headers.append(header)
+            keys.append('status')
+            headers.append('Status')
             msg += '\n\n'
-            msg += lib.base.get_table(
-                table_data,
-                ['name', 'user', 'system', 'total', 'status'],
-                header=['Name', 'CPU User', 'CPU System', 'CPU Total', 'Status'],
-            )
+            msg += lib.base.get_table(table_data, keys, header=headers)
 
     # build perfdata
     perfdata += lib.base.get_perfdata(
