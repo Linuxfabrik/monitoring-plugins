@@ -47,7 +47,7 @@ options:
   --api-version API_VERSION
                         Grassfish API Version. Default: 1.12
   --box-id BOX_ID       Filter by specific box IDs. Supports Python Regular
-                        Expressions (regex).
+                        Expressions (regex, case-insensitive).
   --box-state {activated,deleted,new,reserved,undefined}
                         Filter by specific box state. Repeating.
   --cache-expire CACHE_EXPIRE
@@ -55,7 +55,7 @@ options:
                         expires, in hours. Default: 8
   --custom-id CUSTOM_ID
                         Filter by specific custom IDs. Supports Python Regular
-                        Expressions (regex).
+                        Expressions (regex, case-insensitive).
   -H, --hostname HOSTNAME
                         Grassfish hostname. Default: None
   --insecure            This option explicitly allows to perform "insecure"
