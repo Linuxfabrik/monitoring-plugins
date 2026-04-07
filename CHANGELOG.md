@@ -32,6 +32,7 @@ Monitoring Plugins:
 
 * by-ssh: add alerting on single numeric values
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
+* infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)

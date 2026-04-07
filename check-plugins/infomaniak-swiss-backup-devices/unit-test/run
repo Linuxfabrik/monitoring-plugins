@@ -71,5 +71,40 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
 
+    def test_if_check_runs_EXAMPLE02_ignore_customer(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --ignore-customer=\'BK-200999-1$\' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertNotIn('99904', stdout)
+        self.assertIn('99924', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02_ignore_name(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --ignore-name=\'^test$\' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertNotIn('99925', stdout)
+        self.assertNotIn('99931', stdout)
+        self.assertNotIn('99945', stdout)
+        self.assertIn('99924', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02_ignore_tag(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --ignore-tag=\'^tag01$\' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertNotIn('99904', stdout)
+        self.assertIn('99924', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_if_check_runs_EXAMPLE02_ignore_user(self):
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --token=TOKEN --account-id=ACCOUNT-ID --ignore-user=\'SBI-AB123456\' --test=stdout/EXAMPLE02,,0'))
+        self.assertIn('Everything is ok.', stdout)
+        self.assertNotIn('99904', stdout)
+        self.assertNotIn('99924', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+
 if __name__ == '__main__':
     unittest.main()

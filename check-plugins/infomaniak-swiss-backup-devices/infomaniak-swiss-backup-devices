@@ -13,6 +13,7 @@
 
 import argparse  # pylint: disable=C0413
 import json  # pylint: disable=C0413
+import re  # pylint: disable=C0413
 import sys  # pylint: disable=C0413
 
 import lib.args  # pylint: disable=C0413
@@ -26,7 +27,7 @@ from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040701'
 
 DESCRIPTION = """Checks each device / slot of all your Infomaniak Swiss backup products via the
                  Infomaniak API."""
@@ -93,6 +94,46 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore-customer',
+        help='Any device whose product customer name matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)test\' for a case-insensitive search for "test".',
+        action='append',
+        default=None,
+        dest='IGNORE_CUSTOMER',
+    )
+
+    parser.add_argument(
+        '--ignore-name',
+        help='Any device whose name matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)old-backup\' for a case-insensitive search for "old-backup".',
+        action='append',
+        default=None,
+        dest='IGNORE_NAME',
+    )
+
+    parser.add_argument(
+        '--ignore-tag',
+        help='Any device whose product tag matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)deprecated\' for a case-insensitive search for "deprecated".',
+        action='append',
+        default=None,
+        dest='IGNORE_TAG',
+    )
+
+    parser.add_argument(
+        '--ignore-user',
+        help='Any device whose username matches this python regex will be ignored '
+             '(repeating). '
+             'Example: \'(?i)testuser\' for a case-insensitive search for "testuser".',
+        action='append',
+        default=None,
+        dest='IGNORE_USER',
+    )
+
+    parser.add_argument(
         '--severity',
         help='Severity for alerting other values. '
              'Default: %(default)s',
@@ -147,6 +188,16 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE_CUSTOMER is None:
+        args.IGNORE_CUSTOMER = []
+    if args.IGNORE_NAME is None:
+        args.IGNORE_NAME = []
+    if args.IGNORE_TAG is None:
+        args.IGNORE_TAG = []
+    if args.IGNORE_USER is None:
+        args.IGNORE_USER = []
+
     # fetch list of products
     if args.TEST is None:
         slots = lib.base.coe(lib.infomaniak.get_swiss_backup_slots(
@@ -166,10 +217,27 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
+    compiled_ignore_customer = [re.compile(item) for item in args.IGNORE_CUSTOMER]
+    compiled_ignore_name = [re.compile(item) for item in args.IGNORE_NAME]
+    compiled_ignore_tag = [re.compile(item) for item in args.IGNORE_TAG]
+    compiled_ignore_user = [re.compile(item) for item in args.IGNORE_USER]
 
     # analyze data
     for slot in slots:
         for slot_data in slot.get('data'):
+            # ignore devices matching any --ignore-* parameter
+            if any(item.search(slot.get('product_customer_name', '')) for item in compiled_ignore_customer): # pylint: disable=C0301
+                continue
+            if any(item.search(slot_data.get('customer_name', '')) for item in compiled_ignore_name):
+                continue
+            if any(
+                item.search(tag['name'])
+                for item in compiled_ignore_tag
+                for tag in slot.get('product_tags', [])
+            ):
+                continue
+            if any(item.search(slot_data.get('username', '')) for item in compiled_ignore_user):
+                continue
             if slot_data.get('storage_used', 0):
                 used = round(slot_data.get('storage_used') / slot_data.get('size') * 100, 1)
                 used_state = lib.base.get_state(used, args.WARN, args.CRIT)

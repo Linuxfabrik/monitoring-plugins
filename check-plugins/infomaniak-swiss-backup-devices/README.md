@@ -33,7 +33,12 @@ Links:
 ```text
 usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
                                        [--always-ok] [-c CRIT] [--insecure]
-                                       [--no-proxy] [--severity {warn,crit}]
+                                       [--no-proxy]
+                                       [--ignore-customer IGNORE_CUSTOMER]
+                                       [--ignore-name IGNORE_NAME]
+                                       [--ignore-tag IGNORE_TAG]
+                                       [--ignore-user IGNORE_USER]
+                                       [--severity {warn,crit}]
                                        [--timeout TIMEOUT] --token TOKEN
                                        [--test TEST] [-w WARN]
 
@@ -50,6 +55,22 @@ options:
   --insecure            This option explicitly allows to perform "insecure"
                         SSL connections. Default: False
   --no-proxy            Do not use a proxy. Default: False
+  --ignore-customer IGNORE_CUSTOMER
+                        Any device whose product customer name matches this
+                        python regex will be ignored (repeating). Example:
+                        '(?i)test' for a case-insensitive search for "test".
+  --ignore-name IGNORE_NAME
+                        Any device whose name matches this python regex will
+                        be ignored (repeating). Example: '(?i)old-backup' for
+                        a case-insensitive search for "old-backup".
+  --ignore-tag IGNORE_TAG
+                        Any device whose product tag matches this python regex
+                        will be ignored (repeating). Example: '(?i)deprecated'
+                        for a case-insensitive search for "deprecated".
+  --ignore-user IGNORE_USER
+                        Any device whose username matches this python regex
+                        will be ignored (repeating). Example: '(?i)testuser'
+                        for a case-insensitive search for "testuser".
   --severity {warn,crit}
                         Severity for alerting other values. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
