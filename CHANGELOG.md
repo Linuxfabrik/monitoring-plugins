@@ -28,6 +28,7 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
+* Add MkDocs-based documentation site, deployed automatically to GitHub Pages via `tools/build-docs` and a GitHub Actions workflow
 * Add support for sle15 packages
 * Add support for sle16 packages
 
@@ -124,6 +125,7 @@ Monitoring Plugins:
 * about-me: error in perfdata if using `--dmidecode` and there is no HW information
 * about-me: fix various errors with `sys_dimensions` on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
 * by-ssh: add missing `--verbose` parameter
+* cpu-usage: fix false 100% readings on Windows with 64+ cores caused by all-zero CPU time samples from psutil ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
 * file-age: handle `FileNotFoundError` race condition when files disappear on busy file systems
 * fs-ro: ignore `/run/credentials` (https://systemd.io/CREDENTIALS/)
 * keycloak-stats: fix incorrect symlink for lib

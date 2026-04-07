@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040701'
+__version__ = '2026040801'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -292,6 +292,28 @@ def main():
     stats['system'] = getattr(cpu_times_percent, 'system', 0)
     stats['user'] = getattr(cpu_times_percent, 'user', 0)
 
+    # Guard against bogus all-zero samples (#626).
+    #
+    # psutil.cpu_times_percent() can return 0% for ALL fields (including idle)
+    # when the cumulative CPU time counters do not change between two samples.
+    # This happens on some Windows systems with many cores (64+, multiple
+    # processor groups), where the underlying GetSystemTimes() counters
+    # occasionally stall or go backwards. psutil clips negative deltas to zero
+    # (see psutil issues #392, #645, #1210), which can result in a total delta
+    # of zero. In that case psutil returns 0% for every field.
+    #
+    # Without this guard, our formula "100 - idle(0) - nice(0)" would
+    # incorrectly report 100% CPU usage. We detect this physically impossible
+    # state (some CPU time MUST pass) and skip the sample entirely, so no
+    # bogus data is stored or alerted on.
+    if stats['idle'] == 0 and stats['user'] == 0 and stats['system'] == 0:
+        lib.db_sqlite.close(conn)
+        lib.base.oao(
+            'Waiting for more data (got an all-zero CPU sample, skipping).',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
+
     # this is what we want to warn about: 100% - idle - nice
     stats['cpu_usage'] = round(
         100.0 - stats['idle'] - stats['nice'],
@@ -383,5 +405,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:
         lib.base.cu()
