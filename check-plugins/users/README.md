@@ -65,6 +65,21 @@ USER     TTY        LOGIN@   IDLE   JCPU   PCPU WHAT
 markus.f :0         Mon06   ?xdm?  6:02m  0.03s /usr/libexec/gdm-x-session --run-script /usr/bin/gnome-session
 ```
 
+On Linux, if one user is connected via SSH using IPv6 (no TTY allocated):
+
+```bash
+./users
+```
+
+Output:
+
+```text
+TTY: 0, PTS: 1
+
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU  WHAT
+clox              2001:db8::ff30   16:05   15:44m  0.00s   ?    sshd: clox [priv]
+```
+
 On Windows, if one user is connected via RDP:
 
 ```text
