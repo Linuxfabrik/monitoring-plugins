@@ -38,6 +38,8 @@ Monitoring Plugins:
 * by-winrm: executes commands on remote Windows hosts by WinRM, supporting JEA (including the JEA endpoint via `--winrm-configuration-name`)
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
+* librenms-alerts: add device-type `management`
+* librenms-health: add device-type `management`
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
 * procs: add `--lengthy` parameter for extended `--top` table output with all platform-specific memory fields
 * procs: add `--top` parameter to list the top N processes by CPU time and memory usage

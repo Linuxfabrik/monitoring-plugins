@@ -11,19 +11,19 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.base  # pylint: disable=C0413
-import lib.db_mysql  # pylint: disable=C0413
-import lib.human  # pylint: disable=C0413
-import lib.librenms  # pylint: disable=C0413
-import lib.txt  # pylint: disable=C0413
-from lib.globals import (STATE_CRIT, STATE_OK,  # pylint: disable=C0413
+import lib.base
+import lib.db_mysql
+import lib.human
+import lib.librenms
+import lib.txt
+from lib.globals import (STATE_CRIT, STATE_OK,
                           STATE_UNKNOWN, STATE_WARN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """This check warns of unacknowledged alerts in LibreNMS and
                  reports the most recent alert for each device (only for those
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument(
         '-V', '--version',
         action='version',
-        version='{0}: v{1} by {2}'.format('%(prog)s', __version__, __author__)
+        version=f'%(prog)s: v{__version__} by {__author__}'
     )
 
     parser.add_argument(
@@ -99,12 +99,13 @@ def parse_args():
         help='Filter by LibreNMS Device Type (repeating).',
         dest='DEVICE_TYPE',
         action='append',
-        choices=[ # taken from the librenms source file misc/config_definitions.json
+        choices=[ # taken from the librenms source file resources/definitions/config_definitions.json
             'appliance',
             'collaboration',
             'environment',
             'firewall',
             'loadbalancer',
+            'management',
             'network',
             'power',
             'printer',
@@ -171,7 +172,7 @@ def main():
 
     # fetch data
     sql = '''
-        SELECT 
+        SELECT
             d.hardware,
             d.hostname,
             d.os,
@@ -203,14 +204,10 @@ def main():
         sql += ' AND dg.name LIKE %s '
         data.append(args.DEVICE_GROUP)
     if args.DEVICE_HOSTNAME:
-        sql += ' AND d.hostname IN ({}) '.format(
-            ', '.join('%s' for d in args.DEVICE_HOSTNAME), # print "%s" for each argument
-        )
+        sql += f' AND d.hostname IN ({", ".join("%s" for _ in args.DEVICE_HOSTNAME)}) '
         data += args.DEVICE_HOSTNAME
     if args.DEVICE_TYPE:
-        sql += ' AND d.type IN ({}) '.format(
-            ', '.join('%s' for d in args.DEVICE_TYPE), # print "%s" for each argument
-        )
+        sql += f' AND d.type IN ({", ".join("%s" for _ in args.DEVICE_TYPE)}) '
         data += args.DEVICE_TYPE
     devices = lib.base.coe(lib.db_mysql.select(conn, sql, data))
     lib.db_mysql.close(conn)
@@ -240,19 +237,21 @@ def main():
     if state == STATE_OK:
         msg = 'Everything is ok. '
     else:
-        msg = 'There {} {} {}. '.format(
-            lib.txt.pluralize('', alert_count, 'is,are'),
-            alert_count,
-            lib.txt.pluralize('alert', alert_count),
-        )
-    msg += 'Checked {} {}.'.format(
-        device_count,
-        lib.txt.pluralize('device', device_count),
-    )
+        msg = f'There {lib.txt.pluralize("", alert_count, "is,are")} ' \
+              f'{alert_count} {lib.txt.pluralize("alert", alert_count)}. '
+    msg += f'Checked {device_count} {lib.txt.pluralize("device", device_count)}.'
     msg += '\n\n'
 
-    perfdata += lib.base.get_perfdata('device_count', device_count, None, None, None, 0, None) # pylint: disable=C0301
-    perfdata += lib.base.get_perfdata('alert_count', alert_count, None, None, None, 0, None) # pylint: disable=C0301
+    perfdata += lib.base.get_perfdata(
+        'device_count',
+        device_count,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'alert_count',
+        alert_count,
+        _min=0,
+    )
 
     if device_count > 0:
         if not args.LENGTHY:
@@ -305,5 +304,5 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:   # pylint: disable=W0703
+    except Exception:
         lib.base.cu()
