@@ -40,6 +40,7 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
 * ipmi-sel: add `--ignore` parameter to filter out SEL entries by regex, e.g. auto-generated "Log area reset/cleared" entries after `ipmitool sel clear` ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
+* sensors-temperatures: add `--ignore` parameter to filter out sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
 * librenms-alerts: add device-type `management`
 * librenms-health: add device-type `management`
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription

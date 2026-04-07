@@ -23,7 +23,7 @@ Hints:
 ## Help
 
 ```text
-usage: sensors-temperatures [-h] [-V] [--always-ok]
+usage: sensors-temperatures [-h] [-V] [--always-ok] [--ignore IGNORE]
 
 Return certain hardware temperature sensors (it may be a CPU, an hard disk or
 something else, depending on the OS and its configuration). All temperatures
@@ -31,9 +31,12 @@ are expressed in celsius. Check is done automatically against hardware
 thresholds. If sensors are not supported by the OS OK is returned.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --always-ok    Always returns OK.
+  -h, --help       show this help message and exit
+  -V, --version    show program's version number and exit
+  --always-ok      Always returns OK.
+  --ignore IGNORE  Ignore sensors matching this Python regular expression on
+                   the sensor name or label (repeating). Example:
+                   `--ignore="iwlwifi_1"` or `--ignore="^acpitz"`
 ```
 
 
