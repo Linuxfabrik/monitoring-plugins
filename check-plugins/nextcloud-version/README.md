@@ -89,6 +89,12 @@ Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 
 | nextcloud-version | Number | Installed Nextcloud version as float. "23.0.12" becomes "23.012". |
 
 
+## Troubleshooting
+
+`Error running sudo -u \#48 /var/www/html/nextcloud/occ config:list: rc=1 sudo: /var/www/html/nextcloud/occ: command not found`:
+Permission for `/var/www/html/nextcloud/occ` must be `0755`.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
