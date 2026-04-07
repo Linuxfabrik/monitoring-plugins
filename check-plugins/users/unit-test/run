@@ -41,7 +41,8 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE01-windows,,0'))
         self.assertIn('TTY: 0, PTS: 1', stdout)
         self.assertIn('USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME', stdout)
-        self.assertIn('>linuxfabrik           rdp-tcp#0           5  Active          .  05.08.2025 10:58', stdout)
+        # oao() replaces '>' with "'" to prevent HTML injection in Icinga Web
+        self.assertIn("'linuxfabrik           rdp-tcp#0           5  Active          .  05.08.2025 10:58", stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_OK)
 
@@ -84,6 +85,13 @@ class TestCheck(unittest.TestCase):
         self.assertIn('vagrant           192.168.124.1    12:21   56.00s  0.00s   ?    sshd: vagrant [priv]', stdout)
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_WARN)
+
+    def test_if_check_runs_EXAMPLE07_linux_ipv6(self):
+        """IPv6 addresses in FROM must not be counted as TTY (#989)."""
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(self.check + ' --test=stdout/EXAMPLE07-linux,,0'))
+        self.assertIn('TTY: 0, PTS: 2', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
 
 
 if __name__ == '__main__':

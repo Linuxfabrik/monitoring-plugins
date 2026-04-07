@@ -11,17 +11,17 @@
 """See the check's README for more details.
 """
 
-import argparse  # pylint: disable=C0413
-import sys  # pylint: disable=C0413
+import argparse
+import sys
 
-import lib.args  # pylint: disable=C0413
-import lib.base  # pylint: disable=C0413
-import lib.lftest  # pylint: disable=C0413
-import lib.shell  # pylint: disable=C0413
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
 from lib.globals import (STATE_OK, STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040801'
 
 DESCRIPTION = """Counts how many users are currently logged in, both via tty (on Windows: Console)
                 and pts (on Linux: typically ssh, on Windows: RDP). Also counts the disconnected
@@ -81,22 +81,37 @@ def parse_args():
 
 def parse_linux_output(s):
     """Parse the output of `w` on Linux.
+
+    Uses the header line to determine the TTY column position, so it works
+    regardless of whether FROM is present, and regardless of column widths
+    (which vary across distros and versions).
     """
     # replace pipes in output, otherwise we will get problems with perfdata,
     # and ignore the first line of w's output
     s = s.strip().replace('|', '!').splitlines()[1:]
+    if not s:
+        return s, 0, 0
+
+    header = s[0]
+    tty_start = header.find('TTY')
+    if tty_start < 0:
+        return s, 0, 0
+
+    # find end of TTY column: start of the next column header after TTY
+    after_tty = header[tty_start + 3:]
+    tty_end = tty_start + 3 + (len(after_tty) - len(after_tty.lstrip()))
+
     count_tty, count_pts = 0, 0
-    for line in s:
-        value = line.split()[1]
-        if 'tty' in value or ':' in value:
-            # for example, ":0", the 0. host display
-            # see https://unix.stackexchange.com/questions/16815/what-does-display-0-0-actually-mean
+    for line in s[1:]:
+        tty_value = line[tty_start:tty_end].strip() if len(line) > tty_start else ''
+        if tty_value.startswith('tty') or tty_value.startswith(':'):
+            # tty = local terminal, ":0" = local X display
             count_tty += 1
         else:
-            # this always counts the first header line "USER TTY FROM ...", too
+            # pts, empty (SSH without TTY) or anything else
             count_pts += 1
 
-    return s, count_tty, count_pts - 1
+    return s, count_tty, count_pts
 
 
 def parse_windows_output(s):
