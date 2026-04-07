@@ -64,7 +64,7 @@ Do you think more people should know about it? Sharing is caring, so feel free t
 * Have a look at the [INSTALL](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/INSTALL.md) document for the various options, including SELinux etc.
 * For details on installing the plugins in Icinga Director, see [ICINGA](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
 
-If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/). Alternatively, you can set up a self-hosted Icinga infrastructure using our [LFOps Ansible collection](github.com/Linuxfabrik/lfops).
+If you want to run your own instance of Icinga, you could set it up in a few clicks using the infrastructure provider Exoscale. We provide the images at the [Exoscale Marketplace](https://www.exoscale.com/marketplace/). Alternatively, you can set up a self-hosted Icinga infrastructure using our [LFOps Ansible collection](https://github.com/Linuxfabrik/lfops).
 
 
 ## Reporting Issues
@@ -116,7 +116,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="hin-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/hin-status.png" width="30%"/> &nbsp;
 <img alt="icinga-topflap-services" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/icinga-topflap-services.png" width="30%"/> &nbsp;
 <img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
-<img alt="infomaniak-swiss-backp-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backp-devices.png" width="30%"/> &nbsp;
+<img alt="infomaniak-swiss-backup-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-devices.png" width="30%"/> &nbsp;
 <img alt="infomaniak-swiss-backup-products" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-products.png" width="30%"/> &nbsp;
 <img alt="journald-query" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-query.png" width="30%"/> &nbsp;
 <img alt="journald-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-usage.png" width="30%"/> &nbsp;
@@ -215,7 +215,7 @@ See some of our check plugins at a glance on an Icinga server:
 <img alt="wildfly-server-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-server-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-thread-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-thread-usage.png" width="30%"/> &nbsp;
 <img alt="wildfly-uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-uptime.png" width="30%"/> &nbsp;
-<img alt="wildfly-xa-datasources-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-xa-datasources-stats.png" width="30%"/> &nbsp;
+<img alt="wildfly-xa-datasource-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-xa-datasource-stats.png" width="30%"/> &nbsp;
 <img alt="wordpress-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wordpress-version.png" width="30%"/> &nbsp;
 <img alt="xca-cert" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/xca-cert.png" width="30%"/> &nbsp;
 
@@ -328,7 +328,7 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 | 1000\^1           | KB       |              | Bytes             | Kilobytes |
 | 1000\^2           | MB       |              | Bytes             | Megabytes |
 | 1000\^3           | GB       |              | Bytes             | Gigabytes |
-| 1000\^4           | TB       |              | Bytes             | Terrabytes |
+| 1000\^4           | TB       |              | Bytes             | Terabytes |
 | 1000\^5           | PB       |              | Bytes             | Petabytes |
 | 1000\^6           | EB       |              | Bytes             | Exabytes |
 | 1000\^7           | ZB       |              | Bytes             | Zetabytes |
@@ -336,7 +336,7 @@ Since the primary hosting platform is Linux, which uses IEC, the plugins display
 | 1000\^1           | Kbps     |              | Bits per Second   | Kilobits |
 | 1000\^2           | Mbps     |              | Bits per Second   | Megabits |
 | 1000\^3           | Gbps     |              | Bits per Second   | Gigabits |
-| 1000\^4           | Tbps     |              | Bits per Second   | Terrabits |
+| 1000\^4           | Tbps     |              | Bits per Second   | Terabits |
 | 1000\^5           | Pbps     |              | Bits per Second   | Petabits |
 | 1000\^6           | Ebps     |              | Bits per Second   | Exabits |
 | 1000\^7           | Zbps     |              | Bits per Second   | Zetabits |
@@ -409,8 +409,8 @@ To avoid problems when passing *parameter values* that start with a `-`, the com
     ├── lib                         Link to the Linuxfabrik Python libraries
     ├── unit-test                   File for unit tests
     │   ├── retc                    Files for simulating return codes
-    │   ├── stdin                   Files for simulating output to STDOUT
-    │   ├── stdout                  Files for simulating output to STDERR
+    │   ├── stdin                   Files for simulating input to STDIN
+    │   ├── stdout                  Files for simulating output to STDOUT
     │   └── run                     The unit test
     └── plugin-name                 The monitoring plugin
 ```
@@ -456,7 +456,7 @@ A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 Q: **Do the plugins also handle proxy environment variables like `HTTP_PROXY`?**
 
-A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `http_proxy` are automatically used by the Linuxfabrik monitoring plugins if they are set.
+A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` are automatically used by the Linuxfabrik monitoring plugins if they are set.
 
 
 Q: **Icinga does not seem to pass the environment variable `http_proxy` to the plugins. What am i doing wrong?**
@@ -495,7 +495,7 @@ So the `|` character is reserved to separate plugin output from performance data
 
 Q: **Negative values for plugin arguments cause problems in Icinga.**
 
-A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+, v2.0.0.0+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789>)).
+A: As of 2024-11, Icinga still passes parameter values to plugins without a leading `=`. This causes plugins to assume that parameters starting with negative values are additional but unknown arguments. In Icinga this can be avoided by prefixing the first minus sign of a value with a backslash `\`, which is later removed by the [base.py](https://github.com/Linuxfabrik/lib/blob/main/base.py) library (v2024112001+, v2.0.0.0+). So just use `\-60` or `\-60:-3600` instead of `-60` or `-60:-3600` (see [#789](https://github.com/Linuxfabrik/monitoring-plugins/issues/789)).
 
 
 Q: **On Windows, sometimes Windows Defender randomly kills a plugin. Why?**
