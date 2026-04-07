@@ -11,9 +11,6 @@
                 "--critical": {
                     "value": "$cpu_usage_critical$"
                 },
-                "--top": {
-                    "value": "$cpu_usage_top$"
-                },
                 "--warning": {
                     "value": "$cpu_usage_warning$"
                 }
@@ -40,11 +37,6 @@
                     "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 5,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,9 +60,6 @@
                 "--critical": {
                     "value": "$cpu_usage_windows_critical$"
                 },
-                "--top": {
-                    "value": "$cpu_usage_windows_top$"
-                },
                 "--warning": {
                     "value": "$cpu_usage_windows_warning$"
                 }
@@ -78,6 +67,11 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\cpu-usage.exe",
             "disabled": false,
             "fields": [
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
                 {
                     "datafield_id": 6,
                     "is_required": "n",
@@ -90,16 +84,6 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 9,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -162,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 \u2212 idle \u2212 nice). Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. With `--top`, the most CPU-intensive processes are also listed for quick diagnosis. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 \u2212 idle \u2212 nice). Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage",
             "object_name": "tpl-service-cpu-usage",
             "object_type": "template",
@@ -176,7 +160,6 @@
                 "cpu_usage_always_ok": false,
                 "cpu_usage_count": 5,
                 "cpu_usage_critical": 90,
-                "cpu_usage_top": 5,
                 "cpu_usage_warning": 80
             },
             "volatile": null,
@@ -212,7 +195,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 \u2212 idle \u2212 nice). Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. With `--top`, the most CPU-intensive processes are also listed for quick diagnosis. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 \u2212 idle \u2212 nice). Thresholds (WARN/CRIT) are checked against user, system, iowait, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/cpu-usage",
             "object_name": "tpl-service-cpu-usage-windows",
             "object_type": "template",
@@ -226,7 +209,6 @@
                 "cpu_usage_windows_always_ok": false,
                 "cpu_usage_windows_count": 5,
                 "cpu_usage_windows_critical": 90,
-                "cpu_usage_windows_top": 5,
                 "cpu_usage_windows_warning": 80
             },
             "volatile": null,
@@ -267,17 +249,6 @@
             "uuid": "a9c69583-5e98-4ae8-bec0-a7f4826dceb1"
         },
         "4": {
-            "varname": "cpu_usage_top",
-            "caption": "CPU Usage: Top",
-            "description": "List x \"Top processes using the most cpu time\". Use `--top=0` to disable this feature.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "217b99f6-47ba-45ea-9dfd-43fe139fe2d1"
-        },
-        "5": {
             "varname": "cpu_usage_warning",
             "caption": "CPU Usage: Warning",
             "description": "Set the warning threshold CPU Usage Percentage.",
@@ -288,7 +259,7 @@
             },
             "uuid": "d59b27e4-44f7-4fa6-aaf4-36e4885af075"
         },
-        "6": {
+        "5": {
             "varname": "cpu_usage_windows_always_ok",
             "caption": "CPU Usage: Always OK?",
             "description": "Always returns OK.",
@@ -297,7 +268,7 @@
             "settings": {},
             "uuid": "5a7722fb-e5ab-48a2-bcc9-8dc3036e92de"
         },
-        "7": {
+        "6": {
             "varname": "cpu_usage_windows_count",
             "caption": "CPU Usage: Count",
             "description": "Number of times the value must exceed specified thresholds before alerting.",
@@ -308,7 +279,7 @@
             },
             "uuid": "f3f24630-5a4a-4461-accc-0c4399ed9d8a"
         },
-        "8": {
+        "7": {
             "varname": "cpu_usage_windows_critical",
             "caption": "CPU Usage: Critical",
             "description": "Set the critical threshold CPU Usage Percentage.",
@@ -319,18 +290,7 @@
             },
             "uuid": "368a0e17-0456-4024-8b4b-412a6367d387"
         },
-        "9": {
-            "varname": "cpu_usage_windows_top",
-            "caption": "CPU Usage: Top",
-            "description": "List x \"Top processes using the most cpu time\". Use `--top=0` to disable this feature.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "838e00dc-a791-4354-ae03-56794931f211"
-        },
-        "10": {
+        "8": {
             "varname": "cpu_usage_windows_warning",
             "caption": "CPU Usage: Warning",
             "description": "Set the warning threshold CPU Usage Percentage.",

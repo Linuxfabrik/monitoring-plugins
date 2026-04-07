@@ -19,6 +19,10 @@ Build, CI/CD:
 
 * Remove `flatdict` dependency as it breaks builds on newer targets (RHEL 10, SLE 15/16) and no fix is available that also supports older targets (such as RHEL 8). The statuspal plugin has been rewritten to no longer depend on `flatdict` ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044)).
 
+Monitoring Plugins:
+
+* procs: `--argument`, `--command` and `--username` now use regular expressions instead of substring/startswith matching. Existing filters like `--command=httpd` still work but now match anywhere in the name. Use `--command='^httpd'` for the previous startswith behavior, or `--username='^apache$'` for exact matches.
+
 
 ### Added
 
@@ -35,6 +39,8 @@ Monitoring Plugins:
 * infomaniak-swiss-backup-devices: add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user` parameters to skip devices by regex
 * infomaniak-swiss-backup-products: add `--ignore-customer`, `--ignore-tag` parameters to skip products by regex
 * nextcloud-enterprise: provides information about an installed Nextcloud Enterprise subscription
+* procs: add `--top` parameter to list the top N processes by CPU time (user/system/total) with status, excluding sleeping processes by default
+* procs: add `--warning-cpu-percent` / `--critical-cpu-percent` thresholds for aggregated CPU usage of filtered processes (requires SQLite for delta calculation between runs)
 * statuspal: also detect 'emergency-maintenance' state
 * valkey-status: support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
 
@@ -65,6 +71,7 @@ Monitoring Plugins:
 
 * all plugins: ignore unknown arguments instead of generating an error (this helps with updating Icinga and Nagios service definitions considerably)
 * by-ssh, by-winrm, disk-usage, example, file-ownership, fs-ro, infomaniak-events, journald-query, logfile, matomo-reporting, mysql-logfile, php-status, pip-updates, systemd-unit: fix `append` parameters so that user-specified values replace defaults instead of being appended to them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
 * disk-io: also monitor normalized iowait on Linux (100% = one fully I/O-saturated core)
 * file-count: stopping when number of files actually exceed thresholds, therefore dramatically faster for large directories
 * file-ownership: `--filename` now merges with the default file list instead of replacing it; use `--no-default-files` to check only user-supplied files
@@ -79,6 +86,11 @@ Monitoring Plugins:
 
 
 ### Removed
+
+Monitoring Plugins:
+
+* cpu-usage: remove `--top` parameter (the top N processes by CPU time are now reported by the procs check via `--top`)
+
 
 Tools:
 

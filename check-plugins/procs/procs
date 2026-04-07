@@ -12,11 +12,14 @@
 """
 
 import argparse
+import hashlib
 import os
+import re
 import sys
 from collections import defaultdict
 
 import lib.base
+import lib.db_sqlite
 import lib.human
 import lib.time
 import lib.txt
@@ -30,20 +33,23 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040702'
 
 DESCRIPTION = """Prints the number of currently running processes and warns on metrics like process
-                 counts or process memory usage. You may filter the process list by process name,
-                 arguments and/or user name."""
+                 counts, process memory usage or CPU usage. You may filter the process list by
+                 process name, arguments and/or user name using regular expressions."""
 
 DEFAULT_CRIT = None
 DEFAULT_CRIT_AGE = None
+DEFAULT_CRIT_CPU_PERCENT = None
 DEFAULT_CRIT_MEM = None
 DEFAULT_CRIT_MEM_PERCENT = None
 DEFAULT_NO_KTHREADS = False
 DEFAULT_STATUS = None
+DEFAULT_TOP = 5
 DEFAULT_WARN = None
 DEFAULT_WARN_AGE = None
+DEFAULT_WARN_CPU_PERCENT = None
 DEFAULT_WARN_MEM = None
 DEFAULT_WARN_MEM_PERCENT = None
 
@@ -69,17 +75,17 @@ def parse_args():
 
     parser.add_argument(
         '--argument',
-        help='Filter: Search only for processes containing ARGUMENT in the command '
-             '(case-insensitive), '
-             'for example `--verbose`',
+        help='Filter: Search only for processes where the command line matches '
+             'ARGUMENT as a regular expression (case-insensitive). '
+             'Example: `--argument="--config.*production"`',
         dest='ARGUMENT',
     )
 
     parser.add_argument(
         '--command',
-        help='Filter: Search only for processes starting with COMMAND '
-             '(without path, case-insensitive), '
-             'for example `bash`',
+        help='Filter: Search only for processes whose name matches '
+             'COMMAND as a regular expression (case-insensitive). '
+             'Example: `--command="^(apache|httpd)"`',
         dest='COMMAND',
     )
 
@@ -90,6 +96,26 @@ def parse_args():
              'Default: %(default)s',
         default=DEFAULT_CRIT,
         dest='CRIT',
+    )
+
+    parser.add_argument(
+        '--critical-age',
+        help='Threshold for age of the process, in seconds. '
+             'Type: None or Range. '
+             'Default: %(default)s',
+        default=DEFAULT_CRIT_AGE,
+        dest='CRIT_AGE',
+    )
+
+    parser.add_argument(
+        '--critical-cpu-percent',
+        help='Threshold for CPU usage of all matching processes, in percent. '
+             'Requires two consecutive check runs to calculate. '
+             'A value of 100%% equals one fully utilized CPU core. '
+             'Type: None or Range. '
+             'Default: %(default)s',
+        default=DEFAULT_CRIT_CPU_PERCENT,
+        dest='CRIT_CPU_PERCENT',
     )
 
     parser.add_argument(
@@ -108,15 +134,6 @@ def parse_args():
              'Default: %(default)s',
         default=DEFAULT_CRIT_MEM_PERCENT,
         dest='CRIT_MEM_PERCENT',
-    )
-
-    parser.add_argument(
-        '--critical-age',
-        help='Threshold for age of the process, in seconds. '
-             'Type: None or Range. '
-             'Default: %(default)s',
-        default=DEFAULT_CRIT_AGE,
-        dest='CRIT_AGE',
     )
 
     parser.add_argument(
@@ -153,10 +170,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--top',
+        help='List the top N processes using the most CPU time. '
+             'Processes where all instances are sleeping are excluded from the table. '
+             'Use `--top=0` to disable this feature. '
+             'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
         '--username',
-        help='Filter: Search only for processes with specific user name '
-             '(case-insensitive), '
-             'for example `apache`',
+        help='Filter: Search only for processes whose user name matches '
+             'USERNAME as a regular expression (case-insensitive). '
+             'Example: `--username="^(apache|www-data)$"`',
         dest='USERNAME',
     )
 
@@ -167,6 +195,26 @@ def parse_args():
              'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-age',
+        help='Threshold for age of the process, in seconds. '
+             'Type: None or Range. '
+             'Default: %(default)s',
+        default=DEFAULT_WARN_AGE,
+        dest='WARN_AGE',
+    )
+
+    parser.add_argument(
+        '--warning-cpu-percent',
+        help='Threshold for CPU usage of all matching processes, in percent. '
+             'Requires two consecutive check runs to calculate. '
+             'A value of 100%% equals one fully utilized CPU core. '
+             'Type: None or Range. '
+             'Default: %(default)s',
+        default=DEFAULT_WARN_CPU_PERCENT,
+        dest='WARN_CPU_PERCENT',
     )
 
     parser.add_argument(
@@ -185,15 +233,6 @@ def parse_args():
              'Default: %(default)s',
         default=DEFAULT_WARN_MEM_PERCENT,
         dest='WARN_MEM_PERCENT',
-    )
-
-    parser.add_argument(
-        '--warning-age',
-        help='Threshold for age of the process, in seconds. '
-             'Type: None or Range. '
-             'Default: %(default)s',
-        default=DEFAULT_WARN_AGE,
-        dest='WARN_AGE',
     )
 
     args, _ = parser.parse_known_args()
@@ -219,34 +258,46 @@ def main():
     kthreadd_pid = 0
     my_pid = os.getpid()
     procs_count, procs_mem, procs_mem_percent, procs_age = 0, 0, 0, 0
+    procs_cpu_percent = 0
     proc_states = defaultdict(lambda: 0)
     uninterruptibles, running, zombies = {}, {}, {}
 
     need_age = bool(args.WARN_AGE or args.CRIT_AGE)
     need_argument = bool(args.ARGUMENT)
     need_command = bool(args.COMMAND)
+    need_cpu = bool(args.TOP or args.WARN_CPU_PERCENT or args.CRIT_CPU_PERCENT)
+    need_cpu_percent = bool(args.WARN_CPU_PERCENT or args.CRIT_CPU_PERCENT)
     need_ppid = bool(args.NO_KTHREADS)
     need_status_filter = bool(args.STATUS)
     need_username = bool(args.USERNAME)
+    show_top_table = bool(args.TOP)
 
     # We always print a per-status / per-name breakdown later,
     # so we will collect 'status' and 'name' (even if not used for filters).
     attrs = ['name', 'status', 'memory_info']
+    if need_cpu:
+        attrs.append('cpu_times')
     if need_age:
         attrs.append('create_time')
     if need_argument:
         attrs.append('cmdline')
     if need_command:
-        attrs.append('cmdline')  # sometimes name alone isn't enough; cheap to skip if not used
+        attrs.append('cmdline')
     if need_ppid:
         attrs.append('ppid')
     if need_username:
         attrs.append('username')
 
-    # Precompute casefolded filters once
-    USERNAME_CF = args.USERNAME.casefold() if need_username else None
-    COMMAND_CF = args.COMMAND.casefold() if need_command else None
-    ARG_CF = args.ARGUMENT.casefold() if need_argument else None
+    # Precompile regex filters once
+    try:
+        re_username = re.compile(args.USERNAME, re.IGNORECASE) if need_username else None
+        re_command = re.compile(args.COMMAND, re.IGNORECASE) if need_command else None
+        re_argument = re.compile(args.ARGUMENT, re.IGNORECASE) if need_argument else None
+    except re.error as e:
+        lib.base.cu(f'Invalid regular expression: {e}')
+
+    # per-process-name aggregation for --top table and CPU% calculation
+    top_procs = {}  # {name: {'user': float, 'system': float, 'statuses': defaultdict(int)}}
 
     total_ram = psutil.virtual_memory().total or 0
 
@@ -260,29 +311,23 @@ def main():
         if process.pid == my_pid:
             continue
 
-        # Search only for processes with specific user name (if set)
+        # Filter: username regex
         if need_username:
-            uname = (info.get('username') or '').casefold()
-            if uname != USERNAME_CF:
+            uname = info.get('username') or ''
+            if not re_username.search(uname):
                 continue
 
-        # Search only for processes starting with command name (if set)
+        # Filter: command name regex
         if need_command:
-            pname = (info.get('name') or '').casefold()
-            if not pname.startswith(COMMAND_CF):
+            pname = info.get('name') or ''
+            if not re_command.search(pname):
                 continue
 
-        # Search only for processes with arguments (if set)
+        # Filter: command line argument regex
         if need_argument:
-            # Avoid building a giant string; scan parts case-insensitively
             cmdline = info.get('cmdline') or []
-            found = False
-            for part in cmdline:
-                part_cf = (part or '').casefold()
-                if ARG_CF in part_cf:
-                    found = True
-                    break
-            if not found:
+            cmdline_str = ' '.join(part or '' for part in cmdline)
+            if not re_argument.search(cmdline_str):
                 continue
 
         # Filter kernel threads (childs of KTHREAD_PARENT)
@@ -302,7 +347,6 @@ def main():
         # Start counting
         procs_count += 1
 
-        # procs_cpu: Do this over a time period together with --count
         rss = getattr(info.get('memory_info'), 'rss', 0) or 0
         procs_mem += rss
 
@@ -335,7 +379,7 @@ def main():
             elif st == psutil.STATUS_DEAD:
                 proc_states[psutil.STATUS_DEAD] += 1
             elif st == psutil.STATUS_IDLE:
-                proc_states[psutil.STATUS_SLEEPING] += 1  # !!!!!!!!!!!!!!!!
+                proc_states[psutil.STATUS_SLEEPING] += 1
             elif st == psutil.STATUS_LOCKED:
                 proc_states[psutil.STATUS_LOCKED] += 1
             elif st == psutil.STATUS_PARKED:
@@ -343,7 +387,7 @@ def main():
             elif st == psutil.STATUS_STOPPED:
                 proc_states[psutil.STATUS_STOPPED] += 1
             elif st == psutil.STATUS_TRACING_STOP:
-                proc_states[psutil.STATUS_STOPPED] += 1  # !!!!!!!!!!!!!!!!
+                proc_states[psutil.STATUS_STOPPED] += 1
             elif st == psutil.STATUS_WAITING:
                 proc_states[psutil.STATUS_WAITING] += 1
             elif st == psutil.STATUS_WAKING:
@@ -351,6 +395,23 @@ def main():
             else:
                 # psutil.STATUS_SUSPENDED, psutil.STATUS_WAKE_KILL
                 proc_states['other'] += 1
+
+            # aggregate cpu_times and statuses per process name for --top table / CPU%
+            if need_cpu:
+                pname = info.get('name') or ''
+                if not (lib.base.WINDOWS and pname == 'System Idle Process'):
+                    if pname not in top_procs:
+                        top_procs[pname] = {
+                            'user': 0.0,
+                            'system': 0.0,
+                            'statuses': defaultdict(int),
+                        }
+                    cput = info.get('cpu_times')
+                    if cput:
+                        top_procs[pname]['user'] += cput.user or 0
+                        top_procs[pname]['system'] += (getattr(cput, 'system', 0) or 0)
+                    top_procs[pname]['statuses'][st] += 1
+
         except Exception:
             # specific psutil version does not have such an attribute from above
             continue
@@ -362,6 +423,60 @@ def main():
         procs_mem_percent = procs_mem / total_ram * 100.0
     else:
         procs_mem_percent = 0
+
+    # compute CPU% via SQLite delta if thresholds are set
+    if need_cpu_percent:
+        total_cpu_time = sum(
+            d['user'] + d['system'] for d in top_procs.values()
+        )
+        now = lib.time.now()
+
+        # use a hash of the filter parameters to separate data for different
+        # service definitions sharing the same DB file
+        filter_key = '{}:{}:{}:{}'.format(
+            args.COMMAND or '',
+            args.ARGUMENT or '',
+            args.USERNAME or '',
+            args.STATUS or '',
+        )
+        filter_hash = hashlib.md5(filter_key.encode()).hexdigest()
+
+        conn = lib.base.coe(lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-procs.db',
+        ))
+        definition = '''
+            filter_hash TEXT PRIMARY KEY,
+            cpu_time REAL NOT NULL,
+            ts REAL NOT NULL
+        '''
+        lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu_snapshot'))
+
+        old = lib.base.coe(lib.db_sqlite.select(
+            conn,
+            'SELECT cpu_time, ts FROM cpu_snapshot WHERE filter_hash = :filter_hash',
+            {'filter_hash': filter_hash},
+            fetchone=True,
+        ))
+
+        if old:
+            delta_time = now - old['ts']
+            delta_cpu = total_cpu_time - old['cpu_time']
+            if delta_time > 0 and delta_cpu >= 0:
+                procs_cpu_percent = (delta_cpu / delta_time) * 100.0
+
+        # store current snapshot
+        lib.base.coe(lib.db_sqlite.delete(
+            conn,
+            'DELETE FROM cpu_snapshot WHERE filter_hash = :filter_hash',
+            {'filter_hash': filter_hash},
+        ))
+        lib.base.coe(lib.db_sqlite.insert(
+            conn,
+            {'filter_hash': filter_hash, 'cpu_time': total_cpu_time, 'ts': now},
+            table='cpu_snapshot',
+        ))
+        lib.base.coe(lib.db_sqlite.commit(conn))
+        lib.db_sqlite.close(conn)
 
     # list used filters
     msg_filter = ''
@@ -377,6 +492,9 @@ def main():
         msg_filter += f'status "{args.STATUS}", '
     if msg_filter:
         msg_filter = f' (filtered by {msg_filter[:-2]})'
+
+    # system uptime for context (helps interpret cumulative CPU times)
+    uptime = lib.time.now() - psutil.boot_time()
 
     # check the state
 
@@ -402,6 +520,18 @@ def main():
     state = lib.base.get_worst(state, local_state)
     msg = msg[:-2] + f' ({round(procs_mem_percent, 1)}%)' \
           f'{lib.base.state2str(local_state, prefix=" ")}, '
+
+    # CPU usage (percent)
+    if need_cpu_percent:
+        local_state = lib.base.get_state(
+            procs_cpu_percent,
+            args.WARN_CPU_PERCENT,
+            args.CRIT_CPU_PERCENT,
+            'range',
+        )
+        state = lib.base.get_worst(state, local_state)
+        msg += f'{round(procs_cpu_percent, 1)}% CPU' \
+               f'{lib.base.state2str(local_state, prefix=" ")}, '
 
     # age (seconds)
     local_state = lib.base.get_state(procs_age, args.WARN_AGE, args.CRIT_AGE, 'range')
@@ -440,6 +570,46 @@ def main():
             msg += f'{cnt}x {name}, '
         msg = msg[:-2] + '), '
 
+    # strip trailing ", " from the summary line, append uptime
+    msg = msg.rstrip(', ')
+    msg += f', up {lib.human.seconds2human(uptime)}'
+
+    # build --top table
+    if show_top_table and top_procs:
+        # filter out process groups where all instances are sleeping,
+        # sort by total cpu time descending, take top N
+        table_data = []
+        for pname, data in top_procs.items():
+            statuses = data['statuses']
+            sleeping_count = statuses.get(psutil.STATUS_SLEEPING, 0) \
+                           + statuses.get(psutil.STATUS_IDLE, 0)
+            total_count = sum(statuses.values())
+            if sleeping_count == total_count:
+                continue
+            total = data['user'] + data['system']
+            status_parts = []
+            for s, cnt in sorted(statuses.items()):
+                status_parts.append(f'{cnt}x {s}')
+            table_data.append({
+                'name': pname,
+                'user': lib.human.seconds2human(data['user']),
+                'system': lib.human.seconds2human(data['system']),
+                'total': lib.human.seconds2human(total),
+                'status': ', '.join(status_parts),
+                '_total_raw': total,
+            })
+        table_data.sort(key=lambda x: x['_total_raw'], reverse=True)
+        table_data = table_data[:args.TOP]
+        for row in table_data:
+            del row['_total_raw']
+        if table_data:
+            msg += '\n\n'
+            msg += lib.base.get_table(
+                table_data,
+                ['name', 'user', 'system', 'total', 'status'],
+                header=['Name', 'CPU User', 'CPU System', 'CPU Total', 'Status'],
+            )
+
     # build perfdata
     perfdata += lib.base.get_perfdata(
         'procs',
@@ -459,6 +629,16 @@ def main():
         _min=0,
         _max=None,
     )
+    if need_cpu_percent:
+        perfdata += lib.base.get_perfdata(
+            'procs_cpu_percent',
+            procs_cpu_percent,
+            uom='%',
+            warn=args.WARN_CPU_PERCENT,
+            crit=args.CRIT_CPU_PERCENT,
+            _min=0,
+            _max=None,
+        )
     perfdata += lib.base.get_perfdata(
         'procs_dead',
         proc_states[psutil.STATUS_DEAD],
@@ -533,7 +713,7 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

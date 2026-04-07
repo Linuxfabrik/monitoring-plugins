@@ -16,8 +16,6 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 * System-wide aggregate CPU statistics (not per-core)
 * Non-blocking measurement using SQLite state persistence between runs
 * Platform-specific extended metrics where available (context switches, interrupts, soft interrupts)
-* Optional top-N CPU-consuming processes (`--top`, default: 5)
-
 **Compatibility:**
 
 * Cross-platform: Linux, Windows, and all psutil-supported systems
@@ -40,8 +38,7 @@ Monitors system-wide CPU utilization with sustained load detection to avoid fals
 ## Help
 
 ```text
-usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [--top TOP]
-                 [-w WARN]
+usage: cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT] [-w WARN]
 
 Reports CPU utilization percentages for all available time categories (user,
 system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the
@@ -50,10 +47,9 @@ against user, system, iowait, and cpu-usage. An alert is raised only if the
 threshold is exceeded for COUNT consecutive runs, suppressing short spikes and
 focusing on sustained load. Perfdata is emitted for every field to enable full
 graphing. Extended stats (context switches, interrupts, etc.) are included if
-supported on this platform. With `--top`, the most CPU-intensive processes are
-also listed for quick diagnosis. This check is cross-platform and works on
-Linux, Windows, and all psutil-supported systems. The check stores its short
-trend state locally in an SQLite DB to evaluate sustained load across runs.
+supported on this platform. This check is cross-platform and works on Linux,
+Windows, and all psutil-supported systems. The check stores its short trend
+state locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help           show this help message and exit
@@ -63,8 +59,6 @@ options:
                        thresholds before alerting. Default: 5
   -c, --critical CRIT  Set the critical threshold CPU Usage Percentage.
                        Default: 90
-  --top TOP            List x "Top processes using the most cpu time". Use
-                       `--top=0` to disable this feature. Default: 5
   -w, --warning WARN   Set the warning threshold CPU Usage Percentage.
                        Default: 80
 ```
@@ -73,7 +67,7 @@ options:
 ## Usage Examples
 
 ```bash
-./cpu-usage --count=15 --warning=50 --critical=70 --top=3
+./cpu-usage --count=15 --warning=50 --critical=70
 ```
 
 Output:
@@ -82,11 +76,6 @@ Output:
 2.6% - user: 1.6%, system: 0.7%, irq: 0.2%, softirq: 0.1%
 guest: 0.0%, iowait: 0.0%, guest_nice: 0.0%, steal: 0.0%, nice: 0.0%
 interrupts: 582.9M, soft_interrupts: 343.6M, ctx_switches: 1.1G
-
-Top 3 processes using the most cpu time:
-1. Xorg: 2h 13m
-2. gnome-shell: 2h 1m
-3. firefox: 1h 24m
 ```
 
 

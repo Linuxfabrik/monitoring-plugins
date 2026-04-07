@@ -13,7 +13,6 @@
 
 import argparse
 import sys
-from collections import Counter
 from types import SimpleNamespace
 
 import lib.base
@@ -30,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026040701'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -41,8 +40,7 @@ only if the threshold is exceeded for COUNT consecutive runs, suppressing short 
 on sustained load.
 
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches,
-interrupts, etc.) are included if supported on this platform. With `--top`, the most CPU-intensive
-processes are also listed for quick diagnosis.
+interrupts, etc.) are included if supported on this platform.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems.
 The check stores its short trend state locally in an SQLite DB to evaluate sustained load across
@@ -51,7 +49,6 @@ runs."""
 
 DEFAULT_COUNT = 5 # measurements; if check runs once per minute, this is a 5 minute interval
 DEFAULT_CRIT = 90 # %
-DEFAULT_TOP = 5
 DEFAULT_WARN = 80 # %
 
 
@@ -90,16 +87,6 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
-    )
-
-    parser.add_argument(
-        '--top',
-        help='List x "Top processes using the most cpu time". '
-             'Use `--top=0` to disable this feature. '
-             'Default: %(default)s',
-        dest='TOP',
-        type=int,
-        default=DEFAULT_TOP,
     )
 
     parser.add_argument(
@@ -236,60 +223,6 @@ def get_from_db(conn, threshold):
         fetchone=True,
     ))
     return int(result['cnt'])
-
-
-def top(count):
-    """Get top X processes using the most cpu time.
-    """
-    # Fast path: nothing to print, so nothing to scan
-    if count <= 0:
-        return ''
-
-    cnt = Counter()
-    msg = f'\n\nTop {count} processes using the most cpu time:\n'
-
-    # Prefer attrs path (psutil >= 5.3.0): fewer syscalls, fewer exceptions
-    if lib.version.version(psutil.__version__) >= lib.version.version('5.3.0'):
-        try:
-            # name + cpu_times are all we need
-            # use ad_value to avoid AccessDenied; ad_value=None keeps types intact
-            for p in psutil.process_iter(attrs=['name', 'cpu_times'], ad_value=None):
-                try:
-                    name = p.info.get('name') or ''
-                    if lib.base.WINDOWS and name == 'System Idle Process':
-                        # yes, the System Idle Process on Windows consumes CPU time
-                        continue
-                    cput = p.info.get('cpu_times')
-                    if cput:
-                        # user + system
-                        cnt[name] += (cput.user or 0) + (getattr(cput, 'system', 0) or 0)
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    # process vanished or denied: skip
-                    continue
-        except Exception:
-            # Defensive: if psutil attrs path misbehaves on some platform/version, fall back below.
-            pass
-
-    # Legacy / fallback path
-    if not cnt:
-        try:
-            for proc in psutil.process_iter():
-                try:
-                    p = proc.as_dict(attrs=['name', 'cpu_times'])
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
-                name = p.get('name') or ''
-                if lib.base.WINDOWS and name == 'System Idle Process':
-                    continue
-                cput = p.get('cpu_times')
-                if cput:
-                    cnt[name] += sum(cput[:2])
-        except psutil.NoSuchProcess:
-            pass
-
-    for i, (name, seconds) in enumerate(cnt.most_common(count), start=1):
-        msg += f'{i}. {name}: {lib.human.seconds2human(seconds)}\n'
-    return msg
 
 
 def main():
@@ -442,9 +375,6 @@ def main():
             ext_parts.append(f'{key}: {lib.human.number2human(val)}')
             perfdata += lib.base.get_perfdata(key, val, 'c', None, None, 0, None)
         msg += '\n' + ', '.join(ext_parts)
-
-    # Top X processes using the most cpu time
-    msg += top(args.TOP)
 
     # over and out
     lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
